@@ -28,19 +28,16 @@
         $themeStudioPresetKey = $themeStudioSettings?->activePreset();
     }
 
-    // Note: unlike BladeFrontendResponseRenderer::themeSlot(), which checks
-    // layoutHasContainers($layout) before falling back to hasRenderer($key),
-    // this gate only checks hasRenderer(). Container-vs-renderer precedence
-    // is therefore only reconciled on the BladeOnly path today. This is an
-    // accepted, intentional gap — not something to "fix" here by adding new
-    // branching — until themes fully drop renderers in a later phase of this
-    // program.
+    $themeStudioLayout = $layout ?? $themeStudioContext?->layout() ?? Frontend::layout();
+    $themeStudioContainers = $themeStudioLayout?->getAttribute('containers');
+    $themeStudioLayoutHasContainers = is_array($themeStudioContainers) && $themeStudioContainers !== [];
     $themeStudioCanRender =
         class_exists($themeStudioRenderer)
         && class_exists($themeStudioRegistry)
         && app()->bound($themeStudioRegistry)
         && $themeStudioThemeKey !== null
-        && resolve($themeStudioRegistry)->hasRenderer($themeStudioThemeKey);
+        && ! $themeStudioLayoutHasContainers
+        && resolve($themeStudioRegistry)->findRendererInChain($themeStudioThemeKey) !== null;
 @endphp
 
 <div class="capell-component capell-livewire-page-page">

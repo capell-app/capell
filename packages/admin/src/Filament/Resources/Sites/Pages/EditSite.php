@@ -89,7 +89,7 @@ class EditSite extends EditRecord
     #[Override]
     public function getSubheading(): string|Htmlable|null
     {
-        $type = $this->record->type;
+        $type = $this->record->blueprint;
 
         if (! $type instanceof Blueprint) {
             return null;

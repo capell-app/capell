@@ -435,6 +435,9 @@ const activateNestedRuntime = (element) => {
     initWidgetRuntime(element)
     initFragments(element)
     initInteractions(element)
+    element.dispatchEvent(
+        new CustomEvent('capell:content-ready', { bubbles: true }),
+    )
 }
 
 const triggerLabel = (trigger) =>

@@ -292,7 +292,42 @@ it('never 404s for a rendererless theme with an empty container layout, falling 
         ->not->toContain('data-section=');
 });
 
-function definitionOnlyThemeDefinition(string $themeKey): ThemeDefinitionData
+it('renders legacy page content through an inherited renderer after switching to a layout-native theme', function (): void {
+    resolve(ThemeRegistry::class)->register(definitionOnlyThemeDefinition('layout-native-switch-target', extends: 'default'));
+
+    $site = Site::factory()->make(['name' => 'Switched site']);
+    $site->setRelation('type', Blueprint::factory()->make());
+
+    $language = Language::factory()->make(['code' => 'en']);
+    $theme = Theme::factory()->make(['key' => 'layout-native-switch-target', 'meta' => []]);
+    $translation = Translation::factory()->make([
+        'title' => 'Legacy page title',
+        'content' => '<p>Legacy content survives the theme switch.</p>',
+        'meta' => [],
+    ]);
+    $page = Page::factory()->make(['name' => 'Legacy page', 'meta' => []]);
+    $page->setRelation('translation', $translation);
+    $layout = Layout::factory()->make(['key' => 'legacy-layout', 'containers' => []]);
+
+    bindBladeRendererContext($page, $site, $language, $layout, $theme);
+
+    $response = (new BladeFrontendResponseRenderer)->render(new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: $layout,
+        theme: $theme,
+    ));
+
+    throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
+
+    expect($response->getContent())
+        ->toContain('default-theme-shell')
+        ->toContain('Legacy page title')
+        ->toContain('Legacy content survives the theme switch.');
+});
+
+function definitionOnlyThemeDefinition(string $themeKey, ?string $extends = null): ThemeDefinitionData
 {
     return new ThemeDefinitionData(
         key: $themeKey,
@@ -311,6 +346,7 @@ function definitionOnlyThemeDefinition(string $themeKey): ThemeDefinitionData
             ),
         ],
         runtime: FrontendRuntime::Blade,
+        extends: $extends,
     );
 }
 

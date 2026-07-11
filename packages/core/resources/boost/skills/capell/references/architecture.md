@@ -21,7 +21,7 @@
 | `asset_attachments` | Media asset relationships          | `model_type`, `model_id`, `media_id`, `type`                                    |
 | `media`             | Spatie media library               | `model_type`, `model_id`, `collection_name`, `file_name`                        |
 
-`blueprints` is the current registry table for reusable page, site, theme, section, widget, and content-block behaviour. The legacy `Type` model and `type` relation remain as compatibility aliases over `Blueprint` and `blueprint`; new code and docs should use Blueprint terminology unless they are documenting that compatibility layer.
+`blueprints` is the registry table for reusable page, site, theme, section, widget, and content-block behaviour. Code and documentation use `Blueprint` records and `blueprint` relationships.
 
 ### Add-on Package Tables
 

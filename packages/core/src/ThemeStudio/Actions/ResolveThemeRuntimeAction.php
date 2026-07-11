@@ -71,7 +71,7 @@ class ResolveThemeRuntimeAction
             definition: $definition,
             preset: $preset,
             brand: $resolvedBrand,
-            renderer: $registry->findRenderer($themeKey),
+            renderer: $registry->findRendererInChain($themeKey),
             assetKey: ThemeAssetKey::make($themeKey, $presetKey, $resolvedBrand),
             previewing: $previewContext->previewing,
             tokenCssPath: $tokenCssPath,

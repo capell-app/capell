@@ -75,14 +75,14 @@ class ResolveFrontendRuntimeAction
 
     private function renderingStrategy(?Pageable $page): RenderingStrategyEnum
     {
-        $type = $page instanceof Model && $page->relationLoaded('type') ? $page->type : null;
+        $blueprint = $page instanceof Model && $page->relationLoaded('blueprint') ? $page->blueprint : null;
 
-        if ($type?->is_livewire === true) {
+        if ($blueprint?->is_livewire === true) {
             return RenderingStrategyEnum::FullLivewire;
         }
 
         return RenderingStrategyEnum::tryFrom((string) ($page?->meta['rendering_strategy'] ?? ''))
-            ?? RenderingStrategyEnum::tryFrom((string) ($type?->meta['rendering_strategy'] ?? ''))
+            ?? RenderingStrategyEnum::tryFrom((string) ($blueprint?->meta['rendering_strategy'] ?? ''))
             ?? RenderingStrategyEnum::BladeOnly;
     }
 

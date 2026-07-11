@@ -1,0 +1,95 @@
+name: Forward package PR to monorepo
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  forward:
+    if: github.repository_owner == 'capell-app' && github.event.repository.name != 'capell'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
+      PACKAGE_NAME: ${{ github.event.repository.name }}
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      SOURCE_PR_NUMBER: ${{ github.event.pull_request.number }}
+      SOURCE_PR_TITLE: ${{ github.event.pull_request.title }}
+      SOURCE_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      SOURCE_PR_URL: ${{ github.event.pull_request.html_url }}
+      SOURCE_PR_BASE: ${{ github.event.pull_request.base.ref }}
+      SOURCE_PR_HEAD: ${{ github.event.pull_request.head.ref }}
+      MONOREPO_REPOSITORY: capell-app/capell
+      MONOREPO_BASE: 4.x
+    steps:
+      - name: Validate forwarding token
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "SPLIT_PR_FORWARD_TOKEN or ACCESS_TOKEN must be configured." >&2
+            exit 1
+          fi
+
+      - name: Close forwarded PR when source PR closes
+        if: github.event.action == 'closed'
+        run: |
+          set -euo pipefail
+          branch="split-pr/${PACKAGE_NAME}/${SOURCE_PR_NUMBER}"
+          existing_pr="$(gh pr list --repo "${MONOREPO_REPOSITORY}" --head "${branch}" --base "${MONOREPO_BASE}" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${existing_pr}" ]; then
+            gh pr close "${existing_pr}" --repo "${MONOREPO_REPOSITORY}" --comment "Closed because ${SOURCE_REPOSITORY}#${SOURCE_PR_NUMBER} was closed."
+          fi
+
+      - name: Checkout split PR contents
+        if: github.event.action != 'closed'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: split
+          persist-credentials: false
+
+      - name: Checkout Capell monorepo
+        if: github.event.action != 'closed'
+        uses: actions/checkout@v4
+        with:
+          repository: capell-app/capell
+          ref: 4.x
+          token: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
+          path: monorepo
+
+      - name: Create or update monorepo PR
+        if: github.event.action != 'closed'
+        run: |
+          set -euo pipefail
+          branch="split-pr/${PACKAGE_NAME}/${SOURCE_PR_NUMBER}"
+          package_path="packages/${PACKAGE_NAME}"
+          cd monorepo
+          git config user.name "capell-app"
+          git config user.email "appcapello@gmail.com"
+          git checkout -B "${branch}"
+          rm -rf "${package_path}"
+          mkdir -p "${package_path}"
+          rsync -a --delete --exclude '.git' "../split/" "${package_path}/"
+          if [ -z "$(git status --porcelain -- "${package_path}")" ]; then
+            gh pr comment "${SOURCE_PR_NUMBER}" --repo "${SOURCE_REPOSITORY}" --body "No package file changes were found to forward."
+            exit 0
+          fi
+          git add "${package_path}"
+          git commit -m "Forward ${PACKAGE_NAME} split PR #${SOURCE_PR_NUMBER}"
+          git push origin "${branch}" --force-with-lease
+          body_file="$(mktemp)"
+          trap 'rm -f "${body_file}"' EXIT
+          printf 'Forwarded from %s#%s.\n\nSource PR: %s\nAuthor: @%s\nSource base: %s\nSource head: %s\n\nReview note: Merge this PR in `capell`; do not merge the split PR directly.\n' \
+            "${SOURCE_REPOSITORY}" "${SOURCE_PR_NUMBER}" "${SOURCE_PR_URL}" "${SOURCE_PR_AUTHOR}" "${SOURCE_PR_BASE}" "${SOURCE_PR_HEAD}" > "${body_file}"
+          existing_pr="$(gh pr list --repo "${MONOREPO_REPOSITORY}" --head "${branch}" --base "${MONOREPO_BASE}" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${existing_pr}" ]; then
+            gh pr edit "${existing_pr}" --repo "${MONOREPO_REPOSITORY}" --title "[${PACKAGE_NAME}] ${SOURCE_PR_TITLE}" --body-file "${body_file}"
+            monorepo_pr_url="https://github.com/${MONOREPO_REPOSITORY}/pull/${existing_pr}"
+          else
+            monorepo_pr_url="$(gh pr create --repo "${MONOREPO_REPOSITORY}" --base "${MONOREPO_BASE}" --head "${branch}" --title "[${PACKAGE_NAME}] ${SOURCE_PR_TITLE}" --body-file "${body_file}")"
+          fi
+          gh pr comment "${SOURCE_PR_NUMBER}" --repo "${SOURCE_REPOSITORY}" --body "Forwarded to ${monorepo_pr_url}."

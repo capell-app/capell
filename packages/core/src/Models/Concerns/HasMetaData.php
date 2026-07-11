@@ -32,10 +32,10 @@ trait HasMetaData
         }
 
         if ($this instanceof Blueprintable) {
-            $type = $this->getRelationValue('type');
+            $blueprint = $this->getRelationValue('blueprint');
 
-            if ($type instanceof Blueprint) {
-                return $type->getMeta($key, $default);
+            if ($blueprint instanceof Blueprint) {
+                return $blueprint->getMeta($key, $default);
             }
         }
 

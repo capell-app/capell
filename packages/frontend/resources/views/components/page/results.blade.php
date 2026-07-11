@@ -44,7 +44,7 @@
 
     @if ($currentPageIsEmpty)
         <x-capell::no-results>
-            {!! RenderHtmlContentAction::run((string) $noResultsText) !!}
+            {{ RenderHtmlContentAction::run((string) $noResultsText) }}
         </x-capell::no-results>
     @else
         <div

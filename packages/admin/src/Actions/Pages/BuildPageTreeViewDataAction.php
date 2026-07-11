@@ -30,15 +30,15 @@ final class BuildPageTreeViewDataAction
      */
     public function handle(Page $record): array
     {
-        $relations = ['ancestors.pageUrl.siteDomain', 'type', 'pageUrl.siteDomain'];
+        $relations = ['ancestors.pageUrl.siteDomain', 'blueprint', 'pageUrl.siteDomain'];
 
         $record->loadMissing(['site.language', ...$relations]);
 
         $type = $record->type->admin['resource'] ?? 'default';
-        $home = Page::getSiteHomePage($record->site, relations: ['type', 'pageUrl.siteDomain']);
+        $home = Page::getSiteHomePage($record->site, relations: ['blueprint', 'pageUrl.siteDomain']);
 
         if ($home instanceof Page) {
-            $home->loadMissing(['type', 'pageUrl.siteDomain']);
+            $home->loadMissing(['blueprint', 'pageUrl.siteDomain']);
         }
 
         $ancestorIds = $record->ancestors()->get(['id'])->pluck('id')->all();

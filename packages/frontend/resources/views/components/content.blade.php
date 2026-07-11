@@ -186,7 +186,7 @@
     @if ($contentType === ContentStructure::Blocks)
         {!! RenderContentAction::run($content, ContentStructure::Blocks, ['layout' => $layout, 'page' => $page]) !!}
     @else
-        {!! RenderHtmlContentAction::run($content, $pageVariables) !!}
+        {{ RenderHtmlContentAction::run($content, $pageVariables) }}
     @endif
 
     {{ $slot ?? '' }}

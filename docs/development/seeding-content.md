@@ -30,7 +30,7 @@ How to create Capell content — pages, URLs, translations, element types, eleme
 
 ### Recipe: register an element type + instance
 
-- `Type::firstOrCreate` with `type=element`.
+- `Blueprint::firstOrCreate` with `type=element`.
 - `Element::firstOrCreate` pointing at the type.
 - See the ContentSections package docs for the full element flow.
 

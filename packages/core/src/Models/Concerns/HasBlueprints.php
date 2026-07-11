@@ -13,10 +13,10 @@ trait HasBlueprints
     {
         return self::query()
             ->select('blueprint_id')
-            ->withWhereHas('type')
+            ->withWhereHas('blueprint')
             ->groupBy('blueprint_id')
             ->get()
-            ->mapWithKeys(fn (self $item): array => [$item->blueprint_id => $item->type?->name])
+            ->mapWithKeys(fn (self $item): array => [$item->blueprint_id => $item->blueprint->name])
             ->all();
     }
 }

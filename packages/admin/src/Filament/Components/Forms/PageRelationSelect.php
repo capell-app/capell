@@ -105,7 +105,7 @@ class PageRelationSelect extends SelectTree
                     $model = Page::class;
 
                     /** @var ?Page $page */
-                    $page = $model::query()->withWhereHas('type:id,admin')->find($state);
+                    $page = $model::query()->withWhereHas('blueprint:id,admin')->find($state);
 
                     if ($page === null) {
                         return null;
@@ -127,7 +127,7 @@ class PageRelationSelect extends SelectTree
         $query->with('ancestors')
             ->when($siteId, fn (Builder $query) => $query->where($query->qualifyColumn('site_id'), $siteId))
             ->whereHas(
-                'type',
+                'blueprint',
                 fn (BuilderContract $query): BuilderContract => $query->when(
                     $this->pageGroup,
                     function (BuilderContract $query): void {

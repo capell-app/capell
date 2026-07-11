@@ -56,6 +56,17 @@ final class NormalizeContentWidgetStateAction
      */
     private function normalizeNode(array $widget, array $registeredWidgetKeys): array
     {
+        $stringKeyedWidget = [];
+
+        foreach ($widget as $key => $value) {
+            if (! is_string($key)) {
+                return $widget;
+            }
+
+            $stringKeyedWidget[$key] = $value;
+        }
+
+        $widget = $stringKeyedWidget;
         $widgetKey = $widget['type'] ?? null;
 
         if (! is_string($widgetKey) || ! isset($registeredWidgetKeys[$widgetKey])) {

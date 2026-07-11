@@ -10,6 +10,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
+use Capell\Core\ThemeStudio\Contracts\ThemeSection;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ContentListingSectionData;
 use Capell\Core\ThemeStudio\Data\CtaSectionData;
@@ -20,6 +21,7 @@ use Capell\Core\ThemeStudio\Data\HeroSectionData;
 use Capell\Core\ThemeStudio\Data\NavigationData;
 use Capell\Core\ThemeStudio\Data\ProofSectionData;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Contracts\ThemeSectionPayloadContributor;
 use Capell\Frontend\Support\CapellFrontendContext;
 use Capell\Frontend\ThemeStudio\Adapters\CapellFrontendThemePageAdapter;
 
@@ -404,6 +406,50 @@ it('ignores an ordered section list that is not a plain list and keeps implicit 
 
     expect($themePage->sections)->toHaveCount(1)
         ->and($themePage->sections[0])->toBeInstanceOf(HeroSectionData::class);
+});
+
+it('lets tagged packages contribute hydrated section payloads before rendering', function (): void {
+    $site = Site::factory()->make(['name' => 'Results Site']);
+    $translation = Translation::factory()->make(['title' => 'Results', 'content' => '<p>Results page</p>']);
+    $page = Page::factory()->make([
+        'name' => 'Results',
+        'meta' => [
+            'theme' => [
+                'render_data' => [
+                    'sections' => [
+                        ['type' => 'content-listing', 'heading' => 'Browse entries', 'items' => []],
+                    ],
+                ],
+            ],
+        ],
+    ]);
+    $page->setRelation('translation', $translation);
+
+    bindThemeAdapterContext($page, $site);
+
+    app()->singleton('test.theme-section-payload-contributor', fn (): ThemeSectionPayloadContributor => new class implements ThemeSectionPayloadContributor
+    {
+        public function contribute(ThemeSection $section): ThemeSection
+        {
+            if (! $section instanceof ContentListingSectionData) {
+                return $section;
+            }
+
+            return new ContentListingSectionData(
+                heading: 'Resolved results',
+                summary: 'Hydrated before Blade rendering.',
+                items: [['title' => 'Live result', 'url' => '/live-result']],
+            );
+        }
+    });
+    app()->tag('test.theme-section-payload-contributor', ThemeSectionPayloadContributor::TAG);
+
+    $themePage = (new CapellFrontendThemePageAdapter)->currentPage();
+    $section = $themePage->sections[0];
+    assert($section instanceof ContentListingSectionData);
+
+    expect($section->heading)->toBe('Resolved results')
+        ->and($section->items)->toBe([['title' => 'Live result', 'url' => '/live-result']]);
 });
 
 function bindThemeAdapterContext(?Pageable $page, ?Site $site): void

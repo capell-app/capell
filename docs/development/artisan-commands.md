@@ -120,6 +120,54 @@ php artisan capell:rollback --step=2026_05_01_example --force
 
 Use `--dry-run` before a real rollback. Use `--force` only when the impact is already understood.
 
+## Backup And Recovery
+
+### `capell:backup:create`
+
+Creates a manifest-backed database and configured-media snapshot on the private
+backup disk. Use `--database-only` to omit media.
+
+```bash
+php artisan capell:backup:create
+php artisan capell:backup:create --database-only
+```
+
+### `capell:backup:health`
+
+Checks configuration, freshness, minimum retention, manifests, artifact sizes,
+and SHA-256 checksums. `--json` provides monitoring output; degraded health
+returns a non-zero exit code.
+
+```bash
+php artisan capell:backup:health
+php artisan capell:backup:health --json
+```
+
+### `capell:backup:prune`
+
+Lists completed snapshots beyond configured retention. The default is a dry
+run; `--force` applies deletion beneath the configured backup prefix.
+
+```bash
+php artisan capell:backup:prune
+php artisan capell:backup:prune --force
+```
+
+### `capell:backup:restore`
+
+Restores a manifest-backed snapshot into a new scratch database and optional
+non-live media target, then runs doctor verification against the restored
+database. Live database/media targets and occupied media prefixes are rejected.
+
+```bash
+php artisan capell:backup:restore SNAPSHOT_ID capell_restore_drill \
+  --media-disk=restore-scratch \
+  --media-prefix=drills/current
+```
+
+See the [backup and restore runbook](../operations/backups.md) for configuration,
+scheduling, retention, restore drills, and the deliberate no-in-place boundary.
+
 ## Extension Lifecycle
 
 ### `capell:make-theme`

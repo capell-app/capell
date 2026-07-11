@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
+use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
+use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
@@ -17,6 +19,7 @@ use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSchema;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSettings;
+use Capell\Admin\Tests\Fixtures\Extensions\FakeExtensionCatalogueMetadataProvider;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Enums\ExtensionHealthAlertCategory;
 use Capell\Core\Enums\ExtensionHealthAlertSeverity;
@@ -350,6 +353,48 @@ it('lists editable extension management entries from registered pages', function
     expect($extensionRecord['label'] ?? null)->toBe('Local Extension')
         ->and($extensionRecord['primaryUrl'] ?? null)->toBe(UpgradePage::getUrl())
         ->and($extensionRecord['externalUrl'] ?? null)->toBe('https://capell.app/extensions/local-extension');
+});
+
+it('renders catalogue release and Capell All metadata on installed extension cards', function (): void {
+    grantExtensionsPageAccess();
+
+    CapellCore::registerPackage(
+        name: 'capell-app/beta-suite',
+        path: extensionPackagePath(),
+        version: '1.2.3',
+        description: 'Beta extension description',
+    );
+    CapellCore::forcePackageInstalled('capell-app/beta-suite');
+    CapellAdmin::registerExtensionPage('capell-app/beta-suite', UpgradePage::class);
+
+    $provider = new FakeExtensionCatalogueMetadataProvider([
+        'capell-app/beta-suite' => new ExtensionCatalogueMetadataData(
+            catalogueRole: 'extension',
+            maturity: 'beta',
+            maturityLabel: 'Beta',
+            includedWithCapellAll: true,
+        ),
+    ]);
+    app()->instance(FakeExtensionCatalogueMetadataProvider::class, $provider);
+    app()->tag(FakeExtensionCatalogueMetadataProvider::class, ExtensionCatalogueMetadataProvider::TAG);
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->assertSeeHtml('data-release-status="beta"')
+        ->assertSeeHtml('data-included-with-capell-all="true"')
+        ->assertSeeHtml('data-capell-all-included')
+        ->assertSee(__('capell-admin::marketplace.release_status.beta'))
+        ->assertSee(__('capell-admin::marketplace.capell_all.included'));
+
+    $extensionRecord = collect((new InstalledExtensionsFilamentWidget)->getExtensionsData())
+        ->firstWhere('id', 'capell-app/beta-suite');
+
+    expect($extensionRecord)->toMatchArray([
+        'catalogueRole' => 'extension',
+        'maturity' => 'beta',
+        'maturityLabel' => 'Beta',
+        'includedWithCapellAll' => true,
+    ]);
 });
 
 it('surfaces the package documentation url on extension management entries', function (): void {

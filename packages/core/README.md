@@ -1,6 +1,6 @@
 # Capell Core
 
-![Capell Core page structure screenshot](docs/images/screenshots/core-page-structure.png)
+![Capell Core page hierarchy and configuration surfaces layered over its architectural platform](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/core.svg?style=flat-square)](https://packagist.org/packages/capell-app/core)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -56,7 +56,7 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 
 ## Extension Points
 
-Use Core extension points instead of patching first-party models or providers:
+Use these extension points instead of patching first-party models or providers:
 
 | Need                                       | Extension point                                                 |
 | ------------------------------------------ | --------------------------------------------------------------- |

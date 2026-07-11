@@ -230,3 +230,53 @@ it('fails loudly when package migration publishing fails', function (): void {
     RuntimeException::class,
     'Failed publishing migrations for capell-app/failing-package.',
 );
+
+it('fails when a required package migration directory is missing', function (): void {
+    $packagePath = base_path('tests/fixtures/package-with-missing-declared-migrations');
+    File::ensureDirectoryExists($packagePath);
+
+    try {
+        $package = new PackageData(
+            name: 'vendor/missing-migrations',
+            type: PackageTypeEnum::Plugin,
+            path: $packagePath,
+        );
+
+        expect(fn (): mixed => PublishPackageMigrationsAction::run(
+            collect([$package->name => $package]),
+            new NullProgressReporter,
+            publishSettings: false,
+            requireMigrationFiles: true,
+        ))->toThrow(
+            RuntimeException::class,
+            'Package vendor/missing-migrations declares migrations, but database/migrations is missing.',
+        );
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('fails when a required package migration directory is empty', function (): void {
+    $packagePath = base_path('tests/fixtures/package-with-empty-declared-migrations');
+    File::ensureDirectoryExists($packagePath . '/database/migrations');
+
+    try {
+        $package = new PackageData(
+            name: 'vendor/empty-migrations',
+            type: PackageTypeEnum::Plugin,
+            path: $packagePath,
+        );
+
+        expect(fn (): mixed => PublishPackageMigrationsAction::run(
+            collect([$package->name => $package]),
+            new NullProgressReporter,
+            publishSettings: false,
+            requireMigrationFiles: true,
+        ))->toThrow(
+            RuntimeException::class,
+            'Package vendor/empty-migrations declares migrations, but database/migrations contains no migration files.',
+        );
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});

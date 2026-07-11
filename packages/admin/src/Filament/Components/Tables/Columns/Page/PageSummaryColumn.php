@@ -120,8 +120,8 @@ class PageSummaryColumn extends TextColumn
             $page->loadMissing('layout');
         }
 
-        if (! $page->relationLoaded('type')) {
-            $page->loadMissing('type');
+        if (! $page->relationLoaded('blueprint')) {
+            $page->loadMissing('blueprint');
         }
 
         return collect($this->metadataItems($page))
@@ -192,7 +192,7 @@ class PageSummaryColumn extends TextColumn
 
     private function typeLabel(Page $page): ?string
     {
-        $typeName = $page->type?->name;
+        $typeName = $page->blueprint->name;
 
         if (! is_string($typeName) || $typeName === '' || $typeName === 'capell::generic.default') {
             return null;

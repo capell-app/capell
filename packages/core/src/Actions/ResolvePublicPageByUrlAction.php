@@ -252,7 +252,7 @@ class ResolvePublicPageByUrlAction
     {
         return $query
             ->where('site_id', $site->getKey())
-            ->whereHas('type', fn (BuilderContract $typeQuery): BuilderContract => $typeQuery->enabled()->accessible())
+            ->whereHas('blueprint', fn (BuilderContract $blueprintQuery): BuilderContract => $blueprintQuery->enabled()->accessible())
             ->publishedDate();
     }
 

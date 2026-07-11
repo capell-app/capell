@@ -24,6 +24,7 @@ final class PublishPackageMigrationsAction
         ProgressReporter $reporter,
         bool $publishSchema = true,
         bool $publishSettings = true,
+        bool $requireMigrationFiles = false,
     ): void {
         if ($packages->isEmpty()) {
             return;
@@ -31,13 +32,14 @@ final class PublishPackageMigrationsAction
 
         $reporter->step('Publishing package migrations…');
 
-        $packages->each(function (PackageData $package) use ($publishSchema, $publishSettings, $reporter): void {
+        $packages->each(function (PackageData $package) use ($publishSchema, $publishSettings, $reporter, $requireMigrationFiles): void {
             if ($publishSchema) {
                 $this->publishPackageMigrationType(
                     package: $package,
                     type: 'migrations',
                     directory: 'migrations',
                     reporter: $reporter,
+                    requireMigrationFiles: $requireMigrationFiles,
                 );
             }
 
@@ -47,6 +49,7 @@ final class PublishPackageMigrationsAction
                     type: 'settings',
                     directory: 'settings',
                     reporter: $reporter,
+                    requireMigrationFiles: $requireMigrationFiles,
                 );
             }
         });
@@ -57,6 +60,7 @@ final class PublishPackageMigrationsAction
         string $type,
         string $directory,
         ProgressReporter $reporter,
+        bool $requireMigrationFiles,
     ): void {
         $migrationsPath = $package->path;
 
@@ -65,12 +69,30 @@ final class PublishPackageMigrationsAction
         }
 
         if ($migrationsPath === null || ! File::isDirectory($migrationsPath)) {
+            if ($requireMigrationFiles) {
+                throw new RuntimeException(sprintf(
+                    'Package %s declares %s, but database/%s is missing.',
+                    $package->name,
+                    $type,
+                    $directory,
+                ));
+            }
+
             return;
         }
 
         $migrationNames = $this->migrationNames($migrationsPath);
 
         if ($migrationNames === []) {
+            if ($requireMigrationFiles) {
+                throw new RuntimeException(sprintf(
+                    'Package %s declares %s, but database/%s contains no migration files.',
+                    $package->name,
+                    $type,
+                    $directory,
+                ));
+            }
+
             return;
         }
 

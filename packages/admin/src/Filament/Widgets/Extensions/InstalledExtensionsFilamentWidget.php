@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Extensions;
 
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
+use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
 use Capell\Admin\Actions\Extensions\FilterExtensionManagementEntriesAction;
 use Capell\Admin\Actions\ListExtensionManagementEntriesAction;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
@@ -105,6 +106,6 @@ final class InstalledExtensionsFilamentWidget extends TableWidget implements Cap
             ->values()
             ->all());
 
-        return $this->applyPinnedExtensionTablePosition($records);
+        return $this->applyPinnedExtensionTablePosition(EnrichExtensionTableRecordsAction::run($records));
     }
 }

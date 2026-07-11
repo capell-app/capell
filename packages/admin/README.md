@@ -1,6 +1,6 @@
 # Capell Admin
 
-![Capell Admin dashboard screenshot](docs/images/screenshots/admin-dashboard.png)
+![Capell Admin expanded navigation, page table, editing form, and dashboard workspace](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/admin.svg?style=flat-square)](https://packagist.org/packages/capell-app/admin)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)

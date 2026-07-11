@@ -26,7 +26,7 @@ trait HasBlueprintRelationManagers
         $model = Blueprint::class;
 
         $data = is_array($this->data) ? $this->data : [];
-        $type = $this->record->type ?? $model::query()->find($data['blueprint_id'] ?? null);
+        $blueprint = $this->record->blueprint ?? $model::query()->find($data['blueprint_id'] ?? null);
 
         $resource = static::getResource();
 
@@ -42,8 +42,8 @@ trait HasBlueprintRelationManagers
             return [];
         }
 
-        $adminType = $type instanceof Blueprint
-            ? resolve(ConfiguratorResolver::class)->resolveForType($type, $assetType, DefaultPageConfigurator::getKey())
+        $adminType = $blueprint instanceof Blueprint
+            ? resolve(ConfiguratorResolver::class)->resolveForType($blueprint, $assetType, DefaultPageConfigurator::getKey())
             : DefaultPageConfigurator::class;
 
         if (! is_subclass_of($adminType, ProvidesRelationManagers::class)) {

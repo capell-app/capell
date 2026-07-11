@@ -1,6 +1,6 @@
 # Capell Frontend
 
-![Capell Frontend published page screenshot](docs/images/screenshots/frontend-published-page.png)
+![Capell Frontend site and locale resolution flowing into the responsive Foundation theme](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/frontend.svg?style=flat-square)](https://packagist.org/packages/capell-app/frontend)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -64,6 +64,8 @@ Public frontend responses must not expose admin/editor implementation details. B
 Frontend authoring must be a post-load admin feature. The public page loads as ordinary HTML; only an authenticated admin beacon response may add edit controls.
 
 When changing public rendering, cache behavior, themes, or beacon integration, keep or add tests that prove anonymous and non-admin responses contain no authoring surface.
+
+Editor-authored rich text must cross a `SafeHtml` boundary before Blade renders it. Build the value with `SafeHtml::sanitize($html, $sanitizer)` (or use `RenderHtmlContentAction`) and output it with normal escaped Blade braces: `{{ $safeHtml }}`. The constructor is private so an arbitrary string cannot be mislabeled as safe HTML.
 
 ## Data And Cache Behavior
 

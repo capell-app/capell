@@ -13,8 +13,10 @@ trait AppliesNameSearchRelevanceToTable
     use AppliesNameSearchRelevance;
 
     /**
-     * @param  Builder<Model>  $query
-     * @return Builder<Model>
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     protected function applyNameSearchRelevanceToTableQuery(Builder $query): Builder
     {

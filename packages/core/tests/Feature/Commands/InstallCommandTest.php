@@ -619,7 +619,16 @@ it('dispatches CapellInstalled with the resolved spec path when --spec is given'
     Event::fake([CapellInstalled::class]);
 
     $specPath = tempnam(sys_get_temp_dir(), 'capell-core-spec-') . '.json';
-    file_put_contents($specPath, '{"site":{"name":"X"}}');
+    file_put_contents($specPath, json_encode([
+        'site' => ['name' => 'Fixture Site'],
+        'theme' => ['key' => 'default'],
+        'pages' => [[
+            'name' => 'Home',
+            'slug' => 'home',
+            'title' => 'Home',
+            'pageType' => 'default',
+        ]],
+    ], JSON_THROW_ON_ERROR));
 
     try {
         artisanCommand('capell:install', [

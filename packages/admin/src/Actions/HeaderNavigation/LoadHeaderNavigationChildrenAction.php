@@ -44,7 +44,7 @@ final class LoadHeaderNavigationChildrenAction
 
         /** @var Builder<Page> $query */
         $query = Page::query()
-            ->with(['site', 'type.roleRestrictions', 'pageUrl.siteDomain'])
+            ->with(['site', 'blueprint.roleRestrictions', 'pageUrl.siteDomain'])
             ->ordered();
 
         $this->accessResolver->constrainPageQueryForActor($query, $actor, $siteId);
@@ -136,7 +136,7 @@ final class LoadHeaderNavigationChildrenAction
 
     private function resolveTypeIcon(Page $page): ?string
     {
-        $icon = $page->type?->admin['icon'] ?? null;
+        $icon = $page->blueprint?->admin['icon'] ?? null;
 
         if ($icon instanceof BackedEnum) {
             return (string) $icon->value;

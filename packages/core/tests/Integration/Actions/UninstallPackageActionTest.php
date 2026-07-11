@@ -5,15 +5,21 @@ declare(strict_types=1);
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Contracts\Extensions\DeletesExtensionData;
+use Capell\Core\Contracts\PackageLifecycleAction;
+use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Models\Layout;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
+use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
@@ -105,6 +111,66 @@ it('allows uninstall to delete extension-owned data when requested', function ()
     UninstallPackageAction::run(CapellCore::getPackage('vendor/data-package'), deleteData: true);
 
     expect(UninstallPackageActionDataDeleter::$deletedPackages)->toBe(['vendor/data-package']);
+});
+
+it('runs a declared uninstall lifecycle action before marking the package uninstalled', function (): void {
+    UninstallPackageLifecycleAction::$packages = [];
+    CapellCore::registerPackage('vendor/lifecycle-package', PackageTypeEnum::Plugin, version: '1.0.0');
+    $package = CapellCore::getPackage('vendor/lifecycle-package');
+    $package->uninstallAction = UninstallPackageLifecycleAction::class;
+    CapellCore::markPackageInstalled($package->name);
+
+    UninstallPackageAction::run($package);
+
+    expect(UninstallPackageLifecycleAction::$packages)->toBe([
+        ['vendor/lifecycle-package', [], true],
+    ]);
+});
+
+it('blocks uninstalling the active theme package', function (): void {
+    $settings = resolve(ThemeStudioSettings::class);
+    $settings->activeTheme = 'editorial';
+
+    CapellCore::registerPackage('capell-app/theme-editorial', PackageTypeEnum::Theme, version: '1.0.0');
+    $package = CapellCore::getPackage('capell-app/theme-editorial');
+    $package->themeKey = 'editorial';
+    CapellCore::markPackageInstalled($package->name);
+
+    expect(fn (): null => UninstallPackageAction::run($package))
+        ->toThrow(Exception::class, "cannot be uninstalled while theme 'editorial' is in use");
+
+    expect(CapellCore::isPackageInstalled($package->name))->toBeTrue();
+});
+
+it('blocks uninstalling a theme selected by a site', function (): void {
+    $package = installedThemePackageForUninstall('editorial');
+    $theme = Theme::factory()->createOne(['key' => 'editorial']);
+    Site::factory()->theme($theme)->createOne();
+
+    expect(fn (): null => UninstallPackageAction::run($package))
+        ->toThrow(Exception::class, '1 site(s), 0 layout(s), global active theme: no');
+
+    expect(CapellCore::isPackageInstalled($package->name))->toBeTrue();
+});
+
+it('blocks uninstalling a theme selected by a layout', function (): void {
+    $package = installedThemePackageForUninstall('editorial');
+    $theme = Theme::factory()->createOne(['key' => 'editorial']);
+    Layout::factory()->createOne(['theme_id' => $theme->getKey()]);
+
+    expect(fn (): null => UninstallPackageAction::run($package))
+        ->toThrow(Exception::class, '0 site(s), 1 layout(s), global active theme: no');
+
+    expect(CapellCore::isPackageInstalled($package->name))->toBeTrue();
+});
+
+it('allows uninstalling an unused theme', function (): void {
+    $package = installedThemePackageForUninstall('editorial');
+    Theme::factory()->createOne(['key' => 'editorial']);
+
+    UninstallPackageAction::run($package);
+
+    expect(CapellCore::isPackageInstalled($package->name))->toBeFalse();
 });
 
 it('uninstalls trusted packages through the extension lifecycle', function (): void {
@@ -276,6 +342,17 @@ function makeUninstallComposerPackageFixture(string $composerName): string
     return $packagePath;
 }
 
+function installedThemePackageForUninstall(string $themeKey): PackageData
+{
+    $composerName = 'capell-app/theme-' . $themeKey;
+    CapellCore::registerPackage($composerName, PackageTypeEnum::Theme, version: '1.0.0');
+    $package = CapellCore::getPackage($composerName);
+    $package->themeKey = $themeKey;
+    CapellCore::markPackageInstalled($package->name);
+
+    return $package;
+}
+
 function makeUninstallPackageWithMigrationFixture(string $composerName): string
 {
     $packagePath = makeUninstallComposerPackageFixture($composerName);
@@ -349,5 +426,16 @@ final class UninstallPackageActionDataDeleter implements DeletesExtensionData
     public function deleteExtensionData(PackageData $package): void
     {
         self::$deletedPackages[] = $package->name;
+    }
+}
+
+final class UninstallPackageLifecycleAction implements PackageLifecycleAction
+{
+    /** @var list<array{string, array<string, mixed>, bool}> */
+    public static array $packages = [];
+
+    public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
+    {
+        self::$packages[] = [$package->name, $arguments, CapellCore::isPackageInstalled($package->name)];
     }
 }

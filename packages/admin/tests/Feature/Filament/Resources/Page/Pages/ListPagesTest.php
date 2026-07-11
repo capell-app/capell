@@ -286,7 +286,7 @@ test('renders page summary and publish status in the pages table', function (): 
         ->assertSee('/company/scheduled-page')
         ->assertSee('1 child')
         ->assertSee(__('capell-admin::table.page_meta_layout_value', ['layout' => $page->layout->name]))
-        ->assertSee($page->type->name)
+        ->assertSee($page->blueprint->name)
         ->assertSee('4d')
         ->assertSee('1 day ago')
         ->assertDontSeeHtml('data-page-summary-thumbnail')
@@ -306,7 +306,7 @@ test('groups related page record actions', function (): void {
         ->assertSuccessful()
         ->assertTableActionHasUrl('edit-layout', LayoutResource::getUrl('edit', ['record' => $page->layout]), record: $page)
         ->mountTableAction('edit-blueprint', $page)
-        ->assertMountedActionModalSee($page->type->name)
+        ->assertMountedActionModalSee($page->blueprint->name)
         ->assertSchemaStateSet([
             'type' => BlueprintSubjectEnum::Page->value,
         ])
@@ -326,7 +326,7 @@ test('groups related page record actions', function (): void {
         ->and(array_keys($recordActions[1]->getFlatActions()))->not->toContain('edit');
 
     expect($page->refresh()->name)->toBe($pageName)
-        ->and($page->type->refresh()->name)->toBe($blueprintName);
+        ->and($page->blueprint->refresh()->name)->toBe($blueprintName);
 });
 
 test('hides blueprint editing from page listers without blueprint update permission', function (): void {
@@ -384,7 +384,7 @@ test('loads optional page table relations only when their columns are visible', 
         ->and($defaultRecord->relationLoaded('creator'))->toBeFalse()
         ->and($defaultRecord->relationLoaded('editor'))->toBeFalse()
         ->and($defaultRecord->relationLoaded('layout'))->toBeTrue()
-        ->and($defaultRecord->relationLoaded('type'))->toBeTrue()
+        ->and($defaultRecord->relationLoaded('blueprint'))->toBeTrue()
         ->and($defaultRecord->relationLoaded('translation'))->toBeTrue()
         ->and($defaultRecord->relationLoaded('pageUrls'))->toBeTrue();
 

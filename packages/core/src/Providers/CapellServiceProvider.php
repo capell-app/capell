@@ -8,10 +8,12 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Console\Commands\BackupHealthCommand;
 use Capell\Core\Console\Commands\CacheComponentsCommand;
 use Capell\Core\Console\Commands\ClearComponentsCacheCommand;
 use Capell\Core\Console\Commands\CloudBootstrapCommand;
 use Capell\Core\Console\Commands\CoreFakerCommand;
+use Capell\Core\Console\Commands\CreateBackupCommand;
 use Capell\Core\Console\Commands\DeleteMigrationsCommand;
 use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
@@ -29,9 +31,11 @@ use Capell\Core\Console\Commands\MakeSchemaCommand;
 use Capell\Core\Console\Commands\MakeThemeCommand;
 use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Console\Commands\PackageClearCacheCommand;
+use Capell\Core\Console\Commands\PruneBackupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
+use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
@@ -84,6 +88,10 @@ use Capell\Core\Models\UpgradeLogEntry;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
+use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
+use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
+use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
@@ -131,6 +139,7 @@ use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
+use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
@@ -195,7 +204,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function configurePackage(Package $package): void
     {
         $package->name(self::$name)
-            ->hasConfigFile(['capell', 'redirects'])
+            ->hasConfigFile(['backup', 'capell', 'redirects'])
             ->hasTranslations();
 
         if (! $this->app->runningInConsole()) {
@@ -204,9 +213,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $package->hasCommands([
             CacheComponentsCommand::class,
+            BackupHealthCommand::class,
             CloudBootstrapCommand::class,
             ClearComponentsCacheCommand::class,
             CoreFakerCommand::class,
+            CreateBackupCommand::class,
             DeleteMigrationsCommand::class,
             DoctorCommand::class,
             ExtensionAuditCommand::class,
@@ -225,10 +236,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             MakeBlueprintCommand::class,
             UpgradeCommand::class,
             RollbackCommand::class,
+            RestoreBackupCommand::class,
             ThemeDoctorCommand::class,
             PurgeSoftDeletedMediaCommand::class,
             PublishComponentsCommand::class,
             PublishMigrationsCommand::class,
+            PruneBackupsCommand::class,
             PackageCacheCommand::class,
             PackageClearCacheCommand::class,
         ]);
@@ -485,8 +498,14 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(LinkableContentRegistry::class, fn (): LinkableContentRegistry => new LinkableContentRegistry);
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
         $this->app->singleton(ThemeChromeRegistry::class, fn (): ThemeChromeRegistry => new ThemeChromeRegistry);
+        $this->app->singleton(ThemeInstallDefaultsRegistry::class, fn (): ThemeInstallDefaultsRegistry => new ThemeInstallDefaultsRegistry);
         $this->app->singleton(PresentationPresetRegistry::class, fn (): PresentationPresetRegistry => new PresentationPresetRegistry);
         $this->app->singleton(VendorAssetConditionRegistry::class, fn (): VendorAssetConditionRegistry => new VendorAssetConditionRegistry);
+        $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
+            $app->make(SqliteDatabaseBackupDriver::class),
+            $app->make(MySqlDatabaseBackupDriver::class),
+            $app->make(PostgresDatabaseBackupDriver::class),
+        ]));
         $this->app->singleton(MakerRegistryInterface::class, fn (): MakerRegistry => new MakerRegistry);
         $this->app->singleton(MakerSafety::class, fn (): MakerSafety => new MakerSafety);
         $this->app->singleton(PluginPackagesFetcher::class);

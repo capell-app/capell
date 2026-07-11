@@ -28,6 +28,9 @@
         $productGroup = $record['product_group'] ?? $record['kind'] ?? null;
         $tier = $record['product_tier'] ?? 'free';
         $certification = $record['effective_certification'] ?? 'community';
+        $catalogueRole = $record['catalogue_role'] ?? 'extension';
+        $maturity = $record['maturity'] ?? 'labs';
+        $includedWithCapellAll = ($record['included_with_capell_all'] ?? false) === true;
         $healthState = 'ok';
         $blocked = ($record['marketplace_install_state'] ?? null) === 'blocked' || ($record['marketplace_install_state'] ?? null) === 'incompatible';
         $showBlockedTag = false;
@@ -83,6 +86,9 @@
         $productGroup = $record['productGroup'] ?? null;
         $tier = $record['tier'] ?? 'free';
         $certification = $record['certification'] ?? 'community';
+        $catalogueRole = $record['catalogueRole'] ?? 'extension';
+        $maturity = $record['maturity'] ?? 'labs';
+        $includedWithCapellAll = ($record['includedWithCapellAll'] ?? false) === true;
         $healthState = $record['healthState'] ?? 'ok';
         $blocked = ($record['blocked'] ?? false) === true;
         $showBlockedTag = $blocked;
@@ -102,6 +108,15 @@
         $visibleTags = array_filter([$productGroup, $formatState($certification), $formatState($tier)]);
         $hiddenTags = [];
     }
+
+    $catalogueRole = in_array($catalogueRole, ['core', 'extension'], true) ? $catalogueRole : 'extension';
+    $maturity = in_array($maturity, ['stable', 'beta', 'labs'], true) ? $maturity : 'labs';
+    $maturityLabel = __('capell-admin::marketplace.release_status.' . $maturity);
+    $maturityBadgeColor = match ($maturity) {
+        'stable' => 'success',
+        'beta' => 'warning',
+        default => 'gray',
+    };
 
     $imageUrls = $imageUrls
         ->filter(fn (mixed $url): bool => is_string($url) && $url !== '')
@@ -245,6 +260,9 @@
         "
     @endif
     aria-labelledby="{{ $cardTitleId }}"
+    data-catalogue-role="{{ $catalogueRole }}"
+    data-extension-maturity="{{ $maturity }}"
+    data-included-with-capell-all="{{ $includedWithCapellAll ? 'true' : 'false' }}"
 >
     <figure class="relative h-28 overflow-hidden bg-gray-100 dark:bg-gray-950">
         @if (is_array($managementSurface))
@@ -346,10 +364,30 @@
             </div>
         @endif
 
-        @if ($showBlockedTag || $updateAvailable || $healthState !== 'ok' || $installInProgress)
-            <div
-                class="absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1.5"
+        <div
+            class="absolute top-3 right-3 z-20 flex max-w-[calc(100%_-_4rem)] flex-wrap justify-end gap-1.5"
+        >
+            <x-filament::badge
+                :color="$maturityBadgeColor"
+                data-release-status="{{ $maturity }}"
             >
+                <span class="sr-only">
+                    {{ __('capell-admin::marketplace.release_status.label') }}:
+                </span>
+                {{ $maturityLabel }}
+            </x-filament::badge>
+
+            @if ($includedWithCapellAll)
+                <x-filament::badge
+                    color="primary"
+                    icon="heroicon-m-check"
+                    data-capell-all-included
+                >
+                    {{ __('capell-admin::marketplace.capell_all.included') }}
+                </x-filament::badge>
+            @endif
+
+            @if ($showBlockedTag || $updateAvailable || $healthState !== 'ok' || $installInProgress)
                 @if ($installInProgress)
                     <span
                         class="bg-info-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
@@ -381,8 +419,8 @@
                         {{ $formatState($healthState) }}
                     </span>
                 @endif
-            </div>
-        @endif
+            @endif
+        </div>
 
         <div
             class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 pt-12"

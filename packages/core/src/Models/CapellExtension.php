@@ -63,11 +63,11 @@ class CapellExtension extends Model
     #[Override]
     protected static function booted(): void
     {
-        static::saved(static function (): void {
+        static::registerModelEvent('saved', static function (): void {
             CapellCore::clearExtensionCache();
         });
 
-        static::deleted(static function (): void {
+        static::registerModelEvent('deleted', static function (): void {
             CapellCore::clearExtensionCache();
         });
     }

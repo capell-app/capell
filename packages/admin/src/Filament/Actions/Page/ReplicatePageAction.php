@@ -34,7 +34,7 @@ class ReplicatePageAction extends ReplicateAction
                 ),
             )
             ->successRedirectUrl(function (Page $replica): string {
-                $type = $replica->type()->first();
+                $type = $replica->blueprint()->first();
                 $configuredResource = $type instanceof Blueprint ? ($type->admin['resource'] ?? null) : null;
                 $resourceClass = AdminSurfaceLookup::resource(ResourceEnum::Page, $configuredResource);
 

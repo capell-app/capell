@@ -156,6 +156,7 @@ it('audits content widgets as cacheable public frontend output', function (): vo
             'contributes' => [[
                 'type' => 'content-widget',
                 'class' => 'Vendor\\ContentWidgetCache\\Widgets\\HeroWidget',
+                'key' => 'vendor.hero',
             ]],
             'performance' => [
                 'cacheTags' => ['content-widget'],

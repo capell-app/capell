@@ -136,11 +136,11 @@ class PageNameColumn extends BadgeableColumn
         $this->icon(function (Model $record): ?string {
             $page = $this->resolvePageRecord($record);
 
-            if ($page->type === null) {
+            if ($page->blueprint === null) {
                 return null;
             }
 
-            return $page->type->admin['icon'] ?? null;
+            return $page->blueprint->admin['icon'] ?? null;
         });
 
         return $this;

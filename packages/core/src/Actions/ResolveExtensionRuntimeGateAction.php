@@ -6,7 +6,6 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\ExtensionRuntimeGateData;
 use Capell\Core\Models\CapellExtension;
-use Carbon\CarbonImmutable;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Throwable;
 
@@ -38,7 +37,13 @@ final class ResolveExtensionRuntimeGateAction
     {
         $signedActivation = $extension->marketplace_signed_activation;
 
-        if (! is_array($signedActivation) || ! $this->hasRequiredActivationShape($extension, $signedActivation)) {
+        if (! is_array($signedActivation)) {
+            return false;
+        }
+
+        $installedReceipt = $signedActivation['installed_receipt'] ?? null;
+
+        if (! is_array($installedReceipt) || ! $this->hasRequiredReceiptShape($extension, $installedReceipt)) {
             return false;
         }
 
@@ -53,7 +58,7 @@ final class ResolveExtensionRuntimeGateAction
         try {
             return (bool) app()->call($verifier, [
                 'extension' => $extension,
-                'activation' => $signedActivation,
+                'activation' => $installedReceipt,
             ]);
         } catch (Throwable) {
             return false;
@@ -63,19 +68,22 @@ final class ResolveExtensionRuntimeGateAction
     /**
      * @param  array<string, mixed>  $signedActivation
      */
-    private function hasRequiredActivationShape(CapellExtension $extension, array $signedActivation): bool
+    private function hasRequiredReceiptShape(CapellExtension $extension, array $signedReceipt): bool
     {
-        foreach (['activation_id', 'composer_name', 'expires_at', 'instance_id', 'signature', 'signature_algorithm', 'signature_issued_at'] as $key) {
-            if (! $this->hasNonEmptyString($signedActivation, $key)) {
+        foreach (['receipt_id', 'composer_name', 'package_version', 'package_identity', 'instance_id', 'domain', 'issued_at', 'signature'] as $key) {
+            if (! $this->hasNonEmptyString($signedReceipt, $key)) {
                 return false;
             }
         }
 
-        if ($signedActivation['composer_name'] !== $extension->composer_name) {
+        if (($signedReceipt['receipt_version'] ?? null) !== 1
+            || $signedReceipt['composer_name'] !== $extension->composer_name
+            || ($signedReceipt['perpetual_installed_runtime'] ?? null) !== true
+            || ($signedReceipt['runtime_revoked'] ?? null) !== false) {
             return false;
         }
 
-        return ! $this->activationExpired((string) $signedActivation['expires_at']);
+        return true;
     }
 
     /**
@@ -84,14 +92,5 @@ final class ResolveExtensionRuntimeGateAction
     private function hasNonEmptyString(array $payload, string $key): bool
     {
         return is_string($payload[$key] ?? null) && $payload[$key] !== '';
-    }
-
-    private function activationExpired(string $expiresAt): bool
-    {
-        try {
-            return CarbonImmutable::parse($expiresAt)->isPast();
-        } catch (Throwable) {
-            return true;
-        }
     }
 }

@@ -94,6 +94,10 @@ it('falls back to the public homepage when the admin package lookup is unavailab
         ->andThrow(new RuntimeException('package registry unavailable'));
     CapellCore::shouldReceive('clearExtensionCache')
         ->once();
+    CapellCore::shouldReceive('hasPackage')
+        ->with('capell-app/installer')
+        ->once()
+        ->andReturnFalse();
 
     expect(RemoveSetupPackageAction::run())->toBe(url('/'));
 });

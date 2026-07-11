@@ -16,21 +16,21 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
-it('returns true if type key is error', function (): void {
+it('returns true if blueprint key is error', function (): void {
     $page = new Page;
     $type = new Blueprint;
     $type->key = 'error';
 
-    $page->setRelation('type', $type);
+    $page->setRelation('blueprint', $type);
     expect($page->isErrorPage())->toBeTrue();
 });
 
-it('returns false if type key is not error', function (): void {
+it('returns false if blueprint key is not error', function (): void {
     $page = new Page;
     $type = new Blueprint;
     $type->key = 'normal';
 
-    $page->setRelation('type', $type);
+    $page->setRelation('blueprint', $type);
     expect($page->isErrorPage())->toBeFalse();
 });
 

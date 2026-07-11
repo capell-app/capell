@@ -144,7 +144,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
                     $model = Page::class;
 
                     $parent = $model::query()
-                        ->with(['type', 'translations' => fn (BuilderContract $query): BuilderContract => $query->with('language')])
+                        ->with(['blueprint', 'translations' => fn (BuilderContract $query): BuilderContract => $query->with('language')])
                         ->firstWhere('id', $formData['parent_id']);
 
                     if (! $parent instanceof Page) {

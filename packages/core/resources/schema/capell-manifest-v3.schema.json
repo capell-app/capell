@@ -140,6 +140,19 @@
                 "type": "object",
                 "additionalProperties": true,
                 "required": ["type", "class"],
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {
+                                "type": { "const": "content-widget" }
+                            },
+                            "required": ["type"]
+                        },
+                        "then": {
+                            "required": ["key"]
+                        }
+                    }
+                ],
                 "properties": {
                     "type": {
                         "type": "string",
@@ -175,6 +188,10 @@
                     "class": {
                         "type": "string",
                         "minLength": 1
+                    },
+                    "key": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$"
                     }
                 }
             }

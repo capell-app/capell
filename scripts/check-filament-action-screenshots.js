@@ -2,9 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 const coreRepoRoot = process.cwd()
-const packagesRepoRoot =
-    process.env.CAPELL_PACKAGES_REPO ??
-    path.resolve(coreRepoRoot, '..', 'capell-packages-4')
+const packagesRepoRoot = process.env.CAPELL_PACKAGES_REPO
 const baselinePath = path.resolve(
     coreRepoRoot,
     'docs/development/filament-action-screenshot-baseline.json',
@@ -58,12 +56,14 @@ const customBehaviourMethods = [
 
 function repoRoots() {
     return [coreRepoRoot, packagesRepoRoot]
-        .filter((repoRoot) => fs.existsSync(repoRoot))
+        .filter((repoRoot) => repoRoot && fs.existsSync(repoRoot))
         .filter((repoRoot, index, roots) => roots.indexOf(repoRoot) === index)
 }
 
 function repoName(repoRoot) {
-    return path.basename(repoRoot)
+    return path.resolve(repoRoot) === path.resolve(coreRepoRoot)
+        ? 'current'
+        : 'capell-packages-4'
 }
 
 function walk(directory, files = []) {

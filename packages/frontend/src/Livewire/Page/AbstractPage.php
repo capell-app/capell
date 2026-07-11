@@ -221,18 +221,18 @@ abstract class AbstractPage extends Component
 
     private function pageRecordRequiresLivewire(Pageable $pageRecord): bool
     {
-        $type = $pageRecord instanceof Model && $pageRecord->relationLoaded('type')
-            ? $pageRecord->type
+        $blueprint = $pageRecord instanceof Model && $pageRecord->relationLoaded('blueprint')
+            ? $pageRecord->blueprint
             : null;
 
         $strategy = RenderingStrategyEnum::tryFrom((string) ($pageRecord->meta['rendering_strategy'] ?? ''))
-            ?? RenderingStrategyEnum::tryFrom((string) ($type?->meta['rendering_strategy'] ?? ''))
+            ?? RenderingStrategyEnum::tryFrom((string) ($blueprint?->meta['rendering_strategy'] ?? ''))
             ?? RenderingStrategyEnum::BladeOnly;
         if ($strategy->requiresLivewire()) {
             return true;
         }
 
-        return $type?->is_livewire === true;
+        return $blueprint?->is_livewire === true;
     }
 
     private function captureFrontendContextToken(): void

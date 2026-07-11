@@ -42,7 +42,7 @@ APP_URL=http://localhost:8000
 
 ## 2. Install Capell
 
-If your project uses private Capell repositories, add them to `composer.json` first. Otherwise require the installer — it pulls in core, and `capell:install` adds the admin and frontend packages:
+Capell is proprietary and privately distributed. Obtain a licence, Composer credentials, and the repository configuration supplied for your account, then add that configuration to `composer.json`. Once Composer can resolve the private packages, require the installer; it pulls in core, and `capell:install` adds the admin and frontend packages:
 
 ```bash
 composer require capell-app/installer

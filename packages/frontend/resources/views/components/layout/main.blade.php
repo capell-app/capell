@@ -7,7 +7,7 @@
 
     $containerWidth = GetLayoutContainerWidthAction::run();
     $translation = method_exists($page, 'relationLoaded') && $page->relationLoaded('translation') ? $page->translation : null;
-    $type = method_exists($page, 'relationLoaded') && $page->relationLoaded('type') ? $page->type : null;
+    $type = method_exists($page, 'relationLoaded') && $page->relationLoaded('blueprint') ? $page->blueprint : null;
     $themeData = is_array($theme) ? $theme : [];
 @endphp
 

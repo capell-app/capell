@@ -1,5 +1,7 @@
 # Getting Started
 
+![Capell Getting Started overview](../images/capell-readme-banner.jpg)
+
 Use this page to pick your entry point into Capell: evaluating it, installing it, authoring your first content, or learning the developer model.
 
 > **Who's this for?** Anyone new to Capell — evaluators deciding whether to adopt it, developers installing it, and editors opening the admin for the first time.

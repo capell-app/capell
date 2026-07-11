@@ -216,7 +216,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
 
         $registry = App::make(ThemeRegistry::class);
 
-        if (! $registry->hasRenderer($themeKey) || $registry->definition($themeKey)->runtime !== FrontendRuntime::Blade) {
+        if ($registry->findRendererInChain($themeKey) === null || $registry->definition($themeKey)->runtime !== FrontendRuntime::Blade) {
             return null;
         }
 

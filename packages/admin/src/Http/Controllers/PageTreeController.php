@@ -45,7 +45,7 @@ class PageTreeController
                 'parent_id' => $page->parent_id,
                 'has_children' => $branch->hasVisibleChildren($actor, $page),
                 'edit_url' => $this->resolveEditUrl($page),
-                'type_icon' => $page->type?->admin['icon'] ?? null,
+                'type_icon' => $page->blueprint?->admin['icon'] ?? null,
                 'url' => $this->resolvePageUrl($page),
             ])
             ->values();

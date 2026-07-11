@@ -1,6 +1,6 @@
 # Capell Marketplace
 
-![Capell Marketplace screenshot](./docs/images/screenshots/marketplace-extension-detail-overview.png)
+![Capell Marketplace catalogue discovery, extension evaluation, and operation state](docs/assets/readme/hero.jpg)
 
 `capell-app/marketplace` connects a Capell installation to the Capell extension marketplace. It owns catalogue browsing, Capell account linking, heartbeat/update advisory state, account-based Marketplace install eligibility decisions, queued local Composer install operations, free-install telemetry, and signed install/upgrade authorization records for protected extensions.
 

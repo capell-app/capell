@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Data;
 
 use BackedEnum;
+use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionPerformanceBudgetData;
 use Capell\Core\Data\Manifest\ExtensionProviderData;
 use Capell\Core\Enums\PackageScopeEnum;
@@ -49,6 +50,8 @@ class PackageData extends Data
         public ?string $installAction = null,
         /** @var list<string> */
         public array $installParams = [],
+        /** @var class-string|null */
+        public ?string $uninstallAction = null,
         public ?string $setupCommand = null,
         /** @var class-string|null */
         public ?string $setupAction = null,
@@ -239,6 +242,14 @@ class PackageData extends Data
         return $capellManifest instanceof CapellManifestData ? array_values($capellManifest->requires) : [];
     }
 
+    /** @return list<ExtensionContributionData> */
+    public function getContributions(): array
+    {
+        $manifest = $this->capellManifest();
+
+        return $manifest instanceof CapellManifestData ? $manifest->contributes : [];
+    }
+
     /**
      * @return list<string>
      */
@@ -319,6 +330,16 @@ class PackageData extends Data
         return $manifest instanceof CapellManifestData ? $manifest->kind : $this->type->value;
     }
 
+    public function declaresSchemaMigrations(): bool
+    {
+        return ($this->capellManifest()?->database['migrations'] ?? false) === true;
+    }
+
+    public function declaresSettingsMigrations(): bool
+    {
+        return ($this->capellManifest()?->database['settings'] ?? false) === true;
+    }
+
     public function getThemeKey(): ?string
     {
         $manifest = $this->capellManifest();
@@ -395,6 +416,11 @@ class PackageData extends Data
     public function getInstallAction(): ?string
     {
         return $this->actionWithManifestFallback($this->installAction, 'install');
+    }
+
+    public function getUninstallAction(): ?string
+    {
+        return $this->actionWithManifestFallback($this->uninstallAction, 'uninstall');
     }
 
     /**

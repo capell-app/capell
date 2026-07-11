@@ -82,7 +82,7 @@ final class GenerateMaintenancePageCacheAction
         $pageTranslation = $page->translations()->where('language_id', $language->id)->first();
 
         $renderSite = $site->fresh(['language', 'siteDomains.language', 'theme', 'logo']);
-        $renderPage = $page->fresh(['layout', 'site', 'translations', 'type']);
+        $renderPage = $page->fresh(['layout', 'site', 'translations', 'blueprint']);
 
         if ($siteTranslation instanceof Translation) {
             $renderSite?->setRelation('translation', $siteTranslation);

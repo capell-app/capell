@@ -156,9 +156,9 @@ Set your database values in `.env`, then confirm Laravel can boot:
 php artisan about
 ```
 
-### 2. Add Capell repositories
+### 2. Configure private Capell access
 
-If your team installs Capell from private VCS repositories, add them before requiring packages:
+Capell is proprietary and its packages are privately distributed. Obtain a licence, Composer credentials, and the repository configuration assigned to your account before requiring packages. If Capell supplied private VCS repository access, add those repositories before continuing:
 
 ```json
 {
@@ -174,11 +174,7 @@ If your team installs Capell from private VCS repositories, add them before requ
 }
 ```
 
-If the Capell packages have been created on Packagist and your Composer credentials can resolve them, you can skip this step. Maintainers can create or refresh the Packagist package records from the monorepo with:
-
-```bash
-PACKAGIST_USERNAME=... PACKAGIST_API_TOKEN=... scripts/create-packagist-packages.sh --include-root --setup-github-hooks
-```
+Do not substitute public Packagist or unauthorised repository URLs. Use the access method and credentials supplied for the licensed project.
 
 ### 3. Install Capell and the setup package
 

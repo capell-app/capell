@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Providers;
 
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
+use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\DashboardEnum;
@@ -30,6 +31,7 @@ use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
@@ -91,6 +93,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(ThemeExtensionPage::class));
             CapellAdmin::registerDashboardFilamentWidget(MarketplacePackageOperationsAlertFilamentWidget::class, DashboardEnum::Main);
             $this->app->tag(MarketplaceExtensionsPageExtender::class, ExtensionsPageExtender::TAG);
+            $this->app->tag(MarketplaceCatalogueRecordProvider::class, ExtensionCatalogueMetadataProvider::TAG);
             $this->app->tag(ThemeMarketplaceHeaderActionExtender::class, ResourceHeaderActionExtender::TAG);
             $this->app->tag(PendingMarketplaceThemeInstallProvider::class, PendingThemeInstallProvider::TAG);
             $this->registerExtensionsPageActions();

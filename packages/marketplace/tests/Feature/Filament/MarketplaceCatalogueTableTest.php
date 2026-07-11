@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Actions\QueueMarketplaceInstallAttemptAction;
@@ -103,6 +104,10 @@ it('builds marketplace table records from filtered marketplace listings', functi
                         ['key' => 'starter_checks', 'type' => 'checkbox', 'label' => 'Starter checks'],
                     ],
                     'product_group' => 'Capell Growth',
+                    'catalogue_role' => 'extension',
+                    'maturity' => 'stable',
+                    'maturity_label' => 'Released',
+                    'included_with_capell_all' => true,
                     'author_name' => 'Capell Labs',
                     'author_slug' => 'capell-labs',
                     'ratings_summary' => [
@@ -152,6 +157,10 @@ it('builds marketplace table records from filtered marketplace listings', functi
             'composer_name' => 'capell-app/seo-audit',
             'kind' => 'tool',
             'product_group' => 'Capell Growth',
+            'catalogue_role' => 'extension',
+            'maturity' => 'stable',
+            'maturity_label' => 'Released',
+            'included_with_capell_all' => true,
             'description' => 'Audit public pages.',
             'price_cents' => 1200,
             'price_label' => '$12.00',
@@ -1292,6 +1301,98 @@ it('derives legacy marketplace install button states when policy payloads are ab
         ->and($presenter->state([
             'is_paid' => false,
         ]))->toBe(MarketplaceInstallState::FreeAvailable);
+});
+
+it('keeps purchase activation free and installed presentation independent of release metadata', function (): void {
+    $presenter = resolve(MarketplaceInstallActionPresenter::class);
+    $releaseMetadata = [
+        'catalogue_role' => 'extension',
+        'maturity' => 'stable',
+        'maturity_label' => 'Released',
+        'included_with_capell_all' => true,
+    ];
+
+    expect($presenter->state([
+        ...$releaseMetadata,
+        'is_paid' => false,
+    ]))->toBe(MarketplaceInstallState::FreeAvailable)
+        ->and($presenter->label([
+            ...$releaseMetadata,
+            'is_paid' => false,
+        ]))->toBe((string) __('capell-marketplace::marketplace.install.button'))
+        ->and($presenter->state([
+            ...$releaseMetadata,
+            'is_paid' => true,
+            'purchase_url' => 'https://marketplace.test/extensions/release-suite',
+            'install_eligibility_policy' => [],
+        ]))->toBe(MarketplaceInstallState::PurchaseRequired)
+        ->and($presenter->state([
+            ...$releaseMetadata,
+            'is_paid' => false,
+            'activation_required' => true,
+            'install_eligibility_policy' => [],
+        ]))->toBe(MarketplaceInstallState::ActivationRequired)
+        ->and($presenter->state([
+            ...$releaseMetadata,
+            'is_installed' => true,
+        ]))->toBe(MarketplaceInstallState::Installed);
+});
+
+it('fails closed when installed extension catalogue metadata is unavailable', function (int $responseStatus): void {
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response(
+            $responseStatus === 404 ? [] : ['message' => 'Unavailable'],
+            $responseStatus,
+        ),
+    ]);
+
+    $records = EnrichExtensionTableRecordsAction::run([
+        [
+            'packageName' => 'capell-app/release-suite',
+            'label' => 'Release Suite',
+        ],
+    ]);
+
+    expect($records)->toHaveCount(1)
+        ->and($records[0])->toMatchArray([
+            'catalogueRole' => 'extension',
+            'maturity' => 'labs',
+            'maturityLabel' => 'Labs',
+            'includedWithCapellAll' => false,
+        ]);
+})->with([
+    'missing exact lookup endpoint' => [404],
+    'marketplace unavailable' => [503],
+]);
+
+it('maps canonical catalogue metadata back to legacy installed package names', function (): void {
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [[
+                'slug' => 'layout-builder',
+                'name' => 'Layout Builder',
+                'composer_name' => 'capell-app/layout-builder',
+                'catalogue_role' => 'core',
+                'maturity' => 'stable',
+                'maturity_label' => 'Released',
+                'included_with_capell_all' => true,
+            ]],
+        ]),
+    ]);
+
+    $records = EnrichExtensionTableRecordsAction::run([
+        [
+            'packageName' => 'capell-app/mosaic',
+            'label' => 'Layout Builder',
+        ],
+    ]);
+
+    expect($records[0])->toMatchArray([
+        'catalogueRole' => 'core',
+        'maturity' => 'stable',
+        'maturityLabel' => 'Released',
+        'includedWithCapellAll' => true,
+    ]);
 });
 
 it('notifies admins when marketplace account state blocks install controls', function (): void {

@@ -27,13 +27,13 @@ it('enables Livewire assets for pages with islands', function (): void {
     expect($method->invoke($component, $page))->toBeTrue();
 });
 
-it('enables Livewire assets for pages with a loaded type strategy', function (): void {
-    $type = Blueprint::factory()->make([
+it('enables Livewire assets for pages with a loaded blueprint strategy', function (): void {
+    $blueprint = Blueprint::factory()->make([
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::BladeWithIslands->value],
     ]);
     $page = Page::factory()
         ->make(['meta' => null])
-        ->setRelation('type', $type);
+        ->setRelation('blueprint', $blueprint);
 
     $component = new LivewirePage;
     $method = new ReflectionMethod($component, 'pageRecordRequiresLivewire');
@@ -41,14 +41,14 @@ it('enables Livewire assets for pages with a loaded type strategy', function ():
     expect($method->invoke($component, $page))->toBeTrue();
 });
 
-it('enables Livewire assets for loaded Livewire page types', function (): void {
-    $type = Blueprint::factory()->make([
+it('enables Livewire assets for loaded Livewire page blueprints', function (): void {
+    $blueprint = Blueprint::factory()->make([
         'is_livewire' => true,
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::BladeOnly->value],
     ]);
     $page = Page::factory()
         ->make(['meta' => null])
-        ->setRelation('type', $type);
+        ->setRelation('blueprint', $blueprint);
 
     $component = new LivewirePage;
     $method = new ReflectionMethod($component, 'pageRecordRequiresLivewire');
@@ -62,7 +62,7 @@ it('does not lazy load the page type while deciding Livewire assets', function (
     $component = new LivewirePage;
     $method = new ReflectionMethod($component, 'pageRecordRequiresLivewire');
 
-    expect($page->relationLoaded('type'))->toBeFalse()
+    expect($page->relationLoaded('blueprint'))->toBeFalse()
         ->and($method->invoke($component, $page))->toBeFalse()
-        ->and($page->relationLoaded('type'))->toBeFalse();
+        ->and($page->relationLoaded('blueprint'))->toBeFalse();
 });

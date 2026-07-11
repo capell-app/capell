@@ -135,14 +135,7 @@ final class ManifestLoader
      */
     private function discoverFromPathRepositories(array &$manifests): void
     {
-        $rootPackage = InstalledVersions::getRootPackage();
-        $rootInstallPath = InstalledVersions::getInstallPath($rootPackage['name']);
-
-        if ($rootInstallPath === null) {
-            return;
-        }
-
-        $rootRealPath = realpath($rootInstallPath);
+        $rootRealPath = $this->rootPackagePath();
 
         if ($rootRealPath === false) {
             return;
@@ -210,14 +203,7 @@ final class ManifestLoader
      */
     private function discoverFromMonorepoPackages(array &$manifests): void
     {
-        $rootPackage = InstalledVersions::getRootPackage();
-        $rootInstallPath = InstalledVersions::getInstallPath($rootPackage['name']);
-
-        if ($rootInstallPath === null) {
-            return;
-        }
-
-        $rootRealPath = realpath($rootInstallPath);
+        $rootRealPath = $this->rootPackagePath();
 
         if ($rootRealPath === false) {
             return;
@@ -246,6 +232,24 @@ final class ManifestLoader
 
             $manifests[$manifest->name] ??= $manifest;
         }
+    }
+
+    private function rootPackagePath(): string|false
+    {
+        $testbenchWorkingPath = defined('TESTBENCH_WORKING_PATH') ? constant('TESTBENCH_WORKING_PATH') : null;
+
+        if (is_string($testbenchWorkingPath)) {
+            return realpath($testbenchWorkingPath);
+        }
+
+        $rootPackage = InstalledVersions::getRootPackage();
+        $rootInstallPath = InstalledVersions::getInstallPath($rootPackage['name']);
+
+        if (is_string($rootInstallPath)) {
+            return realpath($rootInstallPath);
+        }
+
+        return false;
     }
 
     private function loadDiscoveredManifest(

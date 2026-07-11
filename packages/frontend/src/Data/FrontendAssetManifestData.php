@@ -75,7 +75,7 @@ class FrontendAssetManifestData extends Data
     {
         $assets = [];
 
-        foreach ($this->rawRequirements as $requirement) {
+        foreach ([...$this->rawRequirements, ...$this->lazy] as $requirement) {
             if (! $requirement instanceof FrontendAssetRequirementData) {
                 continue;
             }

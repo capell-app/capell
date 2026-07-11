@@ -204,7 +204,7 @@ final class SearchHeaderNavigationPagesAction
 
     private function resolveTypeIcon(Page $page): ?string
     {
-        $icon = $page->type?->admin['icon'] ?? null;
+        $icon = $page->blueprint?->admin['icon'] ?? null;
 
         if ($icon instanceof BackedEnum) {
             return (string) $icon->value;

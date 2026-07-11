@@ -114,7 +114,7 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
         }
 
         $query->whereHas(
-            'type',
+            'blueprint',
             function (BuilderContract $query) use ($systemPages): void {
                 PageResource::applyTypeAdminResourceConstraint(
                     $query,

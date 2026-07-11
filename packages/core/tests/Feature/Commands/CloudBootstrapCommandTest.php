@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Console\Commands\CloudBootstrapCommand;
 use Capell\Core\Models\Site;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -25,6 +26,30 @@ afterEach(function (): void {
             config()->set($configKey);
         }
     }
+});
+
+it('passes a securely created temporary site spec to install and removes it after failure', function (): void {
+    $specPath = null;
+    $specPermissions = null;
+    config()->set('capell.cloud.install_packages', '');
+    config()->set('capell.cloud.install_theme', 'default');
+    config()->set('capell.cloud.admin_user.email', 'admin@example.com');
+    $command = Mockery::mock(CloudBootstrapCommand::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $command->shouldReceive('call')->once()->with('capell:install', Mockery::on(function (array $arguments) use (&$specPath, &$specPermissions): bool {
+        $specPath = $arguments['--spec'] ?? null;
+        $specPermissions = is_string($specPath) ? fileperms($specPath) : false;
+
+        return is_string($specPath) && is_file($specPath) && json_decode((string) file_get_contents($specPath), true) === ['site' => ['name' => 'Acme']];
+    }))->andReturn(Command::FAILURE);
+
+    $method = new ReflectionMethod(CloudBootstrapCommand::class, 'installCapell');
+
+    expect(fn () => $method->invoke($command, 'https://acme.test', [
+        'name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'secret', '_site_spec' => ['site' => ['name' => 'Acme']],
+    ]))->toThrow(RuntimeException::class)
+        ->and($specPath)->toBeString()
+        ->and($specPermissions & 0777)->toBe(0600)
+        ->and(is_file((string) $specPath))->toBeFalse();
 });
 
 it('fails clearly when cloud registration configuration is missing', function (): void {

@@ -123,6 +123,7 @@ trait HasPackages
             installCommand: is_string($manifest->commands['install'] ?? null) ? $manifest->commands['install'] : null,
             installAction: $this->classStringFromManifest($manifest->actions['install'] ?? null),
             installParams: is_array($manifest->commands['installParams'] ?? null) ? array_values($manifest->commands['installParams']) : [],
+            uninstallAction: $this->classStringFromManifest($manifest->actions['uninstall'] ?? null),
             setupCommand: is_string($manifest->commands['setup'] ?? null) ? $manifest->commands['setup'] : null,
             setupAction: $this->classStringFromManifest($manifest->actions['setup'] ?? null),
             setupParams: is_array($manifest->commands['setupParams'] ?? null) ? array_values($manifest->commands['setupParams']) : [],

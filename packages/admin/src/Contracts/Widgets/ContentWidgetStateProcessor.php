@@ -9,8 +9,8 @@ interface ContentWidgetStateProcessor
     public const string TAG = 'capell-admin:content-widget-state-processors';
 
     /**
-     * @param  array<string, mixed>  $widget
-     * @return array<string, mixed>
+     * @param  array<int|string, mixed>  $widget
+     * @return array<int|string, mixed>
      */
     public function process(string $widgetKey, array $widget): array;
 }

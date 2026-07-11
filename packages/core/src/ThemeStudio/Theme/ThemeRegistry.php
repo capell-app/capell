@@ -84,6 +84,25 @@ class ThemeRegistry
         return $this->themeRenderers[$themeKey] ?? null;
     }
 
+    /**
+     * Resolve a renderer from the theme itself or its parent chain.
+     *
+     * Definition-only themes use Layout Builder for newly-authored pages, but
+     * an inherited renderer provides a lossless fallback for legacy pages that
+     * have not acquired containers yet. Callers must still give authored
+     * containers precedence over this compatibility path.
+     */
+    public function findRendererInChain(string $themeKey): ?ThemeRenderer
+    {
+        $definition = $this->definitions[$themeKey] ?? null;
+
+        if (! $definition instanceof ThemeDefinitionData) {
+            return null;
+        }
+
+        return $this->rendererInChain($definition, []);
+    }
+
     public function sectionRenderer(string $themeKey, string $sectionKey): ?SectionRenderer
     {
         $definition = $this->definitions[$themeKey] ?? throw ThemeNotFoundException::forKey($themeKey);
@@ -130,6 +149,33 @@ class ThemeRegistry
         return $this->sectionRendererInChain(
             definition: $parentDefinition,
             sectionKey: $sectionKey,
+            visitedThemeKeys: [...$visitedThemeKeys, $definition->key],
+        );
+    }
+
+    /**
+     * @param  list<string>  $visitedThemeKeys
+     */
+    private function rendererInChain(ThemeDefinitionData $definition, array $visitedThemeKeys): ?ThemeRenderer
+    {
+        if (in_array($definition->key, $visitedThemeKeys, true)) {
+            return null;
+        }
+
+        $renderer = $this->themeRenderers[$definition->key] ?? null;
+
+        if ($renderer instanceof ThemeRenderer || $definition->extends === null) {
+            return $renderer;
+        }
+
+        $parentDefinition = $this->definitions[$definition->extends] ?? null;
+
+        if (! $parentDefinition instanceof ThemeDefinitionData) {
+            return null;
+        }
+
+        return $this->rendererInChain(
+            definition: $parentDefinition,
             visitedThemeKeys: [...$visitedThemeKeys, $definition->key],
         );
     }
