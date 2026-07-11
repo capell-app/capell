@@ -5,10 +5,8 @@ declare(strict_types=1);
 use Capell\Core\ThemeStudio\Actions\ResolveThemeRuntimeAction;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenRenderer;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Facades\File;
@@ -90,21 +88,7 @@ it('returns fallback token css and exposes token issues for invalid runtime prof
                     previewImage: '/preset.jpg',
                 ),
             ],
-            includedSections: [],
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'test-theme';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     $runtime = ResolveThemeRuntimeAction::run(
@@ -151,21 +135,7 @@ it('continues resolving runtime data when theme token css cannot be written', fu
                     previewImage: '/preset.jpg',
                 ),
             ],
-            includedSections: [],
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'unwritable-token-theme';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     $runtime = ResolveThemeRuntimeAction::run(

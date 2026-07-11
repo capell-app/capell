@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Configurators\Themes;
 
+use Capell\Admin\Actions\Themes\ResolveThemeEditorSchemaAction;
 use Capell\Admin\Contracts\ConfiguratorInterface;
 use Capell\Admin\Contracts\ConfiguratorTypeEnumInterface;
 use Capell\Admin\Contracts\Extenders\ThemeSchemaExtender;
 use Capell\Admin\Data\Themes\ThemeEditorContextData;
+use Capell\Admin\Data\Themes\ThemeEditorGroupData;
+use Capell\Admin\Data\Themes\ThemeEditorTokenData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\SchemaExtenderEnum;
 use Capell\Admin\Filament\Components\Forms\DefaultToggle;
@@ -33,6 +36,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rule;
 
 class FoundationThemeConfigurator implements ConfiguratorInterface
 {
@@ -68,7 +72,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                             $this->quickSetupSection($schema),
                             $this->brandSection(),
                             $this->headerSection(),
-                            $this->surfaceSection(),
+                            ...$this->schemaDrivenSections($schema),
                             $this->footerSection(),
                             $this->assetsSection(),
                             $this->advancedSection($schema),
@@ -247,6 +251,52 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ])
                     ->live(),
             ]);
+    }
+
+    /** @return array<int, Section> */
+    protected function schemaDrivenSections(Schema $schema): array
+    {
+        $record = $this->schemaRecord($schema);
+
+        if (! $record instanceof Theme) {
+            return [];
+        }
+
+        $definition = $this->themeDefinition($record);
+
+        if (! $definition instanceof ThemeDefinitionData) {
+            return [$this->surfaceSection()];
+        }
+
+        $groups = resolve(ResolveThemeEditorSchemaAction::class)->handle($definition)->groups;
+
+        if ($groups === []) {
+            return [$this->surfaceSection()];
+        }
+
+        return collect($groups)
+            ->map(fn (ThemeEditorGroupData $group): Section => Section::make($group->label)
+                ->description(__('capell-admin::theme-editor.descriptions.schema_group'))
+                ->statePath('meta.editor.tokens')
+                ->columns(['@sm' => 2])
+                ->schema(collect($group->tokens)
+                    ->map(fn (ThemeEditorTokenData $token): Select => $this->tokenControl($token))
+                    ->all()))
+            ->all();
+    }
+
+    protected function tokenControl(ThemeEditorTokenData $token): Select
+    {
+        $options = $token->optionsByValue();
+
+        return Select::make($token->key)
+            ->label($token->label)
+            ->options($options)
+            ->placeholder(__('capell-admin::theme-editor.options.use_preset'))
+            ->rules([Rule::in(array_keys($options))])
+            ->dehydrated(fn (mixed $state): bool => filled($state))
+            ->live()
+            ->native(false);
     }
 
     protected function footerSection(): Section

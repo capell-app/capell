@@ -9,9 +9,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
@@ -42,22 +40,8 @@ it('renders public pages through the active theme runtime renderer', function ()
             tags: [],
             bestFit: [],
             presets: [],
-            includedSections: [],
             runtime: FrontendRuntime::Inertia,
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'nexus';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     app()->instance(FrontendContextReader::class, new readonly class($page, $site, $language, $theme) implements FrontendContextReader
@@ -260,22 +244,8 @@ it('returns a non-cacheable service unavailable response when no renderer is reg
             tags: [],
             bestFit: [],
             presets: [],
-            includedSections: [],
             runtime: FrontendRuntime::Inertia,
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'nexus';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     app()->instance(FrontendContextReader::class, new readonly class($page, $site, $language, $theme) implements FrontendContextReader

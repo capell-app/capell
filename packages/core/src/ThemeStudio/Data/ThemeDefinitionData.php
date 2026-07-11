@@ -27,11 +27,6 @@ class ThemeDefinitionData extends Data
         public array $tags,
         public array $bestFit,
         public array $presets,
-        /**
-         * @deprecated Vestige of the section-rendering pipeline. Themes
-         * rendering through x-capell::layout + layout-builder do not need
-         * this. Left in place for the 19 theme providers still populating it.
-         */
         public array $includedSections = [],
         public array $assets = [],
         public FrontendRuntime $runtime = FrontendRuntime::Livewire,

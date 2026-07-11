@@ -21,6 +21,7 @@ return [
         'footer' => 'Control the public footer component and default footer copy.',
         'assets' => 'List frontend assets and build output paths used by this theme.',
         'advanced' => 'Developer-facing presentation overrides and custom metadata.',
+        'schema_group' => 'Preset values are used by default. Choose a value here only when this theme needs an explicit override.',
     ],
     'fields' => [
         'primary_color' => 'Primary colour',
@@ -58,8 +59,22 @@ return [
         'mobile' => 'Mobile',
         'light' => 'Light',
         'dark' => 'Dark',
+        'use_preset' => 'Use preset default',
     ],
     'preview' => [
         'current' => ':device preview, :mode mode',
+    ],
+    'schema_labels' => [
+        'layout' => 'Layout',
+        'typography' => 'Typography',
+        'media' => 'Media',
+        'identity' => 'Identity',
+        'spacing' => 'Spacing',
+        'layout_presentation' => 'Layout presentation',
+        'card_style' => 'Card style',
+        'card_density' => 'Card density',
+        'heading_scale' => 'Heading scale',
+        'overlay_treatment' => 'Overlay treatment',
+        'glass_depth' => 'Glass depth',
     ],
 ];

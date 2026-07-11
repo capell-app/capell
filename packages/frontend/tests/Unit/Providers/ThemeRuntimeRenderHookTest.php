@@ -9,11 +9,9 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
@@ -31,6 +29,7 @@ it('uses editor active preset when rendering theme token css hook', function ():
         'meta' => [
             'editor' => [
                 'preset' => ['active' => 'launch'],
+                'tokens' => ['headingScale' => 'expressive'],
             ],
         ],
     ]);
@@ -40,7 +39,11 @@ it('uses editor active preset when rendering theme token css hook', function ():
 
         public function put(string $themeKey, string $presetKey, BrandProfileData $brand): string
         {
-            $this->calls[] = ['themeKey' => $themeKey, 'presetKey' => $presetKey];
+            $this->calls[] = [
+                'themeKey' => $themeKey,
+                'presetKey' => $presetKey,
+                'headingScale' => $brand->headingScale,
+            ];
 
             $path = storage_path('app/testing/' . $themeKey . '-' . $presetKey . '.css');
 
@@ -149,23 +152,10 @@ it('uses editor active preset when rendering theme token css hook', function ():
                     name: 'Launch',
                     description: 'Launch preset.',
                     previewImage: '/preset.jpg',
+                    values: ['headingScale' => 'compact'],
                 ),
             ],
-            includedSections: [],
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'hook-theme';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     $html = resolve(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeadClose);
@@ -174,6 +164,7 @@ it('uses editor active preset when rendering theme token css hook', function ():
         [
             'themeKey' => 'hook-theme',
             'presetKey' => 'launch',
+            'headingScale' => 'expressive',
         ],
     ])
         ->and($html)->toContain('<style data-capell-theme-tokens>')
