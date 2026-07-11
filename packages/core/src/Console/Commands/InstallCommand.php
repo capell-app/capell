@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\BuildSiteFromSpecFileAction;
-use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
-use Capell\Core\Actions\Install\PreflightExtraPackagesAction;
-use Capell\Core\Actions\Install\RunInstallAction;
+use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
+use Capell\Core\Contracts\InstallOrchestrationHost;
+use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\Install\ThemeInstallOptionData;
@@ -56,7 +57,7 @@ use Spatie\LaravelPackageTools\Commands\Concerns\AskToStarRepoOnGitHub;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 use Throwable;
 
-class InstallCommand extends Command
+class InstallCommand extends Command implements InstallOrchestrationHost
 {
     use AskToStarRepoOnGitHub;
     use DescribesCommandOptions;
@@ -104,6 +105,8 @@ class InstallCommand extends Command
     private array $manualInstallChanges = [];
 
     private ?InstallProfileData $installProfile = null;
+
+    private bool $orchestratedSeedDefaultData = true;
 
     public function handle(): int
     {
@@ -300,7 +303,7 @@ class InstallCommand extends Command
                 extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
             );
 
-            $this->outputInstallPlan($inputData);
+            $this->outputPlan($inputData);
             $this->logInstallDebug('finished plan-only command');
 
             return CommandAlias::SUCCESS;
@@ -371,60 +374,189 @@ class InstallCommand extends Command
             extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
         );
 
+        $this->orchestratedSeedDefaultData = $seedDefaultData;
         try {
-            PreflightExtraPackagesAction::run($inputData->extraPackages, $reporter);
+            $this->logInstallDebug('running install orchestration');
+            OrchestrateInstallAction::run(
+                $inputData,
+                new InstallOrchestrationData(
+                    outputPlan: ! $this->input->isInteractive(),
+                    runNpmBuild: $runNpmBuild,
+                    removeInstaller: $removeInstallerPackage,
+                    cachesToClear: $this->resolveCachesToClear($clearCache, $freshInstall),
+                ),
+                $reporter,
+                $this,
+            );
+            $this->logInstallDebug('install orchestration finished');
         } catch (Throwable $throwable) {
             $this->renderInstallFailure($throwable);
 
             return CommandAlias::FAILURE;
         }
 
-        $this->ensureApplicationSupportsSelectedPackages($inputData, $reporter);
-        $this->logInstallDebug('application support checks passed');
+        $this->logInstallDebug('finished command');
 
-        if (! $this->input->isInteractive()) {
-            $this->outputInstallPlan($inputData);
-        }
+        return CommandAlias::SUCCESS;
+    }
+
+    public function outputPlan(InstallInputData $inputData): void
+    {
+        $steps = InstallPlan::steps($inputData);
+
+        $this->newLine();
+        $this->line('<fg=blue;options=bold>Capell Install Plan</>');
+        $this->newLine();
+
+        $steps->each(function (InstallStepData $step, int $index): void {
+            $this->line(sprintf('%d. %s', $index + 1, $step->label));
+        });
+
+        $this->newLine();
+    }
+
+    public function buildFrontendAssets(): void
+    {
+        $this->line('Running: npm run build');
 
         try {
-            $this->logInstallDebug('running install action');
-            RunInstallAction::run($inputData, $reporter);
-            $this->logInstallDebug('install action finished');
-        } catch (Throwable $throwable) {
-            $this->renderInstallFailure($throwable);
+            RunNpmBuildAction::run();
+            $this->info('Production build completed successfully.');
+        } catch (RuntimeException $runtimeException) {
+            $this->error('npm build failed.');
+            $this->line($runtimeException->getMessage());
+        }
+    }
 
-            return CommandAlias::FAILURE;
+    public function removeInstaller(): void
+    {
+        try {
+            RemovePackageAction::run($this->installerPackageName());
+            $this->info('Capell installer package removed successfully.');
+        } catch (RuntimeException $runtimeException) {
+            $this->error('Unable to remove the Capell installer package.');
+            $this->line($runtimeException->getMessage());
+        }
+    }
+
+    public function prepareApplication(InstallInputData $inputData, ProgressReporter $reporter): void
+    {
+        $patches = [];
+        $userModelPatchClass = UserModelPatch::class;
+        $adminPanelThemePatchClass = AdminPanelThemePatch::class;
+        $selectedPackageNames = array_values(array_unique([
+            ...$inputData->packages,
+            ...$inputData->extraPackages,
+        ]));
+
+        if (in_array('capell-app/admin', $selectedPackageNames, true)
+            && class_exists($userModelPatchClass)
+        ) {
+            $patches[] = new $userModelPatchClass;
         }
 
-        if ($this->getApplication()?->has('filament:upgrade')) {
-            $this->logInstallDebug('running filament upgrade');
-            $this->callSilent('filament:upgrade');
-            $this->logInstallDebug('filament upgrade finished');
+        if (in_array('capell-app/admin', $selectedPackageNames, true)
+            && $this->hasFilamentAdminPanelProvider()
+            && class_exists($adminPanelThemePatchClass)
+        ) {
+            $patches[] = new $adminPanelThemePatchClass;
         }
 
-        $this->logInstallDebug('running npm build decision');
-        $this->runNpmBuildIfRequested($runNpmBuild);
+        foreach ($patches as $patch) {
+            $status = $patch->probe();
+            $statusValue = $status->value;
 
-        $this->logInstallDebug('running installer removal decision');
-        $this->removeInstallerPackageIfRequested($removeInstallerPackage);
+            if ($statusValue === 'already_applied') {
+                continue;
+            }
 
-        $this->logInstallDebug('clearing caches');
-        ClearCachesAction::run($this->resolveCachesToClear($clearCache, $freshInstall), $reporter);
-        $this->logInstallDebug('cache clearing finished');
+            if ($statusValue !== 'applicable') {
+                $this->recordManualInstallChange(sprintf(
+                    '%s: patch status is "%s".',
+                    $patch->label(),
+                    $statusValue,
+                ));
 
-        $this->reportManualInstallChanges();
+                $reporter->error(sprintf(
+                    '⚠ %s was not applied automatically. Manual changes may be required.',
+                    $patch->label(),
+                ));
 
+                continue;
+            }
+
+            if ($patch instanceof $adminPanelThemePatchClass
+                && $this->input->isInteractive()
+                && ! $this->shouldUseFreshDemoDefaults()
+                && ! confirm(
+                    label: 'Add the Capell Filament Vite theme to AdminPanelProvider?',
+                    default: true,
+                    hint: 'Skipped automatically when a custom Filament theme is already configured.',
+                )
+            ) {
+                $reporter->report('→ Skipped Filament Vite theme registration.');
+
+                continue;
+            }
+
+            $reporter->step('Applying install guide patch: ' . $patch->label());
+
+            try {
+                $patch->apply();
+            } catch (Throwable $throwable) {
+                $this->recordManualInstallChange(sprintf(
+                    '%s: %s',
+                    $patch->label(),
+                    $throwable->getMessage(),
+                ));
+
+                $reporter->error(sprintf(
+                    '⚠ %s was not applied automatically. Manual changes may be required.',
+                    $patch->label(),
+                ));
+                $reporter->error($throwable->getMessage());
+            }
+        }
+    }
+
+    public function reportManualChanges(): void
+    {
+        $changes = array_values(array_unique($this->manualInstallChanges));
+
+        if ($changes === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->warn('Manual install changes required');
+
+        foreach ($changes as $change) {
+            $this->line('- ' . $change);
+        }
+
+        $this->line('Review the install-time write permissions and manual patch list: ' . self::INSTALL_PERMISSIONS_DOC_URL);
+    }
+
+    public function upgradeFilament(): void
+    {
+        if (! $this->getApplication()?->has('filament:upgrade')) {
+            return;
+        }
+
+        $this->logInstallDebug('running filament upgrade');
+        $this->callSilent('filament:upgrade');
+        $this->logInstallDebug('filament upgrade finished');
+    }
+
+    public function finalizeInstall(): void
+    {
         if ($this->input->isInteractive() && ! $this->shouldUseFreshDemoDefaults()) {
             $this->logInstallDebug('prompting for github star');
             $this->askToStarRepoOnGitHub('capell-app/capell');
             $this->processStarRepo();
         }
 
-        $this->announceInstallSpec($seedDefaultData);
-
-        $this->logInstallDebug('finished command');
-
-        return CommandAlias::SUCCESS;
+        $this->announceInstallSpec($this->orchestratedSeedDefaultData);
     }
 
     protected function shouldInstallAllPackages(): bool
@@ -851,38 +983,6 @@ class InstallCommand extends Command
         return confirm('Would you like to run an npm build after this command completes?', default: true);
     }
 
-    private function outputInstallPlan(InstallInputData $inputData): void
-    {
-        $steps = InstallPlan::steps($inputData);
-
-        $this->newLine();
-        $this->line('<fg=blue;options=bold>Capell Install Plan</>');
-        $this->newLine();
-
-        $steps->each(function (InstallStepData $step, int $index): void {
-            $this->line(sprintf('%d. %s', $index + 1, $step->label));
-        });
-
-        $this->newLine();
-    }
-
-    private function runNpmBuildIfRequested(bool $runNpmBuild): void
-    {
-        if (! $runNpmBuild) {
-            return;
-        }
-
-        $this->line('Running: npm run build');
-
-        try {
-            RunNpmBuildAction::run();
-            $this->info('Production build completed successfully.');
-        } catch (RuntimeException $runtimeException) {
-            $this->error('npm build failed.');
-            $this->line($runtimeException->getMessage());
-        }
-    }
-
     private function shouldRemoveInstallerPackage(): bool
     {
         if (! CapellCore::hasPackage($this->installerPackageName())) {
@@ -901,21 +1001,6 @@ class InstallCommand extends Command
             label: 'Delete the installer after installing?',
             hint: 'You can download again by composer require `capell-app/installer`',
         );
-    }
-
-    private function removeInstallerPackageIfRequested(bool $removeInstallerPackage): void
-    {
-        if (! $removeInstallerPackage) {
-            return;
-        }
-
-        try {
-            RemovePackageAction::run($this->installerPackageName());
-            $this->info('Capell installer package removed successfully.');
-        } catch (RuntimeException $runtimeException) {
-            $this->error('Unable to remove the Capell installer package.');
-            $this->line($runtimeException->getMessage());
-        }
     }
 
     private function shouldInstallWelcomeRoute(bool $hasFrontend): bool
@@ -1330,107 +1415,9 @@ class InstallCommand extends Command
         return [resolve(InstallInputFactory::class)->exampleRoleUsers($password), null];
     }
 
-    private function ensureApplicationSupportsSelectedPackages(InstallInputData $inputData, ConsoleProgressReporter $reporter): void
-    {
-        $patches = [];
-        $userModelPatchClass = UserModelPatch::class;
-        $adminPanelThemePatchClass = AdminPanelThemePatch::class;
-        $selectedPackageNames = array_values(array_unique([
-            ...$inputData->packages,
-            ...$inputData->extraPackages,
-        ]));
-
-        if (in_array('capell-app/admin', $selectedPackageNames, true)
-            && class_exists($userModelPatchClass)
-        ) {
-            $patches[] = new $userModelPatchClass;
-        }
-
-        if (in_array('capell-app/admin', $selectedPackageNames, true)
-            && $this->hasFilamentAdminPanelProvider()
-            && class_exists($adminPanelThemePatchClass)
-        ) {
-            $patches[] = new $adminPanelThemePatchClass;
-        }
-
-        foreach ($patches as $patch) {
-            $status = $patch->probe();
-            $statusValue = $status->value;
-
-            if ($statusValue === 'already_applied') {
-                continue;
-            }
-
-            if ($statusValue !== 'applicable') {
-                $this->recordManualInstallChange(sprintf(
-                    '%s: patch status is "%s".',
-                    $patch->label(),
-                    $statusValue,
-                ));
-
-                $reporter->error(sprintf(
-                    '⚠ %s was not applied automatically. Manual changes may be required.',
-                    $patch->label(),
-                ));
-
-                continue;
-            }
-
-            if ($patch instanceof $adminPanelThemePatchClass
-                && $this->input->isInteractive()
-                && ! $this->shouldUseFreshDemoDefaults()
-                && ! confirm(
-                    label: 'Add the Capell Filament Vite theme to AdminPanelProvider?',
-                    default: true,
-                    hint: 'Skipped automatically when a custom Filament theme is already configured.',
-                )
-            ) {
-                $reporter->report('→ Skipped Filament Vite theme registration.');
-
-                continue;
-            }
-
-            $reporter->step('Applying install guide patch: ' . $patch->label());
-
-            try {
-                $patch->apply();
-            } catch (Throwable $throwable) {
-                $this->recordManualInstallChange(sprintf(
-                    '%s: %s',
-                    $patch->label(),
-                    $throwable->getMessage(),
-                ));
-
-                $reporter->error(sprintf(
-                    '⚠ %s was not applied automatically. Manual changes may be required.',
-                    $patch->label(),
-                ));
-                $reporter->error($throwable->getMessage());
-            }
-        }
-    }
-
     private function recordManualInstallChange(string $message): void
     {
         $this->manualInstallChanges[] = $message;
-    }
-
-    private function reportManualInstallChanges(): void
-    {
-        $changes = array_values(array_unique($this->manualInstallChanges));
-
-        if ($changes === []) {
-            return;
-        }
-
-        $this->newLine();
-        $this->warn('Manual install changes required');
-
-        foreach ($changes as $change) {
-            $this->line('- ' . $change);
-        }
-
-        $this->line('Review the install-time write permissions and manual patch list: ' . self::INSTALL_PERMISSIONS_DOC_URL);
     }
 
     /**
