@@ -5,21 +5,22 @@ const { execFileSync } = require('child_process')
 
 const root = path.resolve(__dirname, '../..')
 const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capell-core-art-'))
+const environmentRasterPath = path.join(temporaryRoot, 'core-engraving.jpg')
 
 const palette = {
-    paper: '#f7f0e3',
+    paper: '#f5eddf',
     paperLight: '#fffaf0',
     navy: '#10233f',
     navyDeep: '#07172d',
-    line: '#b8ad9a',
-    muted: '#6e716f',
-    amber: '#e3a338',
-    blue: '#3b82c4',
-    emerald: '#2f8f78',
+    amber: '#e6af50',
+    blue: '#9bc8df',
+    emerald: '#94c9ae',
+    coral: '#df9f91',
     white: '#ffffff',
 }
 
 const inputs = {
+    environment: 'artwork/foundation-series/backgrounds/core-engraving.jpg',
     logo: 'artwork/foundation-series/capell-logo.svg',
     pageStructure:
         'packages/core/docs/images/screenshots/core-page-structure.png',
@@ -42,136 +43,189 @@ function assetData(relativePath) {
         .toString('base64')}`
 }
 
+execFileSync('magick', [
+    path.join(root, inputs.environment),
+    '-resize',
+    '3200x1400^',
+    '-gravity',
+    'center',
+    '-extent',
+    '3200x1400',
+    '-quality',
+    '86',
+    environmentRasterPath,
+])
+
+const environmentData = `data:image/jpeg;base64,${fs
+    .readFileSync(environmentRasterPath)
+    .toString('base64')}`
+
 function definitions(prefix) {
     return `<defs>
-    <pattern id="${prefix}-grid" width="36" height="36" patternUnits="userSpaceOnUse">
-      <path d="M36 0H0V36" fill="none" stroke="${palette.line}" stroke-width="1" opacity=".32"/>
-      <circle cx="4" cy="4" r="1.3" fill="${palette.navy}" opacity=".2"/>
-    </pattern>
     <filter id="${prefix}-shadow" x="-30%" y="-30%" width="160%" height="180%">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="${palette.navyDeep}" flood-opacity=".2"/>
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="${palette.navyDeep}" flood-opacity=".2"/>
     </filter>
-    <clipPath id="${prefix}-page-clip"><rect x="0" y="0" width="1000" height="520" rx="8"/></clipPath>
-    <clipPath id="${prefix}-settings-clip"><rect x="0" y="0" width="650" height="320" rx="8"/></clipPath>
+    <linearGradient id="${prefix}-wash" x1="0" x2="1">
+      <stop offset="0" stop-color="${palette.paper}" stop-opacity=".98"/>
+      <stop offset=".38" stop-color="${palette.paper}" stop-opacity=".58"/>
+      <stop offset=".72" stop-color="${palette.paper}" stop-opacity=".08"/>
+    </linearGradient>
   </defs>`
 }
 
-function paper(width, height, prefix) {
+function environment(width, height, prefix, position = 'xMidYMid slice') {
     return `<rect width="${width}" height="${height}" fill="${palette.paper}"/>
-  <rect width="${width}" height="${height}" fill="url(#${prefix}-grid)"/>
-  <path d="M0 ${height * 0.8}C${width * 0.24} ${height * 0.72} ${width * 0.42} ${height * 0.9} ${width} ${height * 0.7}V${height}H0Z" fill="${palette.amber}" opacity=".06"/>`
+  <image href="${environmentData}" width="${width}" height="${height}" preserveAspectRatio="${position}"/>
+  <rect width="${width}" height="${height}" fill="url(#${prefix}-wash)" opacity=".18"/>`
 }
 
-function logo(x, y, width) {
-    return `<image href="${assetData(inputs.logo)}" x="${x}" y="${y}" width="${width}" preserveAspectRatio="xMinYMin meet"/>`
-}
-
-function screenFrame({ x, y, width, height, source, clipId, label, accent }) {
-    return `<g transform="translate(${x} ${y})" filter="url(#hero-shadow)">
-    <rect x="-16" y="-16" width="${width + 32}" height="${height + 58}" rx="12" fill="${palette.navyDeep}"/>
-    <circle cx="12" cy="${height + 20}" r="6" fill="${accent}"/>
-    <text x="30" y="${height + 26}" fill="${palette.white}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">${label.toUpperCase()}</text>
-    <g clip-path="url(#${clipId})">
-      <image href="${assetData(source)}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/>
-    </g>
-  </g>`
-}
-
-function foundationLayer(x, y, width, label, index) {
-    const offset = index * 9
-    const accent = [palette.amber, palette.blue, palette.emerald][index % 3]
-
-    return `<g transform="translate(${x + offset} ${y})">
-    <path d="M0 0H${width}L${width - 48} 58H48Z" fill="${index % 2 === 0 ? palette.navy : palette.navyDeep}" stroke="${palette.paper}" stroke-width="2"/>
-    <rect x="56" y="17" width="13" height="13" fill="${accent}"/>
-    <text x="86" y="31" fill="${palette.white}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="1.5">${label.toUpperCase()}</text>
-    <path d="M${width - 150} 18h54l18 18h-90z" fill="none" stroke="${accent}" stroke-width="4"/>
+function lockup(x, y, logoWidth, coreX, coreSize) {
+    return `<g aria-label="Capell Core">
+    <image href="${assetData(inputs.logo)}" x="${x}" y="${y}" width="${logoWidth}" preserveAspectRatio="xMinYMin meet"/>
+    <text x="${coreX}" y="${y + coreSize * 0.77}" fill="${palette.navy}" font-family="Cormorant Garamond, Didot, Georgia, serif" font-size="${coreSize}" font-weight="300" letter-spacing="${coreSize * 0.035}">CORE</text>
   </g>`
 }
 
 function station(index, label, x, y, color, compact = false) {
-    const box = compact ? 34 : 48
-    const fontSize = compact ? 15 : 20
+    const size = compact ? 28 : 40
+    const fontSize = compact ? 13 : 17
 
     return `<g transform="translate(${x} ${y})">
-    <rect width="${box}" height="${box}" rx="4" fill="${color}" stroke="${palette.navy}" stroke-width="3"/>
-    <text x="${box / 2}" y="${compact ? 23 : 32}" text-anchor="middle" fill="${palette.white}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="${fontSize}" font-weight="800">${index}</text>
-    <text x="${box + 14}" y="${compact ? 23 : 32}" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="${fontSize}" font-weight="800" letter-spacing="1">${label.toUpperCase()}</text>
+    <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" stroke="${palette.navy}" stroke-width="2.5"/>
+    <text x="${size / 2}" y="${size * 0.68}" text-anchor="middle" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="${fontSize}" font-weight="800">${index}</text>
+    <text x="${size + 12}" y="${size * 0.67}" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="${fontSize}" font-weight="700" letter-spacing="1.2">${label.toUpperCase()}</text>
   </g>`
 }
 
-function machine(x, y, scale = 1) {
-    return `<g transform="translate(${x} ${y}) scale(${scale})">
-    <rect x="0" y="22" width="104" height="72" rx="4" fill="${palette.paperLight}" stroke="${palette.navy}" stroke-width="5"/>
-    <circle cx="35" cy="57" r="17" fill="none" stroke="${palette.blue}" stroke-width="7"/>
-    <path d="M73 43h18M73 58h18M73 73h18" stroke="${palette.navy}" stroke-width="5"/>
-    <path d="M18 22V0h68v22M22 94v18M82 94v18" fill="none" stroke="${palette.navy}" stroke-width="5"/>
+function wireframePageStructure(x, y, width, height, prefix = 'page') {
+    const rowWidth = width - 92
+    const rows = [0, 18, 38, 18, 38, 58]
+        .map((indent, index) => {
+            const rowY = 70 + index * 43
+            const color = [
+                palette.blue,
+                palette.emerald,
+                palette.amber,
+                palette.coral,
+            ][index % 4]
+            return `<g transform="translate(${54 + indent} ${rowY})">
+        <circle cx="10" cy="13" r="7" fill="${color}" stroke="${palette.navy}" stroke-width="2"/>
+        <rect x="28" y="4" width="${Math.max(80, rowWidth - indent - index * 24)}" height="18" rx="9" fill="${color}" opacity=".82"/>
+        <rect x="${rowWidth - 12}" y="7" width="28" height="12" rx="6" fill="none" stroke="${palette.navy}" stroke-width="2"/>
+      </g>`
+        })
+        .join('')
+
+    return `<g transform="translate(${x} ${y})" filter="url(#${prefix}-shadow)">
+    <rect width="${width}" height="${height}" rx="16" fill="${palette.paperLight}" fill-opacity=".94" stroke="${palette.navy}" stroke-width="5"/>
+    <rect width="42" height="${height}" rx="12" fill="${palette.navy}"/>
+    <circle cx="21" cy="25" r="7" fill="${palette.amber}"/>
+    <circle cx="21" cy="52" r="7" fill="${palette.blue}"/>
+    <circle cx="21" cy="79" r="7" fill="${palette.emerald}"/>
+    <rect x="65" y="25" width="${width * 0.32}" height="16" rx="8" fill="${palette.navy}" opacity=".86"/>
+    <rect x="${width - 104}" y="20" width="70" height="26" rx="13" fill="${palette.amber}" stroke="${palette.navy}" stroke-width="2"/>
+    <path d="M70 90V${height - 38}M90 133V${height - 38}M110 176V${height - 38}" stroke="${palette.navy}" stroke-width="2" opacity=".3"/>
+    ${rows}
+  </g>`
+}
+
+function wireframeSettings(x, y, width, height, prefix = 'settings') {
+    const controlRows = [0, 1, 2, 3]
+        .map((index) => {
+            const rowY = 62 + index * 54
+            const color = [
+                palette.emerald,
+                palette.blue,
+                palette.coral,
+                palette.amber,
+            ][index]
+            return `<g transform="translate(118 ${rowY})">
+        <rect width="${width - 150}" height="38" rx="8" fill="none" stroke="${palette.navy}" stroke-width="2" opacity=".55"/>
+        <rect x="14" y="12" width="${90 + index * 22}" height="14" rx="7" fill="${color}"/>
+        <circle cx="${width - 176}" cy="19" r="8" fill="${color}" stroke="${palette.navy}" stroke-width="2"/>
+      </g>`
+        })
+        .join('')
+
+    return `<g transform="translate(${x} ${y})" filter="url(#${prefix}-shadow)">
+    <rect width="${width}" height="${height}" rx="16" fill="${palette.paperLight}" fill-opacity=".94" stroke="${palette.navy}" stroke-width="5"/>
+    <rect width="92" height="${height}" rx="12" fill="${palette.navy}"/>
+    <rect x="18" y="25" width="52" height="10" rx="5" fill="${palette.blue}"/>
+    <rect x="18" y="55" width="42" height="10" rx="5" fill="${palette.emerald}"/>
+    <rect x="18" y="85" width="58" height="10" rx="5" fill="${palette.coral}"/>
+    <rect x="118" y="24" width="${width * 0.34}" height="16" rx="8" fill="${palette.navy}" opacity=".86"/>
+    ${controlRows}
+  </g>`
+}
+
+function layerRail(x, y, width) {
+    const layers = [
+        'Site',
+        'Language',
+        'Page',
+        'URL',
+        'Settings',
+        'Theme',
+        'Extension',
+    ]
+    return `<g transform="translate(${x} ${y})">
+    <path d="M0 0H${width}" stroke="${palette.navy}" stroke-width="5"/>
+    ${layers
+        .map((label, index) => {
+            const layerX = (width / (layers.length - 1)) * index
+            const color = [
+                palette.amber,
+                palette.blue,
+                palette.emerald,
+                palette.coral,
+            ][index % 4]
+            return `<g transform="translate(${layerX})">
+        <circle r="9" fill="${color}" stroke="${palette.navy}" stroke-width="3"/>
+        <text x="0" y="35" text-anchor="middle" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="15" font-weight="800" letter-spacing=".8">${label.toUpperCase()}</text>
+      </g>`
+        })
+        .join('')}
   </g>`
 }
 
 function heroSvg() {
-    const layers = [
-        'Extension',
-        'Theme',
-        'Settings',
-        'URL',
-        'Page',
-        'Language',
-        'Site',
-    ]
-
     return `<svg xmlns="http://www.w3.org/2000/svg" width="2880" height="960" viewBox="0 0 2880 960">
   <title>Capell Core — The structure beneath every site</title>
   ${definitions('hero')}
-  ${paper(2880, 960, 'hero')}
-  ${logo(110, 82, 440)}
-  <text x="110" y="430" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="132" font-weight="900" letter-spacing="10">CORE</text>
-  <text x="116" y="500" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="34" font-weight="600">The structure beneath every site</text>
-  <path d="M116 554H900" stroke="${palette.navy}" stroke-width="6"/>
-  ${station(1, 'Define', 116, 590, palette.amber)}
-  ${station(2, 'Connect', 390, 590, palette.blue)}
-  ${station(3, 'Resolve', 686, 590, palette.emerald)}
-  ${station(4, 'Extend', 116, 678, palette.amber)}
-  <text x="118" y="810" fill="${palette.muted}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="17" font-weight="700" letter-spacing="3">CAPELL FOUNDATION / STRUCTURAL SYSTEM 04</text>
-  <path d="M1060 680H2670" fill="none" stroke="${palette.navy}" stroke-width="8"/>
-  <path d="M1110 680V610H1470V680M2130 680V590H2540V680" fill="none" stroke="${palette.blue}" stroke-width="7"/>
-  <path d="M1470 610h660" stroke="${palette.amber}" stroke-width="7" stroke-dasharray="18 12"/>
-  <path d="m2106 590 26 20-26 20" fill="none" stroke="${palette.amber}" stroke-width="7"/>
-  ${layers.map((label, index) => foundationLayer(1060, 706 + index * 34, 1610 - index * 62, label, index)).join('\n  ')}
-  ${screenFrame({ x: 1190, y: 92, width: 1000, height: 520, source: inputs.pageStructure, clipId: 'hero-page-clip', label: 'Page hierarchy / operational window', accent: palette.amber })}
-  ${screenFrame({ x: 2120, y: 320, width: 650, height: 320, source: inputs.settings, clipId: 'hero-settings-clip', label: 'Settings / configuration', accent: palette.emerald })}
-  ${machine(1000, 540, 0.72)}
-  ${machine(2580, 652, 0.58)}
-  <path d="M1090 510V252H1162" fill="none" stroke="${palette.navy}" stroke-width="4"/>
-  <circle cx="1090" cy="510" r="10" fill="${palette.amber}" stroke="${palette.navy}" stroke-width="4"/>
-  <text x="1066" y="228" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="16" font-weight="800" letter-spacing="2">STRUCTURE IN VIEW</text>
+  ${environment(2880, 960, 'hero')}
+  <rect x="72" y="62" width="935" height="820" rx="24" fill="${palette.paper}" fill-opacity=".88" stroke="${palette.navy}" stroke-width="3"/>
+  ${lockup(112, 104, 424, 554, 118)}
+  <text x="116" y="338" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="34" font-weight="600">The structure beneath every site</text>
+  <path d="M116 386H910" stroke="${palette.navy}" stroke-width="4"/>
+  ${station(1, 'Define', 116, 430, palette.amber)}
+  ${station(2, 'Connect', 350, 430, palette.blue)}
+  ${station(3, 'Resolve', 604, 430, palette.emerald)}
+  ${station(4, 'Extend', 116, 506, palette.coral)}
+  ${layerRail(140, 686, 730)}
+  <path d="M910 574C1080 574 1040 474 1170 474" fill="none" stroke="${palette.amber}" stroke-width="8" stroke-dasharray="18 14"/>
+  <path d="m1145 450 30 24-30 24" fill="none" stroke="${palette.amber}" stroke-width="8"/>
+  ${wireframePageStructure(1120, 120, 980, 360, 'hero')}
+  ${wireframeSettings(2160, 246, 620, 300, 'hero')}
+  <path d="M1390 510V650H2430V570" fill="none" stroke="${palette.blue}" stroke-width="7"/>
+  <circle cx="1390" cy="510" r="10" fill="${palette.blue}" stroke="${palette.navy}" stroke-width="3"/>
+  <circle cx="2430" cy="570" r="10" fill="${palette.emerald}" stroke="${palette.navy}" stroke-width="3"/>
 </svg>`
 }
 
 function cardSvg() {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-  <title>Capell Core architectural foundation cutaway</title>
+  <title>Capell Core architectural engraving</title>
   ${definitions('card')}
-  ${paper(800, 500, 'card')}
-  ${logo(38, 28, 196)}
-  <text x="42" y="182" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="64" font-weight="900" letter-spacing="6">CORE</text>
-  <text x="44" y="215" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="15" font-weight="700">The structure beneath every site</text>
-  <g transform="translate(318 42)" filter="url(#card-shadow)">
-    <rect x="-10" y="-10" width="450" height="230" rx="8" fill="${palette.navyDeep}"/>
-    <image href="${assetData(inputs.pageStructure)}" width="430" height="190" preserveAspectRatio="xMidYMid slice"/>
-    <rect y="190" width="430" height="30" fill="${palette.navyDeep}"/>
-    <circle cx="18" cy="205" r="5" fill="${palette.amber}"/>
-    <text x="31" y="211" fill="${palette.white}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5">PAGE HIERARCHY</text>
-  </g>
-  <path d="M40 304H758" stroke="${palette.navy}" stroke-width="5"/>
-  ${station(1, 'Define', 42, 274, palette.amber, true)}
-  ${station(2, 'Resolve', 252, 274, palette.blue, true)}
-  ${station(3, 'Extend', 476, 274, palette.emerald, true)}
-  ${foundationLayer(66, 344, 650, 'Extension', 0)}
-  ${foundationLayer(74, 382, 600, 'Theme / Settings', 1)}
-  ${foundationLayer(82, 420, 550, 'Page / URL', 2)}
-  ${foundationLayer(90, 458, 500, 'Site / Language', 3)}
-  ${machine(642, 394, 0.68)}
+  ${environment(800, 500, 'card', 'xMidYMid slice')}
+  <rect x="22" y="22" width="756" height="456" rx="14" fill="${palette.paper}" fill-opacity=".56" stroke="${palette.navy}" stroke-width="2"/>
+  ${lockup(42, 38, 162, 211, 45)}
+  <text x="44" y="137" fill="${palette.navy}" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="15" font-weight="700">The structure beneath every site</text>
+  ${wireframePageStructure(365, 42, 379, 214, 'card')}
+  <path d="M44 286H744" stroke="${palette.navy}" stroke-width="4"/>
+  ${station(1, 'Define', 44, 266, palette.amber, true)}
+  ${station(2, 'Resolve', 250, 266, palette.blue, true)}
+  ${station(3, 'Extend', 470, 266, palette.emerald, true)}
+  ${layerRail(82, 392, 630)}
 </svg>`
 }
 
@@ -211,4 +265,4 @@ render(cardSvg(), 'core-card', 800, 500, outputs.card)
 
 fs.rmSync(temporaryRoot, { recursive: true, force: true })
 
-console.log('Rendered Capell Core hero and marketplace card.')
+console.log('Rendered Capell Core engraving hero and marketplace card.')

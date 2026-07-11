@@ -50,6 +50,7 @@ for (const requiredText of [
 }
 
 const requiredInputs = [
+    'artwork/foundation-series/backgrounds/core-engraving.jpg',
     'artwork/foundation-series/capell-logo.svg',
     'packages/core/docs/images/screenshots/core-page-structure.png',
     'packages/core/docs/images/screenshots/core-settings-backed-configuration-dark.png',
@@ -63,4 +64,26 @@ for (const relativePath of requiredInputs) {
     }
 }
 
-console.log('Core artwork contract passed.')
+for (const requiredSource of [
+    'wireframePageStructure',
+    'wireframeSettings',
+    'Cormorant Garamond, Didot, Georgia, serif',
+    'inputs.environment',
+]) {
+    if (!renderer.includes(requiredSource)) {
+        throw new Error(`Renderer is missing revised source: ${requiredSource}`)
+    }
+}
+
+for (const forbiddenEmbedding of [
+    'assetData(inputs.pageStructure)',
+    'assetData(inputs.settings)',
+]) {
+    if (renderer.includes(forbiddenEmbedding)) {
+        throw new Error(
+            `Renderer embeds a full screenshot: ${forbiddenEmbedding}`,
+        )
+    }
+}
+
+console.log('Core engraving artwork contract passed.')
