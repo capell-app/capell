@@ -16,6 +16,10 @@ it('keeps every core split pull request forwarding workflow aligned with the cor
 
     expect($matrixMatchCount)->toBe(1);
 
+    if (! isset($matrixMatches['packages'])) {
+        throw new RuntimeException('The split workflow package matrix could not be read.');
+    }
+
     $packageMatchCount = preg_match_all(
         '/^\s+- (?<package>[a-z0-9-]+)$/m',
         $matrixMatches['packages'],

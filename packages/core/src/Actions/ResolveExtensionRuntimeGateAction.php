@@ -66,7 +66,7 @@ final class ResolveExtensionRuntimeGateAction
     }
 
     /**
-     * @param  array<string, mixed>  $signedActivation
+     * @param  array<string, mixed>  $signedReceipt
      */
     private function hasRequiredReceiptShape(CapellExtension $extension, array $signedReceipt): bool
     {
