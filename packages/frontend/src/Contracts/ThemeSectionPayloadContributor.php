@@ -9,7 +9,7 @@ use Capell\Core\ThemeStudio\Contracts\ThemeSection;
 /**
  * Extends the server-side theme payload before any Blade renderer receives it.
  *
- * @internal Extension point for optional theme packages.
+ * Extension point for optional theme packages.
  */
 interface ThemeSectionPayloadContributor
 {
