@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
+use Capell\Core\Octane\Resettable;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Filesystem\Filesystem;
 
-final class LockdownStore
+final class LockdownStore implements Resettable
 {
     /** @var array<string, mixed>|null */
     private ?array $cachedData = null;
 
     public function __construct(private readonly Filesystem $files) {}
+
+    public function flushOctaneState(): void
+    {
+        $this->cachedData = null;
+    }
 
     /**
      * @param  array<string, mixed>|null  $staticCacheState

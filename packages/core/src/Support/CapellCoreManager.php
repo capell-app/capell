@@ -21,12 +21,13 @@ use Capell\Core\Concerns\HasPageVariation;
 use Capell\Core\Concerns\HasProtectedTables;
 use Capell\Core\Concerns\HasVendorAssets;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Octane\Resettable;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
 use Composer\InstalledVersions;
 use RuntimeException;
 
-class CapellCoreManager
+class CapellCoreManager implements Resettable
 {
     use HasAssets;
     use HasCache;
@@ -44,6 +45,17 @@ class CapellCoreManager
     use HasPageVariation;
     use HasProtectedTables;
     use HasVendorAssets;
+
+    public function flushOctaneState(): void
+    {
+        $this->localCache = [];
+        $this->installedExtensionNamesCache = null;
+        $this->extensionStatusCache = [];
+        $this->extensionRuntimeGateCache = [];
+        $this->extensionRecordCache = [];
+        $this->extensionRecordsPreloaded = false;
+        $this->defaultPages = null;
+    }
 
     public function getInstalledPrettyVersion(string $packageName): ?string
     {
