@@ -10,18 +10,14 @@ const ignoredDirectories = new Set([
 
 const ignoredMarkdownPrefixes = [
     '.github/',
-    'docs/superpowers/',
     'packages/core/resources/boost/skills/',
 ]
 
 const ignoredMarkdownFiles = new Set([
     'ACTION-PLAN.md',
-    'AGENTS.md',
-    'CAPELL-4-CAPABILITIES.md',
     'CHANGELOG.md',
     'CODE_OF_CONDUCT.md',
     'CONTEXT-MAP.md',
-    'CONTEXT.md',
     'CONTRIBUTING.md',
     'FULL-AUDIT-REPORT.md',
     'LICENSE.md',
