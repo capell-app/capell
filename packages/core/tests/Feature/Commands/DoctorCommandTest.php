@@ -544,7 +544,7 @@ it('fails the homepage check when the page resolves in the database but the publ
     // the public resolver drops it because the page type is not accessible. This
     // is the exact gap (a green DB check masking a 404) the parity change closes.
     $homePage = Page::query()->firstOrFail();
-    $homePage->type->forceFill(['meta' => ['accessible' => false]])->save();
+    $homePage->blueprint->forceFill(['meta' => ['accessible' => false]])->save();
 
     $report = BuildDoctorReportAction::run();
     $check = $report->checks->firstWhere('label', 'Homepage route resolves');

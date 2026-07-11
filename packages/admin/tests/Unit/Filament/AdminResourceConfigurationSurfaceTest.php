@@ -73,7 +73,7 @@ it('builds the primary admin resource table surfaces with their expected control
 
     assertAdminTableSurface(
         surface: adminTableSurface(SitesTable::class),
-        columns: ['id', 'name', 'siteDomains.full_url', 'language', 'translations.language', 'theme.name', 'type.name', 'pages_count', 'site_domains_count'],
+        columns: ['id', 'name', 'siteDomains.full_url', 'language', 'translations.language', 'theme.name', 'blueprint.name', 'pages_count', 'site_domains_count'],
         filters: ['blueprint_id', 'filter', 'theme_id', 'status', 'trashed'],
         recordActions: ['edit'],
         toolbarActions: ['export', 'delete', 'restore', 'forceDelete'],
@@ -126,7 +126,7 @@ it('eager loads page table relations used by visible row columns', function (): 
         'layout',
         'site',
         'translation',
-        'type',
+        'blueprint',
         'pageUrls',
         'pageUrl.siteDomain',
         'parent',

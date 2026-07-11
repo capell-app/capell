@@ -587,7 +587,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         $record->load([
             'site' => fn (BuilderContract $query): BuilderContract => $query->withTrashed(),
             'layout',
-            'type',
+            'blueprint',
             'pageUrls.siteDomain',
             'pageUrls.language',
         ])

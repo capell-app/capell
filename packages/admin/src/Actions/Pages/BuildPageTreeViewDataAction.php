@@ -34,7 +34,7 @@ final class BuildPageTreeViewDataAction
 
         $record->loadMissing(['site.language', ...$relations]);
 
-        $type = $record->type->admin['resource'] ?? 'default';
+        $type = $record->blueprint->admin['resource'] ?? 'default';
         $home = Page::getSiteHomePage($record->site, relations: ['blueprint', 'pageUrl.siteDomain']);
 
         if ($home instanceof Page) {

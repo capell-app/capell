@@ -124,7 +124,7 @@ it('returns the current page url directly when a site has one language', functio
         ->published()
         ->withTranslations($english, ['title' => 'Only language'], slug: '/only-language')
         ->create();
-    $page->load('pageUrl.siteDomain', 'pageUrls.siteDomain', 'type');
+    $page->load('pageUrl.siteDomain', 'pageUrls.siteDomain', 'blueprint');
 
     $siteLanguages = SiteLoader::pageLanguages($site, $english, $page);
 
@@ -332,7 +332,7 @@ it('tracks cached site media theme media and loaded relations while preserving d
     $logo = Media::factory()->model($site)->collection(MediaCollectionEnum::Logo)->create();
     $themeMedia = Media::factory()->model($theme)->collection(MediaCollectionEnum::Image)->create();
 
-    $cachedSite = $site->fresh(['language', 'media', 'theme.media', 'type', 'translations', 'siteDomains']);
+    $cachedSite = $site->fresh(['language', 'media', 'theme.media', 'blueprint', 'translations', 'siteDomains']);
     expect($cachedSite)->toBeInstanceOf(Site::class);
 
     CapellCore::setToCache(CacheEnum::site($site->id, $english->id), $cachedSite);

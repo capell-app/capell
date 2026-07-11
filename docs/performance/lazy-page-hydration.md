@@ -42,13 +42,13 @@ Page-level `meta.rendering_strategy` is the safest source because it is already 
 
 ## Loaded Type Rule
 
-Do not write runtime checks that call `$page->type` unless the relation is already loaded.
+Do not write runtime checks that call `$page->blueprint` unless the relation is already loaded.
 
 Use this pattern:
 
 ```php
-$type = $page instanceof Model && $page->relationLoaded('type')
-    ? $page->type
+$blueprint = $page instanceof Model && $page->relationLoaded('blueprint')
+    ? $page->blueprint
     : null;
 ```
 
@@ -78,7 +78,7 @@ Use query counts or strict lazy-loading tests for the code path you changed.
 
 ## Gotchas
 
-- Accessing `$page->type`, `$page->blueprint`, or `$site->relation` in public rendering code can trigger a query.
+- Accessing `$page->blueprint` or `$site->relation` in public rendering code can trigger a query.
 - `FullLivewire` pages intentionally need Livewire runtime state. Do not treat that as a cache leak by itself.
 - `BladeWithIslands` should load Livewire assets for the island runtime, but it should not require full page Livewire hydration.
 - Cached page models may already include `type`; ad hoc models in tests or package code may not.

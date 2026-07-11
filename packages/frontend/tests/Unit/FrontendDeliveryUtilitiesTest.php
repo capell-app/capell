@@ -269,7 +269,7 @@ it('renders cacheable frontend GET requests anonymously even when Laravel has a 
         ->published()
         ->withTranslations($language, ['title' => 'Cacheable'])
         ->createOne()
-        ->fresh(['type']);
+        ->fresh(['blueprint']);
     expect($page)->toBeInstanceOf(Page::class);
 
     $reader = new class($page) implements FrontendContextReader

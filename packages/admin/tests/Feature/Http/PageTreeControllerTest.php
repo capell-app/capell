@@ -154,7 +154,7 @@ it('hides role-restricted pages from users without an allowed role', function ()
 
     $user = createScopedUserForPageTreeControllerTest(collect([$assignedSite->getKey()]));
 
-    expect($restrictedPage->fresh(['site', 'type.roleRestrictions'])->isAccessibleByUser($user))->toBeFalse();
+    expect($restrictedPage->fresh(['site', 'blueprint.roleRestrictions'])->isAccessibleByUser($user))->toBeFalse();
 
     test()->actingAs($user);
 
@@ -193,7 +193,7 @@ it('ignores role-restricted children when calculating child existence flags', fu
 
     $user = createScopedUserForPageTreeControllerTest(collect([$assignedSite->getKey()]));
 
-    expect($restrictedChild->fresh(['site', 'type.roleRestrictions'])->isAccessibleByUser($user))->toBeFalse();
+    expect($restrictedChild->fresh(['site', 'blueprint.roleRestrictions'])->isAccessibleByUser($user))->toBeFalse();
 
     test()->actingAs($user);
 

@@ -200,7 +200,7 @@ class TitleWithSlugInput
                         },
                         'ignorable' => fn (?Model $record, string $operation): Model|null|false => in_array($operation, ['edit', 'editOption'], true) ? $record : false,
                     ],
-                    slugIsReadonly: fn (?Translation $record): bool => (bool) ($record?->translatable->type?->meta['accessible'] ?? false),
+                    slugIsReadonly: fn (?Translation $record): bool => (bool) ($record?->translatable->blueprint?->meta['accessible'] ?? false),
                     slugRuleRegex: '/^[a-z0-9\-\_]|\/*$/',
                     // urlVisitLinkIcon: 'heroicon-o-eye'
                 )

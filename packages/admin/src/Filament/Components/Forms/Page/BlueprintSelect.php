@@ -74,7 +74,7 @@ class BlueprintSelect extends BaseBlueprintSelect
                 ?? $actionData['meta.content_structure']
                 ?? null;
 
-            if ($contentStructure !== null && $record->type->content_structure !== $contentStructure) {
+            if ($contentStructure !== null && $record->blueprint?->content_structure !== $contentStructure) {
                 $livewire = $component->getLivewire();
                 if ($livewire instanceof EditPage) {
                     $livewire->pageTypeContentStructureUpdated($contentStructure);

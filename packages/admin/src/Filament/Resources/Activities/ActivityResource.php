@@ -104,7 +104,7 @@ final class ActivityResource extends Resource
                         $relation->morphWith([
                             Translation::class => [
                                 'language',
-                                'translatable.type',
+                                'translatable.blueprint',
                             ],
                         ]);
                     }

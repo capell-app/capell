@@ -180,7 +180,7 @@ class SettingsSchema
             ->pageGroup($pageGroup)
             ->withRelation()
             ->withSystemTypes(function (?Pageable $record, Get $get): bool {
-                if ($record instanceof Pageable && $record->type->isSystem()) {
+                if ($record instanceof Pageable && $record->blueprint?->isSystem()) {
                     return true;
                 }
 

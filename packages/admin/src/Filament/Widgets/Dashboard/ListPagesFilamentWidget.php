@@ -90,7 +90,7 @@ class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidget
                         ->with([
                             'ancestors',
                             'site',
-                            'type',
+                            'blueprint',
                             'pageUrl.siteDomain',
                         ]);
 

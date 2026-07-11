@@ -14,14 +14,14 @@ it('keeps explicit falsy meta values instead of falling back to blueprint defaul
         ],
     ]);
     $theme = Theme::factory()
-        ->for($type, 'type')
+        ->for($type, 'blueprint')
         ->create([
             'meta' => [
                 'rounded_images' => false,
                 'list_bullets' => '0',
             ],
         ])
-        ->load('type');
+        ->load('blueprint');
 
     expect(PublicModelMeta::get($theme, 'rounded_images', true))->toBeFalse()
         ->and(PublicModelMeta::get($theme, 'list_bullets', true))->toBe('0');

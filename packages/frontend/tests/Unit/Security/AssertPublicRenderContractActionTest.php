@@ -221,7 +221,7 @@ it('rejects livewire state without package page or page type permission', functi
     $page = Page::factory()->type($type)->create([
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::BladeOnly->value],
     ]);
-    $page->load('type');
+    $page->load('blueprint');
 
     $context = new FrontendContext(null, null, $page, null, null, [], null);
     $response = new Response('<div wire:id="abc" wire:snapshot="{}"></div>', Response::HTTP_OK, ['Content-Type' => 'text/html']);
@@ -274,13 +274,13 @@ it('allows livewire state when the current page rendering strategy allows livewi
 it('allows livewire state when the current page type opts into livewire', function (): void {
     $type = Blueprint::factory()->page()->meta(['livewire' => true])->create();
     $page = Page::factory()->type($type)->create();
-    $page->load('type');
+    $page->load('blueprint');
 
     $context = new FrontendContext(null, null, $page, null, null, [], null);
     $response = new Response('<div wire:id="abc" wire:snapshot="{}"></div>', Response::HTTP_OK, ['Content-Type' => 'text/html']);
 
-    expect($page->getRelations())->toHaveKey('type')
-        ->and($page->getRelation('type')->is_livewire)->toBeTrue();
+    expect($page->getRelations())->toHaveKey('blueprint')
+        ->and($page->getRelation('blueprint')->is_livewire)->toBeTrue();
 
     app()->instance(FrontendContextReader::class, $context);
 
@@ -290,7 +290,7 @@ it('allows livewire state when the current page type opts into livewire', functi
 it('still rejects internal marker names when a loaded livewire page type allows livewire state', function (): void {
     $type = Blueprint::factory()->page()->meta(['livewire' => true])->create();
     $page = Page::factory()->type($type)->create();
-    $page->load('type');
+    $page->load('blueprint');
 
     $context = new FrontendContext(null, null, $page, null, null, [], null);
     $response = new Response(
@@ -299,8 +299,8 @@ it('still rejects internal marker names when a loaded livewire page type allows 
         ['Content-Type' => 'text/html'],
     );
 
-    expect($page->getRelations())->toHaveKey('type')
-        ->and($page->getRelation('type')->is_livewire)->toBeTrue();
+    expect($page->getRelations())->toHaveKey('blueprint')
+        ->and($page->getRelation('blueprint')->is_livewire)->toBeTrue();
 
     app()->instance(FrontendContextReader::class, $context);
 

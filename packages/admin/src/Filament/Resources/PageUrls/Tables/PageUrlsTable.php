@@ -116,7 +116,7 @@ class PageUrlsTable implements TableConfigurator
                         ->label(__('capell-admin::button.edit_page'))
                         ->icon('heroicon-o-arrow-top-right-on-square')
                         ->url(function (PageUrl $record): string {
-                            $resourceClass = AdminSurfaceLookup::resource(ResourceEnum::Page, $record->pageable->type->admin['resource'] ?? null);
+                            $resourceClass = AdminSurfaceLookup::resource(ResourceEnum::Page, $record->pageable->blueprint->admin['resource'] ?? null);
 
                             return $resourceClass::getUrl('edit', ['record' => $record->pageable]);
                         }),

@@ -156,15 +156,19 @@ class LayoutsTable implements TableConfigurator
                     ->icon('heroicon-o-building-storefront')
                     ->url(self::getSiteRecordUrl(...))
                     ->hidden(fn (Layout $record): bool => self::getSiteRecordUrl($record) === null),
-                EditAction::make('edit-theme')
+                Action::make('edit-theme')
                     ->label(__('capell-admin::button.edit_theme'))
                     ->icon('heroicon-o-swatch')
-                    ->record(fn (Layout $record): ?Theme => $record->theme instanceof Theme ? $record->theme : null)
                     ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Theme->permission('update')) === true)
                     ->schema(fn (Schema $schema): Schema => ThemeResource::form($schema))
+                    ->fillForm(fn (Layout $record): array => $record->theme?->attributesToArray() ?? [])
+                    ->modalHeading(fn (Layout $record): string => $record->theme?->name ?? '')
                     ->slideOver()
                     ->modalWidth(Width::ScreenLarge)
-                    ->mutateRecordDataUsing(ThemesTable::editorRecordData(...))
+                    ->mutateFormDataUsing(fn (array $data, Layout $record): array => ThemesTable::editorRecordData($record->theme, $data))
+                    ->action(function (Layout $record, array $data): void {
+                        $record->theme?->update($data);
+                    })
                     ->hidden(fn (Layout $record): bool => ! $record->theme instanceof Theme || $record->theme->trashed()),
                 ReplicateAction::make()
                     ->replicaModelAction(ReplicateLayoutAction::class),
