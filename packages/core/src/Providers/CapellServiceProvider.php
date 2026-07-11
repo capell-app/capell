@@ -86,6 +86,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\Models\UpgradeLogEntry;
 use Capell\Core\Octane\FlushResettableState;
+use Capell\Core\Octane\Resettable;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
@@ -118,12 +119,12 @@ use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\Media\BackendResolver;
+use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\PackageRegistry\RuntimeContextResolver;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -249,8 +250,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     public function packageRegistered(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../../config/audit.php', 'audit');
-
         $this
             ->registerSettingsSchemaRegistry()
             ->registerMailMarkdownComponents()
@@ -404,7 +403,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $registry->fill($manifests);
         $this->app->instance(CapellPackageRegistry::class, $registry);
 
-        $packageLoader = new CapellPackageLoader($this->app, $registry, new RuntimeContextResolver);
+        $packageLoader = new CapellPackageLoader($this->app, $registry);
         $packageLoader->loadProviders();
     }
 
@@ -489,6 +488,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
 
         $this->app->singleton(CapellCoreManager::class, fn (): CapellCoreManager => new CapellCoreManager);
+        $this->app->tag([CapellCoreManager::class], Resettable::TAG);
+        $this->app->scoped(ImageUrlPolicy::class);
+        $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
         $this->app->singleton(PackageSurfaceRegistrar::class, fn ($app): PackageSurfaceRegistrar => new PackageSurfaceRegistrar(
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
@@ -837,6 +839,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerLockdownStore(): self
     {
         $this->app->singleton(LockdownStore::class);
+        $this->app->tag([LockdownStore::class], Resettable::TAG);
         $this->app->singleton(LockdownStaticCacheSwitcher::class);
 
         return $this;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\SanitizeSiteSpecSectionHtmlAction;
 use Capell\Core\Actions\ValidateSiteSpecAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Support\CapellSiteSpecConstraints;
 use Capell\Core\Support\CapellSiteSpecSchema;
 
 function validSiteSpecPayload(): array
@@ -33,10 +34,12 @@ it('normalizes the neutral site spec contract', function (): void {
 it('publishes a bounded schema matching the contract', function (): void {
     $schema = CapellSiteSpecSchema::toArray();
 
-    expect($schema['properties']['pages']['minItems'])->toBe(1)
-        ->and($schema['properties']['pages']['maxItems'])->toBe(15)
-        ->and($schema['properties']['pages']['items']['properties']['slug']['pattern'])->toBe('^[a-z0-9]+(?:-[a-z0-9]+)*$')
-        ->and($schema['properties']['theme']['properties']['colors']['properties']['primary']['pattern'])->toBe('^#[0-9A-Fa-f]{6}$');
+    expect($schema['properties']['pages']['minItems'])->toBe(CapellSiteSpecConstraints::MIN_PAGES)
+        ->and($schema['properties']['pages']['maxItems'])->toBe(CapellSiteSpecConstraints::MAX_PAGES)
+        ->and($schema['properties']['pages']['items']['properties']['slug']['pattern'])->toBe(CapellSiteSpecConstraints::SLUG_PATTERN)
+        ->and($schema['properties']['theme']['properties']['colors']['properties']['primary']['pattern'])->toBe(CapellSiteSpecConstraints::HEX_COLOUR_PATTERN)
+        ->and($schema['properties']['pages']['items']['properties']['sections']['items']['properties']['content']['maxLength'])
+        ->toBe(CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH);
 });
 
 it('sanitizes unsafe section html and rejects oversized input', function (): void {

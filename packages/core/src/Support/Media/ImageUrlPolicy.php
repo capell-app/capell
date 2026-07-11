@@ -4,16 +4,23 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Media;
 
+use Capell\Core\Octane\Resettable;
 use Capell\Core\Settings\CoreSettings;
 use Illuminate\Support\Str;
 use Throwable;
 
-final class ImageUrlPolicy
+final class ImageUrlPolicy implements Resettable
 {
     /** @var list<string>|null */
-    private static ?array $allowedDomains = null;
+    private ?array $allowedDomains = null;
 
-    private static ?bool $allowRelativeUrls = null;
+    private ?bool $allowRelativeUrls = null;
+
+    public function flushOctaneState(): void
+    {
+        $this->allowedDomains = null;
+        $this->allowRelativeUrls = null;
+    }
 
     /**
      * @param  list<string>|null  $allowedDomains
@@ -66,8 +73,8 @@ final class ImageUrlPolicy
      */
     public function allowedDomains(): array
     {
-        if (self::$allowedDomains !== null) {
-            return self::$allowedDomains;
+        if ($this->allowedDomains !== null) {
+            return $this->allowedDomains;
         }
 
         try {
@@ -82,10 +89,10 @@ final class ImageUrlPolicy
         }
 
         if (! is_array($domains)) {
-            return self::$allowedDomains = ['images.unsplash.com'];
+            return $this->allowedDomains = ['images.unsplash.com'];
         }
 
-        return self::$allowedDomains = array_values(array_filter(
+        return $this->allowedDomains = array_values(array_filter(
             array_map(trim(...), $domains),
             static fn (string $domain): bool => $domain !== '',
         ));
@@ -93,16 +100,16 @@ final class ImageUrlPolicy
 
     public function allowsRelativeUrls(): bool
     {
-        if (self::$allowRelativeUrls !== null) {
-            return self::$allowRelativeUrls;
+        if ($this->allowRelativeUrls !== null) {
+            return $this->allowRelativeUrls;
         }
 
         try {
             $settings = resolve(CoreSettings::class);
 
-            return self::$allowRelativeUrls = $settings->allow_relative_image_urls;
+            return $this->allowRelativeUrls = $settings->allow_relative_image_urls;
         } catch (Throwable) {
-            return self::$allowRelativeUrls = true;
+            return $this->allowRelativeUrls = true;
         }
     }
 

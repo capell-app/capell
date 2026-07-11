@@ -5,13 +5,6 @@
 *.swo
 *~
 
-# Claude Code
-.claude/
-
-# Local agent tooling
-.ai/
-.agents/
-
 # Environment
 .env
 .env.local
@@ -22,7 +15,6 @@
 # Dependencies
 node_modules/
 vendor
-/.claude/worktrees/*/vendor
 composer.local*
 
 # Laravel Specific
@@ -89,10 +81,8 @@ temp/
 .phpstorm.meta.php
 _ide_helper.php
 _ide_helper_models.php
-/.superpowers/
 .cache/
 /output/playwright
-/docs/superpowers
 
 # Local review / planning artifacts
 /ACTION-PLAN.md

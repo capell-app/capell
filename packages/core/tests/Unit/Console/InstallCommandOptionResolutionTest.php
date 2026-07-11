@@ -203,7 +203,7 @@ it('covers non-interactive install command branch decisions and manual-change re
     );
     callInstallCommandMethod($command, 'recordManualInstallChange', 'Review app/Providers/Filament/AdminPanelProvider.php.');
     callInstallCommandMethod($command, 'recordManualInstallChange', 'Review app/Providers/Filament/AdminPanelProvider.php.');
-    callInstallCommandMethod($command, 'reportManualInstallChanges');
+    $command->reportManualChanges();
 
     $output = $buffer->fetch();
 

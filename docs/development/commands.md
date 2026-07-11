@@ -117,6 +117,6 @@ These commands are defined in the root `composer.json` or `package.json`:
 
 - Host commands use `capell:<name>` or `capell:<package>-<verb>`.
 - Optional add-ons may add their own `capell:<package>-<verb>` commands.
-- Do not copy command names from `docs/superpowers` plans without checking source or `php artisan list capell`; many plans describe proposed or extracted package behaviour.
+- Do not copy command names from old planning notes; check the source or run `php artisan list capell` so command documentation reflects shipped behaviour.
 
 See [Artisan commands](artisan-commands.md) for the longer command reference with common options.

@@ -2,8 +2,18 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Security\PublicOutputLeakPolicy;
 use Capell\Frontend\Data\PublicHtmlSafetyDetectionData;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
+
+it('consumes the core public output leak policy', function (): void {
+    $policy = new PublicOutputLeakPolicy;
+    $inspector = new PublicHtmlSafetyInspector($policy);
+
+    foreach ($policy->authoringAttributes() as $attribute) {
+        expect($inspector->containsAuthoringSurface("<div {$attribute}=\"value\"></div>"))->toBeTrue();
+    }
+});
 
 it('detects frontend authoring markers in public html', function (string $html): void {
     $inspector = new PublicHtmlSafetyInspector;

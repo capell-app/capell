@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\ResolveImageSourceDataAction;
 use Capell\Core\Contracts\Media\MediaContract;
 use Capell\Core\Enums\ImageSourceType;
+use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Media\ImageSourcePolicyResolver;
 use Capell\Core\Support\Media\ImageSourcePresets;
 use Capell\Core\Support\Media\ImageUrlPolicy;
@@ -26,6 +27,29 @@ it('rejects unsafe or unapproved image URLs', function (string $url): void {
     'protocol relative' => ['//images.unsplash.com/photo.jpg'],
     'unapproved host' => ['https://example.com/photo.jpg'],
 ]);
+
+it('does not retain image settings between sequential requests', function (): void {
+    $firstSettings = Mockery::mock(CoreSettings::class);
+    $firstSettings->allowed_remote_image_domains = ['first.example.com'];
+    $firstSettings->allow_relative_image_urls = false;
+    app()->instance(CoreSettings::class, $firstSettings);
+
+    $policy = app(ImageUrlPolicy::class);
+
+    expect($policy->allows('https://first.example.com/image.jpg'))->toBeTrue()
+        ->and($policy->allows('/image.jpg'))->toBeFalse();
+
+    $secondSettings = Mockery::mock(CoreSettings::class);
+    $secondSettings->allowed_remote_image_domains = ['second.example.com'];
+    $secondSettings->allow_relative_image_urls = true;
+    app()->instance(CoreSettings::class, $secondSettings);
+
+    $policy->flushOctaneState();
+
+    expect($policy->allows('https://first.example.com/image.jpg'))->toBeFalse()
+        ->and($policy->allows('https://second.example.com/image.jpg'))->toBeTrue()
+        ->and($policy->allows('/image.jpg'))->toBeTrue();
+});
 
 it('normalizes legacy string URLs into image source data', function (): void {
     $source = ResolveImageSourceDataAction::run('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80');

@@ -171,8 +171,11 @@ Not sure which to reach for? Use the [Extension point chooser](docs/packages/ext
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or your configured Laravel database |
 | Node.js  | 20+                                                                  |
 | Composer | 2.7+                                                                 |
+| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, FrankenPHP)           |
 
 See the [install guide](docs/getting-started/install.md) for required PHP extensions, permissions, and install paths.
+
+Capell 1.x minors receive bug fixes for 12 months and security fixes for 24 months from release. The latest 1.x minor is always supported. See the [Core support policy](packages/core/README.md#requirements-and-support-policy) for the exact package requirements and backport policy.
 
 ## Contributing To This Repository
 

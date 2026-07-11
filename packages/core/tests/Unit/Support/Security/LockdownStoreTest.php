@@ -50,6 +50,21 @@ it('allows configured break glass user ids from comma separated config', functio
         ->and($store->canAccessAdmin(lockdownStoreTestUser(30, 'blocked@example.com')))->toBeFalse();
 });
 
+it('reloads lockdown state after an Octane reset', function (): void {
+    $store = new LockdownStore(new Filesystem);
+
+    expect($store->active())->toBeFalse();
+
+    File::ensureDirectoryExists(dirname(lockdownStoreTestFile()));
+    File::put(lockdownStoreTestFile(), json_encode(['active' => true], JSON_THROW_ON_ERROR));
+
+    expect($store->active())->toBeFalse();
+
+    $store->flushOctaneState();
+
+    expect($store->active())->toBeTrue();
+});
+
 function lockdownStoreTestUser(int $id, string $email): Authenticatable
 {
     return new readonly class($id, $email) implements Authenticatable

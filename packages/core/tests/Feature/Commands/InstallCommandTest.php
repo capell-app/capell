@@ -1890,6 +1890,8 @@ it('asks for package selection during interactive fresh demo installs', function
     CapellCore::getPackage('capell-app/demo-kit')->demo = true;
     CapellCore::getPackage('vendor/demo-package')->demo = true;
     config()->set('app.url', 'https://demo.example.test');
+    config()->set('capell.install.debug', true);
+    Log::spy();
 
     $capturedInput = null;
 
@@ -1944,9 +1946,6 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     CapellCore::getPackage('capell-app/demo-kit')->demo = true;
     CapellCore::getPackage('vendor/demo-package')->demo = true;
     config()->set('app.url', 'https://demo.example.test');
-    config()->set('capell.install.debug', true);
-    Log::spy();
-
     $capturedInput = null;
 
     RunInstallAction::shouldRun()
@@ -2003,7 +2002,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
         ))
         ->once();
     Log::getFacadeRoot()->shouldHaveReceived('debug')
-        ->with('capell.install: running install action', Mockery::type('array'))
+        ->with('capell.install: running install orchestration', Mockery::type('array'))
         ->once();
     Log::getFacadeRoot()->shouldHaveReceived('debug')
         ->with('capell.install: finished command', Mockery::type('array'))

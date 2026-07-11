@@ -12,7 +12,6 @@ trait HasMigrations
     public static function getMigrations(): array
     {
         return [
-            '2026_05_10_190832_01_create_audits_table',
             '2026_05_10_190832_02_create_languages_table',
             '2026_05_10_190832_03_create_blueprints_table',
             '2026_05_10_190832_04_create_themes_table',

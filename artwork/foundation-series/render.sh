@@ -51,21 +51,7 @@ export_jpeg() {
 }
 
 render_core() {
-    local canvas="$WORK/core-hero.png"
-    background core 2880 960 "$canvas"
-    panel "$ROOT/packages/core/docs/images/screenshots/core-page-structure.png" 1510 760 "$WORK/core-main.png"
-    panel "$ROOT/packages/core/docs/images/screenshots/core-settings-backed-configuration-dark.png" 1040 560 "$WORK/core-side.png"
-    compose "$canvas" "$WORK/core-side.png" 120 250
-    compose "$canvas" "$WORK/core-main.png" 1210 95
-    export_jpeg "$canvas" "$ROOT/packages/core/docs/assets/readme/hero.jpg" 2880 960
-
-    canvas="$WORK/core-card.png"
-    background core 800 500 "$canvas"
-    panel "$ROOT/packages/core/docs/images/screenshots/core-page-structure.png" 610 385 "$WORK/core-card-main.png"
-    panel "$ROOT/packages/core/docs/images/screenshots/core-settings-backed-configuration-dark.png" 330 220 "$WORK/core-card-side.png"
-    compose "$canvas" "$WORK/core-card-side.png" 25 235
-    compose "$canvas" "$WORK/core-card-main.png" 180 45
-    export_jpeg "$canvas" "$ROOT/packages/core/docs/assets/marketplace/extension-card.jpg" 800 500
+    node "$ROOT/artwork/foundation-series/render-core.js"
 }
 
 render_admin() {
