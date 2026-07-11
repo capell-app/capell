@@ -758,6 +758,20 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                         $activePreset = $theme instanceof Theme
                             ? data_get($theme->meta, 'editor.preset.active', $settings->activePreset())
                             : $settings->activePreset();
+                        $themeOverrides = $settings->themeOverrides();
+
+                        if ($theme instanceof Theme) {
+                            $savedTokens = data_get($theme->meta, 'editor.tokens', []);
+
+                            if (is_array($savedTokens)) {
+                                $themeOverrides[$theme->key] = [
+                                    ...($themeOverrides[$theme->key] ?? []),
+                                    ...collect($savedTokens)
+                                        ->filter(fn (mixed $value, mixed $key): bool => is_string($key) && is_string($value))
+                                        ->all(),
+                                ];
+                            }
+                        }
 
                         if (! is_string($activePreset) || $activePreset === '') {
                             $activePreset = $settings->activePreset();
@@ -771,7 +785,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                             activeTheme: $activeTheme,
                             activePreset: $activePreset,
                             brand: $settings->brandProfile(),
-                            themeOverrides: $settings->themeOverrides(),
+                            themeOverrides: $themeOverrides,
                         );
 
                         if ($runtime->tokenCssPath === null) {
