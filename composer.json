@@ -191,7 +191,6 @@
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
         "michaloravec/laravel-paginateroute": "^1.0",
-        "owen-it/laravel-auditing": "^13.0|^14.0",
         "pboivin/filament-peek": "^4.1",
         "saade/filament-adjacency-list": "^4.0.2",
         "spatie/laravel-activitylog": "^4.0",

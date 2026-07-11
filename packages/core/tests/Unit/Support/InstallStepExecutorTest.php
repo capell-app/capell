@@ -752,7 +752,7 @@ it('publishes migrations for trusted core packages during install', function ():
     File::ensureDirectoryExists($coreMigrationDirectory);
     File::ensureDirectoryExists($installCommandMigrationDirectory);
     File::put($migrationDirectory . '/2026_05_10_190837_01_create_marketplace_instances_table.php', '<?php declare(strict_types=1);');
-    File::put($coreMigrationDirectory . '/2026_05_10_190832_01_create_audits_table.php', '<?php declare(strict_types=1);');
+    File::put($coreMigrationDirectory . '/2026_05_10_190832_02_create_languages_table.php', '<?php declare(strict_types=1);');
     File::put($installCommandMigrationDirectory . '/create_install_command_records_table.php', '<?php declare(strict_types=1);');
 
     CapellCore::registerPackage('capell-app/marketplace', path: $packagePath);
@@ -777,7 +777,7 @@ it('publishes migrations for trusted core packages during install', function ():
         ))->toBeTrue()
             ->and(collect($fakeFilesystem->calls)->contains(
                 fn (array $call): bool => $call[0] === 'copy'
-                    && str_ends_with((string) $call[1], 'create_audits_table.php'),
+                    && str_ends_with((string) $call[1], 'create_languages_table.php'),
             ))->toBeFalse()
             ->and(collect($fakeFilesystem->calls)->contains(
                 fn (array $call): bool => $call[0] === 'copy'

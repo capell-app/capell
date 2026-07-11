@@ -250,8 +250,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     public function packageRegistered(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../../config/audit.php', 'audit');
-
         $this
             ->registerSettingsSchemaRegistry()
             ->registerMailMarkdownComponents()
