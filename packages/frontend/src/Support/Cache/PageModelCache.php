@@ -85,7 +85,7 @@ final class PageModelCache
             'layout.theme',
             'pageUrls',
             'image',
-            'type',
+            'blueprint',
             'canonicalPage.pageUrls',
             'translation' => function (Relation $query) use ($languageId): void {
                 $query->where('language_id', $languageId);
