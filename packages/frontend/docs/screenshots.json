@@ -1,0 +1,36 @@
+{
+    "package": "frontend",
+    "composerName": "capell-app/frontend",
+    "generatedFor": "deployment-screenshot-runner",
+    "requiresInstalledPackage": true,
+    "outputDirectory": "packages/frontend/docs/images/screenshots",
+    "entries": [
+        {
+            "id": "frontend-published-page",
+            "title": "Published frontend page.",
+            "package": "frontend",
+            "surface": "frontend",
+            "targetType": "frontend-url",
+            "target": null,
+            "scenario": "frontend-page",
+            "url": "/",
+            "waitFor": "body",
+            "docsPage": "packages/frontend/docs/overview.md",
+            "output": "packages/frontend/docs/images/screenshots/frontend-published-page.png",
+            "required": true,
+            "notes": "Resolved by the deployment screenshot runner after demo content is prepared."
+        },
+        {
+            "id": "frontend-settings",
+            "title": "Frontend settings.",
+            "package": "frontend",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "Settings",
+            "docsPage": "packages/frontend/docs/overview.md",
+            "output": "packages/frontend/docs/images/screenshots/frontend-settings.png",
+            "required": true,
+            "notes": "Shows the settings surface that influences frontend rendering."
+        }
+    ]
+}

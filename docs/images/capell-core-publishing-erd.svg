@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Capell core publishing and routing ERD</title>
+  <desc id="desc">Entity relationship diagram for Capell sites, domains, languages, pages, URLs, translations, and redirect health snapshots.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#263238"/>
+    </marker>
+    <style>
+      .canvas { fill: #f7f9fb; }
+      .title { fill: #16212b; font: 700 32px Inter, Arial, sans-serif; }
+      .subtitle { fill: #536475; font: 400 16px Inter, Arial, sans-serif; }
+      .entity { fill: #ffffff; stroke: #8ea2b4; stroke-width: 2; rx: 10; }
+      .entity-core { fill: #fef7ed; stroke: #d68a1f; }
+      .entity-route { fill: #eef8ff; stroke: #3d8fbd; }
+      .entity-content { fill: #f1fbf6; stroke: #3a9867; }
+      .entity-infra { fill: #f3f5f7; stroke: #8b98a5; }
+      .header { fill: #16212b; font: 700 18px Inter, Arial, sans-serif; }
+      .table { fill: #5c6f82; font: 500 12px Inter, Arial, sans-serif; }
+      .field { fill: #263238; font: 500 13px Inter, Arial, sans-serif; }
+      .line { fill: none; stroke: #263238; stroke-width: 2.2; marker-end: url(#arrow); }
+      .line-morph { fill: none; stroke: #5c6f82; stroke-width: 2.2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .cardinality { fill: #16212b; font: 700 13px Inter, Arial, sans-serif; }
+      .label { fill: #314253; font: 600 12px Inter, Arial, sans-serif; }
+      .legend { fill: #536475; font: 400 13px Inter, Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1400" height="900"/>
+  <text class="title" x="56" y="60">Capell Core Publishing ERD</text>
+  <text class="subtitle" x="56" y="88">Routing and localized content relationships. Presentation/classification lives in the composition ERD.</text>
+
+  <g id="sites">
+    <rect class="entity entity-core" x="90" y="180" width="250" height="150"/>
+    <text class="header" x="112" y="213">sites</text>
+    <text class="table" x="112" y="235">Site</text>
+    <text class="field" x="112" y="264">PK id</text>
+    <text class="field" x="112" y="286">FK blueprint_id</text>
+    <text class="field" x="112" y="308">FK theme_id</text>
+    <text class="field" x="112" y="330">FK language_id</text>
+  </g>
+
+  <g id="site-domains">
+    <rect class="entity entity-route" x="90" y="470" width="250" height="142"/>
+    <text class="header" x="112" y="503">site_domains</text>
+    <text class="table" x="112" y="525">SiteDomain</text>
+    <text class="field" x="112" y="554">PK id</text>
+    <text class="field" x="112" y="576">FK site_id</text>
+    <text class="field" x="112" y="598">FK language_id nullable</text>
+  </g>
+
+  <g id="languages">
+    <rect class="entity entity-core" x="430" y="470" width="230" height="142"/>
+    <text class="header" x="452" y="503">languages</text>
+    <text class="table" x="452" y="525">Language</text>
+    <text class="field" x="452" y="554">PK id</text>
+    <text class="field" x="452" y="576">code</text>
+    <text class="field" x="452" y="598">locale</text>
+  </g>
+
+  <g id="pages">
+    <rect class="entity entity-content" x="430" y="180" width="250" height="166"/>
+    <text class="header" x="452" y="213">pages</text>
+    <text class="table" x="452" y="235">Page</text>
+    <text class="field" x="452" y="264">PK id</text>
+    <text class="field" x="452" y="286">FK site_id</text>
+    <text class="field" x="452" y="308">parent_id</text>
+    <text class="field" x="452" y="330">nested set columns</text>
+  </g>
+
+  <g id="page-urls">
+    <rect class="entity entity-route" x="780" y="180" width="260" height="166"/>
+    <text class="header" x="802" y="213">page_urls</text>
+    <text class="table" x="802" y="235">PageUrl</text>
+    <text class="field" x="802" y="264">PK id</text>
+    <text class="field" x="802" y="286">FK site_id</text>
+    <text class="field" x="802" y="308">FK language_id</text>
+    <text class="field" x="802" y="330">MORPH pageable_type/id</text>
+  </g>
+
+  <g id="translations">
+    <rect class="entity entity-route" x="780" y="470" width="260" height="166"/>
+    <text class="header" x="802" y="503">translations</text>
+    <text class="table" x="802" y="525">Translation</text>
+    <text class="field" x="802" y="554">PK id</text>
+    <text class="field" x="802" y="576">FK language_id</text>
+    <text class="field" x="802" y="598">MORPH translatable</text>
+    <text class="field" x="802" y="620">title / content / meta</text>
+  </g>
+
+  <g id="redirect-health">
+    <rect class="entity entity-infra" x="1100" y="180" width="250" height="142"/>
+    <text class="header" x="1122" y="213">redirect_health_snapshots</text>
+    <text class="table" x="1122" y="235">RedirectHealthSnapshot</text>
+    <text class="field" x="1122" y="264">PK id</text>
+    <text class="field" x="1122" y="286">FK page_url_id unique</text>
+    <text class="field" x="1122" y="308">chain / loop / warnings</text>
+  </g>
+
+  <path class="line" d="M 340 255 L 430 255"/>
+  <text class="cardinality" x="354" y="243">1</text>
+  <text class="cardinality" x="400" y="243">0..*</text>
+  <text class="label" x="356" y="278">site pages</text>
+
+  <path class="line" d="M 215 330 L 215 470"/>
+  <text class="cardinality" x="230" y="354">1</text>
+  <text class="cardinality" x="230" y="455">0..*</text>
+  <text class="label" x="236" y="406">site domains</text>
+
+  <path class="line" d="M 340 541 L 430 541"/>
+  <text class="cardinality" x="354" y="529">0..*</text>
+  <text class="cardinality" x="400" y="529">0..1</text>
+  <text class="label" x="354" y="564">domain language</text>
+
+  <path class="line" d="M 340 310 C 390 372, 400 480, 430 541"/>
+  <text class="cardinality" x="354" y="334">0..*</text>
+  <text class="cardinality" x="400" y="520">1</text>
+  <text class="label" x="346" y="424">site default language</text>
+
+  <path class="line-morph" d="M 680 255 L 780 255"/>
+  <text class="cardinality" x="694" y="243">1</text>
+  <text class="cardinality" x="750" y="243">0..*</text>
+  <text class="label" x="702" y="278">pageable</text>
+
+  <path class="line-morph" d="M 680 305 C 720 390, 740 552, 780 552"/>
+  <text class="cardinality" x="694" y="326">1</text>
+  <text class="cardinality" x="750" y="540">0..*</text>
+  <text class="label" x="706" y="450">translatable</text>
+
+  <path class="line" d="M 660 541 L 780 541"/>
+  <text class="cardinality" x="674" y="529">1</text>
+  <text class="cardinality" x="750" y="529">0..*</text>
+  <text class="label" x="680" y="564">translation language</text>
+
+  <path class="line" d="M 660 541 C 720 470, 720 305, 780 305"/>
+  <text class="cardinality" x="674" y="515">1</text>
+  <text class="cardinality" x="750" y="321">0..*</text>
+  <text class="label" x="684" y="394">URL language</text>
+
+  <path class="line" d="M 340 255 C 600 94, 742 230, 780 255"/>
+  <text class="cardinality" x="354" y="220">1</text>
+  <text class="cardinality" x="750" y="236">0..*</text>
+  <text class="label" x="562" y="142">site URLs</text>
+
+  <path class="line" d="M 1040 255 L 1100 255"/>
+  <text class="cardinality" x="1054" y="243">1</text>
+  <text class="cardinality" x="1072" y="243">0..1</text>
+  <text class="label" x="1048" y="278">health</text>
+
+  <path class="line-morph" d="M 555 346 C 492 416, 492 182, 555 180"/>
+  <text class="cardinality" x="512" y="374">0..*</text>
+  <text class="cardinality" x="512" y="179">1</text>
+  <text class="label" x="463" y="392">page hierarchy</text>
+
+  <rect class="entity" x="90" y="742" width="1260" height="82"/>
+  <text class="legend" x="112" y="776">Notation: solid = database FK or composite FK relation; dashed = polymorphic relation.</text>
+  <text class="legend" x="112" y="800">Cardinalities are shown near each end. `page_urls.translation` is a composite relation through pageable_type/pageable_id/language_id.</text>
+</svg>

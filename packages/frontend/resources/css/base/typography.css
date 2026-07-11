@@ -1,0 +1,126 @@
+.content-component {
+    color: rgb(var(--color-base, 15 23 42));
+    font-size: 1rem;
+    line-height: 1.75;
+    overflow-wrap: break-word;
+}
+
+.content-component :where(p, ul, ol, blockquote, figure, table) {
+    margin-block: 1rem 0;
+}
+
+.content-component :where(h1, h2, h3, h4, h5, h6) {
+    color: rgb(var(--color-heading, var(--color-base, 15 23 42)));
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1.15;
+    margin-block: 1.75rem 0.75rem;
+    text-wrap: balance;
+}
+
+.content-component :where(h1) {
+    font-size: 2.5rem;
+    line-height: 1.05;
+}
+
+.content-component :where(h2) {
+    font-size: 2rem;
+    line-height: 1.12;
+}
+
+.content-component :where(h3) {
+    font-size: 1.5rem;
+}
+
+.content-component :where(h4) {
+    font-size: 1.25rem;
+}
+
+.content-component :where(h5, h6) {
+    font-size: 1rem;
+}
+
+.content-component :where(p, ul, ol, blockquote) {
+    max-width: 72ch;
+}
+
+.content-component.text-center :where(p, ul, ol, blockquote),
+.text-center .content-component :where(p, ul, ol, blockquote) {
+    margin-inline: auto;
+}
+
+.content-component :where(ul, ol) {
+    padding-inline-start: 1.35rem;
+}
+
+.content-component :where(li + li) {
+    margin-block-start: 0.35rem;
+}
+
+.content-component :where(a) {
+    color: rgb(var(--color-primary, 37 99 235));
+    font-weight: 550;
+    text-decoration-line: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.2em;
+    transition:
+        color 160ms ease,
+        text-decoration-color 160ms ease;
+}
+
+.content-component :where(a:hover, a:focus-visible) {
+    color: rgb(var(--color-primary-hover, var(--color-primary, 29 78 216)));
+    text-decoration-thickness: 0.12em;
+}
+
+.content-component :where(blockquote) {
+    border-inline-start: 3px solid rgb(var(--color-primary, 37 99 235) / 0.28);
+    color: rgb(var(--color-muted, 71 85 105));
+    padding-inline-start: 1rem;
+}
+
+.content-component :where(img, video, iframe) {
+    max-width: 100%;
+}
+
+.content-component :where(img, video) {
+    height: auto;
+}
+
+.content-component :where(table) {
+    border-collapse: collapse;
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.content-component :where(th, td) {
+    border-bottom: 1px solid rgb(148 163 184 / 0.28);
+    padding: 0.65rem 0.75rem;
+    text-align: start;
+}
+
+.content-component :where(th) {
+    color: rgb(var(--color-heading, var(--color-base, 15 23 42)));
+    font-size: 0.875rem;
+    font-weight: 650;
+}
+
+@media (max-width: 640px) {
+    .content-component {
+        font-size: 0.98rem;
+        line-height: 1.7;
+    }
+
+    .content-component :where(h1) {
+        font-size: 2rem;
+    }
+
+    .content-component :where(h2) {
+        font-size: 1.625rem;
+    }
+
+    .content-component :where(h3) {
+        font-size: 1.35rem;
+    }
+}

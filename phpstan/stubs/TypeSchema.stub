@@ -1,0 +1,18 @@
+<?php
+
+namespace {{ namespace }};
+
+use Filament\Forms;
+use Filament\Schemas\Schema;
+use {{ baseSchema }} as BaseSchema;
+
+class {{ class }} extends BaseSchema
+{
+    public function make(Schema $schema): array
+    {
+        return [
+            Forms\Components\TextInput::make('name')
+                ->label(__('capell-admin::form.name')),
+        ];
+    }
+}

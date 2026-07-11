@@ -1,0 +1,16 @@
+# {{ displayName }}
+
+{{ displayName }} is a Capell package scaffolded with the `minimal` profile.
+
+## Structure
+
+- `capell.json` declares manifest v3 package metadata.
+- `src/Providers/PackageServiceProvider.php` is the runtime provider.
+- `resources/lang/en/package.php` stores package-owned labels.
+- `tests/Feature/ManifestTest.php` validates the manifest and public-cache safety contract.
+
+## Verification
+
+```bash
+vendor/bin/pest tests --configuration=phpunit.xml
+```

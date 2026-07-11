@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="380" viewBox="0 0 960 380" role="img" aria-labelledby="title desc">
+    <title id="title">Marketplace extension contracts</title>
+    <desc id="desc">Diagram showing Marketplace metadata, access checks, install operations, and package runtime boundaries.</desc>
+    <rect width="960" height="380" rx="18" fill="#f8fafc"/>
+    <g fill="#0f172a" font-family="Inter, Arial, sans-serif">
+        <text x="48" y="58" font-size="28" font-weight="700">Marketplace Extension Contracts</text>
+        <text x="48" y="88" font-size="15" fill="#475569">Marketplace verifies acquisition, then hands lifecycle work to package-owned code.</text>
+    </g>
+    <g font-family="Inter, Arial, sans-serif" font-size="16">
+        <rect x="48" y="132" width="200" height="120" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="74" y="168" fill="#0f172a" font-weight="700">Metadata</text>
+        <text x="74" y="198" fill="#475569">catalogue listing</text>
+        <text x="74" y="224" fill="#475569">docs and tiers</text>
+
+        <rect x="304" y="132" width="200" height="120" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="330" y="168" fill="#0f172a" font-weight="700">Access Check</text>
+        <text x="330" y="198" fill="#475569">account</text>
+        <text x="330" y="224" fill="#475569">licence state</text>
+
+        <rect x="560" y="132" width="200" height="120" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="586" y="168" fill="#0f172a" font-weight="700">Operation</text>
+        <text x="586" y="198" fill="#475569">Composer/deploy</text>
+        <text x="586" y="224" fill="#475569">install records</text>
+
+        <rect x="304" y="286" width="456" height="48" rx="10" fill="#ecfeff" stroke="#0891b2"/>
+        <text x="330" y="316" fill="#155e75" font-weight="700">Package runtime stays behind package extension points</text>
+    </g>
+    <g fill="none" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M248 192h28"/>
+        <path d="M264 180l12 12-12 12"/>
+        <path d="M504 192h28"/>
+        <path d="M520 180l12 12-12 12"/>
+        <path d="M660 252v28"/>
+        <path d="M648 268l12 12 12-12"/>
+    </g>
+</svg>

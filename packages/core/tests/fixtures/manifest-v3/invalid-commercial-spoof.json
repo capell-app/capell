@@ -1,0 +1,66 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/example",
+    "slug": "example",
+    "displayName": "Example",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "product": {
+        "group": "Developer Tools",
+        "tier": "premium",
+        "bundle": "platform"
+    },
+    "surfaces": ["admin"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": ["Vendor\\Example\\Providers\\ExampleServiceProvider"],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 20,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [
+        {
+            "key": "example.tables",
+            "label": "Example tables",
+            "class": "Vendor\\Example\\Health\\ExampleTablesHealthCheck"
+        }
+    ],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": true,
+        "effectiveLicense": "free",
+        "certificationStatus": "first-party"
+    },
+    "marketplace": {
+        "summary": "Example extension.",
+        "screenshots": [
+            {
+                "path": "docs/images/example.png",
+                "alt": "Example extension admin page.",
+                "caption": "Example admin workflow."
+            }
+        ],
+        "categories": ["developer-tools"]
+    }
+}

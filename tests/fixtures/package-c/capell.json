@@ -1,0 +1,21 @@
+{
+    "label": "Package C",
+    "slug": "package-c",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": ["packageB"],
+    "description": "Fixture package C for dependency-order tests.",
+    "icon": null,
+    "url": null,
+    "scopes": [],
+    "commands": {
+        "install": "packageC:install",
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": "packageC:setup",
+        "setupParams": [],
+        "upgrade": null,
+        "demo": null,
+        "demoParams": []
+    }
+}

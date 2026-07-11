@@ -1,0 +1,56 @@
+laravel: '@testbench'
+
+env:
+  AUTH_MODEL: 'Capell\Tests\Fixtures\Models\User'
+
+providers:
+  - Lorisleiva\Actions\ActionServiceProvider
+  - Aimeos\Nestedset\NestedSetServiceProvider
+  - Bkwld\Cloner\ServiceProvider
+  - Spatie\LaravelData\LaravelDataServiceProvider
+  - Spatie\MediaLibrary\MediaLibraryServiceProvider
+  - Spatie\Activitylog\ActivitylogServiceProvider
+  - Spatie\LaravelSettings\LaravelSettingsServiceProvider
+  - Filament\SpatieLaravelSettingsPluginServiceProvider
+  - Livewire\LivewireServiceProvider
+  - Filament\Actions\ActionsServiceProvider
+  - Filament\FilamentServiceProvider
+  - Filament\Forms\FormsServiceProvider
+  - Filament\Infolists\InfolistsServiceProvider
+  - Filament\Notifications\NotificationsServiceProvider
+  - Filament\Schemas\SchemasServiceProvider
+  - Filament\Support\SupportServiceProvider
+  - Filament\Tables\TablesServiceProvider
+  - Filament\Widgets\WidgetsServiceProvider
+  - BladeUI\Icons\BladeIconsServiceProvider
+  - BladeUI\Heroicons\BladeHeroiconsServiceProvider
+  - Spatie\Permission\PermissionServiceProvider
+  - Awcodes\BadgeableColumn\BadgeableColumnServiceProvider
+  - LaraZeus\SpatieTranslatable\SpatieTranslatableServiceProvider
+  - AmidEsfahani\FilamentTinyEditor\TinyeditorServiceProvider
+  - Saade\FilamentAdjacencyList\FilamentAdjacencyListServiceProvider
+  - BezhanSalleh\FilamentShield\FilamentShieldServiceProvider
+  - CodeWithDennis\FilamentSelectTree\FilamentSelectTreeServiceProvider
+  - CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider
+  - Pboivin\FilamentPeek\FilamentPeekServiceProvider
+  - STS\FilamentImpersonate\FilamentImpersonateServiceProvider
+  - Guava\IconPicker\IconPickerServiceProvider
+  - Tanmuhittin\LaravelGoogleTranslate\LaravelGoogleTranslateServiceProvider
+  - Spatie\EventSourcing\EventSourcingServiceProvider
+  - Capell\Core\Providers\CapellServiceProvider
+  - Capell\Admin\Providers\AdminServiceProvider
+  - Capell\Frontend\Providers\FrontendServiceProvider
+  - Capell\Marketplace\Providers\MarketplaceServiceProvider
+  - Capell\Admin\Providers\Filament\AdminPanelProvider
+
+migrations:
+  - tests/database/migrations
+  - packages/core/database/migrations
+  - packages/marketplace/database/migrations
+
+dont-discover:
+  - spatie/laravel-ray
+
+purge:
+  directories:
+    - database/migrations

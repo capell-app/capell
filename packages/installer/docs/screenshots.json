@@ -1,0 +1,32 @@
+{
+    "package": "installer",
+    "composerName": "capell-app/installer",
+    "generatedFor": "deployment-screenshot-runner",
+    "requiresInstalledPackage": true,
+    "outputDirectory": "packages/installer/docs/images/screenshots",
+    "entries": [
+        {
+            "id": "install-capell-page",
+            "title": "Install Capell page.",
+            "package": "installer",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "InstallCapellPage",
+            "required": false,
+            "notes": "Pre-install-only surface. The deployment screenshot runner currently captures after the demo app is installed, so this entry is optional until a pre-install capture phase exists."
+        },
+        {
+            "id": "install-guide-page",
+            "title": "Install guide page.",
+            "package": "installer",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "InstallGuidePage",
+            "required": true,
+            "notes": "Resolved by the deployment screenshot runner after installer demo state is prepared.",
+            "covers": [
+                "packages/installer/src/Filament/Pages/InstallGuidePage.php"
+            ]
+        }
+    ]
+}

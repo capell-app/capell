@@ -1,0 +1,196 @@
+name: Test All
+
+on:
+  push:
+    branches:
+      - 4.x
+
+concurrency:
+  group: ${{ github.ref }}-phpunit-full
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-all:
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - DB${{ matrix.db }}
+    runs-on: ubuntu-latest
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            stability: prefer-stable
+            db: mysql
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            db: mysql
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_cms_multi
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Dependencies PHP
+        id: php-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor
+          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-${{ matrix.db }}-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-full.yml') }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pcov, pdo_mysql, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup problem matchers
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Check Composer public files
+        run: php scripts/check-composer-local-paths.php
+
+      - name: Check Composer lock file
+        run: composer run check:composer-lock
+
+      - name: Install PHP dependencies
+        if: steps.php-cache.outputs.cache-hit != 'true'
+        run: |
+          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
+          composer require --no-interaction --no-progress --ansi --no-update \
+            "laravel/framework:${{ matrix.laravel }}"
+          composer require --no-interaction --no-progress --ansi --dev --no-update \
+            "orchestra/testbench:${{ matrix.testbench }}"
+
+          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
+
+      - name: Configure environment
+        run: |
+          if [ "${{ matrix.db }}" == "mysql" ]; then
+            echo "DB_CONNECTION=mysql" >> .env
+            echo "DB_HOST=127.0.0.1" >> .env
+            echo "DB_PORT=${{ job.services.mysql.ports['3306'] }}" >> .env
+            echo "DB_DATABASE=test_cms_multi" >> .env
+            echo "DB_USERNAME=root" >> .env
+            echo "DB_PASSWORD=root" >> .env
+          else
+            echo "DB_CONNECTION=sqlite" >> .env
+            echo "DB_DATABASE=:memory:" >> .env
+          fi
+
+      - name: Run test:all
+        id: run-tests
+        shell: bash
+        env:
+          NO_COLOR: 1
+        run: |
+          set -o pipefail
+          composer run test:all:ci 2>&1 | tee pest-output.txt
+          test_exit=${PIPESTATUS[0]}
+
+          exit "${test_exit}"
+
+      - name: Extract engineering metrics
+        id: engineering-metrics
+        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        run: |
+          php <<'PHP'
+          <?php
+          $output = file_get_contents('pest-output.txt');
+
+          if ($output === false) {
+              fwrite(STDERR, "Unable to read pest-output.txt\n");
+              throw new RuntimeException('Unable to read pest-output.txt.');
+          }
+
+          $output = preg_replace('/\e\\[[\\d;]*[A-Za-z]/', '', $output) ?? $output;
+
+          $patterns = [
+              '/Tests:\s*([0-9,]+)\D+Assertions:\s*([0-9,]+)/i',
+              '/\b([0-9,]+)\s+tests?,\s*([0-9,]+)\s+assertions?\b/i',
+              '/Tests:\s*([0-9,]+).*?\(([0-9,]+)\s+assertions?\)/is',
+          ];
+
+          $tests = null;
+          $assertions = null;
+
+          foreach ($patterns as $pattern) {
+              if (preg_match_all($pattern, $output, $matches, PREG_SET_ORDER) > 0) {
+                  $lastMatch = $matches[count($matches) - 1];
+                  $tests = str_replace(',', '', $lastMatch[1]);
+                  $assertions = str_replace(',', '', $lastMatch[2]);
+                  break;
+              }
+          }
+
+          if ($tests === null || $assertions === null) {
+              fwrite(STDERR, "Unable to parse test/assertion counts from Pest output.\n");
+              throw new RuntimeException('Unable to parse test/assertion counts from Pest output.');
+          }
+
+          $githubOutput = getenv('GITHUB_OUTPUT');
+
+          if ($githubOutput === false || $githubOutput === '') {
+              fwrite(STDERR, "GITHUB_OUTPUT is not available.\n");
+              throw new RuntimeException('GITHUB_OUTPUT is not available.');
+          }
+
+          file_put_contents($githubOutput, "tests={$tests}\nassertions={$assertions}\n", FILE_APPEND);
+
+          fwrite(STDOUT, "Parsed engineering metrics: tests={$tests}, assertions={$assertions}\n");
+          PHP
+          php scripts/extract-phpstan-level.php --github-output
+
+      - name: Send repository_dispatch to capell-app
+        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          ENGINEERING_METRICS_DISPATCH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          github-token: ${{ secrets.ACCESS_TOKEN }}
+          script: |
+            if (!process.env.ENGINEERING_METRICS_DISPATCH_TOKEN) {
+              core.setFailed('Missing ACCESS_TOKEN secret.');
+              return;
+            }
+
+            const client_payload = {
+              source: 'capell',
+              tests: Number(`${{ steps.engineering-metrics.outputs.tests }}`),
+              assertions: Number(`${{ steps.engineering-metrics.outputs.assertions }}`),
+              run_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              sha: context.sha,
+              phpstan_level: Number(`${{ steps.engineering-metrics.outputs.phpstan_level }}`),
+            };
+
+            await github.rest.repos.createDispatchEvent({
+              owner: 'capell-app',
+              repo: 'capell-app',
+              event_type: 'engineering-metrics',
+              client_payload,
+            });
+
+            core.info(`Dispatched engineering-metrics: ${JSON.stringify(client_payload)}`);

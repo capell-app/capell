@@ -1,0 +1,532 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Core\Actions\Diagnostics;
+
+use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Actions\FindPageUrlsMissingSiteDomainsAction;
+use Capell\Core\Actions\ResolvePublicPageByUrlAction;
+use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
+use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Data\Diagnostics\FrontendBuildAssetVerificationResultData;
+use Capell\Core\Data\PackageData;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\Site;
+use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Lorisleiva\Actions\Concerns\AsObject;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Throwable;
+
+/**
+ * @method static DoctorReportData run(bool $installSummary = false, bool $includePackageDoctors = true)
+ */
+final class BuildDoctorReportAction
+{
+    use AsObject;
+
+    public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
+    {
+        $checks = collect([
+            $this->checkRequiredTablesExist(),
+            $this->checkMorphMap(),
+            $this->checkStorageDisksWritable(),
+            $this->checkSeeded(),
+            $this->checkConfigFiles(),
+            $this->checkManifestV3Contracts(),
+            $this->checkInstalledPackages(),
+            $this->checkPublishedBuildAssets(),
+            $this->checkGeneratedTailwindCss(),
+            $this->checkAdminUserAccess(),
+            $this->checkHomepageRouteResolves(),
+            $this->checkDefaultThemeAndLayoutRecords(),
+            $this->checkPageUrlsHaveSiteDomains(),
+        ]);
+
+        if ($installSummary && $includePackageDoctors) {
+            $checks = $checks->merge($this->installedPackageDoctorChecks());
+        }
+
+        return new DoctorReportData(
+            status: $checks->every(fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
+            checks: $checks->values(),
+        );
+    }
+
+    /**
+     * @return Collection<int, DoctorCheckResultData>
+     */
+    private function installedPackageDoctorChecks(): Collection
+    {
+        return CapellCore::getPackages(withoutCore: true)
+            ->filter(fn (PackageData $package): bool => $package->isInstalled())
+            ->map(fn (PackageData $package): ?string => $package->getDoctorCommand())
+            ->filter(fn (?string $command): bool => is_string($command)
+                && $command !== ''
+                && $command !== 'capell:doctor'
+                && array_key_exists($command, Artisan::all()))
+            ->flatMap(fn (string $command): array => $this->runPackageDoctorCommand($command))
+            ->values();
+    }
+
+    /**
+     * @return array<int, DoctorCheckResultData>
+     */
+    private function runPackageDoctorCommand(string $command): array
+    {
+        try {
+            $output = new BufferedOutput;
+
+            Artisan::call($command, ['--json' => true], $output);
+
+            $decoded = json_decode($output->fetch(), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $throwable) {
+            return [
+                new DoctorCheckResultData(
+                    label: sprintf('Package doctor: %s', $command),
+                    passed: false,
+                    message: $throwable->getMessage(),
+                    remediation: sprintf('Run php artisan %s directly for package diagnostics.', $command),
+                ),
+            ];
+        }
+
+        if (! is_array($decoded) || ! is_array($decoded['checks'] ?? null)) {
+            return [
+                new DoctorCheckResultData(
+                    label: sprintf('Package doctor: %s', $command),
+                    passed: false,
+                    message: 'Package doctor did not return a valid JSON check report.',
+                    remediation: sprintf('Run php artisan %s --json and inspect the output.', $command),
+                ),
+            ];
+        }
+
+        return collect($decoded['checks'])
+            ->filter(fn (mixed $check): bool => is_array($check))
+            ->map(fn (array $check): DoctorCheckResultData => new DoctorCheckResultData(
+                label: (string) ($check['label'] ?? sprintf('Package doctor: %s', $command)),
+                passed: (bool) ($check['passed'] ?? false),
+                message: (string) ($check['message'] ?? ''),
+                remediation: isset($check['remediation']) ? (string) $check['remediation'] : null,
+            ))
+            ->values()
+            ->all();
+    }
+
+    private function checkRequiredTablesExist(): DoctorCheckResultData
+    {
+        $requiredTables = ['sites', 'languages', 'pages'];
+        $missingTables = array_filter($requiredTables, fn (string $table): bool => ! Schema::hasTable($table));
+
+        if ($missingTables !== []) {
+            return new DoctorCheckResultData(
+                label: 'Required tables exist',
+                passed: false,
+                message: sprintf('Missing tables: %s.', implode(', ', $missingTables)),
+                remediation: 'Run php artisan migrate.',
+            );
+        }
+
+        return new DoctorCheckResultData('Required tables exist', true, 'All required tables exist.');
+    }
+
+    private function checkPageUrlsHaveSiteDomains(): DoctorCheckResultData
+    {
+        if (
+            ! Schema::hasTable('page_urls')
+            || ! Schema::hasTable('site_domains')
+            || ! Schema::hasTable('sites')
+            || ! Schema::hasTable('languages')
+        ) {
+            return new DoctorCheckResultData(
+                label: 'Page URLs have site domains',
+                passed: true,
+                message: 'Skipped until page URL, site domain, site, and language tables exist.',
+            );
+        }
+
+        $missingPageUrls = FindPageUrlsMissingSiteDomainsAction::run();
+
+        if ($missingPageUrls->isEmpty()) {
+            return new DoctorCheckResultData(
+                label: 'Page URLs have site domains',
+                passed: true,
+                message: 'Every page URL has a matching active site domain.',
+            );
+        }
+
+        $examples = $missingPageUrls
+            ->take(5)
+            ->map(fn (PageUrl $pageUrl): string => sprintf(
+                '#%d site:%d language:%d',
+                $pageUrl->getKey(),
+                $pageUrl->site_id,
+                $pageUrl->language_id,
+            ))
+            ->implode(', ');
+
+        return new DoctorCheckResultData(
+            label: 'Page URLs have site domains',
+            passed: false,
+            message: sprintf(
+                '%d page URL(s) are missing matching active site domains. Examples: %s.',
+                $missingPageUrls->count(),
+                $examples,
+            ),
+            remediation: 'Run php artisan capell:doctor --repair-page-url-domains or rerun the relevant site/demo installer.',
+        );
+    }
+
+    private function checkMorphMap(): DoctorCheckResultData
+    {
+        $currentMorphMap = Relation::morphMap();
+
+        $expectedEntries = collect(CapellCore::getModels())
+            ->mapWithKeys(fn (string $modelClass, string $name): array => [Str::snake($name) => $modelClass])
+            ->all();
+
+        $missingFromMorphMap = array_filter(
+            $expectedEntries,
+            fn (string $modelClass, string $alias): bool => ! array_key_exists($alias, $currentMorphMap),
+            ARRAY_FILTER_USE_BOTH,
+        );
+
+        if ($missingFromMorphMap !== []) {
+            return new DoctorCheckResultData(
+                label: 'Morph map is complete',
+                passed: false,
+                message: sprintf('Morph map missing aliases: %s.', implode(', ', array_keys($missingFromMorphMap))),
+                remediation: 'Check your Capell service providers and cached config.',
+            );
+        }
+
+        return new DoctorCheckResultData('Morph map is complete', true, 'Core morph map is complete.');
+    }
+
+    private function checkStorageDisksWritable(): DoctorCheckResultData
+    {
+        $assetsDisk = config('capell.assets.disk', 'local');
+        $diskNames = array_values(array_unique(array_filter([
+            is_string($assetsDisk) ? $assetsDisk : null,
+        ], fn (mixed $value): bool => $value !== null)));
+
+        $failedDisks = [];
+        $skippedDisks = [];
+
+        foreach ($diskNames as $diskName) {
+            $filesystemsConfig = config('filesystems.disks', []);
+            if (! isset($filesystemsConfig[$diskName])) {
+                $skippedDisks[] = $diskName;
+
+                continue;
+            }
+
+            try {
+                $testFile = '.capell-doctor-probe-' . bin2hex(random_bytes(8));
+                $disk = Storage::disk($diskName);
+                $disk->put($testFile, '');
+                $disk->delete($testFile);
+            } catch (Throwable) {
+                $failedDisks[] = $diskName;
+            }
+        }
+
+        if ($failedDisks !== []) {
+            return new DoctorCheckResultData(
+                label: 'Storage disks are writable',
+                passed: false,
+                message: sprintf('Disk(s) not writable: %s.', implode(', ', $failedDisks)),
+                remediation: 'Check storage configuration and filesystem permissions.',
+            );
+        }
+
+        $checkedDisks = array_diff($diskNames, $skippedDisks);
+
+        if ($skippedDisks !== []) {
+            return new DoctorCheckResultData(
+                label: 'Storage disks are writable',
+                passed: true,
+                message: sprintf(
+                    'Disks checked (some not configured in filesystems.disks): %s.',
+                    $checkedDisks !== [] ? implode(', ', $checkedDisks) : 'none',
+                ),
+            );
+        }
+
+        return new DoctorCheckResultData('Storage disks are writable', true, 'All configured storage disks are writable.');
+    }
+
+    private function checkSeeded(): DoctorCheckResultData
+    {
+        $issues = [];
+
+        try {
+            if (Site::query()->count() === 0) {
+                $issues[] = 'No sites found';
+            }
+        } catch (Throwable) {
+            $issues[] = 'Could not query sites table';
+        }
+
+        try {
+            if (Language::query()->count() === 0) {
+                $issues[] = 'No languages found';
+            }
+        } catch (Throwable) {
+            $issues[] = 'Could not query languages table';
+        }
+
+        if ($issues !== []) {
+            return new DoctorCheckResultData(
+                label: 'Seed data is present',
+                passed: false,
+                message: implode('; ', $issues) . '.',
+                remediation: 'Run php artisan capell:install.',
+            );
+        }
+
+        return new DoctorCheckResultData('Seed data is present', true, 'At least one site and language exist.');
+    }
+
+    private function checkConfigFiles(): DoctorCheckResultData
+    {
+        $capellConfigFiles = glob(config_path('capell*.php'));
+
+        if ($capellConfigFiles === false || $capellConfigFiles === []) {
+            return new DoctorCheckResultData('Config files', true, 'No published Capell config files detected (defaults in use).');
+        }
+
+        $fileNames = array_map(basename(...), $capellConfigFiles);
+
+        return new DoctorCheckResultData(
+            label: 'Config files',
+            passed: true,
+            message: sprintf('Published config file(s) detected: %s.', implode(', ', $fileNames)),
+            remediation: 'Keep published config files in sync when upgrading.',
+        );
+    }
+
+    private function checkManifestV3Contracts(): DoctorCheckResultData
+    {
+        $results = AuditExtensionContractsAction::run();
+        $errors = array_filter($results, static fn (array $result): bool => $result['severity'] === 'error');
+
+        if ($errors !== []) {
+            return new DoctorCheckResultData(
+                label: 'Manifest v3 contracts',
+                passed: false,
+                message: sprintf('%d manifest contract error(s).', count($errors)),
+                remediation: 'Run php artisan capell:extension-audit.',
+            );
+        }
+
+        $warnings = array_filter($results, static fn (array $result): bool => $result['severity'] === 'warning');
+
+        if ($warnings !== []) {
+            return new DoctorCheckResultData(
+                label: 'Manifest v3 contracts',
+                passed: true,
+                message: sprintf('%d manifest contract warning(s).', count($warnings)),
+                remediation: 'Run php artisan capell:extension-audit.',
+            );
+        }
+
+        return new DoctorCheckResultData('Manifest v3 contracts', true, 'No extension manifest contract errors found.');
+    }
+
+    private function checkInstalledPackages(): DoctorCheckResultData
+    {
+        $installedPackages = CapellCore::getPackages(withoutCore: false)
+            ->filter(fn (PackageData $package): bool => $package->isInstalled())
+            ->keys()
+            ->values();
+
+        if ($installedPackages->isEmpty()) {
+            return new DoctorCheckResultData(
+                label: 'Installed Capell packages',
+                passed: false,
+                message: 'No installed Capell packages were detected.',
+                remediation: 'Run php artisan capell:install and choose the required packages.',
+            );
+        }
+
+        return new DoctorCheckResultData(
+            label: 'Installed Capell packages',
+            passed: true,
+            message: sprintf('%d package(s) are marked installed.', $installedPackages->count()),
+        );
+    }
+
+    private function checkPublishedBuildAssets(): DoctorCheckResultData
+    {
+        $results = VerifyFrontendBuildAssetsAction::run();
+
+        if ($results->isEmpty()) {
+            return new DoctorCheckResultData(
+                label: 'Published frontend build assets',
+                passed: true,
+                message: 'No package runtime build assets are registered.',
+            );
+        }
+
+        $failures = $results->reject(fn (FrontendBuildAssetVerificationResultData $result): bool => $result->passed);
+        if ($failures->isNotEmpty()) {
+            $firstFailure = $failures->first();
+
+            return new DoctorCheckResultData(
+                label: 'Published frontend build assets',
+                passed: false,
+                message: $firstFailure->message,
+                remediation: $firstFailure->remediation,
+            );
+        }
+
+        return new DoctorCheckResultData(
+            label: 'Published frontend build assets',
+            passed: true,
+            message: sprintf('%d registered build asset(s) are published.', $results->count()),
+        );
+    }
+
+    private function checkGeneratedTailwindCss(): DoctorCheckResultData
+    {
+        $paths = array_values(array_unique(array_filter([
+            resource_path('css/capell/frontend.css'),
+            public_path('vendor/capell-frontend/css/frontend.css'),
+        ], fn (string $path): bool => $path !== '')));
+
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                return new DoctorCheckResultData(
+                    label: 'Generated frontend Tailwind CSS',
+                    passed: true,
+                    message: sprintf('Found %s.', str_replace(base_path() . DIRECTORY_SEPARATOR, '', $path)),
+                );
+            }
+        }
+
+        if (! app()->bound('capell.tailwind.generator')) {
+            return new DoctorCheckResultData(
+                label: 'Generated frontend Tailwind CSS',
+                passed: true,
+                message: 'No frontend Tailwind generator is registered for this install.',
+            );
+        }
+
+        return new DoctorCheckResultData(
+            label: 'Generated frontend Tailwind CSS',
+            passed: false,
+            message: 'No generated Capell frontend CSS file was found.',
+            remediation: 'Run php artisan capell:frontend:setup or npm run build after installing frontend packages.',
+        );
+    }
+
+    private function checkAdminUserAccess(): DoctorCheckResultData
+    {
+        if (! Schema::hasTable('users')) {
+            return new DoctorCheckResultData(
+                label: 'Admin user access',
+                passed: false,
+                message: 'The users table does not exist.',
+                remediation: 'Run php artisan migrate and rerun the installer user step.',
+            );
+        }
+
+        $userCount = resolve(ConnectionResolverInterface::class)->table('users')->count();
+        if ($userCount === 0) {
+            return new DoctorCheckResultData(
+                label: 'Admin user access',
+                passed: false,
+                message: 'No users exist.',
+                remediation: 'Create an admin user or rerun php artisan capell:install.',
+            );
+        }
+
+        if (Schema::hasTable('model_has_roles') && resolve(ConnectionResolverInterface::class)->table('model_has_roles')->count() === 0) {
+            return new DoctorCheckResultData(
+                label: 'Admin user access',
+                passed: false,
+                message: 'Users exist but no role assignments were found.',
+                remediation: 'Grant the install user admin access.',
+            );
+        }
+
+        return new DoctorCheckResultData('Admin user access', true, sprintf('%d user(s) exist and admin role assignments are present.', $userCount));
+    }
+
+    private function checkHomepageRouteResolves(): DoctorCheckResultData
+    {
+        // Exercise the real runtime resolver rather than a loose DB lookup: a loose
+        // query can report the homepage "resolves" while the public request path
+        // (page-type accessible/enabled gates, published date, morph map) rejects it,
+        // producing a themed 404. Calling ResolvePublicPageByUrlAction here makes a
+        // green check guarantee the page actually renders for anonymous visitors.
+        try {
+            $site = Site::query()->default()->with('language')->first() ?? Site::query()->with('language')->first();
+            $language = $site?->language;
+
+            $resolvedPage = $site instanceof Site && $language instanceof Language
+                ? ResolvePublicPageByUrlAction::run($site, $language, '/')->page
+                : null;
+        } catch (Throwable) {
+            $resolvedPage = null;
+        }
+
+        $routeRegistered = Route::has('capell.home') || Route::has('capell.frontend') || Route::has('frontend');
+
+        $resolvedToRealPage = $resolvedPage instanceof Page && ! $resolvedPage->isErrorPage();
+
+        if (! $resolvedToRealPage) {
+            return new DoctorCheckResultData(
+                label: 'Homepage route resolves',
+                passed: false,
+                message: 'The public page resolver returned no page (or the error page) for "/".',
+                remediation: 'Confirm the homepage page type is enabled and accessible, the page is published, and page URLs were generated.',
+            );
+        }
+
+        return new DoctorCheckResultData(
+            label: 'Homepage route resolves',
+            passed: true,
+            message: $routeRegistered
+                ? sprintf('Homepage #%d resolves through the public resolver and a frontend route is registered.', $resolvedPage->getKey())
+                : sprintf('Homepage #%d resolves through the public resolver.', $resolvedPage->getKey()),
+        );
+    }
+
+    private function checkDefaultThemeAndLayoutRecords(): DoctorCheckResultData
+    {
+        $issues = [];
+
+        if (Schema::hasTable('themes') && ! resolve(ConnectionResolverInterface::class)->table('themes')->where('default', true)->exists()) {
+            $issues[] = 'No default theme';
+        }
+
+        if (Schema::hasTable('layouts') && ! Layout::query()->default()->exists()) {
+            $issues[] = 'No default layout';
+        }
+
+        if ($issues !== []) {
+            return new DoctorCheckResultData(
+                label: 'Default theme and layout records',
+                passed: false,
+                message: implode('; ', $issues) . '.',
+                remediation: 'Rerun theme setup and ensure default theme/layout fixtures are seeded.',
+            );
+        }
+
+        return new DoctorCheckResultData('Default theme and layout records', true, 'Default theme and layout records are present.');
+    }
+}

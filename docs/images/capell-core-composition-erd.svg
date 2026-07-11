@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Capell core composition, asset, access, and operations ERD</title>
+  <desc id="desc">Entity relationship diagram for Capell layouts, widgets, assets, roles, content graph edges, media, and operational core tables.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#263238"/>
+    </marker>
+    <style>
+      .canvas { fill: #f7f9fb; }
+      .title { fill: #16212b; font: 700 32px Inter, Arial, sans-serif; }
+      .subtitle { fill: #536475; font: 400 16px Inter, Arial, sans-serif; }
+      .entity { fill: #ffffff; stroke: #8ea2b4; stroke-width: 2; rx: 10; }
+      .entity-core { fill: #fef7ed; stroke: #d68a1f; }
+      .entity-content { fill: #f1fbf6; stroke: #3a9867; }
+      .entity-compose { fill: #f8f3ff; stroke: #8b6bc6; }
+      .entity-infra { fill: #f3f5f7; stroke: #8b98a5; }
+      .header { fill: #16212b; font: 700 18px Inter, Arial, sans-serif; }
+      .table { fill: #5c6f82; font: 500 12px Inter, Arial, sans-serif; }
+      .field { fill: #263238; font: 500 13px Inter, Arial, sans-serif; }
+      .line { fill: none; stroke: #263238; stroke-width: 2.2; marker-end: url(#arrow); }
+      .line-morph { fill: none; stroke: #5c6f82; stroke-width: 2.2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .line-json { fill: none; stroke: #8b6bc6; stroke-width: 2.2; stroke-dasharray: 2 6; marker-end: url(#arrow); }
+      .line-derived { fill: none; stroke: #b45309; stroke-width: 3; stroke-dasharray: 12 5; marker-end: url(#arrow); }
+      .cardinality { fill: #16212b; font: 700 13px Inter, Arial, sans-serif; }
+      .label { fill: #314253; font: 600 12px Inter, Arial, sans-serif; }
+      .legend { fill: #536475; font: 400 13px Inter, Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1400" height="900"/>
+  <text class="title" x="56" y="60">Capell Core Composition ERD</text>
+  <text class="subtitle" x="56" y="88">Actual relationships for layouts, widgets, polymorphic assets, access, content graph, and operational core tables.</text>
+
+  <g id="layouts">
+    <rect class="entity entity-compose" x="90" y="150" width="240" height="166"/>
+    <text class="header" x="112" y="183">layouts</text>
+    <text class="table" x="112" y="205">Layout</text>
+    <text class="field" x="112" y="234">PK id</text>
+    <text class="field" x="112" y="256">FK theme_id nullable</text>
+    <text class="field" x="112" y="278">FK site_id nullable</text>
+    <text class="field" x="112" y="300">widgets JSON by key</text>
+  </g>
+
+  <g id="widgets">
+    <rect class="entity entity-compose" x="430" y="150" width="240" height="166"/>
+    <text class="header" x="452" y="183">widgets</text>
+    <text class="table" x="452" y="205">Widget</text>
+    <text class="field" x="452" y="234">PK id</text>
+    <text class="field" x="452" y="256">FK blueprint_id</text>
+    <text class="field" x="452" y="278">key</text>
+    <text class="field" x="452" y="300">content / meta</text>
+  </g>
+
+  <g id="widget-assets">
+    <rect class="entity entity-compose" x="780" y="150" width="260" height="190"/>
+    <text class="header" x="802" y="183">widget_assets</text>
+    <text class="table" x="802" y="205">WidgetAsset</text>
+    <text class="field" x="802" y="234">PK id</text>
+    <text class="field" x="802" y="256">FK widget_id</text>
+    <text class="field" x="802" y="278">MORPH pageable nullable</text>
+    <text class="field" x="802" y="300">MORPH asset</text>
+    <text class="field" x="802" y="322">container / occurrence</text>
+  </g>
+
+  <g id="asset-relations">
+    <rect class="entity entity-compose" x="1110" y="150" width="240" height="166"/>
+    <text class="header" x="1132" y="183">asset_relations</text>
+    <text class="table" x="1132" y="205">AssetRelation</text>
+    <text class="field" x="1132" y="234">PK id</text>
+    <text class="field" x="1132" y="256">MORPH related</text>
+    <text class="field" x="1132" y="278">MORPH asset</text>
+    <text class="field" x="1132" y="300">order</text>
+  </g>
+
+  <g id="pages">
+    <rect class="entity entity-content" x="90" y="430" width="240" height="142"/>
+    <text class="header" x="112" y="463">pages</text>
+    <text class="table" x="112" y="485">Page / Pageable</text>
+    <text class="field" x="112" y="514">PK id</text>
+    <text class="field" x="112" y="536">FK layout_id</text>
+    <text class="field" x="112" y="558">pageable target</text>
+  </g>
+
+  <g id="types">
+    <rect class="entity entity-core" x="430" y="430" width="240" height="142"/>
+    <text class="header" x="452" y="463">blueprints</text>
+    <text class="table" x="452" y="485">Blueprint</text>
+    <text class="field" x="452" y="514">PK id</text>
+    <text class="field" x="452" y="536">blueprint</text>
+    <text class="field" x="452" y="558">key / group</text>
+  </g>
+
+  <g id="media">
+    <rect class="entity entity-infra" x="780" y="430" width="260" height="142"/>
+    <text class="header" x="802" y="463">media</text>
+    <text class="table" x="802" y="485">Media</text>
+    <text class="field" x="802" y="514">Spatie media table</text>
+    <text class="field" x="802" y="536">model_type / model_id</text>
+    <text class="field" x="802" y="558">collection_name</text>
+  </g>
+
+  <g id="page-role-restrictions">
+    <rect class="entity entity-infra" x="90" y="660" width="260" height="142"/>
+    <text class="header" x="112" y="693">page_role_restrictions</text>
+    <text class="table" x="112" y="715">PageRoleRestriction</text>
+    <text class="field" x="112" y="744">PK id</text>
+    <text class="field" x="112" y="766">MORPH restrictable</text>
+    <text class="field" x="112" y="788">FK role_id</text>
+  </g>
+
+  <g id="roles">
+    <rect class="entity entity-infra" x="430" y="680" width="180" height="102"/>
+    <text class="header" x="452" y="713">roles</text>
+    <text class="table" x="452" y="735">Spatie Role</text>
+    <text class="field" x="452" y="764">PK id</text>
+  </g>
+
+  <g id="content-graph-edges">
+    <rect class="entity entity-infra" x="720" y="660" width="300" height="166"/>
+    <text class="header" x="742" y="693">content_graph_edges</text>
+    <text class="table" x="742" y="715">ContentGraphEdge</text>
+    <text class="field" x="742" y="744">PK id</text>
+    <text class="field" x="742" y="766">source_type / source_id</text>
+    <text class="field" x="742" y="788">target_type / target_id</text>
+    <text class="field" x="742" y="810">FK site_id / language_id nullable</text>
+  </g>
+
+  <g id="operations">
+    <rect class="entity entity-infra" x="1100" y="430" width="250" height="230"/>
+    <text class="header" x="1122" y="463">operational core</text>
+    <text class="table" x="1122" y="485">Extension / Upgrade / Health</text>
+    <text class="field" x="1122" y="518">capell_extensions</text>
+    <text class="field" x="1122" y="542">capell_upgrade_log</text>
+    <text class="field" x="1122" y="566">extension_health_alerts</text>
+    <text class="field" x="1122" y="590">no FK into content core</text>
+    <text class="field" x="1122" y="614">composer_name / package keys</text>
+  </g>
+
+  <path class="line-json" d="M 330 234 L 430 234"/>
+  <text class="cardinality" x="344" y="222">0..*</text>
+  <text class="cardinality" x="400" y="222">0..*</text>
+  <text class="label" x="346" y="257">widgets JSON key</text>
+
+  <path class="line" d="M 670 234 L 780 234"/>
+  <text class="cardinality" x="684" y="222">1</text>
+  <text class="cardinality" x="748" y="222">0..*</text>
+  <text class="label" x="696" y="257">widget owns assets</text>
+
+  <path class="line-morph" d="M 1040 278 L 1110 278"/>
+  <text class="cardinality" x="1054" y="266">0..*</text>
+  <text class="cardinality" x="1080" y="266">0..*</text>
+  <text class="label" x="1042" y="301">asset morph</text>
+
+  <path class="line" d="M 210 430 L 210 316"/>
+  <text class="cardinality" x="224" y="412">0..*</text>
+  <text class="cardinality" x="224" y="336">1</text>
+  <text class="label" x="226" y="374">page layout</text>
+
+  <path class="line" d="M 670 501 C 724 430, 724 260, 780 256"/>
+  <text class="cardinality" x="684" y="491">1</text>
+  <text class="cardinality" x="748" y="270">0..*</text>
+  <text class="label" x="686" y="382">element blueprint</text>
+
+  <path class="line-morph" d="M 330 523 C 468 614, 642 630, 780 300"/>
+  <text class="cardinality" x="344" y="545">1</text>
+  <text class="cardinality" x="748" y="319">0..*</text>
+  <text class="label" x="548" y="619">pageable scope</text>
+
+  <path class="line-morph" d="M 910 430 L 910 340"/>
+  <text class="cardinality" x="924" y="414">1</text>
+  <text class="cardinality" x="924" y="360">0..*</text>
+  <text class="label" x="925" y="390">media model morph</text>
+
+  <path class="line-morph" d="M 1040 501 C 1080 430, 1080 278, 1110 278"/>
+  <text class="cardinality" x="1054" y="489">0..*</text>
+  <text class="cardinality" x="1082" y="294">0..*</text>
+  <text class="label" x="1056" y="382">related / asset</text>
+
+  <path class="line-morph" d="M 220 660 L 220 572"/>
+  <text class="cardinality" x="234" y="642">0..*</text>
+  <text class="cardinality" x="234" y="590">1</text>
+  <text class="label" x="236" y="618">restrictable</text>
+
+  <path class="line" d="M 350 731 L 430 731"/>
+  <text class="cardinality" x="364" y="719">0..*</text>
+  <text class="cardinality" x="402" y="719">1</text>
+  <text class="label" x="364" y="753">role</text>
+
+  <path class="line-derived" d="M 330 536 C 470 656, 560 744, 720 744"/>
+  <text class="cardinality" x="344" y="558">0..*</text>
+  <text class="cardinality" x="690" y="733">0..*</text>
+  <text class="label" x="456" y="724">source / target graph</text>
+
+  <path class="line-derived" d="M 1020 788 C 1070 788, 1070 572, 1100 572"/>
+  <text class="label" x="1018" y="760">optional site/language scope</text>
+
+  <rect class="entity" x="90" y="835" width="1260" height="48"/>
+  <text class="legend" x="112" y="865">Notation: solid = FK, dotted = JSON relation, dashed = polymorphic/logical relation, orange dashed = derived graph/operational relation.</text>
+</svg>

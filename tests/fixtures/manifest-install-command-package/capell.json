@@ -1,0 +1,70 @@
+{
+    "manifest-version": 3,
+    "name": "vendor/manifest-install-command-package",
+    "slug": "manifest-install-command-package",
+    "displayName": "Manifest Install Command Package",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "1.0.0",
+    "description": "Fixture package that registers an install command through a manifest provider.",
+    "product": {
+        "group": "Tests",
+        "tier": "free",
+        "bundle": null
+    },
+    "namespace": "Capell\\Tests\\Fixtures",
+    "surfaces": ["console"],
+    "dependencies": {
+        "requires": [],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [
+            "Capell\\Tests\\Fixtures\\Providers\\InstallCommandProvider"
+        ],
+        "runtime": [],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": false,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": "test:manifest-install-command",
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 0,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "community",
+        "supportPolicy": "community",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "Fixture package that registers an install command through a manifest provider.",
+        "screenshots": [],
+        "categories": ["tests"]
+    }
+}

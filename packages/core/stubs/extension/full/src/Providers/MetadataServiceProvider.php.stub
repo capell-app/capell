@@ -1,0 +1,14 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Providers;
+
+use Illuminate\Support\ServiceProvider;
+
+final class MetadataServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+    }
+}

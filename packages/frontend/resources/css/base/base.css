@@ -1,0 +1,24 @@
+html {
+    background: var(--color-page, rgb(255 255 255));
+    color: var(--color-base, rgb(15 23 42));
+    text-rendering: optimizeLegibility;
+}
+
+.highlight {
+    color: var(--color-primary, rgb(37 99 235));
+}
+
+@media (max-width: 1023px) {
+    body.menu-open {
+        overflow: hidden;
+    }
+}
+
+a {
+    cursor: pointer;
+}
+
+::selection {
+    background: rgb(from var(--color-primary, #2563eb) r g b / 0.16);
+    color: var(--color-base, rgb(15 23 42));
+}

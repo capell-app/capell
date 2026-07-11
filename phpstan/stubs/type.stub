@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Types;
+
+use Capell\Core\Blueprints\AbstractType;
+
+class {{ class }}Type extends AbstractType
+{
+    /**
+     * The type name (used when registering with CapellCore).
+     */
+    public static string $name = '{{ name }}';
+
+    /**
+     * The label shown in the admin panel.
+     */
+    public static string $label = '{{ label }}';
+}

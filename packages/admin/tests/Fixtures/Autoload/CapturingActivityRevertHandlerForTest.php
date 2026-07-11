@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Tests\Fixtures\Autoload;
+
+use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Data\Activity\ActivityRevertResultData;
+use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
+
+final class CapturingActivityRevertHandlerForTest implements ActivityRevertHandler
+{
+    public static ?ActivityRevertSelectionData $selection = null;
+
+    public function priority(): int
+    {
+        return 100;
+    }
+
+    public function supports(ActivityRevertSelectionData $selection): bool
+    {
+        return true;
+    }
+
+    public function revert(ActivityRevertSelectionData $selection): ActivityRevertResultData
+    {
+        self::$selection = $selection;
+
+        return ActivityRevertResultData::success('capell-admin::activity.reverted');
+    }
+}

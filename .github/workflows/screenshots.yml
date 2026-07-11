@@ -1,0 +1,147 @@
+name: Core Screenshots
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - 4.x
+    paths:
+      - 'docs/screenshots.json'
+      - 'packages/**'
+      - 'packages/**/docs/screenshots.json'
+      - 'scripts/*screenshot*.js'
+      - '.github/workflows/screenshots.yml'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Optional manifest package to capture, such as documentation, admin, core, frontend, installer, or marketplace'
+        required: false
+        type: string
+      screenshot_runner_ref:
+        description: 'Git ref for capell-app/capell-screenshot-runner'
+        required: false
+        default: 'main'
+        type: string
+      dry_run:
+        description: 'Validate the capture selection without building the screenshot app'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.package || 'changed' }}
+  cancel-in-progress: true
+
+jobs:
+  capture-core-screenshots:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      CAPELL_CORE_REPO_PATH: ${{ github.workspace }}/repositories/capell
+      CAPELL_SCREENSHOT_RUNNER_PATH: ${{ github.workspace }}/services/capell-screenshot-runner
+      CAPELL_REPO: ${{ github.workspace }}/repositories/capell
+      CAPELL_SCREENSHOT_APP_PATH: ${{ github.workspace }}/services/capell-screenshot-runner
+      CAPELL_ADMIN_URL: http://127.0.0.1:8000/admin
+      CAPELL_FRONTEND_URL: http://127.0.0.1:8000
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ${{ github.workspace }}/services/capell-screenshot-runner/database/database.sqlite
+
+    steps:
+      - name: Checkout core repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: capell-app/capell
+          ref: ${{ github.repository == 'capell-app/capell' && github.sha || '4.x' }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          fetch-depth: 0
+          path: repositories/capell
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Determine manifests to capture
+        id: packages
+        working-directory: repositories/capell
+        run: |
+          if [ -n "${{ inputs.package }}" ]; then
+            printf '%s\n' "${{ inputs.package }}" > /tmp/capell-core-screenshot-packages.txt
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" \
+              | node scripts/changed-screenshot-packages.js > /tmp/capell-core-screenshot-packages.txt
+          else
+            find docs packages -path '*/screenshots.json' -print \
+              | node scripts/changed-screenshot-packages.js > /tmp/capell-core-screenshot-packages.txt
+          fi
+
+          if [ ! -s /tmp/capell-core-screenshot-packages.txt ]; then
+            echo "No changed screenshot manifests found."
+            echo "has_packages=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Manifests selected for capture:"
+          cat /tmp/capell-core-screenshot-packages.txt
+          echo "has_packages=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout screenshot runner
+        if: steps.packages.outputs.has_packages == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: capell-app/capell-screenshot-runner
+          ref: ${{ inputs.screenshot_runner_ref || 'main' }}
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: services/capell-screenshot-runner
+
+      - name: Setup PHP
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: 8.4
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Install core Node dependencies
+        if: steps.packages.outputs.has_packages == 'true'
+        working-directory: repositories/capell
+        run: npm ci
+
+      - name: Install screenshot runner Node dependencies
+        if: steps.packages.outputs.has_packages == 'true'
+        working-directory: services/capell-screenshot-runner
+        run: npm ci
+
+      - name: Install Playwright browser
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        working-directory: services/capell-screenshot-runner
+        run: npm run install:browsers
+
+      - name: Prepare screenshot runner app
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        working-directory: services/capell-screenshot-runner
+        run: npm run prepare:app
+
+      - name: Capture selected screenshots
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        working-directory: repositories/capell
+        run: npm run screenshots -- --only-file /tmp/capell-core-screenshot-packages.txt
+
+      - name: Dry-run selected screenshots
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run == true
+        working-directory: repositories/capell
+        run: npm run screenshots:check -- --only-file /tmp/capell-core-screenshot-packages.txt --skip-build
+
+      - name: Upload generated screenshots
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: capell-core-screenshots-${{ inputs.package || github.sha }}
+          path: |
+            repositories/capell/docs/images/generated
+            repositories/capell/packages/*/docs/images/screenshots
+            repositories/capell/public/docs/screenshots/packages
+          if-no-files-found: warn

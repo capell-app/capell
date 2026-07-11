@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'history_title' => 'History',
+    'version' => 'Version',
+    'summary' => 'Change',
+    'type' => 'Type',
+    'type_edit' => 'Edit',
+    'type_restore' => 'Restore',
+    'occurred_at' => 'When',
+    'rollback_action' => 'Roll back to here',
+    'rollback_heading' => 'Roll back to version :version',
+    'rollback_confirm' => 'Restore this version',
+    'rollback_summary' => 'Rollback to version :version',
+    'roll_forward_action' => 'Roll forward to here',
+    'roll_forward_heading' => 'Roll forward to version :version',
+    'roll_forward_confirm' => 'Restore this version',
+    'roll_forward_summary' => 'Roll forward to version :version',
+    'roll_forward_done' => 'The page was rolled forward.',
+    // Reassurance shown under the modal heading: restoring never deletes, it
+    // appends a new version, so the move is always itself reversible.
+    'restore_help_back' => "This saves version :version's content as a new version. Nothing is deleted — your current content stays in the history below, so you can return to it at any time.",
+    'restore_help_forward' => "This re-applies version :version's content as a new version. Nothing is deleted — you can move back again at any time.",
+    'changed_by' => 'Changed by',
+    'system_actor' => 'System',
+    'system_actor_help' => 'Saved outside the admin (for example an import or a console command).',
+    'change_revision' => 'Content updated',
+    'empty_heading' => 'No history yet',
+    'empty_description' => 'Every save is recorded here automatically. You can return to any earlier version without losing your current work.',
+    'rollback_done' => 'The page was rolled back.',
+    'rollback_blocked' => "Can't restore this version yet",
+    'rollback_forbidden' => 'You do not have permission to roll back this page.',
+    'rollback_no_changes' => 'This version matches the current content, so nothing would change.',
+    'rollback_current' => 'Current',
+    'rollback_target' => 'After rollback',
+    'rollback_target_back' => 'After rolling back',
+    'rollback_target_forward' => 'After rolling forward',
+    'preview_intro_back' => 'Rolling back to version :version — changed by :actor on :date.',
+    'preview_intro_forward' => 'Rolling forward to version :version — changed by :actor on :date.',
+    'revert_subject_missing' => 'The page being reverted could not be found.',
+    'revert_no_revision' => 'No event-sourced revision exists for this page yet.',
+    'workflow_status' => 'Editorial status',
+];

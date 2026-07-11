@@ -1,0 +1,464 @@
+{
+    "generatedAt": "2026-07-09T05:40:57.033Z",
+    "description": "Current custom Filament action surfaces that still need explicit screenshot manifest coverage. Remove entries as manifests gain covers[] links.",
+    "uncovered": [
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Actions/Makers/RunMakerFilamentAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Actions/Page/ReplicateSiteAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Actions/Table/ReplicateSiteAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/ComponentSelect.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/ConfiguratorSelect.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/CustomSelectGroup.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Editor/ContentBuilder.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Layout/DetailsSchema.php",
+            "actions": ["HintEditAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/NameKeyGroup.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Page/LayoutSelect.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Page/TranslationsRepeater.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/PageRelationSelect.php",
+            "actions": ["HintEditAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/PageSelect.php",
+            "actions": ["HintEditAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/RepeaterTabs.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Site/DomainsRepeater.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Site/DomainsSchema.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Site/LanguagesSchema.php",
+            "actions": ["CreateLanguageAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/SiteSelect.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/SocialIcons.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Components/Forms/Theme/ColorsRepeater.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/CustomisesExtensionsDashboard.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/Validate/BlueprintValidation.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/Validate/LanguageValidation.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/Validate/LayoutValidation.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/Validate/PageValidation.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/Validate/SiteDomainValidation.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Concerns/Validate/ThemeValidation.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Configurators/Sites/DefaultSiteConfigurator.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Livewire/PublishStatusPanel.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/AbstractExtensionPage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/AbstractPackageSettingsPage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/Extensions/Tables/ExtensionsTable.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/ExtensionsPage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/MarketingStudioPage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/UpgradePage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Plugin/CapellAdminPlugin.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/RelationManagers/AbstractPagesRelationManager.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/RelationManagers/EventSourcedHistoryRelationManager.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Activities/Tables/ActivitiesTable.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Blueprints/Pages/ManageBlueprints.php",
+            "actions": ["CreateBlueprintAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Media/Pages/EditMedia.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Media/Pages/ListMedia.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Media/Tables/MediaTable.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Actions/BulkPublishPagesBulkAction.php",
+            "actions": ["BulkPublishPagesAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Actions/BulkRevertToDraftBulkAction.php",
+            "actions": ["BulkRevertPagesToDraftAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php",
+            "actions": [
+                "Action",
+                "CreatePageAction",
+                "DeletePageAction",
+                "FrontendResourceDiagnosticsHeaderAction",
+                "FrontendSourceMapHeaderAction",
+                "PreviewDraftPageHeaderAction",
+                "ReplicatePageAction",
+                "RevisionsHeaderAction"
+            ],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Pages/ListPages.php",
+            "actions": ["Action", "CreatePageAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php",
+            "actions": [
+                "BulkMovePagesBulkAction",
+                "BulkPublishPagesBulkAction",
+                "BulkRevertToDraftBulkAction",
+                "BulkSchedulePagesBulkAction",
+                "ExportPagesBulkAction",
+                "ReplicatePageAction",
+                "VisitUrlAction"
+            ],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Widgets/ListPageAlertsWidget.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Pages/Widgets/PageAlertsFilamentWidget.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/PageUrls/Tables/PageUrlsTable.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Redirects/Pages/ManageRedirects.php",
+            "actions": ["ExportAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Roles/Pages/EditRole.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Roles/RoleResource.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Sites/Pages/EditSite.php",
+            "actions": [
+                "Action",
+                "CreateSiteAction",
+                "ManageSitePermissionsAction",
+                "ReplicateSiteAction"
+            ],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Sites/Pages/ListSites.php",
+            "actions": ["CreateSiteAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Sites/Tables/SitesTable.php",
+            "actions": ["ExportSitesBulkAction", "ReplicateSiteAction"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Sites/Widgets/ListSiteAlertsWidget.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Themes/Pages/ManageThemes.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Themes/Tables/ThemesTable.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Widgets/Dashboard/ListPagesFilamentWidget.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Widgets/Dashboard/RecentActivityFilamentWidget.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Actions/ConnectMarketplaceAccountAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Actions/CreateMarketplaceAccountAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Actions/MarketplaceConnectionFormModel.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Actions/MarketplaceInstallOperationsAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Actions/OpenMarketplaceAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Extenders/ThemeMarketplaceHeaderActionExtender.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Pages/MarketplacePackageOperationsPage.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Pages/MarketplacePage.php",
+            "actions": [
+                "Action",
+                "ConnectMarketplaceAccountAction",
+                "RunMarketplaceHeartbeatAction"
+            ],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/marketplace/src/Filament/Support/MarketplaceInstallActionPresenter.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        }
+    ]
+}

@@ -1,0 +1,67 @@
+{
+    "name": "capell-app/marketplace",
+    "description": "Extension marketplace browsing and acquisition for Capell CMS.",
+    "type": "library",
+    "keywords": [
+        "capell",
+        "laravel",
+        "marketplace",
+        "cms"
+    ],
+    "homepage": "https://github.com/capell-app/marketplace",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Howdu",
+            "email": "capell.app26@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Capell\\Marketplace\\": "src/",
+            "Capell\\Marketplace\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Capell\\Marketplace\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Marketplace\\Providers\\MarketplaceServiceProvider"
+            ]
+        },
+        "branch-alias": {
+            "dev-main": "4.x-dev"
+        }
+    },
+    "require": {
+        "php": "^8.4",
+        "capell-app/admin": "^4.0 || 4.x-dev",
+        "capell-app/core": "^4.0 || 4.x-dev",
+        "laravel/framework": "^12.41.1|^13.0",
+        "lorisleiva/laravel-actions": "^2.8",
+        "spatie/laravel-data": "^4.5",
+        "spatie/laravel-package-tools": "^1.14.1"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.8|^11.0",
+        "pestphp/pest": "^4.3",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "pestphp/pest-plugin-livewire": "^4.0"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "bin/pest --colors=always"
+    }
+}

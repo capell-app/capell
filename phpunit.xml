@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" backupGlobals="false" backupStaticProperties="false" beStrictAboutOutputDuringTests="false" beStrictAboutTestsThatDoNotTestAnything="true" bootstrap="vendor/autoload.php" cacheDirectory=".cache/phpunit" cacheResult="true" colors="true" failOnRisky="true" failOnWarning="true" processIsolation="false" stopOnError="false" stopOnFailure="false" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd">
+  <testsuites>
+    <testsuite name="Feature">
+      <directory suffix="Test.php">./packages/*/tests/Feature</directory>
+      <directory suffix="Test.php">./tests/Integration/Feature</directory>
+      <exclude>./packages/*/tests/Browser</exclude>
+    </testsuite>
+    <testsuite name="Integration">
+      <directory suffix="Test.php">./packages/*/tests/Integration</directory>
+      <directory suffix="Test.php">./tests/Integration</directory>
+      <exclude>./tests/Integration/Feature</exclude>
+      <exclude>./packages/*/tests/Browser</exclude>
+    </testsuite>
+    <testsuite name="Unit">
+      <directory suffix="Test.php">./packages/*/tests/Unit</directory>
+      <directory suffix="Test.php">./tests/Unit</directory>
+      <exclude>./packages/*/tests/Browser</exclude>
+    </testsuite>
+  </testsuites>
+  <source restrictNotices="true" restrictWarnings="true" ignoreSuppressionOfDeprecations="true" ignoreIndirectDeprecations="true">
+    <include>
+      <directory suffix=".php">packages/admin/src/.</directory>
+      <directory suffix=".php">packages/core/src/.</directory>
+      <directory suffix=".php">packages/frontend/src/.</directory>
+      <directory suffix=".php">packages/installer/src/.</directory>
+      <directory suffix=".php">packages/marketplace/src/.</directory>
+    </include>
+  </source>
+  <php>
+    <ini name="memory_limit" value="1536M"/>
+    <server name="APP_ENV" value="testing"/>
+    <env name="APP_KEY" value="12345678901234567890123456789012"/>
+    <env name="BCRYPT_ROUNDS" value="4"/>
+    <env name="CACHE_STORE" value="array"/>
+    <env name="CURATOR_GLIDE_TOKEN" value="123456789"/>
+    <env name="DB_CONNECTION" value="sqlite" force="true"/>
+    <env name="DB_DATABASE" value=":memory:" force="true"/>
+    <env name="DB_URL" value="" force="true"/>
+    <env name="MAIL_MAILER" value="array"/>
+    <env name="PULSE_ENABLED" value="false"/>
+    <env name="QUEUE_CONNECTION" value="sync"/>
+    <env name="SESSION_DRIVER" value="array"/>
+    <env name="TELESCOPE_ENABLED" value="false"/>
+    <env name="CAPELL_HTML_CACHE" value="false"/>
+    <env name="SETTINGS_CACHE_ENABLED" value="true"/>
+  </php>
+</phpunit>

@@ -1,0 +1,13 @@
+[
+    {
+        "label": "Test en",
+        "url": "https:\/\/example.com\/test\/test-en",
+        "children": [],
+        "lastModified": "2024-01-01T00:00:00+00:00",
+        "changeFrequency": "always",
+        "priority": 0.5,
+        "editUrl": null,
+        "pageableType": "page",
+        "pageId": 1
+    }
+]

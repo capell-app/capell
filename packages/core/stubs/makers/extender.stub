@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Extenders;
+
+use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
+use Capell\Admin\Enums\PageTranslationSchemaHookEnum;
+use Filament\Schemas\Schema;
+
+class {{ class }}Extender implements PageSchemaExtender
+{
+    public function hook(): PageTranslationSchemaHookEnum
+    {
+        return PageTranslationSchemaHookEnum::{{ hook }};
+    }
+
+    public function fields(Schema $schema): array
+    {
+        return [
+            // Define additional Filament schema fields to inject at the {{ hookLabel }} position.
+        ];
+    }
+
+    public function extendSettingsTabComponents(): array
+    {
+        return [];
+    }
+}

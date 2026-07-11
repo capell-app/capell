@@ -1,0 +1,9469 @@
+function H(r) {
+    this.content = r
+}
+H.prototype = {
+    constructor: H,
+    find: function (r) {
+        for (var e = 0; e < this.content.length; e += 2)
+            if (this.content[e] === r) return e
+        return -1
+    },
+    get: function (r) {
+        var e = this.find(r)
+        return e == -1 ? void 0 : this.content[e + 1]
+    },
+    update: function (r, e, t) {
+        var n = t && t != r ? this.remove(t) : this,
+            i = n.find(r),
+            s = n.content.slice()
+        return (
+            i == -1 ? s.push(t || r, e) : ((s[i + 1] = e), t && (s[i] = t)),
+            new H(s)
+        )
+    },
+    remove: function (r) {
+        var e = this.find(r)
+        if (e == -1) return this
+        var t = this.content.slice()
+        return (t.splice(e, 2), new H(t))
+    },
+    addToStart: function (r, e) {
+        return new H([r, e].concat(this.remove(r).content))
+    },
+    addToEnd: function (r, e) {
+        var t = this.remove(r).content.slice()
+        return (t.push(r, e), new H(t))
+    },
+    addBefore: function (r, e, t) {
+        var n = this.remove(e),
+            i = n.content.slice(),
+            s = n.find(r)
+        return (i.splice(s == -1 ? i.length : s, 0, e, t), new H(i))
+    },
+    forEach: function (r) {
+        for (var e = 0; e < this.content.length; e += 2)
+            r(this.content[e], this.content[e + 1])
+    },
+    prepend: function (r) {
+        return (
+            (r = H.from(r)),
+            r.size ? new H(r.content.concat(this.subtract(r).content)) : this
+        )
+    },
+    append: function (r) {
+        return (
+            (r = H.from(r)),
+            r.size ? new H(this.subtract(r).content.concat(r.content)) : this
+        )
+    },
+    subtract: function (r) {
+        var e = this
+        r = H.from(r)
+        for (var t = 0; t < r.content.length; t += 2) e = e.remove(r.content[t])
+        return e
+    },
+    toObject: function () {
+        var r = {}
+        return (
+            this.forEach(function (e, t) {
+                r[e] = t
+            }),
+            r
+        )
+    },
+    get size() {
+        return this.content.length >> 1
+    },
+}
+H.from = function (r) {
+    if (r instanceof H) return r
+    var e = []
+    if (r) for (var t in r) e.push(t, r[t])
+    return new H(e)
+}
+var at = H
+function mn(r, e, t) {
+    for (let n = 0; ; n++) {
+        if (n == r.childCount || n == e.childCount)
+            return r.childCount == e.childCount ? null : t
+        let i = r.child(n),
+            s = e.child(n)
+        if (i == s) {
+            t += i.nodeSize
+            continue
+        }
+        if (!i.sameMarkup(s)) return t
+        if (i.isText && i.text != s.text) {
+            for (let o = 0; i.text[o] == s.text[o]; o++) t++
+            return t
+        }
+        if (i.content.size || s.content.size) {
+            let o = mn(i.content, s.content, t + 1)
+            if (o != null) return o
+        }
+        t += i.nodeSize
+    }
+}
+function gn(r, e, t, n) {
+    for (let i = r.childCount, s = e.childCount; ; ) {
+        if (i == 0 || s == 0) return i == s ? null : { a: t, b: n }
+        let o = r.child(--i),
+            l = e.child(--s),
+            a = o.nodeSize
+        if (o == l) {
+            ;((t -= a), (n -= a))
+            continue
+        }
+        if (!o.sameMarkup(l)) return { a: t, b: n }
+        if (o.isText && o.text != l.text) {
+            let c = 0,
+                u = Math.min(o.text.length, l.text.length)
+            for (
+                ;
+                c < u &&
+                o.text[o.text.length - c - 1] == l.text[l.text.length - c - 1];
+            )
+                (c++, t--, n--)
+            return { a: t, b: n }
+        }
+        if (o.content.size || l.content.size) {
+            let c = gn(o.content, l.content, t - 1, n - 1)
+            if (c) return c
+        }
+        ;((t -= a), (n -= a))
+    }
+}
+var w = class r {
+    constructor(e, t) {
+        if (((this.content = e), (this.size = t || 0), t == null))
+            for (let n = 0; n < e.length; n++) this.size += e[n].nodeSize
+    }
+    nodesBetween(e, t, n, i = 0, s) {
+        for (let o = 0, l = 0; l < t; o++) {
+            let a = this.content[o],
+                c = l + a.nodeSize
+            if (c > e && n(a, i + l, s || null, o) !== !1 && a.content.size) {
+                let u = l + 1
+                a.nodesBetween(
+                    Math.max(0, e - u),
+                    Math.min(a.content.size, t - u),
+                    n,
+                    i + u,
+                )
+            }
+            l = c
+        }
+    }
+    descendants(e) {
+        this.nodesBetween(0, this.size, e)
+    }
+    textBetween(e, t, n, i) {
+        let s = '',
+            o = !0
+        return (
+            this.nodesBetween(
+                e,
+                t,
+                (l, a) => {
+                    let c = l.isText
+                        ? l.text.slice(Math.max(e, a) - a, t - a)
+                        : l.isLeaf
+                          ? i
+                              ? typeof i == 'function'
+                                  ? i(l)
+                                  : i
+                              : l.type.spec.leafText
+                                ? l.type.spec.leafText(l)
+                                : ''
+                          : ''
+                    ;(l.isBlock &&
+                        ((l.isLeaf && c) || l.isTextblock) &&
+                        n &&
+                        (o ? (o = !1) : (s += n)),
+                        (s += c))
+                },
+                0,
+            ),
+            s
+        )
+    }
+    append(e) {
+        if (!e.size) return this
+        if (!this.size) return e
+        let t = this.lastChild,
+            n = e.firstChild,
+            i = this.content.slice(),
+            s = 0
+        for (
+            t.isText &&
+            t.sameMarkup(n) &&
+            ((i[i.length - 1] = t.withText(t.text + n.text)), (s = 1));
+            s < e.content.length;
+            s++
+        )
+            i.push(e.content[s])
+        return new r(i, this.size + e.size)
+    }
+    cut(e, t = this.size) {
+        if (e == 0 && t == this.size) return this
+        let n = [],
+            i = 0
+        if (t > e)
+            for (let s = 0, o = 0; o < t; s++) {
+                let l = this.content[s],
+                    a = o + l.nodeSize
+                ;(a > e &&
+                    ((o < e || a > t) &&
+                        (l.isText
+                            ? (l = l.cut(
+                                  Math.max(0, e - o),
+                                  Math.min(l.text.length, t - o),
+                              ))
+                            : (l = l.cut(
+                                  Math.max(0, e - o - 1),
+                                  Math.min(l.content.size, t - o - 1),
+                              ))),
+                    n.push(l),
+                    (i += l.nodeSize)),
+                    (o = a))
+            }
+        return new r(n, i)
+    }
+    cutByIndex(e, t) {
+        return e == t
+            ? r.empty
+            : e == 0 && t == this.content.length
+              ? this
+              : new r(this.content.slice(e, t))
+    }
+    replaceChild(e, t) {
+        let n = this.content[e]
+        if (n == t) return this
+        let i = this.content.slice(),
+            s = this.size + t.nodeSize - n.nodeSize
+        return ((i[e] = t), new r(i, s))
+    }
+    addToStart(e) {
+        return new r([e].concat(this.content), this.size + e.nodeSize)
+    }
+    addToEnd(e) {
+        return new r(this.content.concat(e), this.size + e.nodeSize)
+    }
+    eq(e) {
+        if (this.content.length != e.content.length) return !1
+        for (let t = 0; t < this.content.length; t++)
+            if (!this.content[t].eq(e.content[t])) return !1
+        return !0
+    }
+    get firstChild() {
+        return this.content.length ? this.content[0] : null
+    }
+    get lastChild() {
+        return this.content.length
+            ? this.content[this.content.length - 1]
+            : null
+    }
+    get childCount() {
+        return this.content.length
+    }
+    child(e) {
+        let t = this.content[e]
+        if (!t) throw new RangeError('Index ' + e + ' out of range for ' + this)
+        return t
+    }
+    maybeChild(e) {
+        return this.content[e] || null
+    }
+    forEach(e) {
+        for (let t = 0, n = 0; t < this.content.length; t++) {
+            let i = this.content[t]
+            ;(e(i, n, t), (n += i.nodeSize))
+        }
+    }
+    findDiffStart(e, t = 0) {
+        return mn(this, e, t)
+    }
+    findDiffEnd(e, t = this.size, n = e.size) {
+        return gn(this, e, t, n)
+    }
+    findIndex(e) {
+        if (e == 0) return Fe(0, e)
+        if (e == this.size) return Fe(this.content.length, e)
+        if (e > this.size || e < 0)
+            throw new RangeError(`Position ${e} outside of fragment (${this})`)
+        for (let t = 0, n = 0; ; t++) {
+            let i = this.child(t),
+                s = n + i.nodeSize
+            if (s >= e) return s == e ? Fe(t + 1, s) : Fe(t, n)
+            n = s
+        }
+    }
+    toString() {
+        return '<' + this.toStringInner() + '>'
+    }
+    toStringInner() {
+        return this.content.join(', ')
+    }
+    toJSON() {
+        return this.content.length ? this.content.map((e) => e.toJSON()) : null
+    }
+    static fromJSON(e, t) {
+        if (!t) return r.empty
+        if (!Array.isArray(t))
+            throw new RangeError('Invalid input for Fragment.fromJSON')
+        return r.fromArray(t.map(e.nodeFromJSON))
+    }
+    static fromArray(e) {
+        if (!e.length) return r.empty
+        let t,
+            n = 0
+        for (let i = 0; i < e.length; i++) {
+            let s = e[i]
+            ;((n += s.nodeSize),
+                i && s.isText && e[i - 1].sameMarkup(s)
+                    ? (t || (t = e.slice(0, i)),
+                      (t[t.length - 1] = s.withText(
+                          t[t.length - 1].text + s.text,
+                      )))
+                    : t && t.push(s))
+        }
+        return new r(t || e, n)
+    }
+    static from(e) {
+        if (!e) return r.empty
+        if (e instanceof r) return e
+        if (Array.isArray(e)) return this.fromArray(e)
+        if (e.attrs) return new r([e], e.nodeSize)
+        throw new RangeError(
+            'Can not convert ' +
+                e +
+                ' to a Fragment' +
+                (e.nodesBetween
+                    ? ' (looks like multiple versions of prosemirror-model were loaded)'
+                    : ''),
+        )
+    }
+}
+w.empty = new w([], 0)
+var ct = { index: 0, offset: 0 }
+function Fe(r, e) {
+    return ((ct.index = r), (ct.offset = e), ct)
+}
+function Je(r, e) {
+    if (r === e) return !0
+    if (!(r && typeof r == 'object') || !(e && typeof e == 'object')) return !1
+    let t = Array.isArray(r)
+    if (Array.isArray(e) != t) return !1
+    if (t) {
+        if (r.length != e.length) return !1
+        for (let n = 0; n < r.length; n++) if (!Je(r[n], e[n])) return !1
+    } else {
+        for (let n in r) if (!(n in e) || !Je(r[n], e[n])) return !1
+        for (let n in e) if (!(n in r)) return !1
+    }
+    return !0
+}
+var A = class r {
+    constructor(e, t) {
+        ;((this.type = e), (this.attrs = t))
+    }
+    addToSet(e) {
+        let t,
+            n = !1
+        for (let i = 0; i < e.length; i++) {
+            let s = e[i]
+            if (this.eq(s)) return e
+            if (this.type.excludes(s.type)) t || (t = e.slice(0, i))
+            else {
+                if (s.type.excludes(this.type)) return e
+                ;(!n &&
+                    s.type.rank > this.type.rank &&
+                    (t || (t = e.slice(0, i)), t.push(this), (n = !0)),
+                    t && t.push(s))
+            }
+        }
+        return (t || (t = e.slice()), n || t.push(this), t)
+    }
+    removeFromSet(e) {
+        for (let t = 0; t < e.length; t++)
+            if (this.eq(e[t])) return e.slice(0, t).concat(e.slice(t + 1))
+        return e
+    }
+    isInSet(e) {
+        for (let t = 0; t < e.length; t++) if (this.eq(e[t])) return !0
+        return !1
+    }
+    eq(e) {
+        return this == e || (this.type == e.type && Je(this.attrs, e.attrs))
+    }
+    toJSON() {
+        let e = { type: this.type.name }
+        for (let t in this.attrs) {
+            e.attrs = this.attrs
+            break
+        }
+        return e
+    }
+    static fromJSON(e, t) {
+        if (!t) throw new RangeError('Invalid input for Mark.fromJSON')
+        let n = e.marks[t.type]
+        if (!n)
+            throw new RangeError(
+                `There is no mark type ${t.type} in this schema`,
+            )
+        let i = n.create(t.attrs)
+        return (n.checkAttrs(i.attrs), i)
+    }
+    static sameSet(e, t) {
+        if (e == t) return !0
+        if (e.length != t.length) return !1
+        for (let n = 0; n < e.length; n++) if (!e[n].eq(t[n])) return !1
+        return !0
+    }
+    static setFrom(e) {
+        if (!e || (Array.isArray(e) && e.length == 0)) return r.none
+        if (e instanceof r) return [e]
+        let t = e.slice()
+        return (t.sort((n, i) => n.type.rank - i.type.rank), t)
+    }
+}
+A.none = []
+var le = class extends Error {},
+    k = class r {
+        constructor(e, t, n) {
+            ;((this.content = e), (this.openStart = t), (this.openEnd = n))
+        }
+        get size() {
+            return this.content.size - this.openStart - this.openEnd
+        }
+        insertAt(e, t) {
+            let n = wn(
+                this.content,
+                e + this.openStart,
+                t,
+                this.openStart + 1,
+                this.openEnd + 1,
+            )
+            return n && new r(n, this.openStart, this.openEnd)
+        }
+        removeBetween(e, t) {
+            return new r(
+                yn(this.content, e + this.openStart, t + this.openStart),
+                this.openStart,
+                this.openEnd,
+            )
+        }
+        eq(e) {
+            return (
+                this.content.eq(e.content) &&
+                this.openStart == e.openStart &&
+                this.openEnd == e.openEnd
+            )
+        }
+        toString() {
+            return (
+                this.content + '(' + this.openStart + ',' + this.openEnd + ')'
+            )
+        }
+        toJSON() {
+            if (!this.content.size) return null
+            let e = { content: this.content.toJSON() }
+            return (
+                this.openStart > 0 && (e.openStart = this.openStart),
+                this.openEnd > 0 && (e.openEnd = this.openEnd),
+                e
+            )
+        }
+        static fromJSON(e, t) {
+            if (!t) return r.empty
+            let n = t.openStart || 0,
+                i = t.openEnd || 0
+            if (typeof n != 'number' || typeof i != 'number')
+                throw new RangeError('Invalid input for Slice.fromJSON')
+            return new r(w.fromJSON(e, t.content), n, i)
+        }
+        static maxOpen(e, t = !0) {
+            let n = 0,
+                i = 0
+            for (
+                let s = e.firstChild;
+                s && !s.isLeaf && (t || !s.type.spec.isolating);
+                s = s.firstChild
+            )
+                n++
+            for (
+                let s = e.lastChild;
+                s && !s.isLeaf && (t || !s.type.spec.isolating);
+                s = s.lastChild
+            )
+                i++
+            return new r(e, n, i)
+        }
+    }
+k.empty = new k(w.empty, 0, 0)
+function yn(r, e, t) {
+    let { index: n, offset: i } = r.findIndex(e),
+        s = r.maybeChild(n),
+        { index: o, offset: l } = r.findIndex(t)
+    if (i == e || s.isText) {
+        if (l != t && !r.child(o).isText)
+            throw new RangeError('Removing non-flat range')
+        return r.cut(0, e).append(r.cut(t))
+    }
+    if (n != o) throw new RangeError('Removing non-flat range')
+    return r.replaceChild(n, s.copy(yn(s.content, e - i - 1, t - i - 1)))
+}
+function wn(r, e, t, n, i, s) {
+    let { index: o, offset: l } = r.findIndex(e),
+        a = r.maybeChild(o)
+    if (l == e || a.isText)
+        return s && n <= 0 && i <= 0 && !s.canReplace(o, o, t)
+            ? null
+            : r.cut(0, e).append(t).append(r.cut(e))
+    let c = wn(
+        a.content,
+        e - l - 1,
+        t,
+        o == 0 ? n - 1 : 0,
+        o == r.childCount - 1 ? i - 1 : 0,
+        a,
+    )
+    return c && r.replaceChild(o, a.copy(c))
+}
+function Kr(r, e, t) {
+    if (t.openStart > r.depth)
+        throw new le('Inserted content deeper than insertion position')
+    if (r.depth - t.openStart != e.depth - t.openEnd)
+        throw new le('Inconsistent open depths')
+    return kn(r, e, t, 0)
+}
+function kn(r, e, t, n) {
+    let i = r.index(n),
+        s = r.node(n)
+    if (i == e.index(n) && n < r.depth - t.openStart) {
+        let o = kn(r, e, t, n + 1)
+        return s.copy(s.content.replaceChild(i, o))
+    } else if (t.content.size)
+        if (!t.openStart && !t.openEnd && r.depth == n && e.depth == n) {
+            let o = r.parent,
+                l = o.content
+            return oe(
+                o,
+                l
+                    .cut(0, r.parentOffset)
+                    .append(t.content)
+                    .append(l.cut(e.parentOffset)),
+            )
+        } else {
+            let { start: o, end: l } = Ur(t, r)
+            return oe(s, vn(r, o, l, e, n))
+        }
+    else return oe(s, We(r, e, n))
+}
+function xn(r, e) {
+    if (!e.type.compatibleContent(r.type))
+        throw new le('Cannot join ' + e.type.name + ' onto ' + r.type.name)
+}
+function ut(r, e, t) {
+    let n = r.node(t)
+    return (xn(n, e.node(t)), n)
+}
+function se(r, e) {
+    let t = e.length - 1
+    t >= 0 && r.isText && r.sameMarkup(e[t])
+        ? (e[t] = r.withText(e[t].text + r.text))
+        : e.push(r)
+}
+function Se(r, e, t, n) {
+    let i = (e || r).node(t),
+        s = 0,
+        o = e ? e.index(t) : i.childCount
+    r &&
+        ((s = r.index(t)),
+        r.depth > t ? s++ : r.textOffset && (se(r.nodeAfter, n), s++))
+    for (let l = s; l < o; l++) se(i.child(l), n)
+    e && e.depth == t && e.textOffset && se(e.nodeBefore, n)
+}
+function oe(r, e) {
+    return (r.type.checkContent(e), r.copy(e))
+}
+function vn(r, e, t, n, i) {
+    let s = r.depth > i && ut(r, e, i + 1),
+        o = n.depth > i && ut(t, n, i + 1),
+        l = []
+    return (
+        Se(null, r, i, l),
+        s && o && e.index(i) == t.index(i)
+            ? (xn(s, o), se(oe(s, vn(r, e, t, n, i + 1)), l))
+            : (s && se(oe(s, We(r, e, i + 1)), l),
+              Se(e, t, i, l),
+              o && se(oe(o, We(t, n, i + 1)), l)),
+        Se(n, null, i, l),
+        new w(l)
+    )
+}
+function We(r, e, t) {
+    let n = []
+    if ((Se(null, r, t, n), r.depth > t)) {
+        let i = ut(r, e, t + 1)
+        se(oe(i, We(r, e, t + 1)), n)
+    }
+    return (Se(e, null, t, n), new w(n))
+}
+function Ur(r, e) {
+    let t = e.depth - r.openStart,
+        i = e.node(t).copy(r.content)
+    for (let s = t - 1; s >= 0; s--) i = e.node(s).copy(w.from(i))
+    return {
+        start: i.resolveNoCache(r.openStart + t),
+        end: i.resolveNoCache(i.content.size - r.openEnd - t),
+    }
+}
+var He = class r {
+        constructor(e, t, n) {
+            ;((this.pos = e),
+                (this.path = t),
+                (this.parentOffset = n),
+                (this.depth = t.length / 3 - 1))
+        }
+        resolveDepth(e) {
+            return e == null ? this.depth : e < 0 ? this.depth + e : e
+        }
+        get parent() {
+            return this.node(this.depth)
+        }
+        get doc() {
+            return this.node(0)
+        }
+        node(e) {
+            return this.path[this.resolveDepth(e) * 3]
+        }
+        index(e) {
+            return this.path[this.resolveDepth(e) * 3 + 1]
+        }
+        indexAfter(e) {
+            return (
+                (e = this.resolveDepth(e)),
+                this.index(e) + (e == this.depth && !this.textOffset ? 0 : 1)
+            )
+        }
+        start(e) {
+            return (
+                (e = this.resolveDepth(e)),
+                e == 0 ? 0 : this.path[e * 3 - 1] + 1
+            )
+        }
+        end(e) {
+            return (
+                (e = this.resolveDepth(e)),
+                this.start(e) + this.node(e).content.size
+            )
+        }
+        before(e) {
+            if (((e = this.resolveDepth(e)), !e))
+                throw new RangeError(
+                    'There is no position before the top-level node',
+                )
+            return e == this.depth + 1 ? this.pos : this.path[e * 3 - 1]
+        }
+        after(e) {
+            if (((e = this.resolveDepth(e)), !e))
+                throw new RangeError(
+                    'There is no position after the top-level node',
+                )
+            return e == this.depth + 1
+                ? this.pos
+                : this.path[e * 3 - 1] + this.path[e * 3].nodeSize
+        }
+        get textOffset() {
+            return this.pos - this.path[this.path.length - 1]
+        }
+        get nodeAfter() {
+            let e = this.parent,
+                t = this.index(this.depth)
+            if (t == e.childCount) return null
+            let n = this.pos - this.path[this.path.length - 1],
+                i = e.child(t)
+            return n ? e.child(t).cut(n) : i
+        }
+        get nodeBefore() {
+            let e = this.index(this.depth),
+                t = this.pos - this.path[this.path.length - 1]
+            return t
+                ? this.parent.child(e).cut(0, t)
+                : e == 0
+                  ? null
+                  : this.parent.child(e - 1)
+        }
+        posAtIndex(e, t) {
+            t = this.resolveDepth(t)
+            let n = this.path[t * 3],
+                i = t == 0 ? 0 : this.path[t * 3 - 1] + 1
+            for (let s = 0; s < e; s++) i += n.child(s).nodeSize
+            return i
+        }
+        marks() {
+            let e = this.parent,
+                t = this.index()
+            if (e.content.size == 0) return A.none
+            if (this.textOffset) return e.child(t).marks
+            let n = e.maybeChild(t - 1),
+                i = e.maybeChild(t)
+            if (!n) {
+                let l = n
+                ;((n = i), (i = l))
+            }
+            let s = n.marks
+            for (var o = 0; o < s.length; o++)
+                s[o].type.spec.inclusive === !1 &&
+                    (!i || !s[o].isInSet(i.marks)) &&
+                    (s = s[o--].removeFromSet(s))
+            return s
+        }
+        marksAcross(e) {
+            let t = this.parent.maybeChild(this.index())
+            if (!t || !t.isInline) return null
+            let n = t.marks,
+                i = e.parent.maybeChild(e.index())
+            for (var s = 0; s < n.length; s++)
+                n[s].type.spec.inclusive === !1 &&
+                    (!i || !n[s].isInSet(i.marks)) &&
+                    (n = n[s--].removeFromSet(n))
+            return n
+        }
+        sharedDepth(e) {
+            for (let t = this.depth; t > 0; t--)
+                if (this.start(t) <= e && this.end(t) >= e) return t
+            return 0
+        }
+        blockRange(e = this, t) {
+            if (e.pos < this.pos) return e.blockRange(this)
+            for (
+                let n =
+                    this.depth -
+                    (this.parent.inlineContent || this.pos == e.pos ? 1 : 0);
+                n >= 0;
+                n--
+            )
+                if (e.pos <= this.end(n) && (!t || t(this.node(n))))
+                    return new ae(this, e, n)
+            return null
+        }
+        sameParent(e) {
+            return this.pos - this.parentOffset == e.pos - e.parentOffset
+        }
+        max(e) {
+            return e.pos > this.pos ? e : this
+        }
+        min(e) {
+            return e.pos < this.pos ? e : this
+        }
+        toString() {
+            let e = ''
+            for (let t = 1; t <= this.depth; t++)
+                e +=
+                    (e ? '/' : '') +
+                    this.node(t).type.name +
+                    '_' +
+                    this.index(t - 1)
+            return e + ':' + this.parentOffset
+        }
+        static resolve(e, t) {
+            if (!(t >= 0 && t <= e.content.size))
+                throw new RangeError('Position ' + t + ' out of range')
+            let n = [],
+                i = 0,
+                s = t
+            for (let o = e; ; ) {
+                let { index: l, offset: a } = o.content.findIndex(s),
+                    c = s - a
+                if ((n.push(o, l, i + a), !c || ((o = o.child(l)), o.isText)))
+                    break
+                ;((s = c - 1), (i += a + 1))
+            }
+            return new r(t, n, s)
+        }
+        static resolveCached(e, t) {
+            let n = on.get(e)
+            if (n)
+                for (let s = 0; s < n.elts.length; s++) {
+                    let o = n.elts[s]
+                    if (o.pos == t) return o
+                }
+            else on.set(e, (n = new ft()))
+            let i = (n.elts[n.i] = r.resolve(e, t))
+            return ((n.i = (n.i + 1) % qr), i)
+        }
+    },
+    ft = class {
+        constructor() {
+            ;((this.elts = []), (this.i = 0))
+        }
+    },
+    qr = 12,
+    on = new WeakMap(),
+    ae = class {
+        constructor(e, t, n) {
+            ;((this.$from = e), (this.$to = t), (this.depth = n))
+        }
+        get start() {
+            return this.$from.before(this.depth + 1)
+        }
+        get end() {
+            return this.$to.after(this.depth + 1)
+        }
+        get parent() {
+            return this.$from.node(this.depth)
+        }
+        get startIndex() {
+            return this.$from.index(this.depth)
+        }
+        get endIndex() {
+            return this.$to.indexAfter(this.depth)
+        }
+    },
+    Xr = Object.create(null),
+    K = class r {
+        constructor(e, t, n, i = A.none) {
+            ;((this.type = e),
+                (this.attrs = t),
+                (this.marks = i),
+                (this.content = n || w.empty))
+        }
+        get children() {
+            return this.content.content
+        }
+        get nodeSize() {
+            return this.isLeaf ? 1 : 2 + this.content.size
+        }
+        get childCount() {
+            return this.content.childCount
+        }
+        child(e) {
+            return this.content.child(e)
+        }
+        maybeChild(e) {
+            return this.content.maybeChild(e)
+        }
+        forEach(e) {
+            this.content.forEach(e)
+        }
+        nodesBetween(e, t, n, i = 0) {
+            this.content.nodesBetween(e, t, n, i, this)
+        }
+        descendants(e) {
+            this.nodesBetween(0, this.content.size, e)
+        }
+        get textContent() {
+            return this.isLeaf && this.type.spec.leafText
+                ? this.type.spec.leafText(this)
+                : this.textBetween(0, this.content.size, '')
+        }
+        textBetween(e, t, n, i) {
+            return this.content.textBetween(e, t, n, i)
+        }
+        get firstChild() {
+            return this.content.firstChild
+        }
+        get lastChild() {
+            return this.content.lastChild
+        }
+        eq(e) {
+            return (
+                this == e || (this.sameMarkup(e) && this.content.eq(e.content))
+            )
+        }
+        sameMarkup(e) {
+            return this.hasMarkup(e.type, e.attrs, e.marks)
+        }
+        hasMarkup(e, t, n) {
+            return (
+                this.type == e &&
+                Je(this.attrs, t || e.defaultAttrs || Xr) &&
+                A.sameSet(this.marks, n || A.none)
+            )
+        }
+        copy(e = null) {
+            return e == this.content
+                ? this
+                : new r(this.type, this.attrs, e, this.marks)
+        }
+        mark(e) {
+            return e == this.marks
+                ? this
+                : new r(this.type, this.attrs, this.content, e)
+        }
+        cut(e, t = this.content.size) {
+            return e == 0 && t == this.content.size
+                ? this
+                : this.copy(this.content.cut(e, t))
+        }
+        slice(e, t = this.content.size, n = !1) {
+            if (e == t) return k.empty
+            let i = this.resolve(e),
+                s = this.resolve(t),
+                o = n ? 0 : i.sharedDepth(t),
+                l = i.start(o),
+                c = i.node(o).content.cut(i.pos - l, s.pos - l)
+            return new k(c, i.depth - o, s.depth - o)
+        }
+        replace(e, t, n) {
+            return Kr(this.resolve(e), this.resolve(t), n)
+        }
+        nodeAt(e) {
+            for (let t = this; ; ) {
+                let { index: n, offset: i } = t.content.findIndex(e)
+                if (((t = t.maybeChild(n)), !t)) return null
+                if (i == e || t.isText) return t
+                e -= i + 1
+            }
+        }
+        childAfter(e) {
+            let { index: t, offset: n } = this.content.findIndex(e)
+            return { node: this.content.maybeChild(t), index: t, offset: n }
+        }
+        childBefore(e) {
+            if (e == 0) return { node: null, index: 0, offset: 0 }
+            let { index: t, offset: n } = this.content.findIndex(e)
+            if (n < e)
+                return { node: this.content.child(t), index: t, offset: n }
+            let i = this.content.child(t - 1)
+            return { node: i, index: t - 1, offset: n - i.nodeSize }
+        }
+        resolve(e) {
+            return He.resolveCached(this, e)
+        }
+        resolveNoCache(e) {
+            return He.resolve(this, e)
+        }
+        rangeHasMark(e, t, n) {
+            let i = !1
+            return (
+                t > e &&
+                    this.nodesBetween(
+                        e,
+                        t,
+                        (s) => (n.isInSet(s.marks) && (i = !0), !i),
+                    ),
+                i
+            )
+        }
+        get isBlock() {
+            return this.type.isBlock
+        }
+        get isTextblock() {
+            return this.type.isTextblock
+        }
+        get inlineContent() {
+            return this.type.inlineContent
+        }
+        get isInline() {
+            return this.type.isInline
+        }
+        get isText() {
+            return this.type.isText
+        }
+        get isLeaf() {
+            return this.type.isLeaf
+        }
+        get isAtom() {
+            return this.type.isAtom
+        }
+        toString() {
+            if (this.type.spec.toDebugString)
+                return this.type.spec.toDebugString(this)
+            let e = this.type.name
+            return (
+                this.content.size &&
+                    (e += '(' + this.content.toStringInner() + ')'),
+                Sn(this.marks, e)
+            )
+        }
+        contentMatchAt(e) {
+            let t = this.type.contentMatch.matchFragment(this.content, 0, e)
+            if (!t)
+                throw new Error(
+                    'Called contentMatchAt on a node with invalid content',
+                )
+            return t
+        }
+        canReplace(e, t, n = w.empty, i = 0, s = n.childCount) {
+            let o = this.contentMatchAt(e).matchFragment(n, i, s),
+                l = o && o.matchFragment(this.content, t)
+            if (!l || !l.validEnd) return !1
+            for (let a = i; a < s; a++)
+                if (!this.type.allowsMarks(n.child(a).marks)) return !1
+            return !0
+        }
+        canReplaceWith(e, t, n, i) {
+            if (i && !this.type.allowsMarks(i)) return !1
+            let s = this.contentMatchAt(e).matchType(n),
+                o = s && s.matchFragment(this.content, t)
+            return o ? o.validEnd : !1
+        }
+        canAppend(e) {
+            return e.content.size
+                ? this.canReplace(this.childCount, this.childCount, e.content)
+                : this.type.compatibleContent(e.type)
+        }
+        check() {
+            ;(this.type.checkContent(this.content),
+                this.type.checkAttrs(this.attrs))
+            let e = A.none
+            for (let t = 0; t < this.marks.length; t++) {
+                let n = this.marks[t]
+                ;(n.type.checkAttrs(n.attrs), (e = n.addToSet(e)))
+            }
+            if (!A.sameSet(e, this.marks))
+                throw new RangeError(
+                    `Invalid collection of marks for node ${this.type.name}: ${this.marks.map((t) => t.type.name)}`,
+                )
+            this.content.forEach((t) => t.check())
+        }
+        toJSON() {
+            let e = { type: this.type.name }
+            for (let t in this.attrs) {
+                e.attrs = this.attrs
+                break
+            }
+            return (
+                this.content.size && (e.content = this.content.toJSON()),
+                this.marks.length &&
+                    (e.marks = this.marks.map((t) => t.toJSON())),
+                e
+            )
+        }
+        static fromJSON(e, t) {
+            if (!t) throw new RangeError('Invalid input for Node.fromJSON')
+            let n
+            if (t.marks) {
+                if (!Array.isArray(t.marks))
+                    throw new RangeError('Invalid mark data for Node.fromJSON')
+                n = t.marks.map(e.markFromJSON)
+            }
+            if (t.type == 'text') {
+                if (typeof t.text != 'string')
+                    throw new RangeError('Invalid text node in JSON')
+                return e.text(t.text, n)
+            }
+            let i = w.fromJSON(e, t.content),
+                s = e.nodeType(t.type).create(t.attrs, i, n)
+            return (s.type.checkAttrs(s.attrs), s)
+        }
+    }
+K.prototype.text = void 0
+var ht = class r extends K {
+    constructor(e, t, n, i) {
+        if ((super(e, t, null, i), !n))
+            throw new RangeError('Empty text nodes are not allowed')
+        this.text = n
+    }
+    toString() {
+        return this.type.spec.toDebugString
+            ? this.type.spec.toDebugString(this)
+            : Sn(this.marks, JSON.stringify(this.text))
+    }
+    get textContent() {
+        return this.text
+    }
+    textBetween(e, t) {
+        return this.text.slice(e, t)
+    }
+    get nodeSize() {
+        return this.text.length
+    }
+    mark(e) {
+        return e == this.marks
+            ? this
+            : new r(this.type, this.attrs, this.text, e)
+    }
+    withText(e) {
+        return e == this.text
+            ? this
+            : new r(this.type, this.attrs, e, this.marks)
+    }
+    cut(e = 0, t = this.text.length) {
+        return e == 0 && t == this.text.length
+            ? this
+            : this.withText(this.text.slice(e, t))
+    }
+    eq(e) {
+        return this.sameMarkup(e) && this.text == e.text
+    }
+    toJSON() {
+        let e = super.toJSON()
+        return ((e.text = this.text), e)
+    }
+}
+function Sn(r, e) {
+    for (let t = r.length - 1; t >= 0; t--) e = r[t].type.name + '(' + e + ')'
+    return e
+}
+var ce = class r {
+    constructor(e) {
+        ;((this.validEnd = e), (this.next = []), (this.wrapCache = []))
+    }
+    static parse(e, t) {
+        let n = new dt(e, t)
+        if (n.next == null) return r.empty
+        let i = bn(n)
+        n.next && n.err('Unexpected trailing text')
+        let s = ni(ti(i))
+        return (ri(s, n), s)
+    }
+    matchType(e) {
+        for (let t = 0; t < this.next.length; t++)
+            if (this.next[t].type == e) return this.next[t].next
+        return null
+    }
+    matchFragment(e, t = 0, n = e.childCount) {
+        let i = this
+        for (let s = t; i && s < n; s++) i = i.matchType(e.child(s).type)
+        return i
+    }
+    get inlineContent() {
+        return this.next.length != 0 && this.next[0].type.isInline
+    }
+    get defaultType() {
+        for (let e = 0; e < this.next.length; e++) {
+            let { type: t } = this.next[e]
+            if (!(t.isText || t.hasRequiredAttrs())) return t
+        }
+        return null
+    }
+    compatible(e) {
+        for (let t = 0; t < this.next.length; t++)
+            for (let n = 0; n < e.next.length; n++)
+                if (this.next[t].type == e.next[n].type) return !0
+        return !1
+    }
+    fillBefore(e, t = !1, n = 0) {
+        let i = [this]
+        function s(o, l) {
+            let a = o.matchFragment(e, n)
+            if (a && (!t || a.validEnd))
+                return w.from(l.map((c) => c.createAndFill()))
+            for (let c = 0; c < o.next.length; c++) {
+                let { type: u, next: f } = o.next[c]
+                if (!(u.isText || u.hasRequiredAttrs()) && i.indexOf(f) == -1) {
+                    i.push(f)
+                    let d = s(f, l.concat(u))
+                    if (d) return d
+                }
+            }
+            return null
+        }
+        return s(this, [])
+    }
+    findWrapping(e) {
+        for (let n = 0; n < this.wrapCache.length; n += 2)
+            if (this.wrapCache[n] == e) return this.wrapCache[n + 1]
+        let t = this.computeWrapping(e)
+        return (this.wrapCache.push(e, t), t)
+    }
+    computeWrapping(e) {
+        let t = Object.create(null),
+            n = [{ match: this, type: null, via: null }]
+        for (; n.length; ) {
+            let i = n.shift(),
+                s = i.match
+            if (s.matchType(e)) {
+                let o = []
+                for (let l = i; l.type; l = l.via) o.push(l.type)
+                return o.reverse()
+            }
+            for (let o = 0; o < s.next.length; o++) {
+                let { type: l, next: a } = s.next[o]
+                !l.isLeaf &&
+                    !l.hasRequiredAttrs() &&
+                    !(l.name in t) &&
+                    (!i.type || a.validEnd) &&
+                    (n.push({ match: l.contentMatch, type: l, via: i }),
+                    (t[l.name] = !0))
+            }
+        }
+        return null
+    }
+    get edgeCount() {
+        return this.next.length
+    }
+    edge(e) {
+        if (e >= this.next.length)
+            throw new RangeError(`There's no ${e}th edge in this content match`)
+        return this.next[e]
+    }
+    toString() {
+        let e = []
+        function t(n) {
+            e.push(n)
+            for (let i = 0; i < n.next.length; i++)
+                e.indexOf(n.next[i].next) == -1 && t(n.next[i].next)
+        }
+        return (
+            t(this),
+            e.map((n, i) => {
+                let s = i + (n.validEnd ? '*' : ' ') + ' '
+                for (let o = 0; o < n.next.length; o++)
+                    s +=
+                        (o ? ', ' : '') +
+                        n.next[o].type.name +
+                        '->' +
+                        e.indexOf(n.next[o].next)
+                return s
+            }).join(`
+`)
+        )
+    }
+}
+ce.empty = new ce(!0)
+var dt = class {
+    constructor(e, t) {
+        ;((this.string = e),
+            (this.nodeTypes = t),
+            (this.inline = null),
+            (this.pos = 0),
+            (this.tokens = e.split(/\s*(?=\b|\W|$)/)),
+            this.tokens[this.tokens.length - 1] == '' && this.tokens.pop(),
+            this.tokens[0] == '' && this.tokens.shift())
+    }
+    get next() {
+        return this.tokens[this.pos]
+    }
+    eat(e) {
+        return this.next == e && (this.pos++ || !0)
+    }
+    err(e) {
+        throw new SyntaxError(
+            e + " (in content expression '" + this.string + "')",
+        )
+    }
+}
+function bn(r) {
+    let e = []
+    do e.push(Yr(r))
+    while (r.eat('|'))
+    return e.length == 1 ? e[0] : { type: 'choice', exprs: e }
+}
+function Yr(r) {
+    let e = []
+    do e.push(Gr(r))
+    while (r.next && r.next != ')' && r.next != '|')
+    return e.length == 1 ? e[0] : { type: 'seq', exprs: e }
+}
+function Gr(r) {
+    let e = ei(r)
+    for (;;)
+        if (r.eat('+')) e = { type: 'plus', expr: e }
+        else if (r.eat('*')) e = { type: 'star', expr: e }
+        else if (r.eat('?')) e = { type: 'opt', expr: e }
+        else if (r.eat('{')) e = Qr(r, e)
+        else break
+    return e
+}
+function ln(r) {
+    ;/\D/.test(r.next) && r.err("Expected number, got '" + r.next + "'")
+    let e = Number(r.next)
+    return (r.pos++, e)
+}
+function Qr(r, e) {
+    let t = ln(r),
+        n = t
+    return (
+        r.eat(',') && (r.next != '}' ? (n = ln(r)) : (n = -1)),
+        r.eat('}') || r.err('Unclosed braced range'),
+        { type: 'range', min: t, max: n, expr: e }
+    )
+}
+function Zr(r, e) {
+    let t = r.nodeTypes,
+        n = t[e]
+    if (n) return [n]
+    let i = []
+    for (let s in t) {
+        let o = t[s]
+        o.isInGroup(e) && i.push(o)
+    }
+    return (
+        i.length == 0 && r.err("No node type or group '" + e + "' found"),
+        i
+    )
+}
+function ei(r) {
+    if (r.eat('(')) {
+        let e = bn(r)
+        return (r.eat(')') || r.err('Missing closing paren'), e)
+    } else if (/\W/.test(r.next)) r.err("Unexpected token '" + r.next + "'")
+    else {
+        let e = Zr(r, r.next).map(
+            (t) => (
+                r.inline == null
+                    ? (r.inline = t.isInline)
+                    : r.inline != t.isInline &&
+                      r.err('Mixing inline and block content'),
+                { type: 'name', value: t }
+            ),
+        )
+        return (r.pos++, e.length == 1 ? e[0] : { type: 'choice', exprs: e })
+    }
+}
+function ti(r) {
+    let e = [[]]
+    return (i(s(r, 0), t()), e)
+    function t() {
+        return e.push([]) - 1
+    }
+    function n(o, l, a) {
+        let c = { term: a, to: l }
+        return (e[o].push(c), c)
+    }
+    function i(o, l) {
+        o.forEach((a) => (a.to = l))
+    }
+    function s(o, l) {
+        if (o.type == 'choice')
+            return o.exprs.reduce((a, c) => a.concat(s(c, l)), [])
+        if (o.type == 'seq')
+            for (let a = 0; ; a++) {
+                let c = s(o.exprs[a], l)
+                if (a == o.exprs.length - 1) return c
+                i(c, (l = t()))
+            }
+        else if (o.type == 'star') {
+            let a = t()
+            return (n(l, a), i(s(o.expr, a), a), [n(a)])
+        } else if (o.type == 'plus') {
+            let a = t()
+            return (i(s(o.expr, l), a), i(s(o.expr, a), a), [n(a)])
+        } else {
+            if (o.type == 'opt') return [n(l)].concat(s(o.expr, l))
+            if (o.type == 'range') {
+                let a = l
+                for (let c = 0; c < o.min; c++) {
+                    let u = t()
+                    ;(i(s(o.expr, a), u), (a = u))
+                }
+                if (o.max == -1) i(s(o.expr, a), a)
+                else
+                    for (let c = o.min; c < o.max; c++) {
+                        let u = t()
+                        ;(n(a, u), i(s(o.expr, a), u), (a = u))
+                    }
+                return [n(a)]
+            } else {
+                if (o.type == 'name') return [n(l, void 0, o.value)]
+                throw new Error('Unknown expr type')
+            }
+        }
+    }
+}
+function Mn(r, e) {
+    return e - r
+}
+function an(r, e) {
+    let t = []
+    return (n(e), t.sort(Mn))
+    function n(i) {
+        let s = r[i]
+        if (s.length == 1 && !s[0].term) return n(s[0].to)
+        t.push(i)
+        for (let o = 0; o < s.length; o++) {
+            let { term: l, to: a } = s[o]
+            !l && t.indexOf(a) == -1 && n(a)
+        }
+    }
+}
+function ni(r) {
+    let e = Object.create(null)
+    return t(an(r, 0))
+    function t(n) {
+        let i = []
+        n.forEach((o) => {
+            r[o].forEach(({ term: l, to: a }) => {
+                if (!l) return
+                let c
+                for (let u = 0; u < i.length; u++) i[u][0] == l && (c = i[u][1])
+                an(r, a).forEach((u) => {
+                    ;(c || i.push([l, (c = [])]),
+                        c.indexOf(u) == -1 && c.push(u))
+                })
+            })
+        })
+        let s = (e[n.join(',')] = new ce(n.indexOf(r.length - 1) > -1))
+        for (let o = 0; o < i.length; o++) {
+            let l = i[o][1].sort(Mn)
+            s.next.push({ type: i[o][0], next: e[l.join(',')] || t(l) })
+        }
+        return s
+    }
+}
+function ri(r, e) {
+    for (let t = 0, n = [r]; t < n.length; t++) {
+        let i = n[t],
+            s = !i.validEnd,
+            o = []
+        for (let l = 0; l < i.next.length; l++) {
+            let { type: a, next: c } = i.next[l]
+            ;(o.push(a.name),
+                s && !(a.isText || a.hasRequiredAttrs()) && (s = !1),
+                n.indexOf(c) == -1 && n.push(c))
+        }
+        s &&
+            e.err(
+                'Only non-generatable nodes (' +
+                    o.join(', ') +
+                    ') in a required position (see https://prosemirror.net/docs/guide/#generatable)',
+            )
+    }
+}
+function En(r) {
+    let e = Object.create(null)
+    for (let t in r) {
+        let n = r[t]
+        if (!n.hasDefault) return null
+        e[t] = n.default
+    }
+    return e
+}
+function Tn(r, e) {
+    let t = Object.create(null)
+    for (let n in r) {
+        let i = e && e[n]
+        if (i === void 0) {
+            let s = r[n]
+            if (s.hasDefault) i = s.default
+            else throw new RangeError('No value supplied for attribute ' + n)
+        }
+        t[n] = i
+    }
+    return t
+}
+function Cn(r, e, t, n) {
+    for (let i in e)
+        if (!(i in r))
+            throw new RangeError(
+                `Unsupported attribute ${i} for ${t} of type ${i}`,
+            )
+    for (let i in r) {
+        let s = r[i]
+        s.validate && s.validate(e[i])
+    }
+}
+function An(r, e) {
+    let t = Object.create(null)
+    if (e) for (let n in e) t[n] = new pt(r, n, e[n])
+    return t
+}
+var je = class r {
+    constructor(e, t, n) {
+        ;((this.name = e),
+            (this.schema = t),
+            (this.spec = n),
+            (this.markSet = null),
+            (this.groups = n.group ? n.group.split(' ') : []),
+            (this.attrs = An(e, n.attrs)),
+            (this.defaultAttrs = En(this.attrs)),
+            (this.contentMatch = null),
+            (this.inlineContent = null),
+            (this.isBlock = !(n.inline || e == 'text')),
+            (this.isText = e == 'text'))
+    }
+    get isInline() {
+        return !this.isBlock
+    }
+    get isTextblock() {
+        return this.isBlock && this.inlineContent
+    }
+    get isLeaf() {
+        return this.contentMatch == ce.empty
+    }
+    get isAtom() {
+        return this.isLeaf || !!this.spec.atom
+    }
+    isInGroup(e) {
+        return this.groups.indexOf(e) > -1
+    }
+    get whitespace() {
+        return this.spec.whitespace || (this.spec.code ? 'pre' : 'normal')
+    }
+    hasRequiredAttrs() {
+        for (let e in this.attrs) if (this.attrs[e].isRequired) return !0
+        return !1
+    }
+    compatibleContent(e) {
+        return this == e || this.contentMatch.compatible(e.contentMatch)
+    }
+    computeAttrs(e) {
+        return !e && this.defaultAttrs ? this.defaultAttrs : Tn(this.attrs, e)
+    }
+    create(e = null, t, n) {
+        if (this.isText)
+            throw new Error("NodeType.create can't construct text nodes")
+        return new K(this, this.computeAttrs(e), w.from(t), A.setFrom(n))
+    }
+    createChecked(e = null, t, n) {
+        return (
+            (t = w.from(t)),
+            this.checkContent(t),
+            new K(this, this.computeAttrs(e), t, A.setFrom(n))
+        )
+    }
+    createAndFill(e = null, t, n) {
+        if (((e = this.computeAttrs(e)), (t = w.from(t)), t.size)) {
+            let o = this.contentMatch.fillBefore(t)
+            if (!o) return null
+            t = o.append(t)
+        }
+        let i = this.contentMatch.matchFragment(t),
+            s = i && i.fillBefore(w.empty, !0)
+        return s ? new K(this, e, t.append(s), A.setFrom(n)) : null
+    }
+    validContent(e) {
+        let t = this.contentMatch.matchFragment(e)
+        if (!t || !t.validEnd) return !1
+        for (let n = 0; n < e.childCount; n++)
+            if (!this.allowsMarks(e.child(n).marks)) return !1
+        return !0
+    }
+    checkContent(e) {
+        if (!this.validContent(e))
+            throw new RangeError(
+                `Invalid content for node ${this.name}: ${e.toString().slice(0, 50)}`,
+            )
+    }
+    checkAttrs(e) {
+        Cn(this.attrs, e, 'node', this.name)
+    }
+    allowsMarkType(e) {
+        return this.markSet == null || this.markSet.indexOf(e) > -1
+    }
+    allowsMarks(e) {
+        if (this.markSet == null) return !0
+        for (let t = 0; t < e.length; t++)
+            if (!this.allowsMarkType(e[t].type)) return !1
+        return !0
+    }
+    allowedMarks(e) {
+        if (this.markSet == null) return e
+        let t
+        for (let n = 0; n < e.length; n++)
+            this.allowsMarkType(e[n].type)
+                ? t && t.push(e[n])
+                : t || (t = e.slice(0, n))
+        return t ? (t.length ? t : A.none) : e
+    }
+    static compile(e, t) {
+        let n = Object.create(null)
+        e.forEach((s, o) => (n[s] = new r(s, t, o)))
+        let i = t.spec.topNode || 'doc'
+        if (!n[i])
+            throw new RangeError(
+                "Schema is missing its top node type ('" + i + "')",
+            )
+        if (!n.text) throw new RangeError("Every schema needs a 'text' type")
+        for (let s in n.text.attrs)
+            throw new RangeError(
+                'The text node type should not have attributes',
+            )
+        return n
+    }
+}
+function ii(r, e, t) {
+    let n = t.split('|')
+    return (i) => {
+        let s = i === null ? 'null' : typeof i
+        if (n.indexOf(s) < 0)
+            throw new RangeError(
+                `Expected value of type ${n} for attribute ${e} on type ${r}, got ${s}`,
+            )
+    }
+}
+var pt = class {
+        constructor(e, t, n) {
+            ;((this.hasDefault = Object.prototype.hasOwnProperty.call(
+                n,
+                'default',
+            )),
+                (this.default = n.default),
+                (this.validate =
+                    typeof n.validate == 'string'
+                        ? ii(e, t, n.validate)
+                        : n.validate))
+        }
+        get isRequired() {
+            return !this.hasDefault
+        }
+    },
+    Me = class r {
+        constructor(e, t, n, i) {
+            ;((this.name = e),
+                (this.rank = t),
+                (this.schema = n),
+                (this.spec = i),
+                (this.attrs = An(e, i.attrs)),
+                (this.excluded = null))
+            let s = En(this.attrs)
+            this.instance = s ? new A(this, s) : null
+        }
+        create(e = null) {
+            return !e && this.instance
+                ? this.instance
+                : new A(this, Tn(this.attrs, e))
+        }
+        static compile(e, t) {
+            let n = Object.create(null),
+                i = 0
+            return (e.forEach((s, o) => (n[s] = new r(s, i++, t, o))), n)
+        }
+        removeFromSet(e) {
+            for (var t = 0; t < e.length; t++)
+                e[t].type == this &&
+                    ((e = e.slice(0, t).concat(e.slice(t + 1))), t--)
+            return e
+        }
+        isInSet(e) {
+            for (let t = 0; t < e.length; t++)
+                if (e[t].type == this) return e[t]
+        }
+        checkAttrs(e) {
+            Cn(this.attrs, e, 'mark', this.name)
+        }
+        excludes(e) {
+            return this.excluded.indexOf(e) > -1
+        }
+    },
+    pe = class {
+        constructor(e) {
+            ;((this.linebreakReplacement = null),
+                (this.cached = Object.create(null)))
+            let t = (this.spec = {})
+            for (let i in e) t[i] = e[i]
+            ;((t.nodes = at.from(e.nodes)),
+                (t.marks = at.from(e.marks || {})),
+                (this.nodes = je.compile(this.spec.nodes, this)),
+                (this.marks = Me.compile(this.spec.marks, this)))
+            let n = Object.create(null)
+            for (let i in this.nodes) {
+                if (i in this.marks)
+                    throw new RangeError(
+                        i + ' can not be both a node and a mark',
+                    )
+                let s = this.nodes[i],
+                    o = s.spec.content || '',
+                    l = s.spec.marks
+                if (
+                    ((s.contentMatch =
+                        n[o] || (n[o] = ce.parse(o, this.nodes))),
+                    (s.inlineContent = s.contentMatch.inlineContent),
+                    s.spec.linebreakReplacement)
+                ) {
+                    if (this.linebreakReplacement)
+                        throw new RangeError('Multiple linebreak nodes defined')
+                    if (!s.isInline || !s.isLeaf)
+                        throw new RangeError(
+                            'Linebreak replacement nodes must be inline leaf nodes',
+                        )
+                    this.linebreakReplacement = s
+                }
+                s.markSet =
+                    l == '_'
+                        ? null
+                        : l
+                          ? cn(this, l.split(' '))
+                          : l == '' || !s.inlineContent
+                            ? []
+                            : null
+            }
+            for (let i in this.marks) {
+                let s = this.marks[i],
+                    o = s.spec.excludes
+                s.excluded =
+                    o == null ? [s] : o == '' ? [] : cn(this, o.split(' '))
+            }
+            ;((this.nodeFromJSON = (i) => K.fromJSON(this, i)),
+                (this.markFromJSON = (i) => A.fromJSON(this, i)),
+                (this.topNodeType = this.nodes[this.spec.topNode || 'doc']),
+                (this.cached.wrappings = Object.create(null)))
+        }
+        node(e, t = null, n, i) {
+            if (typeof e == 'string') e = this.nodeType(e)
+            else if (e instanceof je) {
+                if (e.schema != this)
+                    throw new RangeError(
+                        'Node type from different schema used (' + e.name + ')',
+                    )
+            } else throw new RangeError('Invalid node type: ' + e)
+            return e.createChecked(t, n, i)
+        }
+        text(e, t) {
+            let n = this.nodes.text
+            return new ht(n, n.defaultAttrs, e, A.setFrom(t))
+        }
+        mark(e, t) {
+            return (typeof e == 'string' && (e = this.marks[e]), e.create(t))
+        }
+        nodeType(e) {
+            let t = this.nodes[e]
+            if (!t) throw new RangeError('Unknown node type: ' + e)
+            return t
+        }
+    }
+function cn(r, e) {
+    let t = []
+    for (let n = 0; n < e.length; n++) {
+        let i = e[n],
+            s = r.marks[i],
+            o = s
+        if (s) t.push(s)
+        else
+            for (let l in r.marks) {
+                let a = r.marks[l]
+                ;(i == '_' ||
+                    (a.spec.group &&
+                        a.spec.group.split(' ').indexOf(i) > -1)) &&
+                    t.push((o = a))
+            }
+        if (!o) throw new SyntaxError("Unknown mark type: '" + e[n] + "'")
+    }
+    return t
+}
+function si(r) {
+    return r.tag != null
+}
+function oi(r) {
+    return r.style != null
+}
+var ue = class r {
+        constructor(e, t) {
+            ;((this.schema = e),
+                (this.rules = t),
+                (this.tags = []),
+                (this.styles = []))
+            let n = (this.matchedStyles = [])
+            ;(t.forEach((i) => {
+                if (si(i)) this.tags.push(i)
+                else if (oi(i)) {
+                    let s = /[^=]*/.exec(i.style)[0]
+                    ;(n.indexOf(s) < 0 && n.push(s), this.styles.push(i))
+                }
+            }),
+                (this.normalizeLists = !this.tags.some((i) => {
+                    if (!/^(ul|ol)\b/.test(i.tag) || !i.node) return !1
+                    let s = e.nodes[i.node]
+                    return s.contentMatch.matchType(s)
+                })))
+        }
+        parse(e, t = {}) {
+            let n = new Ve(this, t, !1)
+            return (n.addAll(e, A.none, t.from, t.to), n.finish())
+        }
+        parseSlice(e, t = {}) {
+            let n = new Ve(this, t, !0)
+            return (n.addAll(e, A.none, t.from, t.to), k.maxOpen(n.finish()))
+        }
+        matchTag(e, t, n) {
+            for (
+                let i = n ? this.tags.indexOf(n) + 1 : 0;
+                i < this.tags.length;
+                i++
+            ) {
+                let s = this.tags[i]
+                if (
+                    ci(e, s.tag) &&
+                    (s.namespace === void 0 || e.namespaceURI == s.namespace) &&
+                    (!s.context || t.matchesContext(s.context))
+                ) {
+                    if (s.getAttrs) {
+                        let o = s.getAttrs(e)
+                        if (o === !1) continue
+                        s.attrs = o || void 0
+                    }
+                    return s
+                }
+            }
+        }
+        matchStyle(e, t, n, i) {
+            for (
+                let s = i ? this.styles.indexOf(i) + 1 : 0;
+                s < this.styles.length;
+                s++
+            ) {
+                let o = this.styles[s],
+                    l = o.style
+                if (
+                    !(
+                        l.indexOf(e) != 0 ||
+                        (o.context && !n.matchesContext(o.context)) ||
+                        (l.length > e.length &&
+                            (l.charCodeAt(e.length) != 61 ||
+                                l.slice(e.length + 1) != t))
+                    )
+                ) {
+                    if (o.getAttrs) {
+                        let a = o.getAttrs(t)
+                        if (a === !1) continue
+                        o.attrs = a || void 0
+                    }
+                    return o
+                }
+            }
+        }
+        static schemaRules(e) {
+            let t = []
+            function n(i) {
+                let s = i.priority == null ? 50 : i.priority,
+                    o = 0
+                for (; o < t.length; o++) {
+                    let l = t[o]
+                    if ((l.priority == null ? 50 : l.priority) < s) break
+                }
+                t.splice(o, 0, i)
+            }
+            for (let i in e.marks) {
+                let s = e.marks[i].spec.parseDOM
+                s &&
+                    s.forEach((o) => {
+                        ;(n((o = fn(o))),
+                            o.mark || o.ignore || o.clearMark || (o.mark = i))
+                    })
+            }
+            for (let i in e.nodes) {
+                let s = e.nodes[i].spec.parseDOM
+                s &&
+                    s.forEach((o) => {
+                        ;(n((o = fn(o))),
+                            o.node || o.ignore || o.mark || (o.node = i))
+                    })
+            }
+            return t
+        }
+        static fromSchema(e) {
+            return (
+                e.cached.domParser ||
+                (e.cached.domParser = new r(e, r.schemaRules(e)))
+            )
+        }
+    },
+    Nn = {
+        address: !0,
+        article: !0,
+        aside: !0,
+        blockquote: !0,
+        canvas: !0,
+        dd: !0,
+        div: !0,
+        dl: !0,
+        fieldset: !0,
+        figcaption: !0,
+        figure: !0,
+        footer: !0,
+        form: !0,
+        h1: !0,
+        h2: !0,
+        h3: !0,
+        h4: !0,
+        h5: !0,
+        h6: !0,
+        header: !0,
+        hgroup: !0,
+        hr: !0,
+        li: !0,
+        noscript: !0,
+        ol: !0,
+        output: !0,
+        p: !0,
+        pre: !0,
+        section: !0,
+        table: !0,
+        tfoot: !0,
+        ul: !0,
+    },
+    li = {
+        head: !0,
+        noscript: !0,
+        object: !0,
+        script: !0,
+        style: !0,
+        title: !0,
+    },
+    In = { ol: !0, ul: !0 },
+    Ee = 1,
+    mt = 2,
+    be = 4
+function un(r, e, t) {
+    return e != null
+        ? (e ? Ee : 0) | (e === 'full' ? mt : 0)
+        : r && r.whitespace == 'pre'
+          ? Ee | mt
+          : t & ~be
+}
+var de = class {
+        constructor(e, t, n, i, s, o) {
+            ;((this.type = e),
+                (this.attrs = t),
+                (this.marks = n),
+                (this.solid = i),
+                (this.options = o),
+                (this.content = []),
+                (this.activeMarks = A.none),
+                (this.match = s || (o & be ? null : e.contentMatch)))
+        }
+        findWrapping(e) {
+            if (!this.match) {
+                if (!this.type) return []
+                let t = this.type.contentMatch.fillBefore(w.from(e))
+                if (t) this.match = this.type.contentMatch.matchFragment(t)
+                else {
+                    let n = this.type.contentMatch,
+                        i
+                    return (i = n.findWrapping(e.type))
+                        ? ((this.match = n), i)
+                        : null
+                }
+            }
+            return this.match.findWrapping(e.type)
+        }
+        finish(e) {
+            if (!(this.options & Ee)) {
+                let n = this.content[this.content.length - 1],
+                    i
+                if (n && n.isText && (i = /[ \t\r\n\u000c]+$/.exec(n.text))) {
+                    let s = n
+                    n.text.length == i[0].length
+                        ? this.content.pop()
+                        : (this.content[this.content.length - 1] = s.withText(
+                              s.text.slice(0, s.text.length - i[0].length),
+                          ))
+                }
+            }
+            let t = w.from(this.content)
+            return (
+                !e &&
+                    this.match &&
+                    (t = t.append(this.match.fillBefore(w.empty, !0))),
+                this.type ? this.type.create(this.attrs, t, this.marks) : t
+            )
+        }
+        inlineContext(e) {
+            return this.type
+                ? this.type.inlineContent
+                : this.content.length
+                  ? this.content[0].isInline
+                  : e.parentNode &&
+                    !Nn.hasOwnProperty(e.parentNode.nodeName.toLowerCase())
+        }
+    },
+    Ve = class {
+        constructor(e, t, n) {
+            ;((this.parser = e),
+                (this.options = t),
+                (this.isOpen = n),
+                (this.open = 0),
+                (this.localPreserveWS = !1))
+            let i = t.topNode,
+                s,
+                o = un(null, t.preserveWhitespace, 0) | (n ? be : 0)
+            ;(i
+                ? (s = new de(
+                      i.type,
+                      i.attrs,
+                      A.none,
+                      !0,
+                      t.topMatch || i.type.contentMatch,
+                      o,
+                  ))
+                : n
+                  ? (s = new de(null, null, A.none, !0, null, o))
+                  : (s = new de(
+                        e.schema.topNodeType,
+                        null,
+                        A.none,
+                        !0,
+                        null,
+                        o,
+                    )),
+                (this.nodes = [s]),
+                (this.find = t.findPositions),
+                (this.needsBlock = !1))
+        }
+        get top() {
+            return this.nodes[this.open]
+        }
+        addDOM(e, t) {
+            e.nodeType == 3
+                ? this.addTextNode(e, t)
+                : e.nodeType == 1 && this.addElement(e, t)
+        }
+        addTextNode(e, t) {
+            let n = e.nodeValue,
+                i = this.top,
+                s =
+                    i.options & mt
+                        ? 'full'
+                        : this.localPreserveWS || (i.options & Ee) > 0,
+                { schema: o } = this.parser
+            if (
+                s === 'full' ||
+                i.inlineContext(e) ||
+                /[^ \t\r\n\u000c]/.test(n)
+            ) {
+                if (s)
+                    if (s === 'full')
+                        n = n.replace(
+                            /\r\n?/g,
+                            `
+`,
+                        )
+                    else if (
+                        o.linebreakReplacement &&
+                        /[\r\n]/.test(n) &&
+                        this.top.findWrapping(o.linebreakReplacement.create())
+                    ) {
+                        let l = n.split(/\r?\n|\r/)
+                        for (let a = 0; a < l.length; a++)
+                            (a &&
+                                this.insertNode(
+                                    o.linebreakReplacement.create(),
+                                    t,
+                                    !0,
+                                ),
+                                l[a] &&
+                                    this.insertNode(
+                                        o.text(l[a]),
+                                        t,
+                                        !/\S/.test(l[a]),
+                                    ))
+                        n = ''
+                    } else n = n.replace(/\r?\n|\r/g, ' ')
+                else if (
+                    ((n = n.replace(/[ \t\r\n\u000c]+/g, ' ')),
+                    /^[ \t\r\n\u000c]/.test(n) &&
+                        this.open == this.nodes.length - 1)
+                ) {
+                    let l = i.content[i.content.length - 1],
+                        a = e.previousSibling
+                    ;(!l ||
+                        (a && a.nodeName == 'BR') ||
+                        (l.isText && /[ \t\r\n\u000c]$/.test(l.text))) &&
+                        (n = n.slice(1))
+                }
+                ;(n && this.insertNode(o.text(n), t, !/\S/.test(n)),
+                    this.findInText(e))
+            } else this.findInside(e)
+        }
+        addElement(e, t, n) {
+            let i = this.localPreserveWS,
+                s = this.top
+            ;(e.tagName == 'PRE' ||
+                /pre/.test(e.style && e.style.whiteSpace)) &&
+                (this.localPreserveWS = !0)
+            let o = e.nodeName.toLowerCase(),
+                l
+            In.hasOwnProperty(o) && this.parser.normalizeLists && ai(e)
+            let a =
+                (this.options.ruleFromNode && this.options.ruleFromNode(e)) ||
+                (l = this.parser.matchTag(e, this, n))
+            e: if (a ? a.ignore : li.hasOwnProperty(o))
+                (this.findInside(e), this.ignoreFallback(e, t))
+            else if (!a || a.skip || a.closeParent) {
+                a && a.closeParent
+                    ? (this.open = Math.max(0, this.open - 1))
+                    : a && a.skip.nodeType && (e = a.skip)
+                let c,
+                    u = this.needsBlock
+                if (Nn.hasOwnProperty(o))
+                    (s.content.length &&
+                        s.content[0].isInline &&
+                        this.open &&
+                        (this.open--, (s = this.top)),
+                        (c = !0),
+                        s.type || (this.needsBlock = !0))
+                else if (!e.firstChild) {
+                    this.leafFallback(e, t)
+                    break e
+                }
+                let f = a && a.skip ? t : this.readStyles(e, t)
+                ;(f && this.addAll(e, f),
+                    c && this.sync(s),
+                    (this.needsBlock = u))
+            } else {
+                let c = this.readStyles(e, t)
+                c &&
+                    this.addElementByRule(
+                        e,
+                        a,
+                        c,
+                        a.consuming === !1 ? l : void 0,
+                    )
+            }
+            this.localPreserveWS = i
+        }
+        leafFallback(e, t) {
+            e.nodeName == 'BR' &&
+                this.top.type &&
+                this.top.type.inlineContent &&
+                this.addTextNode(
+                    e.ownerDocument.createTextNode(`
+`),
+                    t,
+                )
+        }
+        ignoreFallback(e, t) {
+            e.nodeName == 'BR' &&
+                (!this.top.type || !this.top.type.inlineContent) &&
+                this.findPlace(this.parser.schema.text('-'), t, !0)
+        }
+        readStyles(e, t) {
+            let n = e.style
+            if (n && n.length)
+                for (let i = 0; i < this.parser.matchedStyles.length; i++) {
+                    let s = this.parser.matchedStyles[i],
+                        o = n.getPropertyValue(s)
+                    if (o)
+                        for (let l = void 0; ; ) {
+                            let a = this.parser.matchStyle(s, o, this, l)
+                            if (!a) break
+                            if (a.ignore) return null
+                            if (
+                                (a.clearMark
+                                    ? (t = t.filter((c) => !a.clearMark(c)))
+                                    : (t = t.concat(
+                                          this.parser.schema.marks[
+                                              a.mark
+                                          ].create(a.attrs),
+                                      )),
+                                a.consuming === !1)
+                            )
+                                l = a
+                            else break
+                        }
+                }
+            return t
+        }
+        addElementByRule(e, t, n, i) {
+            let s, o
+            if (t.node)
+                if (((o = this.parser.schema.nodes[t.node]), o.isLeaf))
+                    this.insertNode(o.create(t.attrs), n, e.nodeName == 'BR') ||
+                        this.leafFallback(e, n)
+                else {
+                    let a = this.enter(
+                        o,
+                        t.attrs || null,
+                        n,
+                        t.preserveWhitespace,
+                    )
+                    a && ((s = !0), (n = a))
+                }
+            else {
+                let a = this.parser.schema.marks[t.mark]
+                n = n.concat(a.create(t.attrs))
+            }
+            let l = this.top
+            if (o && o.isLeaf) this.findInside(e)
+            else if (i) this.addElement(e, n, i)
+            else if (t.getContent)
+                (this.findInside(e),
+                    t
+                        .getContent(e, this.parser.schema)
+                        .forEach((a) => this.insertNode(a, n, !1)))
+            else {
+                let a = e
+                ;(typeof t.contentElement == 'string'
+                    ? (a = e.querySelector(t.contentElement))
+                    : typeof t.contentElement == 'function'
+                      ? (a = t.contentElement(e))
+                      : t.contentElement && (a = t.contentElement),
+                    this.findAround(e, a, !0),
+                    this.addAll(a, n),
+                    this.findAround(e, a, !1))
+            }
+            s && this.sync(l) && this.open--
+        }
+        addAll(e, t, n, i) {
+            let s = n || 0
+            for (
+                let o = n ? e.childNodes[n] : e.firstChild,
+                    l = i == null ? null : e.childNodes[i];
+                o != l;
+                o = o.nextSibling, ++s
+            )
+                (this.findAtPoint(e, s), this.addDOM(o, t))
+            this.findAtPoint(e, s)
+        }
+        findPlace(e, t, n) {
+            let i, s
+            for (let o = this.open, l = 0; o >= 0; o--) {
+                let a = this.nodes[o],
+                    c = a.findWrapping(e)
+                if (
+                    c &&
+                    (!i || i.length > c.length + l) &&
+                    ((i = c), (s = a), !c.length)
+                )
+                    break
+                if (a.solid) {
+                    if (n) break
+                    l += 2
+                }
+            }
+            if (!i) return null
+            this.sync(s)
+            for (let o = 0; o < i.length; o++)
+                t = this.enterInner(i[o], null, t, !1)
+            return t
+        }
+        insertNode(e, t, n) {
+            if (e.isInline && this.needsBlock && !this.top.type) {
+                let s = this.textblockFromContext()
+                s && (t = this.enterInner(s, null, t))
+            }
+            let i = this.findPlace(e, t, n)
+            if (i) {
+                this.closeExtra()
+                let s = this.top
+                s.match && (s.match = s.match.matchType(e.type))
+                let o = A.none
+                for (let l of i.concat(e.marks))
+                    (s.type
+                        ? s.type.allowsMarkType(l.type)
+                        : hn(l.type, e.type)) && (o = l.addToSet(o))
+                return (s.content.push(e.mark(o)), !0)
+            }
+            return !1
+        }
+        enter(e, t, n, i) {
+            let s = this.findPlace(e.create(t), n, !1)
+            return (s && (s = this.enterInner(e, t, n, !0, i)), s)
+        }
+        enterInner(e, t, n, i = !1, s) {
+            this.closeExtra()
+            let o = this.top
+            o.match = o.match && o.match.matchType(e)
+            let l = un(e, s, o.options)
+            o.options & be && o.content.length == 0 && (l |= be)
+            let a = A.none
+            return (
+                (n = n.filter((c) =>
+                    (o.type ? o.type.allowsMarkType(c.type) : hn(c.type, e))
+                        ? ((a = c.addToSet(a)), !1)
+                        : !0,
+                )),
+                this.nodes.push(new de(e, t, a, i, null, l)),
+                this.open++,
+                n
+            )
+        }
+        closeExtra(e = !1) {
+            let t = this.nodes.length - 1
+            if (t > this.open) {
+                for (; t > this.open; t--)
+                    this.nodes[t - 1].content.push(this.nodes[t].finish(e))
+                this.nodes.length = this.open + 1
+            }
+        }
+        finish() {
+            return (
+                (this.open = 0),
+                this.closeExtra(this.isOpen),
+                this.nodes[0].finish(!!(this.isOpen || this.options.topOpen))
+            )
+        }
+        sync(e) {
+            for (let t = this.open; t >= 0; t--) {
+                if (this.nodes[t] == e) return ((this.open = t), !0)
+                this.localPreserveWS && (this.nodes[t].options |= Ee)
+            }
+            return !1
+        }
+        get currentPos() {
+            this.closeExtra()
+            let e = 0
+            for (let t = this.open; t >= 0; t--) {
+                let n = this.nodes[t].content
+                for (let i = n.length - 1; i >= 0; i--) e += n[i].nodeSize
+                t && e++
+            }
+            return e
+        }
+        findAtPoint(e, t) {
+            if (this.find)
+                for (let n = 0; n < this.find.length; n++)
+                    this.find[n].node == e &&
+                        this.find[n].offset == t &&
+                        (this.find[n].pos = this.currentPos)
+        }
+        findInside(e) {
+            if (this.find)
+                for (let t = 0; t < this.find.length; t++)
+                    this.find[t].pos == null &&
+                        e.nodeType == 1 &&
+                        e.contains(this.find[t].node) &&
+                        (this.find[t].pos = this.currentPos)
+        }
+        findAround(e, t, n) {
+            if (e != t && this.find)
+                for (let i = 0; i < this.find.length; i++)
+                    this.find[i].pos == null &&
+                        e.nodeType == 1 &&
+                        e.contains(this.find[i].node) &&
+                        t.compareDocumentPosition(this.find[i].node) &
+                            (n ? 2 : 4) &&
+                        (this.find[i].pos = this.currentPos)
+        }
+        findInText(e) {
+            if (this.find)
+                for (let t = 0; t < this.find.length; t++)
+                    this.find[t].node == e &&
+                        (this.find[t].pos =
+                            this.currentPos -
+                            (e.nodeValue.length - this.find[t].offset))
+        }
+        matchesContext(e) {
+            if (e.indexOf('|') > -1)
+                return e.split(/\s*\|\s*/).some(this.matchesContext, this)
+            let t = e.split('/'),
+                n = this.options.context,
+                i = !this.isOpen && (!n || n.parent.type == this.nodes[0].type),
+                s = -(n ? n.depth + 1 : 0) + (i ? 0 : 1),
+                o = (l, a) => {
+                    for (; l >= 0; l--) {
+                        let c = t[l]
+                        if (c == '') {
+                            if (l == t.length - 1 || l == 0) continue
+                            for (; a >= s; a--) if (o(l - 1, a)) return !0
+                            return !1
+                        } else {
+                            let u =
+                                a > 0 || (a == 0 && i)
+                                    ? this.nodes[a].type
+                                    : n && a >= s
+                                      ? n.node(a - s).type
+                                      : null
+                            if (!u || (u.name != c && !u.isInGroup(c)))
+                                return !1
+                            a--
+                        }
+                    }
+                    return !0
+                }
+            return o(t.length - 1, this.open)
+        }
+        textblockFromContext() {
+            let e = this.options.context
+            if (e)
+                for (let t = e.depth; t >= 0; t--) {
+                    let n = e
+                        .node(t)
+                        .contentMatchAt(e.indexAfter(t)).defaultType
+                    if (n && n.isTextblock && n.defaultAttrs) return n
+                }
+            for (let t in this.parser.schema.nodes) {
+                let n = this.parser.schema.nodes[t]
+                if (n.isTextblock && n.defaultAttrs) return n
+            }
+        }
+    }
+function ai(r) {
+    for (let e = r.firstChild, t = null; e; e = e.nextSibling) {
+        let n = e.nodeType == 1 ? e.nodeName.toLowerCase() : null
+        n && In.hasOwnProperty(n) && t
+            ? (t.appendChild(e), (e = t))
+            : n == 'li'
+              ? (t = e)
+              : n && (t = null)
+    }
+}
+function ci(r, e) {
+    return (
+        r.matches ||
+        r.msMatchesSelector ||
+        r.webkitMatchesSelector ||
+        r.mozMatchesSelector
+    ).call(r, e)
+}
+function fn(r) {
+    let e = {}
+    for (let t in r) e[t] = r[t]
+    return e
+}
+function hn(r, e) {
+    let t = e.schema.nodes
+    for (let n in t) {
+        let i = t[n]
+        if (!i.allowsMarkType(r)) continue
+        let s = [],
+            o = (l) => {
+                s.push(l)
+                for (let a = 0; a < l.edgeCount; a++) {
+                    let { type: c, next: u } = l.edge(a)
+                    if (c == e || (s.indexOf(u) < 0 && o(u))) return !0
+                }
+            }
+        if (o(i.contentMatch)) return !0
+    }
+}
+var _e = class r {
+    constructor(e, t) {
+        ;((this.nodes = e), (this.marks = t))
+    }
+    serializeFragment(e, t = {}, n) {
+        n || (n = Le(t).createDocumentFragment())
+        let i = n,
+            s = []
+        return (
+            e.forEach((o) => {
+                if (s.length || o.marks.length) {
+                    let l = 0,
+                        a = 0
+                    for (; l < s.length && a < o.marks.length; ) {
+                        let c = o.marks[a]
+                        if (!this.marks[c.type.name]) {
+                            a++
+                            continue
+                        }
+                        if (!c.eq(s[l][0]) || c.type.spec.spanning === !1) break
+                        ;(l++, a++)
+                    }
+                    for (; l < s.length; ) i = s.pop()[1]
+                    for (; a < o.marks.length; ) {
+                        let c = o.marks[a++],
+                            u = this.serializeMark(c, o.isInline, t)
+                        u &&
+                            (s.push([c, i]),
+                            i.appendChild(u.dom),
+                            (i = u.contentDOM || u.dom))
+                    }
+                }
+                i.appendChild(this.serializeNodeInner(o, t))
+            }),
+            n
+        )
+    }
+    serializeNodeInner(e, t) {
+        if (e.isText) return Le(t).createTextNode(e.text)
+        let { dom: n, contentDOM: i } = $e(
+            Le(t),
+            this.nodes[e.type.name](e),
+            null,
+            e.attrs,
+        )
+        if (i) {
+            if (e.isLeaf)
+                throw new RangeError(
+                    'Content hole not allowed in a leaf node spec',
+                )
+            this.serializeFragment(e.content, t, i)
+        }
+        return n
+    }
+    serializeNode(e, t = {}) {
+        let n = this.serializeNodeInner(e, t)
+        for (let i = e.marks.length - 1; i >= 0; i--) {
+            let s = this.serializeMark(e.marks[i], e.isInline, t)
+            s && ((s.contentDOM || s.dom).appendChild(n), (n = s.dom))
+        }
+        return n
+    }
+    serializeMark(e, t, n = {}) {
+        let i = this.marks[e.type.name]
+        return i && $e(Le(n), i(e, t), null, e.attrs)
+    }
+    static renderSpec(e, t, n = null, i) {
+        return typeof t == 'string'
+            ? { dom: e.createTextNode(t) }
+            : $e(e, t, n, i)
+    }
+    static fromSchema(e) {
+        return (
+            e.cached.domSerializer ||
+            (e.cached.domSerializer = new r(
+                this.nodesFromSchema(e),
+                this.marksFromSchema(e),
+            ))
+        )
+    }
+    static nodesFromSchema(e) {
+        let t = dn(e.nodes)
+        return (t.text || (t.text = (n) => n.text), t)
+    }
+    static marksFromSchema(e) {
+        return dn(e.marks)
+    }
+}
+function dn(r) {
+    let e = {}
+    for (let t in r) {
+        let n = r[t].spec.toDOM
+        n && (e[t] = n)
+    }
+    return e
+}
+function Le(r) {
+    return r.document || window.document
+}
+var pn = new WeakMap()
+function ui(r) {
+    let e = pn.get(r)
+    return (e === void 0 && pn.set(r, (e = fi(r))), e)
+}
+function fi(r) {
+    let e = null
+    function t(n) {
+        if (n && typeof n == 'object')
+            if (Array.isArray(n))
+                if (typeof n[0] == 'string') (e || (e = []), e.push(n))
+                else for (let i = 0; i < n.length; i++) t(n[i])
+            else for (let i in n) t(n[i])
+    }
+    return (t(r), e)
+}
+function $e(r, e, t, n) {
+    if (e.nodeType == 1) return { dom: e }
+    if (e.dom && e.dom.nodeType == 1) return e
+    let i = e[0],
+        s
+    if (typeof i != 'string')
+        throw new RangeError('Invalid array passed to renderSpec')
+    if (n && (s = ui(n)) && s.indexOf(e) > -1)
+        throw new RangeError(
+            'Using an array from an attribute object as a DOM spec. This may be an attempted cross site scripting attack.',
+        )
+    let o = i.indexOf(' ')
+    o > 0 && ((t = i.slice(0, o)), (i = i.slice(o + 1)))
+    let l,
+        a = t ? r.createElementNS(t, i) : r.createElement(i),
+        c = e[1],
+        u = 1
+    if (c && typeof c == 'object' && c.nodeType == null && !Array.isArray(c)) {
+        u = 2
+        for (let f in c)
+            if (c[f] != null) {
+                let d = f.indexOf(' ')
+                d > 0
+                    ? a.setAttributeNS(f.slice(0, d), f.slice(d + 1), c[f])
+                    : f == 'style' && a.style
+                      ? (a.style.cssText = c[f])
+                      : a.setAttribute(f, c[f])
+            }
+    }
+    for (let f = u; f < e.length; f++) {
+        let d = e[f]
+        if (d === 0) {
+            if (f < e.length - 1 || f > u)
+                throw new RangeError(
+                    'Content hole must be the only child of its parent node',
+                )
+            return { dom: a, contentDOM: a }
+        } else if (typeof d == 'string') a.appendChild(r.createTextNode(d))
+        else {
+            let { dom: h, contentDOM: p } = $e(r, d, t, n)
+            if ((a.appendChild(h), p)) {
+                if (l) throw new RangeError('Multiple content holes')
+                l = p
+            }
+        }
+    }
+    return { dom: a, contentDOM: l }
+}
+var zn = 65535,
+    Pn = Math.pow(2, 16)
+function hi(r, e) {
+    return r + e * Pn
+}
+function Rn(r) {
+    return r & zn
+}
+function di(r) {
+    return (r - (r & zn)) / Pn
+}
+var Dn = 1,
+    Bn = 2,
+    Ke = 4,
+    Fn = 8,
+    Ae = class {
+        constructor(e, t, n) {
+            ;((this.pos = e), (this.delInfo = t), (this.recover = n))
+        }
+        get deleted() {
+            return (this.delInfo & Fn) > 0
+        }
+        get deletedBefore() {
+            return (this.delInfo & (Dn | Ke)) > 0
+        }
+        get deletedAfter() {
+            return (this.delInfo & (Bn | Ke)) > 0
+        }
+        get deletedAcross() {
+            return (this.delInfo & Ke) > 0
+        }
+    },
+    Q = class r {
+        constructor(e, t = !1) {
+            if (((this.ranges = e), (this.inverted = t), !e.length && r.empty))
+                return r.empty
+        }
+        recover(e) {
+            let t = 0,
+                n = Rn(e)
+            if (!this.inverted)
+                for (let i = 0; i < n; i++)
+                    t += this.ranges[i * 3 + 2] - this.ranges[i * 3 + 1]
+            return this.ranges[n * 3] + t + di(e)
+        }
+        mapResult(e, t = 1) {
+            return this._map(e, t, !1)
+        }
+        map(e, t = 1) {
+            return this._map(e, t, !0)
+        }
+        _map(e, t, n) {
+            let i = 0,
+                s = this.inverted ? 2 : 1,
+                o = this.inverted ? 1 : 2
+            for (let l = 0; l < this.ranges.length; l += 3) {
+                let a = this.ranges[l] - (this.inverted ? i : 0)
+                if (a > e) break
+                let c = this.ranges[l + s],
+                    u = this.ranges[l + o],
+                    f = a + c
+                if (e <= f) {
+                    let d = c ? (e == a ? -1 : e == f ? 1 : t) : t,
+                        h = a + i + (d < 0 ? 0 : u)
+                    if (n) return h
+                    let p = e == (t < 0 ? a : f) ? null : hi(l / 3, e - a),
+                        m = e == a ? Bn : e == f ? Dn : Ke
+                    return (
+                        (t < 0 ? e != a : e != f) && (m |= Fn),
+                        new Ae(h, m, p)
+                    )
+                }
+                i += u - c
+            }
+            return n ? e + i : new Ae(e + i, 0, null)
+        }
+        touches(e, t) {
+            let n = 0,
+                i = Rn(t),
+                s = this.inverted ? 2 : 1,
+                o = this.inverted ? 1 : 2
+            for (let l = 0; l < this.ranges.length; l += 3) {
+                let a = this.ranges[l] - (this.inverted ? n : 0)
+                if (a > e) break
+                let c = this.ranges[l + s],
+                    u = a + c
+                if (e <= u && l == i * 3) return !0
+                n += this.ranges[l + o] - c
+            }
+            return !1
+        }
+        forEach(e) {
+            let t = this.inverted ? 2 : 1,
+                n = this.inverted ? 1 : 2
+            for (let i = 0, s = 0; i < this.ranges.length; i += 3) {
+                let o = this.ranges[i],
+                    l = o - (this.inverted ? s : 0),
+                    a = o + (this.inverted ? 0 : s),
+                    c = this.ranges[i + t],
+                    u = this.ranges[i + n]
+                ;(e(l, l + c, a, a + u), (s += u - c))
+            }
+        }
+        invert() {
+            return new r(this.ranges, !this.inverted)
+        }
+        toString() {
+            return (this.inverted ? '-' : '') + JSON.stringify(this.ranges)
+        }
+        static offset(e) {
+            return e == 0 ? r.empty : new r(e < 0 ? [0, -e, 0] : [0, 0, e])
+        }
+    }
+Q.empty = new Q([])
+var kt = class r {
+        constructor(e, t, n = 0, i = e ? e.length : 0) {
+            ;((this.mirror = t),
+                (this.from = n),
+                (this.to = i),
+                (this._maps = e || []),
+                (this.ownData = !(e || t)))
+        }
+        get maps() {
+            return this._maps
+        }
+        slice(e = 0, t = this.maps.length) {
+            return new r(this._maps, this.mirror, e, t)
+        }
+        appendMap(e, t) {
+            ;(this.ownData ||
+                ((this._maps = this._maps.slice()),
+                (this.mirror = this.mirror && this.mirror.slice()),
+                (this.ownData = !0)),
+                (this.to = this._maps.push(e)),
+                t != null && this.setMirror(this._maps.length - 1, t))
+        }
+        appendMapping(e) {
+            for (let t = 0, n = this._maps.length; t < e._maps.length; t++) {
+                let i = e.getMirror(t)
+                this.appendMap(e._maps[t], i != null && i < t ? n + i : void 0)
+            }
+        }
+        getMirror(e) {
+            if (this.mirror) {
+                for (let t = 0; t < this.mirror.length; t++)
+                    if (this.mirror[t] == e)
+                        return this.mirror[t + (t % 2 ? -1 : 1)]
+            }
+        }
+        setMirror(e, t) {
+            ;(this.mirror || (this.mirror = []), this.mirror.push(e, t))
+        }
+        appendMappingInverted(e) {
+            for (
+                let t = e.maps.length - 1,
+                    n = this._maps.length + e._maps.length;
+                t >= 0;
+                t--
+            ) {
+                let i = e.getMirror(t)
+                this.appendMap(
+                    e._maps[t].invert(),
+                    i != null && i > t ? n - i - 1 : void 0,
+                )
+            }
+        }
+        invert() {
+            let e = new r()
+            return (e.appendMappingInverted(this), e)
+        }
+        map(e, t = 1) {
+            if (this.mirror) return this._map(e, t, !0)
+            for (let n = this.from; n < this.to; n++)
+                e = this._maps[n].map(e, t)
+            return e
+        }
+        mapResult(e, t = 1) {
+            return this._map(e, t, !1)
+        }
+        _map(e, t, n) {
+            let i = 0
+            for (let s = this.from; s < this.to; s++) {
+                let o = this._maps[s],
+                    l = o.mapResult(e, t)
+                if (l.recover != null) {
+                    let a = this.getMirror(s)
+                    if (a != null && a > s && a < this.to) {
+                        ;((s = a), (e = this._maps[a].recover(l.recover)))
+                        continue
+                    }
+                }
+                ;((i |= l.delInfo), (e = l.pos))
+            }
+            return n ? e : new Ae(e, i, null)
+        }
+    },
+    gt = Object.create(null),
+    D = class {
+        getMap() {
+            return Q.empty
+        }
+        merge(e) {
+            return null
+        }
+        static fromJSON(e, t) {
+            if (!t || !t.stepType)
+                throw new RangeError('Invalid input for Step.fromJSON')
+            let n = gt[t.stepType]
+            if (!n) throw new RangeError(`No step type ${t.stepType} defined`)
+            return n.fromJSON(e, t)
+        }
+        static jsonID(e, t) {
+            if (e in gt)
+                throw new RangeError('Duplicate use of step JSON ID ' + e)
+            return ((gt[e] = t), (t.prototype.jsonID = e), t)
+        }
+    },
+    L = class r {
+        constructor(e, t) {
+            ;((this.doc = e), (this.failed = t))
+        }
+        static ok(e) {
+            return new r(e, null)
+        }
+        static fail(e) {
+            return new r(null, e)
+        }
+        static fromReplace(e, t, n, i) {
+            try {
+                return r.ok(e.replace(t, n, i))
+            } catch (s) {
+                if (s instanceof le) return r.fail(s.message)
+                throw s
+            }
+        }
+    }
+function St(r, e, t) {
+    let n = []
+    for (let i = 0; i < r.childCount; i++) {
+        let s = r.child(i)
+        ;(s.content.size && (s = s.copy(St(s.content, e, s))),
+            s.isInline && (s = e(s, t, i)),
+            n.push(s))
+    }
+    return w.fromArray(n)
+}
+var Ne = class r extends D {
+    constructor(e, t, n) {
+        ;(super(), (this.from = e), (this.to = t), (this.mark = n))
+    }
+    apply(e) {
+        let t = e.slice(this.from, this.to),
+            n = e.resolve(this.from),
+            i = n.node(n.sharedDepth(this.to)),
+            s = new k(
+                St(
+                    t.content,
+                    (o, l) =>
+                        !o.isAtom || !l.type.allowsMarkType(this.mark.type)
+                            ? o
+                            : o.mark(this.mark.addToSet(o.marks)),
+                    i,
+                ),
+                t.openStart,
+                t.openEnd,
+            )
+        return L.fromReplace(e, this.from, this.to, s)
+    }
+    invert() {
+        return new Z(this.from, this.to, this.mark)
+    }
+    map(e) {
+        let t = e.mapResult(this.from, 1),
+            n = e.mapResult(this.to, -1)
+        return (t.deleted && n.deleted) || t.pos >= n.pos
+            ? null
+            : new r(t.pos, n.pos, this.mark)
+    }
+    merge(e) {
+        return e instanceof r &&
+            e.mark.eq(this.mark) &&
+            this.from <= e.to &&
+            this.to >= e.from
+            ? new r(
+                  Math.min(this.from, e.from),
+                  Math.max(this.to, e.to),
+                  this.mark,
+              )
+            : null
+    }
+    toJSON() {
+        return {
+            stepType: 'addMark',
+            mark: this.mark.toJSON(),
+            from: this.from,
+            to: this.to,
+        }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.from != 'number' || typeof t.to != 'number')
+            throw new RangeError('Invalid input for AddMarkStep.fromJSON')
+        return new r(t.from, t.to, e.markFromJSON(t.mark))
+    }
+}
+D.jsonID('addMark', Ne)
+var Z = class r extends D {
+    constructor(e, t, n) {
+        ;(super(), (this.from = e), (this.to = t), (this.mark = n))
+    }
+    apply(e) {
+        let t = e.slice(this.from, this.to),
+            n = new k(
+                St(
+                    t.content,
+                    (i) => i.mark(this.mark.removeFromSet(i.marks)),
+                    e,
+                ),
+                t.openStart,
+                t.openEnd,
+            )
+        return L.fromReplace(e, this.from, this.to, n)
+    }
+    invert() {
+        return new Ne(this.from, this.to, this.mark)
+    }
+    map(e) {
+        let t = e.mapResult(this.from, 1),
+            n = e.mapResult(this.to, -1)
+        return (t.deleted && n.deleted) || t.pos >= n.pos
+            ? null
+            : new r(t.pos, n.pos, this.mark)
+    }
+    merge(e) {
+        return e instanceof r &&
+            e.mark.eq(this.mark) &&
+            this.from <= e.to &&
+            this.to >= e.from
+            ? new r(
+                  Math.min(this.from, e.from),
+                  Math.max(this.to, e.to),
+                  this.mark,
+              )
+            : null
+    }
+    toJSON() {
+        return {
+            stepType: 'removeMark',
+            mark: this.mark.toJSON(),
+            from: this.from,
+            to: this.to,
+        }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.from != 'number' || typeof t.to != 'number')
+            throw new RangeError('Invalid input for RemoveMarkStep.fromJSON')
+        return new r(t.from, t.to, e.markFromJSON(t.mark))
+    }
+}
+D.jsonID('removeMark', Z)
+var Ie = class r extends D {
+    constructor(e, t) {
+        ;(super(), (this.pos = e), (this.mark = t))
+    }
+    apply(e) {
+        let t = e.nodeAt(this.pos)
+        if (!t) return L.fail("No node at mark step's position")
+        let n = t.type.create(t.attrs, null, this.mark.addToSet(t.marks))
+        return L.fromReplace(
+            e,
+            this.pos,
+            this.pos + 1,
+            new k(w.from(n), 0, t.isLeaf ? 0 : 1),
+        )
+    }
+    invert(e) {
+        let t = e.nodeAt(this.pos)
+        if (t) {
+            let n = this.mark.addToSet(t.marks)
+            if (n.length == t.marks.length) {
+                for (let i = 0; i < t.marks.length; i++)
+                    if (!t.marks[i].isInSet(n))
+                        return new r(this.pos, t.marks[i])
+                return new r(this.pos, this.mark)
+            }
+        }
+        return new me(this.pos, this.mark)
+    }
+    map(e) {
+        let t = e.mapResult(this.pos, 1)
+        return t.deletedAfter ? null : new r(t.pos, this.mark)
+    }
+    toJSON() {
+        return {
+            stepType: 'addNodeMark',
+            pos: this.pos,
+            mark: this.mark.toJSON(),
+        }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.pos != 'number')
+            throw new RangeError('Invalid input for AddNodeMarkStep.fromJSON')
+        return new r(t.pos, e.markFromJSON(t.mark))
+    }
+}
+D.jsonID('addNodeMark', Ie)
+var me = class r extends D {
+    constructor(e, t) {
+        ;(super(), (this.pos = e), (this.mark = t))
+    }
+    apply(e) {
+        let t = e.nodeAt(this.pos)
+        if (!t) return L.fail("No node at mark step's position")
+        let n = t.type.create(t.attrs, null, this.mark.removeFromSet(t.marks))
+        return L.fromReplace(
+            e,
+            this.pos,
+            this.pos + 1,
+            new k(w.from(n), 0, t.isLeaf ? 0 : 1),
+        )
+    }
+    invert(e) {
+        let t = e.nodeAt(this.pos)
+        return !t || !this.mark.isInSet(t.marks)
+            ? this
+            : new Ie(this.pos, this.mark)
+    }
+    map(e) {
+        let t = e.mapResult(this.pos, 1)
+        return t.deletedAfter ? null : new r(t.pos, this.mark)
+    }
+    toJSON() {
+        return {
+            stepType: 'removeNodeMark',
+            pos: this.pos,
+            mark: this.mark.toJSON(),
+        }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.pos != 'number')
+            throw new RangeError(
+                'Invalid input for RemoveNodeMarkStep.fromJSON',
+            )
+        return new r(t.pos, e.markFromJSON(t.mark))
+    }
+}
+D.jsonID('removeNodeMark', me)
+var $ = class r extends D {
+    constructor(e, t, n, i = !1) {
+        ;(super(),
+            (this.from = e),
+            (this.to = t),
+            (this.slice = n),
+            (this.structure = i))
+    }
+    apply(e) {
+        return this.structure && xt(e, this.from, this.to)
+            ? L.fail('Structure replace would overwrite content')
+            : L.fromReplace(e, this.from, this.to, this.slice)
+    }
+    getMap() {
+        return new Q([this.from, this.to - this.from, this.slice.size])
+    }
+    invert(e) {
+        return new r(
+            this.from,
+            this.from + this.slice.size,
+            e.slice(this.from, this.to),
+        )
+    }
+    map(e) {
+        let t = e.mapResult(this.to, -1),
+            n =
+                this.from == this.to && r.MAP_BIAS < 0
+                    ? t
+                    : e.mapResult(this.from, 1)
+        return n.deletedAcross && t.deletedAcross
+            ? null
+            : new r(n.pos, Math.max(n.pos, t.pos), this.slice, this.structure)
+    }
+    merge(e) {
+        if (!(e instanceof r) || e.structure || this.structure) return null
+        if (
+            this.from + this.slice.size == e.from &&
+            !this.slice.openEnd &&
+            !e.slice.openStart
+        ) {
+            let t =
+                this.slice.size + e.slice.size == 0
+                    ? k.empty
+                    : new k(
+                          this.slice.content.append(e.slice.content),
+                          this.slice.openStart,
+                          e.slice.openEnd,
+                      )
+            return new r(
+                this.from,
+                this.to + (e.to - e.from),
+                t,
+                this.structure,
+            )
+        } else if (
+            e.to == this.from &&
+            !this.slice.openStart &&
+            !e.slice.openEnd
+        ) {
+            let t =
+                this.slice.size + e.slice.size == 0
+                    ? k.empty
+                    : new k(
+                          e.slice.content.append(this.slice.content),
+                          e.slice.openStart,
+                          this.slice.openEnd,
+                      )
+            return new r(e.from, this.to, t, this.structure)
+        } else return null
+    }
+    toJSON() {
+        let e = { stepType: 'replace', from: this.from, to: this.to }
+        return (
+            this.slice.size && (e.slice = this.slice.toJSON()),
+            this.structure && (e.structure = !0),
+            e
+        )
+    }
+    static fromJSON(e, t) {
+        if (typeof t.from != 'number' || typeof t.to != 'number')
+            throw new RangeError('Invalid input for ReplaceStep.fromJSON')
+        return new r(t.from, t.to, k.fromJSON(e, t.slice), !!t.structure)
+    }
+}
+$.MAP_BIAS = 1
+D.jsonID('replace', $)
+var z = class r extends D {
+    constructor(e, t, n, i, s, o, l = !1) {
+        ;(super(),
+            (this.from = e),
+            (this.to = t),
+            (this.gapFrom = n),
+            (this.gapTo = i),
+            (this.slice = s),
+            (this.insert = o),
+            (this.structure = l))
+    }
+    apply(e) {
+        if (
+            this.structure &&
+            (xt(e, this.from, this.gapFrom) || xt(e, this.gapTo, this.to))
+        )
+            return L.fail('Structure gap-replace would overwrite content')
+        let t = e.slice(this.gapFrom, this.gapTo)
+        if (t.openStart || t.openEnd) return L.fail('Gap is not a flat range')
+        let n = this.slice.insertAt(this.insert, t.content)
+        return n
+            ? L.fromReplace(e, this.from, this.to, n)
+            : L.fail('Content does not fit in gap')
+    }
+    getMap() {
+        return new Q([
+            this.from,
+            this.gapFrom - this.from,
+            this.insert,
+            this.gapTo,
+            this.to - this.gapTo,
+            this.slice.size - this.insert,
+        ])
+    }
+    invert(e) {
+        let t = this.gapTo - this.gapFrom
+        return new r(
+            this.from,
+            this.from + this.slice.size + t,
+            this.from + this.insert,
+            this.from + this.insert + t,
+            e
+                .slice(this.from, this.to)
+                .removeBetween(
+                    this.gapFrom - this.from,
+                    this.gapTo - this.from,
+                ),
+            this.gapFrom - this.from,
+            this.structure,
+        )
+    }
+    map(e) {
+        let t = e.mapResult(this.from, 1),
+            n = e.mapResult(this.to, -1),
+            i = this.from == this.gapFrom ? t.pos : e.map(this.gapFrom, -1),
+            s = this.to == this.gapTo ? n.pos : e.map(this.gapTo, 1)
+        return (t.deletedAcross && n.deletedAcross) || i < t.pos || s > n.pos
+            ? null
+            : new r(t.pos, n.pos, i, s, this.slice, this.insert, this.structure)
+    }
+    toJSON() {
+        let e = {
+            stepType: 'replaceAround',
+            from: this.from,
+            to: this.to,
+            gapFrom: this.gapFrom,
+            gapTo: this.gapTo,
+            insert: this.insert,
+        }
+        return (
+            this.slice.size && (e.slice = this.slice.toJSON()),
+            this.structure && (e.structure = !0),
+            e
+        )
+    }
+    static fromJSON(e, t) {
+        if (
+            typeof t.from != 'number' ||
+            typeof t.to != 'number' ||
+            typeof t.gapFrom != 'number' ||
+            typeof t.gapTo != 'number' ||
+            typeof t.insert != 'number'
+        )
+            throw new RangeError('Invalid input for ReplaceAroundStep.fromJSON')
+        return new r(
+            t.from,
+            t.to,
+            t.gapFrom,
+            t.gapTo,
+            k.fromJSON(e, t.slice),
+            t.insert,
+            !!t.structure,
+        )
+    }
+}
+D.jsonID('replaceAround', z)
+function xt(r, e, t) {
+    let n = r.resolve(e),
+        i = t - e,
+        s = n.depth
+    for (; i > 0 && s > 0 && n.indexAfter(s) == n.node(s).childCount; )
+        (s--, i--)
+    if (i > 0) {
+        let o = n.node(s).maybeChild(n.indexAfter(s))
+        for (; i > 0; ) {
+            if (!o || o.isLeaf) return !0
+            ;((o = o.firstChild), i--)
+        }
+    }
+    return !1
+}
+function pi(r, e, t, n) {
+    let i = [],
+        s = [],
+        o,
+        l
+    ;(r.doc.nodesBetween(e, t, (a, c, u) => {
+        if (!a.isInline) return
+        let f = a.marks
+        if (!n.isInSet(f) && u.type.allowsMarkType(n.type)) {
+            let d = Math.max(c, e),
+                h = Math.min(c + a.nodeSize, t),
+                p = n.addToSet(f)
+            for (let m = 0; m < f.length; m++)
+                f[m].isInSet(p) ||
+                    (o && o.to == d && o.mark.eq(f[m])
+                        ? (o.to = h)
+                        : i.push((o = new Z(d, h, f[m]))))
+            l && l.to == d ? (l.to = h) : s.push((l = new Ne(d, h, n)))
+        }
+    }),
+        i.forEach((a) => r.step(a)),
+        s.forEach((a) => r.step(a)))
+}
+function mi(r, e, t, n) {
+    let i = [],
+        s = 0
+    ;(r.doc.nodesBetween(e, t, (o, l) => {
+        if (!o.isInline) return
+        s++
+        let a = null
+        if (n instanceof Me) {
+            let c = o.marks,
+                u
+            for (; (u = n.isInSet(c)); )
+                ((a || (a = [])).push(u), (c = u.removeFromSet(c)))
+        } else n ? n.isInSet(o.marks) && (a = [n]) : (a = o.marks)
+        if (a && a.length) {
+            let c = Math.min(l + o.nodeSize, t)
+            for (let u = 0; u < a.length; u++) {
+                let f = a[u],
+                    d
+                for (let h = 0; h < i.length; h++) {
+                    let p = i[h]
+                    p.step == s - 1 && f.eq(i[h].style) && (d = p)
+                }
+                d
+                    ? ((d.to = c), (d.step = s))
+                    : i.push({ style: f, from: Math.max(l, e), to: c, step: s })
+            }
+        }
+    }),
+        i.forEach((o) => r.step(new Z(o.from, o.to, o.style))))
+}
+function bt(r, e, t, n = t.contentMatch, i = !0) {
+    let s = r.doc.nodeAt(e),
+        o = [],
+        l = e + 1
+    for (let a = 0; a < s.childCount; a++) {
+        let c = s.child(a),
+            u = l + c.nodeSize,
+            f = n.matchType(c.type)
+        if (!f) o.push(new $(l, u, k.empty))
+        else {
+            n = f
+            for (let d = 0; d < c.marks.length; d++)
+                t.allowsMarkType(c.marks[d].type) ||
+                    r.step(new Z(l, u, c.marks[d]))
+            if (i && c.isText && t.whitespace != 'pre') {
+                let d,
+                    h = /\r?\n|\r/g,
+                    p
+                for (; (d = h.exec(c.text)); )
+                    (p ||
+                        (p = new k(
+                            w.from(t.schema.text(' ', t.allowedMarks(c.marks))),
+                            0,
+                            0,
+                        )),
+                        o.push(
+                            new $(l + d.index, l + d.index + d[0].length, p),
+                        ))
+            }
+        }
+        l = u
+    }
+    if (!n.validEnd) {
+        let a = n.fillBefore(w.empty, !0)
+        r.replace(l, l, new k(a, 0, 0))
+    }
+    for (let a = o.length - 1; a >= 0; a--) r.step(o[a])
+}
+function gi(r, e, t) {
+    return (
+        (e == 0 || r.canReplace(e, r.childCount)) &&
+        (t == r.childCount || r.canReplace(0, t))
+    )
+}
+function ee(r) {
+    let t = r.parent.content.cutByIndex(r.startIndex, r.endIndex)
+    for (let n = r.depth, i = 0, s = 0; ; --n) {
+        let o = r.$from.node(n),
+            l = r.$from.index(n) + i,
+            a = r.$to.indexAfter(n) - s
+        if (n < r.depth && o.canReplace(l, a, t)) return n
+        if (n == 0 || o.type.spec.isolating || !gi(o, l, a)) break
+        ;(l && (i = 1), a < o.childCount && (s = 1))
+    }
+    return null
+}
+function yi(r, e, t) {
+    let { $from: n, $to: i, depth: s } = e,
+        o = n.before(s + 1),
+        l = i.after(s + 1),
+        a = o,
+        c = l,
+        u = w.empty,
+        f = 0
+    for (let p = s, m = !1; p > t; p--)
+        m || n.index(p) > 0
+            ? ((m = !0), (u = w.from(n.node(p).copy(u))), f++)
+            : a--
+    let d = w.empty,
+        h = 0
+    for (let p = s, m = !1; p > t; p--)
+        m || i.after(p + 1) < i.end(p)
+            ? ((m = !0), (d = w.from(i.node(p).copy(d))), h++)
+            : c++
+    r.step(new z(a, c, o, l, new k(u.append(d), f, h), u.size - f, !0))
+}
+function Oe(r, e, t = null, n = r) {
+    let i = wi(r, e),
+        s = i && ki(n, e)
+    return s ? i.map(On).concat({ type: e, attrs: t }).concat(s.map(On)) : null
+}
+function On(r) {
+    return { type: r, attrs: null }
+}
+function wi(r, e) {
+    let { parent: t, startIndex: n, endIndex: i } = r,
+        s = t.contentMatchAt(n).findWrapping(e)
+    if (!s) return null
+    let o = s.length ? s[0] : e
+    return t.canReplaceWith(n, i, o) ? s : null
+}
+function ki(r, e) {
+    let { parent: t, startIndex: n, endIndex: i } = r,
+        s = t.child(n),
+        o = e.contentMatch.findWrapping(s.type)
+    if (!o) return null
+    let a = (o.length ? o[o.length - 1] : e).contentMatch
+    for (let c = n; a && c < i; c++) a = a.matchType(t.child(c).type)
+    return !a || !a.validEnd ? null : o
+}
+function xi(r, e, t) {
+    let n = w.empty
+    for (let o = t.length - 1; o >= 0; o--) {
+        if (n.size) {
+            let l = t[o].type.contentMatch.matchFragment(n)
+            if (!l || !l.validEnd)
+                throw new RangeError(
+                    'Wrapper type given to Transform.wrap does not form valid content of its parent wrapper',
+                )
+        }
+        n = w.from(t[o].type.create(t[o].attrs, n))
+    }
+    let i = e.start,
+        s = e.end
+    r.step(new z(i, s, i, s, new k(n, 0, 0), t.length, !0))
+}
+function vi(r, e, t, n, i) {
+    if (!n.isTextblock)
+        throw new RangeError('Type given to setBlockType should be a textblock')
+    let s = r.steps.length
+    r.doc.nodesBetween(e, t, (o, l) => {
+        let a = typeof i == 'function' ? i(o) : i
+        if (
+            o.isTextblock &&
+            !o.hasMarkup(n, a) &&
+            Si(r.doc, r.mapping.slice(s).map(l), n)
+        ) {
+            let c = null
+            if (n.schema.linebreakReplacement) {
+                let h = n.whitespace == 'pre',
+                    p = !!n.contentMatch.matchType(
+                        n.schema.linebreakReplacement,
+                    )
+                h && !p ? (c = !1) : !h && p && (c = !0)
+            }
+            ;(c === !1 && $n(r, o, l, s),
+                bt(r, r.mapping.slice(s).map(l, 1), n, void 0, c === null))
+            let u = r.mapping.slice(s),
+                f = u.map(l, 1),
+                d = u.map(l + o.nodeSize, 1)
+            return (
+                r.step(
+                    new z(
+                        f,
+                        d,
+                        f + 1,
+                        d - 1,
+                        new k(w.from(n.create(a, null, o.marks)), 0, 0),
+                        1,
+                        !0,
+                    ),
+                ),
+                c === !0 && Ln(r, o, l, s),
+                !1
+            )
+        }
+    })
+}
+function Ln(r, e, t, n) {
+    e.forEach((i, s) => {
+        if (i.isText) {
+            let o,
+                l = /\r?\n|\r/g
+            for (; (o = l.exec(i.text)); ) {
+                let a = r.mapping.slice(n).map(t + 1 + s + o.index)
+                r.replaceWith(
+                    a,
+                    a + 1,
+                    e.type.schema.linebreakReplacement.create(),
+                )
+            }
+        }
+    })
+}
+function $n(r, e, t, n) {
+    e.forEach((i, s) => {
+        if (i.type == i.type.schema.linebreakReplacement) {
+            let o = r.mapping.slice(n).map(t + 1 + s)
+            r.replaceWith(
+                o,
+                o + 1,
+                e.type.schema.text(`
+`),
+            )
+        }
+    })
+}
+function Si(r, e, t) {
+    let n = r.resolve(e),
+        i = n.index()
+    return n.parent.canReplaceWith(i, i + 1, t)
+}
+function bi(r, e, t, n, i) {
+    let s = r.doc.nodeAt(e)
+    if (!s) throw new RangeError('No node at given position')
+    t || (t = s.type)
+    let o = t.create(n, null, i || s.marks)
+    if (s.isLeaf) return r.replaceWith(e, e + s.nodeSize, o)
+    if (!t.validContent(s.content))
+        throw new RangeError('Invalid content for node type ' + t.name)
+    r.step(
+        new z(
+            e,
+            e + s.nodeSize,
+            e + 1,
+            e + s.nodeSize - 1,
+            new k(w.from(o), 0, 0),
+            1,
+            !0,
+        ),
+    )
+}
+function U(r, e, t = 1, n) {
+    let i = r.resolve(e),
+        s = i.depth - t,
+        o = (n && n[n.length - 1]) || i.parent
+    if (
+        s < 0 ||
+        i.parent.type.spec.isolating ||
+        !i.parent.canReplace(i.index(), i.parent.childCount) ||
+        !o.type.validContent(
+            i.parent.content.cutByIndex(i.index(), i.parent.childCount),
+        )
+    )
+        return !1
+    for (let c = i.depth - 1, u = t - 2; c > s; c--, u--) {
+        let f = i.node(c),
+            d = i.index(c)
+        if (f.type.spec.isolating) return !1
+        let h = f.content.cutByIndex(d, f.childCount),
+            p = n && n[u + 1]
+        p && (h = h.replaceChild(0, p.type.create(p.attrs)))
+        let m = (n && n[u]) || f
+        if (!f.canReplace(d + 1, f.childCount) || !m.type.validContent(h))
+            return !1
+    }
+    let l = i.indexAfter(s),
+        a = n && n[0]
+    return i.node(s).canReplaceWith(l, l, a ? a.type : i.node(s + 1).type)
+}
+function Mi(r, e, t = 1, n) {
+    let i = r.doc.resolve(e),
+        s = w.empty,
+        o = w.empty
+    for (let l = i.depth, a = i.depth - t, c = t - 1; l > a; l--, c--) {
+        s = w.from(i.node(l).copy(s))
+        let u = n && n[c]
+        o = w.from(u ? u.type.create(u.attrs, o) : i.node(l).copy(o))
+    }
+    r.step(new $(e, e, new k(s.append(o), t, t), !0))
+}
+function Y(r, e) {
+    let t = r.resolve(e),
+        n = t.index()
+    return Jn(t.nodeBefore, t.nodeAfter) && t.parent.canReplace(n, n + 1)
+}
+function Ei(r, e) {
+    e.content.size || r.type.compatibleContent(e.type)
+    let t = r.contentMatchAt(r.childCount),
+        { linebreakReplacement: n } = r.type.schema
+    for (let i = 0; i < e.childCount; i++) {
+        let s = e.child(i),
+            o = s.type == n ? r.type.schema.nodes.text : s.type
+        if (((t = t.matchType(o)), !t || !r.type.allowsMarks(s.marks)))
+            return !1
+    }
+    return t.validEnd
+}
+function Jn(r, e) {
+    return !!(r && e && !r.isLeaf && Ei(r, e))
+}
+function fe(r, e, t = -1) {
+    let n = r.resolve(e)
+    for (let i = n.depth; ; i--) {
+        let s,
+            o,
+            l = n.index(i)
+        if (
+            (i == n.depth
+                ? ((s = n.nodeBefore), (o = n.nodeAfter))
+                : t > 0
+                  ? ((s = n.node(i + 1)), l++, (o = n.node(i).maybeChild(l)))
+                  : ((s = n.node(i).maybeChild(l - 1)), (o = n.node(i + 1))),
+            s && !s.isTextblock && Jn(s, o) && n.node(i).canReplace(l, l + 1))
+        )
+            return e
+        if (i == 0) break
+        e = t < 0 ? n.before(i) : n.after(i)
+    }
+}
+function Ti(r, e, t) {
+    let n = null,
+        { linebreakReplacement: i } = r.doc.type.schema,
+        s = r.doc.resolve(e - t),
+        o = s.node().type
+    if (i && o.inlineContent) {
+        let u = o.whitespace == 'pre',
+            f = !!o.contentMatch.matchType(i)
+        u && !f ? (n = !1) : !u && f && (n = !0)
+    }
+    let l = r.steps.length
+    if (n === !1) {
+        let u = r.doc.resolve(e + t)
+        $n(r, u.node(), u.before(), l)
+    }
+    o.inlineContent &&
+        bt(r, e + t - 1, o, s.node().contentMatchAt(s.index()), n == null)
+    let a = r.mapping.slice(l),
+        c = a.map(e - t)
+    if ((r.step(new $(c, a.map(e + t, -1), k.empty, !0)), n === !0)) {
+        let u = r.doc.resolve(c)
+        Ln(r, u.node(), u.before(), r.steps.length)
+    }
+    return r
+}
+function Ci(r, e, t) {
+    let n = r.resolve(e)
+    if (n.parent.canReplaceWith(n.index(), n.index(), t)) return e
+    if (n.parentOffset == 0)
+        for (let i = n.depth - 1; i >= 0; i--) {
+            let s = n.index(i)
+            if (n.node(i).canReplaceWith(s, s, t)) return n.before(i + 1)
+            if (s > 0) return null
+        }
+    if (n.parentOffset == n.parent.content.size)
+        for (let i = n.depth - 1; i >= 0; i--) {
+            let s = n.indexAfter(i)
+            if (n.node(i).canReplaceWith(s, s, t)) return n.after(i + 1)
+            if (s < n.node(i).childCount) return null
+        }
+    return null
+}
+function ze(r, e, t = e, n = k.empty) {
+    if (e == t && !n.size) return null
+    let i = r.resolve(e),
+        s = r.resolve(t)
+    return Wn(i, s, n) ? new $(e, t, n) : new vt(i, s, n).fit()
+}
+function Wn(r, e, t) {
+    return (
+        !t.openStart &&
+        !t.openEnd &&
+        r.start() == e.start() &&
+        r.parent.canReplace(r.index(), e.index(), t.content)
+    )
+}
+var vt = class {
+    constructor(e, t, n) {
+        ;((this.$from = e),
+            (this.$to = t),
+            (this.unplaced = n),
+            (this.frontier = []),
+            (this.placed = w.empty))
+        for (let i = 0; i <= e.depth; i++) {
+            let s = e.node(i)
+            this.frontier.push({
+                type: s.type,
+                match: s.contentMatchAt(e.indexAfter(i)),
+            })
+        }
+        for (let i = e.depth; i > 0; i--)
+            this.placed = w.from(e.node(i).copy(this.placed))
+    }
+    get depth() {
+        return this.frontier.length - 1
+    }
+    fit() {
+        for (; this.unplaced.size; ) {
+            let c = this.findFittable()
+            c ? this.placeNodes(c) : this.openMore() || this.dropNode()
+        }
+        let e = this.mustMoveInline(),
+            t = this.placed.size - this.depth - this.$from.depth,
+            n = this.$from,
+            i = this.close(e < 0 ? this.$to : n.doc.resolve(e))
+        if (!i) return null
+        let s = this.placed,
+            o = n.depth,
+            l = i.depth
+        for (; o && l && s.childCount == 1; )
+            ((s = s.firstChild.content), o--, l--)
+        let a = new k(s, o, l)
+        return e > -1
+            ? new z(n.pos, e, this.$to.pos, this.$to.end(), a, t)
+            : a.size || n.pos != this.$to.pos
+              ? new $(n.pos, i.pos, a)
+              : null
+    }
+    findFittable() {
+        let e = this.unplaced.openStart
+        for (
+            let t = this.unplaced.content, n = 0, i = this.unplaced.openEnd;
+            n < e;
+            n++
+        ) {
+            let s = t.firstChild
+            if (
+                (t.childCount > 1 && (i = 0), s.type.spec.isolating && i <= n)
+            ) {
+                e = n
+                break
+            }
+            t = s.content
+        }
+        for (let t = 1; t <= 2; t++)
+            for (let n = t == 1 ? e : this.unplaced.openStart; n >= 0; n--) {
+                let i,
+                    s = null
+                n
+                    ? ((s = yt(this.unplaced.content, n - 1).firstChild),
+                      (i = s.content))
+                    : (i = this.unplaced.content)
+                let o = i.firstChild
+                for (let l = this.depth; l >= 0; l--) {
+                    let { type: a, match: c } = this.frontier[l],
+                        u,
+                        f = null
+                    if (
+                        t == 1 &&
+                        (o
+                            ? c.matchType(o.type) ||
+                              (f = c.fillBefore(w.from(o), !1))
+                            : s && a.compatibleContent(s.type))
+                    )
+                        return {
+                            sliceDepth: n,
+                            frontierDepth: l,
+                            parent: s,
+                            inject: f,
+                        }
+                    if (t == 2 && o && (u = c.findWrapping(o.type)))
+                        return {
+                            sliceDepth: n,
+                            frontierDepth: l,
+                            parent: s,
+                            wrap: u,
+                        }
+                    if (s && c.matchType(s.type)) break
+                }
+            }
+    }
+    openMore() {
+        let { content: e, openStart: t, openEnd: n } = this.unplaced,
+            i = yt(e, t)
+        return !i.childCount || i.firstChild.isLeaf
+            ? !1
+            : ((this.unplaced = new k(
+                  e,
+                  t + 1,
+                  Math.max(n, i.size + t >= e.size - n ? t + 1 : 0),
+              )),
+              !0)
+    }
+    dropNode() {
+        let { content: e, openStart: t, openEnd: n } = this.unplaced,
+            i = yt(e, t)
+        if (i.childCount <= 1 && t > 0) {
+            let s = e.size - t <= t + i.size
+            this.unplaced = new k(Te(e, t - 1, 1), t - 1, s ? t - 1 : n)
+        } else this.unplaced = new k(Te(e, t, 1), t, n)
+    }
+    placeNodes({
+        sliceDepth: e,
+        frontierDepth: t,
+        parent: n,
+        inject: i,
+        wrap: s,
+    }) {
+        for (; this.depth > t; ) this.closeFrontierNode()
+        if (s) for (let m = 0; m < s.length; m++) this.openFrontierNode(s[m])
+        let o = this.unplaced,
+            l = n ? n.content : o.content,
+            a = o.openStart - e,
+            c = 0,
+            u = [],
+            { match: f, type: d } = this.frontier[t]
+        if (i) {
+            for (let m = 0; m < i.childCount; m++) u.push(i.child(m))
+            f = f.matchFragment(i)
+        }
+        let h = l.size + e - (o.content.size - o.openEnd)
+        for (; c < l.childCount; ) {
+            let m = l.child(c),
+                g = f.matchType(m.type)
+            if (!g) break
+            ;(c++,
+                (c > 1 || a == 0 || m.content.size) &&
+                    ((f = g),
+                    u.push(
+                        Hn(
+                            m.mark(d.allowedMarks(m.marks)),
+                            c == 1 ? a : 0,
+                            c == l.childCount ? h : -1,
+                        ),
+                    )))
+        }
+        let p = c == l.childCount
+        ;(p || (h = -1),
+            (this.placed = Ce(this.placed, t, w.from(u))),
+            (this.frontier[t].match = f),
+            p &&
+                h < 0 &&
+                n &&
+                n.type == this.frontier[this.depth].type &&
+                this.frontier.length > 1 &&
+                this.closeFrontierNode())
+        for (let m = 0, g = l; m < h; m++) {
+            let y = g.lastChild
+            ;(this.frontier.push({
+                type: y.type,
+                match: y.contentMatchAt(y.childCount),
+            }),
+                (g = y.content))
+        }
+        this.unplaced = p
+            ? e == 0
+                ? k.empty
+                : new k(
+                      Te(o.content, e - 1, 1),
+                      e - 1,
+                      h < 0 ? o.openEnd : e - 1,
+                  )
+            : new k(Te(o.content, e, c), o.openStart, o.openEnd)
+    }
+    mustMoveInline() {
+        if (!this.$to.parent.isTextblock) return -1
+        let e = this.frontier[this.depth],
+            t
+        if (
+            !e.type.isTextblock ||
+            !wt(this.$to, this.$to.depth, e.type, e.match, !1) ||
+            (this.$to.depth == this.depth &&
+                (t = this.findCloseLevel(this.$to)) &&
+                t.depth == this.depth)
+        )
+            return -1
+        let { depth: n } = this.$to,
+            i = this.$to.after(n)
+        for (; n > 1 && i == this.$to.end(--n); ) ++i
+        return i
+    }
+    findCloseLevel(e) {
+        e: for (let t = Math.min(this.depth, e.depth); t >= 0; t--) {
+            let { match: n, type: i } = this.frontier[t],
+                s = t < e.depth && e.end(t + 1) == e.pos + (e.depth - (t + 1)),
+                o = wt(e, t, i, n, s)
+            if (o) {
+                for (let l = t - 1; l >= 0; l--) {
+                    let { match: a, type: c } = this.frontier[l],
+                        u = wt(e, l, c, a, !0)
+                    if (!u || u.childCount) continue e
+                }
+                return {
+                    depth: t,
+                    fit: o,
+                    move: s ? e.doc.resolve(e.after(t + 1)) : e,
+                }
+            }
+        }
+    }
+    close(e) {
+        let t = this.findCloseLevel(e)
+        if (!t) return null
+        for (; this.depth > t.depth; ) this.closeFrontierNode()
+        ;(t.fit.childCount && (this.placed = Ce(this.placed, t.depth, t.fit)),
+            (e = t.move))
+        for (let n = t.depth + 1; n <= e.depth; n++) {
+            let i = e.node(n),
+                s = i.type.contentMatch.fillBefore(i.content, !0, e.index(n))
+            this.openFrontierNode(i.type, i.attrs, s)
+        }
+        return e
+    }
+    openFrontierNode(e, t = null, n) {
+        let i = this.frontier[this.depth]
+        ;((i.match = i.match.matchType(e)),
+            (this.placed = Ce(this.placed, this.depth, w.from(e.create(t, n)))),
+            this.frontier.push({ type: e, match: e.contentMatch }))
+    }
+    closeFrontierNode() {
+        let t = this.frontier.pop().match.fillBefore(w.empty, !0)
+        t.childCount && (this.placed = Ce(this.placed, this.frontier.length, t))
+    }
+}
+function Te(r, e, t) {
+    return e == 0
+        ? r.cutByIndex(t, r.childCount)
+        : r.replaceChild(
+              0,
+              r.firstChild.copy(Te(r.firstChild.content, e - 1, t)),
+          )
+}
+function Ce(r, e, t) {
+    return e == 0
+        ? r.append(t)
+        : r.replaceChild(
+              r.childCount - 1,
+              r.lastChild.copy(Ce(r.lastChild.content, e - 1, t)),
+          )
+}
+function yt(r, e) {
+    for (let t = 0; t < e; t++) r = r.firstChild.content
+    return r
+}
+function Hn(r, e, t) {
+    if (e <= 0) return r
+    let n = r.content
+    return (
+        e > 1 &&
+            (n = n.replaceChild(
+                0,
+                Hn(n.firstChild, e - 1, n.childCount == 1 ? t - 1 : 0),
+            )),
+        e > 0 &&
+            ((n = r.type.contentMatch.fillBefore(n).append(n)),
+            t <= 0 &&
+                (n = n.append(
+                    r.type.contentMatch
+                        .matchFragment(n)
+                        .fillBefore(w.empty, !0),
+                ))),
+        r.copy(n)
+    )
+}
+function wt(r, e, t, n, i) {
+    let s = r.node(e),
+        o = i ? r.indexAfter(e) : r.index(e)
+    if (o == s.childCount && !t.compatibleContent(s.type)) return null
+    let l = n.fillBefore(s.content, !0, o)
+    return l && !Ai(t, s.content, o) ? l : null
+}
+function Ai(r, e, t) {
+    for (let n = t; n < e.childCount; n++)
+        if (!r.allowsMarks(e.child(n).marks)) return !0
+    return !1
+}
+function Ni(r) {
+    return r.spec.defining || r.spec.definingForContent
+}
+function Ii(r, e, t, n) {
+    if (!n.size) return r.deleteRange(e, t)
+    let i = r.doc.resolve(e),
+        s = r.doc.resolve(t)
+    if (Wn(i, s, n)) return r.step(new $(e, t, n))
+    let o = Vn(i, s)
+    o[o.length - 1] == 0 && o.pop()
+    let l = -(i.depth + 1)
+    o.unshift(l)
+    for (let d = i.depth, h = i.pos - 1; d > 0; d--, h--) {
+        let p = i.node(d).type.spec
+        if (p.defining || p.definingAsContext || p.isolating) break
+        o.indexOf(d) > -1 ? (l = d) : i.before(d) == h && o.splice(1, 0, -d)
+    }
+    let a = o.indexOf(l),
+        c = [],
+        u = n.openStart
+    for (let d = n.content, h = 0; ; h++) {
+        let p = d.firstChild
+        if ((c.push(p), h == n.openStart)) break
+        d = p.content
+    }
+    for (let d = u - 1; d >= 0; d--) {
+        let h = c[d],
+            p = Ni(h.type)
+        if (p && !h.sameMarkup(i.node(Math.abs(l) - 1))) u = d
+        else if (p || !h.type.isTextblock) break
+    }
+    for (let d = n.openStart; d >= 0; d--) {
+        let h = (d + u + 1) % (n.openStart + 1),
+            p = c[h]
+        if (p)
+            for (let m = 0; m < o.length; m++) {
+                let g = o[(m + a) % o.length],
+                    y = !0
+                g < 0 && ((y = !1), (g = -g))
+                let v = i.node(g - 1),
+                    S = i.index(g - 1)
+                if (v.canReplaceWith(S, S, p.type, p.marks))
+                    return r.replace(
+                        i.before(g),
+                        y ? s.after(g) : t,
+                        new k(jn(n.content, 0, n.openStart, h), h, n.openEnd),
+                    )
+            }
+    }
+    let f = r.steps.length
+    for (
+        let d = o.length - 1;
+        d >= 0 && (r.replace(e, t, n), !(r.steps.length > f));
+        d--
+    ) {
+        let h = o[d]
+        h < 0 || ((e = i.before(h)), (t = s.after(h)))
+    }
+}
+function jn(r, e, t, n, i) {
+    if (e < t) {
+        let s = r.firstChild
+        r = r.replaceChild(0, s.copy(jn(s.content, e + 1, t, n, s)))
+    }
+    if (e > n) {
+        let s = i.contentMatchAt(0),
+            o = s.fillBefore(r).append(r)
+        r = o.append(s.matchFragment(o).fillBefore(w.empty, !0))
+    }
+    return r
+}
+function Ri(r, e, t, n) {
+    if (!n.isInline && e == t && r.doc.resolve(e).parent.content.size) {
+        let i = Ci(r.doc, e, n.type)
+        i != null && (e = t = i)
+    }
+    r.replaceRange(e, t, new k(w.from(n), 0, 0))
+}
+function Oi(r, e, t) {
+    let n = r.doc.resolve(e),
+        i = r.doc.resolve(t)
+    if (
+        n.parent.isTextblock &&
+        i.parent.isTextblock &&
+        n.start() != i.start() &&
+        n.parentOffset == 0 &&
+        i.parentOffset == 0
+    ) {
+        let o = n.sharedDepth(t),
+            l = !1
+        for (let a = n.depth; a > o; a--)
+            n.node(a).type.spec.isolating && (l = !0)
+        for (let a = i.depth; a > o; a--)
+            i.node(a).type.spec.isolating && (l = !0)
+        if (!l) {
+            for (let a = n.depth; a > 0 && e == n.start(a); a--) e = n.before(a)
+            for (let a = i.depth; a > 0 && t == i.start(a); a--) t = i.before(a)
+            ;((n = r.doc.resolve(e)), (i = r.doc.resolve(t)))
+        }
+    }
+    let s = Vn(n, i)
+    for (let o = 0; o < s.length; o++) {
+        let l = s[o],
+            a = o == s.length - 1
+        if ((a && l == 0) || n.node(l).type.contentMatch.validEnd)
+            return r.delete(n.start(l), i.end(l))
+        if (
+            l > 0 &&
+            (a || n.node(l - 1).canReplace(n.index(l - 1), i.indexAfter(l - 1)))
+        )
+            return r.delete(n.before(l), i.after(l))
+    }
+    for (let o = 1; o <= n.depth && o <= i.depth; o++)
+        if (
+            e - n.start(o) == n.depth - o &&
+            t > n.end(o) &&
+            i.end(o) - t != i.depth - o &&
+            n.start(o - 1) == i.start(o - 1) &&
+            n.node(o - 1).canReplace(n.index(o - 1), i.index(o - 1))
+        )
+            return r.delete(n.before(o), t)
+    r.delete(e, t)
+}
+function Vn(r, e) {
+    let t = [],
+        n = Math.min(r.depth, e.depth)
+    for (let i = n; i >= 0; i--) {
+        let s = r.start(i)
+        if (
+            s < r.pos - (r.depth - i) ||
+            e.end(i) > e.pos + (e.depth - i) ||
+            r.node(i).type.spec.isolating ||
+            e.node(i).type.spec.isolating
+        )
+            break
+        ;(s == e.start(i) ||
+            (i == r.depth &&
+                i == e.depth &&
+                r.parent.inlineContent &&
+                e.parent.inlineContent &&
+                i &&
+                e.start(i - 1) == s - 1)) &&
+            t.push(i)
+    }
+    return t
+}
+var Ue = class r extends D {
+    constructor(e, t, n) {
+        ;(super(), (this.pos = e), (this.attr = t), (this.value = n))
+    }
+    apply(e) {
+        let t = e.nodeAt(this.pos)
+        if (!t) return L.fail("No node at attribute step's position")
+        let n = Object.create(null)
+        for (let s in t.attrs) n[s] = t.attrs[s]
+        n[this.attr] = this.value
+        let i = t.type.create(n, null, t.marks)
+        return L.fromReplace(
+            e,
+            this.pos,
+            this.pos + 1,
+            new k(w.from(i), 0, t.isLeaf ? 0 : 1),
+        )
+    }
+    getMap() {
+        return Q.empty
+    }
+    invert(e) {
+        return new r(this.pos, this.attr, e.nodeAt(this.pos).attrs[this.attr])
+    }
+    map(e) {
+        let t = e.mapResult(this.pos, 1)
+        return t.deletedAfter ? null : new r(t.pos, this.attr, this.value)
+    }
+    toJSON() {
+        return {
+            stepType: 'attr',
+            pos: this.pos,
+            attr: this.attr,
+            value: this.value,
+        }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.pos != 'number' || typeof t.attr != 'string')
+            throw new RangeError('Invalid input for AttrStep.fromJSON')
+        return new r(t.pos, t.attr, t.value)
+    }
+}
+D.jsonID('attr', Ue)
+var qe = class r extends D {
+    constructor(e, t) {
+        ;(super(), (this.attr = e), (this.value = t))
+    }
+    apply(e) {
+        let t = Object.create(null)
+        for (let i in e.attrs) t[i] = e.attrs[i]
+        t[this.attr] = this.value
+        let n = e.type.create(t, e.content, e.marks)
+        return L.ok(n)
+    }
+    getMap() {
+        return Q.empty
+    }
+    invert(e) {
+        return new r(this.attr, e.attrs[this.attr])
+    }
+    map(e) {
+        return this
+    }
+    toJSON() {
+        return { stepType: 'docAttr', attr: this.attr, value: this.value }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.attr != 'string')
+            throw new RangeError('Invalid input for DocAttrStep.fromJSON')
+        return new r(t.attr, t.value)
+    }
+}
+D.jsonID('docAttr', qe)
+var ge = class extends Error {}
+ge = function r(e) {
+    let t = Error.call(this, e)
+    return ((t.__proto__ = r.prototype), t)
+}
+ge.prototype = Object.create(Error.prototype)
+ge.prototype.constructor = ge
+ge.prototype.name = 'TransformError'
+var Re = class {
+    constructor(e) {
+        ;((this.doc = e),
+            (this.steps = []),
+            (this.docs = []),
+            (this.mapping = new kt()))
+    }
+    get before() {
+        return this.docs.length ? this.docs[0] : this.doc
+    }
+    step(e) {
+        let t = this.maybeStep(e)
+        if (t.failed) throw new ge(t.failed)
+        return this
+    }
+    maybeStep(e) {
+        let t = e.apply(this.doc)
+        return (t.failed || this.addStep(e, t.doc), t)
+    }
+    get docChanged() {
+        return this.steps.length > 0
+    }
+    changedRange() {
+        let e = 1e9,
+            t = -1e9
+        for (let n = 0; n < this.mapping.maps.length; n++) {
+            let i = this.mapping.maps[n]
+            ;(n && ((e = i.map(e, 1)), (t = i.map(t, -1))),
+                i.forEach((s, o, l, a) => {
+                    ;((e = Math.min(e, l)), (t = Math.max(t, a)))
+                }))
+        }
+        return e == 1e9 ? null : { from: e, to: t }
+    }
+    addStep(e, t) {
+        ;(this.docs.push(this.doc),
+            this.steps.push(e),
+            this.mapping.appendMap(e.getMap()),
+            (this.doc = t))
+    }
+    replace(e, t = e, n = k.empty) {
+        let i = ze(this.doc, e, t, n)
+        return (i && this.step(i), this)
+    }
+    replaceWith(e, t, n) {
+        return this.replace(e, t, new k(w.from(n), 0, 0))
+    }
+    delete(e, t) {
+        return this.replace(e, t, k.empty)
+    }
+    insert(e, t) {
+        return this.replaceWith(e, e, t)
+    }
+    replaceRange(e, t, n) {
+        return (Ii(this, e, t, n), this)
+    }
+    replaceRangeWith(e, t, n) {
+        return (Ri(this, e, t, n), this)
+    }
+    deleteRange(e, t) {
+        return (Oi(this, e, t), this)
+    }
+    lift(e, t) {
+        return (yi(this, e, t), this)
+    }
+    join(e, t = 1) {
+        return (Ti(this, e, t), this)
+    }
+    wrap(e, t) {
+        return (xi(this, e, t), this)
+    }
+    setBlockType(e, t = e, n, i = null) {
+        return (vi(this, e, t, n, i), this)
+    }
+    setNodeMarkup(e, t, n = null, i) {
+        return (bi(this, e, t, n, i), this)
+    }
+    setNodeAttribute(e, t, n) {
+        return (this.step(new Ue(e, t, n)), this)
+    }
+    setDocAttribute(e, t) {
+        return (this.step(new qe(e, t)), this)
+    }
+    addNodeMark(e, t) {
+        return (this.step(new Ie(e, t)), this)
+    }
+    removeNodeMark(e, t) {
+        let n = this.doc.nodeAt(e)
+        if (!n) throw new RangeError('No node at position ' + e)
+        if (t instanceof A) t.isInSet(n.marks) && this.step(new me(e, t))
+        else {
+            let i = n.marks,
+                s,
+                o = []
+            for (; (s = t.isInSet(i)); )
+                (o.push(new me(e, s)), (i = s.removeFromSet(i)))
+            for (let l = o.length - 1; l >= 0; l--) this.step(o[l])
+        }
+        return this
+    }
+    split(e, t = 1, n) {
+        return (Mi(this, e, t, n), this)
+    }
+    addMark(e, t, n) {
+        return (pi(this, e, t, n), this)
+    }
+    removeMark(e, t, n) {
+        return (mi(this, e, t, n), this)
+    }
+    clearIncompatible(e, t, n) {
+        return (bt(this, e, t, n), this)
+    }
+}
+var Mt = Object.create(null),
+    M = class {
+        constructor(e, t, n) {
+            ;((this.$anchor = e),
+                (this.$head = t),
+                (this.ranges = n || [new Xe(e.min(t), e.max(t))]))
+        }
+        get anchor() {
+            return this.$anchor.pos
+        }
+        get head() {
+            return this.$head.pos
+        }
+        get from() {
+            return this.$from.pos
+        }
+        get to() {
+            return this.$to.pos
+        }
+        get $from() {
+            return this.ranges[0].$from
+        }
+        get $to() {
+            return this.ranges[0].$to
+        }
+        get empty() {
+            let e = this.ranges
+            for (let t = 0; t < e.length; t++)
+                if (e[t].$from.pos != e[t].$to.pos) return !1
+            return !0
+        }
+        content() {
+            return this.$from.doc.slice(this.from, this.to, !0)
+        }
+        replace(e, t = k.empty) {
+            let n = t.content.lastChild,
+                i = null
+            for (let l = 0; l < t.openEnd; l++) ((i = n), (n = n.lastChild))
+            let s = e.steps.length,
+                o = this.ranges
+            for (let l = 0; l < o.length; l++) {
+                let { $from: a, $to: c } = o[l],
+                    u = e.mapping.slice(s)
+                ;(e.replaceRange(u.map(a.pos), u.map(c.pos), l ? k.empty : t),
+                    l == 0 &&
+                        Un(
+                            e,
+                            s,
+                            (n ? n.isInline : i && i.isTextblock) ? -1 : 1,
+                        ))
+            }
+        }
+        replaceWith(e, t) {
+            let n = e.steps.length,
+                i = this.ranges
+            for (let s = 0; s < i.length; s++) {
+                let { $from: o, $to: l } = i[s],
+                    a = e.mapping.slice(n),
+                    c = a.map(o.pos),
+                    u = a.map(l.pos)
+                s
+                    ? e.deleteRange(c, u)
+                    : (e.replaceRangeWith(c, u, t),
+                      Un(e, n, t.isInline ? -1 : 1))
+            }
+        }
+        static findFrom(e, t, n = !1) {
+            let i = e.parent.inlineContent
+                ? new T(e)
+                : ye(e.node(0), e.parent, e.pos, e.index(), t, n)
+            if (i) return i
+            for (let s = e.depth - 1; s >= 0; s--) {
+                let o =
+                    t < 0
+                        ? ye(
+                              e.node(0),
+                              e.node(s),
+                              e.before(s + 1),
+                              e.index(s),
+                              t,
+                              n,
+                          )
+                        : ye(
+                              e.node(0),
+                              e.node(s),
+                              e.after(s + 1),
+                              e.index(s) + 1,
+                              t,
+                              n,
+                          )
+                if (o) return o
+            }
+            return null
+        }
+        static near(e, t = 1) {
+            return (
+                this.findFrom(e, t) || this.findFrom(e, -t) || new q(e.node(0))
+            )
+        }
+        static atStart(e) {
+            return ye(e, e, 0, 0, 1) || new q(e)
+        }
+        static atEnd(e) {
+            return ye(e, e, e.content.size, e.childCount, -1) || new q(e)
+        }
+        static fromJSON(e, t) {
+            if (!t || !t.type)
+                throw new RangeError('Invalid input for Selection.fromJSON')
+            let n = Mt[t.type]
+            if (!n) throw new RangeError(`No selection type ${t.type} defined`)
+            return n.fromJSON(e, t)
+        }
+        static jsonID(e, t) {
+            if (e in Mt)
+                throw new RangeError('Duplicate use of selection JSON ID ' + e)
+            return ((Mt[e] = t), (t.prototype.jsonID = e), t)
+        }
+        getBookmark() {
+            return T.between(this.$anchor, this.$head).getBookmark()
+        }
+    }
+M.prototype.visible = !0
+var Xe = class {
+        constructor(e, t) {
+            ;((this.$from = e), (this.$to = t))
+        }
+    },
+    _n = !1
+function Kn(r) {
+    !_n &&
+        !r.parent.inlineContent &&
+        ((_n = !0),
+        console.warn(
+            'TextSelection endpoint not pointing into a node with inline content (' +
+                r.parent.type.name +
+                ')',
+        ))
+}
+var T = class r extends M {
+    constructor(e, t = e) {
+        ;(Kn(e), Kn(t), super(e, t))
+    }
+    get $cursor() {
+        return this.$anchor.pos == this.$head.pos ? this.$head : null
+    }
+    map(e, t) {
+        let n = e.resolve(t.map(this.head))
+        if (!n.parent.inlineContent) return M.near(n)
+        let i = e.resolve(t.map(this.anchor))
+        return new r(i.parent.inlineContent ? i : n, n)
+    }
+    replace(e, t = k.empty) {
+        if ((super.replace(e, t), t == k.empty)) {
+            let n = this.$from.marksAcross(this.$to)
+            n && e.ensureMarks(n)
+        }
+    }
+    eq(e) {
+        return e instanceof r && e.anchor == this.anchor && e.head == this.head
+    }
+    getBookmark() {
+        return new Ye(this.anchor, this.head)
+    }
+    toJSON() {
+        return { type: 'text', anchor: this.anchor, head: this.head }
+    }
+    static fromJSON(e, t) {
+        if (typeof t.anchor != 'number' || typeof t.head != 'number')
+            throw new RangeError('Invalid input for TextSelection.fromJSON')
+        return new r(e.resolve(t.anchor), e.resolve(t.head))
+    }
+    static create(e, t, n = t) {
+        let i = e.resolve(t)
+        return new this(i, n == t ? i : e.resolve(n))
+    }
+    static between(e, t, n) {
+        let i = e.pos - t.pos
+        if (((!n || i) && (n = i >= 0 ? 1 : -1), !t.parent.inlineContent)) {
+            let s = M.findFrom(t, n, !0) || M.findFrom(t, -n, !0)
+            if (s) t = s.$head
+            else return M.near(t, n)
+        }
+        return (
+            e.parent.inlineContent ||
+                (i == 0
+                    ? (e = t)
+                    : ((e = (M.findFrom(e, -n, !0) || M.findFrom(e, n, !0))
+                          .$anchor),
+                      e.pos < t.pos != i < 0 && (e = t))),
+            new r(e, t)
+        )
+    }
+}
+M.jsonID('text', T)
+var Ye = class r {
+        constructor(e, t) {
+            ;((this.anchor = e), (this.head = t))
+        }
+        map(e) {
+            return new r(e.map(this.anchor), e.map(this.head))
+        }
+        resolve(e) {
+            return T.between(e.resolve(this.anchor), e.resolve(this.head))
+        }
+    },
+    C = class r extends M {
+        constructor(e) {
+            let t = e.nodeAfter,
+                n = e.node(0).resolve(e.pos + t.nodeSize)
+            ;(super(e, n), (this.node = t))
+        }
+        map(e, t) {
+            let { deleted: n, pos: i } = t.mapResult(this.anchor),
+                s = e.resolve(i)
+            return n ? M.near(s) : new r(s)
+        }
+        content() {
+            return new k(w.from(this.node), 0, 0)
+        }
+        eq(e) {
+            return e instanceof r && e.anchor == this.anchor
+        }
+        toJSON() {
+            return { type: 'node', anchor: this.anchor }
+        }
+        getBookmark() {
+            return new Tt(this.anchor)
+        }
+        static fromJSON(e, t) {
+            if (typeof t.anchor != 'number')
+                throw new RangeError('Invalid input for NodeSelection.fromJSON')
+            return new r(e.resolve(t.anchor))
+        }
+        static create(e, t) {
+            return new r(e.resolve(t))
+        }
+        static isSelectable(e) {
+            return !e.isText && e.type.spec.selectable !== !1
+        }
+    }
+C.prototype.visible = !1
+M.jsonID('node', C)
+var Tt = class r {
+        constructor(e) {
+            this.anchor = e
+        }
+        map(e) {
+            let { deleted: t, pos: n } = e.mapResult(this.anchor)
+            return t ? new Ye(n, n) : new r(n)
+        }
+        resolve(e) {
+            let t = e.resolve(this.anchor),
+                n = t.nodeAfter
+            return n && C.isSelectable(n) ? new C(t) : M.near(t)
+        }
+    },
+    q = class r extends M {
+        constructor(e) {
+            super(e.resolve(0), e.resolve(e.content.size))
+        }
+        replace(e, t = k.empty) {
+            if (t == k.empty) {
+                e.delete(0, e.doc.content.size)
+                let n = M.atStart(e.doc)
+                n.eq(e.selection) || e.setSelection(n)
+            } else super.replace(e, t)
+        }
+        toJSON() {
+            return { type: 'all' }
+        }
+        static fromJSON(e) {
+            return new r(e)
+        }
+        map(e) {
+            return new r(e)
+        }
+        eq(e) {
+            return e instanceof r
+        }
+        getBookmark() {
+            return zi
+        }
+    }
+M.jsonID('all', q)
+var zi = {
+    map() {
+        return this
+    },
+    resolve(r) {
+        return new q(r)
+    },
+}
+function ye(r, e, t, n, i, s = !1) {
+    if (e.inlineContent) return T.create(r, t)
+    for (
+        let o = n - (i > 0 ? 0 : 1);
+        i > 0 ? o < e.childCount : o >= 0;
+        o += i
+    ) {
+        let l = e.child(o)
+        if (l.isAtom) {
+            if (!s && C.isSelectable(l))
+                return C.create(r, t - (i < 0 ? l.nodeSize : 0))
+        } else {
+            let a = ye(r, l, t + i, i < 0 ? l.childCount : 0, i, s)
+            if (a) return a
+        }
+        t += l.nodeSize * i
+    }
+    return null
+}
+function Un(r, e, t) {
+    let n = r.steps.length - 1
+    if (n < e) return
+    let i = r.steps[n]
+    if (!(i instanceof $ || i instanceof z)) return
+    let s = r.mapping.maps[n],
+        o
+    ;(s.forEach((l, a, c, u) => {
+        o == null && (o = u)
+    }),
+        r.setSelection(M.near(r.doc.resolve(o), t)))
+}
+function qn(r, e) {
+    return !e || !r ? r : r.bind(e)
+}
+var we = class {
+        constructor(e, t, n) {
+            ;((this.name = e),
+                (this.init = qn(t.init, n)),
+                (this.apply = qn(t.apply, n)))
+        }
+    },
+    vl = [
+        new we('doc', {
+            init(r) {
+                return r.doc || r.schema.topNodeType.createAndFill()
+            },
+            apply(r) {
+                return r.doc
+            },
+        }),
+        new we('selection', {
+            init(r, e) {
+                return r.selection || M.atStart(e.doc)
+            },
+            apply(r) {
+                return r.selection
+            },
+        }),
+        new we('storedMarks', {
+            init(r) {
+                return r.storedMarks || null
+            },
+            apply(r, e, t, n) {
+                return n.selection.$cursor ? r.storedMarks : null
+            },
+        }),
+        new we('scrollToSelection', {
+            init() {
+                return 0
+            },
+            apply(r, e) {
+                return r.scrolledIntoView ? e + 1 : e
+            },
+        }),
+    ]
+function Xn(r, e, t) {
+    for (let n in r) {
+        let i = r[n]
+        ;(i instanceof Function
+            ? (i = i.bind(e))
+            : n == 'handleDOMEvents' && (i = Xn(i, e, {})),
+            (t[n] = i))
+    }
+    return t
+}
+var I = class {
+        constructor(e) {
+            ;((this.spec = e),
+                (this.props = {}),
+                e.props && Xn(e.props, this, this.props),
+                (this.key = e.key ? e.key.key : Yn('plugin')))
+        }
+        getState(e) {
+            return e[this.key]
+        }
+    },
+    Et = Object.create(null)
+function Yn(r) {
+    return r in Et ? r + '$' + ++Et[r] : ((Et[r] = 0), r + '$')
+}
+var B = class {
+    constructor(e = 'key') {
+        this.key = Yn(e)
+    }
+    get(e) {
+        return e.config.pluginsByKey[this.key]
+    }
+    getState(e) {
+        return e[this.key]
+    }
+}
+var Qn = (r, e) =>
+    r.selection.empty
+        ? !1
+        : (e && e(r.tr.deleteSelection().scrollIntoView()), !0)
+function Zn(r, e) {
+    let { $cursor: t } = r.selection
+    return !t || (e ? !e.endOfTextblock('backward', r) : t.parentOffset > 0)
+        ? null
+        : t
+}
+var At = (r, e, t) => {
+        let n = Zn(r, t)
+        if (!n) return !1
+        let i = It(n)
+        if (!i) {
+            let o = n.blockRange(),
+                l = o && ee(o)
+            return l == null
+                ? !1
+                : (e && e(r.tr.lift(o, l).scrollIntoView()), !0)
+        }
+        let s = i.nodeBefore
+        if (ar(r, i, e, -1)) return !0
+        if (n.parent.content.size == 0 && (ke(s, 'end') || C.isSelectable(s)))
+            for (let o = n.depth; ; o--) {
+                let l = ze(r.doc, n.before(o), n.after(o), k.empty)
+                if (l && l.slice.size < l.to - l.from) {
+                    if (e) {
+                        let a = r.tr.step(l)
+                        ;(a.setSelection(
+                            ke(s, 'end')
+                                ? M.findFrom(
+                                      a.doc.resolve(a.mapping.map(i.pos, -1)),
+                                      -1,
+                                  )
+                                : C.create(a.doc, i.pos - s.nodeSize),
+                        ),
+                            e(a.scrollIntoView()))
+                    }
+                    return !0
+                }
+                if (o == 1 || n.node(o - 1).childCount > 1) break
+            }
+        return s.isAtom && i.depth == n.depth - 1
+            ? (e && e(r.tr.delete(i.pos - s.nodeSize, i.pos).scrollIntoView()),
+              !0)
+            : !1
+    },
+    er = (r, e, t) => {
+        let n = Zn(r, t)
+        if (!n) return !1
+        let i = It(n)
+        return i ? nr(r, i, e) : !1
+    },
+    tr = (r, e, t) => {
+        let n = rr(r, t)
+        if (!n) return !1
+        let i = zt(n)
+        return i ? nr(r, i, e) : !1
+    }
+function nr(r, e, t) {
+    let n = e.nodeBefore,
+        i = n,
+        s = e.pos - 1
+    for (; !i.isTextblock; s--) {
+        if (i.type.spec.isolating) return !1
+        let u = i.lastChild
+        if (!u) return !1
+        i = u
+    }
+    let o = e.nodeAfter,
+        l = o,
+        a = e.pos + 1
+    for (; !l.isTextblock; a++) {
+        if (l.type.spec.isolating) return !1
+        let u = l.firstChild
+        if (!u) return !1
+        l = u
+    }
+    let c = ze(r.doc, s, a, k.empty)
+    if (!c || c.from != s || (c instanceof $ && c.slice.size >= a - s))
+        return !1
+    if (t) {
+        let u = r.tr.step(c)
+        ;(u.setSelection(T.create(u.doc, s)), t(u.scrollIntoView()))
+    }
+    return !0
+}
+function ke(r, e, t = !1) {
+    for (let n = r; n; n = e == 'start' ? n.firstChild : n.lastChild) {
+        if (n.isTextblock) return !0
+        if (t && n.childCount != 1) return !1
+    }
+    return !1
+}
+var Nt = (r, e, t) => {
+    let { $head: n, empty: i } = r.selection,
+        s = n
+    if (!i) return !1
+    if (n.parent.isTextblock) {
+        if (t ? !t.endOfTextblock('backward', r) : n.parentOffset > 0) return !1
+        s = It(n)
+    }
+    let o = s && s.nodeBefore
+    return !o || !C.isSelectable(o)
+        ? !1
+        : (e &&
+              e(
+                  r.tr
+                      .setSelection(C.create(r.doc, s.pos - o.nodeSize))
+                      .scrollIntoView(),
+              ),
+          !0)
+}
+function It(r) {
+    if (!r.parent.type.spec.isolating)
+        for (let e = r.depth - 1; e >= 0; e--) {
+            if (r.index(e) > 0) return r.doc.resolve(r.before(e + 1))
+            if (r.node(e).type.spec.isolating) break
+        }
+    return null
+}
+function rr(r, e) {
+    let { $cursor: t } = r.selection
+    return !t ||
+        (e
+            ? !e.endOfTextblock('forward', r)
+            : t.parentOffset < t.parent.content.size)
+        ? null
+        : t
+}
+var Rt = (r, e, t) => {
+        let n = rr(r, t)
+        if (!n) return !1
+        let i = zt(n)
+        if (!i) return !1
+        let s = i.nodeAfter
+        if (ar(r, i, e, 1)) return !0
+        if (
+            n.parent.content.size == 0 &&
+            (ke(s, 'start') || C.isSelectable(s))
+        ) {
+            let o = ze(r.doc, n.before(), n.after(), k.empty)
+            if (o && o.slice.size < o.to - o.from) {
+                if (e) {
+                    let l = r.tr.step(o)
+                    ;(l.setSelection(
+                        ke(s, 'start')
+                            ? M.findFrom(l.doc.resolve(l.mapping.map(i.pos)), 1)
+                            : C.create(l.doc, l.mapping.map(i.pos)),
+                    ),
+                        e(l.scrollIntoView()))
+                }
+                return !0
+            }
+        }
+        return s.isAtom && i.depth == n.depth - 1
+            ? (e && e(r.tr.delete(i.pos, i.pos + s.nodeSize).scrollIntoView()),
+              !0)
+            : !1
+    },
+    Ot = (r, e, t) => {
+        let { $head: n, empty: i } = r.selection,
+            s = n
+        if (!i) return !1
+        if (n.parent.isTextblock) {
+            if (
+                t
+                    ? !t.endOfTextblock('forward', r)
+                    : n.parentOffset < n.parent.content.size
+            )
+                return !1
+            s = zt(n)
+        }
+        let o = s && s.nodeAfter
+        return !o || !C.isSelectable(o)
+            ? !1
+            : (e &&
+                  e(r.tr.setSelection(C.create(r.doc, s.pos)).scrollIntoView()),
+              !0)
+    }
+function zt(r) {
+    if (!r.parent.type.spec.isolating)
+        for (let e = r.depth - 1; e >= 0; e--) {
+            let t = r.node(e)
+            if (r.index(e) + 1 < t.childCount)
+                return r.doc.resolve(r.after(e + 1))
+            if (t.type.spec.isolating) break
+        }
+    return null
+}
+var ir = (r, e) => {
+        let t = r.selection,
+            n = t instanceof C,
+            i
+        if (n) {
+            if (t.node.isTextblock || !Y(r.doc, t.from)) return !1
+            i = t.from
+        } else if (((i = fe(r.doc, t.from, -1)), i == null)) return !1
+        if (e) {
+            let s = r.tr.join(i)
+            ;(n &&
+                s.setSelection(
+                    C.create(s.doc, i - r.doc.resolve(i).nodeBefore.nodeSize),
+                ),
+                e(s.scrollIntoView()))
+        }
+        return !0
+    },
+    sr = (r, e) => {
+        let t = r.selection,
+            n
+        if (t instanceof C) {
+            if (t.node.isTextblock || !Y(r.doc, t.to)) return !1
+            n = t.to
+        } else if (((n = fe(r.doc, t.to, 1)), n == null)) return !1
+        return (e && e(r.tr.join(n).scrollIntoView()), !0)
+    },
+    or = (r, e) => {
+        let { $from: t, $to: n } = r.selection,
+            i = t.blockRange(n),
+            s = i && ee(i)
+        return s == null ? !1 : (e && e(r.tr.lift(i, s).scrollIntoView()), !0)
+    },
+    Pt = (r, e) => {
+        let { $head: t, $anchor: n } = r.selection
+        return !t.parent.type.spec.code || !t.sameParent(n)
+            ? !1
+            : (e &&
+                  e(
+                      r.tr
+                          .insertText(
+                              `
+`,
+                          )
+                          .scrollIntoView(),
+                  ),
+              !0)
+    }
+function Dt(r) {
+    for (let e = 0; e < r.edgeCount; e++) {
+        let { type: t } = r.edge(e)
+        if (t.isTextblock && !t.hasRequiredAttrs()) return t
+    }
+    return null
+}
+var Bt = (r, e) => {
+        let { $head: t, $anchor: n } = r.selection
+        if (!t.parent.type.spec.code || !t.sameParent(n)) return !1
+        let i = t.node(-1),
+            s = t.indexAfter(-1),
+            o = Dt(i.contentMatchAt(s))
+        if (!o || !i.canReplaceWith(s, s, o)) return !1
+        if (e) {
+            let l = t.after(),
+                a = r.tr.replaceWith(l, l, o.createAndFill())
+            ;(a.setSelection(M.near(a.doc.resolve(l), 1)),
+                e(a.scrollIntoView()))
+        }
+        return !0
+    },
+    Ft = (r, e) => {
+        let t = r.selection,
+            { $from: n, $to: i } = t
+        if (t instanceof q || n.parent.inlineContent || i.parent.inlineContent)
+            return !1
+        let s = Dt(i.parent.contentMatchAt(i.indexAfter()))
+        if (!s || !s.isTextblock) return !1
+        if (e) {
+            let o = (!n.parentOffset && i.index() < i.parent.childCount ? n : i)
+                    .pos,
+                l = r.tr.insert(o, s.createAndFill())
+            ;(l.setSelection(T.create(l.doc, o + 1)), e(l.scrollIntoView()))
+        }
+        return !0
+    },
+    Lt = (r, e) => {
+        let { $cursor: t } = r.selection
+        if (!t || t.parent.content.size) return !1
+        if (t.depth > 1 && t.after() != t.end(-1)) {
+            let s = t.before()
+            if (U(r.doc, s)) return (e && e(r.tr.split(s).scrollIntoView()), !0)
+        }
+        let n = t.blockRange(),
+            i = n && ee(n)
+        return i == null ? !1 : (e && e(r.tr.lift(n, i).scrollIntoView()), !0)
+    }
+function Pi(r) {
+    return (e, t) => {
+        let { $from: n, $to: i } = e.selection
+        if (e.selection instanceof C && e.selection.node.isBlock)
+            return !n.parentOffset || !U(e.doc, n.pos)
+                ? !1
+                : (t && t(e.tr.split(n.pos).scrollIntoView()), !0)
+        if (!n.depth) return !1
+        let s = [],
+            o,
+            l,
+            a = !1,
+            c = !1
+        for (let h = n.depth; ; h--)
+            if (n.node(h).isBlock) {
+                ;((a = n.end(h) == n.pos + (n.depth - h)),
+                    (c = n.start(h) == n.pos - (n.depth - h)),
+                    (l = Dt(n.node(h - 1).contentMatchAt(n.indexAfter(h - 1)))))
+                let m = r && r(i.parent, a, n)
+                ;(s.unshift(m || (a && l ? { type: l } : null)), (o = h))
+                break
+            } else {
+                if (h == 1) return !1
+                s.unshift(null)
+            }
+        let u = e.tr
+        ;(e.selection instanceof T || e.selection instanceof q) &&
+            u.deleteSelection()
+        let f = u.mapping.map(n.pos),
+            d = U(u.doc, f, s.length, s)
+        if (
+            (d ||
+                ((s[0] = l ? { type: l } : null),
+                (d = U(u.doc, f, s.length, s))),
+            !d)
+        )
+            return !1
+        if ((u.split(f, s.length, s), !a && c && n.node(o).type != l)) {
+            let h = u.mapping.map(n.before(o)),
+                p = u.doc.resolve(h)
+            l &&
+                n.node(o - 1).canReplaceWith(p.index(), p.index() + 1, l) &&
+                u.setNodeMarkup(u.mapping.map(n.before(o)), l)
+        }
+        return (t && t(u.scrollIntoView()), !0)
+    }
+}
+var Di = Pi()
+var lr = (r, e) => {
+        let { $from: t, to: n } = r.selection,
+            i,
+            s = t.sharedDepth(n)
+        return s == 0
+            ? !1
+            : ((i = t.before(s)),
+              e && e(r.tr.setSelection(C.create(r.doc, i))),
+              !0)
+    },
+    Bi = (r, e) => (e && e(r.tr.setSelection(new q(r.doc))), !0)
+function Fi(r, e, t) {
+    let n = e.nodeBefore,
+        i = e.nodeAfter,
+        s = e.index()
+    return !n || !i || !n.type.compatibleContent(i.type)
+        ? !1
+        : !n.content.size && e.parent.canReplace(s - 1, s)
+          ? (t && t(r.tr.delete(e.pos - n.nodeSize, e.pos).scrollIntoView()),
+            !0)
+          : !e.parent.canReplace(s, s + 1) ||
+              !(i.isTextblock || Y(r.doc, e.pos))
+            ? !1
+            : (t && t(r.tr.join(e.pos).scrollIntoView()), !0)
+}
+function ar(r, e, t, n) {
+    let i = e.nodeBefore,
+        s = e.nodeAfter,
+        o,
+        l,
+        a = i.type.spec.isolating || s.type.spec.isolating
+    if (!a && Fi(r, e, t)) return !0
+    let c = !a && e.parent.canReplace(e.index(), e.index() + 1)
+    if (
+        c &&
+        (o = (l = i.contentMatchAt(i.childCount)).findWrapping(s.type)) &&
+        l.matchType(o[0] || s.type).validEnd
+    ) {
+        if (t) {
+            let h = e.pos + s.nodeSize,
+                p = w.empty
+            for (let y = o.length - 1; y >= 0; y--)
+                p = w.from(o[y].create(null, p))
+            p = w.from(i.copy(p))
+            let m = r.tr.step(
+                    new z(e.pos - 1, h, e.pos, h, new k(p, 1, 0), o.length, !0),
+                ),
+                g = m.doc.resolve(h + 2 * o.length)
+            ;(g.nodeAfter &&
+                g.nodeAfter.type == i.type &&
+                Y(m.doc, g.pos) &&
+                m.join(g.pos),
+                t(m.scrollIntoView()))
+        }
+        return !0
+    }
+    let u = s.type.spec.isolating || (n > 0 && a) ? null : M.findFrom(e, 1),
+        f = u && u.$from.blockRange(u.$to),
+        d = f && ee(f)
+    if (d != null && d >= e.depth)
+        return (t && t(r.tr.lift(f, d).scrollIntoView()), !0)
+    if (c && ke(s, 'start', !0) && ke(i, 'end')) {
+        let h = i,
+            p = []
+        for (; p.push(h), !h.isTextblock; ) h = h.lastChild
+        let m = s,
+            g = 1
+        for (; !m.isTextblock; m = m.firstChild) g++
+        if (h.canReplace(h.childCount, h.childCount, m.content)) {
+            if (t) {
+                let y = w.empty
+                for (let S = p.length - 1; S >= 0; S--) y = w.from(p[S].copy(y))
+                let v = r.tr.step(
+                    new z(
+                        e.pos - p.length,
+                        e.pos + s.nodeSize,
+                        e.pos + g,
+                        e.pos + s.nodeSize - g,
+                        new k(y, p.length, 0),
+                        0,
+                        !0,
+                    ),
+                )
+                t(v.scrollIntoView())
+            }
+            return !0
+        }
+    }
+    return !1
+}
+function cr(r) {
+    return function (e, t) {
+        let n = e.selection,
+            i = r < 0 ? n.$from : n.$to,
+            s = i.depth
+        for (; i.node(s).isInline; ) {
+            if (!s) return !1
+            s--
+        }
+        return i.node(s).isTextblock
+            ? (t &&
+                  t(
+                      e.tr.setSelection(
+                          T.create(e.doc, r < 0 ? i.start(s) : i.end(s)),
+                      ),
+                  ),
+              !0)
+            : !1
+    }
+}
+var $t = cr(-1),
+    Jt = cr(1)
+function ur(r, e = null) {
+    return function (t, n) {
+        let { $from: i, $to: s } = t.selection,
+            o = i.blockRange(s),
+            l = o && Oe(o, r, e)
+        return l ? (n && n(t.tr.wrap(o, l).scrollIntoView()), !0) : !1
+    }
+}
+function Wt(r, e = null) {
+    return function (t, n) {
+        let i = !1
+        for (let s = 0; s < t.selection.ranges.length && !i; s++) {
+            let {
+                $from: { pos: o },
+                $to: { pos: l },
+            } = t.selection.ranges[s]
+            t.doc.nodesBetween(o, l, (a, c) => {
+                if (i) return !1
+                if (!(!a.isTextblock || a.hasMarkup(r, e)))
+                    if (a.type == r) i = !0
+                    else {
+                        let u = t.doc.resolve(c),
+                            f = u.index()
+                        i = u.parent.canReplaceWith(f, f + 1, r)
+                    }
+            })
+        }
+        if (!i) return !1
+        if (n) {
+            let s = t.tr
+            for (let o = 0; o < t.selection.ranges.length; o++) {
+                let {
+                    $from: { pos: l },
+                    $to: { pos: a },
+                } = t.selection.ranges[o]
+                s.setBlockType(l, a, r, e)
+            }
+            n(s.scrollIntoView())
+        }
+        return !0
+    }
+}
+function Ht(...r) {
+    return function (e, t, n) {
+        for (let i = 0; i < r.length; i++) if (r[i](e, t, n)) return !0
+        return !1
+    }
+}
+var Ct = Ht(Qn, At, Nt),
+    Gn = Ht(Qn, Rt, Ot),
+    re = {
+        Enter: Ht(Pt, Ft, Lt, Di),
+        'Mod-Enter': Bt,
+        Backspace: Ct,
+        'Mod-Backspace': Ct,
+        'Shift-Backspace': Ct,
+        Delete: Gn,
+        'Mod-Delete': Gn,
+        'Mod-a': Bi,
+    },
+    Li = {
+        'Ctrl-h': re.Backspace,
+        'Alt-Backspace': re['Mod-Backspace'],
+        'Ctrl-d': re.Delete,
+        'Ctrl-Alt-Backspace': re['Mod-Delete'],
+        'Alt-Delete': re['Mod-Delete'],
+        'Alt-d': re['Mod-Delete'],
+        'Ctrl-a': $t,
+        'Ctrl-e': Jt,
+    }
+for (let r in re) Li[r] = re[r]
+var Tl =
+    typeof navigator < 'u'
+        ? /Mac|iP(hone|[oa]d)/.test(navigator.platform)
+        : typeof os < 'u' && os.platform
+          ? os.platform() == 'darwin'
+          : !1
+function fr(r, e = null) {
+    return function (t, n) {
+        let { $from: i, $to: s } = t.selection,
+            o = i.blockRange(s)
+        if (!o) return !1
+        let l = n ? t.tr : null
+        return $i(l, o, r, e) ? (n && n(l.scrollIntoView()), !0) : !1
+    }
+}
+function $i(r, e, t, n = null) {
+    let i = !1,
+        s = e,
+        o = e.$from.doc
+    if (
+        e.depth >= 2 &&
+        e.$from.node(e.depth - 1).type.compatibleContent(t) &&
+        e.startIndex == 0
+    ) {
+        if (e.$from.index(e.depth - 1) == 0) return !1
+        let a = o.resolve(e.start - 2)
+        ;((s = new ae(a, a, e.depth)),
+            e.endIndex < e.parent.childCount &&
+                (e = new ae(e.$from, o.resolve(e.$to.end(e.depth)), e.depth)),
+            (i = !0))
+    }
+    let l = Oe(s, t, n, e)
+    return l ? (r && Ji(r, e, l, i, t), !0) : !1
+}
+function Ji(r, e, t, n, i) {
+    let s = w.empty
+    for (let u = t.length - 1; u >= 0; u--)
+        s = w.from(t[u].type.create(t[u].attrs, s))
+    r.step(
+        new z(
+            e.start - (n ? 2 : 0),
+            e.end,
+            e.start,
+            e.end,
+            new k(s, 0, 0),
+            t.length,
+            !0,
+        ),
+    )
+    let o = 0
+    for (let u = 0; u < t.length; u++) t[u].type == i && (o = u + 1)
+    let l = t.length - o,
+        a = e.start + t.length - (n ? 2 : 0),
+        c = e.parent
+    for (let u = e.startIndex, f = e.endIndex, d = !0; u < f; u++, d = !1)
+        (!d && U(r.doc, a, l) && (r.split(a, l), (a += 2 * l)),
+            (a += c.child(u).nodeSize))
+    return r
+}
+function hr(r) {
+    return function (e, t) {
+        let { $from: n, $to: i } = e.selection,
+            s = n.blockRange(
+                i,
+                (o) => o.childCount > 0 && o.firstChild.type == r,
+            )
+        return s
+            ? t
+                ? n.node(s.depth - 1).type == r
+                    ? Wi(e, t, r, s)
+                    : Hi(e, t, s)
+                : !0
+            : !1
+    }
+}
+function Wi(r, e, t, n) {
+    let i = r.tr,
+        s = n.end,
+        o = n.$to.end(n.depth)
+    s < o &&
+        (i.step(
+            new z(
+                s - 1,
+                o,
+                s,
+                o,
+                new k(w.from(t.create(null, n.parent.copy())), 1, 0),
+                1,
+                !0,
+            ),
+        ),
+        (n = new ae(i.doc.resolve(n.$from.pos), i.doc.resolve(o), n.depth)))
+    let l = ee(n)
+    if (l == null) return !1
+    i.lift(n, l)
+    let a = i.doc.resolve(i.mapping.map(s, -1) - 1)
+    return (
+        Y(i.doc, a.pos) &&
+            a.nodeBefore.type == a.nodeAfter.type &&
+            i.join(a.pos),
+        e(i.scrollIntoView()),
+        !0
+    )
+}
+function Hi(r, e, t) {
+    let n = r.tr,
+        i = t.parent
+    for (let h = t.end, p = t.endIndex - 1, m = t.startIndex; p > m; p--)
+        ((h -= i.child(p).nodeSize), n.delete(h - 1, h + 1))
+    let s = n.doc.resolve(t.start),
+        o = s.nodeAfter
+    if (n.mapping.map(t.end) != t.start + s.nodeAfter.nodeSize) return !1
+    let l = t.startIndex == 0,
+        a = t.endIndex == i.childCount,
+        c = s.node(-1),
+        u = s.index(-1)
+    if (
+        !c.canReplace(
+            u + (l ? 0 : 1),
+            u + 1,
+            o.content.append(a ? w.empty : w.from(i)),
+        )
+    )
+        return !1
+    let f = s.pos,
+        d = f + o.nodeSize
+    return (
+        n.step(
+            new z(
+                f - (l ? 1 : 0),
+                d + (a ? 1 : 0),
+                f + 1,
+                d - 1,
+                new k(
+                    (l ? w.empty : w.from(i.copy(w.empty))).append(
+                        a ? w.empty : w.from(i.copy(w.empty)),
+                    ),
+                    l ? 0 : 1,
+                    a ? 0 : 1,
+                ),
+                l ? 0 : 1,
+            ),
+        ),
+        e(n.scrollIntoView()),
+        !0
+    )
+}
+function dr(r) {
+    return function (e, t) {
+        let { $from: n, $to: i } = e.selection,
+            s = n.blockRange(
+                i,
+                (c) => c.childCount > 0 && c.firstChild.type == r,
+            )
+        if (!s) return !1
+        let o = s.startIndex
+        if (o == 0) return !1
+        let l = s.parent,
+            a = l.child(o - 1)
+        if (a.type != r) return !1
+        if (t) {
+            let c = a.lastChild && a.lastChild.type == l.type,
+                u = w.from(c ? r.create() : null),
+                f = new k(
+                    w.from(r.create(null, w.from(l.type.create(null, u)))),
+                    c ? 3 : 1,
+                    0,
+                ),
+                d = s.start,
+                h = s.end
+            t(
+                e.tr
+                    .step(new z(d - (c ? 3 : 1), h, d, h, f, 1, !0))
+                    .scrollIntoView(),
+            )
+        }
+        return !0
+    }
+}
+var te = {
+        8: 'Backspace',
+        9: 'Tab',
+        10: 'Enter',
+        12: 'NumLock',
+        13: 'Enter',
+        16: 'Shift',
+        17: 'Control',
+        18: 'Alt',
+        20: 'CapsLock',
+        27: 'Escape',
+        32: ' ',
+        33: 'PageUp',
+        34: 'PageDown',
+        35: 'End',
+        36: 'Home',
+        37: 'ArrowLeft',
+        38: 'ArrowUp',
+        39: 'ArrowRight',
+        40: 'ArrowDown',
+        44: 'PrintScreen',
+        45: 'Insert',
+        46: 'Delete',
+        59: ';',
+        61: '=',
+        91: 'Meta',
+        92: 'Meta',
+        106: '*',
+        107: '+',
+        108: ',',
+        109: '-',
+        110: '.',
+        111: '/',
+        144: 'NumLock',
+        145: 'ScrollLock',
+        160: 'Shift',
+        161: 'Shift',
+        162: 'Control',
+        163: 'Control',
+        164: 'Alt',
+        165: 'Alt',
+        173: '-',
+        186: ';',
+        187: '=',
+        188: ',',
+        189: '-',
+        190: '.',
+        191: '/',
+        192: '`',
+        219: '[',
+        220: '\\',
+        221: ']',
+        222: "'",
+    },
+    Qe = {
+        48: ')',
+        49: '!',
+        50: '@',
+        51: '#',
+        52: '$',
+        53: '%',
+        54: '^',
+        55: '&',
+        56: '*',
+        57: '(',
+        59: ':',
+        61: '+',
+        173: '_',
+        186: ':',
+        187: '+',
+        188: '<',
+        189: '_',
+        190: '>',
+        191: '?',
+        192: '~',
+        219: '{',
+        220: '|',
+        221: '}',
+        222: '"',
+    },
+    ji = typeof navigator < 'u' && /Mac/.test(navigator.platform),
+    Vi =
+        typeof navigator < 'u' &&
+        /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(
+            navigator.userAgent,
+        )
+for (P = 0; P < 10; P++) te[48 + P] = te[96 + P] = String(P)
+var P
+for (P = 1; P <= 24; P++) te[P + 111] = 'F' + P
+var P
+for (P = 65; P <= 90; P++)
+    ((te[P] = String.fromCharCode(P + 32)), (Qe[P] = String.fromCharCode(P)))
+var P
+for (Ge in te) Qe.hasOwnProperty(Ge) || (Qe[Ge] = te[Ge])
+var Ge
+function pr(r) {
+    var e =
+            (ji && r.metaKey && r.shiftKey && !r.ctrlKey && !r.altKey) ||
+            (Vi && r.shiftKey && r.key && r.key.length == 1) ||
+            r.key == 'Unidentified',
+        t =
+            (!e && r.key) ||
+            (r.shiftKey ? Qe : te)[r.keyCode] ||
+            r.key ||
+            'Unidentified'
+    return (
+        t == 'Esc' && (t = 'Escape'),
+        t == 'Del' && (t = 'Delete'),
+        t == 'Left' && (t = 'ArrowLeft'),
+        t == 'Up' && (t = 'ArrowUp'),
+        t == 'Right' && (t = 'ArrowRight'),
+        t == 'Down' && (t = 'ArrowDown'),
+        t
+    )
+}
+var _i =
+        typeof navigator < 'u' && /Mac|iP(hone|[oa]d)/.test(navigator.platform),
+    Ki = typeof navigator < 'u' && /Win/.test(navigator.platform)
+function Ui(r) {
+    let e = r.split(/-(?!$)/),
+        t = e[e.length - 1]
+    t == 'Space' && (t = ' ')
+    let n, i, s, o
+    for (let l = 0; l < e.length - 1; l++) {
+        let a = e[l]
+        if (/^(cmd|meta|m)$/i.test(a)) o = !0
+        else if (/^a(lt)?$/i.test(a)) n = !0
+        else if (/^(c|ctrl|control)$/i.test(a)) i = !0
+        else if (/^s(hift)?$/i.test(a)) s = !0
+        else if (/^mod$/i.test(a)) _i ? (o = !0) : (i = !0)
+        else throw new Error('Unrecognized modifier name: ' + a)
+    }
+    return (
+        n && (t = 'Alt-' + t),
+        i && (t = 'Ctrl-' + t),
+        o && (t = 'Meta-' + t),
+        s && (t = 'Shift-' + t),
+        t
+    )
+}
+function qi(r) {
+    let e = Object.create(null)
+    for (let t in r) e[Ui(t)] = r[t]
+    return e
+}
+function jt(r, e, t = !0) {
+    return (
+        e.altKey && (r = 'Alt-' + r),
+        e.ctrlKey && (r = 'Ctrl-' + r),
+        e.metaKey && (r = 'Meta-' + r),
+        t && e.shiftKey && (r = 'Shift-' + r),
+        r
+    )
+}
+function mr(r) {
+    return new I({ props: { handleKeyDown: Xi(r) } })
+}
+function Xi(r) {
+    let e = qi(r)
+    return function (t, n) {
+        let i = pr(n),
+            s,
+            o = e[jt(i, n)]
+        if (o && o(t.state, t.dispatch, t)) return !0
+        if (i.length == 1 && i != ' ') {
+            if (n.shiftKey) {
+                let l = e[jt(i, n, !1)]
+                if (l && l(t.state, t.dispatch, t)) return !0
+            }
+            if (
+                (n.altKey || n.metaKey || n.ctrlKey) &&
+                !(Ki && n.ctrlKey && n.altKey) &&
+                (s = te[n.keyCode]) &&
+                s != i
+            ) {
+                let l = e[jt(s, n)]
+                if (l && l(t.state, t.dispatch, t)) return !0
+            }
+        }
+        return !1
+    }
+}
+var Yi = Object.defineProperty,
+    Ut = (r, e) => {
+        for (var t in e) Yi(r, t, { get: e[t], enumerable: !0 })
+    }
+function lt(r) {
+    let { state: e, transaction: t } = r,
+        { selection: n } = t,
+        { doc: i } = t,
+        { storedMarks: s } = t
+    return {
+        ...e,
+        apply: e.apply.bind(e),
+        applyTransaction: e.applyTransaction.bind(e),
+        plugins: e.plugins,
+        schema: e.schema,
+        reconfigure: e.reconfigure.bind(e),
+        toJSON: e.toJSON.bind(e),
+        get storedMarks() {
+            return s
+        },
+        get selection() {
+            return n
+        },
+        get doc() {
+            return i
+        },
+        get tr() {
+            return ((n = t.selection), (i = t.doc), (s = t.storedMarks), t)
+        },
+    }
+}
+var qt = class {
+        constructor(r) {
+            ;((this.editor = r.editor),
+                (this.rawCommands = this.editor.extensionManager.commands),
+                (this.customState = r.state))
+        }
+        get hasCustomState() {
+            return !!this.customState
+        }
+        get state() {
+            return this.customState || this.editor.state
+        }
+        get commands() {
+            let { rawCommands: r, editor: e, state: t } = this,
+                { view: n } = e,
+                { tr: i } = t,
+                s = this.buildProps(i)
+            return Object.fromEntries(
+                Object.entries(r).map(([o, l]) => [
+                    o,
+                    (...c) => {
+                        let u = l(...c)(s)
+                        return (
+                            !i.getMeta('preventDispatch') &&
+                                !this.hasCustomState &&
+                                n.dispatch(i),
+                            u
+                        )
+                    },
+                ]),
+            )
+        }
+        get chain() {
+            return () => this.createChain()
+        }
+        get can() {
+            return () => this.createCan()
+        }
+        createChain(r, e = !0) {
+            let { rawCommands: t, editor: n, state: i } = this,
+                { view: s } = n,
+                o = [],
+                l = !!r,
+                a = r || i.tr,
+                c = () => (
+                    !l &&
+                        e &&
+                        !a.getMeta('preventDispatch') &&
+                        !this.hasCustomState &&
+                        s.dispatch(a),
+                    o.every((f) => f === !0)
+                ),
+                u = {
+                    ...Object.fromEntries(
+                        Object.entries(t).map(([f, d]) => [
+                            f,
+                            (...p) => {
+                                let m = this.buildProps(a, e),
+                                    g = d(...p)(m)
+                                return (o.push(g), u)
+                            },
+                        ]),
+                    ),
+                    run: c,
+                }
+            return u
+        }
+        createCan(r) {
+            let { rawCommands: e, state: t } = this,
+                n = !1,
+                i = r || t.tr,
+                s = this.buildProps(i, n)
+            return {
+                ...Object.fromEntries(
+                    Object.entries(e).map(([l, a]) => [
+                        l,
+                        (...c) => a(...c)({ ...s, dispatch: void 0 }),
+                    ]),
+                ),
+                chain: () => this.createChain(i, n),
+            }
+        }
+        buildProps(r, e = !0) {
+            let { rawCommands: t, editor: n, state: i } = this,
+                { view: s } = n,
+                o = {
+                    tr: r,
+                    editor: n,
+                    view: s,
+                    state: lt({ state: i, transaction: r }),
+                    dispatch: e ? () => {} : void 0,
+                    chain: () => this.createChain(r, e),
+                    can: () => this.createCan(r),
+                    get commands() {
+                        return Object.fromEntries(
+                            Object.entries(t).map(([l, a]) => [
+                                l,
+                                (...c) => a(...c)(o),
+                            ]),
+                        )
+                    },
+                }
+            return o
+        }
+    },
+    Tr = {}
+Ut(Tr, {
+    blur: () => Gi,
+    clearContent: () => Qi,
+    clearNodes: () => Zi,
+    command: () => es,
+    createParagraphNear: () => ts,
+    cut: () => ns,
+    deleteCurrentNode: () => rs,
+    deleteNode: () => is,
+    deleteRange: () => ss,
+    deleteSelection: () => cs,
+    enter: () => us,
+    exitCode: () => fs,
+    extendMarkRange: () => hs,
+    first: () => ds,
+    focus: () => gs,
+    forEach: () => ys,
+    insertContent: () => ws,
+    insertContentAt: () => vs,
+    joinBackward: () => Ms,
+    joinDown: () => bs,
+    joinForward: () => Es,
+    joinItemBackward: () => Ts,
+    joinItemForward: () => Cs,
+    joinTextblockBackward: () => As,
+    joinTextblockForward: () => Ns,
+    joinUp: () => Ss,
+    keyboardShortcut: () => Rs,
+    lift: () => Os,
+    liftEmptyBlock: () => zs,
+    liftListItem: () => Ps,
+    newlineInCode: () => Ds,
+    resetAttributes: () => Bs,
+    scrollIntoView: () => Fs,
+    selectAll: () => Ls,
+    selectNodeBackward: () => $s,
+    selectNodeForward: () => Js,
+    selectParentNode: () => Ws,
+    selectTextblockEnd: () => Hs,
+    selectTextblockStart: () => js,
+    setContent: () => _s,
+    setMark: () => uo,
+    setMeta: () => fo,
+    setNode: () => ho,
+    setNodeSelection: () => po,
+    setTextDirection: () => mo,
+    setTextSelection: () => go,
+    sinkListItem: () => yo,
+    splitBlock: () => wo,
+    splitListItem: () => ko,
+    toggleList: () => vo,
+    toggleMark: () => So,
+    toggleNode: () => bo,
+    toggleWrap: () => Mo,
+    undoInputRule: () => Eo,
+    unsetAllMarks: () => To,
+    unsetMark: () => Co,
+    unsetTextDirection: () => Ao,
+    updateAttributes: () => No,
+    wrapIn: () => Io,
+    wrapInList: () => Ro,
+})
+var Gi =
+        () =>
+        ({ editor: r, view: e }) => (
+            requestAnimationFrame(() => {
+                var t
+                r.isDestroyed ||
+                    (e.dom.blur(),
+                    (t = window?.getSelection()) == null || t.removeAllRanges())
+            }),
+            !0
+        ),
+    Qi =
+        (r = !0) =>
+        ({ commands: e }) =>
+            e.setContent('', { emitUpdate: r }),
+    Zi =
+        () =>
+        ({ state: r, tr: e, dispatch: t }) => {
+            let { selection: n } = e,
+                { ranges: i } = n
+            return (
+                t &&
+                    i.forEach(({ $from: s, $to: o }) => {
+                        r.doc.nodesBetween(s.pos, o.pos, (l, a) => {
+                            if (l.type.isText) return
+                            let { doc: c, mapping: u } = e,
+                                f = c.resolve(u.map(a)),
+                                d = c.resolve(u.map(a + l.nodeSize)),
+                                h = f.blockRange(d)
+                            if (!h) return
+                            let p = ee(h)
+                            if (l.type.isTextblock) {
+                                let { defaultType: m } =
+                                    f.parent.contentMatchAt(f.index())
+                                e.setNodeMarkup(h.start, m)
+                            }
+                            ;(p || p === 0) && e.lift(h, p)
+                        })
+                    }),
+                !0
+            )
+        },
+    es = (r) => (e) => r(e),
+    ts =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Ft(r, e),
+    ns =
+        (r, e) =>
+        ({ editor: t, tr: n }) => {
+            let { state: i } = t,
+                s = i.doc.slice(r.from, r.to)
+            n.deleteRange(r.from, r.to)
+            let o = n.mapping.map(e)
+            return (
+                n.insert(o, s.content),
+                n.setSelection(new T(n.doc.resolve(Math.max(o - 1, 0)))),
+                !0
+            )
+        },
+    rs =
+        () =>
+        ({ tr: r, dispatch: e }) => {
+            let { selection: t } = r,
+                n = t.$anchor.node()
+            if (n.content.size > 0) return !1
+            let i = r.selection.$anchor
+            for (let s = i.depth; s > 0; s -= 1)
+                if (i.node(s).type === n.type) {
+                    if (e) {
+                        let l = i.before(s),
+                            a = i.after(s)
+                        r.delete(l, a).scrollIntoView()
+                    }
+                    return !0
+                }
+            return !1
+        }
+function J(r, e) {
+    if (typeof r == 'string') {
+        if (!e.nodes[r])
+            throw Error(
+                `There is no node type named '${r}'. Maybe you forgot to add the extension?`,
+            )
+        return e.nodes[r]
+    }
+    return r
+}
+var is =
+        (r) =>
+        ({ tr: e, state: t, dispatch: n }) => {
+            let i = J(r, t.schema),
+                s = e.selection.$anchor
+            for (let o = s.depth; o > 0; o -= 1)
+                if (s.node(o).type === i) {
+                    if (n) {
+                        let a = s.before(o),
+                            c = s.after(o)
+                        e.delete(a, c).scrollIntoView()
+                    }
+                    return !0
+                }
+            return !1
+        },
+    ss =
+        (r) =>
+        ({ tr: e, dispatch: t }) => {
+            let { from: n, to: i } = r
+            return (t && e.delete(n, i), !0)
+        },
+    ls = (r) => (r.content ? /^text(\*|\+)/.test(r.content) : !1),
+    gr = (r, e, t) => {
+        if (
+            !r.parent.isInline ||
+            (t === 'left' && r.pos > r.start()) ||
+            (t === 'right' && r.pos < r.end())
+        )
+            return r.pos
+        let n = e.nodes[r.parent.type.name].spec
+        return ls(n) ? (t === 'left' ? r.start() - 1 : r.end() + 1) : r.pos
+    },
+    as = (r, e, t) => {
+        let n = gr(r, t, 'left'),
+            i = gr(e, t, 'right')
+        return { from: n, to: i }
+    },
+    cs =
+        () =>
+        ({ state: r, dispatch: e }) => {
+            let { $from: t, $to: n } = r.selection
+            if (r.selection.empty) return !1
+            let { from: i, to: s } = as(t, n, r.schema)
+            return (e && (r.tr.deleteRange(i, s).scrollIntoView(), e(r.tr)), !0)
+        },
+    us =
+        () =>
+        ({ commands: r }) =>
+            r.keyboardShortcut('Enter'),
+    fs =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Bt(r, e)
+function Xt(r) {
+    return Object.prototype.toString.call(r) === '[object RegExp]'
+}
+function it(r, e, t = { strict: !0 }) {
+    let n = Object.keys(e)
+    return n.length
+        ? n.every((i) =>
+              t.strict
+                  ? e[i] === r[i]
+                  : Xt(e[i])
+                    ? e[i].test(r[i])
+                    : e[i] === r[i],
+          )
+        : !0
+}
+function Cr(r, e, t = {}) {
+    return r.find(
+        (n) =>
+            n.type === e &&
+            it(
+                Object.fromEntries(Object.keys(t).map((i) => [i, n.attrs[i]])),
+                t,
+            ),
+    )
+}
+function yr(r, e, t = {}) {
+    return !!Cr(r, e, t)
+}
+function Yt(r, e, t) {
+    if (!r || !e) return
+    let n = r.parent.childAfter(r.parentOffset)
+    if (
+        ((!n.node || !n.node.marks.some((c) => c.type === e)) &&
+            (n = r.parent.childBefore(r.parentOffset)),
+        !n.node || !n.node.marks.some((c) => c.type === e))
+    )
+        return
+    if (!t) {
+        let c = n.node.marks.find((u) => u.type === e)
+        c && (t = c.attrs)
+    }
+    if (!Cr([...n.node.marks], e, t)) return
+    let s = n.index,
+        o = r.start() + n.offset,
+        l = s + 1,
+        a = o + n.node.nodeSize
+    for (; s > 0 && yr([...r.parent.child(s - 1).marks], e, t); )
+        ((s -= 1), (o -= r.parent.child(s).nodeSize))
+    for (; l < r.parent.childCount && yr([...r.parent.child(l).marks], e, t); )
+        ((a += r.parent.child(l).nodeSize), (l += 1))
+    return { from: o, to: a }
+}
+function ne(r, e) {
+    if (typeof r == 'string') {
+        if (!e.marks[r])
+            throw Error(
+                `There is no mark type named '${r}'. Maybe you forgot to add the extension?`,
+            )
+        return e.marks[r]
+    }
+    return r
+}
+var hs =
+        (r, e) =>
+        ({ tr: t, state: n, dispatch: i }) => {
+            let s = ne(r, n.schema),
+                { doc: o, selection: l } = t,
+                { $from: a, from: c, to: u } = l
+            if (i) {
+                let f = Yt(a, s, e)
+                if (f && f.from <= c && f.to >= u) {
+                    let d = T.create(o, f.from, f.to)
+                    t.setSelection(d)
+                }
+            }
+            return !0
+        },
+    ds = (r) => (e) => {
+        let t = typeof r == 'function' ? r(e) : r
+        for (let n = 0; n < t.length; n += 1) if (t[n](e)) return !0
+        return !1
+    }
+function Ar(r) {
+    return r instanceof T
+}
+function he(r = 0, e = 0, t = 0) {
+    return Math.min(Math.max(r, e), t)
+}
+function ps(r, e = null) {
+    if (!e) return null
+    let t = M.atStart(r),
+        n = M.atEnd(r)
+    if (e === 'start' || e === !0) return t
+    if (e === 'end') return n
+    let i = t.from,
+        s = n.to
+    return e === 'all'
+        ? T.create(r, he(0, i, s), he(r.content.size, i, s))
+        : T.create(r, he(e, i, s), he(e, i, s))
+}
+function wr() {
+    return (
+        navigator.platform === 'Android' || /android/i.test(navigator.userAgent)
+    )
+}
+function st() {
+    return (
+        [
+            'iPad Simulator',
+            'iPhone Simulator',
+            'iPod Simulator',
+            'iPad',
+            'iPhone',
+            'iPod',
+        ].includes(navigator.platform) ||
+        (navigator.userAgent.includes('Mac') && 'ontouchend' in document)
+    )
+}
+function ms() {
+    return typeof navigator < 'u'
+        ? /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+        : !1
+}
+var gs =
+        (r = null, e = {}) =>
+        ({ editor: t, view: n, tr: i, dispatch: s }) => {
+            e = { scrollIntoView: !0, ...e }
+            let o = () => {
+                ;((st() || wr()) && n.dom.focus(),
+                    ms() &&
+                        !st() &&
+                        !wr() &&
+                        n.dom.focus({ preventScroll: !0 }),
+                    requestAnimationFrame(() => {
+                        t.isDestroyed ||
+                            (n.focus(),
+                            e?.scrollIntoView && t.commands.scrollIntoView())
+                    }))
+            }
+            try {
+                if ((n.hasFocus() && r === null) || r === !1) return !0
+            } catch {
+                return !1
+            }
+            if (s && r === null && !Ar(t.state.selection)) return (o(), !0)
+            let l = ps(i.doc, r) || t.state.selection,
+                a = t.state.selection.eq(l)
+            return (
+                s &&
+                    (a || i.setSelection(l),
+                    a && i.storedMarks && i.setStoredMarks(i.storedMarks),
+                    o()),
+                !0
+            )
+        },
+    ys = (r, e) => (t) => r.every((n, i) => e(n, { ...t, index: i })),
+    ws =
+        (r, e) =>
+        ({ tr: t, commands: n }) =>
+            n.insertContentAt(
+                { from: t.selection.from, to: t.selection.to },
+                r,
+                e,
+            ),
+    Nr = (r) => {
+        let e = r.childNodes
+        for (let t = e.length - 1; t >= 0; t -= 1) {
+            let n = e[t]
+            n.nodeType === 3 && n.nodeValue && /^(\n\s\s|\n)$/.test(n.nodeValue)
+                ? r.removeChild(n)
+                : n.nodeType === 1 && Nr(n)
+        }
+        return r
+    }
+function Ze(r) {
+    if (typeof window > 'u')
+        throw new Error(
+            '[tiptap error]: there is no window object available, so this function cannot be used',
+        )
+    let e = `<body>${r}</body>`,
+        t = new window.DOMParser().parseFromString(e, 'text/html').body
+    return Nr(t)
+}
+function Be(r, e, t) {
+    if (r instanceof K || r instanceof w) return r
+    t = { slice: !0, parseOptions: {}, ...t }
+    let n = typeof r == 'object' && r !== null,
+        i = typeof r == 'string'
+    if (n)
+        try {
+            if (Array.isArray(r) && r.length > 0)
+                return w.fromArray(r.map((l) => e.nodeFromJSON(l)))
+            let o = e.nodeFromJSON(r)
+            return (t.errorOnInvalidContent && o.check(), o)
+        } catch (s) {
+            if (t.errorOnInvalidContent)
+                throw new Error('[tiptap error]: Invalid JSON content', {
+                    cause: s,
+                })
+            return (
+                console.warn(
+                    '[tiptap warn]: Invalid content.',
+                    'Passed value:',
+                    r,
+                    'Error:',
+                    s,
+                ),
+                Be('', e, t)
+            )
+        }
+    if (i) {
+        if (t.errorOnInvalidContent) {
+            let o = !1,
+                l = '',
+                a = new pe({
+                    topNode: e.spec.topNode,
+                    marks: e.spec.marks,
+                    nodes: e.spec.nodes.append({
+                        __tiptap__private__unknown__catch__all__node: {
+                            content: 'inline*',
+                            group: 'block',
+                            parseDOM: [
+                                {
+                                    tag: '*',
+                                    getAttrs: (c) => (
+                                        (o = !0),
+                                        (l =
+                                            typeof c == 'string'
+                                                ? c
+                                                : c.outerHTML),
+                                        null
+                                    ),
+                                },
+                            ],
+                        },
+                    }),
+                })
+            if (
+                (t.slice
+                    ? ue.fromSchema(a).parseSlice(Ze(r), t.parseOptions)
+                    : ue.fromSchema(a).parse(Ze(r), t.parseOptions),
+                t.errorOnInvalidContent && o)
+            )
+                throw new Error('[tiptap error]: Invalid HTML content', {
+                    cause: new Error(`Invalid element found: ${l}`),
+                })
+        }
+        let s = ue.fromSchema(e)
+        return t.slice
+            ? s.parseSlice(Ze(r), t.parseOptions).content
+            : s.parse(Ze(r), t.parseOptions)
+    }
+    return Be('', e, t)
+}
+function ks(r, e, t) {
+    let n = r.steps.length - 1
+    if (n < e) return
+    let i = r.steps[n]
+    if (!(i instanceof $ || i instanceof z)) return
+    let s = r.mapping.maps[n],
+        o = 0
+    ;(s.forEach((l, a, c, u) => {
+        o === 0 && (o = u)
+    }),
+        r.setSelection(M.near(r.doc.resolve(o), t)))
+}
+var xs = (r) => !('type' in r),
+    vs =
+        (r, e, t) =>
+        ({ tr: n, dispatch: i, editor: s }) => {
+            var o
+            if (i) {
+                t = {
+                    parseOptions: s.options.parseOptions,
+                    updateSelection: !0,
+                    applyInputRules: !1,
+                    applyPasteRules: !1,
+                    ...t,
+                }
+                let l,
+                    a = (g) => {
+                        s.emit('contentError', {
+                            editor: s,
+                            error: g,
+                            disableCollaboration: () => {
+                                'collaboration' in s.storage &&
+                                    typeof s.storage.collaboration ==
+                                        'object' &&
+                                    s.storage.collaboration &&
+                                    (s.storage.collaboration.isDisabled = !0)
+                            },
+                        })
+                    },
+                    c = { preserveWhitespace: 'full', ...t.parseOptions }
+                if (
+                    !t.errorOnInvalidContent &&
+                    !s.options.enableContentCheck &&
+                    s.options.emitContentError
+                )
+                    try {
+                        Be(e, s.schema, {
+                            parseOptions: c,
+                            errorOnInvalidContent: !0,
+                        })
+                    } catch (g) {
+                        a(g)
+                    }
+                try {
+                    l = Be(e, s.schema, {
+                        parseOptions: c,
+                        errorOnInvalidContent:
+                            (o = t.errorOnInvalidContent) != null
+                                ? o
+                                : s.options.enableContentCheck,
+                    })
+                } catch (g) {
+                    return (a(g), !1)
+                }
+                let { from: u, to: f } =
+                        typeof r == 'number'
+                            ? { from: r, to: r }
+                            : { from: r.from, to: r.to },
+                    d = !0,
+                    h = !0
+                if (
+                    ((xs(l) ? l : [l]).forEach((g) => {
+                        ;(g.check(),
+                            (d = d ? g.isText && g.marks.length === 0 : !1),
+                            (h = h ? g.isBlock : !1))
+                    }),
+                    u === f && h)
+                ) {
+                    let { parent: g } = n.doc.resolve(u)
+                    g.isTextblock &&
+                        !g.type.spec.code &&
+                        !g.childCount &&
+                        ((u -= 1), (f += 1))
+                }
+                let m
+                if (d) {
+                    if (Array.isArray(e))
+                        m = e.map((g) => g.text || '').join('')
+                    else if (e instanceof w) {
+                        let g = ''
+                        ;(e.forEach((y) => {
+                            y.text && (g += y.text)
+                        }),
+                            (m = g))
+                    } else
+                        typeof e == 'object' && e && e.text
+                            ? (m = e.text)
+                            : (m = e)
+                    n.insertText(m, u, f)
+                } else {
+                    m = l
+                    let g = n.doc.resolve(u),
+                        y = g.node(),
+                        v = g.parentOffset === 0,
+                        S = y.isText || y.isTextblock,
+                        E = y.content.size > 0
+                    ;(v && S && E && h && (u = Math.max(0, u - 1)),
+                        n.replaceWith(u, f, m))
+                }
+                ;(t.updateSelection && ks(n, n.steps.length - 1, -1),
+                    t.applyInputRules &&
+                        n.setMeta('applyInputRules', { from: u, text: m }),
+                    t.applyPasteRules &&
+                        n.setMeta('applyPasteRules', { from: u, text: m }))
+            }
+            return !0
+        },
+    Ss =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            ir(r, e),
+    bs =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            sr(r, e),
+    Ms =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            At(r, e),
+    Es =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Rt(r, e),
+    Ts =
+        () =>
+        ({ state: r, dispatch: e, tr: t }) => {
+            try {
+                let n = fe(r.doc, r.selection.$from.pos, -1)
+                return n == null ? !1 : (t.join(n, 2), e && e(t), !0)
+            } catch {
+                return !1
+            }
+        },
+    Cs =
+        () =>
+        ({ state: r, dispatch: e, tr: t }) => {
+            try {
+                let n = fe(r.doc, r.selection.$from.pos, 1)
+                return n == null ? !1 : (t.join(n, 2), e && e(t), !0)
+            } catch {
+                return !1
+            }
+        },
+    As =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            er(r, e),
+    Ns =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            tr(r, e)
+function Ir() {
+    return typeof navigator < 'u' ? /Mac/.test(navigator.platform) : !1
+}
+function Is(r) {
+    let e = r.split(/-(?!$)/),
+        t = e[e.length - 1]
+    t === 'Space' && (t = ' ')
+    let n, i, s, o
+    for (let l = 0; l < e.length - 1; l += 1) {
+        let a = e[l]
+        if (/^(cmd|meta|m)$/i.test(a)) o = !0
+        else if (/^a(lt)?$/i.test(a)) n = !0
+        else if (/^(c|ctrl|control)$/i.test(a)) i = !0
+        else if (/^s(hift)?$/i.test(a)) s = !0
+        else if (/^mod$/i.test(a)) st() || Ir() ? (o = !0) : (i = !0)
+        else throw new Error(`Unrecognized modifier name: ${a}`)
+    }
+    return (
+        n && (t = `Alt-${t}`),
+        i && (t = `Ctrl-${t}`),
+        o && (t = `Meta-${t}`),
+        s && (t = `Shift-${t}`),
+        t
+    )
+}
+var Rs =
+    (r) =>
+    ({ editor: e, view: t, tr: n, dispatch: i }) => {
+        let s = Is(r).split(/-(?!$)/),
+            o = s.find((c) => !['Alt', 'Ctrl', 'Meta', 'Shift'].includes(c)),
+            l = new KeyboardEvent('keydown', {
+                key: o === 'Space' ? ' ' : o,
+                altKey: s.includes('Alt'),
+                ctrlKey: s.includes('Ctrl'),
+                metaKey: s.includes('Meta'),
+                shiftKey: s.includes('Shift'),
+                bubbles: !0,
+                cancelable: !0,
+            }),
+            a = e.captureTransaction(() => {
+                t.someProp('handleKeyDown', (c) => c(t, l))
+            })
+        return (
+            a?.steps.forEach((c) => {
+                let u = c.map(n.mapping)
+                u && i && n.maybeStep(u)
+            }),
+            !0
+        )
+    }
+function Gt(r, e, t = {}) {
+    let { from: n, to: i, empty: s } = r.selection,
+        o = e ? J(e, r.schema) : null,
+        l = []
+    r.doc.nodesBetween(n, i, (f, d) => {
+        if (f.isText) return
+        let h = Math.max(n, d),
+            p = Math.min(i, d + f.nodeSize)
+        l.push({ node: f, from: h, to: p })
+    })
+    let a = i - n,
+        c = l
+            .filter((f) => (o ? o.name === f.node.type.name : !0))
+            .filter((f) => it(f.node.attrs, t, { strict: !1 }))
+    return s ? !!c.length : c.reduce((f, d) => f + d.to - d.from, 0) >= a
+}
+var Os =
+        (r, e = {}) =>
+        ({ state: t, dispatch: n }) => {
+            let i = J(r, t.schema)
+            return Gt(t, i, e) ? or(t, n) : !1
+        },
+    zs =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Lt(r, e),
+    Ps =
+        (r) =>
+        ({ state: e, dispatch: t }) => {
+            let n = J(r, e.schema)
+            return hr(n)(e, t)
+        },
+    Ds =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Pt(r, e)
+function Rr(r, e) {
+    return e.nodes[r] ? 'node' : e.marks[r] ? 'mark' : null
+}
+function kr(r, e) {
+    let t = typeof e == 'string' ? [e] : e
+    return Object.keys(r).reduce(
+        (n, i) => (t.includes(i) || (n[i] = r[i]), n),
+        {},
+    )
+}
+var Bs =
+        (r, e) =>
+        ({ tr: t, state: n, dispatch: i }) => {
+            let s = null,
+                o = null,
+                l = Rr(typeof r == 'string' ? r : r.name, n.schema)
+            if (!l) return !1
+            ;(l === 'node' && (s = J(r, n.schema)),
+                l === 'mark' && (o = ne(r, n.schema)))
+            let a = !1
+            return (
+                t.selection.ranges.forEach((c) => {
+                    n.doc.nodesBetween(c.$from.pos, c.$to.pos, (u, f) => {
+                        ;(s &&
+                            s === u.type &&
+                            ((a = !0),
+                            i && t.setNodeMarkup(f, void 0, kr(u.attrs, e))),
+                            o &&
+                                u.marks.length &&
+                                u.marks.forEach((d) => {
+                                    o === d.type &&
+                                        ((a = !0),
+                                        i &&
+                                            t.addMark(
+                                                f,
+                                                f + u.nodeSize,
+                                                o.create(kr(d.attrs, e)),
+                                            ))
+                                }))
+                    })
+                }),
+                a
+            )
+        },
+    Fs =
+        () =>
+        ({ tr: r, dispatch: e }) => (e && r.scrollIntoView(), !0),
+    Ls =
+        () =>
+        ({ tr: r, dispatch: e }) => {
+            if (e) {
+                let t = new q(r.doc)
+                r.setSelection(t)
+            }
+            return !0
+        },
+    $s =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Nt(r, e),
+    Js =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Ot(r, e),
+    Ws =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            lr(r, e),
+    Hs =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            Jt(r, e),
+    js =
+        () =>
+        ({ state: r, dispatch: e }) =>
+            $t(r, e)
+function Vs(r, e, t = {}, n = {}) {
+    return Be(r, e, {
+        slice: !1,
+        parseOptions: t,
+        errorOnInvalidContent: n.errorOnInvalidContent,
+    })
+}
+var _s =
+    (
+        r,
+        {
+            errorOnInvalidContent: e,
+            emitUpdate: t = !0,
+            parseOptions: n = {},
+        } = {},
+    ) =>
+    ({ editor: i, tr: s, dispatch: o, commands: l }) => {
+        let { doc: a } = s
+        if (n.preserveWhitespace !== 'full') {
+            let c = Vs(r, i.schema, n, {
+                errorOnInvalidContent: e ?? i.options.enableContentCheck,
+            })
+            return (
+                o &&
+                    s
+                        .replaceWith(0, a.content.size, c)
+                        .setMeta('preventUpdate', !t),
+                !0
+            )
+        }
+        return (
+            o && s.setMeta('preventUpdate', !t),
+            l.insertContentAt({ from: 0, to: a.content.size }, r, {
+                parseOptions: n,
+                errorOnInvalidContent: e ?? i.options.enableContentCheck,
+            })
+        )
+    }
+function Ks(r, e) {
+    let t = ne(e, r.schema),
+        { from: n, to: i, empty: s } = r.selection,
+        o = []
+    s
+        ? (r.storedMarks && o.push(...r.storedMarks),
+          o.push(...r.selection.$head.marks()))
+        : r.doc.nodesBetween(n, i, (a) => {
+              o.push(...a.marks)
+          })
+    let l = o.find((a) => a.type.name === t.name)
+    return l ? { ...l.attrs } : {}
+}
+function Us(r, e) {
+    let t = new Re(r)
+    return (
+        e.forEach((n) => {
+            n.steps.forEach((i) => {
+                t.step(i)
+            })
+        }),
+        t
+    )
+}
+function qs(r) {
+    for (let e = 0; e < r.edgeCount; e += 1) {
+        let { type: t } = r.edge(e)
+        if (t.isTextblock && !t.hasRequiredAttrs()) return t
+    }
+    return null
+}
+function Xs(r, e) {
+    for (let t = r.depth; t > 0; t -= 1) {
+        let n = r.node(t)
+        if (e(n))
+            return {
+                pos: t > 0 ? r.before(t) : 0,
+                start: r.start(t),
+                depth: t,
+                node: n,
+            }
+    }
+}
+function Qt(r) {
+    return (e) => Xs(e.$from, r)
+}
+function x(r, e, t) {
+    return r.config[e] === void 0 && r.parent
+        ? x(r.parent, e, t)
+        : typeof r.config[e] == 'function'
+          ? r.config[e].bind({
+                ...t,
+                parent: r.parent ? x(r.parent, e, t) : null,
+            })
+          : r.config[e]
+}
+function Zt(r) {
+    return r
+        .map((e) => {
+            let t = { name: e.name, options: e.options, storage: e.storage },
+                n = x(e, 'addExtensions', t)
+            return n ? [e, ...Zt(n())] : e
+        })
+        .flat(10)
+}
+function Or(r, e) {
+    let t = _e.fromSchema(e).serializeFragment(r),
+        i = document.implementation.createHTMLDocument().createElement('div')
+    return (i.appendChild(t), i.innerHTML)
+}
+function Ys(r) {
+    return typeof r == 'function'
+}
+function N(r, e = void 0, ...t) {
+    return Ys(r) ? (e ? r.bind(e)(...t) : r(...t)) : r
+}
+function Gs(r = {}) {
+    return Object.keys(r).length === 0 && r.constructor === Object
+}
+function xe(r) {
+    let e = r.filter((i) => i.type === 'extension'),
+        t = r.filter((i) => i.type === 'node'),
+        n = r.filter((i) => i.type === 'mark')
+    return { baseExtensions: e, nodeExtensions: t, markExtensions: n }
+}
+function zr(r) {
+    let e = [],
+        { nodeExtensions: t, markExtensions: n } = xe(r),
+        i = [...t, ...n],
+        s = {
+            default: null,
+            validate: void 0,
+            rendered: !0,
+            renderHTML: null,
+            parseHTML: null,
+            keepOnSplit: !0,
+            isRequired: !1,
+        },
+        o = t.filter((c) => c.name !== 'text').map((c) => c.name),
+        l = n.map((c) => c.name),
+        a = [...o, ...l]
+    return (
+        r.forEach((c) => {
+            let u = {
+                    name: c.name,
+                    options: c.options,
+                    storage: c.storage,
+                    extensions: i,
+                },
+                f = x(c, 'addGlobalAttributes', u)
+            if (!f) return
+            f().forEach((h) => {
+                let p
+                ;(Array.isArray(h.types)
+                    ? (p = h.types)
+                    : h.types === '*'
+                      ? (p = a)
+                      : h.types === 'nodes'
+                        ? (p = o)
+                        : h.types === 'marks'
+                          ? (p = l)
+                          : (p = []),
+                    p.forEach((m) => {
+                        Object.entries(h.attributes).forEach(([g, y]) => {
+                            e.push({
+                                type: m,
+                                name: g,
+                                attribute: { ...s, ...y },
+                            })
+                        })
+                    }))
+            })
+        }),
+        i.forEach((c) => {
+            let u = { name: c.name, options: c.options, storage: c.storage },
+                f = x(c, 'addAttributes', u)
+            if (!f) return
+            let d = f()
+            Object.entries(d).forEach(([h, p]) => {
+                let m = { ...s, ...p }
+                ;(typeof m?.default == 'function' && (m.default = m.default()),
+                    m?.isRequired && m?.default === void 0 && delete m.default,
+                    e.push({ type: c.name, name: h, attribute: m }))
+            })
+        }),
+        e
+    )
+}
+function Qs(r) {
+    let e = [],
+        t = '',
+        n = !1,
+        i = !1,
+        s = 0,
+        o = r.length
+    for (let l = 0; l < o; l += 1) {
+        let a = r[l]
+        if (a === "'" && !i) {
+            ;((n = !n), (t += a))
+            continue
+        }
+        if (a === '"' && !n) {
+            ;((i = !i), (t += a))
+            continue
+        }
+        if (!n && !i) {
+            if (a === '(') {
+                ;((s += 1), (t += a))
+                continue
+            }
+            if (a === ')' && s > 0) {
+                ;((s -= 1), (t += a))
+                continue
+            }
+            if (a === ';' && s === 0) {
+                ;(e.push(t), (t = ''))
+                continue
+            }
+        }
+        t += a
+    }
+    return (t && e.push(t), e)
+}
+function xr(r) {
+    let e = [],
+        t = Qs(r || ''),
+        n = t.length
+    for (let i = 0; i < n; i += 1) {
+        let s = t[i],
+            o = s.indexOf(':')
+        if (o === -1) continue
+        let l = s.slice(0, o).trim(),
+            a = s.slice(o + 1).trim()
+        l && a && e.push([l, a])
+    }
+    return e
+}
+function en(...r) {
+    return r
+        .filter((e) => !!e)
+        .reduce((e, t) => {
+            let n = { ...e }
+            return (
+                Object.entries(t).forEach(([i, s]) => {
+                    if (!n[i]) {
+                        n[i] = s
+                        return
+                    }
+                    if (i === 'class') {
+                        let l = s ? String(s).split(' ') : [],
+                            a = n[i] ? n[i].split(' ') : [],
+                            c = l.filter((u) => !a.includes(u))
+                        n[i] = [...a, ...c].join(' ')
+                    } else if (i === 'style') {
+                        let l = new Map([...xr(n[i]), ...xr(s)])
+                        n[i] = Array.from(l.entries())
+                            .map(([a, c]) => `${a}: ${c}`)
+                            .join('; ')
+                    } else n[i] = s
+                }),
+                n
+            )
+        }, {})
+}
+function ot(r, e) {
+    return e
+        .filter((t) => t.type === r.type.name)
+        .filter((t) => t.attribute.rendered)
+        .map((t) =>
+            t.attribute.renderHTML
+                ? t.attribute.renderHTML(r.attrs) || {}
+                : { [t.name]: r.attrs[t.name] },
+        )
+        .reduce((t, n) => en(t, n), {})
+}
+function Zs(r) {
+    return typeof r != 'string'
+        ? r
+        : r.match(/^[+-]?(?:\d*\.)?\d+$/)
+          ? Number(r)
+          : r === 'true'
+            ? !0
+            : r === 'false'
+              ? !1
+              : r
+}
+function vr(r, e) {
+    return 'style' in r
+        ? r
+        : {
+              ...r,
+              getAttrs: (t) => {
+                  let n = r.getAttrs ? r.getAttrs(t) : r.attrs
+                  if (n === !1) return !1
+                  let i = e.reduce((s, o) => {
+                      let l = o.attribute.parseHTML
+                          ? o.attribute.parseHTML(t)
+                          : Zs(t.getAttribute(o.name))
+                      return l == null ? s : { ...s, [o.name]: l }
+                  }, {})
+                  return { ...n, ...i }
+              },
+          }
+}
+function Sr(r) {
+    return Object.fromEntries(
+        Object.entries(r).filter(([e, t]) =>
+            e === 'attrs' && Gs(t) ? !1 : t != null,
+        ),
+    )
+}
+function br(r) {
+    var e, t
+    let n = {}
+    return (
+        !((e = r?.attribute) != null && e.isRequired) &&
+            'default' in (r?.attribute || {}) &&
+            (n.default = r.attribute.default),
+        ((t = r?.attribute) == null ? void 0 : t.validate) !== void 0 &&
+            (n.validate = r.attribute.validate),
+        [r.name, n]
+    )
+}
+function eo(r, e) {
+    var t
+    let n = zr(r),
+        { nodeExtensions: i, markExtensions: s } = xe(r),
+        o = (t = i.find((c) => x(c, 'topNode'))) == null ? void 0 : t.name,
+        l = Object.fromEntries(
+            i.map((c) => {
+                let u = n.filter((y) => y.type === c.name),
+                    f = {
+                        name: c.name,
+                        options: c.options,
+                        storage: c.storage,
+                        editor: e,
+                    },
+                    d = r.reduce((y, v) => {
+                        let S = x(v, 'extendNodeSchema', f)
+                        return { ...y, ...(S ? S(c) : {}) }
+                    }, {}),
+                    h = Sr({
+                        ...d,
+                        content: N(x(c, 'content', f)),
+                        marks: N(x(c, 'marks', f)),
+                        group: N(x(c, 'group', f)),
+                        inline: N(x(c, 'inline', f)),
+                        atom: N(x(c, 'atom', f)),
+                        selectable: N(x(c, 'selectable', f)),
+                        draggable: N(x(c, 'draggable', f)),
+                        code: N(x(c, 'code', f)),
+                        whitespace: N(x(c, 'whitespace', f)),
+                        linebreakReplacement: N(
+                            x(c, 'linebreakReplacement', f),
+                        ),
+                        defining: N(x(c, 'defining', f)),
+                        isolating: N(x(c, 'isolating', f)),
+                        attrs: Object.fromEntries(u.map(br)),
+                    }),
+                    p = N(x(c, 'parseHTML', f))
+                p && (h.parseDOM = p.map((y) => vr(y, u)))
+                let m = x(c, 'renderHTML', f)
+                m && (h.toDOM = (y) => m({ node: y, HTMLAttributes: ot(y, u) }))
+                let g = x(c, 'renderText', f)
+                return (g && (h.toText = g), [c.name, h])
+            }),
+        ),
+        a = Object.fromEntries(
+            s.map((c) => {
+                let u = n.filter((g) => g.type === c.name),
+                    f = {
+                        name: c.name,
+                        options: c.options,
+                        storage: c.storage,
+                        editor: e,
+                    },
+                    d = r.reduce((g, y) => {
+                        let v = x(y, 'extendMarkSchema', f)
+                        return { ...g, ...(v ? v(c) : {}) }
+                    }, {}),
+                    h = Sr({
+                        ...d,
+                        inclusive: N(x(c, 'inclusive', f)),
+                        excludes: N(x(c, 'excludes', f)),
+                        group: N(x(c, 'group', f)),
+                        spanning: N(x(c, 'spanning', f)),
+                        code: N(x(c, 'code', f)),
+                        attrs: Object.fromEntries(u.map(br)),
+                    }),
+                    p = N(x(c, 'parseHTML', f))
+                p && (h.parseDOM = p.map((g) => vr(g, u)))
+                let m = x(c, 'renderHTML', f)
+                return (
+                    m &&
+                        (h.toDOM = (g) =>
+                            m({ mark: g, HTMLAttributes: ot(g, u) })),
+                    [c.name, h]
+                )
+            }),
+        )
+    return new pe({ topNode: o, nodes: l, marks: a })
+}
+function to(r) {
+    let e = r.filter((t, n) => r.indexOf(t) !== n)
+    return Array.from(new Set(e))
+}
+function De(r) {
+    return r.sort((t, n) => {
+        let i = x(t, 'priority') || 100,
+            s = x(n, 'priority') || 100
+        return i > s ? -1 : i < s ? 1 : 0
+    })
+}
+function Pr(r) {
+    let e = De(Zt(r)),
+        t = to(e.map((n) => n.name))
+    return (
+        t.length &&
+            console.warn(
+                `[tiptap warn]: Duplicate extension names found: [${t.map((n) => `'${n}'`).join(', ')}]. This can lead to issues.`,
+            ),
+        e
+    )
+}
+function no(r, e, t) {
+    let { from: n, to: i } = e,
+        {
+            blockSeparator: s = `
+
+`,
+            textSerializers: o = {},
+        } = t || {},
+        l = ''
+    return (
+        r.nodesBetween(n, i, (a, c, u, f) => {
+            var d
+            a.isBlock && c > n && (l += s)
+            let h = o?.[a.type.name]
+            if (h)
+                return (
+                    u &&
+                        (l += h({
+                            node: a,
+                            pos: c,
+                            parent: u,
+                            index: f,
+                            range: e,
+                        })),
+                    !1
+                )
+            a.isText &&
+                (l +=
+                    (d = a?.text) == null
+                        ? void 0
+                        : d.slice(Math.max(n, c) - c, i - c))
+        }),
+        l
+    )
+}
+function ro(r) {
+    return Object.fromEntries(
+        Object.entries(r.nodes)
+            .filter(([, e]) => e.spec.toText)
+            .map(([e, t]) => [e, t.spec.toText]),
+    )
+}
+function io(r, e = JSON.stringify) {
+    let t = {}
+    return r.filter((n) => {
+        let i = e(n)
+        return Object.prototype.hasOwnProperty.call(t, i) ? !1 : (t[i] = !0)
+    })
+}
+function so(r) {
+    let e = io(r)
+    return e.length === 1
+        ? e
+        : e.filter(
+              (t, n) =>
+                  !e
+                      .filter((s, o) => o !== n)
+                      .some(
+                          (s) =>
+                              t.oldRange.from >= s.oldRange.from &&
+                              t.oldRange.to <= s.oldRange.to &&
+                              t.newRange.from >= s.newRange.from &&
+                              t.newRange.to <= s.newRange.to,
+                      ),
+          )
+}
+function oo(r) {
+    let { mapping: e, steps: t } = r,
+        n = []
+    return (
+        e.maps.forEach((i, s) => {
+            let o = []
+            if (i.ranges.length)
+                i.forEach((l, a) => {
+                    o.push({ from: l, to: a })
+                })
+            else {
+                let { from: l, to: a } = t[s]
+                if (l === void 0 || a === void 0) return
+                o.push({ from: l, to: a })
+            }
+            o.forEach(({ from: l, to: a }) => {
+                let c = e.slice(s).map(l, -1),
+                    u = e.slice(s).map(a),
+                    f = e.invert().map(c, -1),
+                    d = e.invert().map(u)
+                n.push({
+                    oldRange: { from: f, to: d },
+                    newRange: { from: c, to: u },
+                })
+            })
+        }),
+        so(n)
+    )
+}
+function Dr(r, e, t) {
+    let n = []
+    return (
+        r === e
+            ? t
+                  .resolve(r)
+                  .marks()
+                  .forEach((i) => {
+                      let s = t.resolve(r),
+                          o = Yt(s, i.type)
+                      o && n.push({ mark: i, ...o })
+                  })
+            : t.nodesBetween(r, e, (i, s) => {
+                  !i ||
+                      i?.nodeSize === void 0 ||
+                      n.push(
+                          ...i.marks.map((o) => ({
+                              from: s,
+                              to: s + i.nodeSize,
+                              mark: o,
+                          })),
+                      )
+              }),
+        n
+    )
+}
+function Pe(r, e) {
+    return e.nodes[r] || e.marks[r] || null
+}
+function rt(r, e, t) {
+    return Object.fromEntries(
+        Object.entries(t).filter(([n]) => {
+            let i = r.find((s) => s.type === e && s.name === n)
+            return i ? i.attribute.keepOnSplit : !1
+        }),
+    )
+}
+var lo = (r, e = 500) => {
+    let t = '',
+        n = r.parentOffset
+    return (
+        r.parent.nodesBetween(Math.max(0, n - e), n, (i, s, o, l) => {
+            var a, c
+            let u =
+                ((c = (a = i.type.spec).toText) == null
+                    ? void 0
+                    : c.call(a, { node: i, pos: s, parent: o, index: l })) ||
+                i.textContent ||
+                '%leaf%'
+            t += i.isAtom && !i.isText ? u : u.slice(0, Math.max(0, n - s))
+        }),
+        t
+    )
+}
+function ao(r, e, t = {}) {
+    let { empty: n, ranges: i } = r.selection,
+        s = e ? ne(e, r.schema) : null
+    if (n)
+        return !!(r.storedMarks || r.selection.$from.marks())
+            .filter((f) => (s ? s.name === f.type.name : !0))
+            .find((f) => it(f.attrs, t, { strict: !1 }))
+    let o = 0,
+        l = []
+    if (
+        (i.forEach(({ $from: f, $to: d }) => {
+            let h = f.pos,
+                p = d.pos
+            r.doc.nodesBetween(h, p, (m, g) => {
+                if (s && m.inlineContent && !m.type.allowsMarkType(s)) return !1
+                if (!m.isText && !m.marks.length) return
+                let y = Math.max(h, g),
+                    v = Math.min(p, g + m.nodeSize),
+                    S = v - y
+                ;((o += S),
+                    l.push(
+                        ...m.marks.map((E) => ({ mark: E, from: y, to: v })),
+                    ))
+            })
+        }),
+        o === 0)
+    )
+        return !1
+    let a = l
+            .filter((f) => (s ? s.name === f.mark.type.name : !0))
+            .filter((f) => it(f.mark.attrs, t, { strict: !1 }))
+            .reduce((f, d) => f + d.to - d.from, 0),
+        c = l
+            .filter((f) =>
+                s ? f.mark.type !== s && f.mark.type.excludes(s) : !0,
+            )
+            .reduce((f, d) => f + d.to - d.from, 0)
+    return (a > 0 ? a + c : a) >= o
+}
+function Mr(r, e) {
+    return Array.isArray(e)
+        ? e.some((t) => (typeof t == 'string' ? t : t.name) === r.name)
+        : e
+}
+function Vt(r, e) {
+    let { nodeExtensions: t } = xe(e),
+        n = t.find((o) => o.name === r)
+    if (!n) return !1
+    let i = { name: n.name, options: n.options, storage: n.storage },
+        s = N(x(n, 'group', i))
+    return typeof s != 'string' ? !1 : s.split(' ').includes('list')
+}
+function Br(r, { checkChildren: e = !0, ignoreWhitespace: t = !1 } = {}) {
+    var n
+    if (t) {
+        if (r.type.name === 'hardBreak') return !0
+        if (r.isText) return !/\S/.test((n = r.text) != null ? n : '')
+    }
+    if (r.isText) return !r.text
+    if (r.isAtom || r.isLeaf) return !1
+    if (r.content.childCount === 0) return !0
+    if (e) {
+        let i = !0
+        return (
+            r.content.forEach((s) => {
+                i !== !1 &&
+                    (Br(s, { ignoreWhitespace: t, checkChildren: e }) ||
+                        (i = !1))
+            }),
+            i
+        )
+    }
+    return !1
+}
+function co(r, e, t) {
+    var n
+    let { selection: i } = e,
+        s = null
+    if ((Ar(i) && (s = i.$cursor), s)) {
+        let l = (n = r.storedMarks) != null ? n : s.marks()
+        return (
+            s.parent.type.allowsMarkType(t) &&
+            (!!t.isInSet(l) || !l.some((c) => c.type.excludes(t)))
+        )
+    }
+    let { ranges: o } = i
+    return o.some(({ $from: l, $to: a }) => {
+        let c =
+            l.depth === 0
+                ? r.doc.inlineContent && r.doc.type.allowsMarkType(t)
+                : !1
+        return (
+            r.doc.nodesBetween(l.pos, a.pos, (u, f, d) => {
+                if (c) return !1
+                if (u.isInline) {
+                    let h = !d || d.type.allowsMarkType(t),
+                        p =
+                            !!t.isInSet(u.marks) ||
+                            !u.marks.some((m) => m.type.excludes(t))
+                    c = h && p
+                }
+                return !c
+            }),
+            c
+        )
+    })
+}
+var uo =
+        (r, e = {}) =>
+        ({ tr: t, state: n, dispatch: i }) => {
+            let { selection: s } = t,
+                { empty: o, ranges: l } = s,
+                a = ne(r, n.schema)
+            if (i)
+                if (o) {
+                    let c = Ks(n, a)
+                    t.addStoredMark(a.create({ ...c, ...e }))
+                } else
+                    l.forEach((c) => {
+                        let u = c.$from.pos,
+                            f = c.$to.pos
+                        n.doc.nodesBetween(u, f, (d, h) => {
+                            let p = Math.max(h, u),
+                                m = Math.min(h + d.nodeSize, f)
+                            d.marks.find((y) => y.type === a)
+                                ? d.marks.forEach((y) => {
+                                      a === y.type &&
+                                          t.addMark(
+                                              p,
+                                              m,
+                                              a.create({ ...y.attrs, ...e }),
+                                          )
+                                  })
+                                : t.addMark(p, m, a.create(e))
+                        })
+                    })
+            return co(n, t, a)
+        },
+    fo =
+        (r, e) =>
+        ({ tr: t }) => (t.setMeta(r, e), !0),
+    ho =
+        (r, e = {}) =>
+        ({ state: t, dispatch: n, chain: i }) => {
+            let s = J(r, t.schema),
+                o
+            return (
+                t.selection.$anchor.sameParent(t.selection.$head) &&
+                    (o = t.selection.$anchor.parent.attrs),
+                s.isTextblock
+                    ? i()
+                          .command(({ commands: l }) =>
+                              Wt(s, { ...o, ...e })(t) ? !0 : l.clearNodes(),
+                          )
+                          .command(({ state: l }) =>
+                              Wt(s, { ...o, ...e })(l, n),
+                          )
+                          .run()
+                    : (console.warn(
+                          '[tiptap warn]: Currently "setNode()" only supports text block nodes.',
+                      ),
+                      !1)
+            )
+        },
+    po =
+        (r) =>
+        ({ tr: e, dispatch: t }) => {
+            if (t) {
+                let { doc: n } = e,
+                    i = he(r, 0, n.content.size),
+                    s = C.create(n, i)
+                e.setSelection(s)
+            }
+            return !0
+        },
+    mo =
+        (r, e) =>
+        ({ tr: t, state: n, dispatch: i }) => {
+            let { selection: s } = n,
+                o,
+                l
+            return (
+                typeof e == 'number'
+                    ? ((o = e), (l = e))
+                    : e && 'from' in e && 'to' in e
+                      ? ((o = e.from), (l = e.to))
+                      : ((o = s.from), (l = s.to)),
+                i &&
+                    t.doc.nodesBetween(o, l, (a, c) => {
+                        a.isText ||
+                            t.setNodeMarkup(c, void 0, { ...a.attrs, dir: r })
+                    }),
+                !0
+            )
+        },
+    go =
+        (r) =>
+        ({ tr: e, dispatch: t }) => {
+            if (t) {
+                let { doc: n } = e,
+                    { from: i, to: s } =
+                        typeof r == 'number' ? { from: r, to: r } : r,
+                    o = T.atStart(n).from,
+                    l = T.atEnd(n).to,
+                    a = he(i, o, l),
+                    c = he(s, o, l),
+                    u = T.create(n, a, c)
+                e.setSelection(u)
+            }
+            return !0
+        },
+    yo =
+        (r) =>
+        ({ state: e, dispatch: t }) => {
+            let n = J(r, e.schema)
+            return dr(n)(e, t)
+        }
+function Er(r, e) {
+    let t =
+        r.storedMarks ||
+        (r.selection.$to.parentOffset && r.selection.$from.marks())
+    if (t) {
+        let n = t.filter((i) => e?.includes(i.type.name))
+        r.tr.ensureMarks(n)
+    }
+}
+var wo =
+        ({ keepMarks: r = !0 } = {}) =>
+        ({ tr: e, state: t, dispatch: n, editor: i }) => {
+            let { selection: s, doc: o } = e,
+                { $from: l, $to: a } = s,
+                c = i.extensionManager.attributes,
+                u = rt(c, l.node().type.name, l.node().attrs)
+            if (s instanceof C && s.node.isBlock)
+                return !l.parentOffset || !U(o, l.pos)
+                    ? !1
+                    : (n &&
+                          (r && Er(t, i.extensionManager.splittableMarks),
+                          e.split(l.pos).scrollIntoView()),
+                      !0)
+            if (!l.parent.isBlock) return !1
+            let f = a.parentOffset === a.parent.content.size,
+                d =
+                    l.depth === 0
+                        ? void 0
+                        : qs(l.node(-1).contentMatchAt(l.indexAfter(-1))),
+                h = f && d ? [{ type: d, attrs: u }] : void 0,
+                p = U(e.doc, e.mapping.map(l.pos), 1, h)
+            if (
+                (!h &&
+                    !p &&
+                    U(
+                        e.doc,
+                        e.mapping.map(l.pos),
+                        1,
+                        d ? [{ type: d }] : void 0,
+                    ) &&
+                    ((p = !0), (h = d ? [{ type: d, attrs: u }] : void 0)),
+                n)
+            ) {
+                if (
+                    p &&
+                    (s instanceof T && e.deleteSelection(),
+                    e.split(e.mapping.map(l.pos), 1, h),
+                    d && !f && !l.parentOffset && l.parent.type !== d)
+                ) {
+                    let m = e.mapping.map(l.before()),
+                        g = e.doc.resolve(m)
+                    l.node(-1).canReplaceWith(g.index(), g.index() + 1, d) &&
+                        e.setNodeMarkup(e.mapping.map(l.before()), d)
+                }
+                ;(r && Er(t, i.extensionManager.splittableMarks),
+                    e.scrollIntoView())
+            }
+            return p
+        },
+    ko =
+        (r, e = {}) =>
+        ({ tr: t, state: n, dispatch: i, editor: s }) => {
+            var o
+            let l = J(r, n.schema),
+                { $from: a, $to: c } = n.selection,
+                u = n.selection.node
+            if ((u && u.isBlock) || a.depth < 2 || !a.sameParent(c)) return !1
+            let f = a.node(-1)
+            if (f.type !== l) return !1
+            let d = s.extensionManager.attributes
+            if (
+                a.parent.content.size === 0 &&
+                a.node(-1).childCount === a.indexAfter(-1)
+            ) {
+                if (
+                    a.depth === 2 ||
+                    a.node(-3).type !== l ||
+                    a.index(-2) !== a.node(-2).childCount - 1
+                )
+                    return !1
+                if (i) {
+                    let y = w.empty,
+                        v = a.index(-1) ? 1 : a.index(-2) ? 2 : 3
+                    for (let F = a.depth - v; F >= a.depth - 3; F -= 1)
+                        y = w.from(a.node(F).copy(y))
+                    let S =
+                            a.indexAfter(-1) < a.node(-2).childCount
+                                ? 1
+                                : a.indexAfter(-2) < a.node(-3).childCount
+                                  ? 2
+                                  : 3,
+                        E = {
+                            ...rt(d, a.node().type.name, a.node().attrs),
+                            ...e,
+                        },
+                        b =
+                            ((o = l.contentMatch.defaultType) == null
+                                ? void 0
+                                : o.createAndFill(E)) || void 0
+                    y = y.append(w.from(l.createAndFill(null, b) || void 0))
+                    let R = a.before(a.depth - (v - 1))
+                    t.replace(R, a.after(-S), new k(y, 4 - v, 0))
+                    let O = -1
+                    ;(t.doc.nodesBetween(R, t.doc.content.size, (F, W) => {
+                        if (O > -1) return !1
+                        F.isTextblock && F.content.size === 0 && (O = W + 1)
+                    }),
+                        O > -1 && t.setSelection(T.near(t.doc.resolve(O))),
+                        t.scrollIntoView())
+                }
+                return !0
+            }
+            let h = c.pos === a.end() ? f.contentMatchAt(0).defaultType : null,
+                p = { ...rt(d, f.type.name, f.attrs), ...e },
+                m = { ...rt(d, a.node().type.name, a.node().attrs), ...e }
+            t.delete(a.pos, c.pos)
+            let g = h
+                ? [
+                      { type: l, attrs: p },
+                      { type: h, attrs: m },
+                  ]
+                : [{ type: l, attrs: p }]
+            if (!U(t.doc, a.pos, 2)) return !1
+            if (i) {
+                let { selection: y, storedMarks: v } = n,
+                    { splittableMarks: S } = s.extensionManager,
+                    E = v || (y.$to.parentOffset && y.$from.marks())
+                if ((t.split(a.pos, 2, g).scrollIntoView(), !E || !i)) return !0
+                let b = E.filter((R) => S.includes(R.type.name))
+                t.ensureMarks(b)
+            }
+            return !0
+        },
+    _t = (r, e) => {
+        let t = Qt((o) => o.type === e)(r.selection)
+        if (!t) return !0
+        let n = r.doc.resolve(Math.max(0, t.pos - 1)).before(t.depth)
+        if (n === void 0) return !0
+        let i = r.doc.nodeAt(n)
+        return (t.node.type === i?.type && Y(r.doc, t.pos) && r.join(t.pos), !0)
+    },
+    Kt = (r, e) => {
+        let t = Qt((o) => o.type === e)(r.selection)
+        if (!t) return !0
+        let n = r.doc.resolve(t.start).after(t.depth)
+        if (n === void 0) return !0
+        let i = r.doc.nodeAt(n)
+        return (t.node.type === i?.type && Y(r.doc, n) && r.join(n), !0)
+    }
+function xo(r) {
+    let e = r.doc,
+        t = e.firstChild
+    if (!t) return null
+    let n = e.resolve(1),
+        i = e.resolve(t.nodeSize - 1)
+    return T.between(n, i)
+}
+var vo =
+        (r, e, t, n = {}) =>
+        ({
+            editor: i,
+            tr: s,
+            state: o,
+            dispatch: l,
+            chain: a,
+            commands: c,
+            can: u,
+        }) => {
+            let { extensions: f, splittableMarks: d } = i.extensionManager,
+                h = J(r, o.schema),
+                p = J(e, o.schema),
+                { selection: m, storedMarks: g } = o,
+                { $from: y, $to: v } = m,
+                S = y.blockRange(v),
+                E = g || (m.$to.parentOffset && m.$from.marks())
+            if (!S) return !1
+            let b = Qt((X) => Vt(X.type.name, f))(m),
+                R = m.from === 0 && m.to === o.doc.content.size,
+                O = o.doc.content.content,
+                F = O.length === 1 ? O[0] : null,
+                W =
+                    R && F && Vt(F.type.name, f)
+                        ? { node: F, pos: 0, depth: 0 }
+                        : null,
+                V = b ?? W,
+                ve = !!b && S.depth >= 1 && S.depth - b.depth <= 1,
+                ie = !!W
+            if ((ve || ie) && V) {
+                if (V.node.type === h)
+                    return R && ie
+                        ? a()
+                              .command(({ tr: X, dispatch: _ }) => {
+                                  let j = xo(X)
+                                  return j
+                                      ? (X.setSelection(j), _ && _(X), !0)
+                                      : !1
+                              })
+                              .liftListItem(p)
+                              .run()
+                        : c.liftListItem(p)
+                if (Vt(V.node.type.name, f) && h.validContent(V.node.content))
+                    return a()
+                        .command(() => (s.setNodeMarkup(V.pos, h), !0))
+                        .command(() => _t(s, h))
+                        .command(() => Kt(s, h))
+                        .run()
+            }
+            return !t || !E || !l
+                ? a()
+                      .command(() =>
+                          u().wrapInList(h, n) ? !0 : c.clearNodes(),
+                      )
+                      .wrapInList(h, n)
+                      .command(() => _t(s, h))
+                      .command(() => Kt(s, h))
+                      .run()
+                : a()
+                      .command(() => {
+                          let X = u().wrapInList(h, n),
+                              _ = E.filter((j) => d.includes(j.type.name))
+                          return (s.ensureMarks(_), X ? !0 : c.clearNodes())
+                      })
+                      .wrapInList(h, n)
+                      .command(() => _t(s, h))
+                      .command(() => Kt(s, h))
+                      .run()
+        },
+    So =
+        (r, e = {}, t = {}) =>
+        ({ state: n, commands: i }) => {
+            let { extendEmptyMarkRange: s = !1 } = t,
+                o = ne(r, n.schema)
+            return ao(n, o, e)
+                ? i.unsetMark(o, { extendEmptyMarkRange: s })
+                : i.setMark(o, e)
+        },
+    bo =
+        (r, e, t = {}) =>
+        ({ state: n, commands: i }) => {
+            let s = J(r, n.schema),
+                o = J(e, n.schema),
+                l = Gt(n, s, t),
+                a
+            return (
+                n.selection.$anchor.sameParent(n.selection.$head) &&
+                    (a = n.selection.$anchor.parent.attrs),
+                l ? i.setNode(o, a) : i.setNode(s, { ...a, ...t })
+            )
+        },
+    Mo =
+        (r, e = {}) =>
+        ({ state: t, commands: n }) => {
+            let i = J(r, t.schema)
+            return Gt(t, i, e) ? n.lift(i) : n.wrapIn(i, e)
+        },
+    Eo =
+        () =>
+        ({ state: r, dispatch: e }) => {
+            let t = r.plugins
+            for (let n = 0; n < t.length; n += 1) {
+                let i = t[n],
+                    s
+                if (i.spec.isInputRules && (s = i.getState(r))) {
+                    if (e) {
+                        let o = r.tr,
+                            l = s.transform
+                        for (let a = l.steps.length - 1; a >= 0; a -= 1)
+                            o.step(l.steps[a].invert(l.docs[a]))
+                        if (s.text) {
+                            let a = o.doc.resolve(s.from).marks()
+                            o.replaceWith(
+                                s.from,
+                                s.to,
+                                r.schema.text(s.text, a),
+                            )
+                        } else o.delete(s.from, s.to)
+                    }
+                    return !0
+                }
+            }
+            return !1
+        },
+    To =
+        () =>
+        ({ tr: r, dispatch: e }) => {
+            let { selection: t } = r,
+                { empty: n, ranges: i } = t
+            return (
+                n ||
+                    (e &&
+                        i.forEach((s) => {
+                            r.removeMark(s.$from.pos, s.$to.pos)
+                        })),
+                !0
+            )
+        },
+    Co =
+        (r, e = {}) =>
+        ({ tr: t, state: n, dispatch: i }) => {
+            var s
+            let { extendEmptyMarkRange: o = !1 } = e,
+                { selection: l } = t,
+                a = ne(r, n.schema),
+                { $from: c, empty: u, ranges: f } = l
+            if (!i) return !0
+            if (u && o) {
+                let { from: d, to: h } = l,
+                    p =
+                        (s = c.marks().find((g) => g.type === a)) == null
+                            ? void 0
+                            : s.attrs,
+                    m = Yt(c, a, p)
+                ;(m && ((d = m.from), (h = m.to)), t.removeMark(d, h, a))
+            } else
+                f.forEach((d) => {
+                    t.removeMark(d.$from.pos, d.$to.pos, a)
+                })
+            return (t.removeStoredMark(a), !0)
+        },
+    Ao =
+        (r) =>
+        ({ tr: e, state: t, dispatch: n }) => {
+            let { selection: i } = t,
+                s,
+                o
+            return (
+                typeof r == 'number'
+                    ? ((s = r), (o = r))
+                    : r && 'from' in r && 'to' in r
+                      ? ((s = r.from), (o = r.to))
+                      : ((s = i.from), (o = i.to)),
+                n &&
+                    e.doc.nodesBetween(s, o, (l, a) => {
+                        if (l.isText) return
+                        let c = { ...l.attrs }
+                        ;(delete c.dir, e.setNodeMarkup(a, void 0, c))
+                    }),
+                !0
+            )
+        },
+    No =
+        (r, e = {}) =>
+        ({ tr: t, state: n, dispatch: i }) => {
+            let s = null,
+                o = null,
+                l = Rr(typeof r == 'string' ? r : r.name, n.schema)
+            if (!l) return !1
+            ;(l === 'node' && (s = J(r, n.schema)),
+                l === 'mark' && (o = ne(r, n.schema)))
+            let a = !1
+            return (
+                t.selection.ranges.forEach((c) => {
+                    let u = c.$from.pos,
+                        f = c.$to.pos,
+                        d,
+                        h,
+                        p,
+                        m
+                    ;(t.selection.empty
+                        ? n.doc.nodesBetween(u, f, (g, y) => {
+                              s &&
+                                  s === g.type &&
+                                  ((a = !0),
+                                  (p = Math.max(y, u)),
+                                  (m = Math.min(y + g.nodeSize, f)),
+                                  (d = y),
+                                  (h = g))
+                          })
+                        : n.doc.nodesBetween(u, f, (g, y) => {
+                              ;(y < u &&
+                                  s &&
+                                  s === g.type &&
+                                  ((a = !0),
+                                  (p = Math.max(y, u)),
+                                  (m = Math.min(y + g.nodeSize, f)),
+                                  (d = y),
+                                  (h = g)),
+                                  y >= u &&
+                                      y <= f &&
+                                      (s &&
+                                          s === g.type &&
+                                          ((a = !0),
+                                          i &&
+                                              t.setNodeMarkup(y, void 0, {
+                                                  ...g.attrs,
+                                                  ...e,
+                                              })),
+                                      o &&
+                                          g.marks.length &&
+                                          g.marks.forEach((v) => {
+                                              if (
+                                                  o === v.type &&
+                                                  ((a = !0), i)
+                                              ) {
+                                                  let S = Math.max(y, u),
+                                                      E = Math.min(
+                                                          y + g.nodeSize,
+                                                          f,
+                                                      )
+                                                  t.addMark(
+                                                      S,
+                                                      E,
+                                                      o.create({
+                                                          ...v.attrs,
+                                                          ...e,
+                                                      }),
+                                                  )
+                                              }
+                                          })))
+                          }),
+                        h &&
+                            (d !== void 0 &&
+                                i &&
+                                t.setNodeMarkup(d, void 0, {
+                                    ...h.attrs,
+                                    ...e,
+                                }),
+                            o &&
+                                h.marks.length &&
+                                h.marks.forEach((g) => {
+                                    o === g.type &&
+                                        i &&
+                                        t.addMark(
+                                            p,
+                                            m,
+                                            o.create({ ...g.attrs, ...e }),
+                                        )
+                                })))
+                }),
+                a
+            )
+        },
+    Io =
+        (r, e = {}) =>
+        ({ state: t, dispatch: n }) => {
+            let i = J(r, t.schema)
+            return ur(i, e)(t, n)
+        },
+    Ro =
+        (r, e = {}) =>
+        ({ state: t, dispatch: n }) => {
+            let i = J(r, t.schema)
+            return fr(i, e)(t, n)
+        }
+var Oo = class {
+        constructor(r) {
+            var e
+            ;((this.find = r.find),
+                (this.handler = r.handler),
+                (this.undoable = (e = r.undoable) != null ? e : !0))
+        }
+    },
+    zo = (r, e) => {
+        if (Xt(e)) return e.exec(r)
+        let t = e(r)
+        if (!t) return null
+        let n = [t.text]
+        return (
+            (n.index = t.index),
+            (n.input = r),
+            (n.data = t.data),
+            t.replaceWith &&
+                (t.text.includes(t.replaceWith) ||
+                    console.warn(
+                        '[tiptap warn]: "inputRuleMatch.replaceWith" must be part of "inputRuleMatch.text".',
+                    ),
+                n.push(t.replaceWith)),
+            n
+        )
+    }
+function et(r) {
+    var e
+    let { editor: t, from: n, to: i, text: s, rules: o, plugin: l } = r,
+        { view: a } = t
+    if (a.composing) return !1
+    let c = a.state.doc.resolve(n)
+    if (
+        c.parent.type.spec.code ||
+        ((e = c.nodeBefore || c.nodeAfter) != null &&
+            e.marks.find((d) => d.type.spec.code))
+    )
+        return !1
+    let u = !1,
+        f = lo(c) + s
+    return (
+        o.forEach((d) => {
+            if (u) return
+            let h = zo(f, d.find)
+            if (!h) return
+            let p = a.state.tr,
+                m = lt({ state: a.state, transaction: p }),
+                g = { from: n - (h[0].length - s.length), to: i },
+                {
+                    commands: y,
+                    chain: v,
+                    can: S,
+                } = new qt({ editor: t, state: m })
+            d.handler({
+                state: m,
+                range: g,
+                match: h,
+                commands: y,
+                chain: v,
+                can: S,
+            }) === null ||
+                !p.steps.length ||
+                (d.undoable &&
+                    p.setMeta(l, { transform: p, from: n, to: i, text: s }),
+                a.dispatch(p),
+                (u = !0))
+        }),
+        u
+    )
+}
+function Po(r) {
+    let { editor: e, rules: t } = r,
+        n = new I({
+            state: {
+                init() {
+                    return null
+                },
+                apply(i, s, o) {
+                    let l = i.getMeta(n)
+                    if (l) return l
+                    let a = i.getMeta('applyInputRules')
+                    return (
+                        !!a &&
+                            setTimeout(() => {
+                                let { text: u } = a
+                                typeof u == 'string'
+                                    ? (u = u)
+                                    : (u = Or(w.from(u), o.schema))
+                                let { from: f } = a,
+                                    d = f + u.length
+                                et({
+                                    editor: e,
+                                    from: f,
+                                    to: d,
+                                    text: u,
+                                    rules: t,
+                                    plugin: n,
+                                })
+                            }),
+                        i.selectionSet || i.docChanged ? null : s
+                    )
+                },
+            },
+            props: {
+                handleTextInput(i, s, o, l) {
+                    return et({
+                        editor: e,
+                        from: s,
+                        to: o,
+                        text: l,
+                        rules: t,
+                        plugin: n,
+                    })
+                },
+                handleDOMEvents: {
+                    compositionend: (i) => (
+                        setTimeout(() => {
+                            let { $cursor: s } = i.state.selection
+                            s &&
+                                et({
+                                    editor: e,
+                                    from: s.pos,
+                                    to: s.pos,
+                                    text: '',
+                                    rules: t,
+                                    plugin: n,
+                                })
+                        }),
+                        !1
+                    ),
+                },
+                handleKeyDown(i, s) {
+                    if (s.key !== 'Enter') return !1
+                    let { $cursor: o } = i.state.selection
+                    return o
+                        ? et({
+                              editor: e,
+                              from: o.pos,
+                              to: o.pos,
+                              text: `
+`,
+                              rules: t,
+                              plugin: n,
+                          })
+                        : !1
+                },
+            },
+            isInputRules: !0,
+        })
+    return n
+}
+function Do(r) {
+    return Object.prototype.toString.call(r).slice(8, -1)
+}
+function tt(r) {
+    return Do(r) !== 'Object'
+        ? !1
+        : r.constructor === Object &&
+              Object.getPrototypeOf(r) === Object.prototype
+}
+function Fr(r, e) {
+    let t = { ...r }
+    return (
+        tt(r) &&
+            tt(e) &&
+            Object.keys(e).forEach((n) => {
+                tt(e[n]) && tt(r[n]) ? (t[n] = Fr(r[n], e[n])) : (t[n] = e[n])
+            }),
+        t
+    )
+}
+var Lr = class {
+        constructor(r = {}) {
+            ;((this.type = 'extendable'),
+                (this.parent = null),
+                (this.child = null),
+                (this.name = ''),
+                (this.config = { name: this.name }),
+                (this.config = { ...this.config, ...r }),
+                (this.name = this.config.name))
+        }
+        get options() {
+            return { ...(N(x(this, 'addOptions', { name: this.name })) || {}) }
+        }
+        get storage() {
+            return {
+                ...(N(
+                    x(this, 'addStorage', {
+                        name: this.name,
+                        options: this.options,
+                    }),
+                ) || {}),
+            }
+        }
+        configure(r = {}) {
+            let e = this.extend({
+                ...this.config,
+                addOptions: () => Fr(this.options, r),
+            })
+            return (
+                (e.name = this.name),
+                (e.parent = this.parent),
+                (this.child = null),
+                e
+            )
+        }
+        extend(r = {}) {
+            let e = new this.constructor({ ...this.config, ...r })
+            return (
+                (e.parent = this),
+                (this.child = e),
+                (e.name = 'name' in r ? r.name : e.parent.name),
+                e
+            )
+        }
+    },
+    tn = class $r extends Lr {
+        constructor() {
+            ;(super(...arguments), (this.type = 'mark'))
+        }
+        static create(e = {}) {
+            let t = typeof e == 'function' ? e() : e
+            return new $r(t)
+        }
+        static handleExit({ editor: e, mark: t }) {
+            let { tr: n } = e.state,
+                i = e.state.selection.$from
+            if (i.pos === i.end()) {
+                let o = i.marks()
+                if (!!!o.find((c) => c?.type.name === t.name)) return !1
+                let a = o.find((c) => c?.type.name === t.name)
+                return (
+                    a && n.removeStoredMark(a),
+                    n.insertText(' ', i.pos),
+                    e.view.dispatch(n),
+                    !0
+                )
+            }
+            return !1
+        }
+        configure(e) {
+            return super.configure(e)
+        }
+        extend(e) {
+            let t = typeof e == 'function' ? e() : e
+            return super.extend(t)
+        }
+    }
+function Bo(r) {
+    return typeof r == 'number'
+}
+var Fo = class {
+        constructor(r) {
+            ;((this.find = r.find), (this.handler = r.handler))
+        }
+    },
+    Lo = (r, e, t) => {
+        if (Xt(e)) return [...r.matchAll(e)]
+        let n = e(r, t)
+        return n
+            ? n.map((i) => {
+                  let s = [i.text]
+                  return (
+                      (s.index = i.index),
+                      (s.input = r),
+                      (s.data = i.data),
+                      i.replaceWith &&
+                          (i.text.includes(i.replaceWith) ||
+                              console.warn(
+                                  '[tiptap warn]: "pasteRuleMatch.replaceWith" must be part of "pasteRuleMatch.text".',
+                              ),
+                          s.push(i.replaceWith)),
+                      s
+                  )
+              })
+            : []
+    }
+function $o(r) {
+    let {
+            editor: e,
+            state: t,
+            from: n,
+            to: i,
+            rule: s,
+            pasteEvent: o,
+            dropEvent: l,
+        } = r,
+        { commands: a, chain: c, can: u } = new qt({ editor: e, state: t }),
+        f = []
+    return (
+        t.doc.nodesBetween(n, i, (h, p) => {
+            var m, g, y, v, S
+            if (
+                ((g = (m = h.type) == null ? void 0 : m.spec) != null &&
+                    g.code) ||
+                !(h.isText || h.isTextblock || h.isInline)
+            )
+                return
+            let E =
+                    (S =
+                        (v = (y = h.content) == null ? void 0 : y.size) != null
+                            ? v
+                            : h.nodeSize) != null
+                        ? S
+                        : 0,
+                b = Math.max(n, p),
+                R = Math.min(i, p + E)
+            if (b >= R) return
+            let O = h.isText
+                ? h.text || ''
+                : h.textBetween(b - p, R - p, void 0, '\uFFFC')
+            Lo(O, s.find, o).forEach((W) => {
+                if (W.index === void 0) return
+                let V = b + W.index + 1,
+                    ve = V + W[0].length,
+                    ie = {
+                        from: t.tr.mapping.map(V),
+                        to: t.tr.mapping.map(ve),
+                    },
+                    X = s.handler({
+                        state: t,
+                        range: ie,
+                        match: W,
+                        commands: a,
+                        chain: c,
+                        can: u,
+                        pasteEvent: o,
+                        dropEvent: l,
+                    })
+                f.push(X)
+            })
+        }),
+        f.every((h) => h !== null)
+    )
+}
+var nt = null,
+    Jo = (r) => {
+        var e
+        let t = new ClipboardEvent('paste', {
+            clipboardData: new DataTransfer(),
+        })
+        return ((e = t.clipboardData) == null || e.setData('text/html', r), t)
+    }
+function Wo(r) {
+    let { editor: e, rules: t } = r,
+        n = null,
+        i = !1,
+        s = !1,
+        o = typeof ClipboardEvent < 'u' ? new ClipboardEvent('paste') : null,
+        l
+    try {
+        l = typeof DragEvent < 'u' ? new DragEvent('drop') : null
+    } catch {
+        l = null
+    }
+    let a = ({ state: u, from: f, to: d, rule: h, pasteEvt: p }) => {
+        let m = u.tr,
+            g = lt({ state: u, transaction: m })
+        if (
+            !(
+                !$o({
+                    editor: e,
+                    state: g,
+                    from: Math.max(f - 1, 0),
+                    to: d.b - 1,
+                    rule: h,
+                    pasteEvent: p,
+                    dropEvent: l,
+                }) || !m.steps.length
+            )
+        ) {
+            try {
+                l = typeof DragEvent < 'u' ? new DragEvent('drop') : null
+            } catch {
+                l = null
+            }
+            return (
+                (o =
+                    typeof ClipboardEvent < 'u'
+                        ? new ClipboardEvent('paste')
+                        : null),
+                m
+            )
+        }
+    }
+    return t.map(
+        (u) =>
+            new I({
+                view(f) {
+                    let d = (p) => {
+                            var m
+                            ;((n =
+                                (m = f.dom.parentElement) != null &&
+                                m.contains(p.target)
+                                    ? f.dom.parentElement
+                                    : null),
+                                n && (nt = e))
+                        },
+                        h = () => {
+                            nt && (nt = null)
+                        }
+                    return (
+                        window.addEventListener('dragstart', d),
+                        window.addEventListener('dragend', h),
+                        {
+                            destroy() {
+                                ;(window.removeEventListener('dragstart', d),
+                                    window.removeEventListener('dragend', h))
+                            },
+                        }
+                    )
+                },
+                props: {
+                    handleDOMEvents: {
+                        drop: (f, d) => {
+                            if (
+                                ((s = n === f.dom.parentElement), (l = d), !s)
+                            ) {
+                                let h = nt
+                                h?.isEditable &&
+                                    setTimeout(() => {
+                                        let p = h.state.selection
+                                        p &&
+                                            h.commands.deleteRange({
+                                                from: p.from,
+                                                to: p.to,
+                                            })
+                                    }, 10)
+                            }
+                            return !1
+                        },
+                        paste: (f, d) => {
+                            var h
+                            let p =
+                                (h = d.clipboardData) == null
+                                    ? void 0
+                                    : h.getData('text/html')
+                            return (
+                                (o = d),
+                                (i = !!p?.includes('data-pm-slice')),
+                                !1
+                            )
+                        },
+                    },
+                },
+                appendTransaction: (f, d, h) => {
+                    let p = f[0],
+                        m = p.getMeta('uiEvent') === 'paste' && !i,
+                        g = p.getMeta('uiEvent') === 'drop' && !s,
+                        y = p.getMeta('applyPasteRules'),
+                        v = !!y
+                    if (!m && !g && !v) return
+                    if (v) {
+                        let { text: b } = y
+                        typeof b == 'string'
+                            ? (b = b)
+                            : (b = Or(w.from(b), h.schema))
+                        let { from: R } = y,
+                            O = R + b.length,
+                            F = Jo(b)
+                        return a({
+                            rule: u,
+                            state: h,
+                            from: R,
+                            to: { b: O },
+                            pasteEvt: F,
+                        })
+                    }
+                    let S = d.doc.content.findDiffStart(h.doc.content),
+                        E = d.doc.content.findDiffEnd(h.doc.content)
+                    if (!(!Bo(S) || !E || S === E.b))
+                        return a({
+                            rule: u,
+                            state: h,
+                            from: S,
+                            to: E,
+                            pasteEvt: o,
+                        })
+                },
+            }),
+    )
+}
+var nn = class {
+    constructor(r, e) {
+        ;((this.splittableMarks = []),
+            (this.editor = e),
+            (this.baseExtensions = r),
+            (this.extensions = Pr(r)),
+            (this.schema = eo(this.extensions, e)),
+            this.setupExtensions())
+    }
+    get commands() {
+        return this.extensions.reduce((r, e) => {
+            let t = {
+                    name: e.name,
+                    options: e.options,
+                    storage: this.editor.extensionStorage[e.name],
+                    editor: this.editor,
+                    type: Pe(e.name, this.schema),
+                },
+                n = x(e, 'addCommands', t)
+            return n ? { ...r, ...n() } : r
+        }, {})
+    }
+    get plugins() {
+        let { editor: r } = this
+        return De([...this.extensions].reverse()).flatMap((n) => {
+            let i = {
+                    name: n.name,
+                    options: n.options,
+                    storage: this.editor.extensionStorage[n.name],
+                    editor: r,
+                    type: Pe(n.name, this.schema),
+                },
+                s = [],
+                o = x(n, 'addKeyboardShortcuts', i),
+                l = {}
+            if (
+                (n.type === 'mark' &&
+                    x(n, 'exitable', i) &&
+                    (l.ArrowRight = () =>
+                        tn.handleExit({ editor: r, mark: n })),
+                o)
+            ) {
+                let d = Object.fromEntries(
+                    Object.entries(o()).map(([h, p]) => [
+                        h,
+                        () => p({ editor: r }),
+                    ]),
+                )
+                l = { ...l, ...d }
+            }
+            let a = mr(l)
+            s.push(a)
+            let c = x(n, 'addInputRules', i)
+            if (Mr(n, r.options.enableInputRules) && c) {
+                let d = c()
+                if (d && d.length) {
+                    let h = Po({ editor: r, rules: d }),
+                        p = Array.isArray(h) ? h : [h]
+                    s.push(...p)
+                }
+            }
+            let u = x(n, 'addPasteRules', i)
+            if (Mr(n, r.options.enablePasteRules) && u) {
+                let d = u()
+                if (d && d.length) {
+                    let h = Wo({ editor: r, rules: d })
+                    s.push(...h)
+                }
+            }
+            let f = x(n, 'addProseMirrorPlugins', i)
+            if (f) {
+                let d = f()
+                s.push(...d)
+            }
+            return s
+        })
+    }
+    get attributes() {
+        return zr(this.extensions)
+    }
+    get nodeViews() {
+        let { editor: r } = this,
+            { nodeExtensions: e } = xe(this.extensions)
+        return Object.fromEntries(
+            e
+                .filter((t) => !!x(t, 'addNodeView'))
+                .map((t) => {
+                    let n = this.attributes.filter((a) => a.type === t.name),
+                        i = {
+                            name: t.name,
+                            options: t.options,
+                            storage: this.editor.extensionStorage[t.name],
+                            editor: r,
+                            type: J(t.name, this.schema),
+                        },
+                        s = x(t, 'addNodeView', i)
+                    if (!s) return []
+                    let o = s()
+                    if (!o) return []
+                    let l = (a, c, u, f, d) => {
+                        let h = ot(a, n)
+                        return o({
+                            node: a,
+                            view: c,
+                            getPos: u,
+                            decorations: f,
+                            innerDecorations: d,
+                            editor: r,
+                            extension: t,
+                            HTMLAttributes: h,
+                        })
+                    }
+                    return [t.name, l]
+                }),
+        )
+    }
+    dispatchTransaction(r) {
+        let { editor: e } = this
+        return De([...this.extensions].reverse()).reduceRight((n, i) => {
+            let s = {
+                    name: i.name,
+                    options: i.options,
+                    storage: this.editor.extensionStorage[i.name],
+                    editor: e,
+                    type: Pe(i.name, this.schema),
+                },
+                o = x(i, 'dispatchTransaction', s)
+            return o
+                ? (l) => {
+                      o.call(s, { transaction: l, next: n })
+                  }
+                : n
+        }, r)
+    }
+    transformPastedHTML(r) {
+        let { editor: e } = this
+        return De([...this.extensions]).reduce(
+            (n, i) => {
+                let s = {
+                        name: i.name,
+                        options: i.options,
+                        storage: this.editor.extensionStorage[i.name],
+                        editor: e,
+                        type: Pe(i.name, this.schema),
+                    },
+                    o = x(i, 'transformPastedHTML', s)
+                return o
+                    ? (l, a) => {
+                          let c = n(l, a)
+                          return o.call(s, c)
+                      }
+                    : n
+            },
+            r || ((n) => n),
+        )
+    }
+    get markViews() {
+        let { editor: r } = this,
+            { markExtensions: e } = xe(this.extensions)
+        return Object.fromEntries(
+            e
+                .filter((t) => !!x(t, 'addMarkView'))
+                .map((t) => {
+                    let n = this.attributes.filter((l) => l.type === t.name),
+                        i = {
+                            name: t.name,
+                            options: t.options,
+                            storage: this.editor.extensionStorage[t.name],
+                            editor: r,
+                            type: ne(t.name, this.schema),
+                        },
+                        s = x(t, 'addMarkView', i)
+                    if (!s) return []
+                    let o = (l, a, c) => {
+                        let u = ot(l, n)
+                        return s()({
+                            mark: l,
+                            view: a,
+                            inline: c,
+                            editor: r,
+                            extension: t,
+                            HTMLAttributes: u,
+                            updateAttributes: (f) => {
+                                ll(l, r, f)
+                            },
+                        })
+                    }
+                    return [t.name, o]
+                }),
+        )
+    }
+    destroy() {
+        ;(this.extensions.forEach((r) => {
+            let e = r
+            for (; e.parent; ) {
+                let t = e.parent
+                ;(t.child === e && (t.child = null), (e = t))
+            }
+        }),
+            (this.extensions = []),
+            (this.baseExtensions = []),
+            (this.schema = null),
+            (this.editor = null))
+    }
+    setupExtensions() {
+        let r = this.extensions
+        ;((this.editor.extensionStorage = Object.fromEntries(
+            r.map((e) => [e.name, e.storage]),
+        )),
+            r.forEach((e) => {
+                var t
+                let n = {
+                    name: e.name,
+                    options: e.options,
+                    storage: this.editor.extensionStorage[e.name],
+                    editor: this.editor,
+                    type: Pe(e.name, this.schema),
+                }
+                e.type === 'mark' &&
+                    ((t = N(x(e, 'keepOnSplit', n))) == null || t) &&
+                    this.splittableMarks.push(e.name)
+                let i = x(e, 'onBeforeCreate', n),
+                    s = x(e, 'onCreate', n),
+                    o = x(e, 'onUpdate', n),
+                    l = x(e, 'onSelectionUpdate', n),
+                    a = x(e, 'onTransaction', n),
+                    c = x(e, 'onFocus', n),
+                    u = x(e, 'onBlur', n),
+                    f = x(e, 'onDestroy', n)
+                ;(i && this.editor.on('beforeCreate', i),
+                    s && this.editor.on('create', s),
+                    o && this.editor.on('update', o),
+                    l && this.editor.on('selectionUpdate', l),
+                    a && this.editor.on('transaction', a),
+                    c && this.editor.on('focus', c),
+                    u && this.editor.on('blur', u),
+                    f && this.editor.on('destroy', f))
+            }))
+    }
+}
+nn.resolve = Pr
+nn.sort = De
+nn.flatten = Zt
+var Ho = {}
+Ut(Ho, {
+    ClipboardTextSerializer: () => jo,
+    Commands: () => Vo,
+    Delete: () => _o,
+    Drop: () => Ko,
+    Editable: () => Uo,
+    FocusEvents: () => qo,
+    Keymap: () => Xo,
+    Paste: () => Yo,
+    Tabindex: () => Go,
+    TextDirection: () => Qo,
+    focusEventsPluginKey: () => Wr,
+})
+var G = class Jr extends Lr {
+        constructor() {
+            ;(super(...arguments), (this.type = 'extension'))
+        }
+        static create(e = {}) {
+            let t = typeof e == 'function' ? e() : e
+            return new Jr(t)
+        }
+        configure(e) {
+            return super.configure(e)
+        }
+        extend(e) {
+            let t = typeof e == 'function' ? e() : e
+            return super.extend(t)
+        }
+    },
+    jo = G.create({
+        name: 'clipboardTextSerializer',
+        addOptions() {
+            return { blockSeparator: void 0 }
+        },
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('clipboardTextSerializer'),
+                    props: {
+                        clipboardTextSerializer: () => {
+                            let { editor: r } = this,
+                                { state: e, schema: t } = r,
+                                { doc: n, selection: i } = e,
+                                { ranges: s } = i,
+                                o = Math.min(...s.map((u) => u.$from.pos)),
+                                l = Math.max(...s.map((u) => u.$to.pos)),
+                                a = ro(t)
+                            return no(
+                                n,
+                                { from: o, to: l },
+                                {
+                                    ...(this.options.blockSeparator !== void 0
+                                        ? {
+                                              blockSeparator:
+                                                  this.options.blockSeparator,
+                                          }
+                                        : {}),
+                                    textSerializers: a,
+                                },
+                            )
+                        },
+                    },
+                }),
+            ]
+        },
+    }),
+    Vo = G.create({
+        name: 'commands',
+        addCommands() {
+            return { ...Tr }
+        },
+    }),
+    _o = G.create({
+        name: 'delete',
+        onUpdate({ transaction: r, appendedTransactions: e }) {
+            var t, n, i
+            let s = () => {
+                var o, l, a, c
+                if (
+                    (c =
+                        (a =
+                            (l =
+                                (o =
+                                    this.editor.options.coreExtensionOptions) ==
+                                null
+                                    ? void 0
+                                    : o.delete) == null
+                                ? void 0
+                                : l.filterTransaction) == null
+                            ? void 0
+                            : a.call(l, r)) != null
+                        ? c
+                        : r.getMeta('y-sync$')
+                )
+                    return
+                let u = Us(r.before, [r, ...e])
+                oo(u).forEach((h) => {
+                    u.mapping.mapResult(h.oldRange.from).deletedAfter &&
+                        u.mapping.mapResult(h.oldRange.to).deletedBefore &&
+                        u.before.nodesBetween(
+                            h.oldRange.from,
+                            h.oldRange.to,
+                            (p, m) => {
+                                let g = m + p.nodeSize - 2,
+                                    y =
+                                        h.oldRange.from <= m &&
+                                        g <= h.oldRange.to
+                                this.editor.emit('delete', {
+                                    type: 'node',
+                                    node: p,
+                                    from: m,
+                                    to: g,
+                                    newFrom: u.mapping.map(m),
+                                    newTo: u.mapping.map(g),
+                                    deletedRange: h.oldRange,
+                                    newRange: h.newRange,
+                                    partial: !y,
+                                    editor: this.editor,
+                                    transaction: r,
+                                    combinedTransform: u,
+                                })
+                            },
+                        )
+                })
+                let d = u.mapping
+                u.steps.forEach((h, p) => {
+                    var m, g
+                    if (h instanceof Z) {
+                        let y = d.slice(p).map(h.from, -1),
+                            v = d.slice(p).map(h.to),
+                            S = d.invert().map(y, -1),
+                            E = d.invert().map(v),
+                            b =
+                                y > 0
+                                    ? (m = u.doc.nodeAt(y - 1)) == null
+                                        ? void 0
+                                        : m.marks.some((O) => O.eq(h.mark))
+                                    : !1,
+                            R =
+                                (g = u.doc.nodeAt(v)) == null
+                                    ? void 0
+                                    : g.marks.some((O) => O.eq(h.mark))
+                        this.editor.emit('delete', {
+                            type: 'mark',
+                            mark: h.mark,
+                            from: h.from,
+                            to: h.to,
+                            deletedRange: { from: S, to: E },
+                            newRange: { from: y, to: v },
+                            partial: !!(R || b),
+                            editor: this.editor,
+                            transaction: r,
+                            combinedTransform: u,
+                        })
+                    }
+                })
+            }
+            ;(i =
+                (n =
+                    (t = this.editor.options.coreExtensionOptions) == null
+                        ? void 0
+                        : t.delete) == null
+                    ? void 0
+                    : n.async) == null || i
+                ? setTimeout(s, 0)
+                : s()
+        },
+    }),
+    Ko = G.create({
+        name: 'drop',
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('tiptapDrop'),
+                    props: {
+                        handleDrop: (r, e, t, n) => {
+                            this.editor.emit('drop', {
+                                editor: this.editor,
+                                event: e,
+                                slice: t,
+                                moved: n,
+                            })
+                        },
+                    },
+                }),
+            ]
+        },
+    }),
+    Uo = G.create({
+        name: 'editable',
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('editable'),
+                    props: { editable: () => this.editor.options.editable },
+                }),
+            ]
+        },
+    }),
+    Wr = new B('focusEvents'),
+    qo = G.create({
+        name: 'focusEvents',
+        addProseMirrorPlugins() {
+            let { editor: r } = this
+            return [
+                new I({
+                    key: Wr,
+                    props: {
+                        handleDOMEvents: {
+                            focus: (e, t) => {
+                                r.isFocused = !0
+                                let n = r.state.tr
+                                    .setMeta('focus', { event: t })
+                                    .setMeta('addToHistory', !1)
+                                return (e.dispatch(n), !1)
+                            },
+                            blur: (e, t) => {
+                                r.isFocused = !1
+                                let n = r.state.tr
+                                    .setMeta('blur', { event: t })
+                                    .setMeta('addToHistory', !1)
+                                return (e.dispatch(n), !1)
+                            },
+                        },
+                    },
+                }),
+            ]
+        },
+    }),
+    Xo = G.create({
+        name: 'keymap',
+        addKeyboardShortcuts() {
+            let r = () =>
+                    this.editor.commands.first(({ commands: o }) => [
+                        () => o.undoInputRule(),
+                        () =>
+                            o.command(({ tr: l }) => {
+                                let { selection: a, doc: c } = l,
+                                    { empty: u, $anchor: f } = a,
+                                    { pos: d, parent: h } = f,
+                                    p =
+                                        f.parent.isTextblock && d > 0
+                                            ? l.doc.resolve(d - 1)
+                                            : f,
+                                    m = p.parent.type.spec.isolating,
+                                    g = f.pos - f.parentOffset,
+                                    y =
+                                        m && p.parent.childCount === 1
+                                            ? g === f.pos
+                                            : M.atStart(c).from === d
+                                return !u ||
+                                    !h.type.isTextblock ||
+                                    h.textContent.length ||
+                                    !y ||
+                                    (y && f.parent.type.name === 'paragraph')
+                                    ? !1
+                                    : o.clearNodes()
+                            }),
+                        () => o.deleteSelection(),
+                        () => o.joinBackward(),
+                        () => o.selectNodeBackward(),
+                    ]),
+                e = () =>
+                    this.editor.commands.first(({ commands: o }) => [
+                        () => o.deleteSelection(),
+                        () => o.deleteCurrentNode(),
+                        () => o.joinForward(),
+                        () => o.selectNodeForward(),
+                    ]),
+                n = {
+                    Enter: () =>
+                        this.editor.commands.first(({ commands: o }) => [
+                            () => o.newlineInCode(),
+                            () => o.createParagraphNear(),
+                            () => o.liftEmptyBlock(),
+                            () => o.splitBlock(),
+                        ]),
+                    'Mod-Enter': () => this.editor.commands.exitCode(),
+                    Backspace: r,
+                    'Mod-Backspace': r,
+                    'Shift-Backspace': r,
+                    Delete: e,
+                    'Mod-Delete': e,
+                    'Mod-a': () => this.editor.commands.selectAll(),
+                },
+                i = { ...n },
+                s = {
+                    ...n,
+                    'Ctrl-h': r,
+                    'Alt-Backspace': r,
+                    'Ctrl-d': e,
+                    'Ctrl-Alt-Backspace': e,
+                    'Alt-Delete': e,
+                    'Alt-d': e,
+                    'Ctrl-a': () => this.editor.commands.selectTextblockStart(),
+                    'Ctrl-e': () => this.editor.commands.selectTextblockEnd(),
+                }
+            return st() || Ir() ? s : i
+        },
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('clearDocument'),
+                    appendTransaction: (r, e, t) => {
+                        if (r.some((m) => m.getMeta('composition'))) return
+                        let n = r.some((m) => m.docChanged) && !e.doc.eq(t.doc),
+                            i = r.some((m) => m.getMeta('preventClearDocument'))
+                        if (!n || i) return
+                        let { empty: s, from: o, to: l } = e.selection,
+                            a = M.atStart(e.doc).from,
+                            c = M.atEnd(e.doc).to
+                        if (s || !(o === a && l === c) || !Br(t.doc)) return
+                        let d = t.tr,
+                            h = lt({ state: t, transaction: d }),
+                            { commands: p } = new qt({
+                                editor: this.editor,
+                                state: h,
+                            })
+                        if ((p.clearNodes(), !!d.steps.length)) return d
+                    },
+                }),
+            ]
+        },
+    }),
+    Yo = G.create({
+        name: 'paste',
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('tiptapPaste'),
+                    props: {
+                        handlePaste: (r, e, t) => {
+                            this.editor.emit('paste', {
+                                editor: this.editor,
+                                event: e,
+                                slice: t,
+                            })
+                        },
+                    },
+                }),
+            ]
+        },
+    }),
+    Go = G.create({
+        name: 'tabindex',
+        addOptions() {
+            return { value: void 0 }
+        },
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('tabindex'),
+                    props: {
+                        attributes: () => {
+                            var r
+                            return !this.editor.isEditable &&
+                                this.options.value === void 0
+                                ? {}
+                                : {
+                                      tabindex:
+                                          (r = this.options.value) != null
+                                              ? r
+                                              : '0',
+                                  }
+                        },
+                    },
+                }),
+            ]
+        },
+    }),
+    Qo = G.create({
+        name: 'textDirection',
+        addOptions() {
+            return { direction: void 0 }
+        },
+        addGlobalAttributes() {
+            if (!this.options.direction) return []
+            let { nodeExtensions: r } = xe(this.extensions)
+            return [
+                {
+                    types: r
+                        .filter((e) => e.name !== 'text')
+                        .map((e) => e.name),
+                    attributes: {
+                        dir: {
+                            default: this.options.direction,
+                            parseHTML: (e) => {
+                                let t = e.getAttribute('dir')
+                                return t &&
+                                    (t === 'ltr' || t === 'rtl' || t === 'auto')
+                                    ? t
+                                    : this.options.direction
+                            },
+                            renderHTML: (e) => (e.dir ? { dir: e.dir } : {}),
+                        },
+                    },
+                },
+            ]
+        },
+        addProseMirrorPlugins() {
+            return [
+                new I({
+                    key: new B('textDirection'),
+                    props: {
+                        attributes: () => {
+                            let r = this.options.direction
+                            return r ? { dir: r } : {}
+                        },
+                    },
+                }),
+            ]
+        },
+    })
+function Hr(r) {
+    return new Oo({
+        find: r.find,
+        handler: ({ state: e, range: t, match: n }) => {
+            let i = N(r.getAttributes, void 0, n)
+            if (i === !1 || i === null) return null
+            let { tr: s } = e,
+                o = n[n.length - 1],
+                l = n[0]
+            if (o) {
+                let a = l.search(/\S/),
+                    c = t.from + l.indexOf(o),
+                    u = c + o.length
+                if (
+                    Dr(t.from, t.to, e.doc)
+                        .filter((h) =>
+                            h.mark.type.excluded.find(
+                                (m) => m === r.type && m !== h.mark.type,
+                            ),
+                        )
+                        .filter((h) => h.to > c).length
+                )
+                    return null
+                ;(u < t.to && s.delete(u, t.to),
+                    c > t.from && s.delete(t.from + a, c))
+                let d = t.from + a + o.length
+                ;(s.addMark(t.from + a, d, r.type.create(i || {})),
+                    s.removeStoredMark(r.type))
+            }
+        },
+        undoable: r.undoable,
+    })
+}
+function jr(r, e) {
+    let t = r.getAttribute('style')
+    if (!t) return null
+    let n = t
+            .split(';')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        i = e.toLowerCase()
+    for (let s = n.length - 1; s >= 0; s -= 1) {
+        let o = n[s],
+            l = o.indexOf(':')
+        if (l === -1) continue
+        if (o.slice(0, l).trim().toLowerCase() === i)
+            return o.slice(l + 1).trim()
+    }
+    return null
+}
+var Zo = {}
+Ut(Zo, {
+    createAtomBlockMarkdownSpec: () => el,
+    createBlockMarkdownSpec: () => tl,
+    createInlineMarkdownSpec: () => il,
+    parseAttributes: () => rn,
+    parseIndentedBlocks: () => sl,
+    renderNestedMarkdownContent: () => ol,
+    serializeAttributes: () => sn,
+})
+function rn(r) {
+    if (!r?.trim()) return {}
+    let e = {},
+        t = [],
+        n = r.replace(
+            /["']([^"']*)["']/g,
+            (c) => (t.push(c), `__QUOTED_${t.length - 1}__`),
+        ),
+        i = n.match(/(?:^|\s)\.([a-zA-Z][\w-]*)/g)
+    if (i) {
+        let c = i.map((u) => u.trim().slice(1))
+        e.class = c.join(' ')
+    }
+    let s = n.match(/(?:^|\s)#([a-zA-Z][\w-]*)/)
+    s && (e.id = s[1])
+    let o = /([a-zA-Z][\w-]*)\s*=\s*(__QUOTED_\d+__)/g
+    Array.from(n.matchAll(o)).forEach(([, c, u]) => {
+        var f
+        let d = parseInt(
+                ((f = u.match(/__QUOTED_(\d+)__/)) == null ? void 0 : f[1]) ||
+                    '0',
+                10,
+            ),
+            h = t[d]
+        h && (e[c] = h.slice(1, -1))
+    })
+    let a = n
+        .replace(/(?:^|\s)\.([a-zA-Z][\w-]*)/g, '')
+        .replace(/(?:^|\s)#([a-zA-Z][\w-]*)/g, '')
+        .replace(/([a-zA-Z][\w-]*)\s*=\s*__QUOTED_\d+__/g, '')
+        .trim()
+    return (
+        a &&
+            a
+                .split(/\s+/)
+                .filter(Boolean)
+                .forEach((u) => {
+                    u.match(/^[a-zA-Z][\w-]*$/) && (e[u] = !0)
+                }),
+        e
+    )
+}
+function sn(r) {
+    if (!r || Object.keys(r).length === 0) return ''
+    let e = []
+    return (
+        r.class &&
+            String(r.class)
+                .split(/\s+/)
+                .filter(Boolean)
+                .forEach((n) => e.push(`.${n}`)),
+        r.id && e.push(`#${r.id}`),
+        Object.entries(r).forEach(([t, n]) => {
+            t === 'class' ||
+                t === 'id' ||
+                (n === !0
+                    ? e.push(t)
+                    : n !== !1 && n != null && e.push(`${t}="${String(n)}"`))
+        }),
+        e.join(' ')
+    )
+}
+function el(r) {
+    let {
+            nodeName: e,
+            name: t,
+            parseAttributes: n = rn,
+            serializeAttributes: i = sn,
+            defaultAttributes: s = {},
+            requiredAttributes: o = [],
+            allowedAttributes: l,
+        } = r,
+        a = t || e,
+        c = (u) => {
+            if (!l) return u
+            let f = {}
+            return (
+                l.forEach((d) => {
+                    d in u && (f[d] = u[d])
+                }),
+                f
+            )
+        }
+    return {
+        parseMarkdown: (u, f) => {
+            let d = { ...s, ...u.attributes }
+            return f.createNode(e, d, [])
+        },
+        markdownTokenizer: {
+            name: e,
+            level: 'block',
+            start(u) {
+                var f
+                let d = new RegExp(`^:::${a}(?:\\s|$)`, 'm'),
+                    h = (f = u.match(d)) == null ? void 0 : f.index
+                return h !== void 0 ? h : -1
+            },
+            tokenize(u, f, d) {
+                let h = new RegExp(
+                        `^:::${a}(?:\\s+\\{([^}]*)\\})?\\s*:::(?:\\n|$)`,
+                    ),
+                    p = u.match(h)
+                if (!p) return
+                let m = p[1] || '',
+                    g = n(m)
+                if (!o.find((v) => !(v in g)))
+                    return { type: e, raw: p[0], attributes: g }
+            },
+        },
+        renderMarkdown: (u) => {
+            let f = c(u.attrs || {}),
+                d = i(f),
+                h = d ? ` {${d}}` : ''
+            return `:::${a}${h} :::`
+        },
+    }
+}
+function tl(r) {
+    let {
+            nodeName: e,
+            name: t,
+            getContent: n,
+            parseAttributes: i = rn,
+            serializeAttributes: s = sn,
+            defaultAttributes: o = {},
+            content: l = 'block',
+            allowedAttributes: a,
+        } = r,
+        c = t || e,
+        u = (f) => {
+            if (!a) return f
+            let d = {}
+            return (
+                a.forEach((h) => {
+                    h in f && (d[h] = f[h])
+                }),
+                d
+            )
+        }
+    return {
+        parseMarkdown: (f, d) => {
+            let h
+            if (n) {
+                let m = n(f)
+                h = typeof m == 'string' ? [{ type: 'text', text: m }] : m
+            } else
+                l === 'block'
+                    ? (h = d.parseChildren(f.tokens || []))
+                    : (h = d.parseInline(f.tokens || []))
+            let p = { ...o, ...f.attributes }
+            return d.createNode(e, p, h)
+        },
+        markdownTokenizer: {
+            name: e,
+            level: 'block',
+            start(f) {
+                var d
+                let h = new RegExp(`^:::${c}`, 'm'),
+                    p = (d = f.match(h)) == null ? void 0 : d.index
+                return p !== void 0 ? p : -1
+            },
+            tokenize(f, d, h) {
+                var p
+                let m = new RegExp(`^:::${c}(?:\\s+\\{([^}]*)\\})?\\s*\\n`),
+                    g = f.match(m)
+                if (!g) return
+                let [y, v = ''] = g,
+                    S = i(v),
+                    E = 1,
+                    b = y.length,
+                    R = '',
+                    O = /^:::([\w-]*)(\s.*)?/gm,
+                    F = f.slice(b)
+                for (O.lastIndex = 0; ; ) {
+                    let W = O.exec(F)
+                    if (W === null) break
+                    let V = W.index,
+                        ve = W[1]
+                    if (!((p = W[2]) != null && p.endsWith(':::'))) {
+                        if (ve) E += 1
+                        else if (((E -= 1), E === 0)) {
+                            let ie = F.slice(0, V)
+                            R = ie.trim()
+                            let X = f.slice(0, b + V + W[0].length),
+                                _ = []
+                            if (R)
+                                if (l === 'block')
+                                    for (
+                                        _ = h.blockTokens(ie),
+                                            _.forEach((j) => {
+                                                j.text &&
+                                                    (!j.tokens ||
+                                                        j.tokens.length ===
+                                                            0) &&
+                                                    (j.tokens = h.inlineTokens(
+                                                        j.text,
+                                                    ))
+                                            });
+                                        _.length > 0;
+                                    ) {
+                                        let j = _[_.length - 1]
+                                        if (
+                                            j.type === 'paragraph' &&
+                                            (!j.text || j.text.trim() === '')
+                                        )
+                                            _.pop()
+                                        else break
+                                    }
+                                else _ = h.inlineTokens(R)
+                            return {
+                                type: e,
+                                raw: X,
+                                attributes: S,
+                                content: R,
+                                tokens: _,
+                            }
+                        }
+                    }
+                }
+            },
+        },
+        renderMarkdown: (f, d) => {
+            let h = u(f.attrs || {}),
+                p = s(h),
+                m = p ? ` {${p}}` : '',
+                g = d.renderChildren(
+                    f.content || [],
+                    `
+
+`,
+                )
+            return `:::${c}${m}
+
+${g}
+
+:::`
+        },
+    }
+}
+function nl(r) {
+    if (!r.trim()) return {}
+    let e = {},
+        t = /(\w+)=(?:"([^"]*)"|'([^']*)')/g,
+        n = t.exec(r)
+    for (; n !== null; ) {
+        let [, i, s, o] = n
+        ;((e[i] = s || o), (n = t.exec(r)))
+    }
+    return e
+}
+function rl(r) {
+    return Object.entries(r)
+        .filter(([, e]) => e != null)
+        .map(([e, t]) => `${e}="${t}"`)
+        .join(' ')
+}
+function il(r) {
+    let {
+            nodeName: e,
+            name: t,
+            getContent: n,
+            parseAttributes: i = nl,
+            serializeAttributes: s = rl,
+            defaultAttributes: o = {},
+            selfClosing: l = !1,
+            allowedAttributes: a,
+        } = r,
+        c = t || e,
+        u = (d) => {
+            if (!a) return d
+            let h = {}
+            return (
+                a.forEach((p) => {
+                    let m = typeof p == 'string' ? p : p.name,
+                        g = typeof p == 'string' ? void 0 : p.skipIfDefault
+                    if (m in d) {
+                        let y = d[m]
+                        if (g !== void 0 && y === g) return
+                        h[m] = y
+                    }
+                }),
+                h
+            )
+        },
+        f = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return {
+        parseMarkdown: (d, h) => {
+            let p = { ...o, ...d.attributes }
+            if (l) return h.createNode(e, p)
+            let m = n ? n(d) : d.content || ''
+            return m
+                ? h.createNode(e, p, [h.createTextNode(m)])
+                : h.createNode(e, p, [])
+        },
+        markdownTokenizer: {
+            name: e,
+            level: 'inline',
+            start(d) {
+                let h = l
+                        ? new RegExp(`\\[${f}\\s*[^\\]]*\\]`)
+                        : new RegExp(
+                              `\\[${f}\\s*[^\\]]*\\][\\s\\S]*?\\[\\/${f}\\]`,
+                          ),
+                    p = d.match(h),
+                    m = p?.index
+                return m !== void 0 ? m : -1
+            },
+            tokenize(d, h, p) {
+                let m = l
+                        ? new RegExp(`^\\[${f}\\s*([^\\]]*)\\]`)
+                        : new RegExp(
+                              `^\\[${f}\\s*([^\\]]*)\\]([\\s\\S]*?)\\[\\/${f}\\]`,
+                          ),
+                    g = d.match(m)
+                if (!g) return
+                let y = '',
+                    v = ''
+                if (l) {
+                    let [, E] = g
+                    v = E
+                } else {
+                    let [, E, b] = g
+                    ;((v = E), (y = b || ''))
+                }
+                let S = i(v.trim())
+                return { type: e, raw: g[0], content: y.trim(), attributes: S }
+            },
+        },
+        renderMarkdown: (d) => {
+            let h = ''
+            n
+                ? (h = n(d))
+                : d.content &&
+                  d.content.length > 0 &&
+                  (h = d.content
+                      .filter((y) => y.type === 'text')
+                      .map((y) => y.text)
+                      .join(''))
+            let p = u(d.attrs || {}),
+                m = s(p),
+                g = m ? ` ${m}` : ''
+            return l ? `[${c}${g}]` : `[${c}${g}]${h}[/${c}]`
+        },
+    }
+}
+function sl(r, e, t) {
+    var n, i, s, o
+    let l = r.split(`
+`),
+        a = [],
+        c = '',
+        u = 0,
+        f = e.baseIndentSize || 2
+    for (; u < l.length; ) {
+        let d = l[u],
+            h = d.match(e.itemPattern)
+        if (!h) {
+            if (a.length > 0) break
+            if (d.trim() === '') {
+                ;((u += 1),
+                    (c = `${c}${d}
+`))
+                continue
+            } else return
+        }
+        let p = e.extractItemData(h),
+            { indentLevel: m, mainContent: g } = p
+        c = `${c}${d}
+`
+        let y = [g]
+        for (u += 1; u < l.length; ) {
+            let b = l[u]
+            if (b.trim() === '') {
+                let O = l.slice(u + 1).findIndex((V) => V.trim() !== '')
+                if (O === -1) break
+                if (
+                    (((i =
+                        (n = l[u + 1 + O].match(/^(\s*)/)) == null
+                            ? void 0
+                            : n[1]) == null
+                        ? void 0
+                        : i.length) || 0) > m
+                ) {
+                    ;(y.push(b),
+                        (c = `${c}${b}
+`),
+                        (u += 1))
+                    continue
+                } else break
+            }
+            if (
+                (((o = (s = b.match(/^(\s*)/)) == null ? void 0 : s[1]) == null
+                    ? void 0
+                    : o.length) || 0) > m
+            )
+                (y.push(b),
+                    (c = `${c}${b}
+`),
+                    (u += 1))
+            else break
+        }
+        let v,
+            S = y.slice(1)
+        if (S.length > 0) {
+            let b = S.map((R) => R.slice(m + f)).join(`
+`)
+            b.trim() &&
+                (e.customNestedParser
+                    ? (v = e.customNestedParser(b))
+                    : (v = t.blockTokens(b)))
+        }
+        let E = e.createToken(p, v)
+        a.push(E)
+    }
+    if (a.length !== 0) return { items: a, raw: c }
+}
+function ol(r, e, t, n) {
+    if (!r || !Array.isArray(r.content)) return ''
+    let i = typeof t == 'function' ? t(n) : t,
+        [s, ...o] = r.content,
+        l = e.renderChildren([s]),
+        a = `${i}${l}`
+    return (
+        o &&
+            o.length > 0 &&
+            o.forEach((c, u) => {
+                var f, d
+                let h =
+                    (d =
+                        (f = e.renderChild) == null
+                            ? void 0
+                            : f.call(e, c, u + 1)) != null
+                        ? d
+                        : e.renderChildren([c])
+                if (h != null) {
+                    let p = h
+                        .split(
+                            `
+`,
+                        )
+                        .map((m) => (m ? e.indent(m) : e.indent(''))).join(`
+`)
+                    a +=
+                        c.type === 'paragraph'
+                            ? `
+
+${p}`
+                            : `
+${p}`
+                }
+            }),
+        a
+    )
+}
+function ll(r, e, t = {}) {
+    let { state: n } = e,
+        { doc: i, tr: s } = n,
+        o = r
+    ;(i.descendants((l, a) => {
+        let c = s.mapping.map(a),
+            u = s.mapping.map(a) + l.nodeSize,
+            f = null
+        if (
+            (l.marks.forEach((h) => {
+                if (h !== o) return !1
+                f = h
+            }),
+            !f)
+        )
+            return
+        let d = !1
+        if (
+            (Object.keys(t).forEach((h) => {
+                t[h] !== f.attrs[h] && (d = !0)
+            }),
+            d)
+        ) {
+            let h = r.type.create({ ...r.attrs, ...t })
+            ;(s.removeMark(c, u, r.type), s.addMark(c, u, h))
+        }
+    }),
+        s.docChanged && e.view.dispatch(s))
+}
+function Vr(r) {
+    return new Fo({
+        find: r.find,
+        handler: ({ state: e, range: t, match: n, pasteEvent: i }) => {
+            let s = N(r.getAttributes, void 0, n, i)
+            if (s === !1 || s === null) return null
+            let { tr: o } = e,
+                l = n[n.length - 1],
+                a = n[0],
+                c = t.to
+            if (l) {
+                let u = a.search(/\S/),
+                    f = t.from + a.indexOf(l),
+                    d = f + l.length
+                if (
+                    Dr(t.from, t.to, e.doc)
+                        .filter((m) =>
+                            m.mark.type.excluded.find(
+                                (y) => y === r.type && y !== m.mark.type,
+                            ),
+                        )
+                        .filter((m) => m.to > f).length
+                )
+                    return null
+                ;(d < t.to && o.delete(d, t.to),
+                    f > t.from && o.delete(t.from + u, f),
+                    (c = t.from + u + l.length),
+                    o.addMark(t.from + u, c, r.type.create(s || {})),
+                    (n.index !== void 0 &&
+                        n.input !== void 0 &&
+                        n.index + n[0].length >= n.input.length) ||
+                        o.removeStoredMark(r.type))
+            }
+        },
+    })
+}
+var al = /(?:^|\s)(==(?!\s+==)((?:[^=]+))==(?!\s+==))$/,
+    cl = /(?:^|\s)(==(?!\s+==)((?:[^=]+))==(?!\s+==))/g,
+    ul = tn.create({
+        name: 'highlight',
+        addOptions() {
+            return { multicolor: !1, HTMLAttributes: {} }
+        },
+        addAttributes() {
+            return this.options.multicolor
+                ? {
+                      color: {
+                          default: null,
+                          parseHTML: (r) =>
+                              r.getAttribute('data-color') ||
+                              jr(r, 'background-color') ||
+                              r.style.backgroundColor,
+                          renderHTML: (r) =>
+                              r.color
+                                  ? {
+                                        'data-color': r.color,
+                                        style: `background-color: ${r.color}; color: inherit`,
+                                    }
+                                  : {},
+                      },
+                  }
+                : {}
+        },
+        parseHTML() {
+            return [{ tag: 'mark' }]
+        },
+        renderHTML({ HTMLAttributes: r }) {
+            return ['mark', en(this.options.HTMLAttributes, r), 0]
+        },
+        renderMarkdown: (r, e) => `==${e.renderChildren(r)}==`,
+        parseMarkdown: (r, e) =>
+            e.applyMark('highlight', e.parseInline(r.tokens || [])),
+        markdownTokenizer: {
+            name: 'highlight',
+            level: 'inline',
+            start: (r) => r.indexOf('=='),
+            tokenize(r, e, t) {
+                let i = /^(==)([^=]+)(==)/.exec(r)
+                if (i) {
+                    let s = i[2].trim(),
+                        o = t.inlineTokens(s)
+                    return { type: 'highlight', raw: i[0], text: s, tokens: o }
+                }
+            },
+        },
+        addCommands() {
+            return {
+                setHighlight:
+                    (r) =>
+                    ({ commands: e }) =>
+                        e.setMark(this.name, r),
+                toggleHighlight:
+                    (r) =>
+                    ({ commands: e }) =>
+                        e.toggleMark(this.name, r),
+                unsetHighlight:
+                    () =>
+                    ({ commands: r }) =>
+                        r.unsetMark(this.name),
+            }
+        },
+        addKeyboardShortcuts() {
+            return {
+                'Mod-Shift-h': () => this.editor.commands.toggleHighlight(),
+            }
+        },
+        addInputRules() {
+            return [Hr({ find: al, type: this.type })]
+        },
+        addPasteRules() {
+            return [Vr({ find: cl, type: this.type })]
+        },
+    }),
+    _r = ul
+var mc = _r.configure({ multicolor: !0 })
+export { mc as default }

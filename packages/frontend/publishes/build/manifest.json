@@ -1,0 +1,17 @@
+{
+  "resources/css/capell-frontend.css": {
+    "file": "capell-frontend.css",
+    "name": "capell-frontend",
+    "names": [
+      "capell-frontend.css"
+    ],
+    "src": "resources/css/capell-frontend.css",
+    "isEntry": true
+  },
+  "resources/js/capell-frontend.js": {
+    "file": "assets/capell-frontend-C5MBtfGA.js",
+    "name": "capell-frontend",
+    "src": "resources/js/capell-frontend.js",
+    "isEntry": true
+  }
+}

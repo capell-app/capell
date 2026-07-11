@@ -1,0 +1,11 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Testing\ExtensionTestHarness;
+
+it('has a valid Capell package manifest', function (): void {
+    ExtensionTestHarness::forPath(dirname(__DIR__, 2))
+        ->assertManifestValid()
+        ->assertNoUnsafePublicCache();
+});

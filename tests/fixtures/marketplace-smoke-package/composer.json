@@ -1,0 +1,20 @@
+{
+    "name": "capell-app/marketplace-smoke-qa",
+    "description": "Local Capell marketplace smoke QA fixture.",
+    "type": "library",
+    "license": "proprietary",
+    "autoload": {
+        "psr-4": {
+            "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa\\MarketplaceSmokeQaServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

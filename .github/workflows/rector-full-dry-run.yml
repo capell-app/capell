@@ -1,0 +1,41 @@
+name: Rector Full Dry Run
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '21 4 * * 2'
+
+permissions:
+  contents: read
+
+jobs:
+  rector:
+    name: Rector full dry-run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, phar, simplexml, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Check Composer public files
+        run: php scripts/check-composer-local-paths.php
+
+      - name: Check Composer lock file
+        run: composer run check:composer-lock
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --ansi --optimize-autoloader
+
+      - name: Run full Rector dry-run
+        run: composer rector:all:check

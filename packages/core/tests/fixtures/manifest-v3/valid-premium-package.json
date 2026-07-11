@@ -1,0 +1,125 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/example",
+    "slug": "example",
+    "displayName": "Example",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "description": "Example extension.",
+    "product": {
+        "group": "Developer Tools",
+        "tier": "premium",
+        "bundle": "platform"
+    },
+    "surfaces": ["admin", "frontend"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": ["Vendor\\Example\\Providers\\ExampleServiceProvider"],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [
+        {
+            "type": "admin-page",
+            "class": "Vendor\\Example\\Pages\\ExamplePage",
+            "label": "Example",
+            "permission": "example.view",
+            "managementRoute": "capell.admin.example"
+        },
+        {
+            "type": "route",
+            "class": "Vendor\\Example\\Routes\\ExampleRoutes",
+            "surface": "frontend",
+            "namePrefix": "capell.example"
+        },
+        {
+            "type": "setting",
+            "class": "Vendor\\Example\\Settings\\ExampleSettings",
+            "label": "Example settings"
+        },
+        {
+            "type": "asset",
+            "class": "Vendor\\Example\\Assets\\ExampleAssets",
+            "surface": "frontend"
+        },
+        {
+            "type": "scheduled-job",
+            "class": "Vendor\\Example\\Jobs\\ExampleScheduledJob",
+            "schedule": "daily",
+            "description": "Run example maintenance."
+        },
+        {
+            "type": "health-check",
+            "class": "Vendor\\Example\\Health\\ExampleTablesHealthCheck",
+            "key": "example.tables",
+            "label": "Example tables"
+        },
+        {
+            "type": "frontend-component",
+            "class": "Vendor\\Example\\Components\\ExampleFrontendComponent",
+            "component": "example-card"
+        }
+    ],
+    "database": {
+        "migrations": true,
+        "settings": false,
+        "requiredTables": ["examples"]
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": "capell:example-doctor"
+    },
+    "settings": [],
+    "permissions": ["example.view"],
+    "capabilities": ["example-capability"],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 20,
+        "cacheTags": ["examples"],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": ["site", "locale", "auth"],
+            "sensitiveOutput": true,
+            "invalidationSources": [
+                {
+                    "model": "Vendor\\Example\\Models\\Example",
+                    "events": ["saved", "deleted"]
+                }
+            ],
+            "queueInvalidation": true
+        }
+    },
+    "healthChecks": [
+        {
+            "key": "example.tables",
+            "label": "Example tables",
+            "class": "Vendor\\Example\\Health\\ExampleTablesHealthCheck"
+        }
+    ],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": true
+    },
+    "marketplace": {
+        "summary": "Example extension.",
+        "screenshots": [
+            {
+                "path": "docs/images/example.png",
+                "alt": "Example extension admin page.",
+                "caption": "Example admin workflow."
+            }
+        ],
+        "categories": ["developer-tools"]
+    }
+}

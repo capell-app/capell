@@ -1,0 +1,65 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'sections' => [
+        'quick_setup' => 'Quick setup',
+        'brand' => 'Brand',
+        'header' => 'Header',
+        'surface' => 'Page surface',
+        'footer' => 'Footer',
+        'assets' => 'Assets',
+        'advanced' => 'Advanced',
+    ],
+    'descriptions' => [
+        'identity' => 'Name the theme and set where it appears in theme selectors.',
+        'quick_setup' => 'Choose a preset, icon, preview image, and short editor-facing description.',
+        'brand' => 'Set the colour, corner, and font defaults used by the public theme.',
+        'header' => 'Control the public header component and how it behaves over page content.',
+        'surface' => 'Tune page background, text colour, width, and card density.',
+        'footer' => 'Control the public footer component and default footer copy.',
+        'assets' => 'List frontend assets and build output paths used by this theme.',
+        'advanced' => 'Developer-facing presentation overrides and custom metadata.',
+    ],
+    'fields' => [
+        'primary_color' => 'Primary colour',
+        'accent_color' => 'Accent colour',
+        'neutral_color' => 'Neutral colour',
+        'radius' => 'Radius',
+        'heading_font' => 'Heading font',
+        'body_font' => 'Body font',
+        'enabled' => 'Enabled',
+        'position' => 'Position',
+        'over_hero' => 'Over hero',
+        'component' => 'Component',
+        'surface_color' => 'Surface colour',
+        'foreground_color' => 'Foreground colour',
+        'card_density' => 'Card density',
+        'footer_copy' => 'Footer copy',
+        'asset_paths' => 'Asset paths',
+        'build_path' => 'Build path',
+        'preview_device' => 'Device',
+        'preview_color_mode' => 'Mode',
+    ],
+    'help' => [
+        'asset_paths' => 'One CSS or JS asset path per line.',
+        'build_path' => 'Public build directory for compiled theme assets, such as build or dist.',
+        'order' => 'Lower numbers appear first when editors choose a theme.',
+    ],
+    'options' => [
+        'static' => 'Static',
+        'sticky' => 'Sticky',
+        'fixed' => 'Fixed',
+        'compact' => 'Compact',
+        'comfortable' => 'Comfortable',
+        'desktop' => 'Desktop',
+        'tablet' => 'Tablet',
+        'mobile' => 'Mobile',
+        'light' => 'Light',
+        'dark' => 'Dark',
+    ],
+    'preview' => [
+        'current' => ':device preview, :mode mode',
+    ],
+];

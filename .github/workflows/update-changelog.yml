@@ -1,0 +1,78 @@
+name: 'Update Changelog'
+
+on:
+  release:
+    types: [released, prereleased]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to add to the changelog.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: 4.x
+
+      - name: Prepare changelog inputs
+        id: changelog
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const release = context.payload.release || {};
+            const tagName = release.tag_name
+              || context.payload.inputs?.tag_name
+              || context.ref.replace('refs/tags/', '');
+
+            if (!tagName || tagName === context.ref) {
+              core.setFailed('Unable to determine the release tag name.');
+              return;
+            }
+
+            const targetCommitish = release.target_commitish || '4.x';
+            let releaseNotes = (release.body || '').trim();
+
+            if (!releaseNotes) {
+              core.info(`Release notes are empty for ${tagName}; generating notes from GitHub.`);
+
+              const generated = await github.rest.repos.generateReleaseNotes({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tagName,
+                target_commitish: targetCommitish,
+              });
+
+              releaseNotes = (generated.data.body || '').trim();
+            }
+
+            const releaseDate = release.published_at
+              ? new Date(release.published_at).toISOString().slice(0, 10)
+              : new Date().toISOString().slice(0, 10);
+
+            core.setOutput('latest_version', tagName);
+            core.setOutput('release_notes', releaseNotes);
+            core.setOutput('release_date', releaseDate);
+            core.info(`Prepared changelog inputs for ${tagName}.`);
+
+      - name: Update Changelog
+        uses: stefanzweifel/changelog-updater-action@a938690fad7edf25368f37e43a1ed1b34303eb36 # v1
+        with:
+          latest-version: ${{ steps.changelog.outputs.latest_version }}
+          release-notes: ${{ steps.changelog.outputs.release_notes }}
+          release-date: ${{ steps.changelog.outputs.release_date }}
+
+      - name: Commit updated CHANGELOG
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+        with:
+          branch: 4.x
+          commit_message: Update CHANGELOG
+          file_pattern: CHANGELOG.md

@@ -1,0 +1,90 @@
+parameters:
+    peststan:
+        testCaseClass: PHPUnit\Framework\TestCase
+        pestConfigFiles: []
+    universalObjectCratesClasses:
+        - PHPUnit\Framework\TestCase
+    scanDirectories:
+        - ../vendor/mrpunyapal/peststan/src
+
+parametersSchema:
+    peststan: structure([
+        testCaseClass: string()
+        pestConfigFiles: listOf(string())
+    ])
+
+services:
+    -
+        class: PestStan\Type\Pest\PestFileDiscoverer
+        arguments:
+            scanPaths: %paths%
+            rootDir: %currentWorkingDirectory%
+
+    -
+        class: PestStan\Type\Pest\PestConfigReader
+        arguments:
+            pestConfigFiles: %peststan.pestConfigFiles%
+
+    -
+        class: PestStan\Type\Pest\PestFunctionReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicFunctionReturnTypeExtension
+
+    -
+        class: PestStan\Type\Pest\ExpectationMethodReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicMethodReturnTypeExtension
+
+    -
+        class: PestStan\Type\Pest\OppositeExpectationMethodReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicMethodReturnTypeExtension
+
+    -
+        class: PestStan\Type\Pest\TestClosureThisTypeExtension
+        arguments:
+            testCaseClass: %peststan.testCaseClass%
+        tags:
+            - phpstan.functionParameterClosureThisExtension
+
+    -
+        class: PestStan\Type\Pest\TestCasePropertiesExtension
+        tags:
+            - phpstan.broker.propertiesClassReflectionExtension
+
+    -
+        class: PestStan\Type\Pest\ExpectationPropertiesExtension
+        tags:
+            - phpstan.broker.propertiesClassReflectionExtension
+
+    -
+        class: PestStan\Type\Pest\PestHookPropertyReader
+
+    -
+        class: PestStan\Type\Pest\TestCaseDynamicPropertyTypeExtension
+        tags:
+            - phpstan.broker.expressionTypeResolverExtension
+
+    -
+        class: PestStan\Type\Pest\HigherOrderExpectationTypeExtension
+        tags:
+            - phpstan.broker.expressionTypeResolverExtension
+
+    -
+        class: PestStan\Type\Pest\PestInternalClassAccessIgnoreExtension
+        tags:
+            - phpstan.ignoreErrorExtension
+
+    -
+        class: PestStan\Type\Pest\TestCallMethodsClassReflectionExtension
+        arguments:
+            testCaseClass: %peststan.testCaseClass%
+        tags:
+            - phpstan.broker.methodsClassReflectionExtension
+
+    -
+        class: PestStan\Type\Pest\ProtectedMethodCallIgnoreExtension
+        arguments:
+            testCaseClass: %peststan.testCaseClass%
+        tags:
+            - phpstan.ignoreErrorExtension

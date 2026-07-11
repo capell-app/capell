@@ -1,0 +1,104 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Carbon {
+    // Provide a minimal stub for PHPStan analysis if Carbon\CarbonInterface is not available to the analyser.
+    if (! interface_exists('Carbon\\CarbonInterface')) {
+        interface CarbonInterface {}
+    }
+}
+
+namespace Capell\Tests\Fixtures\Models {
+    // Provide a minimal stub for PHPStan analysis if the User fixture model is not autoloadable in this analysis context.
+    if (! class_exists('Capell\\Tests\\Fixtures\\Models\\User')) {
+        class User extends \Illuminate\Foundation\Auth\User
+        {
+            public function assignRole(mixed ...$roles): self
+            {
+                return $this;
+            }
+        }
+    }
+}
+
+namespace PHPUnit\Framework {
+    /**
+     * @method array<string,mixed> invokeWidgetData(object $widget)
+     * @method \Capell\Tests\Fixtures\Models\User createUser(array<string,mixed> $attributes = [])
+     * @method \Capell\Tests\Fixtures\Models\User createUserWithRole(array<string>|string $roles, array<string,mixed> $attributes = [])
+     * @method \Capell\Tests\Fixtures\Models\User createUserWithPermission(array<string>|string $permissions, array<string,mixed> $attributes = [])
+     * @method \Capell\Tests\Fixtures\Models\User authenticatedUser()
+     * @method $this actingAsRole(string $role, array<string,mixed> $attributes = [])
+     * @method $this actingAsAdmin(array<string,mixed> $attributes = [])
+     * @method $this actingAsUser(array<string,mixed> $attributes = [])
+     * @method $this actingAs(object $user, string|null $guard = null)
+     * @method $this withoutExceptionHandling(array<int, class-string<\Throwable>> $except = [])
+     * @method mixed artisan(string $command, array<string,mixed> $parameters = [])
+     * @method mixed instance(string $abstract, mixed $instance)
+     * @template TMock of object
+     * @method TMock mock(class-string<TMock> $abstract, \Closure|null $mock = null)
+     */
+    class TestCase {}
+}
+
+namespace Illuminate\Testing {
+    /**
+     * @method string content()
+     * @method string getContent()
+     * @method $this assertSeeLivewire(class-string $component)
+     * @method $this assertSuccessful()
+     * @method $this assertHeaderContains(string $headerName, string $value)
+     * @method $this assertDoesntExist(mixed ...$arguments)
+     * @method $this assertElementExists(mixed $selector = 'body', callable|null $callback = null)
+     * @method $this assertSeeInOrder(mixed ...$arguments)
+     * @method $this assertContainsElement(mixed ...$arguments)
+     * @method $this assertCountTableRecords(int $count)
+     * @method $this assertCanSeeTableRecords(mixed $records, bool $inOrder = false)
+     * @method $this assertTableActionExists(mixed ...$arguments)
+     * @method $this assertTableActionHidden(mixed ...$arguments)
+     * @method $this assertTableActionVisible(mixed ...$arguments)
+     * @method $this assertTableBulkActionHidden(mixed ...$arguments)
+     * @method $this assertTableBulkActionVisible(mixed ...$arguments)
+     * @method $this assertSchemaComponentStateSet(mixed ...$arguments)
+     * @method $this assertHasNoFormErrors(mixed ...$arguments)
+     * @method $this call(mixed ...$arguments)
+     * @method $this callAction(mixed ...$arguments)
+     * @method $this fillForm(mixed ...$arguments)
+     * @method mixed instance()
+     * @method $this mountAction(mixed ...$arguments)
+     * @method $this mountTableAction(mixed ...$arguments)
+     * @method $this selectTableRecords(mixed ...$arguments)
+     * @method $this sortTable(mixed ...$arguments)
+     */
+    class TestResponse {}
+}
+
+namespace Pest\PendingCalls {
+    /**
+     * @property string $exportDirectory
+     * @method mixed actingAsAdmin(array<string,mixed> $attributes = [])
+     * @method mixed actingAsUser(array<string,mixed> $attributes = [])
+     * @method mixed actingAsRole(string $role, array<string,mixed> $attributes = [])
+     * @method mixed actingAs(object $user, string|null $guard = null)
+     * @method mixed createUser(array<string,mixed> $attributes = [])
+     * @method mixed createUserWithRole(array<string>|string $roles, array<string,mixed> $attributes = [])
+     * @method mixed createUserWithPermission(array<string>|string $permissions, array<string,mixed> $attributes = [])
+     * @method \Capell\Tests\Fixtures\Models\User authenticatedUser()
+     * @method mixed artisanCommand(string $command, array<string,mixed> $parameters = [])
+     * @method mixed assertWorkspaceDraftableContract(mixed ...$arguments)
+     * @method mixed afterEach(callable $callback)
+     * @method mixed beforeApplicationDestroyed(callable $callback)
+     * @method mixed createNewsletterSite(string $name = 'Newsletter Site')
+     * @method mixed blade(string $template, array<string,mixed> $data = [])
+     * @method mixed createMock(class-string $originalClassName)
+     * @method mixed fail(string $message = '')
+     * @method mixed get(string $uri, array<string,string> $headers = [])
+     * @method mixed getJson(string $uri, array<string,string> $headers = [])
+     * @method mixed instance(string $abstract, mixed $instance)
+     * @method mixed markTestSkipped(string $message = '')
+     * @method mixed registerAndMigrateSettings(mixed ...$arguments)
+     * @method mixed withoutExceptionHandling(array<int, class-string<\Throwable>> $except = [])
+    */
+    class TestCall {}
+}

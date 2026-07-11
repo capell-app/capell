@@ -1,0 +1,157 @@
+<?php
+
+declare(strict_types=1);
+
+// This file declares dynamic macro methods added to Filament classes so PHPStan can analyze usage.
+
+namespace Filament\Actions {
+    /**
+     * @method self checkbox(string $statePath, string|\Closure $labelOn, string|\Closure|null $labelOff = null)
+     * @method self successNotificationBody(string $body)
+     */
+    class Action {}
+}
+
+namespace Filament\Widgets {
+    class Widget
+    {
+        /** @var string */
+        protected string $view;
+
+        /**
+         * Filament accepts responsive column spans such as ['default' => 'full', 'lg' => 1].
+         *
+         * @var int|string|array<string, int|string|null>
+         */
+        protected int|string|array $columnSpan = 1;
+
+        /**
+         * @return int|string|array<string, int|string|null>
+         */
+        public function getColumnSpan(): int|string|array {}
+    }
+}
+
+namespace Filament\Schemas\Components {
+    /**
+     * @method self contained(bool|\Closure $contained = true)
+     */
+    class Component {}
+}
+
+namespace Filament\Schemas {
+    /**
+     * @method bool isCreating()
+     * @method bool isEditing()
+     */
+    class Schema {}
+}
+
+namespace Filament\Forms\Components {
+    /**
+     * @method self helperTooltip(string|\Closure|null $tooltip)
+     * @method self requiredBasedOnType()
+     */
+    class Field {}
+}
+
+namespace Filament\Forms\Components {
+    /**
+     * @method self compactRepeater()
+     */
+    class Repeater {}
+}
+
+namespace Filament\Forms\Components {
+    /**
+     * @method self autoFormat()
+     */
+    class ColorPicker {}
+}
+
+namespace Filament\Forms\Components {
+    /**
+     * @method self autoDefault()
+     */
+    class Select {}
+}
+
+namespace Filament\Forms\Components {
+    /**
+     * @method Field helperCountText()
+     * @method Field uppercase()
+     */
+    class TextInput {}
+}
+
+namespace Filament\Forms\Components {
+    /**
+     * @method Field helperCountText()
+     */
+    class Textarea {}
+}
+
+namespace Filament\Tables\Columns {
+    /**
+     * @method self linkRecord()
+     */
+    class Column {}
+}
+
+namespace Livewire\Features\SupportTesting {
+    /**
+     * @method self assertActionHidden(mixed $actions, array<string, mixed> $arguments = [])
+     * @method self assertActionExists(mixed $actions)
+     * @method self assertActionDoesNotExist(mixed $actions)
+     * @method self assertActionVisible(mixed $actions, array<string, mixed> $arguments = [])
+     * @method self assertCanSeeTableRecords(mixed $records, bool $inOrder = false)
+     * @method self assertCanNotSeeTableRecords(mixed $records, bool $inOrder = false)
+     * @method self assertCountTableRecords(int $count)
+     * @method self assertActionDataSet(mixed ...$arguments)
+     * @method self assertElementExists(mixed $selector = 'body', callable|null $callback = null)
+     * @method self assertFormFieldDoesNotExist(mixed ...$arguments)
+     * @method self assertFormFieldExists(mixed ...$arguments)
+     * @method self assertHasActionErrors(mixed ...$arguments)
+     * @method self assertHasNoFormErrors(mixed ...$arguments)
+     * @method self callAction(mixed $actions, array<string, mixed> $data = [], array<string, mixed> $arguments = [])
+     * @method self assertHasAllFormErrors(array<int, string> $keys = [], string $formName = 'form')
+     * @method self assertHasNoActionErrors()
+     * @method self assertNotified(string|null $title = null)
+     * @method self assertNotNotified(string|null $title = null)
+     * @method self assertOk()
+     * @method self assertRecordCreated()
+     * @method self assertSchemaExists(string $name)
+     * @method self assertSchemaComponentStateSet(mixed ...$arguments)
+     * @method self assertSeeInOrder(mixed ...$arguments)
+     * @method self assertTableActionExists(mixed ...$arguments)
+     * @method self assertTableActionHidden(mixed ...$arguments)
+     * @method self assertTableActionHasUrl(mixed ...$arguments)
+     * @method self assertTableActionVisible(mixed ...$arguments)
+     * @method self assertTableBulkActionHidden(mixed ...$arguments)
+     * @method self assertTableBulkActionVisible(mixed ...$arguments)
+     * @method self assertTableColumnStateSet(mixed ...$arguments)
+     * @method self assertTableFilterExists(mixed ...$arguments)
+     * @method self assertSeeLivewire(class-string $component)
+     * @method self assertSchemaComponentExists(string $key, ?string $schema = null, ?\Closure $checkComponentUsing = null)
+     * @method self assertForbidden()
+     * @method self assertSuccessful()
+     * @method self call(mixed ...$arguments)
+     * @method self fillForm(mixed ...$arguments)
+     * @method mixed instance()
+     * @method self callMountedAction(mixed ...$arguments)
+     * @method self mountAction(mixed $actions, array<string, mixed> $arguments = [])
+     * @method self mountTableAction(mixed ...$arguments)
+     * @method self callTableBulkAction(mixed ...$arguments)
+     * @method self callTableAction(mixed ...$arguments)
+     * @method self assertMountedActionModalSee(mixed ...$arguments)
+     * @method self assertHasFormErrors(mixed ...$arguments)
+     * @method self assertSchemaStateSet(mixed ...$arguments)
+     * @method self filterTable(mixed ...$arguments)
+     * @method self goToNextWizardStep(mixed ...$arguments)
+     * @method self searchTable(mixed ...$arguments)
+     * @method self selectTableRecords(mixed ...$arguments)
+     * @method self sortTable(mixed ...$arguments)
+     * @method self toggleAllTableColumns(bool $show = true)
+     */
+    class Testable {}
+}

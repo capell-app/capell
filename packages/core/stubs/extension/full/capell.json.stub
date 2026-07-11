@@ -1,0 +1,69 @@
+{
+    "manifest-version": 3,
+    "name": "{{ packageName }}",
+    "slug": "{{ slug }}",
+    "displayName": "{{ displayName }}",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "1.0.0",
+    "description": "{{ displayName }} for Capell.",
+    "demo": true,
+    "product": {
+        "group": "{{ displayName }}",
+        "tier": "{{ tier }}",
+        "bundle": null
+    },
+    "namespace": "{{ escapedNamespace }}",
+    "surfaces": ["admin", "frontend", "console", "shared"],
+    "dependencies": {
+        "requires": ["capell-app/core", "capell-app/admin", "capell-app/frontend"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": ["{{ escapedMetadataProvider }}"],
+        "install": ["{{ escapedInstallProvider }}"],
+        "runtime": ["{{ escapedRuntimeProvider }}"],
+        "admin": ["{{ escapedAdminProvider }}"],
+        "frontend": ["{{ escapedFrontendProvider }}"]
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": true,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": "{{ slug }}:example",
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "settings": ["{{ settingsGroup }}"],
+    "permissions": [],
+    "capabilities": ["render-hook", "frontend-assets"],
+    "performance": {
+        "frontendRenderBudgetMs": 10,
+        "adminQueryBudget": 20,
+        "cacheTags": ["{{ slug }}"],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "{{ tier }}",
+        "requestedCertification": "community",
+        "supportPolicy": "community",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "{{ displayName }} safe extension examples for Capell.",
+        "screenshots": [],
+        "categories": ["developer-tools"]
+    }
+}

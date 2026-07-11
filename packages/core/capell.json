@@ -1,0 +1,81 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/core",
+    "slug": "core",
+    "displayName": "Capell Core",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "description": "Core owns sites, pages, languages, types, settings, package registry, and install/upgrade orchestration.",
+    "product": {
+        "group": "Capell Foundation",
+        "tier": "free",
+        "bundle": "foundation"
+    },
+    "namespace": "Capell\\Core",
+    "surfaces": ["admin", "frontend", "console"],
+    "dependencies": {
+        "requires": [],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": [],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": true,
+        "settings": true,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": "capell:doctor"
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [
+        "content-model",
+        "publishing-lifecycle",
+        "extension-api",
+        "installer",
+        "doctor",
+        "upgrade-tooling"
+    ],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 40,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "Core platform contracts, content primitives, package registry, installer, doctor, and upgrade orchestration.",
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Capell Core extension preview image",
+                "caption": "Capell Core extension preview"
+            }
+        ],
+        "categories": ["foundation", "platform"]
+    }
+}

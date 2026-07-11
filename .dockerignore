@@ -1,0 +1,11 @@
+.git
+.idea
+.playwright-cli
+.phpunit.cache
+.phpunit.result.cache
+coverage
+node_modules
+storage/logs
+test-results
+tmp
+vendor

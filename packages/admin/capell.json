@@ -1,0 +1,91 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/admin",
+    "slug": "admin",
+    "displayName": "Capell Admin",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "description": "Admin provides the Filament panel, resources, dashboards, settings UI, users, page editing, media UI, and recovery shell.",
+    "product": {
+        "group": "Capell Foundation",
+        "tier": "free",
+        "bundle": "foundation"
+    },
+    "namespace": "Capell\\Admin",
+    "surfaces": ["admin", "console"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": [],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": true,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": "capell:admin-install",
+        "setup": "capell:admin-setup",
+        "upgrade": "capell:admin-upgrade",
+        "setupParams": [
+            "url",
+            "user",
+            "languages",
+            "sites",
+            "assets",
+            "theme",
+            "skip-panel-integration",
+            "panel",
+            "configurators",
+            "no-colors",
+            "no-widgets",
+            "no-navigation",
+            "skip-permission-sync",
+            "force"
+        ],
+        "demo": null,
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": ["admin-shell", "dashboard", "editor-operations"],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 40,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": ["auth", "role"],
+            "sensitiveOutput": true,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "Filament admin shell, dashboards, resources, settings UI, users, page editing, media UI, and recovery surfaces.",
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Capell Admin extension preview image",
+                "caption": "Capell Admin extension preview"
+            }
+        ],
+        "categories": ["foundation", "admin"]
+    }
+}

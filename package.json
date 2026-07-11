@@ -1,0 +1,33 @@
+{
+    "name": "capell-app",
+    "scripts": {
+        "screenshots": "node scripts/run-core-screenshots.js",
+        "screenshots:check": "node scripts/run-core-screenshots.js --dry-run",
+        "docs:screenshot-coverage": "node scripts/check-doc-screenshot-coverage.js",
+        "docs:filament-action-screenshots": "node scripts/check-filament-action-screenshots.js",
+        "docs:screenshots:check": "node scripts/check-doc-screenshots.js",
+        "docs:publish": "cd ../../../capell-docs && CAPELL_CORE_PATH=../packages/capell/capell-4 npm run sync:local:core && npm run build",
+        "prettier": "npx prettier --write 'packages/**/*.{css,js,yml,json,md,blade.php}'",
+        "eslint": "npx eslint 'packages/*/resources/js/**/*.js' --max-warnings=0",
+        "test:installer-browser": "playwright test packages/installer/tests/Browser",
+        "test:installer-browser:required": "CAPELL_INSTALLER_SMOKE_REQUIRED=true playwright test packages/installer/tests/Browser",
+        "test:demo-smoke": "playwright test packages/frontend/tests/Browser/default-demo-smoke.spec.js",
+        "test:critical-css-layout-parity": "playwright test packages/frontend/tests/Browser/homepage-critical-css-layout-parity.spec.js",
+        "test:demo-smoke:required": "CAPELL_SMOKE_REQUIRED=true playwright test packages/frontend/tests/Browser/default-demo-smoke.spec.js",
+        "test:marketplace-install-flow": "playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium",
+        "test:marketplace-install-flow:required": "CAPELL_MARKETPLACE_SMOKE_REQUIRED=true playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.60.0",
+        "eslint": "^8.56.0",
+        "eslint-config-prettier": "^9.1.0",
+        "playwright": "^1.60.0",
+        "prettier": "^3.5.2",
+        "prettier-plugin-blade": "^2.1.21",
+        "prettier-plugin-tailwindcss": "^0.6.11"
+    },
+    "dependencies": {
+        "@tailwindcss/forms": "^0.5.11",
+        "swiper": "^12.1.2"
+    }
+}

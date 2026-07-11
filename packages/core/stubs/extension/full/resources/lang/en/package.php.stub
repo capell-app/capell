@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'name' => '{{ displayName }}',
+    'command' => [
+        'completed' => '{{ displayName }} example command completed.',
+    ],
+    'public' => [
+        'label' => '{{ displayName }}',
+        'message' => 'This is safe public package output.',
+    ],
+    'settings' => [
+        'label' => '{{ displayName }}',
+        'description' => 'Configure {{ displayName }}.',
+        'navigation_group' => 'Packages',
+        'public_label' => 'Public label',
+    ],
+];

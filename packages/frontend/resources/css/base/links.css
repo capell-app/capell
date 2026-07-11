@@ -1,0 +1,14 @@
+.capell-component :where(a) {
+    text-underline-offset: 0.2em;
+}
+
+.capell-component :where(a:focus-visible) {
+    outline: 2px solid rgb(var(--color-primary, 37 99 235) / 0.42);
+    outline-offset: 3px;
+}
+
+.capell-header-index :where(a),
+.capell-footer-index :where(a),
+.capell-pagination-index :where(a) {
+    text-decoration: none;
+}

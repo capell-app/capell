@@ -1,0 +1,51 @@
+{
+    "name": "capell-app/installer",
+    "description": "Installer ai-orchestrator for the Capell CMS.",
+    "type": "library",
+    "keywords": [
+        "capell",
+        "laravel",
+        "filamentphp",
+        "cms"
+    ],
+    "homepage": "https://github.com/capell-app/capell",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Howdu",
+            "email": "capell.app26@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "ext-intl": "*",
+        "capell-app/core": "self.version",
+        "spatie/laravel-package-tools": "^1.14.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Capell\\Installer\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Capell\\Installer\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Installer\\Providers\\InstallerServiceProvider"
+            ]
+        },
+        "branch-alias": {
+            "dev-main": "4.x-dev"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

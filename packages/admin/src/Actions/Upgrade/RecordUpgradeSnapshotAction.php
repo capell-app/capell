@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Actions\Upgrade;
+
+use Capell\Core\Facades\CapellCore;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsAction;
+
+final class RecordUpgradeSnapshotAction
+{
+    use AsAction;
+
+    private const string UPDATE_ADVISORY_SNAPSHOTS_TABLE = 'marketplace_update_advisory_snapshots';
+
+    /**
+     * @param  array<int, array<string, mixed>>  $updates
+     * @param  array<int, array<string, mixed>>  $advisories
+     * @param  array<string, mixed>  $metadata
+     */
+    public function handle(string $source, array $updates, array $advisories, array $metadata = [], ?string $capellVersion = null): void
+    {
+        if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
+            return;
+        }
+
+        DB::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->insert([
+            'source' => $source,
+            'checked_at' => now(),
+            'capell_version' => $capellVersion ?? CapellCore::getInstalledPrettyVersion('capell-app/capell'),
+            'updates' => json_encode($updates, JSON_THROW_ON_ERROR),
+            'advisories' => json_encode($advisories, JSON_THROW_ON_ERROR),
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+}

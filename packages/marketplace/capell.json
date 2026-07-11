@@ -1,0 +1,83 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/marketplace",
+    "slug": "marketplace",
+    "displayName": "Capell Marketplace",
+    "kind": "package",
+    "visibility": "support",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "description": "Marketplace provides extension browsing, acquisition, and install authorization records.",
+    "product": {
+        "group": "Capell Foundation",
+        "tier": "free",
+        "bundle": "foundation"
+    },
+    "namespace": "Capell\\Marketplace",
+    "surfaces": ["admin", "console"],
+    "dependencies": {
+        "requires": ["capell-app/admin", "capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [
+            "Capell\\Marketplace\\Providers\\MarketplaceServiceProvider"
+        ],
+        "runtime": [],
+        "admin": ["Capell\\Marketplace\\Providers\\MarketplaceServiceProvider"],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": true,
+        "settings": false,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": ["View:ExtensionsPage", "View:MarketplacePage"],
+    "capabilities": [
+        "marketplace-browsing",
+        "install-authorization",
+        "license-plumbing",
+        "update-plumbing"
+    ],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 40,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": ["auth", "role"],
+            "sensitiveOutput": true,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "hidden": true,
+        "summary": "Extension browsing, acquisition, license checks, update plumbing, and install authorization records.",
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Capell Marketplace extension preview image",
+                "caption": "Capell Marketplace extension preview"
+            }
+        ],
+        "categories": ["foundation", "marketplace"]
+    }
+}

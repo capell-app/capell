@@ -1,0 +1,21 @@
+{
+    "label": "Dependent Package",
+    "slug": "dependent-package",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": ["vendor/package"],
+    "description": "Fixture package that depends on vendor/package for uninstall tests.",
+    "icon": null,
+    "url": null,
+    "scopes": [],
+    "commands": {
+        "install": null,
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": null,
+        "setupParams": [],
+        "upgrade": null,
+        "demo": null,
+        "demoParams": []
+    }
+}

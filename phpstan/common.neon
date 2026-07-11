@@ -1,0 +1,52 @@
+includes:
+    - ignore-errors.neon
+
+parameters:
+    level: 8
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: false
+    checkAuthCallsWhenInRequestScope: false
+    checkConfigTypes: false
+    checkExplicitMixedMissingReturn: true
+    checkFunctionNameCase: true
+    checkMissingTranslations: false
+    checkModelMethodVisibility: false
+    checkModelProperties: false
+    checkOctaneCompatibility: false
+    checkUnusedViews: false
+    enableMigrationCache: true
+    generalizeEnvReturnType: true
+    noUnnecessaryEnumerableToArrayCalls: true
+    parseModelCastsMethod: false
+    databaseMigrationsPath:
+        - ../packages/core/database/migrations
+    configDirectories:
+        - ../packages/admin/config
+        - ../packages/admin/publishes/config
+        - ../packages/core/config
+        - ../packages/core/publishes/config
+        - ../packages/frontend/config
+        - ../packages/frontend/publishes/config
+        - ../packages/installer/config
+        - ../packages/marketplace/config
+        - ../packages/welcome-tour/config
+    viewDirectories:
+        - ../packages/admin/resources/views
+        - ../packages/core/resources/views
+        - ../packages/frontend/resources/views
+    type_coverage:
+        param_type: 98.9
+        constant_type: 100
+    stubFiles:
+        - stubs/filament-macros.stub
+        - stubs/blueprint-macros.stub
+        - stubs/auth-user.stub
+        - stubs/macroable.stub
+        - stubs/testcase-helpers.stub
+        - stubs/nestedset-querybuilder.stub
+        - stubs/nestedset-traits.stub
+        - stubs/event-sourcing-fake.stub
+        - stubs/optional-packages.stub
+    scanFiles:
+        - stubs/optional-packages.stub
+        - ../tests/Pest.php

@@ -1,0 +1,64 @@
+{
+    "name": "capell-app/frontend",
+    "description": "Frontend for Capell",
+    "type": "library",
+    "keywords": [
+        "capell-app",
+        "laravel",
+        "frontend",
+        "cms"
+    ],
+    "homepage": "https://github.com/capell-app/capell",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Howdu",
+            "email": "capell.app26@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "ext-dom": "*",
+        "blade-ui-kit/blade-heroicons": "^2.5",
+        "capell-app/core": "self.version",
+        "guzzlehttp/guzzle": "^7.5",
+        "intervention/image": "^3.0",
+        "laravel/framework": "^12.41.1|^13.0",
+        "livewire/livewire": "^3.0|^4.0",
+        "lorisleiva/laravel-actions": "^2.6",
+        "michaloravec/laravel-paginateroute": "^1.0",
+        "spatie/laravel-permission": "^5.0|^6.0",
+        "spatie/laravel-translatable": "^6.0",
+        "symfony/html-sanitizer": "^7.0|^8.0",
+        "voku/html-min": "^4.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Capell\\Frontend\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Capell\\Frontend\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Frontend\\Providers\\FrontendServiceProvider"
+            ]
+        },
+        "branch-alias": {
+            "dev-main": "4.x-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

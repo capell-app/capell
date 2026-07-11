@@ -1,0 +1,92 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/frontend",
+    "slug": "frontend",
+    "displayName": "Capell Frontend",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "description": "Frontend provides public rendering, static HTML cache, Tailwind aggregation, Blade helpers, and performance middleware.",
+    "product": {
+        "group": "Capell Foundation",
+        "tier": "free",
+        "bundle": "foundation"
+    },
+    "namespace": "Capell\\Frontend",
+    "surfaces": ["frontend", "console"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": [],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": true,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "upgrade": "capell:frontend-upgrade",
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [
+        "frontend-rendering",
+        "cache-invalidation",
+        "tailwind-assets",
+        "render-performance",
+        "frontend-assets",
+        "public-static"
+    ],
+    "performance": {
+        "frontendRenderBudgetMs": 20,
+        "adminQueryBudget": 0,
+        "cacheTags": ["pages", "sites", "languages"],
+        "cacheSafety": {
+            "cacheable": true,
+            "variesBy": ["site", "locale"],
+            "sensitiveOutput": false,
+            "invalidationSources": [
+                {
+                    "model": "Capell\\Core\\Models\\Page",
+                    "events": ["saved", "deleted"]
+                },
+                {
+                    "model": "Capell\\Core\\Models\\Site",
+                    "events": ["saved", "deleted"]
+                }
+            ],
+            "queueInvalidation": true
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "Public rendering, static HTML cache, Tailwind aggregation, Blade helpers, and performance middleware.",
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Capell Frontend extension preview image",
+                "caption": "Capell Frontend extension preview"
+            }
+        ],
+        "categories": ["foundation", "frontend", "performance"]
+    },
+    "scopes": ["frontend"]
+}

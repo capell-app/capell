@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_path="${BASH_SOURCE[0]}"
+repo_dir="$(cd "$(dirname "$script_path")" && pwd)"
+
+cd "$repo_dir"
+
+compose_command=()
+app_exec=()
+app_run=()
+
+if docker compose version >/dev/null 2>&1; then
+    compose_command=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+    compose_command=(docker-compose)
+else
+    echo "Docker Compose is not available. Install Docker with the Compose plugin, then try again." >&2
+
+    exit 1
+fi
+
+app_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
+app_run=("${compose_command[@]}" run --rm --no-deps --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
+
+usage() {
+    cat <<'EOF'
+Usage: ./capell <command> [args]
+
+Docker harness commands:
+  up                    Build and start harness services
+  down                  Stop and remove harness services
+  restart               Restart harness services
+  ps, status            Show service status
+  logs [service]        Show service logs
+  shell, bash [cmd]     Open a bash shell or run a bash command in the app container
+  sh [cmd]              Open a sh shell or run a sh command in the app container
+
+App container shortcuts:
+  composer [args]       Run Composer in the app container
+  npm [args]            Run npm in the app container
+  test [args]           Run composer test in the app container
+  pest [args]           Run vendor/bin/pest in the app container
+  analyze [args]        Run composer analyze in the app container
+  lint [args]           Run composer lint in the app container
+  preflight [args]      Run composer preflight in the app container
+  preflight-all [args]  Run composer preflight:all in the app container
+
+Pass-through:
+  exec <command>        Run a command in the running app container
+  run <command>         Run a one-off app container without dependencies
+  compose [args]        Pass arguments directly to docker compose
+
+Examples:
+  ./capell up
+  ./capell composer install
+  ./capell test -- --filter=SomeTest
+  ./capell run composer test
+  ./capell compose ps
+EOF
+}
+
+command_name="${1:-help}"
+
+if [ "$#" -gt 0 ]; then
+    shift
+fi
+
+case "$command_name" in
+    help|-h|--help)
+        usage
+        ;;
+    up|start)
+        "${compose_command[@]}" up -d "$@"
+        ;;
+    down|stop)
+        "${compose_command[@]}" down "$@"
+        ;;
+    restart)
+        "${compose_command[@]}" down "$@"
+        "${compose_command[@]}" up -d
+        ;;
+    ps|status)
+        "${compose_command[@]}" ps "$@"
+        ;;
+    logs)
+        "${compose_command[@]}" logs "$@"
+        ;;
+    shell|bash)
+        if [ "$#" -gt 0 ]; then
+            "${app_exec[@]}" bash -lc "$*"
+        else
+            "${app_exec[@]}" bash
+        fi
+        ;;
+    sh)
+        if [ "$#" -gt 0 ]; then
+            "${app_exec[@]}" sh -lc "$*"
+        else
+            "${app_exec[@]}" sh
+        fi
+        ;;
+    composer)
+        "${app_exec[@]}" composer "$@"
+        ;;
+    npm)
+        "${app_exec[@]}" npm "$@"
+        ;;
+    test)
+        "${app_exec[@]}" composer test "$@"
+        ;;
+    pest)
+        "${app_exec[@]}" vendor/bin/pest "$@"
+        ;;
+    analyze)
+        "${app_exec[@]}" composer analyze "$@"
+        ;;
+    lint)
+        "${app_exec[@]}" composer lint "$@"
+        ;;
+    preflight)
+        "${app_exec[@]}" composer preflight "$@"
+        ;;
+    preflight-all)
+        "${app_exec[@]}" composer preflight:all "$@"
+        ;;
+    exec)
+        if [ "$#" -eq 0 ]; then
+            echo "Usage: ./capell exec <command>" >&2
+
+            exit 1
+        fi
+
+        "${app_exec[@]}" "$@"
+        ;;
+    run)
+        if [ "$#" -eq 0 ]; then
+            echo "Usage: ./capell run <command>" >&2
+
+            exit 1
+        fi
+
+        "${app_run[@]}" "$@"
+        ;;
+    compose)
+        "${compose_command[@]}" "$@"
+        ;;
+    *)
+        echo "Unknown command: $command_name" >&2
+        echo >&2
+        usage >&2
+
+        exit 1
+        ;;
+esac

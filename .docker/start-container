@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ -n "$WWWUSER" ] && [ "$(id -u capell)" != "$WWWUSER" ]; then
+    usermod -u "$WWWUSER" capell
+fi
+
+function trust_git_directory {
+    local user="$1"
+    local directory="$2"
+
+    if [ "$user" = "root" ]; then
+        git config --global --add safe.directory "$directory" 2>/dev/null || true
+
+        return
+    fi
+
+    gosu "$user" git config --global --add safe.directory "$directory" 2>/dev/null || true
+}
+
+for user in root capell; do
+    trust_git_directory "$user" /home/capell/current
+    trust_git_directory "$user" /home/capell/packages/capell/capell-4
+    trust_git_directory "$user" /home/capell/packages/capell/capell-packages-4
+    trust_git_directory "$user" /Users/ben/Sites/packages/capell/capell-4
+    trust_git_directory "$user" /Users/ben/Sites/packages/capell/capell-packages-4
+done
+
+mkdir -p /home/capell/.config/composer /home/capell/.npm
+mkdir -p /home/capell/current/bootstrap/cache /home/capell/current/database/migrations /home/capell/current/database/settings /home/capell/current/public/page-cache /home/capell/current/public/vendor /home/capell/current/storage/framework/cache/data /home/capell/current/storage/framework/sessions /home/capell/current/storage/framework/views /home/capell/current/storage/logs
+chown "${WWWUSER:-1000}:capell" /home/capell
+chown -R "${WWWUSER:-1000}:capell" /home/capell/.npm
+chown "${WWWUSER:-1000}:capell" /home/capell/.config 2>/dev/null || true
+chown -R "${WWWUSER:-1000}:capell" /home/capell/.config/composer 2>/dev/null || true
+chown -R "${WWWUSER:-1000}:capell" /home/capell/current/bootstrap/cache /home/capell/current/database /home/capell/current/public/page-cache /home/capell/current/public/vendor /home/capell/current/storage
+chmod -R ug+rwX /home/capell/current/bootstrap/cache /home/capell/current/database /home/capell/current/public/page-cache /home/capell/current/public/vendor /home/capell/current/storage
+
+exec gosu "${WWWUSER:-1000}" "$@"

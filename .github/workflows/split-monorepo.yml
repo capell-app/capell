@@ -1,0 +1,37 @@
+name: monorepo-split
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  split-monorepo:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - admin
+          - core
+          - frontend
+          - installer
+          - marketplace
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Monorepo Split of ${{ matrix.package }}
+        uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          package_directory: 'packages/${{ matrix.package }}'
+          repository_organization: 'capell-app'
+          repository_name: '${{ matrix.package }}'
+          branch: '4.x'
+          tag: ${{ github.event.release.tag_name }}
+          user_name: 'capell-app'
+          user_email: 'appcapello@gmail.com'

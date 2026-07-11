@@ -1,0 +1,55 @@
+name: Notify demo site
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Trigger demo rebuild
+    runs-on: ubuntu-latest
+    env:
+      DEMO_DISPATCH_TOKEN: ${{ secrets.ACCESS_TOKEN || secrets.DEMO_DISPATCH_TOKEN }}
+    steps:
+      - name: Prepare demo dispatch payload
+        id: payload
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const payload = {
+              source: context.repo.repo,
+              ref: context.ref,
+              sha: context.sha,
+            };
+
+            if (context.eventName === 'release') {
+              payload.tag = context.ref.replace('refs/tags/', '');
+              payload.release_url = context.payload.release.html_url;
+            }
+
+            core.setOutput('json', JSON.stringify(payload));
+            core.info(`Prepared capell-release payload: ${JSON.stringify(payload)}`);
+
+      - name: Send repository_dispatch to demo
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ env.DEMO_DISPATCH_TOKEN }}
+          script: |
+            if (!process.env.DEMO_DISPATCH_TOKEN) {
+              core.setFailed('Missing ACCESS_TOKEN or DEMO_DISPATCH_TOKEN secret.');
+              return;
+            }
+
+            const client_payload = JSON.parse(`${{ steps.payload.outputs.json }}`);
+
+            await github.rest.repos.createDispatchEvent({
+              owner: 'capell-app',
+              repo: 'capell-demo',
+              event_type: 'capell-release',
+              client_payload,
+            });
+            core.info(`Dispatched capell-release from ${context.repo.repo}@${context.ref}`);

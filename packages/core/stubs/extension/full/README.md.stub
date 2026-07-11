@@ -1,0 +1,11 @@
+# {{ displayName }}
+
+{{ displayName }} is a Capell package scaffolded with the `full` profile.
+
+It demonstrates provider buckets, a package-owned console command, settings registration, safe frontend render-hook output, public render state through an Action and Data object, and focused package tests.
+
+## Verification
+
+```bash
+vendor/bin/pest tests --configuration=phpunit.xml
+```

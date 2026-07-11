@@ -1,0 +1,104 @@
+services:
+  app:
+    build:
+      context: ./.docker
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: '${NODE_VERSION:-22}'
+        WWWGROUP: '${WWWGROUP:-1000}'
+        WWWUSER: '${WWWUSER:-1000}'
+    volumes:
+      - .:/home/capell/current
+      - ~/.ssh:/home/capell/.ssh:ro
+      - ~/.config/composer:/home/capell/.config/composer
+    environment:
+      DB_CONNECTION: '${DB_CONNECTION:-mysql}'
+      DB_DATABASE: '${CAPELL_DOCKER_DB_DATABASE:-capell_4}'
+      DB_HOST: mysql
+      DB_PASSWORD: '${CAPELL_DOCKER_DB_PASSWORD:-password}'
+      DB_PORT: 3306
+      DB_USERNAME: '${CAPELL_DOCKER_DB_USERNAME:-root}'
+      LARAVEL_SAIL: 1
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      PHP_IDE_CONFIG: 'serverName=host.docker.internal'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      WWWUSER: '${WWWUSER:-1000}'
+      XDEBUG_MODE: '${XDEBUG_MODE:-off}'
+    networks:
+      - capell-network
+    ports:
+      - '${FORWARD_VITE_PORT:-15175}:${VITE_PORT:-5173}'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mysql:
+    image: 'mariadb:10.5'
+    command:
+      [
+        'mysqld',
+        '--character-set-server=utf8mb4',
+        '--collation-server=utf8mb4_unicode_ci',
+        '--skip-log-bin',
+      ]
+    networks:
+      - capell-network
+    ports:
+      - '${FORWARD_DB_PORT:-13308}:3306'
+    volumes:
+      - 'mysql-data:/var/lib/mysql'
+      - './.docker/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh:ro'
+      - './.docker/mysql/my.cnf:/etc/mysql/conf.d/capell.cnf:ro'
+    environment:
+      MYSQL_ROOT_PASSWORD: '${CAPELL_DOCKER_DB_PASSWORD:-password}'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: '${CAPELL_DOCKER_DB_DATABASE:-capell_4}'
+      CAPELL_DB_USERNAME: '${CAPELL_DOCKER_DB_USERNAME:-capell}'
+      CAPELL_DB_PASSWORD: '${CAPELL_DOCKER_DB_PASSWORD:-password}'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '-p${CAPELL_DOCKER_DB_PASSWORD:-password}',
+        ]
+      retries: 5
+      timeout: 5s
+
+  redis:
+    image: 'redis:6-alpine'
+    networks:
+      - capell-network
+    ports:
+      - '${FORWARD_REDIS_PORT:-16381}:6379'
+    volumes:
+      - 'redis-data:/data'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      retries: 5
+      timeout: 5s
+
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    networks:
+      - capell-network
+    ports:
+      - '${FORWARD_MAILPIT_PORT:-11027}:1025'
+      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-18027}:8025'
+
+networks:
+  capell-network:
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local

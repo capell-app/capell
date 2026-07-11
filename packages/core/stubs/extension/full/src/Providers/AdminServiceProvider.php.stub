@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Providers;
+
+use Capell\Core\Support\Settings\SettingsGroupMetadata;
+use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Illuminate\Support\ServiceProvider;
+use {{ namespace }}\Settings\PackageSettings;
+
+final class AdminServiceProvider extends ServiceProvider
+{
+    public function boot(SettingsSchemaRegistry $settings): void
+    {
+        $settings->registerSettingsClass(PackageSettings::group(), PackageSettings::class);
+        $settings->registerMetadata(new SettingsGroupMetadata(
+            group: PackageSettings::group(),
+            label: __('{{ slug }}::package.settings.label'),
+            icon: 'heroicon-o-puzzle-piece',
+            navigationGroup: __('{{ slug }}::package.settings.navigation_group'),
+            packageName: '{{ packageName }}',
+        ));
+    }
+}

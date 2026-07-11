@@ -1,0 +1,37 @@
+# {{ displayName }} Theme
+
+Project-local Capell theme package for `{{ themeKey }}`.
+
+## Host App Setup
+
+Add the host app path repository if it is not already present:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/*",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "require": {
+        "{{ packageName }}": "4.x-dev"
+    }
+}
+```
+
+Then run Composer and install Capell with this theme:
+
+```bash
+composer update {{ packageName }} --with-dependencies
+php artisan capell:install --theme={{ themeKey }}
+php artisan capell:theme:doctor {{ themeKey }} --path=packages/{{ slug }}
+```
+
+Local theme providers intentionally register their runtime unconditionally. The
+database `themes` record and selected layout still decide whether the public site
+uses the theme, but unconditional registration keeps fresh installs and tests
+able to render during the same process that installs package records.

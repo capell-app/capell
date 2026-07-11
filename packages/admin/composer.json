@@ -1,0 +1,73 @@
+{
+    "name": "capell-app/admin",
+    "description": "CMS Laravel Website using Filament Admin.",
+    "type": "library",
+    "keywords": [
+        "capell",
+        "laravel",
+        "filamentphp",
+        "cms"
+    ],
+    "homepage": "https://github.com/capell-app/capell",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Howdu",
+            "email": "capell.app26@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "ext-fileinfo": "*",
+        "ext-intl": "*",
+        "ext-simplexml": "*",
+        "amidesfahani/filament-tinyeditor": "^4.0",
+        "awcodes/filament-badgeable-column": "^3.0|^4.0",
+        "bezhansalleh/filament-shield": "^4.1",
+        "capell-app/core": "self.version",
+        "cms-multi/filament-clear-cache": "^3.0",
+        "codewithdennis/filament-select-tree": "^4.0",
+        "filament/filament": "^5.7@beta",
+        "filament/spatie-laravel-media-library-plugin": "^5.7@beta",
+        "filament/spatie-laravel-settings-plugin": "^5.7@beta",
+        "guava/filament-icon-picker": "^3.0|^4.0",
+        "guzzlehttp/guzzle": "^7.5",
+        "lara-zeus/spatie-translatable": "^1.0|^2.0",
+        "laravel/framework": "^12.41.1|^13.0",
+        "laravel/prompts": "^0.2|^0.3",
+        "lorisleiva/laravel-actions": "^2.8",
+        "saade/filament-adjacency-list": "^4.0.2",
+        "spatie/laravel-package-tools": "^1.15",
+        "stechstudio/filament-impersonate": "^5.3",
+        "tanmuhittin/laravel-google-translate": "^2.4"
+    },
+    "conflict": {
+        "firebase/php-jwt": "<7.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Capell\\Admin\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Capell\\Admin\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Admin\\Providers\\AdminServiceProvider"
+            ]
+        },
+        "branch-alias": {
+            "dev-main": "4.x-dev"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -1,0 +1,21 @@
+{
+    "label": "Package A",
+    "slug": "package-a",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": [],
+    "description": "Fixture package A for dependency-order tests.",
+    "icon": null,
+    "url": null,
+    "scopes": [],
+    "commands": {
+        "install": "packageA:install",
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": "packageA:setup",
+        "setupParams": [],
+        "upgrade": null,
+        "demo": null,
+        "demoParams": []
+    }
+}

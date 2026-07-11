@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Console\Commands;
+
+use Illuminate\Console\Command;
+use Symfony\Component\Console\Command\Command as CommandAlias;
+
+final class ExamplePackageCommand extends Command
+{
+    protected $signature = '{{ slug }}:example';
+
+    protected $description = 'Run the {{ displayName }} package example command.';
+
+    public function handle(): int
+    {
+        $this->components->info(__('{{ slug }}::package.command.completed'));
+
+        return CommandAlias::SUCCESS;
+    }
+}

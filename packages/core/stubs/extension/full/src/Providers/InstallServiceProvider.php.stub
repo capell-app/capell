@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use {{ namespace }}\Console\Commands\ExamplePackageCommand;
+
+final class InstallServiceProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        $this->commands([
+            ExamplePackageCommand::class,
+        ]);
+    }
+}

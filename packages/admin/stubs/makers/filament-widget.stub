@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Capell\Admin\Contracts\Widgets\FilamentWidget;
+use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\TextInput;
+
+class {{ class }} implements FilamentWidget
+{
+    public static function getWidgetName(): string
+    {
+        return '{{ widgetName }}';
+    }
+
+    public static function make(): Block
+    {
+        return Block::make('{{ widgetName }}')
+            ->label(__('{{ translationKey }}'))
+            ->icon('heroicon-m-squares-2x2')
+            ->schema([
+                TextInput::make('heading')
+                    ->label(__('capell-admin::form.heading')),
+            ]);
+    }
+}

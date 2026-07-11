@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Illuminate\Database\Schema;
+
+/**
+ * @method void nestedSet(string $idColumn = 'id', string $type = 'unsignedInteger')
+ * @method void nestedSetDepth(string $idColumn = 'id')
+ * @method void nestedSetIndex(string $idColumn = 'id')
+ * @method void userstamps()
+ * @method void visibleDates()
+ */
+class Blueprint
+{
+}

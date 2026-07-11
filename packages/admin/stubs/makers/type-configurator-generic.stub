@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Capell\Admin\Contracts\ConfiguratorInterface;
+use Capell\Admin\Contracts\ConfiguratorTypeEnumInterface;
+use Capell\Admin\Data\Configurators\ConfiguratorContextData;
+use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Filament\Concerns\HasConfigurator;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
+
+class {{ class }} implements ConfiguratorInterface
+{
+    use HasConfigurator;
+
+    public static ConfiguratorTypeEnumInterface $schemaType = ConfiguratorTypeEnum::{{ configuratorBlueprintSubjectEnum }};
+
+    public static function configure(Schema $schema, ?ConfiguratorContextData $context = null): Schema
+    {
+        return $schema->components([
+            TextInput::make('name')
+                ->label(__('capell-admin::form.name')),
+        ]);
+    }
+}

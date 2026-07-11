@@ -1,0 +1,69 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/example",
+    "slug": "example",
+    "displayName": "Example",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "product": {
+        "group": "Developer Tools",
+        "tier": "premium",
+        "bundle": "platform"
+    },
+    "surfaces": ["frontend"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": ["Vendor\\Example\\Providers\\ExampleServiceProvider"],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [
+        {
+            "type": "route",
+            "class": "Vendor\\Example\\Settings\\ExampleSettings",
+            "surface": "frontend",
+            "namePrefix": "capell.example"
+        }
+    ],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 20,
+        "cacheTags": ["examples"],
+        "cacheSafety": {
+            "cacheable": true,
+            "variesBy": ["site", "locale"],
+            "sensitiveOutput": false,
+            "invalidationSources": [
+                {
+                    "model": "Vendor\\Example\\Models\\Example",
+                    "events": ["saved"]
+                }
+            ],
+            "queueInvalidation": true
+        }
+    },
+    "commercial": {
+        "proposedLicense": "premium",
+        "requestedCertification": "partner",
+        "supportPolicy": "vendor-supported",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "Example extension.",
+        "screenshots": [
+            {
+                "path": "docs/images/example.png",
+                "alt": "Example extension admin page.",
+                "caption": "Example admin workflow."
+            }
+        ],
+        "categories": ["developer-tools"]
+    }
+}

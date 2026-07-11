@@ -1,0 +1,110 @@
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# Local agent tooling
+.ai/
+.agents/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.testing
+.env.testing.local
+
+# Dependencies
+node_modules/
+vendor
+/.claude/worktrees/*/vendor
+composer.local*
+
+# Laravel Specific
+/app/
+/bootstrap/
+/database/
+/public/
+/storage/
+/bootstrap/cache/
+/public/hot
+/public/storage
+/public/mix-manifest.json
+/public/storage/
+/public/css/
+/public/js/
+database/database.sqlite
+database/database.sqlite-journal
+
+# Per-process Testbench skeleton copies (see tests/Support/IsolatedTestbenchSkeleton.php)
+/tests/.pest/testbench-skeletons/
+
+# Build & Distribution
+dist/
+build/
+!packages/admin/publishes/build/
+!packages/admin/publishes/build/**
+!packages/frontend/publishes/build/
+!packages/frontend/publishes/build/**
+.next/
+
+# Testing & Coverage
+.cache/phpunit/
+.phpunit.result.cache
+test-results/
+coverage/
+.coverage
+*.coverage
+.php_cs.cache
+.php-cs-fixer.cache
+.playwright-cli
+
+# Analysis
+.phpstan.result.cache
+.rector.php.cache
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.phar
+
+# IDE Caches
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
+/.superpowers/
+.cache/
+/output/playwright
+/docs/superpowers
+
+# Local review / planning artifacts
+/ACTION-PLAN.md
+/CONTEXT-MAP.md
+/FULL-AUDIT-REPORT.md
+/REVIEW*.md
+/docs/development/*audit*.md
+/docs/development/*roadmap*.md
+/docs/*plan*.md
+/docs/*review*.md
+/docs/*audit*.md
+/docs/*runbook*.md
+/docs/*playbook*.md
+/docs/*harness*.md
+.worktrees/

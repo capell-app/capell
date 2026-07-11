@@ -1,0 +1,33 @@
+{
+    "package": "core",
+    "composerName": "capell-app/core",
+    "generatedFor": "deployment-screenshot-runner",
+    "requiresInstalledPackage": true,
+    "outputDirectory": "packages/core/docs/images/screenshots",
+    "entries": [
+        {
+            "id": "core-page-structure",
+            "title": "Core page and site structure.",
+            "package": "core",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource",
+            "docsPage": "packages/core/docs/page-management.md",
+            "output": "packages/core/docs/images/screenshots/core-page-structure.png",
+            "required": true,
+            "notes": "Used in Page Management to show the page tree and editing entry point."
+        },
+        {
+            "id": "core-settings-backed-configuration",
+            "title": "Settings-backed configuration.",
+            "package": "core",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "Settings",
+            "docsPage": "packages/core/docs/content-management.md",
+            "output": "packages/core/docs/images/screenshots/core-settings-backed-configuration.png",
+            "required": true,
+            "notes": "Used where settings-backed content and configuration are introduced."
+        }
+    ]
+}

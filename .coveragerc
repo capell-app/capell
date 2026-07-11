@@ -1,0 +1,34 @@
+[coverage]
+# Exclude test and vendor code from coverage dashboard-dashboard_reports
+omit =
+    */tests/*
+    */vendor/*
+    */database/*
+    */config/*
+    */publishes/*
+    */resources/*
+    */build/*
+    */docs/*
+    */storage/*
+    */node_modules/*
+    */bin/*
+    */.github/*
+    */.vscode/*
+    */.idea/*
+    */.coveragerc
+    */phpunit*.xml
+    */ray.php
+    */pest-plugins.json
+    */composer.*
+    */package.json
+    */tailwind.config.js
+    */rector.php
+    */pint.json
+    */phpstan.neon
+    */SECURITY.md
+    */CODE_OF_CONDUCT.md
+    */CONTRIBUTING.md
+    */CHANGELOG.md
+    */README.md
+    */LICENSE.md
+    */result.log

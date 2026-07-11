@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Illuminate\Foundation\Auth;
+
+/**
+ * Generic User model stub for static analysis.
+ *
+ * Common properties used across the codebase:
+ * @property string $email
+ * @property string $name
+ * @property string $password
+ * @property \Illuminate\Database\Eloquent\Collection<int, \Illuminate\Database\Eloquent\Model> $roles
+ *
+ * Role/permission helpers provided by spatie/laravel-permission:
+ * @method $this assignRole(mixed ...$roles)
+ * @method $this removeRole(mixed ...$role)
+ * @method $this syncRoles(mixed ...$roles)
+ * @method bool hasRole(mixed $roles, ?string $guard = null)
+ * @method bool hasAnyRole(mixed ...$roles)
+ * @method bool hasAllRoles(mixed $roles, ?string $guard = null)
+ * @method bool hasExactRoles(mixed $roles, ?string $guard = null)
+ * @method bool hasPermissionTo(string $permission, ?string $guardName = null)
+ * @method bool checkPermissionTo(string $permission, ?string $guardName = null)
+ * @method $this givePermissionTo(mixed ...$permissions)
+ * @method void notify(mixed $notification)
+ *
+ * Site-scoped permission helpers provided by HasSitePermissions:
+ * @method \Illuminate\Support\Collection<int, int> getAssignedSiteIds()
+ * @method bool isGlobalAdmin()
+ * @method void assignRoleForSite(mixed $site, mixed $role)
+ * @method void removeRoleForSite(mixed $site, mixed $role)
+ */
+class User
+{
+}

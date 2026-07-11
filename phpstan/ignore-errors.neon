@@ -1,0 +1,518 @@
+parameters:
+    ignoreErrors:
+        # Faker uses __call magic; no static stubs exist for its property generators
+        - message: '#Call to an undefined method Faker\\Generator::.*#'
+
+        # Constant type coverage requires native typed constants, and this rule stays noisy across package extension points.
+        - identifier: typeCoverage.constantTypeCoverage
+          reportUnmatched: false
+
+        # These extension traits are intentionally provided for downstream models/packages.
+        - identifier: trait.unused
+          paths:
+              - ../packages/core/src/Models/Concerns/ComposhipsJsonRelationshipsTrait.php
+              - ../packages/core/src/Models/Concerns/HasType.php
+              - ../packages/core/src/Models/Concerns/HasTypes.php
+          reportUnmatched: false
+
+        # The Translatable contract is implemented by Eloquent models, but PHPStan cannot
+        # express relation generics against an interface without causing invariant child errors.
+        - identifier: missingType.generics
+          path: ../packages/core/src/Models/Contracts/Translatable.php
+          reportUnmatched: false
+
+        - identifier: missingType.generics
+          path: ../packages/core/src/Contracts/PageCreatable.php
+          reportUnmatched: false
+
+        - identifier: missingType.generics
+          path: ../packages/core/src/Support/Creator/PageCreator.php
+          reportUnmatched: false
+
+        - identifier: missingType.generics
+          path: ../packages/core/src/Support/Makers/AbstractFileMaker.php
+          reportUnmatched: false
+
+        - identifier: booleanAnd.leftAlwaysFalse
+          path: ../packages/core/src/ThemeStudio/Assets/ThemeTokenStore.php
+          reportUnmatched: false
+        - identifier: nullsafe.neverNull
+          path: ../packages/core/src/ThemeStudio/Actions/ResolveBrandProfileAction.php
+          reportUnmatched: false
+        - identifier: generics.notSubtype
+          path: ../packages/core/src/Models/Contracts/Blueprintable.php
+          reportUnmatched: false
+
+        # Type coverage is being ratcheted through production code first; test helpers remain loose.
+        - identifier: missingType.iterableValue
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: missingType.generics
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: argument.templateType
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: nullCoalesce.expr
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: argument.type
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: property.onlyWritten
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: return.unusedType
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+
+        # Frontend package typing is being ratcheted separately from the core model pass.
+        - identifier: missingType.generics
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: missingType.iterableValue
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: nullsafe.neverNull
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: instanceof.alwaysTrue
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: notIdentical.alwaysTrue
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: argument.type
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: identical.alwaysFalse
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: nullCoalesce.property
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: match.alwaysTrue
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: argument.templateType
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: nullCoalesce.expr
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: return.unusedType
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: instanceof.alwaysFalse
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: booleanOr.alwaysTrue
+          path: ../packages/frontend/*
+          reportUnmatched: false
+        - identifier: property.onlyWritten
+          path: ../packages/frontend/*
+          reportUnmatched: false
+
+        # Installer patching code relies on parser/runtime checks that static analysis over-narrows.
+        - identifier: argument.type
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: nullsafe.neverNull
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: catch.neverThrown
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: instanceof.alwaysTrue
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: function.impossibleType
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: identical.alwaysFalse
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: missingType.iterableValue
+          path: ../packages/installer/*
+          reportUnmatched: false
+        - identifier: missingType.generics
+          path: ../packages/installer/*
+          reportUnmatched: false
+
+        # Marketplace still has over-narrowed model/DTO checks outside the core generics pass.
+        - identifier: nullsafe.neverNull
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: nullCoalesce.property
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: notIdentical.alwaysTrue
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: missingType.generics
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: missingType.iterableValue
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: argument.type
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+        - identifier: argument.templateType
+          path: ../packages/marketplace/*
+          reportUnmatched: false
+
+        # Shared/admin test harness typing is outside this PHPStan cleanup pass.
+        - identifier: missingType.iterableValue
+          path: ../tests/*
+          reportUnmatched: false
+        - identifier: missingType.generics
+          path: ../tests/*
+          reportUnmatched: false
+        - identifier: trait.unused
+          path: ../tests/*
+          reportUnmatched: false
+        - identifier: argument.type
+          path: ../tests/*
+          reportUnmatched: false
+        - identifier: identical.alwaysFalse
+          path: ../tests/*
+          reportUnmatched: false
+        - identifier: property.notFound
+          path: ../packages/admin/tests/*
+          reportUnmatched: false
+        - identifier: argument.templateType
+          path: ../packages/admin/tests/*
+          reportUnmatched: false
+
+        # GenericSectionData is an intentional type-agnostic magic container (__get over an
+        # arbitrary payload), so its carried keys cannot be declared as @property. Tests that
+        # exercise the magic accessor trip bleedingEdge's reportMagicProperties, same as the
+        # admin-tests entry above.
+        - identifier: property.notFound
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+        - identifier: property.notFound
+          path: ../packages/frontend/tests/*
+          reportUnmatched: false
+
+        # Mockery fluent chaining methods (once/never/andReturn/etc.) live on the concrete Expectation
+        # class but are absent from ExpectationInterface and HigherOrderMessage. AsFake::shouldRun()
+        # returns a union of all three types, so PHPStan sees the narrower pair without these methods.
+        # PHPStan 2.x ignores trait/vendor stubs in this union-type context, so the ignore is kept.
+        - message: '#Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage::(once|twice|never|zeroOrMoreTimes|atLeast|atMost|between|andReturn[A-Za-z]*|andThrow[A-Za-z]*|with|withArgs|withNoArgs|withAnyArgs|byDefault|ordered|passthru)\(\)#'
+        # Mockable facade helpers are registered dynamically by the Laravel facade base class.
+        - message: '#Call to an undefined static method Illuminate\\Support\\Facades\\(File|Log)::should(Not)?HaveReceived\(\)\.#'
+          paths:
+              - ../packages/admin/tests/Unit/Actions/VisitUrlActionTest.php
+              - ../packages/core/tests/Integration/Actions/UpdateTailwindClassesFileTest.php
+              - ../packages/core/tests/Integration/Services/DatasetPublisherTest.php
+
+        # Local query scopes called via BuilderContract (interface) in eager-load closures.
+        # PHPStan can't detect scopes on the interface type — only on concrete Builder<Model>.
+        - message: '#Call to an undefined method (Illuminate\\Database\\Eloquent\\(Builder|Relations\\.*).*|Illuminate\\Contracts\\Database\\Eloquent\\Builder.*)::(enabled|disabled|default|listable|ordered)\(\)#'
+
+        # withTrashed()/onlyTrashed() are added by SoftDeletes but called via the generic BuilderContract interface in closures
+        - message: '#Call to an undefined method (Illuminate\\Database\\Eloquent\\Builder(?:<.*?>)?|Illuminate\\Contracts\\Database\\Eloquent\\Builder(?:<.*?>)?|Illuminate\\Database\\Eloquent\\Relations\\Relation(?:<.*?>)?|Illuminate\\Database\\Eloquent\\Relations\\(BelongsTo|HasMany|HasOne)<.*?>?)::(withTrashed|onlyTrashed)\(\)#'
+
+        # adminResource/pageType are Type model scopes called via BuilderContract in closures
+        - message: '#Call to an undefined method Illuminate\\Contracts\\Database\\Eloquent\\Builder::adminResource\(\)#'
+        - message: '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder::pageType\(\)#'
+
+        # publishedDate is a Page scope called via BuilderContract in closures and on QueryBuilder
+        - message: '#Call to an undefined method (Illuminate\\Database\\Eloquent\\Builder(?:<.*?>)?|Illuminate\\Contracts\\Database\\Eloquent\\Builder(?:<.*?>)?|Aimeos\\Nestedset\\QueryBuilder)::publishedDate\(\)#'
+
+        # ShieldConfig exposes a dynamic stdClass-like object; $permissions is set at runtime from config
+        - message: '#Access to an undefined property BezhanSalleh\\FilamentShield\\Support\\ShieldConfig::\$permissions#'
+          paths:
+              - ../packages/admin/src/Policies/Concerns/ResolvesShieldPermission.php
+
+        # MediaContract is the Capell abstraction over Spatie's Media; the @var narrows the return type
+        # to our interface. PHPStan rejects it because Spatie's concrete Media class does not implement
+        # MediaContract — only our Capell\Core\Models\Media subclass does.
+        - message: '#PHPDoc tag @var with type Capell\\Core\\Contracts\\Media\\MediaContract is not subtype of native type Spatie\\MediaLibrary\\MediaCollections\\Models\\Media#'
+          paths:
+              - ../packages/core/src/Concerns/HasCapellMedia.php
+
+        # Bleeding Edge reports vendor @internal APIs used by test helpers and Pest Arch fluency.
+        - identifier: staticMethod.internalClass
+          reportUnmatched: false
+        - identifier: method.internalInterface
+          reportUnmatched: false
+        - identifier: method.internalClass
+          reportUnmatched: false
+        - identifier: return.internalClass
+          reportUnmatched: false
+        - identifier: method.internal
+          reportUnmatched: false
+
+        # Pest higher-order expectation proxies are runtime-valid but PestStan cannot infer every custom chain.
+        - message: '#Call to an undefined method Pest\\Expectation<.*>::getMeta\(\)\.#'
+          path: ../packages/admin/tests/Feature/Filament/Resources/Blueprint/Pages/ManageBlueprintsTest.php
+        - message: '#Call to an undefined method Pest\\Expectations\\HigherOrderExpectation<.*>::get\(\)\.#'
+          path: ../packages/admin/tests/Feature/Filament/Resources/Site/Pages/EditSiteTest.php
+        - message: '#Call to an undefined method Pest\\Expectations\\HigherOrderExpectation<.*>::count\(\)\.#'
+          path: ../packages/admin/tests/Feature/Filament/Resources/Site/Pages/ListSitesTest.php
+        - message: '#Call to an undefined method Pest\\Expectation<.*>::is\(\)\.#'
+          path: ../packages/admin/tests/Unit/Actions/Themes/SetActiveThemeForSitesActionTest.php
+        - message: '#Call to an undefined method Pest\\Expectation<.*>::with\(\)\.#'
+          path: ../packages/core/tests/Arch/CoreModelTest.php
+        - message: '#Call to an undefined method Pest\\Expectation<.*>::getSiblingsExcludingSelf\(\)\.#'
+          path: ../packages/core/tests/Integration/Models/PageNeighborsTest.php
+        - message: '#Call to an undefined method Pest\\(Expectation|Expectations\\HigherOrderExpectation)<.*>::pluck\(\)\.#'
+          path: ../packages/core/tests/Integration/Models/PageTest.php
+        - message: '#Call to an undefined method Pest\\Expectation<.*>::relationLoaded\(\)\.#'
+          path: ../packages/core/tests/Integration/Models/PageUrlTest.php
+        - message: '#Call to an undefined method Pest\\Expectations\\HigherOrderExpectation<.*>::(file|path|colorName|dependencyName)\(\)\.#'
+          path: ../packages/core/tests/Unit/Data/VendorAssetDataTest.php
+        - message: '#Call to an undefined method Pest\\Expectation<.*>::getMessage\(\)\.#'
+          path: ../packages/core/tests/Unit/Exceptions/ExtensionRegistrationExceptionTest.php
+
+        # App preflight debt from recent admin authoring and cloud bootstrap slices.
+        # These are kept path/count-scoped so PHPStan asks us to remove them as code is tightened.
+        - identifier: missingType.iterableValue
+          path: ../packages/admin/src/Actions/Pages/ValidatePageAuthoringAction.php
+          count: 1
+        - identifier: missingType.generics
+          path: ../packages/admin/src/Actions/Pages/ValidatePageAuthoringAction.php
+          count: 2
+        - identifier: missingType.generics
+          path: ../packages/admin/src/Contracts/Extenders/PageAuthoringValidator.php
+          count: 1
+        -
+            message: '#^Method Capell\\Admin\\Filament\\Resources\\Pages\\Tables\\PagesTable\:\:(filtersForNames|remainingFilters)\(\) should return list\<mixed\> but returns array\<int, mixed\>\.$#'
+            identifier: return.type
+            count: 2
+            path: ../packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php
+        -
+            message: '#^Method Capell\\Core\\Console\\Commands\\CloudBootstrapCommand\:\:fetchBootstrapCredentials\(\) should return array\{name\?\: string, email\?\: string, password\?\: string\}\|null but returns array\<mixed, mixed\>\|null\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Console/Commands/CloudBootstrapCommand.php
+
+        # Current level-3 debt kept out of the deleted baseline; fix these into code over time.
+        -
+            message: '#^Method Capell\\Admin\\Filament\\Components\\Forms\\Page\\CreatePageSchema\:\:getParentPageSelect\(\) should return Capell\\Admin\\Filament\\Components\\Forms\\Page\\ParentSelect but returns Capell\\Admin\\Filament\\Components\\Forms\\PageRelationSelect\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/admin/src/Filament/Components/Forms/Page/CreatePageSchema.php
+            reportUnmatched: false
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Pages/AbstractAdminSettingsPage.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Layouts/Pages/CreateLayout.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Layouts/Pages/EditLayout.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Media/Pages/EditMedia.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Sites/Pages/EditSite.php
+
+        -
+            message: '#^Method Capell\\Admin\\Filament\\Resources\\Themes\\Tables\\ThemesTable\:\:defaultPreviewPage\(\) should return Capell\\Core\\Models\\Page\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Themes/Tables/ThemesTable.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Users/Pages/CreateUser.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/admin/src/Filament/Resources/Users/Pages/EditUser.php
+
+        -
+            message: '#^Anonymous function should return Filament\\Schemas\\Components\\Section but returns \$this\(Capell\\Admin\\Macros\\Filament\\ComponentMacro\)\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/admin/src/Macros/Filament/ComponentMacro.php
+
+        -
+            message: '#^Method Capell\\Core\\Actions\\Install\\ResolveInstallUserAction\:\:handle\(\) should return Illuminate\\Contracts\\Auth\\Authenticatable but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Actions/Install/ResolveInstallUserAction.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/core/src/Console/Commands/DoctorCommand.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Layout\:\:image\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Layout\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Layout\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Layout.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Page\:\:blueprint\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Capell\\Core\\Models\\Blueprint, Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Capell\\Core\\Models\\Blueprint, \$this\(Capell\\Core\\Models\\Page\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Page.php
+            reportUnmatched: false
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Page\:\:children\(\) should return Illuminate\\Database\\Eloquent\\Relations\\HasMany\<Capell\\Core\\Models\\Page, Capell\\Core\\Models\\Page\> but returns Illuminate\\Database\\Eloquent\\Relations\\HasMany\<Capell\\Core\\Models\\Page, \$this\(Capell\\Core\\Models\\Page\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Page.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Page\:\:image\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Page\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Page\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Page.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Page\:\:related\(\) should return Staudenmeir\\EloquentJsonRelations\\Relations\\BelongsToJson\<Capell\\Core\\Models\\Page, Capell\\Core\\Models\\Page\> but returns Staudenmeir\\EloquentJsonRelations\\Relations\\BelongsToJson\<Capell\\Core\\Models\\Page, \$this\(Capell\\Core\\Models\\Page\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Page.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Page\:\:siblings\(\) should return Illuminate\\Database\\Eloquent\\Relations\\HasMany\<Capell\\Core\\Models\\Page, Capell\\Core\\Models\\Page\> but returns Illuminate\\Database\\Eloquent\\Relations\\HasMany\<Capell\\Core\\Models\\Page, \$this\(Capell\\Core\\Models\\Page\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Page.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Page\:\:socialImage\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Page\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Page\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Page.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Site\:\:blueprint\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Capell\\Core\\Models\\Blueprint, Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Capell\\Core\\Models\\Blueprint, \$this\(Capell\\Core\\Models\\Site\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Site.php
+            reportUnmatched: false
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Site\:\:image\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Site\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Site\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Site.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Site\:\:logo\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Site\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Site\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Site.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Site\:\:logoInverted\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Site\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Site\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Site.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Theme\:\:blueprint\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Capell\\Core\\Models\\Blueprint, Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsTo\<Capell\\Core\\Models\\Blueprint, \$this\(Capell\\Core\\Models\\Theme\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Theme.php
+            reportUnmatched: false
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Translation\:\:backgroundImage\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Translation\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Translation\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Translation.php
+
+        -
+            message: '#^Method Capell\\Core\\Models\\Translation\:\:image\(\) should return Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, Capell\\Core\\Models\\Translation\> but returns Illuminate\\Database\\Eloquent\\Relations\\MorphOne\<Capell\\Core\\Models\\Media, \$this\(Capell\\Core\\Models\\Translation\)\>\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Models/Translation.php
+
+        -
+            message: '#^Method Capell\\Core\\Support\\Media\\LocalizedMediaMetadataResolver\:\:defaultTranslation\(\) should return Capell\\Core\\Models\\Translation\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Support/Media/LocalizedMediaMetadataResolver.php
+            reportUnmatched: false
+
+        -
+            message: '#^Method Capell\\Core\\Support\\Media\\LocalizedMediaMetadataResolver\:\:translationByLanguageCodeOrLocale\(\) should return Capell\\Core\\Models\\Translation\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Support/Media/LocalizedMediaMetadataResolver.php
+            reportUnmatched: false
+
+        -
+            message: '#^Method Capell\\Core\\Support\\Media\\LocalizedMediaMetadataResolver\:\:translationByLanguageId\(\) should return Capell\\Core\\Models\\Translation\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+            identifier: return.type
+            count: 1
+            path: ../packages/core/src/Support/Media/LocalizedMediaMetadataResolver.php
+            reportUnmatched: false
+
+        -
+            message: '#^Property PhpParser\\Node\\Stmt\\Namespace_\:\:\$stmts \(array\<PhpParser\\Node\\Stmt\>\) does not accept array\<PhpParser\\Node\>\.$#'
+            identifier: assign.propertyType
+            count: 1
+            path: ../packages/core/src/Support/Patching/PhpFileEditor.php
+
+        -
+            message: '#^Property PhpParser\\Node\\Stmt\\Namespace_\:\:\$stmts \(array\<PhpParser\\Node\\Stmt\>\) does not accept array\<PhpParser\\Node\>\.$#'
+            identifier: assign.propertyType
+            count: 1
+            path: ../packages/installer/src/Support/Patching/PhpFileEditor.php
+
+        -
+            message: '#^Property Capell\\Marketplace\\Models\\MarketplaceInstallIntent\:\:\$resolved_at \(Carbon\\CarbonImmutable\|null\) does not accept Illuminate\\Support\\Carbon\.$#'
+            identifier: assign.propertyType
+            count: 1
+            path: ../packages/marketplace/src/Actions/ResolvePendingThemeInstallsAction.php
+
+        -
+            message: '#^Anonymous function with return type void returns null but should not return anything\.$#'
+            identifier: return.void
+            count: 1
+            path: ../packages/marketplace/src/Filament/Actions/MarketplaceConnectionFormModel.php

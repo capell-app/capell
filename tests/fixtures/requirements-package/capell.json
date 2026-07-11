@@ -1,0 +1,21 @@
+{
+    "label": "Requirements Package",
+    "slug": "requirements-package",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": ["dep1"],
+    "description": "Fixture package with a missing requirement for install failure tests.",
+    "icon": null,
+    "url": null,
+    "scopes": [],
+    "commands": {
+        "install": null,
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": null,
+        "setupParams": [],
+        "upgrade": null,
+        "demo": null,
+        "demoParams": []
+    }
+}

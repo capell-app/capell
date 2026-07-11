@@ -1,0 +1,23 @@
+{
+    "label": "Extension Package",
+    "slug": "extension-package",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": [],
+    "description": "Fixture package for extension command tests.",
+    "icon": null,
+    "url": "https://capell.app",
+    "scopes": [],
+    "commands": {
+        "install": "test:install",
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": "test:setup",
+        "setupParams": [],
+        "upgrade": null,
+        "demo": "test:demo",
+        "demoParams": ["url"],
+        "faker": "test:faker",
+        "fakerParams": ["sites", "languages"]
+    }
+}

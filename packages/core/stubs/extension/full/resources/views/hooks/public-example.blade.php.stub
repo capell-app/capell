@@ -1,0 +1,4 @@
+<aside class="{{ slug }}-public-example" aria-label="{{ $state->label }}">
+    <strong>{{ $state->label }}</strong>
+    <span>{{ $state->message }}</span>
+</aside>

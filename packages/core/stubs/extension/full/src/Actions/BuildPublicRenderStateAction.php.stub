@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Actions;
+
+use Lorisleiva\Actions\Concerns\AsObject;
+use {{ namespace }}\Data\PublicRenderStateData;
+
+final class BuildPublicRenderStateAction
+{
+    use AsObject;
+
+    public function handle(): PublicRenderStateData
+    {
+        return new PublicRenderStateData(
+            label: __('{{ slug }}::package.public.label'),
+            message: __('{{ slug }}::package.public.message'),
+        );
+    }
+}

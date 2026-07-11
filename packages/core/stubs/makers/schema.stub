@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Schemas;
+
+use Capell\Core\Schemas\AbstractSchema;
+
+class {{ class }}Schema extends AbstractSchema
+{
+    public function fields(): array
+    {
+        return [
+            // Define your Filament schema fields here.
+        ];
+    }
+}

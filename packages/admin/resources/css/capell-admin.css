@@ -1,0 +1,16 @@
+@reference "tailwindcss";
+
+.fi-page-sub-navigation-sidebar {
+    position: sticky;
+    @apply top-18;
+}
+
+@supports (container-type: inline-size) {
+    .fi-grid-ctn {
+        contain: layout;
+    }
+}
+
+.choices__inner .select-selected-hidden {
+    display: none;
+}

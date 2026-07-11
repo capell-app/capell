@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+    <title id="title">CI and Pest shard maintenance flow</title>
+    <desc id="desc">Diagram showing PHP quality checks, Pest shard timing refresh, and pull request updates.</desc>
+    <rect width="960" height="360" rx="18" fill="#f8fafc"/>
+    <g fill="#0f172a" font-family="Inter, Arial, sans-serif">
+        <text x="48" y="58" font-size="28" font-weight="700">CI And Test Shards</text>
+        <text x="48" y="88" font-size="15" fill="#475569">Quality checks and shard timing updates stay separate but visible.</text>
+    </g>
+    <g font-family="Inter, Arial, sans-serif" font-size="16">
+        <rect x="48" y="132" width="210" height="116" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="74" y="170" fill="#0f172a" font-weight="700">PHP Quality</text>
+        <text x="74" y="200" fill="#475569">preflight:all</text>
+        <text x="74" y="226" fill="#475569">docs, PHPStan, Pest</text>
+
+        <rect x="374" y="132" width="210" height="116" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="400" y="170" fill="#0f172a" font-weight="700">Shard Runner</text>
+        <text x="400" y="200" fill="#475569">tests/.pest/shards.json</text>
+        <text x="400" y="226" fill="#475569">TEST_TOKEN per process</text>
+
+        <rect x="700" y="132" width="210" height="116" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="726" y="170" fill="#0f172a" font-weight="700">Weekly Rebalance</text>
+        <text x="726" y="200" fill="#475569">JUnit timings</text>
+        <text x="726" y="226" fill="#475569">small PR to 4.x</text>
+    </g>
+    <g fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M258 190h88"/>
+        <path d="M334 178l12 12-12 12"/>
+        <path d="M584 190h88"/>
+        <path d="M660 178l12 12-12 12"/>
+    </g>
+</svg>

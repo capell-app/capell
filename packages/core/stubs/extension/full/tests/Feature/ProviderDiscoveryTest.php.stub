@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+it('declares every provider bucket used by the full scaffold', function (): void {
+    $manifest = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 2) . '/capell.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect($manifest['providers'])
+        ->toHaveKeys(['metadata', 'install', 'runtime', 'admin', 'frontend'])
+        ->and($manifest['providers']['metadata'])->toBe(['{{ namespace }}\\Providers\\MetadataServiceProvider'])
+        ->and($manifest['providers']['install'])->toBe(['{{ namespace }}\\Providers\\InstallServiceProvider'])
+        ->and($manifest['providers']['runtime'])->toBe(['{{ namespace }}\\Providers\\PackageServiceProvider'])
+        ->and($manifest['providers']['admin'])->toBe(['{{ namespace }}\\Providers\\AdminServiceProvider'])
+        ->and($manifest['providers']['frontend'])->toBe(['{{ namespace }}\\Providers\\FrontendServiceProvider']);
+});

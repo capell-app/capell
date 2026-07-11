@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Aimeos\Nestedset;
+
+/**
+ * @template TModel of \Illuminate\Database\Eloquent\Model
+ *
+ * @extends \Illuminate\Database\Eloquent\Builder<TModel>
+ *
+ * @method \Aimeos\Nestedset\QueryBuilder<TModel> ordered(string $dir = 'asc')
+ * @method \Aimeos\Nestedset\QueryBuilder<TModel> whereAncestorOf(mixed $node, bool $andSelf = false, string $direction = 'asc')
+ */
+class QueryBuilder extends \Illuminate\Database\Eloquent\Builder
+{
+}

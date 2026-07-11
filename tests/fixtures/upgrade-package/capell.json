@@ -1,0 +1,21 @@
+{
+    "label": "Upgrade Package",
+    "slug": "upgrade-package",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": [],
+    "description": "Fixture package for upgrade command tests.",
+    "icon": null,
+    "url": null,
+    "scopes": [],
+    "commands": {
+        "install": null,
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": null,
+        "setupParams": [],
+        "upgrade": "test:upgrade",
+        "demo": null,
+        "demoParams": []
+    }
+}

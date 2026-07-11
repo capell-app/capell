@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Settings;
+
+use Capell\Admin\Filament\Contracts\HasSchema;
+use Capell\Core\Contracts\SettingsContract;
+use Capell\Core\Contracts\SettingsSchemaContract;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
+
+final class PackageSettings implements HasSchema, SettingsContract, SettingsSchemaContract
+{
+    public static function group(): string
+    {
+        return '{{ settingsGroup }}';
+    }
+
+    public static function schema(): string
+    {
+        return self::class;
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    public static function make(Schema $schema): array
+    {
+        return [
+            TextInput::make('public_label')
+                ->label(__('{{ slug }}::package.settings.public_label'))
+                ->maxLength(80),
+        ];
+    }
+}

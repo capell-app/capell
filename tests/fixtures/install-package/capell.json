@@ -1,0 +1,21 @@
+{
+    "label": "Install Package",
+    "slug": "install-package",
+    "kind": "addon",
+    "order": 0,
+    "dependsOn": [],
+    "description": "Fixture package for install command tests.",
+    "icon": null,
+    "url": null,
+    "scopes": [],
+    "commands": {
+        "install": "test:install",
+        "afterInstall": null,
+        "afterInstallParams": [],
+        "setup": null,
+        "setupParams": [],
+        "upgrade": null,
+        "demo": null,
+        "demoParams": []
+    }
+}

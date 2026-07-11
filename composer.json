@@ -1,0 +1,283 @@
+{
+    "name": "capell-app/capell",
+    "description": "A content-management layer for Laravel, built on Filament — pages, multi-site, multi-language, media, and clean extension points, with a frontend that stays yours.",
+    "keywords": [
+        "laravel",
+        "cms",
+        "filament",
+        "content-management",
+        "multi-site",
+        "multi-language"
+    ],
+    "homepage": "https://capell.app",
+    "type": "library",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Howdu",
+            "email": "capell.app26@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "scripts": {
+        "check:composer-paths": "@php scripts/check-composer-local-paths.php",
+        "check:support-contract": "@php scripts/check-support-contract.php",
+        "check:docs-links": "@php scripts/check-docs-links.php",
+        "check:root-docs": "@php scripts/check-root-docs.php",
+        "check:docs-screenshots": "npm run docs:screenshots:check",
+        "check:composer-lock": "composer validate --no-check-publish",
+        "post-autoload-dump": [
+            "@clear",
+            "@prepare",
+            "rm -rf vendor/orchestra/testbench-core/laravel/vendor",
+            "rm -rf vendor/orchestra/testbench-core/laravel/database/migrations",
+            "@patch:pest-shards"
+        ],
+        "patch:pest-shards": "@php scripts/patch-pest-shards.php",
+        "rector": "@rector:changed",
+        "rector:changed": "bash ./scripts/rector-changed.sh",
+        "rector:all": "XDEBUG_MODE=off \"$PHP_BINARY\" vendor/bin/rector --no-progress-bar",
+        "rector:all:check": "XDEBUG_MODE=off \"$PHP_BINARY\" vendor/bin/rector --no-progress-bar --dry-run",
+        "rector:check": "bash ./scripts/rector-changed.sh --dry-run",
+        "lint": "@lint:changed",
+        "lint:changed": "bash ./scripts/lint-changed.sh",
+        "cs:fix": "@php vendor/bin/pint --parallel packages tests",
+        "cs:check": "@php vendor/bin/pint --parallel --test packages tests",
+        "analyze": "XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon",
+        "phpstan": "@analyze",
+        "phpstan:baseline-check": "bash scripts/check-phpstan-baseline-growth.sh",
+        "phpstan:deprecations": "XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/deprecations.neon",
+        "prettier": "npx prettier --write \"packages/**/*.{css,js,yml,json,md,blade.php}\"",
+        "prettier:check": "npx prettier --check \"packages/**/*.{css,js,yml,json,md,blade.php}\"",
+        "eslint": "npx eslint 'packages/*/resources/js/**/*.js' --max-warnings=0",
+        "security:audit": "composer audit --locked",
+        "preflight": [
+            "@analyze",
+            "@lint"
+        ],
+        "skill:inspect": "bash scripts/php-modernization-skill.sh inspect --format json",
+        "skill:verify": "bash scripts/php-modernization-skill.sh verify --format json --summary --no-cache",
+        "skill:verify:sarif": "bash scripts/php-modernization-skill.sh verify --format sarif --no-cache",
+        "skill:modernize:dry-run": "bash scripts/php-modernization-skill.sh modernize --mode dry-run --tools rector,phpstan",
+        "skill:qa": [
+            "@skill:inspect",
+            "@cs:check",
+            "@phpstan",
+            "@security:audit",
+            "@skill:verify"
+        ],
+        "preflight:all": [
+            "@php -r \"echo PHP_EOL . 'Checking Composer path repositories...' . PHP_EOL;\"",
+            "@check:composer-paths",
+            "@php -r \"echo PHP_EOL . 'Checking support contract...' . PHP_EOL;\"",
+            "@check:support-contract",
+            "@php -r \"echo PHP_EOL . 'Checking documentation links...' . PHP_EOL;\"",
+            "@check:docs-links",
+            "@php -r \"echo PHP_EOL . 'Checking root documentation...' . PHP_EOL;\"",
+            "@check:root-docs",
+            "@php -r \"echo PHP_EOL . 'Checking documentation screenshots...' . PHP_EOL;\"",
+            "@check:docs-screenshots",
+            "@php -r \"echo PHP_EOL . 'Checking Composer lock file...' . PHP_EOL;\"",
+            "@check:composer-lock",
+            "@php -r \"echo PHP_EOL . 'Checking Rector...' . PHP_EOL;\"",
+            "@rector:all:check",
+            "@php -r \"echo PHP_EOL . 'Checking Pint...' . PHP_EOL;\"",
+            "@cs:check",
+            "@php -r \"echo PHP_EOL . 'Formatting with Prettier...' . PHP_EOL;\"",
+            "@prettier",
+            "@php -r \"echo PHP_EOL . 'Running ESLint...' . PHP_EOL;\"",
+            "@eslint",
+            "@php -r \"echo PHP_EOL . 'Running PHPStan...' . PHP_EOL;\"",
+            "@analyze",
+            "@php -r \"echo PHP_EOL . 'Checking PHPStan baseline...' . PHP_EOL;\"",
+            "@phpstan:baseline-check",
+            "@php -r \"echo PHP_EOL . 'Running Composer audit...' . PHP_EOL;\"",
+            "@security:audit",
+            "@check:pest-shards",
+            "@php -r \"echo PHP_EOL . 'Running Pest...' . PHP_EOL;\"",
+            "@test:preflight"
+        ],
+        "quality:all": [
+            "@preflight:all",
+            "@coverage",
+            "@test:mutate:ci"
+        ],
+        "test:unit": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_PROCESSES:-4} --compact --configuration=phpunit.xml",
+        "test:fast": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_PROCESSES:-4} --compact --shard=${PEST_SHARD:-1/1} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:fast:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_PROCESSES:-4} --compact --shard=${PEST_SHARD:-1/1} --configuration=phpunit.xml",
+        "test:preflight": "@php scripts/run-pest-shards.php",
+        "test:preflight:serial": "@php -d memory_limit=1536M -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:all": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_PROCESSES:-4} --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_PROCESSES:-4} --compact --configuration=phpunit.xml",
+        "test:shards": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_PROCESSES:-4} --compact --update-shards --configuration=phpunit.xml",
+        "test:shards:balance": "@php scripts/update-pest-shard-timings.php",
+        "test:profile": "@php scripts/profile-pest-tests.php",
+        "check:pest-shards": "@php -r \"return file_exists('tests/.pest/shards.json') ? 0 : 1;\"",
+        "test:types": "@php vendor/bin/pest --configuration=phpunit.xml --type-coverage",
+        "test": [
+            "@clear",
+            "@prepare",
+            "@test:preflight"
+        ],
+        "coverage:blade": "@php -d memory_limit=4G -d max_execution_time=0 vendor/bin/pest --blade-coverage --parallel --processes=${PEST_PROCESSES:-4} --colors=always --configuration=phpunit.xml",
+        "coverage": [
+            "@prepare",
+            "@php vendor/bin/testbench optimize --except=routes --ansi",
+            "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --min=90 --colors=always --configuration=phpunit.xml"
+        ],
+        "coverage-report": [
+            "rm -rf .cache/phpunit/code-coverage",
+            "@prepare",
+            "@php vendor/bin/testbench optimize --except=routes --ansi",
+            "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --coverage-html=coverage --colors=always --configuration=phpunit.xml"
+        ],
+        "test:mutate": "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --colors=always --configuration=phpunit.xml",
+        "test:mutate:ci": "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --min=${PEST_MUTATION_MIN:-81} --colors=always --configuration=phpunit.xml",
+        "clear": [
+            "CACHE_STORE=array \"$PHP_BINARY\" vendor/bin/testbench package:purge-skeleton --ansi",
+            "rm -rf vendor/orchestra/testbench-core/laravel/vendor",
+            "rm -rf vendor/orchestra/testbench-core/laravel/database/migrations",
+            "@clear:views"
+        ],
+        "clear:views": "@php scripts/clear-phpunit-views.php",
+        "prepare:testbench-vendor-configs": "@php scripts/prepare-testbench-vendor-configs.php",
+        "prepare": [
+            "@php vendor/bin/testbench package:discover --ansi",
+            "@prepare:testbench-vendor-configs"
+        ],
+        "build": "@php vendor/bin/testbench workbench:build --ansi",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "@build",
+            "@php vendor/bin/testbench serve --ansi"
+        ],
+        "fresh": [
+            "@php vendor/bin/testbench package:purge-skeleton --ansi",
+            "@php vendor/bin/testbench migrate:fresh --seed --ansi"
+        ],
+        "open": "@php -r \"passthru(PHP_OS_FAMILY === 'Darwin' ? 'open http://localhost:8000/admin' : (PHP_OS_FAMILY === 'Windows' ? 'start http://localhost:8000/admin' : 'xdg-open http://localhost:8000/admin'));\""
+    },
+    "require": {
+        "php": "^8.4",
+        "ext-fileinfo": "*",
+        "ext-intl": "*",
+        "ext-simplexml": "*",
+        "aimeos/laravel-nestedset": "^7.0",
+        "amidesfahani/filament-tinyeditor": "^4.0",
+        "awcodes/filament-badgeable-column": "^3.0|^4.0",
+        "awobaz/compoships": "^2.3",
+        "bezhansalleh/filament-shield": "^4.1",
+        "bkwld/cloner": "^3.11",
+        "blade-ui-kit/blade-heroicons": "^2.5",
+        "cms-multi/filament-clear-cache": "^3.0",
+        "codewithdennis/filament-select-tree": "^4.0",
+        "filament/filament": "^5.7@beta",
+        "filament/spatie-laravel-media-library-plugin": "^5.7@beta",
+        "filament/spatie-laravel-settings-plugin": "^5.7@beta",
+        "guava/filament-icon-picker": "^3.0|^4.0",
+        "guzzlehttp/guzzle": "^7.5",
+        "lara-zeus/spatie-translatable": "^1.0|^2.0",
+        "laravel/framework": "^12.41.1|^13.0",
+        "laravel/prompts": "^0.2|^0.3",
+        "livewire/blaze": "^1.0",
+        "lorisleiva/laravel-actions": "^2.8",
+        "michaloravec/laravel-paginateroute": "^1.0",
+        "owen-it/laravel-auditing": "^13.0|^14.0",
+        "pboivin/filament-peek": "^4.1",
+        "saade/filament-adjacency-list": "^4.0.2",
+        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-data": "^4.5",
+        "spatie/laravel-event-sourcing": "^7.15",
+        "spatie/laravel-medialibrary": "^11.0|^12.0",
+        "spatie/laravel-package-tools": "^1.14.1",
+        "staudenmeir/eloquent-has-many-deep": "^1.1",
+        "staudenmeir/eloquent-json-relations": "^1.1",
+        "stechstudio/filament-impersonate": "^5.3",
+        "symfony/filesystem": "^7.2|^8.0",
+        "symfony/process": "^7.2|^8.0",
+        "symplify/monorepo-builder": "^10.3.3",
+        "tanmuhittin/laravel-google-translate": "^2.4",
+        "torann/geoip": "^3.0",
+        "voku/html-min": "^4.5"
+    },
+    "conflict": {
+        "firebase/php-jwt": "<7.0.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Core\\Providers\\CapellServiceProvider",
+                "Capell\\Admin\\Providers\\AdminServiceProvider",
+                "Capell\\Frontend\\Providers\\FrontendServiceProvider",
+                "Capell\\Installer\\Providers\\InstallerServiceProvider",
+                "Capell\\Marketplace\\Providers\\MarketplaceServiceProvider"
+            ]
+        }
+    },
+    "require-dev": {
+        "barryvdh/laravel-ide-helper": "*",
+        "calebdw/larastan-livewire": "^2.4",
+        "capell-app/pest-plugin-blade-coverage": "^0.1.1",
+        "driftingly/rector-laravel": "^2.0",
+        "fakerphp/faker": "^1.24.1",
+        "jibaymcs/filament-tour": "^5.0",
+        "larastan/larastan": "^3.0",
+        "laravel/pail": "^1.2.3",
+        "laravel/pao": "^1.0",
+        "laravel/pint": "^1.25.0",
+        "mockery/mockery": "^1.6.12",
+        "mrpunyapal/peststan": "^0.2",
+        "nunomaduro/collision": "^8.8.3",
+        "orchestra/testbench": "*",
+        "pestphp/pest": "^3.0|^4.1",
+        "pestphp/pest-plugin-arch": "^3.0|^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0",
+        "pestphp/pest-plugin-livewire": "^3.0|^4.0",
+        "pestphp/pest-plugin-type-coverage": "^3.0|^4.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-mockery": "^2.0",
+        "rector/rector": "^2.0",
+        "sinnbeck/laravel-dom-assertions": "^3.0",
+        "spatie/laravel-ray": "^1.36"
+    },
+    "autoload": {
+        "psr-4": {
+            "Capell\\Admin\\": "packages/admin/src",
+            "Capell\\Core\\": "packages/core/src",
+            "Capell\\Core\\Database\\Factories\\": "packages/core/database/factories",
+            "Capell\\Installer\\": "packages/installer/src",
+            "Capell\\Marketplace\\": "packages/marketplace/src",
+            "Capell\\Marketplace\\Database\\Factories\\": "packages/marketplace/database/factories",
+            "Capell\\Frontend\\": "packages/frontend/src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Capell\\Tests\\": "tests",
+            "Capell\\Tests\\Fixtures\\": "tests/fixtures",
+            "Capell\\Admin\\Tests\\": "packages/admin/tests/",
+            "Capell\\Core\\Tests\\": "packages/core/tests/",
+            "Capell\\Installer\\Tests\\": "packages/installer/tests/",
+            "Capell\\Marketplace\\Tests\\": "packages/marketplace/tests",
+            "Capell\\Frontend\\Tests\\": "packages/frontend/tests/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "platform": {
+            "php": "8.4.0"
+        },
+        "process-timeout": 0,
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true,
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        },
+        "github-protocols": [
+            "https"
+        ]
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

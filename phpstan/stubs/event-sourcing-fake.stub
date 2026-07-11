@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Spatie\EventSourcing\AggregateRoots;
+
+/**
+ * Backports a @mixin onto Spatie's FakeAggregateRoot so aggregate methods
+ * proxied through __call (e.g. PageAggregate::fake()->approve()) resolve.
+ * The bound is `object` rather than the real AggregateRoot because PHPStan
+ * cannot reflect that vendor class while loading this stub; fake() already
+ * binds the template to the concrete aggregate via FakeAggregateRoot<static>.
+ *
+ * @template TAggregateRoot of object
+ *
+ * @mixin TAggregateRoot
+ */
+class FakeAggregateRoot
+{
+}

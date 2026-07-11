@@ -1,0 +1,224 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Backup\Actions;
+
+use Capell\Backup\Models\ImportSession;
+
+class CancelImportSessionAction
+{
+    public static function isCancellable(ImportSession $session): bool {}
+
+    public static function run(ImportSession $session): mixed {}
+}
+
+class RetryImportSessionAction
+{
+    public static function canRetry(ImportSession $session): bool {}
+
+    public static function run(ImportSession $session): mixed {}
+}
+
+namespace Capell\Backup\Enums;
+
+enum ImportSessionKind: string
+{
+    case PageImport = 'page_import';
+}
+
+enum ImportSessionStatus: string
+{
+    case Abandoned = 'abandoned';
+    case Completed = 'completed';
+    case Failed = 'failed';
+    case Queued = 'queued';
+    case Running = 'running';
+}
+
+namespace Capell\Backup\Events;
+
+use Capell\Backup\Models\ImportSession;
+
+class ImportCompleted
+{
+    public function __construct(public ImportSession $session) {}
+}
+
+class ImportFailed
+{
+    public function __construct(public ImportSession $session, public string $reason) {}
+}
+
+namespace Capell\Backup\Exceptions;
+
+class NotImplementedException extends \RuntimeException {}
+
+namespace Capell\Backup\Jobs;
+
+class ExecuteImportPlanJob {}
+
+namespace Capell\Backup\Models;
+
+use Capell\Backup\Enums\ImportSessionKind;
+use Capell\Backup\Enums\ImportSessionStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * @property int|null $user_id
+ * @property string|null $uuid
+ * @property ImportSessionKind|null $kind
+ * @property ImportSessionStatus|null $status
+ * @property string|null $source_filename
+ * @property string|null $source_package_path
+ * @property string|null $failure_reason
+ * @property array<string, mixed>|null $validation_results
+ * @property array<string, mixed>|null $result_summary
+ * @property array<string, mixed>|null $page_decisions
+ * @property array<string, mixed>|null $relation_decisions
+ * @property array<string, mixed>|null $manifest
+ *
+ * @method static Builder<ImportSession> query()
+ */
+class ImportSession extends Model {}
+
+namespace Capell\Backup\Providers;
+
+class BackupServiceProvider {}
+
+namespace Capell\LayoutBuilder\Actions\LayoutWidgets;
+
+use Capell\LayoutBuilder\Data\Assets\LayoutWidgetResourceUsageData;
+use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
+
+class BuildLayoutWidgetResourceUsagesAction
+{
+    /**
+     * @param  array<int|string, mixed>  $content
+     * @return array<int, LayoutWidgetResourceUsageData>
+     */
+    public static function run(array $content, LayoutWidgetTarget $target): array {}
+}
+
+class RenderLazyLayoutWidgetAction
+{
+    public static function run(string $reference): mixed {}
+}
+
+namespace Capell\LayoutBuilder\Contracts\Assets;
+
+use Capell\LayoutBuilder\Data\Assets\LayoutWidgetResourceUsageData;
+
+interface LayoutWidgetResourceUsageContributor
+{
+    public const string TAG = 'capell.frontend.widget-resource-usage-contributor';
+
+    /**
+     * @return array<int, LayoutWidgetResourceUsageData>
+     */
+    public function usages(object $context): array;
+}
+
+namespace Capell\LayoutBuilder\Data\Assets;
+
+class LayoutWidgetResourceUsageData
+{
+    public function __construct(
+        public string $widgetKey,
+        public string $resourceGroup,
+        public string $publicId,
+        public mixed $presentation,
+    ) {}
+}
+
+namespace Capell\LayoutBuilder\Data\LayoutWidgets;
+
+use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
+
+class LayoutWidgetDefinitionData
+{
+    /**
+     * @param  array<int, string>  $resourceGroups
+     * @param  array<string, mixed>  $defaultPresentationSettings
+     * @param  array<int, array<string, mixed>>  $defaultInteractionTriggers
+     */
+    public function __construct(
+        public string $key,
+        public LayoutWidgetTarget $target,
+        public string $component,
+        public array $resourceGroups = [],
+        public array $defaultPresentationSettings = [],
+        public array $defaultInteractionTriggers = [],
+    ) {}
+
+    /**
+     * @param  array<int, string>  $resourceGroups
+     * @param  array<string, mixed>  $defaultPresentationSettings
+     * @param  array<int, array<string, mixed>>  $defaultInteractionTriggers
+     */
+    public static function frontendBlade(
+        string $key,
+        string $component,
+        array $resourceGroups = [],
+        array $defaultPresentationSettings = [],
+        array $defaultInteractionTriggers = [],
+    ): self {}
+
+    /**
+     * @param  array<int, string>  $resourceGroups
+     * @param  array<string, mixed>  $defaultPresentationSettings
+     * @param  array<int, array<string, mixed>>  $defaultInteractionTriggers
+     */
+    public static function frontendInertia(
+        string $key,
+        string $component,
+        array $resourceGroups = [],
+        array $defaultPresentationSettings = [],
+        array $defaultInteractionTriggers = [],
+    ): self {}
+}
+
+namespace Capell\LayoutBuilder\Enums;
+
+enum LayoutWidgetTarget: string
+{
+    case AdminFilament = 'admin-filament';
+    case FrontendBlade = 'frontend-blade';
+    case FrontendInertia = 'frontend-inertia';
+    case FrontendLivewire = 'frontend-livewire';
+}
+
+namespace Capell\LayoutBuilder\Support\LayoutWidgets;
+
+use Capell\LayoutBuilder\Data\LayoutWidgets\LayoutWidgetDefinitionData;
+use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
+
+class LayoutWidgetRegistry
+{
+    public function register(string $name, LayoutWidgetTarget $target, string $component): void {}
+
+    public function registerDefinition(LayoutWidgetDefinitionData $definition): void {}
+
+    public function get(string $name, LayoutWidgetTarget $target): ?string {}
+
+    public function definition(string $name, LayoutWidgetTarget $target): ?LayoutWidgetDefinitionData {}
+
+    /**
+     * @return array<string, string>
+     */
+    public function allForTarget(LayoutWidgetTarget $target): array {}
+
+    /**
+     * @return array<string, LayoutWidgetDefinitionData>
+     */
+    public function allDefinitionsForTarget(LayoutWidgetTarget $target): array {}
+}
+
+namespace Znck\Eloquent\Relations;
+
+/**
+ * @template TRelatedModel
+ * @template TDeclaringModel
+ */
+class BelongsToThrough {}

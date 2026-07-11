@@ -1,0 +1,35 @@
+name: Build Admin Package
+
+on:
+  pull_request:
+    branches:
+      - 4.x
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'packages/admin/**'
+      - '.github/workflows/build-packages.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-admin-package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/admin
+    env:
+      ROLLUP_SKIP_NATIVE: 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies (npm install)
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend (npm run build)
+        run: npm run build

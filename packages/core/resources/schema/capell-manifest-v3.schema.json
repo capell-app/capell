@@ -1,0 +1,480 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://capell.app/schema/capell-manifest-v3.schema.json",
+    "title": "Capell Manifest V3",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "manifest-version",
+        "name",
+        "slug",
+        "displayName",
+        "kind",
+        "capellApiVersion",
+        "version",
+        "product",
+        "surfaces",
+        "dependencies",
+        "providers",
+        "contributes",
+        "performance",
+        "healthChecks",
+        "commercial",
+        "marketplace"
+    ],
+    "not": {
+        "required": ["capell-version"]
+    },
+    "properties": {
+        "manifest-version": {
+            "const": 3
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1
+        },
+        "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+        },
+        "displayName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "kind": {
+            "type": "string",
+            "enum": ["package", "plugin", "theme", "integration", "bundle"]
+        },
+        "capellApiVersion": {
+            "type": "string",
+            "minLength": 1
+        },
+        "version": {
+            "type": "string",
+            "minLength": 1
+        },
+        "description": {
+            "type": "string"
+        },
+        "documentationUrl": {
+            "type": "string",
+            "format": "uri"
+        },
+        "visibility": {
+            "type": "string",
+            "enum": ["catalogue", "support"],
+            "default": "catalogue"
+        },
+        "namespace": {
+            "type": ["string", "null"]
+        },
+        "product": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["group", "tier"],
+            "properties": {
+                "group": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "tier": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "bundle": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "surfaces": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": ["admin", "frontend", "console", "shared"]
+            }
+        },
+        "dependencies": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requires", "supports", "conflicts"],
+            "properties": {
+                "requires": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "supports": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "conflicts": {
+                    "$ref": "#/$defs/stringList"
+                }
+            }
+        },
+        "providers": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metadata", "install", "runtime", "admin", "frontend"],
+            "properties": {
+                "metadata": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "install": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "runtime": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "auth": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "admin": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "frontend": {
+                    "$ref": "#/$defs/stringList"
+                }
+            }
+        },
+        "contributes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["type", "class"],
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "admin-page",
+                            "admin-resource",
+                            "admin-action-extender",
+                            "section",
+                            "page-type",
+                            "dashboard-widget",
+                            "overview-stat",
+                            "schema-extender",
+                            "configurator",
+                            "model",
+                            "permission",
+                            "route",
+                            "setting",
+                            "page-variation",
+                            "frontend-component",
+                            "content-widget",
+                            "render-hook",
+                            "asset",
+                            "migration",
+                            "scheduled-job",
+                            "console-command",
+                            "agent-capability",
+                            "content-graph",
+                            "health-check",
+                            "content-graph",
+                            "workflow-attention"
+                        ]
+                    },
+                    "class": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "database": {
+            "type": "object"
+        },
+        "commands": {
+            "type": "object"
+        },
+        "settings": {
+            "$ref": "#/$defs/stringList"
+        },
+        "permissions": {
+            "$ref": "#/$defs/stringList"
+        },
+        "capabilities": {
+            "$ref": "#/$defs/stringList"
+        },
+        "security": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "riskTier": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "publicSurface": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "routeNames": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "auth": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "csrfExemptRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "signedRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "tokenizedRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "webhookRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "throttledRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        }
+                    }
+                },
+                "sensitiveData": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "encryptedFields": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "hashedTokenFields": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "redactedOutputClasses": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "plaintextJustifications": {
+                            "$ref": "#/$defs/stringList"
+                        }
+                    }
+                },
+                "publicOutput": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "cacheSafe": {
+                            "type": "boolean"
+                        },
+                        "forbidAuthoringSurface": {
+                            "type": "boolean"
+                        },
+                        "forbidSecrets": {
+                            "type": "boolean"
+                        },
+                        "forbidPublicBladeQueries": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "externalHttpClients": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "requiresTimeouts": {
+                            "type": "boolean"
+                        },
+                        "requiresSecretRedaction": {
+                            "type": "boolean"
+                        },
+                        "clients": {
+                            "$ref": "#/$defs/stringList"
+                        }
+                    }
+                },
+                "adminSurface": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "authorization": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "permissions": {
+                            "$ref": "#/$defs/stringList"
+                        }
+                    }
+                }
+            }
+        },
+        "performance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "frontendRenderBudgetMs",
+                "adminQueryBudget",
+                "cacheTags",
+                "cacheSafety"
+            ],
+            "properties": {
+                "frontendRenderBudgetMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "adminQueryBudget": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "cacheTags": {
+                    "$ref": "#/$defs/stringList"
+                },
+                "cacheSafety": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "cacheable",
+                        "variesBy",
+                        "sensitiveOutput",
+                        "invalidationSources",
+                        "queueInvalidation"
+                    ],
+                    "properties": {
+                        "cacheable": {
+                            "type": "boolean"
+                        },
+                        "variesBy": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "sensitiveOutput": {
+                            "type": "boolean"
+                        },
+                        "invalidationSources": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true,
+                                "required": ["model", "events"],
+                                "properties": {
+                                    "model": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "events": {
+                                        "$ref": "#/$defs/stringList"
+                                    }
+                                }
+                            }
+                        },
+                        "queueInvalidation": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        },
+        "healthChecks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["key", "label", "class"],
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "label": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "class": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "commercial": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "proposedLicense",
+                "requestedCertification",
+                "supportPolicy",
+                "privateDocsRequested"
+            ],
+            "properties": {
+                "proposedLicense": {
+                    "type": ["string", "null"]
+                },
+                "requestedCertification": {
+                    "type": ["string", "null"]
+                },
+                "supportPolicy": {
+                    "type": ["string", "null"]
+                },
+                "privateDocsRequested": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "marketplace": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["summary", "screenshots", "categories"],
+            "properties": {
+                "summary": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "screenshots": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["path", "alt", "caption"],
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "alt": {
+                                "type": "string",
+                                "minLength": 12
+                            },
+                            "caption": {
+                                "type": "string",
+                                "minLength": 12
+                            }
+                        }
+                    }
+                },
+                "categories": {
+                    "$ref": "#/$defs/stringList"
+                }
+            }
+        },
+        "scopes": {
+            "$ref": "#/$defs/stringList"
+        },
+        "extends": {
+            "type": ["string", "null"]
+        },
+        "themeKey": {
+            "type": ["string", "null"]
+        },
+        "runtime": {
+            "type": "string"
+        },
+        "defaultSelected": {
+            "type": "boolean"
+        },
+        "demo": {
+            "type": "boolean"
+        },
+        "order": {
+            "type": "integer"
+        },
+        "installPath": {
+            "type": ["string", "null"]
+        }
+    },
+    "$defs": {
+        "stringList": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        }
+    }
+}

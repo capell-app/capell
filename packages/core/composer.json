@@ -1,0 +1,67 @@
+{
+    "name": "capell-app/core",
+    "description": "Core for Capell.",
+    "type": "library",
+    "keywords": [
+        "capell",
+        "laravel",
+        "cms"
+    ],
+    "homepage": "https://github.com/capell-app/core",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Howdu",
+            "email": "capell.app26@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "ext-intl": "*",
+        "aimeos/laravel-nestedset": "^7.0",
+        "awobaz/compoships": "^2.3",
+        "bkwld/cloner": "^3.10",
+        "filament/support": "^5.7@beta",
+        "illuminate/database": "^12.41.1|^13.0",
+        "illuminate/support": "^12.41.1|^13.0",
+        "livewire/blaze": "^1.0",
+        "lorisleiva/laravel-actions": "^2.8",
+        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-data": "^4.5",
+        "spatie/laravel-event-sourcing": "^7.15",
+        "spatie/laravel-medialibrary": "^11.0|^12.0",
+        "spatie/laravel-permission": "^5.0|^6.0",
+        "spatie/laravel-tags": "^4.11",
+        "staudenmeir/eloquent-has-many-deep": "^1.7",
+        "staudenmeir/eloquent-json-relations": "^1.1",
+        "symfony/filesystem": "^7.2|^8.0",
+        "symfony/process": "^7.2|^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Capell\\Core\\": "src",
+            "Capell\\Core\\Database\\Factories\\": "database/factories"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Capell\\Core\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Capell\\Core\\Providers\\CapellServiceProvider"
+            ]
+        },
+        "branch-alias": {
+            "dev-main": "4.x-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

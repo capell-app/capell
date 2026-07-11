@@ -1,0 +1,100 @@
+name: PHP Quality
+
+on:
+  pull_request:
+    branches:
+      - 4.x
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'packages/**/*.php'
+      - 'packages/**/composer.json'
+      - 'composer.json'
+      - 'composer.lock'
+      - '*.md'
+      - 'docs/packages/catalog.md'
+      - 'phpstan/**'
+      - 'phpstan.neon'
+      - 'pint.json'
+      - '.php-cs-fixer.dist.php'
+      - 'rector.php'
+      - 'scripts/rector-changed.sh'
+      - 'scripts/check-root-docs.php'
+      - 'scripts/check-phpstan-baseline-growth.sh'
+      - 'scripts/php-modernization-skill.sh'
+      - '.github/workflows/code-quality-and-styling.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: PHP Quality
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        php: [8.4]
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, phar, simplexml, zip
+          tools: composer:v2, pint
+
+      - name: Check Composer public files
+        run: php scripts/check-composer-local-paths.php
+
+      - name: Check Composer lock file
+        run: composer run check:composer-lock
+
+      - name: Check root documentation
+        run: composer run check:root-docs
+
+      - name: Cache Composer dependencies
+        id: composer-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+
+      - name: Install Composer dependencies
+        if: steps.composer-cache.outputs.cache-hit != 'true'
+        run: composer install --no-interaction --no-progress --ansi --optimize-autoloader
+
+      - name: Run Pint check
+        run: composer cs:check
+
+      - name: Run PHPStan
+        run: composer phpstan
+
+      - name: Run PHPStan deprecation rules
+        continue-on-error: true
+        run: composer phpstan:deprecations
+
+      - name: Check PHPStan baseline did not grow
+        run: composer phpstan:baseline-check
+
+      - name: Run Composer audit
+        run: composer audit --locked
+
+      - name: Run Rector dry-run
+        run: composer rector:check
+
+      - name: Run modernization verifier advisory
+        continue-on-error: true
+        run: composer skill:verify
+
+      - name: Upload modernization artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: php-modernization-${{ github.run_id }}
+          path: .build/php-modernization/
+          if-no-files-found: ignore

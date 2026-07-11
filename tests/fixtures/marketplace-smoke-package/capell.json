@@ -1,0 +1,70 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/marketplace-smoke-qa",
+    "slug": "marketplace-smoke-qa",
+    "displayName": "Marketplace Smoke QA",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "1.0.0",
+    "description": "Local fixture package for hosted marketplace install and uninstall smoke tests.",
+    "product": {
+        "group": "Quality Assurance",
+        "tier": "free",
+        "bundle": null
+    },
+    "namespace": "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa",
+    "surfaces": ["admin"],
+    "dependencies": {
+        "requires": [],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": [
+            "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa\\MarketplaceSmokeQaServiceProvider"
+        ],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": false,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 0,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": true,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "community",
+        "supportPolicy": "community",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "Local fixture package for hosted marketplace install and uninstall smoke tests.",
+        "screenshots": [],
+        "categories": ["testing"]
+    }
+}

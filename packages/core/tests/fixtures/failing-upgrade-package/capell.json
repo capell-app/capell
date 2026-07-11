@@ -1,0 +1,7 @@
+{
+    "label": "Failing Upgrade Package",
+    "slug": "failing-upgrade-package",
+    "commands": {
+        "upgrade": "capell:test-failing-upgrade"
+    }
+}

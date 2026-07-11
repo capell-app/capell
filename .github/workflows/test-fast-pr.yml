@@ -1,0 +1,143 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - 4.x
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'packages/**/*.php'
+      - 'packages/**/composer.json'
+      - 'tests/**/*.php'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'docs/packages/catalog.md'
+      - 'scripts/check-support-contract.php'
+      - 'scripts/extract-phpstan-level.php'
+      - 'docs/getting-started/install.md'
+      - 'docs/getting-started/quickstart.md'
+      - '.docker/Dockerfile'
+      - '.github/workflows/test-fast-pr.yml'
+      - '.github/workflows/test-full.yml'
+      - 'phpunit.xml'
+
+concurrency:
+  group: ${{ github.head_ref || github.ref }}-phpunit-fast-pr
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event.pull_request.draft == false
+    name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 1
+            total_shards: 3
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 2
+            total_shards: 3
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 3
+            total_shards: 3
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            db: sqlite
+            shard: 1
+            total_shards: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Dependencies PHP
+        id: php-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor
+          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-${{ matrix.db }}-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-fast-pr.yml') }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup problem matchers
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Check Composer public files
+        run: php scripts/check-composer-local-paths.php
+
+      - name: Check Capell support contract
+        run: composer run check:support-contract
+
+      - name: Check Composer lock file
+        run: composer run check:composer-lock
+
+      - name: Install PHP dependencies
+        if: steps.php-cache.outputs.cache-hit != 'true'
+        run: |
+          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
+          composer require --no-interaction --no-progress --ansi --no-update \
+            "laravel/framework:${{ matrix.laravel }}"
+          composer require --no-interaction --no-progress --ansi --dev --no-update \
+            "orchestra/testbench:${{ matrix.testbench }}"
+
+          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
+          dev_tools=(
+            "pestphp/pest:^4.1"
+            "pestphp/pest-plugin-arch:^4.0"
+            "pestphp/pest-plugin-laravel:^4.0"
+            "pestphp/pest-plugin-livewire:^4.0"
+            "pestphp/pest-plugin-type-coverage:^4.0"
+            "phpstan/phpstan:^2.1"
+            "phpstan/phpstan-mockery:^2.0"
+            "phpstan/phpstan-strict-rules:^2.0"
+            "canvural/larastan-strict-rules:^3.0"
+            "phpstan/phpstan-beberlei-assert:^2.0"
+            "rector/rector:^2.0"
+            "driftingly/rector-laravel:^2.0"
+            "larastan/larastan:^3.0"
+          )
+
+          if [ "${{ matrix.laravel }}" != "13.*" ]; then
+            dev_tools+=("soyhuce/phpstan-extension:^2.1")
+          fi
+
+          composer require --no-interaction --no-progress --ansi --dev --no-update "${dev_tools[@]}"
+          composer require --no-interaction --no-progress --ansi --no-update \
+            livewire/livewire:^3.7 \
+            filament/filament:^4.7 \
+            filament/support:^4.7 \
+            pboivin/filament-peek:^3.0 \
+            symfony/html-sanitizer:^7.0 \
+            openspout/openspout:^4.22
+          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
+
+      - name: Configure environment
+        run: |
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=:memory:" >> .env
+
+      - name: Run test:fast
+        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci

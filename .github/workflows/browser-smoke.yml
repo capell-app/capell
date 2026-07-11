@@ -1,0 +1,91 @@
+name: Browser Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Smoke target to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - installer
+          - demo
+          - marketplace
+      required:
+        description: 'Fail when the configured target is unreachable instead of skipping'
+        required: true
+        default: true
+        type: boolean
+      installer_url:
+        description: 'Installer URL for installer smoke'
+        required: false
+        default: 'http://capell-ruby.test/install'
+        type: string
+      demo_url:
+        description: 'Public demo URL for frontend smoke'
+        required: false
+        default: 'http://capell-ruby.test'
+        type: string
+      demo_backend_url:
+        description: 'Optional backend URL used with the public demo Host header'
+        required: false
+        type: string
+      marketplace_cms_url:
+        description: 'CMS URL for marketplace smoke'
+        required: false
+        default: 'http://capell-ruby.test'
+        type: string
+      marketplace_app_url:
+        description: 'Capell App URL for marketplace smoke'
+        required: false
+        default: 'http://capell-app.test'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.target }}
+  cancel-in-progress: true
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    env:
+      CAPELL_INSTALLER_URL: ${{ inputs.installer_url }}
+      CAPELL_INSTALLER_SMOKE_REQUIRED: ${{ inputs.required && 'true' || 'false' }}
+      CAPELL_SMOKE_URL: ${{ inputs.demo_url }}
+      CAPELL_SMOKE_BACKEND_URL: ${{ inputs.demo_backend_url }}
+      CAPELL_SMOKE_REQUIRED: ${{ inputs.required && 'true' || 'false' }}
+      CAPELL_MARKETPLACE_SMOKE_CMS_URL: ${{ inputs.marketplace_cms_url }}
+      CAPELL_MARKETPLACE_SMOKE_APP_URL: ${{ inputs.marketplace_app_url }}
+      CAPELL_MARKETPLACE_SMOKE_REQUIRED: ${{ inputs.required && 'true' || 'false' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run installer smoke
+        if: inputs.target == 'all' || inputs.target == 'installer'
+        run: npm run test:installer-browser
+
+      - name: Run frontend demo smoke
+        if: inputs.target == 'all' || inputs.target == 'demo'
+        run: npm run test:demo-smoke
+
+      - name: Run marketplace install smoke
+        if: inputs.target == 'all' || inputs.target == 'marketplace'
+        run: npm run test:marketplace-install-flow

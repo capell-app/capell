@@ -1,0 +1,59 @@
+exclude: ^(node_modules|vendor|\.pre-commit-config\.yaml)$
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: check-byte-order-marker
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: ^tests/\.pest/snapshots/
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+        exclude: packages/admin/publishes/build/js/components/html-code-editor.js
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: donotcommit
+        name: DO NOT COMMIT check
+        entry: 'do not commit|DO NOT COMMIT'
+        args: [--multiline]
+        language: pygrep
+        types: [text]
+      - id: checkfordebugging
+        name: check for debugging methods
+        description: 'Check the dd(), dump() or any ray() methods have not been left in'
+        entry: '\bdd\(|(?<!->)(?<!::)\bdebug\(|\bdump\(|\bray\(|\brd\(|\bdie\(|\bexit\(|\bddRawSql\('
+        language: pygrep
+        exclude: ^(packages/admin/publishes/build/js/components/html-code-editor.js|packages/frontend/src/Support/Logging/FrontendLogger.php|scripts/check-composer-local-paths.php|scripts/check-docs-links.php|scripts/check-package-catalog-drift.php|scripts/check-support-contract.php|scripts/extract-phpstan-level.php|scripts/run-pest-shards.php|scripts/update-pest-shard-timings.php)$
+        types: [text]
+      - id: pint
+        name: Laravel Pint
+        description: Run Laravel Pint against all staged PHP files.
+        entry: .pre-commit/pint.sh
+        language: script
+        types: [php]
+      - id: prettier
+        name: Format code with Prettier
+        entry: .pre-commit/prettier.sh
+        language: script
+        files: \.blade\.php$|\.css$|\.js$|\.yml$
+        stages: [pre-commit]
+      - id: composer-public-files-no-local-paths
+        name: Composer public files do not use local paths
+        entry: php scripts/check-composer-local-paths.php
+        language: system
+        pass_filenames: false
+        files: ^composer\.(json|lock)$
+        stages: [pre-commit]
+      - id: composer-lock-in-sync
+        name: Composer lock file is in sync
+        entry: composer validate --no-check-publish
+        language: system
+        pass_filenames: false
+        files: ^composer\.(json|lock)$
+        stages: [pre-commit]

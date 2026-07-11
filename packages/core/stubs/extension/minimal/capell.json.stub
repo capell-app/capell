@@ -1,0 +1,69 @@
+{
+    "manifest-version": 3,
+    "name": "{{ packageName }}",
+    "slug": "{{ slug }}",
+    "displayName": "{{ displayName }}",
+    "kind": "package",
+    "capellApiVersion": "^4.0",
+    "version": "1.0.0",
+    "description": "{{ displayName }} for Capell.",
+    "demo": false,
+    "product": {
+        "group": "{{ displayName }}",
+        "tier": "{{ tier }}",
+        "bundle": null
+    },
+    "namespace": "{{ escapedNamespace }}",
+    "surfaces": ["shared"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": [],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": ["{{ escapedRuntimeProvider }}"],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": false,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 20,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "{{ tier }}",
+        "requestedCertification": "community",
+        "supportPolicy": "community",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "summary": "{{ displayName }} for Capell.",
+        "screenshots": [],
+        "categories": []
+    }
+}

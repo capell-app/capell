@@ -1,0 +1,5 @@
+@props([
+    'title' => '',
+    'keywords' => '',
+    'description' => '',
+])

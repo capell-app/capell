@@ -1,0 +1,90 @@
+{
+    "package": "marketplace",
+    "composerName": "capell-app/marketplace",
+    "generatedFor": "deployment-screenshot-runner",
+    "requiresInstalledPackage": true,
+    "outputDirectory": "packages/marketplace/docs/images/screenshots",
+    "entries": [
+        {
+            "id": "marketplace-extensions-page",
+            "title": "Extensions page marketplace status.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "ExtensionsPage",
+            "scenario": "admin-index",
+            "url": "/extensions",
+            "waitFor": "table",
+            "required": true,
+            "notes": "Resolved by the deployment screenshot runner after marketplace example data is prepared. Marketplace contributes the connection alert but not catalogue controls to the installed Extensions page."
+        },
+        {
+            "id": "extension-update-advisories",
+            "title": "Extension update advisories.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "ExtensionsPage",
+            "scenario": "admin-index",
+            "url": "/extensions",
+            "waitFor": "table",
+            "required": true,
+            "notes": "Resolved by the deployment screenshot runner after advisory snapshots are seeded. Marketplace contributes alerts but not catalogue controls to the installed Extensions page."
+        },
+        {
+            "id": "marketplace-extension-detail-overview",
+            "title": "Marketplace extension detail overview.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "MarketplaceExtensionDetailPage",
+            "scenario": "admin-index",
+            "url": "/extensions/marketplace/seo-suite",
+            "waitFor": "[data-marketplace-extension-screenshots]",
+            "docsPage": "packages/marketplace/README.md",
+            "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-overview.png",
+            "required": true,
+            "capture": {
+                "fullPage": true
+            },
+            "notes": "Requires the screenshot environment to provide a marketplace detail fixture for seo-suite with screenshots, documentation, licence, surfaces, dependencies, contribution summary, and feedback entitlement."
+        },
+        {
+            "id": "marketplace-extension-detail-mobile",
+            "title": "Marketplace extension detail mobile layout.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "MarketplaceExtensionDetailPage",
+            "scenario": "admin-index",
+            "url": "/extensions/marketplace/seo-suite",
+            "waitFor": "[data-marketplace-extension-screenshots]",
+            "viewport": "mobile",
+            "docsPage": "packages/marketplace/README.md",
+            "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-mobile.png",
+            "required": true,
+            "capture": {
+                "fullPage": true
+            },
+            "notes": "Captures the same seeded detail fixture at mobile width so screenshot galleries, docs, access state, and feedback controls are checked responsively."
+        },
+        {
+            "id": "marketplace-extension-detail-docs-and-access",
+            "title": "Marketplace extension docs and access state.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "MarketplaceExtensionDetailPage",
+            "scenario": "admin-index",
+            "url": "/extensions/marketplace/seo-suite",
+            "waitFor": "[data-marketplace-extension-docs]",
+            "docsPage": "packages/marketplace/README.md",
+            "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-docs-and-access.png",
+            "required": true,
+            "capture": {
+                "fullPage": true
+            },
+            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls."
+        }
+    ]
+}

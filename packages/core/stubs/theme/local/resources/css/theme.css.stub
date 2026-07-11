@@ -1,0 +1,13 @@
+:root {
+    --{{ themeKey }}-section-gap: clamp(3rem, 6vw, 6rem);
+}
+
+.{{ themeKey }}-page {
+    color: var(--theme-foreground);
+    background: var(--theme-surface);
+    font-family: var(--theme-body-font);
+}
+
+.{{ themeKey }}-section {
+    padding-block: var(--{{ themeKey }}-section-gap);
+}

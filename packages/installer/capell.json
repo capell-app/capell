@@ -1,0 +1,76 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/installer",
+    "slug": "installer",
+    "displayName": "Capell Installer",
+    "kind": "package",
+    "visibility": "support",
+    "capellApiVersion": "^4.0",
+    "version": "4.x-dev",
+    "description": "Installer provides the browser installer guide and installer cleanup flow.",
+    "product": {
+        "group": "Capell Foundation",
+        "tier": "free",
+        "bundle": "foundation"
+    },
+    "namespace": "Capell\\Installer",
+    "surfaces": ["admin", "console"],
+    "dependencies": {
+        "requires": ["capell-app/core"],
+        "supports": ["capell-app/admin"],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": ["Capell\\Installer\\Providers\\InstallerServiceProvider"],
+        "runtime": [],
+        "admin": ["Capell\\Installer\\Providers\\InstallerServiceProvider"],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": {
+        "migrations": false,
+        "settings": false,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": ["browser-installer", "installer-cleanup"],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 20,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": ["auth"],
+            "sensitiveOutput": true,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "first-party",
+        "supportPolicy": "capell-first-party",
+        "privateDocsRequested": false
+    },
+    "marketplace": {
+        "hidden": true,
+        "summary": "Browser installer guide and installer cleanup flow for new Capell applications.",
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Capell Installer extension preview image",
+                "caption": "Capell Installer extension preview"
+            }
+        ],
+        "categories": ["foundation", "installer"]
+    }
+}

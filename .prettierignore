@@ -1,0 +1,9 @@
+# Ignore artifacts:
+**/node_modules
+**/vendor
+composer.lock
+packages/**/publishes/dist/assets/**
+packages/**/publishes/build/**
+tests/.pest/snapshots/
+# prettier-plugin-blade can't parse conditional opening/closing tags
+packages/frontend/resources/views/components/dropdown/index.blade.php

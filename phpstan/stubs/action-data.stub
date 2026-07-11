@@ -1,0 +1,14 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Data;
+
+use Spatie\LaravelData\Data;
+
+class {{ class }}Data extends Data
+{
+    public function __construct(
+        // Add constructor-promoted properties here.
+    ) {}
+}
