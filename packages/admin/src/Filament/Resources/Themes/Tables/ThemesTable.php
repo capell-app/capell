@@ -62,7 +62,7 @@ class ThemesTable implements TableConfigurator
                 SelectFilter::make('blueprint_id')
                     ->label(__('capell-admin::form.theme_type'))
                     ->relationship(
-                        name: 'type',
+                        name: 'blueprint',
                         titleAttribute: 'name',
                         modifyQueryUsing: fn (Builder $query): Builder => $query->enabled()->themeType(),
                     ),

@@ -89,7 +89,7 @@ it('evaluates theme table columns and action form choices from real admin record
         ->and($applyAction->isIconButton())->toBeTrue()
         ->and($applyAction->isDisabled())->toBeFalse()
         ->and($diagnosticsAction->isIconButton())->toBeTrue()
-        ->and($diagnosticsAction->getColor())->toBe('warning');
+        ->and($diagnosticsAction->getColor())->toBe('success');
 
     $previewComponents = themeActionSchemaComponents($previewAction, $theme, $livewire);
     $applyComponents = themeActionSchemaComponents($applyAction, $theme, $livewire);

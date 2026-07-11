@@ -277,6 +277,7 @@ HTML);
             footer: [...$defaults->footer, ...(is_array($state['footer'] ?? null) ? $state['footer'] : [])],
             assets: [...$defaults->assets, ...(is_array($state['assets'] ?? null) ? $state['assets'] : [])],
             advanced: [...$defaults->advanced, ...(is_array($state['advanced'] ?? null) ? $state['advanced'] : [])],
+            tokens: [...$defaults->tokens, ...(is_array($state['tokens'] ?? null) ? $state['tokens'] : [])],
             admin: [...$defaults->admin, ...(is_array($state['admin'] ?? null) ? $state['admin'] : [])],
         );
     }
