@@ -6,6 +6,8 @@ Redesign the Core hero and marketplace card around one deliberate product story:
 
 The result must feel authored rather than decorated. Every visible architectural element must map to a Capell relationship or be removed.
 
+![Core structural spine artwork](../../../packages/core/docs/assets/readme/hero.jpg)
+
 ## Primary Audience and Message
 
 The primary reader is a technical CMS evaluator comparing Capell with other Laravel, hosted, headless, or hand-rolled approaches. The image must make these differences visible:
@@ -22,9 +24,9 @@ The agency outcome is secondary: the same governed structure can produce multipl
 The 2880×960 hero uses one bounded Laravel application frame as its architectural section. Within it:
 
 1. A central navy Core spine carries three explicit structural planes:
-   - Site context: Site + Language.
-   - Content and addressing: Page + URL.
-   - Configuration and presentation contracts: Settings + Theme.
+    - Site context: Site + Language.
+    - Content and addressing: Page + URL.
+    - Configuration and presentation contracts: Settings + Theme.
 2. Extension points appear as visible perimeter sockets that can connect to multiple planes. Extension is not the final step in a linear pipeline.
 3. A separate Admin room connects to Core through one controlled interface.
 4. An application-owned Frontend branch remains visually separate from Admin and terminates in two or three distinctive site elevations built on the same navy chassis.
