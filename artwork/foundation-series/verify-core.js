@@ -7,66 +7,50 @@ const outputs = [
     ['packages/core/docs/assets/readme/hero.jpg', '2880x960'],
     ['packages/core/docs/assets/marketplace/extension-card.jpg', '800x500'],
 ]
-for (const [relative, geometry] of outputs) {
-    const file = path.join(root, relative)
+
+for (const [relativePath, geometry] of outputs) {
+    const absolutePath = path.join(root, relativePath)
     const metadata = execFileSync('identify', [
         '-format',
         '%wx%h|%[colorspace]|%[interlace]|%m',
-        file,
+        absolutePath,
     ]).toString()
-    if (metadata !== `${geometry}|sRGB|JPEG|JPEG`)
-        throw new Error(`${relative} has invalid metadata: ${metadata}`)
-    if (fs.statSync(file).size > 1_500_000)
-        throw new Error(`${relative} exceeds 1.5 MB`)
+
+    if (metadata !== `${geometry}|sRGB|JPEG|JPEG`) {
+        throw new Error(`${relativePath} has invalid metadata: ${metadata}`)
+    }
+
+    if (fs.statSync(absolutePath).size > 1_500_000) {
+        throw new Error(`${relativePath} exceeds 1.5 MB`)
+    }
 }
 
-const renderer = fs.readFileSync(
-    path.join(root, 'artwork/foundation-series/render-core.js'),
+for (const relativePath of [
+    'artwork/foundation-series/capell-logo.svg',
+    'artwork/foundation-series/references/capell-logo-reference.png',
+    'artwork/foundation-series/reviews/2026-07-11-core-structural-spine-review.md',
+]) {
+    if (!fs.existsSync(path.join(root, relativePath))) {
+        throw new Error(`Missing Core artwork evidence: ${relativePath}`)
+    }
+}
+
+for (const forbiddenPath of [
+    'artwork/foundation-series/render-core.js',
+    'artwork/foundation-series/backgrounds/core-engraving.jpg',
+]) {
+    if (fs.existsSync(path.join(root, forbiddenPath))) {
+        throw new Error(`Obsolete Core generator remains: ${forbiddenPath}`)
+    }
+}
+
+const legacyRenderer = fs.readFileSync(
+    path.join(root, 'artwork/foundation-series/render.sh'),
     'utf8',
 )
-for (const required of [
-    'The structure beneath every site',
-    'LARAVEL APPLICATION',
-    'CAPELL CORE',
-    'SITE + LANGUAGE',
-    'PAGE + URL',
-    'SETTINGS + THEME',
-    'ADMIN',
-    'APPLICATION-OWNED FRONTEND',
-    'COMPOSER PACKAGE',
-    'extension socket',
-    'Define',
-    'Connect',
-    'Resolve',
-    'Extend',
-    'Reuse',
-    'Cormorant Garamond, Didot, Georgia, serif',
-    'factualPageStructureReference',
-    'factualSettingsReference',
-])
-    if (!renderer.includes(required))
-        throw new Error(`Renderer is missing required contract: ${required}`)
 
-for (const forbidden of [
-    'station(',
-    'layerRail(',
-    'assetData(inputs.pageStructure)',
-    'assetData(inputs.settings)',
-    'traffic-light',
-    'gear',
-    'conveyor',
-    'piston',
-]) {
-    if (renderer.toLowerCase().includes(forbidden.toLowerCase()))
-        throw new Error(`Renderer retains rejected treatment: ${forbidden}`)
+if (legacyRenderer.includes('render_core')) {
+    throw new Error('Legacy renderer still invokes the Core artwork generator')
 }
-for (const relative of [
-    'artwork/foundation-series/backgrounds/core-engraving.jpg',
-    'artwork/foundation-series/capell-logo.svg',
-    'packages/core/docs/images/screenshots/core-page-structure.png',
-    'packages/core/docs/images/screenshots/core-settings-backed-configuration-dark.png',
-]) {
-    if (!fs.existsSync(path.join(root, relative)))
-        throw new Error(`Missing artwork input: ${relative}`)
-}
-console.log('Core structural spine artwork contract passed.')
+
+console.log('Core Nano Banana artwork contract passed.')

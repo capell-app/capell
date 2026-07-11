@@ -50,10 +50,6 @@ export_jpeg() {
         -sampling-factor 4:4:4 -interlace Plane -quality 88 -strip "$output"
 }
 
-render_core() {
-    node "$ROOT/artwork/foundation-series/render-core.js"
-}
-
 render_admin() {
     local canvas="$WORK/admin-hero.png"
     magick "$ROOT/packages/admin/docs/images/screenshots/02-edit-page-save-as-draft.png" \
@@ -137,7 +133,6 @@ render_marketplace() {
     export_jpeg "$canvas" "$ROOT/packages/marketplace/docs/assets/marketplace/extension-card.jpg" 800 500
 }
 
-render_core
 render_admin
 render_frontend
 render_installer
