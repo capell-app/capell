@@ -202,9 +202,9 @@ it('uses loaded theme blueprint meta as the public asset fallback', function ():
         ],
     ]);
     $theme = Theme::factory()
-        ->for($type, 'type')
+        ->for($type, 'blueprint')
         ->create(['meta' => []])
-        ->load('type');
+        ->load('blueprint');
 
     $requirements = (new ThemeMetaAssetContributor)->requirements(new FrontendAssetContextData(
         page: null,
@@ -228,7 +228,7 @@ it('does not fall back to blueprint assets once editor asset state exists', func
         ],
     ]);
     $theme = Theme::factory()
-        ->for($type, 'type')
+        ->for($type, 'blueprint')
         ->create([
             'meta' => [
                 'editor' => [
@@ -239,7 +239,7 @@ it('does not fall back to blueprint assets once editor asset state exists', func
                 ],
             ],
         ])
-        ->load('type');
+        ->load('blueprint');
 
     $requirements = (new ThemeMetaAssetContributor)->requirements(new FrontendAssetContextData(
         page: null,
