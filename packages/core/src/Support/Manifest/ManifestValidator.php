@@ -302,6 +302,8 @@ final class ManifestValidator
             throw InvalidManifestException::missingField('contributes');
         }
 
+        $contentWidgetKeys = [];
+
         foreach ($data['contributes'] as $index => $contribution) {
             if (! is_array($contribution)) {
                 throw InvalidManifestException::invalidField('contributes.' . $index, 'must be an object');
@@ -320,6 +322,32 @@ final class ManifestValidator
             }
 
             $this->validateClass($class, $namespacePrefixes, $isTrustedCore, $this->expectedContributionContract($type));
+
+            if ($type === ExtensionContributionType::ContentWidget) {
+                $key = $contribution['key'] ?? null;
+                $packageVendor = str((string) $data['name'])->before('/')->toString();
+
+                if (! is_string($key) || $key === '') {
+                    throw InvalidManifestException::missingField(sprintf('contributes.%d.key', $index));
+                }
+
+                if (! preg_match('/^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9.-]*$/', $key)
+                    || ! str_starts_with($key, $packageVendor . '.')) {
+                    throw InvalidManifestException::invalidField(
+                        sprintf('contributes.%d.key', $index),
+                        sprintf('must be package-prefixed with "%s."', $packageVendor),
+                    );
+                }
+
+                if (in_array($key, $contentWidgetKeys, true)) {
+                    throw InvalidManifestException::invalidField(
+                        sprintf('contributes.%d.key', $index),
+                        sprintf('duplicates content widget key "%s"', $key),
+                    );
+                }
+
+                $contentWidgetKeys[] = $key;
+            }
         }
     }
 

@@ -4,7 +4,7 @@
 
 This page maps the core Capell model relationships without listing every schema column. Use it when you need the shape of the system before reading migrations or model classes.
 
-`blueprints` is the current type registry for pages, sites, themes, and other blueprint-backed records. The legacy `Type` model is a deprecated alias over `blueprints`; there is no separate core `types` table.
+`blueprints` is the registry for pages, sites, themes, and other blueprint-backed records. There is no separate core `types` table.
 
 ## Page Delivery
 

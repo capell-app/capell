@@ -28,6 +28,7 @@ final class UnavailableContentWidgetState
                     $type = $node['type'] ?? null;
 
                     if (! is_string($type)
+                        || ! array_key_exists('data', $node)
                         || isset($registered[$type])
                         || ($type === self::PLACEHOLDER_TYPE
                             && is_array($node['data'][self::OPAQUE_STATE_KEY] ?? null))) {

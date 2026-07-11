@@ -122,6 +122,83 @@ it('parses extension detail payloads with conservative collection defaults', fun
         ->and($detail->licence?->licenceStatus)->toBe(ExtensionLicenceStatus::Active);
 });
 
+it('parses the catalogue release contract for listing and detail payloads', function (): void {
+    $payload = [
+        'slug' => 'seo-suite',
+        'name' => 'Advanced SEO Suite',
+        'composer_name' => 'capell-app/seo-suite',
+        'catalogue_role' => 'core',
+        'maturity' => 'stable',
+        'maturity_label' => 'Released',
+        'included_with_capell_all' => true,
+    ];
+
+    $listing = ExtensionListingData::fromApiResponse($payload);
+    $detail = ExtensionDetailData::fromApiResponse($payload);
+
+    expect($listing->catalogueRole)->toBe('core')
+        ->and($listing->maturity)->toBe('stable')
+        ->and($listing->maturityLabel)->toBe('Released')
+        ->and($listing->includedWithCapellAll)->toBeTrue()
+        ->and($detail->catalogueRole)->toBe('core')
+        ->and($detail->maturity)->toBe('stable')
+        ->and($detail->maturityLabel)->toBe('Released')
+        ->and($detail->includedWithCapellAll)->toBeTrue();
+});
+
+it('fails closed for missing or unknown catalogue release metadata without reading the version', function (array $releaseMetadata): void {
+    $payload = [
+        'slug' => 'community-suite',
+        'name' => 'Community Suite',
+        'composer_name' => 'vendor/community-suite',
+        'latest_version' => '9.0.0-beta.2',
+        ...$releaseMetadata,
+    ];
+
+    $listing = ExtensionListingData::fromApiResponse($payload);
+    $detail = ExtensionDetailData::fromApiResponse($payload);
+
+    expect($listing->catalogueRole)->toBe('extension')
+        ->and($listing->maturity)->toBe('labs')
+        ->and($listing->maturityLabel)->toBe('Labs')
+        ->and($listing->includedWithCapellAll)->toBeFalse()
+        ->and($detail->catalogueRole)->toBe('extension')
+        ->and($detail->maturity)->toBe('labs')
+        ->and($detail->maturityLabel)->toBe('Labs')
+        ->and($detail->includedWithCapellAll)->toBeFalse();
+})->with([
+    'old server payload' => [[]],
+    'unknown community values' => [[
+        'catalogue_role' => 'community',
+        'maturity' => 'preview',
+        'maturity_label' => 'Preview',
+        'included_with_capell_all' => true,
+    ]],
+    'contradictory maturity label' => [[
+        'catalogue_role' => 'core',
+        'maturity' => 'beta',
+        'maturity_label' => 'Released',
+        'included_with_capell_all' => true,
+    ]],
+    'missing Capell All inclusion flag' => [[
+        'catalogue_role' => 'core',
+        'maturity' => 'stable',
+        'maturity_label' => 'Released',
+    ]],
+    'non boolean Capell All inclusion flag' => [[
+        'catalogue_role' => 'core',
+        'maturity' => 'stable',
+        'maturity_label' => 'Released',
+        'included_with_capell_all' => 'true',
+    ]],
+    'Labs extension marked as included with Capell All' => [[
+        'catalogue_role' => 'extension',
+        'maturity' => 'labs',
+        'maturity_label' => 'Labs',
+        'included_with_capell_all' => true,
+    ]],
+]);
+
 it('uses the first listing screenshot as the listing image fallback', function (): void {
     $listing = ExtensionListingData::fromApiResponse([
         'slug' => 'analytics',

@@ -21,8 +21,8 @@ it('belongs to a type', function (): void {
     $type = Blueprint::factory()->createOne(['type' => BlueprintSubjectEnum::Site]);
     $site = Site::factory()->createOne(['blueprint_id' => $type->id]);
 
-    expect($site->type)->toBeInstanceOf(Blueprint::class)
-        ->and($site->type->id)->toBe($type->id);
+    expect($site->blueprint)->toBeInstanceOf(Blueprint::class)
+        ->and($site->blueprint->id)->toBe($type->id);
 });
 
 it('falls back to type meta when site meta does not contain the requested key', function (): void {

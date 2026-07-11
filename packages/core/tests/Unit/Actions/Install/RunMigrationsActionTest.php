@@ -178,3 +178,23 @@ it('can run only database migrations before settings migrations are ready', func
 
     RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
 });
+
+it('can run only settings migrations for a package without schema migrations', function (): void {
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('call')
+        ->once()
+        ->with('migrate', [
+            '--force' => true,
+            '--path' => database_path('settings'),
+            '--realpath' => true,
+        ])
+        ->andReturn(0);
+    $kernel->shouldReceive('output')->andReturn('Nothing to migrate');
+    $this->app->instance(Kernel::class, $kernel);
+
+    RunMigrationsAction::run(
+        new NullProgressReporter,
+        includeSettings: true,
+        includeSchema: false,
+    );
+});

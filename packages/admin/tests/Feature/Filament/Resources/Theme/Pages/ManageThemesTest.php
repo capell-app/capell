@@ -1064,7 +1064,7 @@ test('selected site theme apply requires at least one site', function (): void {
 
 test('can save default theme without loosing data', function (): void {
     $defaultTheme = CreateThemeAction::run();
-    assert($defaultTheme->type instanceof Blueprint);
+    assert($defaultTheme->blueprint instanceof Blueprint);
 
     Livewire::test(ManageThemes::class)
         ->assertSuccessful()
@@ -1077,11 +1077,11 @@ test('can save default theme without loosing data', function (): void {
         ->name->toBe($defaultTheme->name)
         ->key->toBe($defaultTheme->key)
         ->default->toBeTrue()
-        ->type->scoped(
+        ->blueprint->scoped(
             function (Expectation $type) use ($defaultTheme): void {
                 $type
                     ->toBeInstanceOf(Blueprint::class)
-                    ->id->toBe($defaultTheme->type->id);
+                    ->id->toBe($defaultTheme->blueprint->id);
             },
         )
         ->meta->scoped(

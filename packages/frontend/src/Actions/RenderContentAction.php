@@ -70,6 +70,6 @@ class RenderContentAction
     /** @param array<string, mixed> $context */
     private function renderHtml(string $content, array $context): string
     {
-        return RenderHtmlContentAction::run($content, $context);
+        return RenderHtmlContentAction::run($content, $context)->toHtml();
     }
 }

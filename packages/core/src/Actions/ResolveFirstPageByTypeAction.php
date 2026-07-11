@@ -40,7 +40,7 @@ final class ResolveFirstPageByTypeAction
                 'pageUrl',
                 fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language->id),
             )
-            ->whereHas('type', fn (BuilderContract $query): BuilderContract => $query->where('key', $key)->enabled())
+            ->whereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->where('key', $key)->enabled())
             ->where('site_id', $site->id)
             ->publishedDate();
 

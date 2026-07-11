@@ -36,7 +36,7 @@ class NameColumn extends BadgeableColumn
             return null;
         }
 
-        $record->loadMissing('type');
+        $record->loadMissing('blueprint');
 
         return $record->getRelation('type');
     }

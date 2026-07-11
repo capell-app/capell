@@ -19,11 +19,20 @@ use Capell\Core\ThemeStudio\Data\HeroSectionData;
 use Capell\Core\ThemeStudio\Data\NavigationData;
 use Capell\Core\ThemeStudio\Data\ProofSectionData;
 use Capell\Core\ThemeStudio\Data\ThemePageData;
+use Capell\Frontend\Contracts\ThemeSectionPayloadContributor;
 use Capell\Frontend\Facades\Frontend;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 
 class CapellFrontendThemePageAdapter implements ThemePageAdapter
 {
+    private readonly Application $application;
+
+    public function __construct(?Application $application = null)
+    {
+        $this->application = $application ?? app();
+    }
+
     public function currentPage(): ThemePageData
     {
         $page = Frontend::page();
@@ -123,7 +132,9 @@ class CapellFrontendThemePageAdapter implements ThemePageAdapter
             );
         }
 
-        return $sections !== [] ? $sections : [$this->fallbackHero($title, $translation)];
+        return $this->contributeToSections(
+            $sections !== [] ? $sections : [$this->fallbackHero($title, $translation)],
+        );
     }
 
     /**
@@ -161,7 +172,7 @@ class CapellFrontendThemePageAdapter implements ThemePageAdapter
             }
         }
 
-        return $sections;
+        return $this->contributeToSections($sections);
     }
 
     /**
@@ -261,6 +272,27 @@ class CapellFrontendThemePageAdapter implements ThemePageAdapter
             type: $type,
             data: $payload,
             fallback: $fallback ?? 'content-listing',
+        );
+    }
+
+    /**
+     * @param  array<int, ThemeSection>  $sections
+     * @return array<int, ThemeSection>
+     */
+    private function contributeToSections(array $sections): array
+    {
+        /** @var list<ThemeSectionPayloadContributor> $contributors */
+        $contributors = $this->application->tagged(ThemeSectionPayloadContributor::TAG);
+
+        return array_map(
+            function (ThemeSection $section) use ($contributors): ThemeSection {
+                foreach ($contributors as $contributor) {
+                    $section = $contributor->contribute($section);
+                }
+
+                return $section;
+            },
+            $sections,
         );
     }
 

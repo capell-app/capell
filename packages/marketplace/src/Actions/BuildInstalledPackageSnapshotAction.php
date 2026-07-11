@@ -92,6 +92,7 @@ final class BuildInstalledPackageSnapshotAction
             'runtime_allowed',
             'issued_at',
             'expires_at',
+            'installed_receipt',
             'signature',
         ]));
     }

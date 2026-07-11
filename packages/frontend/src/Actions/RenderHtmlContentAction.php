@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Frontend\Support\SafeHtml;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 /**
- * @method static string run(string $content, array $context = [])
+ * @method static SafeHtml run(string $content, array $context = [])
  */
 class RenderHtmlContentAction
 {
@@ -20,9 +21,12 @@ class RenderHtmlContentAction
     /**
      * @param  array<string, mixed>  $context
      */
-    public function handle(string $content, array $context = []): string
+    public function handle(string $content, array $context = []): SafeHtml
     {
-        return $this->sanitizer()->sanitize($this->interpolateTokens($content, $context));
+        return SafeHtml::sanitize(
+            $this->interpolateTokens($content, $context),
+            fn (string $html): string => $this->sanitizer()->sanitize($html),
+        );
     }
 
     /**

@@ -329,7 +329,7 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
 
     public function getFirstPageByType(string $key): ?Page
     {
-        return $this->pages()->whereRelation('type', 'key', $key)->first();
+        return $this->pages()->whereRelation('blueprint', 'key', $key)->first();
     }
 
     public function hasDefaultDomain(): bool

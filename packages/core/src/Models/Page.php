@@ -342,7 +342,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
                 ->tap(
                     fn (Builder $query): BuilderContract => LanguagesOrderScope::applyTo($query, $languageIds),
                 ),
-            'type',
+            'blueprint',
             'pageUrl' => fn (BuilderContract $query): BuilderContract => $query->with('siteDomain')
                 ->tap(
                     fn (Builder $query): BuilderContract => LanguagesOrderScope::applyTo($query, $languageIds),
@@ -445,7 +445,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     public function shouldLogVisit(): bool
     {
-        return (bool) ($this->type?->meta['disable_visit_logs'] ?? true);
+        return (bool) ($this->blueprint?->meta['disable_visit_logs'] ?? true);
     }
 
     /**
@@ -549,7 +549,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     public function isErrorPage(): bool
     {
-        return $this->type->key === 'error';
+        return $this->blueprint->key === 'error';
     }
 
     /**
@@ -558,7 +558,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
      */
     public function isAccessibleByUser(User $user): bool
     {
-        return $this->type?->isAccessibleByUser($user, $this->site) ?? true;
+        return $this->blueprint->isAccessibleByUser($user, $this->site);
     }
 
     public function registerMediaCollections(): void
@@ -638,7 +638,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             }
         }
 
-        return $this->type?->content_structure;
+        return $this->blueprint->content_structure;
     }
 
     /**
@@ -684,11 +684,11 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     /** @return array<string, mixed>|null */
     protected function getUrlParamsAttribute(): ?array
     {
-        if (! $this->relationLoaded('type')) {
+        if (! $this->relationLoaded('blueprint')) {
             return null;
         }
 
-        return $this->type?->meta['url_params'] ?? null;
+        return $this->blueprint?->meta['url_params'] ?? null;
     }
 
     #[Override]

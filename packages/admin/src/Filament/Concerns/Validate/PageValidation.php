@@ -28,13 +28,13 @@ trait PageValidation
             return true;
         }
 
-        $type = $record->type;
+        $blueprint = $record->blueprint;
 
-        if (! $type instanceof Blueprint) {
+        if (! $blueprint instanceof Blueprint) {
             return true;
         }
 
-        if (isset($type->admin['deletable']) && $type->admin['deletable'] === false) {
+        if (isset($blueprint->admin['deletable']) && $blueprint->admin['deletable'] === false) {
             Notification::make('page_not_deletable')
                 ->warning()
                 ->title(__(
@@ -43,7 +43,7 @@ trait PageValidation
                 ))
                 ->body(__(
                     'capell-admin::message.page_page_type_not_deletable',
-                    ['name' => $type->name],
+                    ['name' => $blueprint->name],
                 ))
                 ->send();
 
@@ -65,8 +65,8 @@ trait PageValidation
                     Action::make('pages')
                         ->label(__('capell-admin::button.view_pages'))
                         ->button()
-                        ->url(function () use ($record, $type): ?string {
-                            $resource = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $type);
+                        ->url(function () use ($record, $blueprint): ?string {
+                            $resource = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $blueprint);
 
                             if ($resource === null) {
                                 return null;

@@ -44,7 +44,7 @@ class FieldMacro
                 $rawState = RawState::array($component->getRootContainer()->getRawState());
 
                 $type = null;
-                if ($record instanceof Model && $record->relationLoaded('type')) {
+                if ($record instanceof Model && $record->relationLoaded('blueprint')) {
                     /** @var Model $record */
                     $type = $record->getAttribute('type');
                 } else {

@@ -197,6 +197,7 @@ class LayoutsTable implements TableConfigurator
             IdentifierColumn::make('id')
                 ->hidden(),
             NameColumn::make('name')
+                ->searchable(['name', 'key'])
                 ->formatStateUsing(fn (): string => ''),
             ImageColumn::make('admin.image')
                 ->visibility('public')

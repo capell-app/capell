@@ -367,7 +367,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
 
         throw_unless($record instanceof Blueprintable, Exception::class, 'Record is not typeable.');
 
-        $record->loadMissing('type');
+        $record->loadMissing('blueprint');
 
         return $record->getRelation('type');
     }

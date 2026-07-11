@@ -145,7 +145,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
     private function findingsForPage(Page $page): array
     {
         $findings = [];
-        $blueprint = $page->getRelationValue('type');
+        $blueprint = $page->getRelationValue('blueprint');
         $layout = $page->getRelationValue('layout');
         $editUrl = $blueprint instanceof Blueprint
             ? GetEditPageResourceUrlAction::run($page)
@@ -317,7 +317,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
 
     private function blueprintRequiresTranslations(Page $page): bool
     {
-        $blueprint = $page->getRelationValue('type');
+        $blueprint = $page->getRelationValue('blueprint');
 
         if (! $blueprint instanceof Blueprint) {
             return false;

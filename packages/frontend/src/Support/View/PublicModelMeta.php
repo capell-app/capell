@@ -33,8 +33,8 @@ final class PublicModelMeta
             }
         }
 
-        if ($model instanceof Blueprintable && $model instanceof Model && $model->relationLoaded('type')) {
-            $type = $model->getRelation('type');
+        if ($model instanceof Blueprintable && $model instanceof Model && $model->relationLoaded('blueprint')) {
+            $type = $model->getRelation('blueprint');
 
             if ($type instanceof Blueprint) {
                 return self::get($type, $key, $default);

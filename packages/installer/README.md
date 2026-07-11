@@ -1,6 +1,6 @@
 # Capell Installer
 
-![Capell Installer screenshot](./docs/images/screenshots/install-guide-page.png)
+![Capell Installer package selection and guided setup handoff](docs/assets/readme/hero.jpg)
 
 `capell-app/installer` provides the browser installation workflow for fresh Capell CMS applications. It owns the install routes, progress screens, install guide patches, not-installed dashboard warning, and post-install setup package removal.
 

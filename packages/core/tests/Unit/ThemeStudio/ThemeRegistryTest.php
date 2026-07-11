@@ -86,6 +86,30 @@ it('findRenderer() returns null for a definition-only or unregistered theme', fu
         ->and($registry->findRenderer('never-registered-theme'))->toBeNull();
 });
 
+it('finds an inherited renderer for definition-only child themes', function (): void {
+    $registry = new ThemeRegistry;
+    $parentRenderer = themeRegistryRenderer('default');
+
+    $registry->register(
+        definition: themeRegistryDefinition('default'),
+        themeRenderer: $parentRenderer,
+    );
+    $registry->register(themeRegistryDefinition('layout-native', extends: 'default'));
+
+    expect($registry->findRenderer('layout-native'))->toBeNull()
+        ->and($registry->findRendererInChain('layout-native'))->toBe($parentRenderer)
+        ->and($registry->findRendererInChain('missing-theme'))->toBeNull();
+});
+
+it('stops inherited renderer resolution when a theme chain cycles', function (): void {
+    $registry = new ThemeRegistry;
+
+    $registry->register(themeRegistryDefinition('first', extends: 'second'));
+    $registry->register(themeRegistryDefinition('second', extends: 'first'));
+
+    expect($registry->findRendererInChain('first'))->toBeNull();
+});
+
 it('still resolves runtime data and writes token css for a definition-only theme', function (): void {
     $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
 
@@ -110,7 +134,7 @@ it('still resolves runtime data and writes token css for a definition-only theme
     }
 });
 
-function themeRegistryDefinition(string $themeKey): ThemeDefinitionData
+function themeRegistryDefinition(string $themeKey, ?string $extends = null): ThemeDefinitionData
 {
     return new ThemeDefinitionData(
         key: $themeKey,
@@ -128,6 +152,7 @@ function themeRegistryDefinition(string $themeKey): ThemeDefinitionData
                 previewImage: '/preset.jpg',
             ),
         ],
+        extends: $extends,
     );
 }
 

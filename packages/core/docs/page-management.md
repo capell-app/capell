@@ -101,7 +101,7 @@ Blueprints shape how content is edited, rendered, and reused. For pages, a bluep
 
 Capell ships with a standard page blueprint, and you can add custom blueprints for specialised content. A product page could require a price field and use a product detail component. A team member page could require a photo and bio. A campaign page could use a landing-page component, opt out of archive listings, and keep its layout locked.
 
-The legacy `Type` model and `type` relation are still present as compatibility aliases, but new application and package code should talk to `Blueprint` records and `blueprint` relationships.
+Application and package code uses `Blueprint` records and `blueprint` relationships.
 
 ### Choosing a page blueprint
 

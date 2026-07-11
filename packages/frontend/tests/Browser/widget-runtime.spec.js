@@ -210,6 +210,70 @@ test('records failed resources and retries them only when requested', async ({
         .toBe(true)
 })
 
+test('initialises later interaction content when its shared script is already ready', async ({
+    page,
+}) => {
+    await page.route('https://capell.test/assets/dynamic.js', (route) =>
+        route.fulfill({
+            contentType: 'application/javascript',
+            body: `
+                const initialise = (root) => { root.dataset.ready = 'true' }
+                document.querySelectorAll('[data-review-widget]').forEach(initialise)
+                document.addEventListener('capell:content-ready', (event) => {
+                    event.target?.querySelectorAll?.('[data-review-widget]').forEach(initialise)
+                })
+            `,
+        }),
+    )
+
+    for (const id of ['first-dynamic', 'second-dynamic']) {
+        await page.route(`https://capell.test/widgets/${id}`, (route) =>
+            route.fulfill({
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    version: 2,
+                    status: 'ok',
+                    html: `<div data-review-widget>${id}</div>`,
+                    resource_ids: ['dynamic'],
+                }),
+            }),
+        )
+    }
+
+    await boot(
+        page,
+        interaction({ id: 'first-dynamic', label: 'Open first' }) +
+            interaction({ id: 'second-dynamic', label: 'Open second' }),
+        {
+            dynamic: [
+                {
+                    kind: 'js',
+                    url: 'https://capell.test/assets/dynamic.js',
+                    module: false,
+                },
+            ],
+        },
+    )
+
+    await page.locator('#first-dynamic').click()
+    await expect(
+        page
+            .locator('[data-review-widget]')
+            .filter({ hasText: 'first-dynamic' }),
+    ).toHaveAttribute('data-ready', 'true')
+    await page.keyboard.press('Escape')
+
+    await page.locator('#second-dynamic').click()
+    await expect(
+        page
+            .locator('[data-review-widget]')
+            .filter({ hasText: 'second-dynamic' }),
+    ).toHaveAttribute('data-ready', 'true')
+    await expect(page.locator('script[src$="/assets/dynamic.js"]')).toHaveCount(
+        1,
+    )
+})
+
 test('contains focus in nested labelled dialogs and restores each trigger', async ({
     page,
 }) => {

@@ -43,7 +43,7 @@
             ]
         },
         "branch-alias": {
-            "dev-main": "4.x-dev"
+            "dev-main": "1.x-dev"
         }
     },
     "minimum-stability": "stable",

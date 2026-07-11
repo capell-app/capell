@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Install\PublishPackageMigrationsAction;
+use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
 use Exception;
 use Illuminate\Support\Facades\Event;
@@ -33,6 +36,7 @@ class InstallPackageAction
         bool $allowLegacyCommand = true,
     ): void {
         $name = $package->name;
+        $reporter ??= new NullProgressReporter;
 
         if ($package->getKind() === 'bundle') {
             self::installBundleMembers($package, $arguments, $reporter, $allowLegacyCommand);
@@ -47,18 +51,20 @@ class InstallPackageAction
             }
         }
 
-        if ($package->serviceProviderClass !== null) {
-            app()->getProvider($package->serviceProviderClass)?->callBootedCallbacks();
-        }
+        CapellCore::markPackageInstalling($package->name);
 
-        if ($package->getInstallCommand() !== null || $package->getInstallAction() !== null) {
-            CapellCore::markPackageInstalling($package->name);
+        try {
+            if ($package->serviceProviderClass !== null) {
+                app()->getProvider($package->serviceProviderClass)?->callBootedCallbacks();
+            }
 
-            try {
-                foreach (array_unique(array_merge($package->getProviderClasses('install'), $package->getProviderClasses('console'))) as $providerClass) {
-                    app()->register($providerClass);
-                }
+            foreach (array_unique(array_merge($package->getProviderClasses('install'), $package->getProviderClasses('console'))) as $providerClass) {
+                app()->register($providerClass);
+            }
 
+            self::runDeclaredMigrations($package, $reporter);
+
+            if ($package->getInstallCommand() !== null || $package->getInstallAction() !== null) {
                 resolve(PackageLifecycleRunner::class)->run(
                     package: $package,
                     phase: 'install',
@@ -68,18 +74,52 @@ class InstallPackageAction
                     reporter: $reporter,
                     allowLegacyCommand: $allowLegacyCommand,
                 );
-            } catch (Throwable $exception) {
-                CapellCore::markPackageFailed($package->name, $exception->getMessage());
-
-                throw $exception;
             }
+
+            CapellCore::markPackageInstalled($package->name);
+            self::registerInstalledPackageProviders($package);
+        } catch (Throwable $exception) {
+            CapellCore::markPackageFailed($package->name, $exception->getMessage());
+
+            throw $exception;
         }
 
-        CapellCore::markPackageInstalled($package->name);
-        self::registerInstalledPackageProviders($package);
         CapellCore::clearCachedComponents();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
+    }
+
+    private static function runDeclaredMigrations(PackageData $package, ProgressReporter $reporter): void
+    {
+        $publishSchema = $package->declaresSchemaMigrations();
+        $publishSettings = $package->declaresSettingsMigrations();
+
+        if (! $publishSchema && ! $publishSettings) {
+            return;
+        }
+
+        PublishPackageMigrationsAction::run(
+            packages: collect([$package->name => $package]),
+            reporter: $reporter,
+            publishSchema: $publishSchema,
+            publishSettings: $publishSettings,
+            requireMigrationFiles: true,
+        );
+
+        if ($publishSchema) {
+            RunMigrationsAction::run(
+                reporter: $reporter,
+                includeSettings: false,
+            );
+        }
+
+        if ($publishSettings) {
+            RunMigrationsAction::run(
+                reporter: $reporter,
+                includeSettings: true,
+                includeSchema: false,
+            );
+        }
     }
 
     /**

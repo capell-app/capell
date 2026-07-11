@@ -12,8 +12,8 @@ it('belongs to a type', function (): void {
     $type = Blueprint::factory()->createOne(['type' => BlueprintSubjectEnum::Theme]);
     $theme = Theme::factory()->createOne(['blueprint_id' => $type->id]);
 
-    expect($theme->type)->toBeInstanceOf(Blueprint::class)
-        ->and($theme->type->id)->toBe($type->id);
+    expect($theme->blueprint)->toBeInstanceOf(Blueprint::class)
+        ->and($theme->blueprint->id)->toBe($type->id);
 });
 
 it('has many layouts', function (): void {

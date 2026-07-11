@@ -150,7 +150,10 @@
             "output": "docs/images/generated/admin/admin-layouts-list.png",
             "colorSchemes": ["light"],
             "required": false,
-            "notes": "Shows layout records that connect page content to frontend templates."
+            "notes": "Shows layout records that connect page content to frontend templates.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php"
+            ]
         },
         {
             "id": "admin-extensions-page",
@@ -254,7 +257,10 @@
             "output": "docs/images/generated/admin/admin-users-list.png",
             "colorSchemes": ["light"],
             "required": false,
-            "notes": "Shows the Users resource for role and account administration."
+            "notes": "Shows the Users resource for role and account administration.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Users/Tables/UsersTable.php"
+            ]
         },
         {
             "id": "frontend-published-page",
@@ -807,7 +813,10 @@
             "docsPage": "docs/operations/troubleshooting.md",
             "output": "docs/images/generated/admin/redirects-list.png",
             "required": false,
-            "notes": "Shows redirect records used when troubleshooting moved or missing public URLs."
+            "notes": "Shows redirect records used when troubleshooting moved or missing public URLs.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Redirects/Tables/RedirectsTable.php"
+            ]
         },
         {
             "id": "navigation-list",

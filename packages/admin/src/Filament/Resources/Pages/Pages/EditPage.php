@@ -271,7 +271,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ->persistent()
             ->send();
 
-        CapellCoreHelper::clearType($this->record->type->id);
+        CapellCoreHelper::clearType($this->record->blueprint->id);
 
         // Persist the mode as a per-page override (was previously a blueprint
         // mutation, which cloned the blueprint when shared and accumulated
@@ -605,7 +605,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                             }
                         }
 
-                        $query->with(['type', 'translations.language']);
+                        $query->with(['blueprint', 'translations.language']);
                     }
 
                     return $query;
@@ -876,7 +876,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ->label(fn (): string => __('capell-admin::button.delete'))
             ->hidden(fn (): bool => $this->record->trashed())
             ->successRedirectUrl(function (): ?string {
-                $resource = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $this->record->type);
+                $resource = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $this->record->blueprint);
                 if ($resource !== null) {
                     return $resource::getUrl();
                 }
@@ -962,7 +962,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         $selectedLangIds = array_map(intval(...), $selectedLangIds);
 
         $parent = Page::query()
-            ->withWhereHas('type')
+            ->withWhereHas('blueprint')
             ->withWhereHas('translations')
             ->firstWhere('id', $parentId);
 

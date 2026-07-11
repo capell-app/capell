@@ -89,15 +89,15 @@ final class LivewireFrontendResponseRenderer implements FrontendResponseRenderer
 
     private function componentFor(Pageable $page): string
     {
-        $type = $page instanceof Model && $page->relationLoaded('type')
-            ? $page->type
+        $blueprint = $page instanceof Model && $page->relationLoaded('blueprint')
+            ? $page->blueprint
             : null;
 
         return ResolveRenderableComponentAction::run(
             RenderableTypeEnum::Page,
             $page->meta['component']
-                ?? $type?->component
-                ?? $type?->meta['component']
+                ?? $blueprint?->component
+                ?? $blueprint?->meta['component']
                 ?? LivewirePageComponentEnum::Default->value,
             'livewire',
         );

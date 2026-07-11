@@ -157,7 +157,7 @@ it('can retrieve data', function (): void {
         ->assertSuccessful()
         ->assertSchemaStateSet([
             'name' => $page->name,
-            'blueprint_id' => $page->type->getKey(),
+            'blueprint_id' => $page->blueprint->getKey(),
             'layout_id' => $page->layout->getKey(),
             'site_id' => $page->site->getKey(),
         ]);
@@ -1296,16 +1296,17 @@ test('can save content string into blocks', function (): void {
         ->call('save')
         ->assertHasNoFormErrors();
 
-    assertDatabaseHas(Translation::class, [
-        'translatable_id' => $page->getKey(),
-        'translatable_type' => $page->getMorphClass(),
-        'language_id' => $language->getKey(),
-        'content' => json_encode([['type' => 'content', 'data' => [
-            'content' => $content,
-            'mediaAlign' => null,
-            'mediaOrdering' => null,
-        ]]]),
-    ]);
+    $storedContent = $page->translation->refresh()->content;
+    $savedContent = is_string($storedContent)
+        ? json_decode($storedContent, true, flags: JSON_THROW_ON_ERROR)
+        : $storedContent;
+
+    expect($savedContent)->toBeArray()
+        ->and($savedContent[0]['type'])->toBe('content')
+        ->and($savedContent[0]['data']['content'])->toBe($content)
+        ->and($savedContent[0]['data']['mediaAlign'])->toBeNull()
+        ->and($savedContent[0]['data']['mediaOrdering'])->toBeNull()
+        ->and(Str::isUuid($savedContent[0]['data']['__capell']['instance_id']))->toBeTrue();
 });
 
 test('can save content blocks into string', function (): void {
@@ -1458,21 +1459,22 @@ test('can edit page type and handle updated the content data changing to builder
         ->callMountedAction()
         ->assertHasNoFormErrors();
 
-    expect($page->type->refresh())
+    expect($page->blueprint->refresh())
         ->meta->content_structure->toBe(ContentStructure::Blocks->value);
 
     $livewire->call('save')
         ->assertHasNoFormErrors();
 
-    assertDatabaseHas(Translation::class, [
-        'id' => $contentBuilder->translations->first()->getKey(),
-        'language_id' => $language->getKey(),
-        'content' => json_encode([['type' => 'content', 'data' => [
-            'content' => $content,
-            'mediaAlign' => null,
-            'mediaOrdering' => null,
-        ]]]),
-    ]);
+    $savedContent = Translation::query()
+        ->findOrFail($contentBuilder->translations->first()->getKey())
+        ->content;
+
+    expect($savedContent)->toBeArray()
+        ->and($savedContent[0]['type'])->toBe('content')
+        ->and($savedContent[0]['data']['content'])->toBe($content)
+        ->and($savedContent[0]['data']['mediaAlign'])->toBeNull()
+        ->and($savedContent[0]['data']['mediaOrdering'])->toBeNull()
+        ->and(Str::isUuid($savedContent[0]['data']['__capell']['instance_id']))->toBeTrue();
 });
 
 it('warns editors when the page type content structure changes', function (): void {

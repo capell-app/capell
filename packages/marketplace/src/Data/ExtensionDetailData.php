@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Data;
 
+use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Spatie\LaravelData\Data;
@@ -68,6 +69,10 @@ final class ExtensionDetailData extends Data
         public readonly ?string $nextAction = null,
         public readonly ?string $healthStatus = null,
         public readonly ?MarketplaceInstallEligibilityData $installEligibilityPolicy = null,
+        public readonly string $catalogueRole = 'extension',
+        public readonly string $maturity = 'labs',
+        public readonly string $maturityLabel = 'Labs',
+        public readonly bool $includedWithCapellAll = false,
     ) {}
 
     /**
@@ -75,6 +80,8 @@ final class ExtensionDetailData extends Data
      */
     public static function fromApiResponse(array $payload): self
     {
+        $catalogueReleaseMetadata = ExtensionCatalogueMetadataData::fromApiResponse($payload);
+
         return new self(
             slug: self::stringValue($payload['slug'] ?? ''),
             name: self::stringValue($payload['name'] ?? ''),
@@ -123,6 +130,10 @@ final class ExtensionDetailData extends Data
                     || (bool) ($payload['activation_required'] ?? $payload['requires_activation'] ?? false)
                     || (bool) ($payload['requires_confirmation'] ?? false),
             ),
+            catalogueRole: $catalogueReleaseMetadata->catalogueRole,
+            maturity: $catalogueReleaseMetadata->maturity,
+            maturityLabel: $catalogueReleaseMetadata->maturityLabel,
+            includedWithCapellAll: $catalogueReleaseMetadata->includedWithCapellAll,
         );
     }
 
@@ -245,7 +256,8 @@ final class ExtensionDetailData extends Data
             'effective_certification', 'certification', 'support_policy', 'private_docs_entitled',
             'surfaces', 'dependencies', 'performance', 'performance_budget', 'contribution_summary',
             'contributions_summary', 'install_eligibility', 'eligibility', 'blocked_reason', 'next_action',
-            'health_status', 'healthState', 'metadata',
+            'health_status', 'healthState', 'catalogue_role', 'maturity', 'maturity_label',
+            'included_with_capell_all', 'metadata',
         ];
 
         return [

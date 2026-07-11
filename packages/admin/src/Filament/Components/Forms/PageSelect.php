@@ -159,7 +159,7 @@ class PageSelect extends Select
                             return null;
                         }
 
-                        $title = Str::title($selectedRecord->type?->name);
+                        $title = Str::title($selectedRecord->blueprint->name);
 
                         return new HtmlString(__('capell-admin::heading.edit_page_record', ['name' => $title]));
                     })
@@ -199,7 +199,7 @@ class PageSelect extends Select
                     $model = Page::class;
 
                     /** @var ?Page $page */
-                    $page = $model::query()->withWhereHas('type:id,admin')->find($state);
+                    $page = $model::query()->withWhereHas('blueprint:id,admin')->find($state);
 
                     if ($page === null) {
                         return null;
@@ -245,7 +245,7 @@ class PageSelect extends Select
                 fn (Builder $query): mixed => $this->evaluate($this->modifySelectOptionsQueryUsing, ['query' => $query]),
             )
             ->whereHas(
-                'type',
+                'blueprint',
                 function (BuilderContract $query) use ($pageGroup, $pageType): BuilderContract {
                     $query->where(
                         fn (BuilderContract $query): BuilderContract => $query->whereNot('group', BlueprintGroupEnum::System->value)
@@ -270,7 +270,7 @@ class PageSelect extends Select
             ->when(
                 $parentPageType,
                 fn (Builder $query): Builder => $query->whereHas(
-                    'parent.type',
+                    'parent.blueprint',
                     fn (BuilderContract $query): BuilderContract => $query->where('key', $parentPageType),
                 ),
             )

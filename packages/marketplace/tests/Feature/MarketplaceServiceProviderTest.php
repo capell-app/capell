@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
+use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
@@ -10,6 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
@@ -54,6 +56,14 @@ it('registers marketplace extensions page actions', function (): void {
         ->and($groupActionNames)
         ->toContain('connectMarketplaceAccount')
         ->toContain('createMarketplaceAccount');
+});
+
+it('registers the installed extension catalogue metadata provider', function (): void {
+    $providers = collect(app()->tagged(ExtensionCatalogueMetadataProvider::TAG));
+
+    expect($providers->contains(
+        fn (ExtensionCatalogueMetadataProvider $provider): bool => $provider instanceof MarketplaceCatalogueRecordProvider,
+    ))->toBeTrue();
 });
 
 it('keeps marketplace table warmup without rendering extensions page alert content', function (): void {

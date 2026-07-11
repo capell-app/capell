@@ -132,8 +132,8 @@ class DefaultPageConfigurator implements ConfiguratorInterface
     {
         $record = $schema->getRecord();
 
-        if ($record instanceof Model && $record->relationLoaded('type')) {
-            $relation = $record->getRelation('type');
+        if ($record instanceof Model && $record->relationLoaded('blueprint')) {
+            $relation = $record->getRelation('blueprint');
             $type = $relation instanceof Blueprint ? $relation : null;
         } elseif (filled($this->context?->typeKey)) {
             $type = resolve(ConfiguratorResolver::class)->resolveTypeByKey(
@@ -441,7 +441,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface
             return false;
         }
 
-        $type = $record->getRelationValue('type');
+        $type = $record->getRelationValue('blueprint');
 
         if (! $type instanceof Blueprint) {
             return false;

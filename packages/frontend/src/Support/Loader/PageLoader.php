@@ -100,7 +100,7 @@ class PageLoader
                     'pageUrls.siteDomain',
                 ])
                     ->withWhereHas(
-                        'type',
+                        'blueprint',
                         function (BuilderContract $query) use ($type): void {
                             /** @var Builder<Blueprint> $query */
                             $query->where('key', $type)->enabled();
@@ -214,7 +214,7 @@ class PageLoader
                     ->enabled()
                     ->where('language_id', $language->id),
             )
-            ->withWhereHas('type', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
+            ->withWhereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
             ->where('site_id', $site->id)
             ->publishedDate()
             ->orderBy('_lft', 'asc')
@@ -315,7 +315,7 @@ class PageLoader
                     'pageable',
                     $publicPageableMorphTypes,
                     fn (BuilderContract $pageableQuery): BuilderContract => $pageableQuery
-                        ->whereHas('type', fn (BuilderContract $query): BuilderContract => $query->enabled()),
+                        ->whereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()),
                 )
                 ->enabled()
                 ->first();
@@ -430,14 +430,14 @@ class PageLoader
 
             $result = $builder->with([
                 'image',
-                'type' => fn (Relation $query): Relation => $query->enabled()->listable()->accessible(),
+                'blueprint' => fn (Relation $query): Relation => $query->enabled()->listable()->accessible(),
                 'pageUrl' => fn (Relation $query): Relation => $query->where('language_id', $language->id),
                 'pageUrl.siteDomain',
             ])
                 ->where('site_id', $site->id)
                 ->withWhereRelation('translation', 'language_id', $language->id)
                 ->whereHas(
-                    'type',
+                    'blueprint',
                     fn (Builder $query): Builder => $query
                         ->enabled()
                         ->listable()

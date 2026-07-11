@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
+use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Actions\Install\PreflightExtraPackagesAction;
@@ -79,7 +80,7 @@ class InstallCommand extends Command
         {--sites= : Comma-separated demo site names}
         {--seed : Run the application database seeder after installing}
         {--no-seed-default-data : Skip default site, language, content type, and page setup}
-        {--spec= : Path to a site spec file, consumed by an installed extension after a successful install}
+        {--spec= : Path to a site spec requiring site, theme.key, and at least one page}
         {--url= : Site URL (defaults to APP_URL)}
         {--user= : User email or ID used as the default author for generated content}
         {--name= : Name for the first user created during install}
@@ -452,11 +453,8 @@ class InstallCommand extends Command
     }
 
     /**
-     * After a successful install, announce a supplied `--spec` file so an
-     * installed opinionated extension (e.g. ai-creator) can build a site from
-     * it. Core never opens or parses the spec — it only resolves the path and
-     * dispatches it. The build runs post-install, so a missing consumer is a
-     * warning, not a failure.
+     * After a successful install, consume a supplied site spec in Core, then
+     * announce it so extensions can perform compatible post-build work.
      */
     private function announceInstallSpec(bool $seededDefaults): void
     {
@@ -469,11 +467,7 @@ class InstallCommand extends Command
         $resolvedPath = realpath($specOption);
         $specPath = $resolvedPath === false ? $specOption : $resolvedPath;
 
-        // Core never parses the spec — it only announces the path. If no
-        // opinionated extension (e.g. ai-creator) is installed to consume the
-        // event, nothing happens; that is the extension's concern, not core's.
-        // (`Event::hasListeners` cannot detect this reliably: event-sourcing
-        // registers a wildcard listener that matches every event.)
+        BuildSiteFromSpecFileAction::run($specPath);
         Event::dispatch(new CapellInstalled($specPath, $seededDefaults));
     }
 

@@ -93,7 +93,7 @@ final class FrontendThemePreviewRenderer implements ThemePreviewRendererInterfac
     {
         return ResolveRenderableComponentAction::run(
             RenderableTypeEnum::Page,
-            $page->type->meta['component'] ?? LivewirePageComponentEnum::Default->value,
+            $page->blueprint->meta['component'] ?? LivewirePageComponentEnum::Default->value,
             'livewire',
         );
     }

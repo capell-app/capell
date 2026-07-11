@@ -10,9 +10,15 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
+use Capell\Core\Tests\Support\Fixtures\Autoload\InstallStateLifecycleRecorderAction;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Capell\Core\Tests\Support\Fixtures\Autoload\RuntimeProviderInstallPackageFixture;
+use Capell\Core\Tests\Support\Fixtures\Autoload\ThrowingRuntimeProviderInstallPackageFixture;
+use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
@@ -162,6 +168,69 @@ it('registers runtime providers after installing a package', function (): void {
     expect(RuntimeProviderInstallPackageFixture::$registered)->toBeTrue();
 });
 
+it('records failed state when runtime provider registration throws after the installed transition', function (): void {
+    $packageName = 'vendor/failing-runtime-provider-package';
+    $packagePath = makeInstallActionManifestPackageFixture(
+        composerName: $packageName,
+        runtimeProvider: ThrowingRuntimeProviderInstallPackageFixture::class,
+    );
+    ThrowingRuntimeProviderInstallPackageFixture::reset($packageName);
+
+    try {
+        CapellCore::registerPackage($packageName, path: $packagePath);
+
+        expect(fn (): null => InstallPackageAction::run(CapellCore::getPackage($packageName)))
+            ->toThrow(RuntimeException::class, 'Runtime provider registration failed.');
+
+        $extension = CapellExtension::query()
+            ->where('composer_name', $packageName)
+            ->firstOrFail();
+
+        expect(ThrowingRuntimeProviderInstallPackageFixture::$calls)->toBe(1)
+            ->and(ThrowingRuntimeProviderInstallPackageFixture::$observedStatus)->toBe(ExtensionStatusEnum::Enabled)
+            ->and(ThrowingRuntimeProviderInstallPackageFixture::$observedInstalled)->toBeTrue()
+            ->and($extension->status)->toBe(ExtensionStatusEnum::Failed)
+            ->and(CapellCore::isPackageInstalled($packageName))->toBeFalse();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('does not leave a throwing runtime provider bundle member installed', function (): void {
+    $goodMemberName = 'vendor/provider-bundle-member-good';
+    $failingMemberName = 'vendor/provider-bundle-member-failing';
+    $bundleName = 'vendor/provider-failing-showcase';
+    $failingMemberPath = makeInstallActionManifestPackageFixture(
+        composerName: $failingMemberName,
+        runtimeProvider: ThrowingRuntimeProviderInstallPackageFixture::class,
+    );
+    ThrowingRuntimeProviderInstallPackageFixture::reset($failingMemberName);
+
+    try {
+        CapellCore::registerPackage($goodMemberName, version: '^4.1');
+        CapellCore::registerPackage($failingMemberName, path: $failingMemberPath, version: '^4.1');
+        CapellCore::registerPackage($bundleName, version: '^4.1');
+
+        $bundle = CapellCore::getPackage($bundleName);
+        $bundle->kind = 'bundle';
+        $bundle->requirements = [$goodMemberName, $failingMemberName];
+
+        expect(fn (): null => InstallPackageAction::run($bundle))
+            ->toThrow(RuntimeException::class, 'Runtime provider registration failed.');
+
+        $failedMember = CapellExtension::query()
+            ->where('composer_name', $failingMemberName)
+            ->firstOrFail();
+
+        expect(CapellCore::isPackageInstalled($goodMemberName))->toBeFalse()
+            ->and(CapellCore::isPackageInstalled($failingMemberName))->toBeFalse()
+            ->and(CapellCore::isPackageInstalled($bundleName))->toBeFalse()
+            ->and($failedMember->status)->toBe(ExtensionStatusEnum::Failed);
+    } finally {
+        File::deleteDirectory($failingMemberPath);
+    }
+});
+
 it('tracks core package uninstall state outside the extension lifecycle ledger', function (): void {
     CapellCore::registerPackage(
         name: 'capell-app/admin',
@@ -300,6 +369,196 @@ it('registers manifest console providers before resolving install commands', fun
         ->and(CapellCore::isPackageInstalled('vendor/manifest-install-command-package'))->toBeTrue();
 });
 
+it('publishes and runs declared schema and settings migrations for packages without install lifecycle', function (): void {
+    $filesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+
+    $packagePath = makeInstallActionDatabasePackageFixture(
+        composerName: 'vendor/schema-settings-package',
+        declaresSchema: true,
+        declaresSettings: true,
+        writeSchemaMigration: true,
+        writeSettingsMigration: true,
+    );
+
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('call')->once()->with('migrate', [
+        '--force' => true,
+        '--path' => database_path('migrations'),
+        '--realpath' => true,
+    ])->andReturn(0)->ordered();
+    $kernel->shouldReceive('call')->once()->with('migrate', [
+        '--force' => true,
+        '--path' => database_path('settings'),
+        '--realpath' => true,
+    ])->andReturn(0)->ordered();
+    $kernel->shouldReceive('output')->twice()->andReturn(
+        'Schema migrations applied',
+        'Settings migrations applied',
+    );
+    app()->instance(Kernel::class, $kernel);
+
+    try {
+        CapellCore::registerPackage('vendor/schema-settings-package', path: $packagePath, version: '1.0.0');
+
+        InstallPackageAction::run(CapellCore::getPackage('vendor/schema-settings-package'));
+
+        $copiedSources = collect($filesystem->calls)
+            ->filter(fn (array $call): bool => $call[0] === 'copy')
+            ->pluck(1)
+            ->all();
+        $extension = CapellExtension::query()
+            ->where('composer_name', 'vendor/schema-settings-package')
+            ->firstOrFail();
+
+        expect($copiedSources)
+            ->toHaveCount(2)
+            ->and(collect($copiedSources)->contains(fn (mixed $path): bool => is_string($path) && str_contains($path, '/database/migrations/')))
+            ->toBeTrue()
+            ->and(collect($copiedSources)->contains(fn (mixed $path): bool => is_string($path) && str_contains($path, '/database/settings/')))
+            ->toBeTrue()
+            ->and($extension->status)->toBe(ExtensionStatusEnum::Enabled)
+            ->and($extension->installed_at)->not->toBeNull()
+            ->and(CapellCore::isPackageInstalled('vendor/schema-settings-package'))->toBeTrue();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('marks packages failed when a declared migration directory is missing', function (): void {
+    $packagePath = makeInstallActionDatabasePackageFixture(
+        composerName: 'vendor/missing-migration-package',
+        declaresSchema: true,
+        declaresSettings: false,
+    );
+
+    try {
+        CapellCore::registerPackage('vendor/missing-migration-package', path: $packagePath, version: '1.0.0');
+
+        expect(fn (): null => InstallPackageAction::run(CapellCore::getPackage('vendor/missing-migration-package')))
+            ->toThrow(
+                RuntimeException::class,
+                'Package vendor/missing-migration-package declares migrations, but database/migrations is missing.',
+            );
+
+        $extension = CapellExtension::query()
+            ->where('composer_name', 'vendor/missing-migration-package')
+            ->firstOrFail();
+
+        expect($extension->status)->toBe(ExtensionStatusEnum::Failed)
+            ->and($extension->installed_at)->toBeNull()
+            ->and(CapellCore::isPackageInstalled('vendor/missing-migration-package'))->toBeFalse();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('marks packages failed when declared migrations do not run successfully', function (): void {
+    $filesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+
+    $packagePath = makeInstallActionDatabasePackageFixture(
+        composerName: 'vendor/failing-migration-package',
+        declaresSchema: true,
+        declaresSettings: false,
+        writeSchemaMigration: true,
+    );
+
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('call')->once()->with('migrate', [
+        '--force' => true,
+        '--path' => database_path('migrations'),
+        '--realpath' => true,
+    ])->andReturn(1);
+    $kernel->shouldReceive('output')->andReturn('Migration failed');
+    app()->instance(Kernel::class, $kernel);
+
+    try {
+        CapellCore::registerPackage('vendor/failing-migration-package', path: $packagePath, version: '1.0.0');
+
+        expect(fn (): null => InstallPackageAction::run(CapellCore::getPackage('vendor/failing-migration-package')))
+            ->toThrow(RuntimeException::class, 'Migration command exited with status 1.');
+
+        $extension = CapellExtension::query()
+            ->where('composer_name', 'vendor/failing-migration-package')
+            ->firstOrFail();
+
+        expect($extension->status)->toBe(ExtensionStatusEnum::Failed)
+            ->and($extension->installed_at)->toBeNull()
+            ->and(CapellCore::isPackageInstalled('vendor/failing-migration-package'))->toBeFalse();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('does not publish undeclared migration directories for packages without database work', function (): void {
+    $filesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+
+    $packagePath = makeInstallActionDatabasePackageFixture(
+        composerName: 'vendor/no-database-package',
+        declaresSchema: false,
+        declaresSettings: false,
+        writeSchemaMigration: true,
+        writeSettingsMigration: true,
+    );
+
+    try {
+        CapellCore::registerPackage('vendor/no-database-package', path: $packagePath, version: '1.0.0');
+
+        InstallPackageAction::run(CapellCore::getPackage('vendor/no-database-package'));
+
+        expect(collect($filesystem->calls)->contains(fn (array $call): bool => $call[0] === 'copy'))
+            ->toBeFalse()
+            ->and(CapellCore::isPackageInstalled('vendor/no-database-package'))->toBeTrue();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('completes declared migrations while installing before running an explicit lifecycle action', function (): void {
+    InstallStateLifecycleRecorderAction::reset();
+    $filesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+
+    $packagePath = makeInstallActionDatabasePackageFixture(
+        composerName: 'vendor/ordered-lifecycle-package',
+        declaresSchema: true,
+        declaresSettings: false,
+        writeSchemaMigration: true,
+        installAction: InstallStateLifecycleRecorderAction::class,
+    );
+
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('call')->once()->with('migrate', [
+        '--force' => true,
+        '--path' => database_path('migrations'),
+        '--realpath' => true,
+    ])->andReturn(0);
+    $kernel->shouldReceive('output')->andReturn('Package migrations applied');
+    app()->instance(Kernel::class, $kernel);
+    $reporter = new RecordingInstallProgressReporter;
+
+    try {
+        CapellCore::registerPackage('vendor/ordered-lifecycle-package', path: $packagePath, version: '1.0.0');
+
+        InstallPackageAction::run(CapellCore::getPackage('vendor/ordered-lifecycle-package'), reporter: $reporter);
+
+        $migrationOutputPosition = array_search('Package migrations applied', $reporter->lines, true);
+        $lifecyclePosition = array_search('explicit lifecycle action ran', $reporter->lines, true);
+
+        expect($migrationOutputPosition)->toBeInt()
+            ->and($lifecyclePosition)->toBeInt()
+            ->and($migrationOutputPosition)->toBeLessThan($lifecyclePosition)
+            ->and(InstallStateLifecycleRecorderAction::$calls)->toBe(1)
+            ->and(InstallStateLifecycleRecorderAction::$observedStatus)->toBe(ExtensionStatusEnum::Installing)
+            ->and(InstallStateLifecycleRecorderAction::$observedInstalled)->toBeFalse()
+            ->and(CapellCore::isPackageInstalled('vendor/ordered-lifecycle-package'))->toBeTrue();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+});
+
 function makeInstallActionComposerPackageFixture(string $composerName): string
 {
     $packagePath = sys_get_temp_dir() . '/capell-install-action-package-' . bin2hex(random_bytes(8));
@@ -390,6 +649,64 @@ function makeInstallActionManifestPackageFixture(string $composerName, string $r
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
     );
+
+    return $packagePath;
+}
+
+/**
+ * @param  class-string|null  $installAction
+ */
+function makeInstallActionDatabasePackageFixture(
+    string $composerName,
+    bool $declaresSchema,
+    bool $declaresSettings,
+    bool $writeSchemaMigration = false,
+    bool $writeSettingsMigration = false,
+    ?string $installAction = null,
+): string {
+    $packagePath = makeInstallActionManifestPackageFixture(
+        $composerName,
+        RuntimeProviderInstallPackageFixture::class,
+    );
+    $manifestPath = $packagePath . '/capell.json';
+    $manifestContents = File::get($manifestPath);
+    /** @var array<string, mixed> $manifest */
+    $manifest = json_decode($manifestContents, true, flags: JSON_THROW_ON_ERROR);
+    $manifest['database'] = [
+        'migrations' => $declaresSchema,
+        'settings' => $declaresSettings,
+        'requiredTables' => [],
+    ];
+    $manifest['providers'] = [
+        'metadata' => [],
+        'install' => [],
+        'runtime' => [],
+        'admin' => [],
+        'frontend' => [],
+    ];
+    $manifest['actions'] = $installAction === null ? [] : ['install' => $installAction];
+    File::put(
+        $manifestPath,
+        json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+    );
+
+    $migrationToken = str($composerName)->replace(['/', '-'], '_')->toString();
+
+    if ($writeSchemaMigration) {
+        File::ensureDirectoryExists($packagePath . '/database/migrations');
+        File::put(
+            $packagePath . '/database/migrations/2026_07_11_000001_create_' . $migrationToken . '_table.php',
+            '<?php declare(strict_types=1);',
+        );
+    }
+
+    if ($writeSettingsMigration) {
+        File::ensureDirectoryExists($packagePath . '/database/settings');
+        File::put(
+            $packagePath . '/database/settings/2026_07_11_000002_add_' . $migrationToken . '_settings.php',
+            '<?php declare(strict_types=1);',
+        );
+    }
 
     return $packagePath;
 }

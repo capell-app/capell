@@ -7,7 +7,7 @@ ENV_FILE="${ROOT}/.env.deploy.local"
 DRY_RUN=false
 REF=""
 TAG=""
-BRANCH="${CAPELL_SPLIT_BRANCH:-4.x}"
+BRANCH="${CAPELL_SPLIT_BRANCH:-main}"
 ORG="${CAPELL_SPLIT_ORG:-capell-app}"
 REMOTE_TEMPLATE="${CAPELL_SPLIT_REMOTE_TEMPLATE:-}"
 SELECTED_PACKAGES=()
@@ -20,7 +20,7 @@ Options:
   --tag <tag>               Release tag to split and push.
   --ref <branch|tag|sha>    Source ref to split. Defaults to --tag.
   --package <name>          Package to split. Repeatable. Defaults to workflow matrix.
-  --branch <branch>         Destination branch. Defaults to 4.x.
+  --branch <branch>         Destination branch. Defaults to main.
   --org <org>               GitHub org. Defaults to capell-app.
   --remote-template <fmt>   printf template for repo URL, e.g. file:///tmp/%s.git.
   --env-file <path>         Env file. Defaults to .env.deploy.local.

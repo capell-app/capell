@@ -10,6 +10,8 @@ use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class DoctorCommand extends Command
@@ -23,6 +25,8 @@ class DoctorCommand extends Command
      */
     protected $signature = 'capell:doctor
         {--json : Output a machine-readable JSON health report}
+        {--connection= : Use an existing database connection for isolated verification}
+        {--database= : Override that connection database name or path for isolated verification}
         {--install-summary : Output the installer-focused health summary}
         {--repair-page-url-domains : Create or restore missing site domains for page URLs before checking health}
         {--skip-package-doctors : Skip package-owned doctor commands when building the install summary}';
@@ -39,6 +43,8 @@ class DoctorCommand extends Command
      */
     public function handle(): int
     {
+        $this->applyDatabaseOverride();
+
         if (! $this->option('json')) {
             $this->writeCommandIntro('run Capell health checks', $this->enabledOptionDetails([
                 'install-summary' => 'the installer health summary',
@@ -71,6 +77,28 @@ class DoctorCommand extends Command
         $this->outputReport($report);
 
         return $report->passed() ? CommandAlias::SUCCESS : CommandAlias::FAILURE;
+    }
+
+    private function applyDatabaseOverride(): void
+    {
+        $connection = $this->option('connection');
+        $database = $this->option('database');
+
+        if ($connection === null && $database === null) {
+            return;
+        }
+
+        if (! is_string($connection) || $connection === ''
+            || ! is_array(config('database.connections.' . $connection))
+            || ! is_string($database) || $database === '') {
+            throw new InvalidArgumentException('Isolated doctor verification requires a configured connection and database override.');
+        }
+
+        config([
+            'database.default' => $connection,
+            'database.connections.' . $connection . '.database' => $database,
+        ]);
+        DB::purge($connection);
     }
 
     private function outputReport(DoctorReportData $report): void

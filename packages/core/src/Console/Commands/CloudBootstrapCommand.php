@@ -179,6 +179,13 @@ class CloudBootstrapCommand extends Command
 
         $bootstrap = $response->json('data.admin_bootstrap');
 
+        if (is_array($bootstrap)) {
+            $siteSpec = $response->json('data.site_spec');
+            if (is_array($siteSpec)) {
+                $bootstrap['_site_spec'] = $siteSpec;
+            }
+        }
+
         return is_array($bootstrap) ? $bootstrap : null;
     }
 
@@ -205,9 +212,54 @@ class CloudBootstrapCommand extends Command
             $arguments['--packages'] = $packages;
         }
 
-        $exitCode = $this->call('capell:install', $arguments);
+        $siteSpec = $bootstrap['_site_spec'] ?? null;
+        $specPath = null;
+
+        try {
+            if (is_array($siteSpec)) {
+                $specPath = $this->createTemporarySiteSpec($siteSpec);
+                $arguments['--spec'] = $specPath;
+            }
+
+            $exitCode = $this->call('capell:install', $arguments);
+        } finally {
+            if (is_string($specPath) && is_file($specPath)) {
+                unlink($specPath);
+            }
+        }
 
         throw_if($exitCode !== CommandAlias::SUCCESS, RuntimeException::class, 'Capell installer failed during cloud bootstrap.');
+    }
+
+    /** @param array<string, mixed> $siteSpec */
+    private function createTemporarySiteSpec(array $siteSpec): string
+    {
+        $contents = json_encode($siteSpec, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'capell-site-spec-' . bin2hex(random_bytes(16));
+            $handle = fopen($path, 'x+b');
+
+            if ($handle === false) {
+                continue;
+            }
+
+            try {
+                throw_if(! chmod($path, 0600), RuntimeException::class, 'Unable to secure temporary Capell site spec.');
+                $written = fwrite($handle, $contents);
+                throw_if($written !== strlen($contents), RuntimeException::class, 'Unable to write temporary Capell site spec.');
+
+                return $path;
+            } catch (Throwable $throwable) {
+                unlink($path);
+
+                throw $throwable;
+            } finally {
+                fclose($handle);
+            }
+        }
+
+        throw new RuntimeException('Unable to create temporary Capell site spec.');
     }
 
     private function registerInstance(string $registrationUrl, string $registrationToken, string $instanceId, string $appUrl): void

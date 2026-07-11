@@ -38,8 +38,8 @@ class ParseWildcardPageUrlAction
         $urlSegments = explode('/', trim($url, '/'));
         $pageable = $pageUrl->pageable;
 
-        if ($pageable instanceof Model && ! $pageable->relationLoaded('type') && method_exists($pageable, 'type')) {
-            $pageable->loadMissing('type');
+        if ($pageable instanceof Model && ! $pageable->relationLoaded('blueprint') && method_exists($pageable, 'blueprint')) {
+            $pageable->loadMissing('blueprint');
         }
 
         $spec = $pageable->url_params ?? [];

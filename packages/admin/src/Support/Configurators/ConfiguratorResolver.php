@@ -30,17 +30,17 @@ final class ConfiguratorResolver
      */
     public function resolveForRecord(Model $record, ConfiguratorTypeEnumInterface $target, string $fallbackKey): string
     {
-        $type = null;
+        $blueprint = null;
 
-        if (method_exists($record, 'type')) {
-            $record->loadMissing('type');
+        if (method_exists($record, 'blueprint')) {
+            $record->loadMissing('blueprint');
 
-            $relation = $record->getRelationValue('type');
-            $type = $relation instanceof Blueprint ? $relation : null;
+            $relation = $record->getRelationValue('blueprint');
+            $blueprint = $relation instanceof Blueprint ? $relation : null;
         }
 
-        return $type instanceof Blueprint
-            ? $this->resolveForType($type, $target, $fallbackKey)
+        return $blueprint instanceof Blueprint
+            ? $this->resolveForType($blueprint, $target, $fallbackKey)
             : AdminSurfaceLookup::configurator($target, $fallbackKey);
     }
 

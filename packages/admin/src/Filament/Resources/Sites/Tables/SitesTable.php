@@ -72,8 +72,8 @@ class SitesTable implements TableConfigurator
                         'language',
                         'translations.language',
                         'siteDomains.language',
-                        'type',
-                        'theme.type',
+                        'blueprint',
+                        'theme.blueprint',
                     ])
                     ->withCount([
                         'pages',
@@ -106,7 +106,7 @@ class SitesTable implements TableConfigurator
                     EditAction::make('edit-blueprint')
                         ->label(__('capell-admin::button.edit_blueprint'))
                         ->icon('heroicon-o-document-duplicate')
-                        ->record(fn (Site $record): ?Blueprint => $record->type instanceof Blueprint ? $record->type : null)
+                        ->record(fn (Site $record): Blueprint => $record->blueprint)
                         ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Blueprint->permission('update')) === true)
                         ->schema(fn (Schema $schema): Schema => BlueprintResource::form($schema))
                         ->modalWidth(Width::ScreenLarge)
@@ -117,7 +117,7 @@ class SitesTable implements TableConfigurator
                             return $data;
                         })
                         ->using(BlueprintsTable::updateBlueprint(...))
-                        ->hidden(fn (Site $record): bool => ! $record->type instanceof Blueprint || $record->type->trashed()),
+                        ->hidden(fn (Site $record): bool => ! $record->blueprint instanceof Blueprint || $record->blueprint->trashed()),
                     ReplicateSiteAction::make(),
                     DeleteAction::make()
                         ->modalDescription(fn (Site $record): string => static::deletionImpactDescription($record))
@@ -268,14 +268,14 @@ class SitesTable implements TableConfigurator
                 ->label(__('capell-admin::table.theme'))
                 ->icon(function (Site $record): ?string {
                     $theme = $record->getRelationValue('theme');
-                    $type = $theme instanceof Theme ? $theme->type : null;
+                    $type = $theme instanceof Theme ? $theme->blueprint : null;
 
                     return $type instanceof Blueprint ? ($type->admin['icon'] ?? null) : null;
                 })
                 ->sortable()
                 ->limit(30)
                 ->toggleable(isToggledHiddenByDefault: true),
-            BlueprintColumn::make('type.name')
+            BlueprintColumn::make('blueprint.name')
                 ->label(__('capell-admin::table.site_type')),
             TextColumn::make('pages_count')
                 ->label(__('capell-admin::table.total_pages'))
@@ -315,7 +315,7 @@ class SitesTable implements TableConfigurator
             SelectFilter::make('blueprint_id')
                 ->label(__('capell-admin::form.site_type'))
                 ->relationship(
-                    name: 'type',
+                    name: 'blueprint',
                     titleAttribute: 'name',
                     modifyQueryUsing: fn (Builder $query): Builder => $query->enabled()->siteType(),
                 ),

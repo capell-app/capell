@@ -130,7 +130,7 @@ class SiteLoader
                 'language',
                 'media',
                 'theme.media',
-                'type',
+                'blueprint',
             ];
 
             if ($site->isRelation('navigations')) {
@@ -160,7 +160,7 @@ class SiteLoader
             }
 
             self::trackLoadedModelRelation($site, 'language');
-            self::trackLoadedModelRelation($site, 'type');
+            self::trackLoadedModelRelation($site, 'blueprint');
         }
 
         self::loadSiteRelation($site);
@@ -194,7 +194,7 @@ class SiteLoader
                 ->map(function (Language $siteLanguage) use ($site, $language, $page): ?array {
                     $url = null;
 
-                    if (! isset($page->type->meta['accessible']) || $page->type->meta['accessible'] !== false) {
+                    if (! isset($page->blueprint->meta['accessible']) || $page->blueprint->meta['accessible'] !== false) {
                         $url = $page->pageUrls->firstWhere('language_id', $siteLanguage->id);
                         $url = $url?->full_url;
                     }
@@ -286,7 +286,7 @@ class SiteLoader
             }
         }
 
-        foreach (['theme', 'type'] as $relation) {
+        foreach (['theme', 'blueprint'] as $relation) {
             if ($site->relationLoaded($relation) && $site->{$relation} !== null) {
                 resolve(RenderedModelTracker::class)->track($site->{$relation});
             }

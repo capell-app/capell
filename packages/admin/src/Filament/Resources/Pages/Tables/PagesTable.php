@@ -104,12 +104,12 @@ class PagesTable implements TableConfigurator
                         ->url(self::getLayoutRecordUrl(...))
                         ->hidden(fn (PageModel $record): bool => self::getLayoutRecordUrl($record) === null),
                     EditAction::make('edit-blueprint')
-                        ->record(fn (PageModel $record): ?Blueprint => $record->type instanceof Blueprint ? $record->type : null)
+                        ->record(fn (PageModel $record): Blueprint => $record->blueprint)
                         ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Blueprint->permission('update')) === true)
                         ->schema(fn (Schema $schema): Schema => BlueprintResource::form($schema))
                         ->modalWidth(Width::ScreenLarge)
                         ->slideOver()
-                        ->hidden(fn (PageModel $record): bool => ! $record->type instanceof Blueprint || $record->type->trashed())
+                        ->hidden(fn (PageModel $record): bool => ! $record->blueprint instanceof Blueprint || $record->blueprint->trashed())
                         ->modalHeading(
                             fn (?Blueprint $record): string => __(
                                 'capell-admin::heading.edit_type_record',
@@ -189,7 +189,7 @@ class PagesTable implements TableConfigurator
                 ->label(__('capell-admin::form.page_type'))
                 ->searchable()
                 ->relationship(
-                    name: 'type',
+                    name: 'blueprint',
                     titleAttribute: 'name',
                     modifyQueryUsing: self::applyBlueprintFilterQuery(...),
                 ),
@@ -456,7 +456,7 @@ class PagesTable implements TableConfigurator
             'translation' => fn (BuilderContract $query): BuilderContract => $query->with('language')
                 ->select(['translatable_id', 'translatable_type', 'language_id', 'title'])
                 ->when($languageId, self::applyTranslationLanguageFilter(...)),
-            'type',
+            'blueprint',
             'pageUrls' => self::includeOrderedPageUrls(...),
             'pageUrl.siteDomain',
         ];
@@ -480,7 +480,7 @@ class PagesTable implements TableConfigurator
         return $query
             ->whereHas('site', self::includeTrashedSite(...))
             ->whereHas(
-                'type',
+                'blueprint',
                 function (BuilderContract $query) use ($livewire): void {
                     self::applyTypeResourceConstraint($query, $livewire);
                 },
@@ -526,7 +526,7 @@ class PagesTable implements TableConfigurator
                 }
             }
 
-            $query->with('type');
+            $query->with('blueprint');
         }
 
         return $query;
@@ -586,7 +586,7 @@ class PagesTable implements TableConfigurator
                 ->toggleable(isToggledHiddenByDefault: true)
                 ->url(self::getLayoutRecordUrl(...))
                 ->width(0),
-            BlueprintColumn::make('type.name')
+            BlueprintColumn::make('blueprint.name')
                 ->label(__('capell-admin::table.page_type')),
             TextColumn::make('children_count')
                 ->label(__('capell-admin::table.total_children'))

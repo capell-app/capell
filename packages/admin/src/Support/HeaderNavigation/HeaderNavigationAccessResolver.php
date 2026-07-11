@@ -159,7 +159,7 @@ final class HeaderNavigationAccessResolver
         $query->where($query->qualifyColumn('site_id'), $siteId);
 
         return $query->whereHas(
-            'type',
+            'blueprint',
             fn (BuilderContract $query): BuilderContract => $this->constrainBlueprintQueryForActor($query, $actor, $siteId),
         );
     }
@@ -189,7 +189,7 @@ final class HeaderNavigationAccessResolver
                         $query
                             ->where($query->qualifyColumn('site_id'), $siteId)
                             ->whereHas(
-                                'type',
+                                'blueprint',
                                 fn (BuilderContract $query): BuilderContract => $this->constrainBlueprintQueryForActor($query, $actor, $siteId),
                             );
                     });

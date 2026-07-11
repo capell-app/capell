@@ -2,9 +2,6 @@
 
 ![Capell CMS banner showing the Pages admin surface](docs/images/capell-readme-banner.jpg)
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/capell.svg?style=flat-square)](https://packagist.org/packages/capell-app/capell)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=4.x&label=tests&style=flat-square)](https://github.com/capell-app/capell/actions?query=workflow%3Atest-full+branch%3A4.x)
-[![Total Downloads](https://img.shields.io/packagist/dt/capell-app/capell.svg?style=flat-square)](https://packagist.org/packages/capell-app/capell)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 **Capell is a CMS layer for Laravel, built on Filament.** It gives your app the content model most teams rebuild on every project — pages, multi-site, multi-language URLs, media, redirects, roles, settings — while leaving the public frontend entirely in your hands.
@@ -60,7 +57,7 @@ Definitions for every term — editor-facing and developer-facing — live in th
 
 ## Quick Local Demo
 
-For a disposable local trial with demo content:
+Capell is proprietary software distributed through private Composer access. Obtain a licence, Composer credentials, and the repository configuration for your account before running this disposable local demo:
 
 ```bash
 composer create-project laravel/laravel music-store
@@ -87,6 +84,7 @@ Pick the path that matches what you are doing. The full route map lives at [docs
 | Spend my first session as an editor       | [First session](docs/getting-started/first-session.md)                                                                   |
 | Choose how to build a page                | [Build a page](docs/getting-started/building-pages.md)                                                                   |
 | Build with Inertia, Vue, or interactivity | [Inertia runtime](docs/getting-started/inertia-runtime.md) · [Interactions](docs/getting-started/capell-interactions.md) |
+| Browse every getting-started guide        | [Getting Started index](docs/getting-started/index.md)                                                                   |
 
 ## What This Repository Contains
 
@@ -104,6 +102,8 @@ Each package also ships a source README:
 [core](packages/core/README.md) · [admin](packages/admin/README.md) · [frontend](packages/frontend/README.md) · [installer](packages/installer/README.md) · [marketplace](packages/marketplace/README.md).
 
 ## Installing
+
+Capell packages are not published through a public source repository or public Packagist distribution. Before either install path, obtain an appropriate licence and configure the private Composer credentials and repository details supplied by Capell. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and the Filament 5.7 beta release line.
 
 ### Recommended — the installer
 
@@ -198,8 +198,8 @@ For local path-repository setup, branch guidance, and the contribution workflow,
 
 Capell is commercial, proprietary software (`"license": "proprietary"`). Each licensed copy may run in one production environment at a time, and the license does not include updates or support unless those are part of the commercial agreement. See [LICENSE.md](LICENSE.md) for the full terms.
 
-Public pricing, trial access, and what the free Foundation tier includes versus premium packages are published at [capell.app](https://capell.app). Some packages in the catalogue are premium add-ons that require a separate entitlement.
+Licence scope and pricing are confirmed for each approved project before private package access is granted. Some companion packages require a separate entitlement; see [capell.app](https://capell.app) or contact Capell for the terms that apply.
 
-- **Questions and discussion:** [GitHub Discussions](https://github.com/capell-app/capell/discussions)
+- **Questions and discussion:** use the customer contact path or the private repository discussion area when your agreement includes repository access.
 - **Documentation:** [docs.capell.app](https://docs.capell.app)
 - **Security:** report privately via [SECURITY.md](SECURITY.md) — do not open a public issue for an undisclosed vulnerability.

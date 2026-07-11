@@ -6,8 +6,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGIST_USERNAME="${PACKAGIST_USERNAME:-}"
 PACKAGIST_API_TOKEN="${PACKAGIST_API_TOKEN:-}"
 ORG="${CAPELL_SPLIT_ORG:-capell-app}"
-INCLUDE_ROOT=false
 DRY_RUN=false
+PREFLIGHT=false
 SETUP_GITHUB_HOOKS=false
 SELECTED_PACKAGES=()
 
@@ -25,8 +25,9 @@ Environment:
 Options:
   --package <name>         Package/repository slug to create. Repeatable.
                            Defaults to the split workflow matrix.
-  --include-root           Also create capell-app/capell from the monorepo root.
   --setup-github-hooks     Add Packagist push webhooks to the GitHub repositories.
+  --preflight              Read-only verification of repositories, package names,
+                           Packagist registrations, and GitHub webhooks.
   --dry-run                Print the packages that would be created.
   -h, --help               Show this help.
 USAGE
@@ -38,12 +39,12 @@ while [[ $# -gt 0 ]]; do
       SELECTED_PACKAGES+=("${2:-}")
       shift 2
       ;;
-    --include-root)
-      INCLUDE_ROOT=true
-      shift
-      ;;
     --setup-github-hooks)
       SETUP_GITHUB_HOOKS=true
+      shift
+      ;;
+    --preflight)
+      PREFLIGHT=true
       shift
       ;;
     --dry-run)
@@ -61,6 +62,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${PREFLIGHT}" == true && ( "${DRY_RUN}" == true || "${SETUP_GITHUB_HOOKS}" == true ) ]]; then
+  echo "--preflight cannot be combined with --dry-run or --setup-github-hooks." >&2
+  exit 1
+fi
 
 MATRIX_PACKAGES=()
 while IFS= read -r package; do
@@ -80,11 +86,9 @@ if [[ ${#SELECTED_PACKAGES[@]} -gt 0 ]]; then
   PACKAGES=("${SELECTED_PACKAGES[@]}")
 fi
 
-if [[ "${INCLUDE_ROOT}" == true ]]; then
-  PACKAGES+=("capell")
-fi
+PACKAGES+=("capell")
 
-if [[ "${DRY_RUN}" != true && ( -z "${PACKAGIST_USERNAME}" || -z "${PACKAGIST_API_TOKEN}" ) ]]; then
+if [[ "${DRY_RUN}" != true && "${PREFLIGHT}" != true && ( -z "${PACKAGIST_USERNAME}" || -z "${PACKAGIST_API_TOKEN}" ) ]]; then
   echo "PACKAGIST_USERNAME and PACKAGIST_API_TOKEN are required." >&2
   exit 1
 fi
@@ -95,6 +99,52 @@ package_exists() {
 
   status="$(curl -sS -o /dev/null -w '%{http_code}' "https://repo.packagist.org/p2/${ORG}/${package}.json")"
   [[ "${status}" == "200" ]]
+}
+
+preflight_package() {
+  local package="$1"
+  local expected_name="${ORG}/${package}"
+  local repository="${ORG}/${package}"
+  local composer_name
+  local failed=false
+
+  if ! gh api "repos/${repository}" --silent >/dev/null; then
+    echo "[missing] GitHub repository: ${repository}" >&2
+    failed=true
+  else
+    echo "[ok] GitHub repository: ${repository}"
+
+    composer_name="$(
+      gh api "repos/${repository}/contents/composer.json" --jq '.content' 2>/dev/null \
+        | tr -d '\n' \
+        | base64 --decode 2>/dev/null \
+        | jq -r '.name // empty' 2>/dev/null \
+        || true
+    )"
+
+    if [[ "${composer_name}" != "${expected_name}" ]]; then
+      echo "[mismatch] ${repository} composer name: expected ${expected_name}, got ${composer_name:-<missing>}" >&2
+      failed=true
+    else
+      echo "[ok] Composer package name: ${expected_name}"
+    fi
+
+    if gh api "repos/${repository}/hooks" --paginate --jq '.[] | select(.config.url | startswith("https://packagist.org/api/github")) | .id' 2>/dev/null | grep -q .; then
+      echo "[ok] Packagist GitHub webhook: ${repository}"
+    else
+      echo "[missing] Packagist GitHub webhook: ${repository}" >&2
+      failed=true
+    fi
+  fi
+
+  if package_exists "${package}"; then
+    echo "[ok] Packagist package: ${expected_name}"
+  else
+    echo "[missing] Packagist package: ${expected_name}" >&2
+    failed=true
+  fi
+
+  [[ "${failed}" == false ]]
 }
 
 create_package() {
@@ -162,6 +212,24 @@ create_github_hook() {
     --field config[content_type]=json \
     --field config[secret]="${PACKAGIST_API_TOKEN}"
 }
+
+if [[ "${PREFLIGHT}" == true ]]; then
+  PREFLIGHT_FAILED=false
+
+  for package in "${PACKAGES[@]}"; do
+    if ! preflight_package "${package}"; then
+      PREFLIGHT_FAILED=true
+    fi
+  done
+
+  if [[ "${PREFLIGHT_FAILED}" == true ]]; then
+    echo "Packagist preflight failed." >&2
+    exit 1
+  fi
+
+  echo "Packagist preflight passed."
+  exit 0
+fi
 
 for package in "${PACKAGES[@]}"; do
   create_package "${package}"

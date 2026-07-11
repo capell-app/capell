@@ -61,6 +61,8 @@ Link the screenshot manifest back to the source file with `covers`:
 
 Run `npm run docs:filament-action-screenshots` before finishing package work. New gaps fail `npm run docs:screenshots:check`.
 
+The action checker scans this host repository by default. Set `CAPELL_PACKAGES_REPO` to an absolute companion-repository path only when you intentionally want to include that repository in the same check.
+
 ## Flux Visual Companion Diagrams
 
 Flux-generated diagrams are useful for conceptual visuals at the top of docs pages. They should not be the source of truth for class names, method names, or exact request flow.

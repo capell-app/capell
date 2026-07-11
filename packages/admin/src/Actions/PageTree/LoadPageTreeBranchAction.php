@@ -43,7 +43,7 @@ final class LoadPageTreeBranchAction
             ->when(($siteId ?? 0) > 0, function (Builder $query) use ($siteId): void {
                 $query->where('site_id', $siteId);
             })
-            ->with(['site', 'type.roleRestrictions', 'pageUrl.siteDomain'])
+            ->with(['site', 'blueprint.roleRestrictions', 'pageUrl.siteDomain'])
             ->orderBy('order')
             ->get();
 
@@ -59,7 +59,7 @@ final class LoadPageTreeBranchAction
     {
         /** @var Collection<int, Page> $children */
         $children = SiteScope::applyForCurrentActor($page->children()->getQuery())
-            ->with(['site', 'type.roleRestrictions'])
+            ->with(['site', 'blueprint.roleRestrictions'])
             ->get();
 
         return $children->contains(fn (Page $child): bool => $this->actorCanViewPage($actor, $child));

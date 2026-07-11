@@ -47,6 +47,19 @@ it('wraps and restores nested unavailable widgets without inspecting their opaqu
         ->and(UnavailableContentWidgetState::restore($prepared, ['content']))->toBe($state);
 });
 
+it('does not mistake typed rich text document nodes for unavailable widgets', function (): void {
+    $document = [
+        'type' => 'doc',
+        'content' => [[
+            'type' => 'paragraph',
+            'content' => [['type' => 'text', 'text' => 'Preserved']],
+        ]],
+    ];
+    $state = [['type' => 'content', 'data' => ['content' => $document]]];
+
+    expect(UnavailableContentWidgetState::prepare($state, ['content']))->toBe($state);
+});
+
 it('does not traverse an unavailable widget opaque payload when enforcing bounds', function (): void {
     $deepPayload = ['value' => 'leaf'];
 

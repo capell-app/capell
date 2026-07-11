@@ -292,7 +292,7 @@ final class ResolvePublicPageRequestAction
                 'pageable',
                 $publicPageableMorphTypes,
                 fn (BuilderContract $pageableQuery): BuilderContract => $pageableQuery
-                    ->whereHas('type', fn (BuilderContract $typeQuery): BuilderContract => $typeQuery->enabled()),
+                    ->whereHas('blueprint', fn (BuilderContract $blueprintQuery): BuilderContract => $blueprintQuery->enabled()),
             )
             ->first();
 

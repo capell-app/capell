@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Pages;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
+use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
 use Capell\Admin\Actions\Extensions\FilterExtensionManagementEntriesAction;
 use Capell\Admin\Actions\ListExtensionManagementEntriesAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
@@ -226,7 +227,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
             ->values()
             ->all());
 
-        return $this->applyPinnedExtensionTablePosition($records);
+        return $this->applyPinnedExtensionTablePosition(EnrichExtensionTableRecordsAction::run($records));
     }
 
     public function refreshExtensionOperations(): void

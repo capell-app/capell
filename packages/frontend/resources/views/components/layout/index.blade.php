@@ -19,7 +19,7 @@ $siteLogoBladeView = is_string($siteLogoBladeView) && view()->exists($siteLogoBl
 $siteLogo = $site instanceof Site && $site->relationLoaded('logo') ? $site->logo : null;
 $siteTranslation = $site instanceof Site && $site->relationLoaded('translation') ? $site->translation : null;
 $pageTranslation = $page instanceof Pageable && $page->relationLoaded('translation') ? $page->translation : null;
-$pageType = $page instanceof Pageable && $page->relationLoaded('type') ? $page->type : null;
+$pageType = $page instanceof Pageable && $page->relationLoaded('blueprint') ? $page->blueprint : null;
 $htmlContentStructure = ContentStructure::Html;
 
 ?>

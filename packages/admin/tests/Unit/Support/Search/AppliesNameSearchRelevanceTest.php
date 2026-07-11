@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
+use Capell\Admin\Tests\Fixtures\Search\NameSearchRelevanceApplier;
 use Capell\Core\Models\Layout;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 test('it ranks matching names by relevance while preserving query constraints and selection', function (): void {
@@ -21,10 +20,9 @@ test('it ranks matching names by relevance while preserving query constraints an
         ->orderByDesc('id');
 
     $results = (new NameSearchRelevanceApplier)->apply($query, 'cap')->get();
+    $names = $results->pluck('name')->all();
 
-    expect($results)
-        ->pluck('name')
-        ->all()
+    expect($names)
         ->toBe(['cap', 'capable', 'Y cap', 'Z cap', 'Axx cap'])
         ->and($results->every(fn (Layout $layout): bool => array_keys($layout->getAttributes()) === ['id', 'name']))
         ->toBeTrue();
@@ -129,17 +127,3 @@ test('it normalizes PostgreSQL relevance comparisons and bindings', function ():
         ->and($orderBindings)
         ->toBe(['capell', 'capell%', '%capell%', 'capell']);
 });
-
-final class NameSearchRelevanceApplier
-{
-    use AppliesNameSearchRelevance;
-
-    /**
-     * @param  Builder<Layout>  $query
-     * @return Builder<Layout>
-     */
-    public function apply(Builder $query, string $search): Builder
-    {
-        return self::applyNameSearchRelevance($query, $search);
-    }
-}

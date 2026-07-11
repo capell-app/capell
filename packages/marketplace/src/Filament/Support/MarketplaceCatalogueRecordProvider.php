@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Filament\Support;
 
+use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
+use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
@@ -29,7 +31,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
-final class MarketplaceCatalogueRecordProvider
+final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMetadataProvider
 {
     /** @var array<int, int> */
     private const TABLE_PAGE_OPTIONS = [18, 36, 72];
@@ -165,6 +167,76 @@ final class MarketplaceCatalogueRecordProvider
         }
 
         return $records;
+    }
+
+    /**
+     * @param  list<string>  $composerNames
+     * @return array<string, ExtensionCatalogueMetadataData>
+     */
+    public function metadataForComposerNames(array $composerNames): array
+    {
+        $normalizedComposerNamesByRequestedName = [];
+
+        foreach ($composerNames as $composerName) {
+            $requestedComposerName = trim($composerName);
+            $normalizedComposerName = ExtensionListingData::localPackageComposerName($requestedComposerName);
+
+            if ($requestedComposerName === '' || $normalizedComposerName === null || $normalizedComposerName === '') {
+                continue;
+            }
+
+            $normalizedComposerNamesByRequestedName[$requestedComposerName] = $normalizedComposerName;
+        }
+
+        $composerNames = array_values(array_unique(array_values($normalizedComposerNamesByRequestedName)));
+
+        if ($composerNames === []) {
+            return [];
+        }
+
+        $compatibilityVersions = $this->detectedCompatibilityVersions();
+
+        try {
+            $extensions = resolve(MarketplaceClient::class)->extensionsByComposerNames(
+                composerNames: $composerNames,
+                capellVersion: $compatibilityVersions['capell'],
+                laravelVersion: $compatibilityVersions['laravel'],
+                livewireVersion: $compatibilityVersions['livewire'],
+                filamentVersion: $compatibilityVersions['filament'],
+            );
+        } catch (Throwable $throwable) {
+            Log::warning('capell-marketplace: installed extension catalogue metadata lookup failed', [
+                'error' => $throwable->getMessage(),
+                'composer_names' => $composerNames,
+            ]);
+
+            return [];
+        }
+
+        $metadataByComposerName = [];
+
+        foreach ($extensions as $composerName => $extension) {
+            if ($this->isHiddenMarketplaceExtension($extension)) {
+                continue;
+            }
+
+            $metadataByComposerName[$composerName] = new ExtensionCatalogueMetadataData(
+                catalogueRole: $extension->catalogueRole,
+                maturity: $extension->maturity,
+                maturityLabel: $extension->maturityLabel,
+                includedWithCapellAll: $extension->includedWithCapellAll,
+            );
+        }
+
+        $metadata = [];
+
+        foreach ($normalizedComposerNamesByRequestedName as $requestedComposerName => $normalizedComposerName) {
+            if (array_key_exists($normalizedComposerName, $metadataByComposerName)) {
+                $metadata[$requestedComposerName] = $metadataByComposerName[$normalizedComposerName];
+            }
+        }
+
+        return $metadata;
     }
 
     /**
@@ -552,6 +624,10 @@ final class MarketplaceCatalogueRecordProvider
             'product_group' => $extension->productGroup,
             'product_tier' => $extension->productTier,
             'product_bundle' => $extension->productBundle,
+            'catalogue_role' => $extension->catalogueRole,
+            'maturity' => $extension->maturity,
+            'maturity_label' => $extension->maturityLabel,
+            'included_with_capell_all' => $extension->includedWithCapellAll,
             'effective_certification' => $extension->effectiveCertification,
             'support_policy' => $extension->supportPolicy,
             'description' => $extension->description,

@@ -182,7 +182,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             $model = Page::class;
 
             /** @var ?Page $parent */
-            $parent = $model::with(['type', 'translations'])->firstWhere(
+            $parent = $model::with(['blueprint', 'translations'])->firstWhere(
                 'id',
                 $parentId,
             );

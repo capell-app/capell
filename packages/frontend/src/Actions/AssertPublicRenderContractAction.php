@@ -194,7 +194,7 @@ final class AssertPublicRenderContractAction
     private function loadedPageType(Model $page): ?Blueprint
     {
         $relations = $page->getRelations();
-        $type = $relations['type'] ?? $relations['blueprint'] ?? null;
+        $type = $relations['blueprint'] ?? null;
 
         return $type instanceof Blueprint ? $type : null;
     }

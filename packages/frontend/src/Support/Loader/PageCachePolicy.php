@@ -18,11 +18,11 @@ class PageCachePolicy
             return false;
         }
 
-        if (! $page instanceof Model || ! $page->relationLoaded('type')) {
+        if (! $page instanceof Model || ! $page->relationLoaded('blueprint')) {
             return false;
         }
 
-        return $page->type?->cache_time !== CacheTime::Never;
+        return $page->blueprint?->cache_time !== CacheTime::Never;
     }
 
     public function eligible(Request $request, Response $response): bool

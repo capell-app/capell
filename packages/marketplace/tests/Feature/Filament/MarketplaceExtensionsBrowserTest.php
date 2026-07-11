@@ -160,6 +160,56 @@ it('renders author and rating information in the marketplace card', function ():
         ]), false);
 });
 
+it('renders released beta and labs badges with Capell All inclusion', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'released-suite',
+                    'name' => 'Released Suite',
+                    'composer_name' => 'capell-app/released-suite',
+                    'catalogue_role' => 'extension',
+                    'maturity' => 'stable',
+                    'maturity_label' => 'Released',
+                    'included_with_capell_all' => true,
+                ]),
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'beta-suite',
+                    'name' => 'Beta Suite',
+                    'composer_name' => 'capell-app/beta-suite',
+                    'catalogue_role' => 'extension',
+                    'maturity' => 'beta',
+                    'maturity_label' => 'Beta',
+                    'included_with_capell_all' => false,
+                ]),
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'labs-suite',
+                    'name' => 'Labs Suite',
+                    'composer_name' => 'vendor/labs-suite',
+                    'catalogue_role' => 'extension',
+                    'maturity' => 'labs',
+                    'maturity_label' => 'Labs',
+                    'included_with_capell_all' => false,
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->assertSeeHtml('data-release-status="stable"')
+        ->assertSeeHtml('data-release-status="beta"')
+        ->assertSeeHtml('data-release-status="labs"')
+        ->assertSee(__('capell-admin::marketplace.release_status.stable'))
+        ->assertSee(__('capell-admin::marketplace.release_status.beta'))
+        ->assertSee(__('capell-admin::marketplace.release_status.labs'))
+        ->assertSeeHtml('data-capell-all-included')
+        ->assertSee(__('capell-admin::marketplace.capell_all.included'));
+});
+
 it('renders marketplace extension cards with instant selection buttons', function (): void {
     grantMarketplaceBrowserManagementAccess();
 

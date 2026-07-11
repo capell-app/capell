@@ -94,19 +94,24 @@ Common optional owners:
 
 These commands are defined in the root `composer.json` or `package.json`:
 
-| Script                      | Use it for                                                                  |
-| --------------------------- | --------------------------------------------------------------------------- |
-| `composer prepare`          | Discover Testbench packages                                                 |
-| `composer test:fast`        | Run the sharded fast Pest command while developing                          |
-| `composer test`             | Run the full Pest test suite                                                |
-| `composer lint`             | Run changed-file Pint formatting                                            |
-| `composer analyze`          | Run the fast PHPStan configuration                                          |
-| `composer preflight`        | Run fast PHPStan and changed-file formatting                                |
-| `composer preflight:all`    | Run Composer path checks, Rector, Pint, Prettier, ESLint, PHPStan, and Pest |
-| `composer serve`            | Build and serve the Testbench workbench                                     |
-| `npm run screenshots`       | Capture docs screenshots through the configured screenshot runner           |
-| `npm run screenshots:check` | Validate docs screenshot manifests through the configured screenshot runner |
-| `npm run docs:publish`      | Sync the local core docs into the external docs app and build it            |
+| Script                             | Use it for                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| `composer prepare`                 | Discover Testbench packages                                                 |
+| `composer test:fast`               | Run the sharded fast Pest command while developing                          |
+| `composer test`                    | Run the full Pest test suite                                                |
+| `composer lint`                    | Run changed-file Pint formatting                                            |
+| `composer analyze`                 | Run the fast PHPStan configuration                                          |
+| `composer preflight`               | Run fast PHPStan and changed-file formatting                                |
+| `composer preflight:all`           | Run Composer path checks, Rector, Pint, Prettier, ESLint, PHPStan, and Pest |
+| `composer check:root-docs`         | Ensure no unexpected Markdown files are added to the repository root        |
+| `composer check:docs-links`        | Ensure all relative documentation links resolve                             |
+| `composer check:docs-orphans`      | Ensure every docs page is reachable from the docs entry points              |
+| `composer check:docs-requirements` | Ensure requirement tables agree with `composer.json` constraints            |
+| `composer check:docs-env`          | Ensure documented env vars are read by code or explicitly allowlisted       |
+| `composer serve`                   | Build and serve the Testbench workbench                                     |
+| `npm run screenshots`              | Capture docs screenshots through the configured screenshot runner           |
+| `npm run screenshots:check`        | Validate docs screenshot manifests through the configured screenshot runner |
+| `npm run docs:publish`             | Sync the local core docs into the external docs app and build it            |
 
 ## Naming Rules
 

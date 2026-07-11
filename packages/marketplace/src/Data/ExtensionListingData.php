@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Data;
 
+use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Carbon\CarbonImmutable;
@@ -76,6 +77,10 @@ final class ExtensionListingData extends Data
         /** @var array<string, mixed> */
         public readonly array $metadata = [],
         public readonly ?MarketplaceInstallEligibilityData $installEligibilityPolicy = null,
+        public readonly string $catalogueRole = 'extension',
+        public readonly string $maturity = 'labs',
+        public readonly string $maturityLabel = 'Labs',
+        public readonly bool $includedWithCapellAll = false,
     ) {}
 
     /**
@@ -84,6 +89,7 @@ final class ExtensionListingData extends Data
     public static function fromApiResponse(array $item): self
     {
         $protectedInstall = self::protectedInstall($item);
+        $catalogueReleaseMetadata = ExtensionCatalogueMetadataData::fromApiResponse($item);
 
         return new self(
             slug: (string) ($item['slug'] ?? ''),
@@ -143,6 +149,10 @@ final class ExtensionListingData extends Data
                 $item['install_eligibility'] ?? $item['eligibility'] ?? null,
                 protectedInstall: $protectedInstall,
             ),
+            catalogueRole: $catalogueReleaseMetadata->catalogueRole,
+            maturity: $catalogueReleaseMetadata->maturity,
+            maturityLabel: $catalogueReleaseMetadata->maturityLabel,
+            includedWithCapellAll: $catalogueReleaseMetadata->includedWithCapellAll,
         );
     }
 
@@ -433,6 +443,7 @@ final class ExtensionListingData extends Data
             'effective_certification', 'certification', 'support_policy', 'private_docs_entitled',
             'performance', 'performance_budget', 'contribution_summary', 'contributions_summary',
             'install_eligibility', 'eligibility', 'blocked_reason', 'next_action', 'surfaces', 'dependencies',
+            'catalogue_role', 'maturity', 'maturity_label', 'included_with_capell_all',
             'metadata',
         ];
 

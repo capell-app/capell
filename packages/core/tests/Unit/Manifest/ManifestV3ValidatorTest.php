@@ -601,6 +601,7 @@ it('requires content widgets to implement their dedicated contribution contract'
     $manifest['contributes'] = [[
         'type' => 'content-widget',
         'class' => 'Vendor\\Example\\Routes\\ExampleRoutes',
+        'key' => 'capell-app.example-widget',
     ]];
 
     expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
@@ -610,6 +611,27 @@ it('requires content widgets to implement their dedicated contribution contract'
 
     expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
         ->not->toThrow(InvalidManifestException::class);
+});
+
+it('requires unique package-prefixed content widget keys', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['contributes'] = [[
+        'type' => 'content-widget',
+        'class' => 'Vendor\\Example\\Widgets\\ExampleContentWidget',
+    ]];
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'contributes.0.key');
+
+    $manifest['contributes'][0]['key'] = 'other.example-widget';
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'package-prefixed');
+
+    $manifest['contributes'][0]['key'] = 'capell-app.example-widget';
+    $manifest['contributes'][] = $manifest['contributes'][0];
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'duplicates content widget key');
 });
 
 it('rejects commercial runtime truth spoofing while accepting author proposal fields', function (): void {

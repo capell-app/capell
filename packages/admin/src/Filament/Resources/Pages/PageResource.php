@@ -88,7 +88,7 @@ class PageResource extends Resource implements ValidatesDelete
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])
-            ->whereHas('type', static::applyBaseTypeAdminResourceConstraint(...));
+            ->whereHas('blueprint', static::applyBaseTypeAdminResourceConstraint(...));
 
         SiteScope::applyForCurrentActor($query);
 
@@ -114,7 +114,7 @@ class PageResource extends Resource implements ValidatesDelete
             ->with([
                 'site:id,name,default',
                 'translation',
-                'type:id,name',
+                'blueprint:id,name',
                 'ancestors',
             ]);
     }
@@ -243,7 +243,7 @@ class PageResource extends Resource implements ValidatesDelete
         parent::modifyGlobalSearchQuery($query, $search);
 
         $query->withWhereHas(
-            'type',
+            'blueprint',
             function (BuilderContract $query): void {
                 static::applyTypeAdminResourceConstraint($query);
             },

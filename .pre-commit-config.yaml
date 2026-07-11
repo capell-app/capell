@@ -29,7 +29,7 @@ repos:
         description: 'Check the dd(), dump() or any ray() methods have not been left in'
         entry: '\bdd\(|(?<!->)(?<!::)\bdebug\(|\bdump\(|\bray\(|\brd\(|\bdie\(|\bexit\(|\bddRawSql\('
         language: pygrep
-        exclude: ^(packages/admin/publishes/build/js/components/html-code-editor.js|packages/frontend/src/Support/Logging/FrontendLogger.php|scripts/check-composer-local-paths.php|scripts/check-docs-links.php|scripts/check-package-catalog-drift.php|scripts/check-support-contract.php|scripts/extract-phpstan-level.php|scripts/run-pest-shards.php|scripts/update-pest-shard-timings.php)$
+        exclude: ^(packages/admin/publishes/build/js/components/html-code-editor.js|packages/frontend/src/Support/Logging/FrontendLogger.php|scripts/check-composer-local-paths.php|scripts/check-docs-env-vars.php|scripts/check-docs-links.php|scripts/check-docs-orphans.php|scripts/check-docs-requirements.php|scripts/check-package-catalog-drift.php|scripts/check-support-contract.php|scripts/extract-phpstan-level.php|scripts/run-pest-shards.php|scripts/update-pest-shard-timings.php)$
         types: [text]
       - id: pint
         name: Laravel Pint

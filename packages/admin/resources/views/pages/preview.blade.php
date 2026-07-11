@@ -137,7 +137,7 @@
         <main class="preview-content">
             <p class="preview-meta">
                 Page #{{ $page->id }} · {{ $page->site?->name ?? '—' }} ·
-                {{ $page->type?->name ?? '—' }}
+                {{ $page->blueprint?->name ?? '—' }}
             </p>
             <h1>{{ $page->name }}</h1>
             @forelse ($page->translations as $translation)

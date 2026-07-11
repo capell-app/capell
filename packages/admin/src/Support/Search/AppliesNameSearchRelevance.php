@@ -20,8 +20,10 @@ trait AppliesNameSearchRelevance
     {
         $grammar = $query->getQuery()->getGrammar();
         $nameColumn = $grammar->wrap($query->qualifyColumn('name'));
+        // Laravel's grammar quotes this fixed model column as a trusted SQL identifier.
+        /** @var literal-string $nameColumn */
         $keyColumn = $query->qualifyColumn($query->getModel()->getKeyName());
-        $driver = $query->getConnection()->getDriverName();
+        $driver = $query->getModel()->getConnection()->getDriverName();
         $shouldNormalizeCase = in_array($driver, ['pgsql', 'sqlite'], true);
         $searchExpression = $shouldNormalizeCase ? Str::lower($search) : $search;
         $nameExpression = $shouldNormalizeCase ? 'LOWER(' . $nameColumn . ')' : $nameColumn;

@@ -19,7 +19,7 @@
 <div class="flex flex-wrap items-center gap-x-2 py-2">
     <x-filament::link
         :href="$resourceClass::getUrl('edit', ['record' => $page])"
-        :icon="$page->type?->admin['icon'] ?? $resourceIcon"
+        :icon="$page->blueprint?->admin['icon'] ?? $resourceIcon"
         :iconSize="IconSize::Small"
         :color="$color"
     >

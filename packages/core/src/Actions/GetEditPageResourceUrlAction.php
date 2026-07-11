@@ -38,7 +38,7 @@ class GetEditPageResourceUrlAction
 
         if (app()->bound('filament')) {
             try {
-                $resourceClass = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $page->type);
+                $resourceClass = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $page->blueprint);
             } catch (InvalidArgumentException) {
                 $resourceClass = null;
             }

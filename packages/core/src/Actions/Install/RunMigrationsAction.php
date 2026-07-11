@@ -17,14 +17,21 @@ final class RunMigrationsAction
 {
     use AsObject;
 
-    public function handle(ProgressReporter $reporter, bool $includeSettings = true): void
-    {
+    public function handle(
+        ProgressReporter $reporter,
+        bool $includeSettings = true,
+        bool $includeSchema = true,
+    ): void {
+        if (! $includeSchema && ! $includeSettings) {
+            return;
+        }
+
         $reporter->step('Running migrations…');
 
         try {
             $parameters = ['--force' => true];
-            if (! $includeSettings) {
-                $parameters['--path'] = database_path('migrations');
+            if ($includeSchema !== $includeSettings) {
+                $parameters['--path'] = database_path($includeSchema ? 'migrations' : 'settings');
                 $parameters['--realpath'] = true;
             }
 

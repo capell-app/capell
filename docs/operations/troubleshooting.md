@@ -28,7 +28,7 @@ chmod -R u+rwX storage bootstrap/cache
 
 ## `composer require capell-app/installer` cannot find the package
 
-**Why:** Your app cannot see the private Capell repositories or Packagist credentials.
+**Why:** Your app is not using the private Composer credentials or repository configuration supplied for the licensed project.
 
 **Check:**
 
@@ -37,7 +37,7 @@ composer config repositories
 composer show capell-app/installer --available
 ```
 
-If you install from VCS repositories, add the repository entries from the [install guide](../getting-started/install.md#2-add-capell-repositories). Then run:
+Confirm that the licence and repository access are active, then add the repository entries from the [install guide](../getting-started/install.md#2-configure-private-capell-access). Run:
 
 ```bash
 composer clear-cache

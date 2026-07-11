@@ -31,7 +31,7 @@ jobs:
           package_directory: 'packages/${{ matrix.package }}'
           repository_organization: 'capell-app'
           repository_name: '${{ matrix.package }}'
-          branch: '4.x'
+          branch: 'main'
           tag: ${{ github.event.release.tag_name }}
           user_name: 'capell-app'
           user_email: 'appcapello@gmail.com'
