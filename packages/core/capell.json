@@ -72,8 +72,8 @@
         "screenshots": [
             {
                 "path": "docs/assets/marketplace/extension-card.jpg",
-                "alt": "Capell Core extension preview image",
-                "caption": "Capell Core extension preview"
+                "alt": "Capell Core architectural foundation cutaway",
+                "caption": "Define, connect, resolve, and extend the structure beneath every Capell site"
             }
         ],
         "categories": ["foundation", "platform"]

@@ -217,9 +217,7 @@ node artwork/foundation-series/verify-core.js
 
 Use:
 
-```markdown
-![Capell Core architectural cutaway showing Site, Language, Page, URL, Settings, Theme, and Extension layers](docs/assets/readme/hero.jpg)
-```
+Set the image alt text to “Capell Core architectural cutaway showing Site, Language, Page, URL, Settings, Theme, and Extension layers” while retaining the existing `docs/assets/readme/hero.jpg` path.
 
 - [ ] **Step 3: Update marketplace screenshot copy**
 

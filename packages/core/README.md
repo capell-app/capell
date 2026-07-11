@@ -1,6 +1,6 @@
 # Capell Core
 
-![Capell Core page hierarchy and configuration surfaces layered over its architectural platform](docs/assets/readme/hero.jpg)
+![Capell Core architectural cutaway showing Site, Language, Page, URL, Settings, Theme, and Extension layers](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/core.svg?style=flat-square)](https://packagist.org/packages/capell-app/core)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
