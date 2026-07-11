@@ -13,7 +13,7 @@ jobs:
     name: Trigger demo rebuild
     runs-on: ubuntu-latest
     env:
-      DEMO_DISPATCH_TOKEN: ${{ secrets.ACCESS_TOKEN || secrets.DEMO_DISPATCH_TOKEN }}
+      DEMO_DISPATCH_TOKEN: ${{ secrets.DEMO_DISPATCH_TOKEN || secrets.ACCESS_TOKEN }}
     steps:
       - name: Prepare demo dispatch payload
         id: payload

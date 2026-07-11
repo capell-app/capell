@@ -279,7 +279,7 @@ test('renders page summary and publish status in the pages table', function (): 
 
     $component = Livewire::test(ListPages::class)
         ->assertSuccessful()
-        ->assertTableColumnVisible('type.name')
+        ->assertTableColumnVisible('blueprint.name')
         ->assertSee(__('capell-admin::table.page_type'))
         ->assertSee('Scheduled page')
         ->assertSee('Parent page')
@@ -294,7 +294,7 @@ test('renders page summary and publish status in the pages table', function (): 
         ->assertDontSee(__('capell-admin::table.image'))
         ->assertTableActionVisible(VisitUrlAction::getDefaultName(), record: $page);
 
-    expect($component->instance()->isTableColumnToggledHidden('type.name'))->toBeFalse();
+    expect($component->instance()->isTableColumnToggledHidden('blueprint.name'))->toBeFalse();
 });
 
 test('groups related page record actions', function (): void {

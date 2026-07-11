@@ -266,79 +266,95 @@ class MediaTable implements TableConfigurator
         return sprintf('%s — %s', Str::headline($type), $name);
     }
 
-    private static function editThemeOwnerAction(): EditAction
+    private static function editThemeOwnerAction(): Action
     {
-        return EditAction::make('edit-owner-theme')
+        return Action::make('edit-owner-theme')
             ->label(__('capell-admin::button.edit_theme'))
-            ->record(fn (Media $record): ?Theme => $record->model instanceof Theme ? $record->model : null)
             ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Theme->permission('update')) === true)
-            ->schema(fn (Schema $schema): Schema => ThemeResource::form($schema))
+            ->schema(fn (Schema $schema, Media $record): Schema => ThemeResource::form($schema->record($record->model)))
+            ->fillForm(fn (Media $record): array => $record->model instanceof Theme ? $record->model->attributesToArray() : [])
+            ->modalHeading(fn (Media $record): string => $record->model instanceof Theme ? $record->model->name : '')
             ->slideOver()
             ->modalWidth(Width::ScreenLarge)
-            ->mutateRecordDataUsing(fn (array $data, Theme $record): array => ThemesTable::editorRecordData($record, $data))
+            ->mutateFormDataUsing(fn (array $data, Media $record): array => $record->model instanceof Theme ? ThemesTable::editorRecordData($record->model, $data) : $data)
+            ->action(fn (Media $record, array $data): mixed => $record->model instanceof Theme ? $record->model->update($data) : null)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof Theme || $record->model->trashed());
     }
 
-    private static function editBlueprintOwnerAction(): EditAction
+    private static function editBlueprintOwnerAction(): Action
     {
-        return EditAction::make('edit-owner-blueprint')
+        return Action::make('edit-owner-blueprint')
             ->label(__('capell-admin::button.edit_blueprint'))
-            ->record(fn (Media $record): ?Blueprint => $record->model instanceof Blueprint ? $record->model : null)
             ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Blueprint->permission('update')) === true)
-            ->schema(fn (Schema $schema): Schema => BlueprintResource::form($schema))
+            ->schema(fn (Schema $schema, Media $record): Schema => BlueprintResource::form($schema->record($record->model)))
+            ->fillForm(fn (Media $record): array => $record->model instanceof Blueprint ? $record->model->attributesToArray() : [])
+            ->modalHeading(fn (Media $record): string => $record->model instanceof Blueprint ? $record->model->name : '')
             ->slideOver()
             ->modalWidth(Width::ScreenLarge)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof Blueprint || $record->model->trashed())
-            ->mutateRecordDataUsing(function (array $data, Blueprint $record): array {
-                $data['type'] = $record->type->getLabel();
+            ->mutateFormDataUsing(function (array $data, Media $record): array {
+                if (! $record->model instanceof Blueprint) {
+                    return $data;
+                }
+
+                $data['type'] = $record->model->type->getLabel();
 
                 return $data;
             })
-            ->using(function (Blueprint $record, array $data): Blueprint {
+            ->action(function (Media $media, array $data): void {
+                if (! $media->model instanceof Blueprint) {
+                    return;
+                }
+
+                $record = $media->model;
                 $roleRestrictions = $data['admin']['role_restrictions'] ?? null;
                 unset($data['admin']['role_restrictions']);
 
                 $record->update($data);
 
                 if (auth()->user()?->can('manageRestrictions', Page::class) !== true) {
-                    return $record;
+                    return;
                 }
 
                 if (is_array($roleRestrictions)) {
                     $record->syncRoleRestrictions(array_values(array_map(intval(...), $roleRestrictions)));
                 }
-
-                return $record;
             });
     }
 
-    private static function editLanguageOwnerAction(): EditAction
+    private static function editLanguageOwnerAction(): Action
     {
-        return EditAction::make('edit-owner-language')
+        return Action::make('edit-owner-language')
             ->label(__('filament-actions::edit.single.label'))
-            ->record(fn (Media $record): ?Language => $record->model instanceof Language ? $record->model : null)
             ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Language->permission('update')) === true)
-            ->schema(fn (Schema $schema): Schema => LanguageResource::form($schema))
+            ->schema(fn (Schema $schema, Media $record): Schema => LanguageResource::form($schema->record($record->model)))
+            ->fillForm(fn (Media $record): array => $record->model instanceof Language ? $record->model->attributesToArray() : [])
+            ->modalHeading(fn (Media $record): string => $record->model instanceof Language ? $record->model->name : '')
+            ->action(fn (Media $record, array $data): mixed => $record->model instanceof Language ? $record->model->update($data) : null)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof Language || $record->model->trashed());
     }
 
-    private static function editPageUrlOwnerAction(): EditAction
+    private static function editPageUrlOwnerAction(): Action
     {
-        return EditAction::make('edit-owner-page-url')
+        return Action::make('edit-owner-page-url')
             ->label(__('capell-admin::generic.edit_page_url'))
-            ->record(fn (Media $record): ?PageUrl => $record->model instanceof PageUrl ? $record->model : null)
             ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::PageUrl->permission('update')) === true)
-            ->schema(fn (Schema $schema): Schema => PageUrlResource::form($schema))
+            ->schema(fn (Schema $schema, Media $record): Schema => PageUrlResource::form($schema->record($record->model)))
+            ->fillForm(fn (Media $record): array => $record->model instanceof PageUrl ? $record->model->attributesToArray() : [])
+            ->modalHeading(fn (Media $record): string => $record->model instanceof PageUrl ? $record->model->url : '')
+            ->action(fn (Media $record, array $data): mixed => $record->model instanceof PageUrl ? $record->model->update($data) : null)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof PageUrl || $record->model->trashed() || $record->model->type === UrlTypeEnum::Redirect);
     }
 
-    private static function editRedirectOwnerAction(): EditAction
+    private static function editRedirectOwnerAction(): Action
     {
-        return EditAction::make('edit-owner-redirect')
+        return Action::make('edit-owner-redirect')
             ->label(__('capell-admin::generic.edit_redirect'))
-            ->record(fn (Media $record): ?PageUrl => $record->model instanceof PageUrl ? $record->model : null)
             ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Redirect->permission('update')) === true)
-            ->schema(fn (Schema $schema): Schema => RedirectResource::form($schema))
+            ->schema(fn (Schema $schema, Media $record): Schema => RedirectResource::form($schema->record($record->model)))
+            ->fillForm(fn (Media $record): array => $record->model instanceof PageUrl ? $record->model->attributesToArray() : [])
+            ->modalHeading(fn (Media $record): string => $record->model instanceof PageUrl ? $record->model->url : '')
+            ->action(fn (Media $record, array $data): mixed => $record->model instanceof PageUrl ? $record->model->update($data) : null)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof PageUrl || $record->model->trashed() || $record->model->type !== UrlTypeEnum::Redirect || ! $record->model->is_manual);
     }
 

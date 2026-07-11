@@ -1,0 +1,8 @@
+/.github/ @capell-app/maintainers
+/packages/core/ @capell-app/maintainers
+/packages/admin/ @capell-app/maintainers
+/packages/frontend/ @capell-app/maintainers
+/packages/installer/ @capell-app/maintainers
+/packages/marketplace/ @capell-app/maintainers
+/docs/ @capell-app/maintainers
+* @capell-app/maintainers

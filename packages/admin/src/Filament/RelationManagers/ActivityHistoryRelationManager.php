@@ -42,7 +42,7 @@ final class ActivityHistoryRelationManager extends RelationManager
                             $relation->morphWith([
                                 Translation::class => [
                                     'language',
-                                    'translatable.type',
+                                    'translatable.blueprint',
                                 ],
                             ]);
                         }

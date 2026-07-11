@@ -70,10 +70,10 @@ abstract class AbstractPagesRelationManager extends RelationManager
             ->modifyQueryUsing(
                 fn (Builder $query): Builder => $this->modifyQuery(
                     $query->with([
-                        'ancestors.type',
+                        'ancestors.blueprint',
                         'editor',
                         'image',
-                        'type',
+                        'blueprint',
                         'pageUrl.siteDomain',
                     ]),
                 ),
@@ -127,7 +127,7 @@ abstract class AbstractPagesRelationManager extends RelationManager
                 SelectFilter::make('blueprint_id')
                     ->label(__('capell-admin::form.type'))
                     ->relationship(
-                        name: 'type',
+                        name: 'blueprint',
                         titleAttribute: 'name',
                         modifyQueryUsing: fn (Builder $query) => $query->pageType()->ordered(),
                     ),

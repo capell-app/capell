@@ -103,41 +103,42 @@ class PagesTable implements TableConfigurator
                         ->icon('heroicon-o-rectangle-group')
                         ->url(self::getLayoutRecordUrl(...))
                         ->hidden(fn (PageModel $record): bool => self::getLayoutRecordUrl($record) === null),
-                    EditAction::make('edit-blueprint')
-                        ->record(fn (PageModel $record): Blueprint => $record->blueprint)
+                    Action::make('edit-blueprint')
                         ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Blueprint->permission('update')) === true)
-                        ->schema(fn (Schema $schema): Schema => BlueprintResource::form($schema))
+                        ->schema(fn (Schema $schema, PageModel $record): Schema => BlueprintResource::form($schema->record($record->blueprint)))
+                        ->fillForm(function (PageModel $record): array {
+                            $data = $record->blueprint->attributesToArray();
+                            $data['type'] = $record->blueprint->getRawOriginal('type');
+
+                            return $data;
+                        })
                         ->modalWidth(Width::ScreenLarge)
                         ->slideOver()
                         ->hidden(fn (PageModel $record): bool => ! $record->blueprint instanceof Blueprint || $record->blueprint->trashed())
                         ->modalHeading(
-                            fn (?Blueprint $record): string => __(
-                                'capell-admin::heading.edit_type_record',
-                                ['type' => $record instanceof Blueprint ? self::blueprintTypeName($record) : ''],
-                            ),
+                            fn (PageModel $record): string => $record->blueprint->name,
                         )
-                        ->mutateRecordDataUsing(function (array $data, Blueprint $record): array {
-                            $data['type'] = self::blueprintTypeName($record);
+                        ->mutateFormDataUsing(function (array $data, PageModel $record): array {
+                            $data['type'] = self::blueprintTypeName($record->blueprint);
 
                             return $data;
                         })
-                        ->using(function (Blueprint $record, array $data): Blueprint {
+                        ->action(function (PageModel $record, array $data): void {
+                            $blueprint = $record->blueprint;
                             $roleRestrictions = $data['admin']['role_restrictions'] ?? null;
                             unset($data['admin']['role_restrictions']);
 
-                            $record->update($data);
+                            $blueprint->update($data);
 
                             if (auth()->user()?->can('manageRestrictions', PageModel::class) !== true) {
-                                return $record;
+                                return;
                             }
 
                             if (is_array($roleRestrictions)) {
-                                $record->syncRoleRestrictions(
+                                $blueprint->syncRoleRestrictions(
                                     array_values(array_map(intval(...), $roleRestrictions)),
                                 );
                             }
-
-                            return $record;
                         }),
                     ReplicatePageAction::make(),
                     DeleteAction::make()

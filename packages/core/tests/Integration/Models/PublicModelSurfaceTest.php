@@ -81,7 +81,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
     $expired = Page::factory()->site($site)->type($articleType)->expired()->createOne(['name' => 'Expired']);
 
     $site->load(['language', 'siteDomains.language', 'theme']);
-    $child->load(['site.siteDomains', 'translation', 'pageUrl', 'type', 'parent.translation']);
+    $child->load(['site.siteDomains', 'translation', 'pageUrl', 'blueprint', 'parent.translation']);
     Page::setResolvedPageUrlSiteDomain($child, $site);
 
     expect(Page::hasPageHierarchy())->toBeTrue()

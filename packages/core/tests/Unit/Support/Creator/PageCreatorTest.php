@@ -34,8 +34,8 @@ it('creates home and error pages with translations for the supplied languages', 
         ->and($homePage->name)->toBe('Home')
         ->and($homePage->order)->toBe(1)
         ->and($homePage->layout->key)->toBe(LayoutEnum::Home->value)
-        ->and($homePage->type->key)->toBe(PageTypeEnum::Home->value)
-        ->and($homePage->type->name)->toBe('Home')
+        ->and($homePage->blueprint->key)->toBe(PageTypeEnum::Home->value)
+        ->and($homePage->blueprint->name)->toBe('Home')
         ->and($homePage->translations()->pluck('title', 'language_id')->all())->toBe([
             $english->id => 'Capell Cms',
             $french->id => 'Capell Cms',
@@ -48,8 +48,8 @@ it('creates home and error pages with translations for the supplied languages', 
 
     expect($errorPage->name)->toBe('Page Not Found')
         ->and($errorPage->layout->key)->toBe(LayoutEnum::System->value)
-        ->and($errorPage->type->key)->toBe(PageTypeEnum::NotFound->value)
-        ->and($errorPage->type->name)->toBe('Page Not Found')
+        ->and($errorPage->blueprint->key)->toBe(PageTypeEnum::NotFound->value)
+        ->and($errorPage->blueprint->name)->toBe('Page Not Found')
         ->and($errorPage->meta)->toBe(['robots' => ['noindex' => true]])
         ->and($errorPage->translations()->get()->pluck('content')->unique()->values()->all())->toBe([
             '<p>The URL you have reached does not exist. Check the address for typos or a close match.</p><p>Return to the previous page, or <a href="/">go to the homepage</a>.</p>',
@@ -76,7 +76,7 @@ it('creates home and error pages with translations for the supplied languages', 
 
     expect($maintenancePage->name)->toBe('Maintenance')
         ->and($maintenancePage->layout->key)->toBe(LayoutEnum::System->value)
-        ->and($maintenancePage->type->key)->toBe(PageTypeEnum::Maintenance->value)
+        ->and($maintenancePage->blueprint->key)->toBe(PageTypeEnum::Maintenance->value)
         ->and($maintenancePage->translations()->pluck('title', 'language_id')->all())->toBe([
             $english->id => 'Maintenance',
             $french->id => 'Maintenance',
@@ -122,7 +122,7 @@ it('reuses an existing root url page when creating the default home page', funct
             ->where('url', '/')
             ->count())->toBe(1)
         ->and($homePage->refresh()->name)->toBe('Home')
-        ->and($homePage->type->key)->toBe(PageTypeEnum::Home->value)
+        ->and($homePage->blueprint->key)->toBe(PageTypeEnum::Home->value)
         ->and($homePage->layout->key)->toBe(LayoutEnum::Home->value);
 });
 

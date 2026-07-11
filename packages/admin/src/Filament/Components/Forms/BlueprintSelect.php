@@ -258,7 +258,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
     public function withRelation(): static
     {
         return $this->relationship(
-            name: 'type',
+            name: 'blueprint',
             titleAttribute: 'name',
             modifyQueryUsing: fn (Builder $query): Builder => $query->select('blueprints.*')
                 ->when(
@@ -369,7 +369,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
 
         $record->loadMissing('blueprint');
 
-        return $record->getRelation('type');
+        return $record->getRelation('blueprint');
     }
 
     private function embeddedSelectEditContext(): ConfiguratorContextData

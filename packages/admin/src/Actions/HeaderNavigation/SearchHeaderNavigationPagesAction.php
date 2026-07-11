@@ -72,7 +72,7 @@ final class SearchHeaderNavigationPagesAction
 
         /** @var Collection<int, Page> $matches */
         $matches = Page::query()
-            ->with(['site.defaultDomain', 'type.roleRestrictions', 'pageUrl.siteDomain'])
+            ->with(['site.defaultDomain', 'blueprint.roleRestrictions', 'pageUrl.siteDomain'])
             ->whereIn('id', $pageIds)
             ->get()
             ->sortBy(fn (Page $match): int => array_search((int) $match->getKey(), $pageIds, true) ?: 0)
@@ -118,7 +118,7 @@ final class SearchHeaderNavigationPagesAction
         }
 
         $ancestors = $match->ancestors()->get();
-        $ancestors->load(['site', 'type.roleRestrictions', 'pageUrl.siteDomain']);
+        $ancestors->load(['site', 'blueprint.roleRestrictions', 'pageUrl.siteDomain']);
 
         /** @var Collection<int, Page> $pathPages */
         $pathPages = $ancestors->push($match);
