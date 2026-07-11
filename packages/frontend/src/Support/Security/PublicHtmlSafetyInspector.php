@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Security;
 
+use Capell\Core\Support\Security\PublicOutputLeakPolicy;
 use Capell\Frontend\Data\PublicHtmlSafetyDetectionData;
 
 final class PublicHtmlSafetyInspector
@@ -14,51 +15,9 @@ final class PublicHtmlSafetyInspector
 
     private const int LARGE_SIGNED_URL_SCAN_BEFORE_BYTES = 60000;
 
-    /**
-     * @var list<non-empty-string>
-     */
-    private const array AUTHORING_ATTRIBUTES = [
-        'data-capell-authoring',
-        'data-capell-editable',
-        'data-capell-editor',
-        'data-capell-editor-url',
-        'data-field-path',
-        'data-model-id',
-        'data-permission',
-        'data-capell-package',
-    ];
-
-    /**
-     * @var list<non-empty-string>
-     */
-    private const array AUTHORING_JSON_KEYS = [
-        'field_path',
-        'fieldpath',
-        'model_id',
-        'modelid',
-        'editor_url',
-        'editorurl',
-        'signed_editor_url',
-        'signededitorurl',
-        'signed_admin_url',
-        'signedadminurl',
-    ];
-
-    /**
-     * @var list<non-empty-string>
-     */
-    private const array AUTHORING_SIGNED_URL_JSON_KEYS = [
-        'signed_url',
-        'signedurl',
-    ];
-
-    /**
-     * @var list<non-empty-string>
-     */
-    private const array AUTHORING_CLASS_OR_ID_MARKERS = [
-        'capell-authoring',
-        'capell-editor',
-    ];
+    public function __construct(
+        private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
+    ) {}
 
     /**
      * Public-safe `data-capell-*` runtime attribute families. These are the
@@ -77,27 +36,6 @@ final class PublicHtmlSafetyInspector
      *
      * @var list<non-empty-string>
      */
-    private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_PREFIXES = [
-        'data-capell-widget-',
-        'data-capell-interaction-',
-        'data-capell-theme-',
-        // The insights package emits a public, anonymous-facing consent banner
-        // and analytics tracker. Every data-capell-insights-* attribute is
-        // client-side consent/analytics wiring (the package has no editor
-        // surface), so the whole family is public-safe.
-        'data-capell-insights-',
-    ];
-
-    /**
-     * Exact public-safe `data-capell-*` attributes that are not covered by a
-     * trailing-hyphen family prefix (i.e. the bare family root).
-     *
-     * @var list<non-empty-string>
-     */
-    private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTES = [
-        'data-capell-interaction',
-    ];
-
     public function containsAuthoringSurface(string $html): bool
     {
         return $this->detectAuthoringSurface($html) instanceof PublicHtmlSafetyDetectionData;
@@ -188,7 +126,7 @@ final class PublicHtmlSafetyInspector
 
     private function detectAuthoringAttribute(string $html): ?string
     {
-        foreach (self::AUTHORING_ATTRIBUTES as $attribute) {
+        foreach ($this->leakPolicy->authoringAttributes() as $attribute) {
             $pattern = '#<[^>]+\\s' . preg_quote($attribute, '#') . '(?:\\s|=|>)#i';
 
             if (preg_match($pattern, $html) === 1) {
@@ -201,7 +139,7 @@ final class PublicHtmlSafetyInspector
 
     private function detectAuthoringClassOrId(string $html): ?string
     {
-        foreach (self::AUTHORING_CLASS_OR_ID_MARKERS as $marker) {
+        foreach ($this->leakPolicy->authoringClassOrIdMarkers() as $marker) {
             $pattern = '#\\s(?:class|id)=["\'][^"\']*\\b' . preg_quote($marker, '#') . '\\b[^"\']*["\']#i';
 
             if (preg_match($pattern, $html) === 1) {
@@ -252,18 +190,18 @@ final class PublicHtmlSafetyInspector
 
     private function isAllowedCapellRuntimeAttribute(string $attribute): bool
     {
-        if (in_array($attribute, self::ALLOWED_CAPELL_RUNTIME_ATTRIBUTES, true)) {
+        if (in_array($attribute, $this->leakPolicy->allowedCapellRuntimeAttributes(), true)) {
             return true;
         }
 
-        return array_any(self::ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_PREFIXES, fn ($prefix): bool => str_starts_with($attribute, (string) $prefix));
+        return array_any($this->leakPolicy->allowedCapellRuntimeAttributePrefixes(), fn ($prefix): bool => str_starts_with($attribute, $prefix));
     }
 
     private function detectLiteralAuthoringMarker(string $html): ?string
     {
         $html = preg_replace('#<(pre|code)\\b[^>]*>.*?</\\1>#is', '', $html) ?? $html;
 
-        foreach (self::AUTHORING_CLASS_OR_ID_MARKERS as $marker) {
+        foreach ($this->leakPolicy->authoringClassOrIdMarkers() as $marker) {
             foreach ($this->htmlVariants($html) as $htmlVariant) {
                 if (stripos($htmlVariant, $marker) !== false) {
                     return $marker;
@@ -282,7 +220,7 @@ final class PublicHtmlSafetyInspector
             $body = $script[2];
             $bodyVariants = $this->htmlVariants($body);
 
-            foreach (self::AUTHORING_JSON_KEYS as $key) {
+            foreach ($this->leakPolicy->authoringJsonKeys() as $key) {
                 foreach ($bodyVariants as $bodyVariant) {
                     if ($this->containsAuthoringJsonKey($bodyVariant, $key, allowBareKey: true)) {
                         return '"' . $key . '"';
@@ -305,7 +243,7 @@ final class PublicHtmlSafetyInspector
         $html = preg_replace('#<(pre|code)\\b[^>]*>.*?</\\1>#is', '', $html) ?? $html;
         $htmlVariants = $this->htmlVariants($html);
 
-        foreach (self::AUTHORING_JSON_KEYS as $key) {
+        foreach ($this->leakPolicy->authoringJsonKeys() as $key) {
             foreach ($htmlVariants as $htmlVariant) {
                 if ($this->containsAuthoringJsonKey($htmlVariant, $key, allowBareKey: false)) {
                     return '"' . $key . '"';
@@ -334,7 +272,7 @@ final class PublicHtmlSafetyInspector
      */
     private function detectAuthoringSignedUrlJsonKey(array $htmlVariants): ?string
     {
-        foreach (self::AUTHORING_SIGNED_URL_JSON_KEYS as $key) {
+        foreach ($this->leakPolicy->authoringSignedUrlJsonKeys() as $key) {
             foreach ($htmlVariants as $htmlVariant) {
                 $quotedKeyPattern = '["\']' . preg_quote($key, '#') . '["\']';
                 $bareKeyPattern = '(?<![A-Za-z0-9_$-])' . preg_quote($key, '#') . '(?![A-Za-z0-9_$-])';

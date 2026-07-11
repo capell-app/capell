@@ -59,47 +59,6 @@ final class PublicHtmlSanitizer
     /**
      * @var array<int, string>
      */
-    private const array BLOCKED_PUBLIC_KEYS = [
-        'access_token',
-        'admin_path',
-        'admin_url',
-        'api_key',
-        'api_secret',
-        'authorization',
-        'bearer',
-        'bearer_token',
-        'client_secret',
-        'credential',
-        'credentials',
-        'edit_url',
-        'editable_regions',
-        'expires',
-        'field_path',
-        'filament_url',
-        'internal_id',
-        'internal_model_id',
-        'model_id',
-        'model_type',
-        'page_id',
-        'password',
-        'permission',
-        'permissions',
-        'private_key',
-        'prompt',
-        'record_key',
-        'recordkey',
-        'refresh_token',
-        'secret',
-        'secret_prompt',
-        'selector',
-        'signature',
-        'signed_editor_url',
-        'signed_url',
-        'system_prompt',
-        'token',
-        'webhook_secret',
-    ];
-
     /**
      * @var array<int, string>
      */
@@ -119,6 +78,10 @@ final class PublicHtmlSanitizer
         'template',
         'video',
     ];
+
+    public function __construct(
+        private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
+    ) {}
 
     public function sanitize(string $html): string
     {
@@ -330,22 +293,12 @@ final class PublicHtmlSanitizer
             return true;
         }
 
-        return in_array(trim($normalizedKey, '_'), self::BLOCKED_PUBLIC_KEYS, true);
+        return in_array(trim($normalizedKey, '_'), $this->leakPolicy->blockedPublicKeys(), true);
     }
 
     private function containsBlockedPublicValue(string $value): bool
     {
-        $patterns = [
-            '/\bdata-(?:capell-authoring|capell-editor|field-path|model-id|page-id)\b/i',
-            '/\b(?:fieldPath|field[_-]?path|modelId|model[_-]?id|pageId|page[_-]?id)\b\s*(?:=|:)/i',
-            '/\b(?:CapellFrontendAuthoring|frontend-authoring|signed-editor|signed_editor|editable_regions)\b/i',
-            '~(?<![A-Za-z0-9_-])/(?:admin|authoring/regions|filament|filament-peek|livewire)(?:[/?#)"\'\s]|$)~i',
-            '/\b(?:Authorization\s*[:=]\s*)?Bearer\s+(?!\[redacted\])[A-Za-z0-9._~+\/=-]{8,}\b/i',
-            '/\b(?:secret|token|password|passwd|pwd|credential|private_key|api_key|access_key|client_secret|webhook_secret|signing_secret)\s*[:=]\s*(?!\[redacted\])[^"\'\s,;}{]+/i',
-            '/[?&](?:expires|signature|token|access_token|refresh_token)=(?!\[redacted\])[^&\s<>"\']+/i',
-        ];
-
-        return array_any($patterns, fn ($pattern): bool => preg_match($pattern, $value) === 1);
+        return array_any($this->leakPolicy->blockedPublicValuePatterns(), fn ($pattern): bool => preg_match($pattern, $value) === 1);
     }
 
     private function unwrapElement(DOMElement $element): void
