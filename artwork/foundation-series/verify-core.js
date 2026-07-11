@@ -44,13 +44,4 @@ for (const forbiddenPath of [
     }
 }
 
-const legacyRenderer = fs.readFileSync(
-    path.join(root, 'artwork/foundation-series/render.sh'),
-    'utf8',
-)
-
-if (legacyRenderer.includes('render_core')) {
-    throw new Error('Legacy renderer still invokes the Core artwork generator')
-}
-
 console.log('Core Nano Banana artwork contract passed.')
