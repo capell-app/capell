@@ -240,48 +240,40 @@ class ColorConverterAction
         return [round($h * 360), $s, $l];
     }
 
-    // Approximate RGB to OKLCH conversion (not perceptually accurate, but sufficient for basic use)
     /**
      * @param  array{0: int, 1: int, 2: int, a?: float|int}  $rgb
      */
     private function rgbToOklchString(array $rgb): string
     {
-        // Convert to linear RGB
-        $r = $rgb[0] / 255;
-        $g = $rgb[1] / 255;
-        $b = $rgb[2] / 255;
-        // sRGB to XYZ
-        $r = $r <= 0.04045 ? $r / 12.92 : (($r + 0.055) / 1.055) ** 2.4;
-        $g = $g <= 0.04045 ? $g / 12.92 : (($g + 0.055) / 1.055) ** 2.4;
-        $b = $b <= 0.04045 ? $b / 12.92 : (($b + 0.055) / 1.055) ** 2.4;
-        $x = $r * 0.4124 + $g * 0.3576 + $b * 0.1805;
-        $y = $r * 0.2126 + $g * 0.7152 + $b * 0.0722;
-        $z = $r * 0.0193 + $g * 0.1192 + $b * 0.9505;
-        // XYZ to Lab
-        $xn = 0.95047;
-        $yn = 1.0;
-        $zn = 1.08883;
-        $fx = $this->labF($x / $xn);
-        $fy = $this->labF($y / $yn);
-        $fz = $this->labF($z / $zn);
-        $l = 116 * $fy - 16;
-        $a = 500 * ($fx - $fy);
-        $b = 200 * ($fy - $fz);
-        // Lab to LCH
-        $c = sqrt($a * $a + $b * $b);
-        $h = atan2($b, $a) * 180 / M_PI;
-        if ($h < 0) {
-            $h += 360;
-        }
+        $red = $this->linearSrgbChannel($rgb[0]);
+        $green = $this->linearSrgbChannel($rgb[1]);
+        $blue = $this->linearSrgbChannel($rgb[2]);
 
-        // Lab to OKLab/OKLCH (approximate)
-        // For real OKLCH, use a color library. Here, we just format as 'oklch(L C H)'
-        return sprintf('oklch(%.2f%% %.4f %.2f)', $l, $c / 100, $h);
+        $long = 0.4122214708 * $red + 0.5363325363 * $green + 0.0514459929 * $blue;
+        $medium = 0.2119034982 * $red + 0.6806995451 * $green + 0.1073969566 * $blue;
+        $short = 0.0883024619 * $red + 0.2817188376 * $green + 0.6299787005 * $blue;
+
+        $longRoot = $long ** (1 / 3);
+        $mediumRoot = $medium ** (1 / 3);
+        $shortRoot = $short ** (1 / 3);
+
+        $l = 0.2104542553 * $longRoot + 0.793617785 * $mediumRoot - 0.0040720468 * $shortRoot;
+        $a = 1.9779984951 * $longRoot - 2.428592205 * $mediumRoot + 0.4505937099 * $shortRoot;
+        $b = 0.0259040371 * $longRoot + 0.7827717662 * $mediumRoot - 0.808675766 * $shortRoot;
+
+        $c = sqrt($a * $a + $b * $b);
+        $h = $c < 0.000001 ? 0.0 : fmod(atan2($b, $a) * 180 / M_PI + 360, 360);
+
+        return sprintf('oklch(%.2f%% %.4f %.2f)', $l * 100, $c, $h);
     }
 
-    private function labF(float $t): float
+    private function linearSrgbChannel(int $channel): float
     {
-        return $t > (6 / 29) ** 3 ? $t ** (1 / 3) : (1 / 3) * (29 / 6) ** 2 * $t + 4 / 29;
+        $channel /= 255;
+
+        return $channel <= 0.04045
+            ? $channel / 12.92
+            : (($channel + 0.055) / 1.055) ** 2.4;
     }
 
     /**
