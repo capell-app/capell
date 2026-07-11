@@ -79,5 +79,5 @@ it('all named classes in the test suite live in their own PSR-4 file', function 
         }
     }
 
-    expect($violations, implode(PHP_EOL, $violations))->toBeEmpty();
+    expect($violations)->toBeEmpty();
 });

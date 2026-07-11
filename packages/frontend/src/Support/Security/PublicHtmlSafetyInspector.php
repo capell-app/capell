@@ -33,8 +33,6 @@ final class PublicHtmlSafetyInspector
      * authoring/leak attribute names all live outside these families, so they
      * are still caught. KEEP IN SYNC with the public runtime attributes
      * documented in PublicBladeSafetyTest.
-     *
-     * @var list<non-empty-string>
      */
     public function containsAuthoringSurface(string $html): bool
     {

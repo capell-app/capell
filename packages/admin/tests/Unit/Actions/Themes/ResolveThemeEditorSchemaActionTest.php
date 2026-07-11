@@ -63,11 +63,14 @@ it('builds exactly one closed select control for every declared token', function
     };
 
     $controls = collect($schema->groups)->flatMap($configurator->controls(...))->values();
+    $firstControl = $controls->first();
+
+    assert($firstControl instanceof Select);
 
     expect($controls)->toHaveCount(3)
         ->and($controls->map(fn (Select $control): string => $control->getName())->all())
         ->toBe(['layoutPresentation', 'headingScale', 'mediaTreatment'])
-        ->and($controls[0]->getOptions())->toBe([
+        ->and($firstControl->getOptions())->toBe([
             'structured' => 'Structured',
             'immersive' => 'Immersive',
         ]);

@@ -15,6 +15,7 @@ it('keeps every core split pull request forwarding workflow aligned with the cor
     );
 
     expect($matrixMatchCount)->toBe(1);
+    assert(isset($matrixMatches['packages']));
 
     $packageMatchCount = preg_match_all(
         '/^\s+- (?<package>[a-z0-9-]+)$/m',

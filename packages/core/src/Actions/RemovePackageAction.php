@@ -13,7 +13,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name)
+ * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name, ?callable $finalize = null)
  */
 class RemovePackageAction
 {
@@ -27,7 +27,7 @@ class RemovePackageAction
     /**
      * @return array{package: string, status: string, message: string, output: string, cache_cleared: bool}
      */
-    public function handle(string $name): array
+    public function handle(string $name, ?callable $finalize = null): array
     {
         $this->clearPackageManifestCacheFiles();
 
@@ -36,6 +36,7 @@ class RemovePackageAction
         $originalComposer = $this->files->exists($composerPath) ? $this->files->get($composerPath) : null;
         $originalLock = $this->files->exists($lockPath) ? $this->files->get($lockPath) : null;
         $command = ['composer', 'remove', $name, '--no-interaction', '--no-scripts'];
+        $composerSucceeded = false;
 
         try {
             $bundleUpdate = $this->prepareBundleDeletion($name, $composerPath, $originalComposer);
@@ -64,15 +65,88 @@ class RemovePackageAction
             $errorOutput = $process->getErrorOutput();
             $standardOutput = $process->getOutput();
 
-            throw_unless($process->isSuccessful(), RuntimeException::class, sprintf("Failed to remove package '%s': ", $name) . ($errorOutput !== '' ? $errorOutput : ($standardOutput !== '' ? $standardOutput : 'Unknown error during composer remove.')));
+            throw_unless($process->isSuccessful(), RuntimeException::class, $this->safeComposerFailureMessage());
+            $composerSucceeded = true;
 
             throw_if(($standardOutput === '' || $standardOutput === '0') && ($errorOutput === '' || $errorOutput === '0'), RuntimeException::class, sprintf("Package '%s' removal produced no output.", $name));
+
+            $this->assertPackageAbsentFromLock($name, $lockPath);
+            if ($finalize !== null) {
+                $finalize();
+            }
 
             return $this->success($name, $standardOutput);
         } catch (Throwable $throwable) {
             $this->restoreComposerFiles($composerPath, $lockPath, $originalComposer, $originalLock);
 
+            if ($composerSucceeded) {
+                try {
+                    $this->recoverComposerInstallation($composerPath, $lockPath, $originalComposer, $originalLock);
+                } catch (Throwable) {
+                    $this->restoreComposerFiles($composerPath, $lockPath, $originalComposer, $originalLock);
+
+                    throw new RuntimeException(
+                        'Composer files were restored after package removal failed, but the installed package graph could not be recovered. '
+                        . 'Composer output was withheld because it may contain credentials. Installed dependencies may not match composer.lock. '
+                        . 'Run "composer install --no-interaction --no-scripts" from the application root in a trusted terminal.',
+                        previous: $throwable,
+                    );
+                }
+            }
+
             throw $throwable;
+        }
+    }
+
+    private function safeComposerFailureMessage(): string
+    {
+        return 'Composer could not complete the package removal. Composer output was withheld because it may contain credentials. '
+            . 'Run the removal from the application root in a trusted terminal, resolve the reported Composer error, then retry.';
+    }
+
+    private function assertPackageAbsentFromLock(string $name, string $lockPath): void
+    {
+        if (! $this->files->exists($lockPath)) {
+            return;
+        }
+
+        $lock = json_decode($this->files->get($lockPath), true, flags: JSON_THROW_ON_ERROR);
+        if (! is_array($lock)) {
+            throw new RuntimeException('The application composer.lock file is invalid.');
+        }
+
+        foreach (['packages', 'packages-dev'] as $section) {
+            $packages = is_array($lock[$section] ?? null) ? $lock[$section] : [];
+
+            foreach ($packages as $package) {
+                if (is_array($package) && ($package['name'] ?? null) === $name) {
+                    throw new RuntimeException(sprintf("Package '%s' remains installed in composer.lock.", $name));
+                }
+            }
+        }
+    }
+
+    private function recoverComposerInstallation(
+        string $composerPath,
+        string $lockPath,
+        ?string $composerContents,
+        ?string $lockContents,
+    ): void {
+        $process = $this->processFactory->make(
+            ['composer', 'install', '--no-interaction', '--no-scripts'],
+            base_path(),
+        );
+        $process->setEnv(ComposerProcessEnvironment::forInstall($_SERVER));
+        $process->setTimeout(300);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            $this->restoreComposerFiles($composerPath, $lockPath, $composerContents, $lockContents);
+
+            throw new RuntimeException(
+                'Composer could not restore the package installation automatically. Composer output was withheld because it may contain credentials. '
+                . 'Run composer install from the application root in a trusted terminal before retrying.',
+            );
         }
     }
 
@@ -109,7 +183,7 @@ class RemovePackageAction
         }
 
         if (! $bundleWasDirect && $promoted === []) {
-            return ['complete' => true, 'update_members' => []];
+            return ['complete' => false, 'update_members' => array_values($bundle->getRequirements())];
         }
 
         ksort($require);
