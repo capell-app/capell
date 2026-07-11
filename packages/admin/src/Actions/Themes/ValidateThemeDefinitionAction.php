@@ -9,7 +9,6 @@ use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Lorisleiva\Actions\Concerns\AsAction;
-use Throwable;
 
 /**
  * @method static ThemeDiagnosticsData run(string $themeKey, ?ThemeDefinitionData $definition = null, ?Theme $theme = null)
@@ -17,17 +16,6 @@ use Throwable;
 final class ValidateThemeDefinitionAction
 {
     use AsAction;
-
-    /** @var list<string> */
-    private const array REQUIRED_SECTIONS = [
-        'navigation',
-        'hero',
-        'features',
-        'proof',
-        'content-listing',
-        'cta',
-        'footer',
-    ];
 
     public function handle(string $themeKey, ?ThemeDefinitionData $definition = null, ?Theme $theme = null): ThemeDiagnosticsData
     {
@@ -48,7 +36,6 @@ final class ValidateThemeDefinitionAction
                 themeKey: $themeKey,
                 installed: $theme instanceof Theme,
                 hasDefinition: false,
-                hasRenderer: false,
                 extendsResolved: false,
                 hasPresets: false,
                 hasPreviewImage: false,
@@ -57,16 +44,10 @@ final class ValidateThemeDefinitionAction
             );
         }
 
-        $hasRenderer = $this->hasRenderer($registry, $themeKey);
         $extendsResolved = $definition->extends === null || ($registry instanceof ThemeRegistry && $registry->has($definition->extends));
         $hasPresets = $definition->presets !== [];
         $hasPreviewImage = trim($definition->previewImage) !== '';
-        $missingSections = $this->missingSections($definition);
         $missingAssets = $this->missingAssets($definition);
-
-        if (! $hasRenderer) {
-            $errors[] = __('capell-admin::theme-library.diagnostics.missing_renderer');
-        }
 
         if (! $extendsResolved) {
             $errors[] = __('capell-admin::theme-library.diagnostics.missing_parent', ['theme' => $definition->extends]);
@@ -80,12 +61,6 @@ final class ValidateThemeDefinitionAction
             $warnings[] = __('capell-admin::theme-library.diagnostics.missing_preview_image');
         }
 
-        if ($missingSections !== []) {
-            $warnings[] = __('capell-admin::theme-library.diagnostics.missing_sections', [
-                'sections' => implode(', ', $missingSections),
-            ]);
-        }
-
         if ($missingAssets !== []) {
             $warnings[] = __('capell-admin::theme-library.diagnostics.missing_assets', [
                 'assets' => implode(', ', $missingAssets),
@@ -96,41 +71,13 @@ final class ValidateThemeDefinitionAction
             themeKey: $themeKey,
             installed: $theme instanceof Theme,
             hasDefinition: true,
-            hasRenderer: $hasRenderer,
             extendsResolved: $extendsResolved,
             hasPresets: $hasPresets,
             hasPreviewImage: $hasPreviewImage,
             warnings: $this->stringList($warnings),
             errors: $this->stringList($errors),
-            missingSections: $missingSections,
             missingAssets: $missingAssets,
         );
-    }
-
-    private function hasRenderer(?ThemeRegistry $registry, string $themeKey): bool
-    {
-        if (! $registry instanceof ThemeRegistry || ! $registry->has($themeKey)) {
-            return false;
-        }
-
-        try {
-            $registry->renderer($themeKey);
-
-            return true;
-        } catch (Throwable) {
-            return false;
-        }
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function missingSections(ThemeDefinitionData $definition): array
-    {
-        return array_values(collect(self::REQUIRED_SECTIONS)
-            ->reject(fn (string $section): bool => in_array($section, $definition->includedSections, true))
-            ->values()
-            ->all());
     }
 
     /**

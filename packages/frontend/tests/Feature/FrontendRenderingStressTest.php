@@ -9,9 +9,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Support\Loader\PageLoader;
@@ -123,21 +121,7 @@ function seedLargeFrontendRenderingDataset(int $pageCount): array
                     previewImage: '',
                 ),
             ],
-            includedSections: [],
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'large-stress-theme';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '<h1>' . e($page->title) . '</h1><p>Rendered from ' . e($page->title) . '</p>';
-            }
-        },
-        [],
     );
     $type = Blueprint::factory()->page()->create([
         'key' => 'large-stress-pages',

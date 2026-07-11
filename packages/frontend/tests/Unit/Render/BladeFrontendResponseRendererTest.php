@@ -42,45 +42,9 @@ it('registers the blade renderer in the frontend renderer registry', function ()
     expect($renderer)->toBeInstanceOf(BladeFrontendResponseRenderer::class);
 });
 
-it('renders a registered blade theme for a normal page without demo metadata', function (): void {
-    $site = Site::factory()->make(['name' => 'Fresh Site']);
-    $site->setRelation('type', Blueprint::factory()->make());
-
-    $language = Language::factory()->make(['code' => 'en']);
-    $layout = Layout::factory()->make(['key' => 'default']);
-    $theme = Theme::factory()->make(['key' => 'default', 'meta' => []]);
-    $translation = Translation::factory()->make([
-        'title' => 'Fresh page',
-        'content' => '<p>Ordinary page content should feed the default public theme.</p>',
-        'meta' => [],
-    ]);
-    $page = Page::factory()->make(['name' => 'Fresh fallback', 'meta' => []]);
-    $page->setRelation('translation', $translation);
-
-    bindBladeRendererContext($page, $site, $language, $layout, $theme);
-
-    $response = (new BladeFrontendResponseRenderer)->render(new FrontendRenderContextData(
-        page: $page,
-        site: $site,
-        language: $language,
-        layout: $layout,
-        theme: $theme,
-    ));
-
-    throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
-
-    expect($response->getContent())
-        ->toContain('default-theme-shell')
-        ->toContain('Fresh page')
-        ->toContain('Ordinary page content')
-        ->not->toContain('page-default')
-        ->not->toContain('A compact Capell site')
-        ->not->toContain('Content model');
-});
-
 it('uses the capell layout path for pages with layout builder containers', function (): void {
     $site = Site::factory()->make(['name' => 'Fresh Site']);
-    $site->setRelation('type', Blueprint::factory()->make());
+    $site->setRelation('blueprint', Blueprint::factory()->make());
 
     $language = Language::factory()->make(['code' => 'en']);
     $theme = Theme::factory()->make(['key' => 'default', 'meta' => []]);
@@ -91,7 +55,7 @@ it('uses the capell layout path for pages with layout builder containers', funct
     ]);
     $page = Page::factory()->make(['name' => 'Container page', 'meta' => []]);
     $page->setRelation('translation', $translation);
-    $page->setRelation('type', Blueprint::factory()->make());
+    $page->setRelation('blueprint', Blueprint::factory()->make());
 
     resolve(RenderHookRegistry::class)->registerCallable(
         RenderHookLocation::MainContent,
@@ -149,7 +113,7 @@ it('renders custom master and layout files from layout metadata', function (): v
     $viewNamespace = 'capell-renderer-test-' . str_replace('.', '', uniqid('', true));
     $viewPath = storage_path('framework/testing/' . $viewNamespace);
     $site = Site::factory()->make(['name' => 'Custom layout site']);
-    $site->setRelation('type', Blueprint::factory()->make());
+    $site->setRelation('blueprint', Blueprint::factory()->make());
 
     $language = Language::factory()->make(['code' => 'en']);
     $theme = Theme::factory()->make(['key' => 'missing-theme', 'meta' => []]);
@@ -198,7 +162,7 @@ it('renders the layout builder main content for a definition-only theme with con
     resolve(ThemeRegistry::class)->register(definitionOnlyThemeDefinition('definition-only-with-containers'));
 
     $site = Site::factory()->make(['name' => 'Fresh Site']);
-    $site->setRelation('type', Blueprint::factory()->make());
+    $site->setRelation('blueprint', Blueprint::factory()->make());
 
     $language = Language::factory()->make(['code' => 'en']);
     $theme = Theme::factory()->make(['key' => 'definition-only-with-containers', 'meta' => []]);
@@ -209,7 +173,7 @@ it('renders the layout builder main content for a definition-only theme with con
     ]);
     $page = Page::factory()->make(['name' => 'Container page', 'meta' => []]);
     $page->setRelation('translation', $translation);
-    $page->setRelation('type', Blueprint::factory()->make());
+    $page->setRelation('blueprint', Blueprint::factory()->make());
 
     resolve(RenderHookRegistry::class)->registerCallable(
         RenderHookLocation::MainContent,
@@ -251,11 +215,11 @@ it('renders the layout builder main content for a definition-only theme with con
         ->not->toContain('data-section=');
 });
 
-it('never 404s for a rendererless theme with an empty container layout, falling back to the content component', function (): void {
+it('renders an empty container layout through the standard content component', function (): void {
     resolve(ThemeRegistry::class)->register(definitionOnlyThemeDefinition('definition-only-without-containers'));
 
     $site = Site::factory()->make(['name' => 'Fresh Site']);
-    $site->setRelation('type', Blueprint::factory()->make());
+    $site->setRelation('blueprint', Blueprint::factory()->make());
 
     $language = Language::factory()->make(['code' => 'en']);
     $theme = Theme::factory()->make(['key' => 'definition-only-without-containers', 'meta' => []]);
@@ -266,7 +230,7 @@ it('never 404s for a rendererless theme with an empty container layout, falling 
     ]);
     $page = Page::factory()->make(['name' => 'Untouched page', 'meta' => []]);
     $page->setRelation('translation', $translation);
-    $page->setRelation('type', Blueprint::factory()->make());
+    $page->setRelation('blueprint', Blueprint::factory()->make());
 
     $layout = Layout::factory()->make(['key' => 'home']);
     $layout->admin = [
@@ -290,41 +254,6 @@ it('never 404s for a rendererless theme with an empty container layout, falling 
         ->and($response->getContent())
         ->toContain('Untouched page title')
         ->not->toContain('data-section=');
-});
-
-it('renders legacy page content through an inherited renderer after switching to a layout-native theme', function (): void {
-    resolve(ThemeRegistry::class)->register(definitionOnlyThemeDefinition('layout-native-switch-target', extends: 'default'));
-
-    $site = Site::factory()->make(['name' => 'Switched site']);
-    $site->setRelation('type', Blueprint::factory()->make());
-
-    $language = Language::factory()->make(['code' => 'en']);
-    $theme = Theme::factory()->make(['key' => 'layout-native-switch-target', 'meta' => []]);
-    $translation = Translation::factory()->make([
-        'title' => 'Legacy page title',
-        'content' => '<p>Legacy content survives the theme switch.</p>',
-        'meta' => [],
-    ]);
-    $page = Page::factory()->make(['name' => 'Legacy page', 'meta' => []]);
-    $page->setRelation('translation', $translation);
-    $layout = Layout::factory()->make(['key' => 'legacy-layout', 'containers' => []]);
-
-    bindBladeRendererContext($page, $site, $language, $layout, $theme);
-
-    $response = (new BladeFrontendResponseRenderer)->render(new FrontendRenderContextData(
-        page: $page,
-        site: $site,
-        language: $language,
-        layout: $layout,
-        theme: $theme,
-    ));
-
-    throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
-
-    expect($response->getContent())
-        ->toContain('default-theme-shell')
-        ->toContain('Legacy page title')
-        ->toContain('Legacy content survives the theme switch.');
 });
 
 function definitionOnlyThemeDefinition(string $themeKey, ?string $extends = null): ThemeDefinitionData

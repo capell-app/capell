@@ -151,7 +151,7 @@ final class BuildThemeDoctorReportAction
                 label: 'Theme runtime registry',
                 passed: false,
                 message: 'Theme [' . $theme . '] is not registered at runtime.',
-                remediation: 'For local themes, register views and ThemePackageRegistrar unconditionally from the provider.',
+                remediation: 'For local themes, register the ThemeDefinitionData with ThemeRegistry unconditionally from the provider.',
             );
         }
 

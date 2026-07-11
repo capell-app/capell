@@ -31,9 +31,7 @@ use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Actions\ResolveThemeRuntimeAction;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
-use Capell\Core\ThemeStudio\Contracts\ThemePageAdapter;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
-use Capell\Core\ThemeStudio\Theme\ThemePageAdapterRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
@@ -164,11 +162,9 @@ use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Support\Tailwind\TailwindAssetsGenerator;
-use Capell\Frontend\Support\Themes\DefaultTheme;
 use Capell\Frontend\Support\Themes\FrontendThemePreviewRenderer;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
-use Capell\Frontend\ThemeStudio\Adapters\CapellFrontendThemePageAdapter;
 use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
 use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
 use Composer\InstalledVersions;
@@ -731,13 +727,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerThemeRuntime(): self
     {
-        $this->app->bind(ThemePageAdapter::class, CapellFrontendThemePageAdapter::class);
-        $this->app->scoped(ThemePageAdapterRegistry::class);
-
-        $this->callAfterResolving(ThemeRegistry::class, function (ThemeRegistry $registry): void {
-            DefaultTheme::register($registry);
-        });
-
         $this->app->afterResolving(
             RenderHookRegistry::class,
             function (RenderHookRegistry $registry): void {

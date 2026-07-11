@@ -11,20 +11,17 @@ final class ThemeDiagnosticsData extends Data
     /**
      * @param  list<string>  $warnings
      * @param  list<string>  $errors
-     * @param  list<string>  $missingSections
      * @param  list<string>  $missingAssets
      */
     public function __construct(
         public string $themeKey,
         public bool $installed,
         public bool $hasDefinition,
-        public bool $hasRenderer,
         public bool $extendsResolved,
         public bool $hasPresets,
         public bool $hasPreviewImage,
         public array $warnings = [],
         public array $errors = [],
-        public array $missingSections = [],
         public array $missingAssets = [],
     ) {}
 

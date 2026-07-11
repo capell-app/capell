@@ -14,11 +14,9 @@ return [
     'diagnostics' => [
         'not_installed' => 'Theme package is available but no theme record is installed.',
         'missing_definition' => 'No registered theme definition was found for this theme key.',
-        'missing_renderer' => 'No renderer is registered for this theme.',
         'missing_parent' => 'Parent theme [:theme] is not registered.',
         'missing_presets' => 'Theme definition has no presets.',
         'missing_preview_image' => 'Theme definition has no preview image.',
-        'missing_sections' => 'Theme does not declare standard sections: :sections.',
         'missing_assets' => 'Theme does not declare frontend assets: :assets.',
     ],
     'filters' => [

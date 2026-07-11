@@ -8,7 +8,7 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
-use Capell\Core\ThemeStudio\Theme\ThemePackageRegistrar;
+use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Spatie\LaravelPackageTools\Package;
 
 final class {{ providerClass }} extends AbstractPackageServiceProvider
@@ -32,15 +32,7 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
             return;
         }
 
-        resolve(ThemePackageRegistrar::class)->registerBladeTheme(
-            definition: $this->definition(),
-            layoutView: {{ phpSlug }} . '::page',
-            sectionViews: [
-                'hero' => {{ phpSlug }} . '::sections.hero',
-            ],
-            viewNamespace: {{ phpSlug }},
-            viewPaths: [__DIR__ . '/../resources/views'],
-        );
+        resolve(ThemeRegistry::class)->register($this->definition());
     }
 
     private function definition(): ThemeDefinitionData
@@ -53,7 +45,6 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
             previewImage: '/vendor/' . {{ phpSlug }} . '/preview.jpg',
             tags: ['Client Theme'],
             bestFit: ['Client websites'],
-            includedSections: ['hero'],
             presets: [
                 new ThemePresetData(
                     key: 'default',
@@ -63,6 +54,7 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
                     values: [],
                 ),
             ],
+            includedSections: ['hero'],
             assets: ['vendor/' . {{ phpSlug }} . '/theme.css'],
             extends: {{ phpExtends }},
         );

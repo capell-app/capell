@@ -9,11 +9,9 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
@@ -157,21 +155,7 @@ it('uses editor active preset when rendering theme token css hook', function ():
                     values: ['headingScale' => 'compact'],
                 ),
             ],
-            includedSections: [],
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'hook-theme';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     $html = resolve(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeadClose);

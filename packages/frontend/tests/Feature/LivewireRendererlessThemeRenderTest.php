@@ -30,9 +30,8 @@ use Illuminate\Http\Response;
  * (via `resolve('livewire')->new($component)`) and renders
  * livewire/page/page.blade.php, rather than through
  * BladeFrontendResponseRenderer. Livewire and BladeOnly are two separate
- * rendering runtimes, and page.blade.php's `hasRenderer($key)` gate is only
- * exercised on this path — a rendererless theme must never crash the
- * Livewire route and must never emit a `data-section=` attribute.
+ * rendering runtimes. The Livewire page must stay on the Layout Builder path
+ * and must never emit a classic `data-section=` attribute.
  */
 it('renders layout builder main content through the livewire page component for a definition-only theme with containers', function (): void {
     resolve(ThemeRegistry::class)->register(livewireRendererlessThemeDefinition('definition-only-livewire-with-containers'));

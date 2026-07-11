@@ -14,7 +14,6 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
-use Capell\Core\ThemeStudio\Rendering\BladeThemeRenderer;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -74,8 +73,8 @@ it('evaluates theme table columns and action form choices from real admin record
         ->and($table->getRecordClasses($theme))->toContain('capell-theme-card-record')
         ->and($nameColumn->record($theme)->getState())->toBe('Campaign Studio')
         ->and($presetColumn->record($theme)->getState())->toBe('Launch')
-        ->and($diagnosticsColumn->record($theme)->getState())->toBe(__('capell-admin::theme-library.labels.diagnostics_warning'))
-        ->and($diagnosticsColumn->record($theme)->getColor($diagnosticsColumn->getState()))->toBe('warning')
+        ->and($diagnosticsColumn->record($theme)->getState())->toBe(__('capell-admin::theme-library.labels.diagnostics_clean'))
+        ->and($diagnosticsColumn->record($theme)->getColor($diagnosticsColumn->getState()))->toBe('success')
         ->and($packageColumn->record($theme)->getState())->toBe('capell-app/campaign-studio');
 
     $actions = themeTableActionsFromTableForTest($table, $theme);
@@ -362,8 +361,6 @@ function registerThemesTableDefinitionForTest(Theme $theme): void
             includedSections: ['navigation', 'hero', 'footer'],
             assets: ['frontend' => '/themes/' . $theme->key . '.css'],
         ),
-        themeRenderer: new BladeThemeRenderer($theme->key, 'missing-layout', []),
-        sectionRenderers: [],
     );
 
     app()->instance(ThemeRegistry::class, $registry);

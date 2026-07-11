@@ -167,43 +167,20 @@ Use this style for Capell-owned components such as `capell::components.page.resu
 
 ## Theme Output Tests
 
-Theme tests should prove the theme can render the public page contract Capell gives it. Do not test admin layout-builder internals from a theme test unless the package owns that integration.
+Theme tests should prove the theme metadata registers and its Layout Builder
+widgets render the public page contract. Public themes do not register a page
+or section renderer.
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-use Capell\Core\Models\Layout;
-use Capell\Core\Models\Page;
-use Capell\Core\Models\Site;
-use Capell\Core\Models\Theme;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
-use Sinnbeck\DomAssertions\Asserts\AssertElement;
-use Sinnbeck\DomAssertions\Asserts\BaseAssert;
 
-it('renders the public page through the active theme', function (): void {
-    $theme = Theme::factory()->createOne(['key' => 'campaign']);
-    $layout = Layout::factory()->default()->create();
-    $site = Site::factory()
-        ->theme($theme)
-        ->withTranslations(siteDomainData: ['domain' => 'campaign.test', 'scheme' => 'https'])
-        ->create();
-
-    Page::factory()
-        ->site($site)
-        ->layout($layout)
-        ->home()
-        ->withTranslations(data: [
-            'title' => 'Campaign Home',
-            'content' => '<p>Hero proof point.</p>',
-        ], slug: '/')
-        ->create(['meta' => null]);
-
+it('registers the public theme metadata', function (): void {
     resolve(ThemeRegistry::class)->register(
         new ThemeDefinitionData(
             key: 'campaign',
@@ -213,7 +190,6 @@ it('renders the public page through the active theme', function (): void {
             previewImage: '',
             tags: [],
             bestFit: [],
-            includedSections: [],
             presets: [
                 new ThemePresetData(
                     key: 'default',
@@ -223,43 +199,14 @@ it('renders the public page through the active theme', function (): void {
                 ),
             ],
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'campaign';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                $hero = $page->sections[0] ?? null;
-                $summary = method_exists($hero, 'toViewData')
-                    ? ($hero->toViewData()['section']->summary ?? '')
-                    : '';
-
-                return '<main class="capell-component capell-layout-main campaign-main">'
-                    . '<h1 class="capell-component capell-page-title">' . e($page->title) . '</h1>'
-                    . '<section class="campaign-content">' . e($summary) . '</section>'
-                    . '</main>';
-            }
-        },
-        [],
     );
 
-    $this->get('/', ['HTTP_HOST' => 'campaign.test', 'HTTPS' => 'on'])
-        ->assertOk()
-        ->assertElementExists(
-            'main.campaign-main',
-            fn (AssertElement $main): BaseAssert => $main
-                ->find('h1.capell-page-title', fn (AssertElement $heading): BaseAssert => $heading
-                    ->containsText('Campaign Home'))
-                ->find('.campaign-content', fn (AssertElement $content): BaseAssert => $content
-                    ->containsText('Hero proof point.')),
-        );
+    expect(resolve(ThemeRegistry::class)->definition('campaign')->key)->toBe('campaign');
 });
 ```
 
-For a real theme package, replace the inline renderer with the package's registered renderer/view and assert the same public contract.
+For a real theme package, seed a page-specific layout with its widgets and
+assert the final public DOM through the normal frontend route.
 
 ## Layout And Widget Content
 

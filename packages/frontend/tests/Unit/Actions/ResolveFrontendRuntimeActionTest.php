@@ -6,16 +6,14 @@ use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Theme;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
+use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Actions\ResolveFrontendRuntimeAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendRuntimeManifestContributor;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
-use Capell\Frontend\Support\Themes\DefaultTheme;
 
 it('defaults blade-only pages to the blade runtime when no theme is resolved', function (): void {
     $page = Page::factory()->make(['meta' => null]);
@@ -45,7 +43,6 @@ it('defaults theme definitions to the livewire runtime', function (): void {
         tags: [],
         bestFit: [],
         presets: [],
-        includedSections: [],
     );
 
     expect($definition->runtime)->toBe(FrontendRuntime::Livewire);
@@ -66,22 +63,8 @@ it('resolves the runtime from the active theme definition', function (): void {
             tags: [],
             bestFit: [],
             presets: [],
-            includedSections: [],
             runtime: FrontendRuntime::Inertia,
         ),
-        new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'nexus';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return '';
-            }
-        },
-        [],
     );
 
     $context = Mockery::mock(FrontendContextReader::class);
@@ -118,8 +101,26 @@ it('falls back to blade when a blade-only database theme is not registered', fun
 it('uses frontend runtime defaults from registered theme definitions', function (): void {
     $page = Page::factory()->make(['meta' => null]);
     $theme = new Theme;
-    $theme->key = DefaultTheme::KEY;
+    $theme->key = 'default';
     $theme->meta = null;
+
+    resolve(ThemeRegistry::class)->register(new ThemeDefinitionData(
+        key: 'default',
+        name: 'Default',
+        description: 'Default theme metadata.',
+        package: 'capell-app/frontend',
+        previewImage: '/preview.jpg',
+        tags: [],
+        bestFit: [],
+        presets: [new ThemePresetData('default', 'Default', 'Default preset.', '/preview.jpg')],
+        runtime: FrontendRuntime::Blade,
+        frontend: [
+            'runtime' => [
+                'uses_alpine' => false,
+                'uses_frontend_chrome' => false,
+            ],
+        ],
+    ));
 
     $context = Mockery::mock(FrontendContextReader::class);
     $context->shouldReceive('page')->andReturn($page);

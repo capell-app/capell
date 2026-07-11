@@ -6,7 +6,6 @@ use Capell\Admin\Support\Themes\ThemeCardData;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
-use Capell\Core\ThemeStudio\Rendering\BladeThemeRenderer;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 
 it('enriches installed theme cards from registered theme definitions', function (): void {
@@ -31,8 +30,6 @@ it('enriches installed theme cards from registered theme definitions', function 
             ],
             includedSections: ['navigation', 'hero', 'resource-library', 'footer'],
         ),
-        themeRenderer: new BladeThemeRenderer('knowledge', 'missing-layout', []),
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 
@@ -81,8 +78,6 @@ it('uses the registered theme definition preview image when no admin image exist
             ],
             includedSections: [],
         ),
-        themeRenderer: new BladeThemeRenderer('catalogue', 'missing-layout', []),
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 

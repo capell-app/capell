@@ -9,7 +9,6 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
-use Capell\Core\ThemeStudio\Rendering\BladeThemeRenderer;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 
 beforeEach(function (): void {
@@ -23,13 +22,9 @@ it('resolves installed, available, pending, and warning theme library sections',
 
     $registry->register(
         definition: $installedDefinition,
-        themeRenderer: new BladeThemeRenderer('installed-theme', 'missing-layout', []),
-        sectionRenderers: [],
     );
     $registry->register(
         definition: $availableDefinition,
-        themeRenderer: new BladeThemeRenderer('available-theme', 'missing-layout', []),
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 
@@ -82,8 +77,6 @@ it('ignores unused legacy foundation theme records when the default foundation d
     $registry = new ThemeRegistry;
     $registry->register(
         definition: themeLibraryTestDefinition('default', 'Foundation', package: 'capell-app/foundation-theme'),
-        themeRenderer: new BladeThemeRenderer('default', 'missing-layout', []),
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 

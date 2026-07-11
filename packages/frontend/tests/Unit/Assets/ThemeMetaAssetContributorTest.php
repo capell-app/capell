@@ -10,7 +10,6 @@ use Capell\Frontend\Data\FrontendAssetRequirementData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
-use Capell\Frontend\Support\Themes\DefaultTheme;
 use Illuminate\Support\Facades\File;
 
 it('uses clean editor theme assets before legacy theme meta', function (): void {
@@ -137,7 +136,7 @@ it('treats the published default theme css as a static active theme asset', func
 
     $theme = new Theme;
     $theme->meta = [
-        'assets' => array_values(DefaultTheme::definition()->assets),
+        'assets' => ['vendor/capell-frontend/capell-frontend.css'],
         'assets_path' => null,
     ];
 

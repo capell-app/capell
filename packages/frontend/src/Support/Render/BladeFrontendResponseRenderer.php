@@ -7,11 +7,8 @@ namespace Capell\Frontend\Support\Render;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Models\Layout;
-use Capell\Core\Models\Theme;
 use Capell\Core\Support\Media\ImageUrlPolicy;
-use Capell\Core\ThemeStudio\Actions\RenderCurrentThemePageAction;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
-use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Actions\AssertPublicRenderContractAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Contracts\FrontendAssetManifestRenderer;
@@ -68,7 +65,6 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
 
         $response = resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest): Response {
             $slot = $this->hydratedLayoutGraphSlot($context)
-                ?? $this->themeSlot($context)
                 ?? $this->layoutBuilderSlot($context)
                 ?? View::make($this->masterFile($context->layout), [
                     'componentName' => 'capell.frontend.page',
@@ -198,68 +194,10 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
         );
     }
 
-    private function themeSlot(FrontendRenderContextData $context): ?string
-    {
-        if ($this->layoutHasContainers($context->layout)) {
-            return null;
-        }
-
-        if (! App::bound(ThemeRegistry::class) || ! App::bound(ThemeRuntimeSettings::class)) {
-            return null;
-        }
-
-        $themeKey = $this->themeKey($context);
-
-        if ($themeKey === null) {
-            return null;
-        }
-
-        $registry = App::make(ThemeRegistry::class);
-
-        if ($registry->findRendererInChain($themeKey) === null || $registry->definition($themeKey)->runtime !== FrontendRuntime::Blade) {
-            return null;
-        }
-
-        return RenderCurrentThemePageAction::run(
-            activeTheme: $themeKey,
-            activePreset: $this->activePreset($context),
-        );
-    }
-
     private function layoutHasContainers(?Layout $layout): bool
     {
         $containers = $layout?->getAttribute('containers');
 
         return is_array($containers) && $containers !== [];
-    }
-
-    private function themeKey(FrontendRenderContextData $context): ?string
-    {
-        if ($context->theme instanceof Theme && $context->theme->key !== '') {
-            return $context->theme->key;
-        }
-
-        $activeTheme = App::make(ThemeRuntimeSettings::class)->activeTheme();
-
-        return $activeTheme !== '' ? $activeTheme : null;
-    }
-
-    private function activePreset(FrontendRenderContextData $context): string
-    {
-        $settings = App::make(ThemeRuntimeSettings::class);
-
-        if (! $context->theme instanceof Theme) {
-            return $settings->activePreset();
-        }
-
-        $activePreset = data_get(
-            $context->theme->meta,
-            'editor.preset.active',
-            data_get($context->theme->meta, 'active_preset', $settings->activePreset()),
-        );
-
-        return is_string($activePreset) && $activePreset !== ''
-            ? $activePreset
-            : $settings->activePreset();
     }
 }

@@ -5,9 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\CreateThemeAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Theme;
-use Capell\Core\ThemeStudio\Contracts\ThemeRenderer;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Capell\Core\ThemeStudio\Data\ThemePageData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Database\QueryException;
@@ -197,22 +195,8 @@ it('uses registered theme definition assets when creating a theme without explic
                     values: [],
                 ),
             ],
-            includedSections: [],
             assets: ['css' => 'vendor/capell/themes/saas.css'],
         ),
-        themeRenderer: new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'saas';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return $page->title;
-            }
-        },
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 
@@ -254,22 +238,8 @@ it('replaces legacy shared frontend css with registered child theme assets', fun
                     values: [],
                 ),
             ],
-            includedSections: [],
             assets: ['css' => 'vendor/capell/themes/saas.css'],
         ),
-        themeRenderer: new class implements ThemeRenderer
-        {
-            public function themeKey(): string
-            {
-                return 'saas';
-            }
-
-            public function render(ThemePageData $page): string
-            {
-                return $page->title;
-            }
-        },
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 
