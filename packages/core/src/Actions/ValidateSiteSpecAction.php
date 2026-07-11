@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Support\CapellSiteSpecConstraints;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -13,8 +14,6 @@ use Lorisleiva\Actions\Concerns\AsObject;
 final class ValidateSiteSpecAction
 {
     use AsObject;
-
-    public const MAX_TOTAL_CONTENT_LENGTH = 200000;
 
     /**
      * @param  array<string, mixed>  $payload
@@ -28,8 +27,11 @@ final class ValidateSiteSpecAction
         try {
             $validator = Validator::make($payload, $this->rules($themeKeys, $pageTypeKeys, $sectionTypeKeys));
             $validator->after(function ($validator) use ($payload): void {
-                if ($this->totalContentLength($payload) > self::MAX_TOTAL_CONTENT_LENGTH) {
-                    $validator->errors()->add('pages', 'The total section content may not exceed 200000 characters.');
+                if ($this->totalContentLength($payload) > CapellSiteSpecConstraints::MAX_TOTAL_CONTENT_LENGTH) {
+                    $validator->errors()->add('pages', sprintf(
+                        'The total section content may not exceed %d characters.',
+                        CapellSiteSpecConstraints::MAX_TOTAL_CONTENT_LENGTH,
+                    ));
                 }
 
                 if (($payload['initialVisibility'] ?? 'private') === 'public' && ($payload['acknowledgePublic'] ?? false) !== true) {
@@ -53,19 +55,19 @@ final class ValidateSiteSpecAction
      */
     private function rules(array $themeKeys, array $pageTypeKeys, array $sectionTypeKeys): array
     {
-        $hex = ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'];
+        $hex = ['nullable', CapellSiteSpecConstraints::validationRegex(CapellSiteSpecConstraints::HEX_COLOUR_PATTERN)];
 
         return [
             'initialVisibility' => ['sometimes', 'string', Rule::in(['private', 'public'])],
             'acknowledgePublic' => ['sometimes', 'boolean'],
             'theme.key' => ['required', 'string', Rule::in($themeKeys)],
             'theme.colors.primary' => $hex, 'theme.colors.secondary' => $hex, 'theme.colors.accent' => $hex,
-            'pages' => ['required', 'array', 'min:1', 'max:15'],
-            'pages.*.slug' => ['required', 'string', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'distinct'],
+            'pages' => ['required', 'array', 'min:' . CapellSiteSpecConstraints::MIN_PAGES, 'max:' . CapellSiteSpecConstraints::MAX_PAGES],
+            'pages.*.slug' => ['required', 'string', CapellSiteSpecConstraints::validationRegex(CapellSiteSpecConstraints::SLUG_PATTERN), 'distinct'],
             'pages.*.url' => ['nullable', 'string', 'regex:/^\/[A-Za-z0-9\-._~!$&\'()*+,;=:@%\/]*$/'],
             'pages.*.pageType' => ['required', 'string', Rule::in($pageTypeKeys)],
             'pages.*.sections.*.type' => ['required', 'string', Rule::in($sectionTypeKeys)],
-            'pages.*.sections.*.content' => ['required', 'string', 'max:' . SanitizeSiteSpecSectionHtmlAction::MAX_INPUT_LENGTH],
+            'pages.*.sections.*.content' => ['required', 'string', 'max:' . CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH],
         ];
     }
 
