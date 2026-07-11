@@ -13,7 +13,7 @@ jobs:
     name: Trigger capell-docs rebuild
     runs-on: ubuntu-latest
     env:
-      DOCS_DISPATCH_TOKEN: ${{ secrets.ACCESS_TOKEN || secrets.DOCS_DISPATCH_TOKEN }}
+      DOCS_DISPATCH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN || secrets.ACCESS_TOKEN }}
     steps:
       - name: Prepare docs dispatch payload
         id: payload
