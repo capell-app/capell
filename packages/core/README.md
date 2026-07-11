@@ -47,7 +47,7 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 ## Runtime Surfaces
 
 - Provider: `Capell\Core\Providers\CapellServiceProvider`
-- Config: `packages/core/config/capell.php`, `packages/core/config/audit.php`, `packages/core/config/redirects.php`
+- Config: `packages/core/config/capell.php`, `packages/core/config/redirects.php`
 - Main models: `Page`, `PageUrl`, `Site`, `SiteDomain`, `Language`, `Layout`, `Theme`, `Blueprint`, `Type`, `Media`, `CapellExtension`, `UpgradeLogEntry`
 - Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make-*`
 - Test case support: `Capell\Core\Testing\ExtensionTestHarness`
@@ -72,7 +72,7 @@ When adding a Core migration, also append it to `packages/core/src/Concerns/HasM
 
 ## Data And Persistence
 
-Core is schema-owning. It creates the tables used by most Capell packages, including page, site, language, layout, theme, blueprint, media, extension, redirect, audit, and upgrade state.
+Core is schema-owning. It creates the tables used by most Capell packages, including page, site, language, layout, theme, blueprint, media, extension, redirect, and upgrade state.
 
 Settings migrations are part of package installation and must be idempotent. Wrap new settings migrations in existence checks so upgrades and fresh installs behave the same way.
 
@@ -97,6 +97,21 @@ Before landing broader Core changes, run the repo preflight command:
 ```bash
 composer preflight
 ```
+
+## Requirements And Support Policy
+
+| Surface                    | Supported versions                                             |
+| -------------------------- | -------------------------------------------------------------- |
+| PHP                        | `^8.4` with `ext-intl`                                         |
+| Laravel                    | `^12.41.1` or `^13.0`                                          |
+| Filament support           | `^5.7@beta`                                                    |
+| Symfony filesystem/process | `^7.2` or `^8.0`                                               |
+| Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
+| Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |
+
+For each Capell 1.x minor release, Capell provides bug fixes for 12 months and security fixes for 24 months from that minor's release date. The latest 1.x minor is always supported. Users must upgrade to the latest patch release of a supported minor before requesting a backport or security fix.
+
+Support covers the dependency ranges above. When an upstream PHP, Laravel, Filament, or Symfony release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 
 ## Troubleshooting
 
