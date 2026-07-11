@@ -30,8 +30,45 @@ class ResolveBrandProfileAction
             $presetValues = $preset?->values ?? [];
         }
 
-        return $brand
+        $resolved = $brand
             ->merge($presetValues)
             ->merge($override->values);
+
+        return $resolved->withCustomTokens($this->customTokens(
+            $definition,
+            [...$presetValues, ...$override->values],
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return array<string, string>
+     */
+    private function customTokens(ThemeDefinitionData $definition, array $values): array
+    {
+        $declarations = data_get($definition->frontend, 'editor.tokens', []);
+
+        if (! is_array($declarations)) {
+            return [];
+        }
+
+        $tokens = [];
+
+        foreach ($declarations as $key => $declaration) {
+            if (! is_string($key) || BrandProfileData::supportsToken($key) || ! is_array($declaration)) {
+                continue;
+            }
+
+            $options = $declaration['options'] ?? null;
+            $value = $values[$key] ?? null;
+
+            if (! is_array($options) || ! is_string($value) || ! in_array($value, $options, true)) {
+                continue;
+            }
+
+            $tokens[$key] = $value;
+        }
+
+        return $tokens;
     }
 }

@@ -150,7 +150,6 @@ use Capell\Core\ThemeStudio\Preview\ThemePreviewSigner;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Core\ThemeStudio\Theme\BookingEntryPointRegistry;
 use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
-use Capell\Core\ThemeStudio\Theme\ThemePackageRegistrar;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Composer\InstalledVersions;
@@ -781,7 +780,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerThemeRuntime(): self
     {
         $this->app->singleton(ThemeRegistry::class);
-        $this->app->singleton(ThemePackageRegistrar::class);
         $this->app->singleton(PagePresentationRegistry::class);
         $this->app->singleton(WidgetPresentationRegistry::class);
         $this->app->singleton(BookingEntryPointRegistry::class);

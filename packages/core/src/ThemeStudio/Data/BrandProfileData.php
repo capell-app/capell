@@ -9,6 +9,7 @@ use Spatie\LaravelData\Data;
 
 class BrandProfileData extends Data
 {
+    /** @param array<string, string> $customTokens */
     public function __construct(
         public string $primaryColor = '#1a2d6d',
         public string $accentColor = '#92400e',
@@ -28,7 +29,18 @@ class BrandProfileData extends Data
         public string $headingScale = 'balanced',
         public string $cardDensity = 'comfortable',
         public string $overlayTreatment = 'subtle',
+        public array $customTokens = [],
     ) {}
+
+    public static function supportsToken(string $key): bool
+    {
+        return in_array($key, [
+            'primaryColor', 'accentColor', 'neutralColor', 'headingFont', 'bodyFont',
+            'spacing', 'alignment', 'cardStyle', 'navigationStyle', 'layoutPresentation',
+            'motionIntensity', 'mediaTreatment', 'radius', 'surfaceColor', 'foregroundColor',
+            'headingScale', 'cardDensity', 'overlayTreatment',
+        ], true);
+    }
 
     /**
      * @param  array<string, mixed>  $values
@@ -54,7 +66,17 @@ class BrandProfileData extends Data
             headingScale: $this->stringValue($values['headingScale'] ?? null, $this->headingScale),
             cardDensity: $this->stringValue($values['cardDensity'] ?? null, $this->cardDensity),
             overlayTreatment: $this->stringValue($values['overlayTreatment'] ?? null, $this->overlayTreatment),
+            customTokens: $this->customTokens,
         );
+    }
+
+    /** @param array<string, string> $tokens */
+    public function withCustomTokens(array $tokens): self
+    {
+        $profile = clone $this;
+        $profile->customTokens = $tokens;
+
+        return $profile;
     }
 
     /**
@@ -85,7 +107,17 @@ class BrandProfileData extends Data
             '--theme-card-density-gap' => $this->cardDensityGap($this->cardDensity),
             '--theme-overlay-treatment' => $this->allowed($this->overlayTreatment, ['none', 'subtle', 'strong'], 'subtle'),
             '--theme-overlay-opacity' => $this->overlayOpacity($this->overlayTreatment),
+            ...collect($this->customTokens)
+                ->mapWithKeys(fn (string $value, string $key): array => [self::customProperty($key) => $value])
+                ->all(),
         ];
+    }
+
+    private static function customProperty(string $key): string
+    {
+        $kebab = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $key));
+
+        return '--theme-' . $kebab;
     }
 
     private function stringValue(mixed $value, string $fallback): string

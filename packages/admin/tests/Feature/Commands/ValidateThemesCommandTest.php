@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Core\Models\Blueprint;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
-use Capell\Core\ThemeStudio\Rendering\BladeThemeRenderer;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Facades\Artisan;
 
@@ -17,8 +16,6 @@ it('validates registered theme definitions from the console', function (): void 
     $registry = new ThemeRegistry;
     $registry->register(
         definition: validateThemesCommandDefinition('console-theme'),
-        themeRenderer: new BladeThemeRenderer('console-theme', 'missing-layout', []),
-        sectionRenderers: [],
     );
     app()->instance(ThemeRegistry::class, $registry);
 

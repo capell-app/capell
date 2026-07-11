@@ -162,7 +162,7 @@ class ResolvePublicPageByUrlAction
             ->with([
                 'layout',
                 'pageUrls.siteDomain',
-                'type',
+                'blueprint',
                 'translation' => fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language->getKey()),
             ])
             ->first();

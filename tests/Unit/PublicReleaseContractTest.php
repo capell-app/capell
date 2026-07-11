@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('defines the public v1 split package release contract', function (): void {
+it('defines the public v0.0.1 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
     $splitPackages = ['admin', 'core', 'frontend', 'installer', 'marketplace'];
 

@@ -19,7 +19,6 @@ use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
-use Capell\Core\ThemeStudio\Rendering\BladeThemeRenderer;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
@@ -189,8 +188,6 @@ function registerManageThemesDefinition(Theme $theme): void
             includedSections: ['navigation', 'hero', 'features', 'footer'],
             assets: ['frontend' => '/themes/' . $theme->key . '.css'],
         ),
-        themeRenderer: new BladeThemeRenderer($theme->key, 'missing-layout', []),
-        sectionRenderers: [],
     );
 
     app()->instance(ThemeRegistry::class, $registry);
@@ -231,8 +228,6 @@ function registerAvailableManageThemesDefinition(string $themeKey = 'agency', ?s
             assets: ['frontend' => '/themes/' . $themeKey . '.css'],
             extends: $extends,
         ),
-        themeRenderer: new BladeThemeRenderer($themeKey, 'missing-layout', []),
-        sectionRenderers: [],
     );
 
     app()->instance(ThemeRegistry::class, $registry);

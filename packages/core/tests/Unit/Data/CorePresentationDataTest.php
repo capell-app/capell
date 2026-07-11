@@ -12,7 +12,6 @@ use Capell\Core\Enums\PresentationDeviceVisibility;
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Core\Enums\PresentationWidthMode;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
-use Capell\Core\ThemeStudio\Data\ContentListingSectionData;
 
 it('combines deletion impact counts across site deletion planning boundaries', function (): void {
     $impact = new DeletionImpactData(pages: 2, siteDomains: 1, pageUrls: 3)
@@ -61,29 +60,6 @@ it('does not expose unsafe direct custom width data to public presentation', fun
 
     expect($settings->publicCustomWidth())->toBeNull()
         ->and($settings->usesCustomWidth())->toBeFalse();
-});
-
-it('passes content listing sections to themes with a stable view payload', function (): void {
-    $section = new ContentListingSectionData(
-        heading: 'Latest articles',
-        summary: 'Fresh editorial content.',
-        items: [
-            ['title' => 'Launch notes', 'url' => '/launch-notes'],
-        ],
-        variant: 'compact',
-    );
-
-    expect($section->key())->toBe('content-listing')
-        ->and($section->fallbackKey())->toBeNull()
-        ->and($section->toViewData())->toBe([
-            'section' => $section,
-            'heading' => 'Latest articles',
-            'summary' => 'Fresh editorial content.',
-            'items' => [
-                ['title' => 'Launch notes', 'url' => '/launch-notes'],
-            ],
-            'variant' => 'compact',
-        ]);
 });
 
 it('normalizes theme brand overrides into runtime CSS tokens', function (): void {

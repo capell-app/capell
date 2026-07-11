@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Data\Themes;
 
+use Capell\Admin\Actions\Themes\ResolveThemeEditorSchemaAction;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Spatie\LaravelData\Data;
@@ -18,6 +19,7 @@ final class ThemeEditorStateData extends Data
      * @param  array<string, mixed>  $footer
      * @param  array<string, mixed>  $assets
      * @param  array<string, mixed>  $advanced
+     * @param  array<string, mixed>  $tokens
      * @param  array<string, mixed>  $admin
      */
     public function __construct(
@@ -28,6 +30,7 @@ final class ThemeEditorStateData extends Data
         public array $footer,
         public array $assets,
         public array $advanced,
+        public array $tokens,
         public array $admin,
     ) {}
 
@@ -75,6 +78,7 @@ final class ThemeEditorStateData extends Data
                 'mainClass' => '',
                 'roundedImages' => false,
             ],
+            tokens: [],
             admin: [
                 'description' => $definition?->description,
                 'icon' => 'heroicon-o-swatch',
@@ -99,6 +103,7 @@ final class ThemeEditorStateData extends Data
             footer: self::mergeSection($defaults->footer, data_get($theme->meta, 'editor.footer')),
             assets: self::mergeSection($defaults->assets, data_get($theme->meta, 'editor.assets')),
             advanced: self::mergeSection($defaults->advanced, data_get($theme->meta, 'editor.advanced')),
+            tokens: self::tokenSelections($definition, data_get($theme->meta, 'editor.tokens')),
             admin: self::mergeSection($defaults->admin, data_get($theme->admin, 'editor')),
         );
     }
@@ -116,6 +121,7 @@ final class ThemeEditorStateData extends Data
             'footer' => $this->footer,
             'assets' => $this->assets,
             'advanced' => $this->advanced,
+            'tokens' => $this->tokens,
         ];
     }
 
@@ -137,5 +143,24 @@ final class ThemeEditorStateData extends Data
             ...$defaults,
             ...(is_array($state) ? $state : []),
         ];
+    }
+
+    /** @return array<string, string> */
+    private static function tokenSelections(?ThemeDefinitionData $definition, mixed $state): array
+    {
+        if (! $definition instanceof ThemeDefinitionData || ! is_array($state)) {
+            return [];
+        }
+
+        $tokens = resolve(ResolveThemeEditorSchemaAction::class)
+            ->handle($definition)
+            ->tokensByKey();
+
+        return collect($state)
+            ->filter(fn (mixed $value, mixed $key): bool => is_string($key)
+                && isset($tokens[$key])
+                && $tokens[$key]->accepts($value))
+            ->map(fn (mixed $value): string => (string) $value)
+            ->all();
     }
 }

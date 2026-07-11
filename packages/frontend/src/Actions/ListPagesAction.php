@@ -262,7 +262,7 @@ final class ListPagesAction
                     ),
             )
             ->withWhereHas(
-                'type',
+                'blueprint',
                 fn (BuilderContract $typeQuery) => $typeQuery
                     ->when($pageType, fn (BuilderContract $innerQuery) => $innerQuery->where('type', $pageType))
                     ->when($pageGroup !== null, fn (BuilderContract $innerQuery) => $innerQuery->where('group', $pageGroup))
