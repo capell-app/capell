@@ -876,7 +876,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ->label(fn (): string => __('capell-admin::button.delete'))
             ->hidden(fn (): bool => $this->record->trashed())
             ->successRedirectUrl(function (): ?string {
-                $resource = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $this->record->blueprint);
+                $resource = GetResourceFromBlueprintAction::run($this->record->blueprint);
                 if ($resource !== null) {
                     return $resource::getUrl();
                 }

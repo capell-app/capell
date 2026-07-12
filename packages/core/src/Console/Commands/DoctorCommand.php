@@ -88,11 +88,9 @@ class DoctorCommand extends Command
             return;
         }
 
-        if (! is_string($connection) || $connection === ''
+        throw_if(! is_string($connection) || $connection === ''
             || ! is_array(config('database.connections.' . $connection))
-            || ! is_string($database) || $database === '') {
-            throw new InvalidArgumentException('Isolated doctor verification requires a configured connection and database override.');
-        }
+            || ! is_string($database) || $database === '', InvalidArgumentException::class, 'Isolated doctor verification requires a configured connection and database override.');
 
         config([
             'database.default' => $connection,

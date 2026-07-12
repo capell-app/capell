@@ -440,6 +440,7 @@ class CapellAdminManager
         return isset($this->adminSurfaceRegistry->resourcesForGroup($group)[$name]);
     }
 
+    /** @return class-string|null */
     public function getResource(string $group, string $name = 'default'): ?string
     {
         return $this->adminSurfaceRegistry->resourcesForGroup($group)[$name] ?? null;

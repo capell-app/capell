@@ -21,11 +21,11 @@ it('filters relation options by site page group and custom query callbacks', fun
     $articleType = Blueprint::factory()->page()->createOne(['key' => 'article', 'group' => 'article']);
     $systemType = Blueprint::factory()->page()->group(BlueprintGroupEnum::System->value)->createOne(['key' => 'system']);
 
-    $visiblePage = Page::factory()->site($site)->type($pageType)->createOne(['name' => 'Visible page']);
-    Page::factory()->site($site)->type($articleType)->createOne(['name' => 'Article page']);
-    Page::factory()->site($site)->type($systemType)->createOne(['name' => 'System page']);
-    Page::factory()->site($otherSite)->type($pageType)->createOne(['name' => 'Other site page']);
-    Page::factory()->site($site)->type($pageType)->createOne(['name' => 'Hidden page']);
+    $visiblePage = Page::factory()->site($site)->blueprint($pageType)->createOne(['name' => 'Visible page']);
+    Page::factory()->site($site)->blueprint($articleType)->createOne(['name' => 'Article page']);
+    Page::factory()->site($site)->blueprint($systemType)->createOne(['name' => 'System page']);
+    Page::factory()->site($otherSite)->blueprint($pageType)->createOne(['name' => 'Other site page']);
+    Page::factory()->site($site)->blueprint($pageType)->createOne(['name' => 'Hidden page']);
 
     $component = PageRelationSelect::make('parent_id')
         ->pageGroup('page')
@@ -45,8 +45,8 @@ it('accepts page group query closures and rejects unqualified foreign keys', fun
     $pageType = Blueprint::factory()->page()->createOne(['key' => 'standard', 'group' => null]);
     $articleType = Blueprint::factory()->page()->createOne(['key' => 'article', 'group' => 'article']);
 
-    Page::factory()->site($site)->type($pageType)->createOne(['name' => 'Standard page']);
-    $article = Page::factory()->site($site)->type($articleType)->createOne(['name' => 'Article page']);
+    Page::factory()->site($site)->blueprint($pageType)->createOne(['name' => 'Standard page']);
+    $article = Page::factory()->site($site)->blueprint($articleType)->createOne(['name' => 'Article page']);
 
     $component = PageRelationSelect::make('parent_id')
         ->pageGroup(fn (Builder $query): Builder => $query->where('key', 'article'));
@@ -63,7 +63,7 @@ it('accepts page group query closures and rejects unqualified foreign keys', fun
 it('only exposes the hint edit action for persisted selected pages', function (): void {
     $site = Site::factory()->withTranslations()->createOne();
     $pageType = Blueprint::factory()->page()->createOne(['key' => 'standard']);
-    $page = Page::factory()->site($site)->type($pageType)->createOne(['name' => 'Editable page']);
+    $page = Page::factory()->site($site)->blueprint($pageType)->createOne(['name' => 'Editable page']);
 
     $component = PageRelationSelect::make('parent_id')->withHintEditAction();
     $hintAction = collect($component->getHintActions())->first();

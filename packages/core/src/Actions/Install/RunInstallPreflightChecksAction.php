@@ -55,10 +55,6 @@ final class RunInstallPreflightChecksAction
     {
         $failures = [];
 
-        if (version_compare(PHP_VERSION, '8.4.0', '<')) {
-            $failures[] = sprintf('PHP 8.4 or newer is required; running %s.', PHP_VERSION);
-        }
-
         foreach (self::REQUIRED_EXTENSIONS as $extension) {
             if (! extension_loaded($extension)) {
                 $failures[] = sprintf('Required PHP extension [%s] is not loaded.', $extension);
@@ -100,7 +96,7 @@ final class RunInstallPreflightChecksAction
     private function databaseConfigurationFailures(): array
     {
         $connection = (string) config('database.default');
-        $driver = (string) config("database.connections.{$connection}.driver");
+        $driver = (string) config(sprintf('database.connections.%s.driver', $connection));
 
         if ($connection === '' || $driver === '') {
             return ['A default database connection and driver must be configured.'];

@@ -48,9 +48,9 @@ The admin entrypoint is controlled by `CAPELL_ADMIN_PATH`; `CAPELL_ADMIN_DOMAIN`
 ## Runtime Surfaces
 
 - Provider: `Capell\Admin\Providers\AdminServiceProvider`
-- Config: `packages/admin/config/capell-admin.php`
+- Config: `config/capell-admin.php`
 - Entrypoint helper: `Capell\Admin\Support\AdminPanelEntrypoint`
-- Routes: `packages/admin/routes/web.php`
+- Routes: `routes/web.php`
 - Main resources: `ActivityResource`, `BlueprintResource`, `LanguageResource`, `LayoutResource`, `MediaResource`, `PageResource`, `PageUrlResource`, `RedirectResource`, `SiteResource`, `ThemeResource`, `UserResource`
 - Main pages: `ExtensionsPage`, `SettingsPage`, `SiteHealthPage`, `SitemapPage`, `UpgradePage`
 - Main commands: `capell:admin-install`, `capell:admin-setup`, `capell:admin-upgrade`, `capell:admin-clear-cache`, `capell:admin-cache-widgets`, `capell:admin-cache-configurators`
@@ -88,17 +88,10 @@ All editor-facing labels, notifications, and validation messages should use pack
 Run Admin package tests after changing resources, policies, settings schemas, or panel registration:
 
 ```bash
-vendor/bin/pest packages/admin/tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 For resource or schema changes, include the matching focused test file first. For UI behavior, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
-
-Screenshot capture is run from the monorepo root:
-
-```bash
-npm run screenshots
-npm run screenshots:check
-```
 
 ## Troubleshooting
 
@@ -110,20 +103,19 @@ npm run screenshots:check
 
 ## Further Reading
 
-| Page                                                                                         | Covers                                                                  |
-| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [Admin overview](docs/overview.md)                                                           | Admin responsibilities and the package docs index.                      |
-| [Admin multi-language](docs/admin-multi-language.md)                                         | Admin language records, translations, and user preferences.             |
-| [Admin tool registry](docs/admin-tool-registry.md)                                           | Header tools and admin utility actions.                                 |
-| [Dashboard Filament widget customization](docs/dashboard-widget-customization.md)            | Registering and overriding dashboard Filament widgets.                  |
-| [Marketing Studio](docs/marketing-studio.md)                                                 | Contributing editor-focused marketing actions and widgets.              |
-| [Event registry](docs/event-registry.md)                                                     | Admin lifecycle event subscriptions.                                    |
-| [Permissions and approval](docs/permissions-and-approval.md)                                 | Role and approval rules around publishing.                              |
-| [Resource registration](docs/resource-registration.md)                                       | Contributed resources and admin surface lookup.                         |
-| [Schema hooks](docs/schemas/hooks.md)                                                        | Extending admin form schemas.                                           |
-| [Settings schema registry](docs/settings-schema-registry.md)                                 | Package settings in the admin settings surface.                         |
-| [User menu registry](docs/user-menu-registry.md)                                             | User menu item registration.                                            |
-| [User resource customization](docs/user-resource-customization.md)                           | User form fields, panels, relation managers, and bridges.               |
-| [Admin documentation index](../../docs/admin/index.md)                                       | Host-level admin setup, interface, recovery, media, and dashboard docs. |
-| [Package admin extensions](../../docs/packages/admin-extensions.md)                          | Package-owned admin extension guidance.                                 |
-| [Extension troubleshooting](../../docs/packages/extension-troubleshooting.md#composer-drift) | Composer drift alerts, repair command, and metadata keys.               |
+| Page                                                                              | Covers                                                      |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [Admin overview](docs/overview.md)                                                | Admin responsibilities and the package docs index.          |
+| [Admin multi-language](docs/admin-multi-language.md)                              | Admin language records, translations, and user preferences. |
+| [Admin tool registry](docs/admin-tool-registry.md)                                | Header tools and admin utility actions.                     |
+| [Dashboard Filament widget customization](docs/dashboard-widget-customization.md) | Registering and overriding dashboard Filament widgets.      |
+| [Marketing Studio](docs/marketing-studio.md)                                      | Contributing editor-focused marketing actions and widgets.  |
+| [Event registry](docs/event-registry.md)                                          | Admin lifecycle event subscriptions.                        |
+| [Permissions and approval](docs/permissions-and-approval.md)                      | Role and approval rules around publishing.                  |
+| [Resource registration](docs/resource-registration.md)                            | Contributed resources and admin surface lookup.             |
+| [Schema hooks](docs/schemas/hooks.md)                                             | Extending admin form schemas.                               |
+| [Settings schema registry](docs/settings-schema-registry.md)                      | Package settings in the admin settings surface.             |
+| [User menu registry](docs/user-menu-registry.md)                                  | User menu item registration.                                |
+| [User resource customization](docs/user-resource-customization.md)                | User form fields, panels, relation managers, and bridges.   |
+
+The complete admin, extension, and troubleshooting guides are published at [docs.capell.app](https://docs.capell.app).

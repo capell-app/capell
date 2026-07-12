@@ -23,9 +23,9 @@ it('returns pages in the same order as the provided id array', function (): void
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $type = Blueprint::factory()->page()->create();
 
-    $first = Page::factory()->site($site)->type($type)->published(CarbonImmutable::now())
+    $first = Page::factory()->site($site)->blueprint($type)->published(CarbonImmutable::now())
         ->withTranslations($language, [], slug: 'first')->create();
-    $second = Page::factory()->site($site)->type($type)->published(CarbonImmutable::now())
+    $second = Page::factory()->site($site)->blueprint($type)->published(CarbonImmutable::now())
         ->withTranslations($language, [], slug: 'second')->create();
 
     $hydrator = resolve(PageHydrator::class);
@@ -44,7 +44,7 @@ it('skips ids that resolve to null (unpublished or missing)', function (): void 
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $type = Blueprint::factory()->page()->create();
 
-    $page = Page::factory()->site($site)->type($type)->published(CarbonImmutable::now())
+    $page = Page::factory()->site($site)->blueprint($type)->published(CarbonImmutable::now())
         ->withTranslations($language, [], slug: 'real')->create();
 
     $result = resolve(PageHydrator::class)->hydrate([$page->id, 99999], Page::class, $site, $language);
@@ -59,10 +59,10 @@ it('injects parent models from the model cache when withParent is true', functio
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $type = Blueprint::factory()->page()->create();
 
-    $parent = Page::factory()->site($site)->type($type)->published(CarbonImmutable::now())
+    $parent = Page::factory()->site($site)->blueprint($type)->published(CarbonImmutable::now())
         ->withTranslations($language, ['title' => 'Parent Page'], slug: 'parent')->create();
 
-    $child = Page::factory()->site($site)->type($type)->published(CarbonImmutable::now())
+    $child = Page::factory()->site($site)->blueprint($type)->published(CarbonImmutable::now())
         ->withTranslations($language, [], slug: 'child')
         ->state(['parent_id' => $parent->id])
         ->create();

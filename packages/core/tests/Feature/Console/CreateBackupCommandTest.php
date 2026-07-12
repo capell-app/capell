@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Storage;
 beforeEach(function (): void {
     Storage::fake('backups');
     $this->databasePath = sys_get_temp_dir() . '/capell-create-backup-command-' . bin2hex(random_bytes(6)) . '.sqlite';
-    (new PDO('sqlite:' . $this->databasePath))->exec('CREATE TABLE examples (value TEXT NOT NULL)');
+    new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');
     config([
         'backup.enabled' => true,
         'backup.disk' => 'backups',

@@ -29,9 +29,7 @@ final class BuildCapellSiteFromSpecAction
             return $existing;
         }
 
-        if ($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic) {
-            throw new RuntimeException('Public site specs require explicit acknowledgement.');
-        }
+        throw_if($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic, RuntimeException::class, 'Public site specs require explicit acknowledgement.');
 
         return DB::transaction(function () use ($spec, $hash): Site {
             $language = $this->resolveLanguage($spec);
@@ -65,7 +63,7 @@ final class BuildCapellSiteFromSpecAction
     {
         $language = Language::query()->where('code', $spec->language->code)->first()
             ?? CreateDefaultLanguagesAction::run([$spec->language->code])->first()
-            ?? throw new RuntimeException("Language [{$spec->language->code}] could not be resolved.");
+            ?? throw new RuntimeException(sprintf('Language [%s] could not be resolved.', $spec->language->code));
 
         $language->forceFill(Arr::only($spec->language->toArray(), ['name', 'locale', 'flag', 'default']))->save();
 
@@ -76,7 +74,7 @@ final class BuildCapellSiteFromSpecAction
     {
         $theme = CreateThemeAction::run($spec->theme->key, ucfirst($spec->theme->key));
         $meta = is_array($theme->meta) ? $theme->meta : [];
-        $colors = array_filter($spec->theme->colors->toArray(), static fn (?string $value): bool => filled($value));
+        $colors = array_filter($spec->theme->colors->toArray(), filled(...));
         $theme->meta = array_merge($meta, $colors === [] ? [] : ['colors' => array_merge($meta['colors'] ?? [], $colors)], array_filter([
             'font_family' => $spec->theme->fontFamily,
             'link_color' => $spec->theme->linkColor,
@@ -133,6 +131,7 @@ final class BuildCapellSiteFromSpecAction
                     $sort($nested);
                 }
             }
+
             unset($nested);
             if (! array_is_list($value)) {
                 ksort($value);

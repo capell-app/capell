@@ -99,18 +99,29 @@ class SitesTable implements TableConfigurator
                         ->icon('heroicon-o-swatch')
                         ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Theme->permission('update')) === true)
                         ->schema(fn (Schema $schema): Schema => ThemeResource::form($schema))
-                        ->fillForm(fn (Site $record): array => $record->theme?->attributesToArray() ?? [])
+                        ->fillForm(fn (Site $record): array => $record->theme->attributesToArray())
                         ->slideOver()
                         ->modalWidth(Width::ScreenLarge)
                         ->mutateFormDataUsing(fn (array $data, Site $record): array => ThemesTable::editorRecordData($record->theme, $data))
-                        ->action(fn (Site $record, array $data): mixed => $record->theme?->update($data))
+                        ->action(fn (Site $record, array $data): bool => $record->theme->update($data))
                         ->hidden(fn (Site $record): bool => ! $record->theme instanceof Theme || $record->theme->trashed()),
                     Action::make('edit-blueprint')
                         ->label(__('capell-admin::button.edit_blueprint'))
                         ->icon('heroicon-o-document-duplicate')
                         ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Blueprint->permission('update')) === true)
                         ->schema(fn (Schema $schema): Schema => BlueprintResource::form($schema))
-                        ->fillForm(fn (Site $record): array => $record->blueprint?->attributesToArray() ?? [])
+                        ->fillForm(function (Site $record): array {
+                            $blueprint = $record->blueprint;
+
+                            if (! $blueprint instanceof Blueprint) {
+                                return [];
+                            }
+
+                            $data = $blueprint->attributesToArray();
+                            $data['type'] = BlueprintsTable::recordTypeName($blueprint);
+
+                            return $data;
+                        })
                         ->modalWidth(Width::ScreenLarge)
                         ->slideOver()
                         ->mutateFormDataUsing(function (array $data, Site $record): array {

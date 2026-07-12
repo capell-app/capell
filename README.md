@@ -88,7 +88,7 @@ Pick the path that matches what you are doing. The full route map lives at [docs
 
 ## What This Repository Contains
 
-This repo is the main **host monorepo**: the five foundation packages every Capell site is built on. First-party feature packages (themes, SEO, Publishing Studio, and more) live separately and install via Composer — browse the [package catalogue](docs/packages/catalog.md).
+This repo is the 4.x **host monorepo**: the five foundation packages every Capell site is built on. First-party feature packages (themes, SEO, Publishing Studio, and more) live separately and install via Composer — browse the [package catalogue](docs/packages/catalog.md).
 
 | Package     | Composer name            | What it owns                                                                                                 | Docs                                              |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
@@ -103,7 +103,7 @@ Each package also ships a source README:
 
 ## Installing
 
-Capell's five foundation packages have public source repositories and public Packagist packages. Paid marketplace packages use authenticated Composer access and require an active entitlement. Review the Capell licence before production use. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and the Filament 5.7 beta release line.
+Capell's five foundation packages have public source repositories and public Packagist packages. Paid marketplace packages use authenticated Composer access and require an active entitlement. Review the Capell licence before production use. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and Filament `^5.6.8 <5.7.0-beta`.
 
 ### Recommended — the installer
 
@@ -167,7 +167,7 @@ Not sure which to reach for? Use the [Extension point chooser](docs/packages/ext
 | -------- | -------------------------------------------------------------------- |
 | PHP      | 8.4+                                                                 |
 | Laravel  | 12.41.1+ or 13.x                                                     |
-| Filament | 5.7+ (currently `^5.7@beta`)                                         |
+| Filament | 5.6.8+ below 5.7 (`^5.6.8 <5.7.0-beta`)                              |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or your configured Laravel database |
 | Node.js  | 20+                                                                  |
 | Composer | 2.7+                                                                 |

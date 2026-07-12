@@ -12,6 +12,18 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 
+it('guards public rendering when no explicit setting is configured', function (): void {
+    config([
+        'capell-frontend.public_view_query_guard.enabled' => null,
+        'capell-frontend.public_view_query_guard.mode' => 'exception',
+    ]);
+
+    expect(fn () => resolve(PublicViewQueryGuard::class)->guard(
+        new FrontendRenderContextData(null, null, null, null, null),
+        fn (): array => DB::select('select 1 as default_guard_probe'),
+    ))->toThrow(RuntimeException::class, 'Public Blade rendering executed 1 database query');
+});
+
 it('throws when public blade rendering executes database queries', function (): void {
     config([
         'capell-frontend.public_view_query_guard.enabled' => true,

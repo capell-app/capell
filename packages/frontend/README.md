@@ -48,8 +48,8 @@ Public routing depends on the host app's web server sending unmatched public pag
 ## Runtime Surfaces
 
 - Provider: `Capell\Frontend\Providers\FrontendServiceProvider`
-- Config: `packages/frontend/config/capell-frontend.php`
-- Routes: `packages/frontend/routes/web.php`
+- Config: `config/capell-frontend.php`
+- Routes: `routes/web.php`
 - Controller: `Capell\Frontend\Http\Controllers\PageController`
 - Middleware aliases: `frontend.resolve`, `frontend.etag`, `frontend.asset-optimization`, `frontend.anonymous_cacheable_render`, `frontend.rendering_strategy`, `frontend.maintenance`, `workspace.context`
 - Main commands: `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`, `capell:generate-html`
@@ -82,26 +82,13 @@ Tailwind source/import generation depends on installed packages declaring their 
 Run package tests after changing frontend routing, render actions, cache invalidation, or public safety checks:
 
 ```bash
-vendor/bin/pest packages/frontend/tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 For public output changes, include the safety-focused tests:
 
 ```bash
-vendor/bin/pest packages/frontend/tests/Feature/StaticBladeRenderingTest.php packages/frontend/tests/Feature/MediaComponentMetadataTest.php --configuration=phpunit.xml
-```
-
-For browser-level regressions in the demo frontend, run:
-
-```bash
-npm run test:demo-smoke
-```
-
-Screenshot capture and validation are run from the monorepo root:
-
-```bash
-npm run screenshots
-npm run screenshots:check
+vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php
 ```
 
 ## Troubleshooting
@@ -114,14 +101,14 @@ npm run screenshots:check
 
 ## Further Reading
 
-| Page                                                         | Covers                                                                 |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [Frontend overview](docs/overview.md)                        | Frontend responsibilities and the package docs index.                  |
-| [Page and site loading](docs/page-site-loading.md)           | Site, page, language, theme, and layout resolution.                    |
-| [Security](docs/security.md)                                 | Package-specific public rendering safety notes.                        |
-| [Server configuration](docs/server-config.md)                | Static-cache fallback and web server routing rules.                    |
-| [Tailwind assets](docs/tailwind-assets.md)                   | Package Tailwind source and import registration.                       |
-| [Render hooks](docs/extending-render-hooks.md)               | Public render hook registration.                                       |
-| [Testing frontend](docs/testing-frontend.md)                 | Frontend package test patterns.                                        |
-| [Frontend documentation index](../../docs/frontend/index.md) | Host-level frontend rendering, public HTML safety, media, and widgets. |
-| [Frontend guide](../../docs/frontend/guide.md)               | Public rendering flow and extension guidance.                          |
+| Page                                               | Covers                                                |
+| -------------------------------------------------- | ----------------------------------------------------- |
+| [Frontend overview](docs/overview.md)              | Frontend responsibilities and the package docs index. |
+| [Page and site loading](docs/page-site-loading.md) | Site, page, language, theme, and layout resolution.   |
+| [Security](docs/security.md)                       | Package-specific public rendering safety notes.       |
+| [Server configuration](docs/server-config.md)      | Static-cache fallback and web server routing rules.   |
+| [Tailwind assets](docs/tailwind-assets.md)         | Package Tailwind source and import registration.      |
+| [Render hooks](docs/extending-render-hooks.md)     | Public render hook registration.                      |
+| [Testing frontend](docs/testing-frontend.md)       | Frontend package test patterns.                       |
+
+The complete frontend and public-output safety guides are published at [docs.capell.app](https://docs.capell.app).

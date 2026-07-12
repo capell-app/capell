@@ -137,7 +137,7 @@ test('create site', function (): void {
     $livewire = Livewire::test(CreateSite::class)
         ->assertSuccessful()
         ->fillForm([
-            'blueprint_id' => $newData->type->getKey(),
+            'blueprint_id' => $newData->blueprint->getKey(),
             'name' => $newData->name,
             'theme_id' => $newData->theme->getKey(),
             'language_id' => $newData->language->getKey(),
@@ -145,7 +145,7 @@ test('create site', function (): void {
         ->callMountedAction()
         ->assertSchemaStateSet([
             'name' => $newData->name,
-            'blueprint_id' => $newData->type->getKey(),
+            'blueprint_id' => $newData->blueprint->getKey(),
             'theme_id' => $newData->theme->getKey(),
             'language_id' => $newData->language->getKey(),
         ])
@@ -164,7 +164,7 @@ test('create site', function (): void {
 
     $site = Site::query()
         ->where('name', $newData->name)
-        ->where('blueprint_id', $newData->type->getKey())
+        ->where('blueprint_id', $newData->blueprint->getKey())
         ->where('theme_id', $newData->theme->getKey())
         ->where('language_id', $newData->language->getKey())
         ->firstOrFail();
@@ -176,7 +176,7 @@ test('create site', function (): void {
     expect($site)
         ->toBeInstanceOf(Site::class)
         ->name->toBe($newData->name)
-        ->blueprint_id->toBe($newData->type->getKey())
+        ->blueprint_id->toBe($newData->blueprint->getKey())
         ->theme_id->toBe($newData->theme->getKey())
         ->language_id->toBe($newData->language->getKey())
         ->siteDomains->toHaveCount(1)
@@ -328,7 +328,7 @@ test('auto creates pages', function (): void {
     $livewire = Livewire::test(CreateSite::class)
         ->assertSuccessful()
         ->fillForm([
-            'blueprint_id' => $newData->type->getKey(),
+            'blueprint_id' => $newData->blueprint->getKey(),
             'name' => $newData->name,
             'theme_id' => $newData->theme->getKey(),
             'language_id' => $newData->language->getKey(),
@@ -336,7 +336,7 @@ test('auto creates pages', function (): void {
         ])
         ->assertSchemaStateSet([
             'name' => $newData->name,
-            'blueprint_id' => $newData->type->getKey(),
+            'blueprint_id' => $newData->blueprint->getKey(),
             'theme_id' => $newData->theme->getKey(),
             'language_id' => $newData->language->getKey(),
             'languages' => $languages->pluck('id')->all(),
@@ -358,7 +358,7 @@ test('auto creates pages', function (): void {
 
     $record = Site::query()
         ->where('name', $newData->name)
-        ->where('blueprint_id', $newData->type->getKey())
+        ->where('blueprint_id', $newData->blueprint->getKey())
         ->where('theme_id', $newData->theme->getKey())
         ->where('language_id', $newData->language->getKey())
         ->firstOrFail();
@@ -368,7 +368,7 @@ test('auto creates pages', function (): void {
     expect($record)
         ->toBeInstanceOf(Site::class)
         ->name->toBe($newData->name)
-        ->blueprint_id->toBe($newData->type->getKey())
+        ->blueprint_id->toBe($newData->blueprint->getKey())
         ->theme_id->toBe($newData->theme->getKey())
         ->language_id->toBe($newData->language->getKey())
         ->siteDomains->toHaveCount(1)

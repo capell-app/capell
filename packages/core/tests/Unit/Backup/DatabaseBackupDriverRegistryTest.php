@@ -34,7 +34,7 @@ it('rejects unsupported and duplicate database drivers clearly', function (): vo
     $first = backupDriverForRegistryTest(['sqlite']);
     $duplicate = backupDriverForRegistryTest(['sqlite']);
 
-    expect(fn (): DatabaseBackupDriver => (new DatabaseBackupDriverRegistry([$first]))->for('sqlsrv'))
+    expect(fn (): DatabaseBackupDriver => new DatabaseBackupDriverRegistry([$first])->for('sqlsrv'))
         ->toThrow(InvalidArgumentException::class, 'Unsupported database backup driver [sqlsrv].')
         ->and(fn (): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([$first, $duplicate]))
         ->toThrow(LogicException::class, 'Database backup driver [sqlite] is already registered.');
@@ -97,12 +97,12 @@ it('serializes backup metadata without credentials absolute paths or content', f
  */
 function backupDriverForRegistryTest(array $supportedDrivers): DatabaseBackupDriver
 {
-    return new class($supportedDrivers) implements DatabaseBackupDriver
+    return new readonly class($supportedDrivers) implements DatabaseBackupDriver
     {
         /**
          * @param  non-empty-list<non-empty-string>  $supportedDrivers
          */
-        public function __construct(private readonly array $supportedDrivers) {}
+        public function __construct(private array $supportedDrivers) {}
 
         public function supportedDrivers(): array
         {

@@ -32,9 +32,7 @@ final readonly class SqliteDatabaseBackupDriver implements DatabaseBackupDriver
             unlink($destinationPath);
         }
 
-        if (file_exists($destinationPath)) {
-            throw new RuntimeException('The SQLite backup destination already exists.');
-        }
+        throw_if(file_exists($destinationPath), RuntimeException::class, 'The SQLite backup destination already exists.');
 
         try {
             $pdo = new PDO('sqlite:' . $database);
@@ -51,33 +49,21 @@ final readonly class SqliteDatabaseBackupDriver implements DatabaseBackupDriver
     {
         $this->databasePath($connectionName);
 
-        if (preg_match('/\A[A-Za-z][A-Za-z0-9_]{2,62}\z/', $scratchDatabase) !== 1) {
-            throw new InvalidArgumentException('SQLite restore requires a safe scratch database name.');
-        }
+        throw_if(preg_match('/\A[A-Za-z]\w{2,62}\z/', $scratchDatabase) !== 1, InvalidArgumentException::class, 'SQLite restore requires a safe scratch database name.');
 
-        if (! is_file($sourcePath)) {
-            throw new RuntimeException('The SQLite backup artifact does not exist.');
-        }
+        throw_unless(is_file($sourcePath), RuntimeException::class, 'The SQLite backup artifact does not exist.');
 
         $scratchDirectory = (string) $this->config->get('backup.scratch.sqlite_directory', '');
 
-        if ($scratchDirectory === '') {
-            throw new RuntimeException('The SQLite scratch directory is not configured.');
-        }
+        throw_if($scratchDirectory === '', RuntimeException::class, 'The SQLite scratch directory is not configured.');
 
-        if (! is_dir($scratchDirectory) && ! mkdir($scratchDirectory, 0700, true) && ! is_dir($scratchDirectory)) {
-            throw new RuntimeException('Unable to create the SQLite scratch directory.');
-        }
+        throw_if(! is_dir($scratchDirectory) && ! mkdir($scratchDirectory, 0700, true) && ! is_dir($scratchDirectory), RuntimeException::class, 'Unable to create the SQLite scratch directory.');
 
         $destination = rtrim($scratchDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $scratchDatabase . '.sqlite';
 
-        if (file_exists($destination)) {
-            throw new RuntimeException('The SQLite scratch database already exists.');
-        }
+        throw_if(file_exists($destination), RuntimeException::class, 'The SQLite scratch database already exists.');
 
-        if (! copy($sourcePath, $destination)) {
-            throw new RuntimeException('Unable to restore the SQLite backup into the scratch database.');
-        }
+        throw_unless(copy($sourcePath, $destination), RuntimeException::class, 'Unable to restore the SQLite backup into the scratch database.');
 
         chmod($destination, 0600);
 

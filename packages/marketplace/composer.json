@@ -35,13 +35,13 @@
             ]
         },
         "branch-alias": {
-            "dev-main": "0.0.x-dev"
+            "dev-main": "4.x-dev"
         }
     },
     "require": {
         "php": "^8.4",
-        "capell-app/admin": "^0.0.14 || 0.0.x-dev",
-        "capell-app/core": "^0.0.14 || 0.0.x-dev",
+        "capell-app/admin": "self.version",
+        "capell-app/core": "self.version",
         "laravel/framework": "^12.41.1|^13.0",
         "lorisleiva/laravel-actions": "^2.8",
         "spatie/laravel-data": "^4.5",

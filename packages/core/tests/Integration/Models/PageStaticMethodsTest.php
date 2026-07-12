@@ -18,7 +18,7 @@ it('getMorphRelations returns expected base relations and applies language order
     $relations = Page::getMorphRelations($language, normalizeKey: true);
 
     // Assert: base keys present
-    expect($relations)->toHaveKeys(['ancestors', 'site', 'image', 'translation', 'type', 'pageUrl']);
+    expect($relations)->toHaveKeys(['ancestors', 'site', 'image', 'translation', 'blueprint', 'pageUrl']);
 });
 
 it('getDefaultType returns the first enabled visible accessible page type ordered', function (): void {

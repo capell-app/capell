@@ -17,7 +17,9 @@ it('selects the page image as the first conservative lcp media hint when it is a
 
         public function getFullUrl(string $conversion = ''): string
         {
-            return 'https://example.test/storage/hero.jpg';
+            return $conversion === ''
+                ? 'https://example.test/storage/hero.jpg'
+                : sprintf('https://example.test/storage/conversions/hero-%s.webp', $conversion);
         }
 
         public function getAvailableFullUrl(array $conversions): string
@@ -39,7 +41,7 @@ it('selects the page image as the first conservative lcp media hint when it is a
 
         public function hasConversion(string $conversion): bool
         {
-            return false;
+            return in_array($conversion, ['thumbnail', 'small', 'medium', 'large'], true);
         }
 
         public function getName(): string
@@ -85,6 +87,14 @@ it('selects the page image as the first conservative lcp media hint when it is a
 
     expect($hints)->toHaveCount(1)
         ->and($hints[0]->url)->toBe('https://example.test/storage/conversions/hero-large.webp')
-        ->and($hints[0]->mimeType)->toBe('image/jpeg')
+        ->and($hints[0]->mediaUrl)->toBe('https://example.test/storage/hero.jpg')
+        ->and($hints[0]->imageSrcset)->toBe(implode(', ', [
+            'https://example.test/storage/conversions/hero-thumbnail.webp 320w',
+            'https://example.test/storage/conversions/hero-small.webp 640w',
+            'https://example.test/storage/conversions/hero-medium.webp 1280w',
+            'https://example.test/storage/conversions/hero-large.webp 2560w',
+        ]))
+        ->and($hints[0]->imageSizes)->toBe('100vw')
+        ->and($hints[0]->mimeType)->toBe('image/webp')
         ->and($hints[0]->fetchPriority)->toBe('high');
 });

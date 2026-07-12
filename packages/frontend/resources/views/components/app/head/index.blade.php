@@ -212,6 +212,12 @@
             as="{{ $mediaHint->as }}"
             href="{{ $mediaHint->url }}"
             fetchpriority="{{ $mediaHint->fetchPriority }}"
+            @if ($mediaHint->imageSrcset)
+                imagesrcset="{{ $mediaHint->imageSrcset }}"
+            @endif
+            @if ($mediaHint->imageSizes)
+                imagesizes="{{ $mediaHint->imageSizes }}"
+            @endif
             @if ($mediaHint->mimeType)
                 type="{{ $mediaHint->mimeType }}"
             @endif
@@ -360,6 +366,7 @@
                                src: {$src};
                                font-style: '{$fontStyle}';
                                font-weight: '{$fontWeight}';
+                               font-display: swap;
                            }
                        </style>
                        CSS;

@@ -18,9 +18,7 @@ final class SanitizeSiteSpecSectionHtmlAction
 
     public function handle(string $html): string
     {
-        if (mb_strlen($html) > CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH) {
-            throw new InvalidArgumentException('Site spec section HTML exceeds the maximum length.');
-        }
+        throw_if(mb_strlen($html) > CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH, InvalidArgumentException::class, 'Site spec section HTML exceeds the maximum length.');
 
         return $this->sanitizer()->sanitize($html);
     }

@@ -151,7 +151,7 @@ class PageUrl extends Model implements Statusable, Userstampable
             ->whereHas(
                 'pageable',
                 fn (Builder $query) => $query->whereHas(
-                    'type',
+                    'blueprint',
                     fn (BuilderContract $query): BuilderContract => $query->where(
                         'blueprints.meta->cache_frequency',
                         'always',

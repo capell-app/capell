@@ -4,43 +4,25 @@ declare(strict_types=1);
 
 it('keeps every core split pull request forwarding workflow aligned with the core monorepo', function (): void {
     $repositoryRoot = dirname(__DIR__, 2);
-    $splitWorkflow = file_get_contents($repositoryRoot . '/.github/workflows/split-monorepo.yml');
-
-    expect($splitWorkflow)->toBeString();
-
-    $matrixMatchCount = preg_match(
-        '/\n\s+package:\R(?<packages>(?:\s+- [a-z0-9-]+\R?)+)/',
-        $splitWorkflow,
-        $matrixMatches,
+    $packageNames = json_decode(
+        file_get_contents($repositoryRoot . '/config/release-packages.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
     );
 
-    expect($matrixMatchCount)->toBe(1);
-    assert(isset($matrixMatches['packages']));
-
-    if (! isset($matrixMatches['packages'])) {
-        throw new RuntimeException('The split workflow package matrix could not be read.');
-    }
-
-    $packageMatchCount = preg_match_all(
-        '/^\s+- (?<package>[a-z0-9-]+)$/m',
-        $matrixMatches['packages'],
-        $packageMatches,
-    );
-    $packageNames = $packageMatches['package'];
-
-    expect($packageMatchCount)->toBe(5)
-        ->and($packageNames)->toBe([
-            'admin',
-            'core',
-            'frontend',
-            'installer',
-            'marketplace',
-        ]);
+    expect($packageNames)->toBe([
+        'admin',
+        'core',
+        'frontend',
+        'installer',
+        'marketplace',
+    ]);
 
     $expectedWorkflow = null;
 
     foreach ($packageNames as $packageName) {
-        $workflowPath = $repositoryRoot . "/packages/{$packageName}/.github/workflows/forward-pr-to-monorepo.yml";
+        $workflowPath = $repositoryRoot . sprintf('/packages/%s/.github/workflows/forward-pr-to-monorepo.yml', $packageName);
 
         expect($workflowPath)->toBeFile();
 

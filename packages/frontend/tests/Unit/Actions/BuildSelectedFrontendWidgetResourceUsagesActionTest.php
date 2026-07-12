@@ -26,7 +26,7 @@ it('extracts selected resource groups and loading overrides from page widget met
     $page = Page::factory()
         ->site($site)
         ->layout($layout)
-        ->type($blueprint)
+        ->blueprint($blueprint)
         ->withTranslations($language, [
             'title' => 'Gallery page',
         ], slug: '/')

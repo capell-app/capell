@@ -20,6 +20,8 @@ use Throwable;
 
 final class PublicViewQueryGuard
 {
+    private const string DOCS_URL = 'https://docs.capell.app/security/public-rendering#public-view-query-guard';
+
     private bool $listenerRegistered = false;
 
     private bool $active = false;
@@ -68,7 +70,7 @@ final class PublicViewQueryGuard
                 count($queries),
                 (string) ($queries[0]['sql_shape'] ?? 'unknown'),
                 (string) ($queries[0]['first_blade_view'] ?? 'unknown'),
-                (string) config('capell-frontend.public_view_query_guard.docs_url', 'https://capell.dev/docs/frontend/security#public-view-query-guard'),
+                (string) config('capell-frontend.public_view_query_guard.docs_url', self::DOCS_URL),
             ));
         }
 
@@ -119,7 +121,7 @@ final class PublicViewQueryGuard
             return $configured;
         }
 
-        return app()->environment(['local', 'testing']);
+        return true;
     }
 
     private function mode(): string

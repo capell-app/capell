@@ -120,6 +120,7 @@ it('renders custom master and layout files from layout metadata', function (): v
     $translation = Translation::factory()->make(['title' => 'Custom page title']);
     $page = Page::factory()->make(['meta' => []]);
     $page->setRelation('translation', $translation);
+
     $layout = Layout::factory()->make([
         'key' => 'custom-layout',
         'meta' => [

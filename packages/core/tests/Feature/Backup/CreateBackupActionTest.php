@@ -49,7 +49,7 @@ it('creates a database and media snapshot and writes its manifest last', functio
     file_put_contents($temporaryDatabase, $databaseContents);
 
     expect(backupCreatedValue($temporaryDatabase))->toBe('backed-up')
-        ->and($manifest->database->sha256)->toBe(hash('sha256', Storage::disk('backups')->get($manifest->database->path)))
+        ->and($manifest->database->sha256)->toBe(hash('sha256', (string) Storage::disk('backups')->get($manifest->database->path)))
         ->and($manifest->media)->toHaveCount(1)
         ->and($manifest->media[0]->sourceDisk)->toBe('media')
         ->and($manifest->media[0]->sourcePath)->toBe('images/example.txt')
@@ -81,11 +81,9 @@ it('fails closed when backup is disabled or recursively targets its backup disk'
 
 function backupCreatedValue(string $databasePath): string
 {
-    $statement = (new PDO('sqlite:' . $databasePath))->query('SELECT value FROM examples');
+    $statement = new PDO('sqlite:' . $databasePath)->query('SELECT value FROM examples');
 
-    if ($statement === false) {
-        throw new RuntimeException('Unable to read the created backup fixture.');
-    }
+    throw_if($statement === false, RuntimeException::class, 'Unable to read the created backup fixture.');
 
     $value = $statement->fetchColumn();
 

@@ -26,14 +26,59 @@ class BuildFrontendMediaHintsAction
             return [];
         }
 
+        $preferredConversions = $this->preferredConversions();
+        $imageSrcset = $this->imageSrcset($media);
+
         return [
             new FrontendMediaHintData(
-                url: $media->getAvailableFullUrl($this->preferredConversions()),
-                mimeType: $media->getMimeType(),
+                url: $media->getAvailableFullUrl($preferredConversions),
+                mimeType: $this->preloadMimeType($media, $preferredConversions),
                 width: $media->getWidth(),
                 height: $media->getHeight(),
+                mediaUrl: $media->getFullUrl(),
+                imageSrcset: $imageSrcset,
+                imageSizes: $imageSrcset !== null ? '100vw' : null,
             ),
         ];
+    }
+
+    private function imageSrcset(MediaContract $media): ?string
+    {
+        if ($media->hasResponsiveImages()) {
+            $srcset = trim($media->getSrcset());
+
+            return $srcset !== '' ? $srcset : null;
+        }
+
+        $srcset = collect(MediaConversionEnum::defaultDimensionsByConversionValue())
+            ->filter(
+                fn (array $dimensions, string $conversion): bool => $media->hasConversion($conversion),
+            )
+            ->map(
+                fn (array $dimensions, string $conversion): string => sprintf(
+                    '%s %dw',
+                    $media->getFullUrl($conversion),
+                    $dimensions['width'],
+                ),
+            )
+            ->implode(', ');
+
+        return $srcset !== '' ? $srcset : null;
+    }
+
+    /** @param list<string> $preferredConversions */
+    private function preloadMimeType(MediaContract $media, array $preferredConversions): string
+    {
+        $selectedConversion = collect($preferredConversions)
+            ->first(fn (string $conversion): bool => $media->hasConversion($conversion));
+
+        if (! is_string($selectedConversion)) {
+            return $media->getMimeType();
+        }
+
+        $format = MediaConversionEnum::from($selectedConversion)->format();
+
+        return 'image/' . $format;
     }
 
     private function likelyLcpMedia(FrontendRenderContextData $context): ?MediaContract

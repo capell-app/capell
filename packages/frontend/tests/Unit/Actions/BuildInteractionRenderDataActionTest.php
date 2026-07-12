@@ -54,7 +54,7 @@ it('filters widget interactions when no secure locator resolver is installed', f
 it('renders lazy widget interactions as ordinary fallback links with accessible runtime labels', function (): void {
     app()->bind(WidgetInteractionLocatorResolver::class, fn (): WidgetInteractionLocatorResolver => new class implements WidgetInteractionLocatorResolver
     {
-        public function resolve(InteractionTargetData $target): ?string
+        public function resolve(InteractionTargetData $target): string
         {
             return '/_capell/layout-widgets/short-locator';
         }

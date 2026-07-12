@@ -123,10 +123,13 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
     }
 
     $lcpMediaUrl = Frontend::getFrontendData('lcpMediaUrl');
-    if ($fetchpriority === null && is_string($lcpMediaUrl) && $lcpMediaUrl === $imageSrc) {
+    $canonicalMediaUrl = $media->getFullUrl();
+
+    if ($fetchpriority === null && is_string($lcpMediaUrl) && in_array($lcpMediaUrl, [$canonicalMediaUrl, $imageSrc], true)) {
         $fetchpriority = 'high';
         $loading ??= 'eager';
     }
+
 @endphp
 {{-- format-ignore-end --}}
 @if ($media_type === 'video' && $preview)
@@ -166,6 +169,10 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
         ])
     </div>
 @else
+    @php
+        $loading ??= $fetchpriority === 'high' ? 'eager' : 'lazy';
+    @endphp
+
     <img
         src="{{ $imageSrc }}"
         @if ($resolvedSrcset)

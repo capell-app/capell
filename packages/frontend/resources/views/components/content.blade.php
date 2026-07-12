@@ -137,12 +137,10 @@
                 :width="$imageWidth"
                 :height="$imageHeight"
                 :alt="$title"
-                fetchpriority="high"
                 @class([
                     'h-auto object-cover object-center md:float-right md:max-w-[40%] md:ml-10 md:mt-0',
                     'rounded' => $roundedImages,
                 ])
-                loading="eager"
                 sizes="(min-width: 768px) 40vw, 88vw"
         />
         {{-- format-ignore-end --}}

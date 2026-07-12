@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Core\Tests\Feature\Commands\Fixtures;
 
+use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Override;
 use Throwable;
 
 /**
  * Test double for RunInstallAction that captures received input.
  */
-class FakeRunInstallAction
+class FakeRunInstallAction extends RunInstallAction
 {
     public InstallInputData $capturedInput;
 
@@ -19,6 +21,7 @@ class FakeRunInstallAction
 
     public ?Throwable $throwable = null;
 
+    #[Override]
     public function handle(InstallInputData $inputData, ProgressReporter $reporter): void
     {
         $this->capturedInput = $inputData;

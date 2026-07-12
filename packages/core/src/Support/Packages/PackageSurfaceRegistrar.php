@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Packages;
 
 use BackedEnum;
-use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Core\Contracts\SettingsContract;
+use Capell\Core\Contracts\SettingsSchema;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -105,7 +105,7 @@ final class PackageSurfaceRegistrar
     }
 
     /**
-     * @param  class-string<HasSchema>  $schemaClass
+     * @param  class-string<SettingsSchema>  $schemaClass
      */
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): self
     {

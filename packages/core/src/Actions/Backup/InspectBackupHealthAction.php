@@ -51,15 +51,11 @@ final class InspectBackupHealthAction
             try {
                 $manifest = BackupManifestData::fromManifestArray($this->store->manifest($snapshotId));
 
-                if ($manifest->snapshotId !== $snapshotId) {
-                    throw new UnexpectedValueException('manifest identity does not match its snapshot');
-                }
+                throw_if($manifest->snapshotId !== $snapshotId, UnexpectedValueException::class, 'manifest identity does not match its snapshot');
 
                 $createdAt = CarbonImmutable::parse($manifest->createdAt);
 
-                if ($createdAt->isAfter($now->addMinutes(5))) {
-                    throw new UnexpectedValueException('manifest timestamp is in the future');
-                }
+                throw_if($createdAt->isAfter($now->addMinutes(5)), UnexpectedValueException::class, 'manifest timestamp is in the future');
 
                 $manifests[] = $manifest;
                 $issue = $this->manifestArtifactIssue($manifest);
@@ -80,7 +76,7 @@ final class InspectBackupHealthAction
         ];
         $newest = $this->newestCreatedAt($manifests);
         $maxAgeHours = max(1, (int) $this->config->get('backup.max_age_hours', 26));
-        $fresh = $newest !== null && ! $newest->isBefore($now->subHours($maxAgeHours));
+        $fresh = $newest instanceof CarbonImmutable && ! $newest->isBefore($now->subHours($maxAgeHours));
         $checks[] = [
             'name' => 'freshness',
             'passed' => $fresh,
@@ -131,7 +127,7 @@ final class InspectBackupHealthAction
         foreach ($manifests as $manifest) {
             $createdAt = CarbonImmutable::parse($manifest->createdAt);
 
-            if ($newest === null || $createdAt->isAfter($newest)) {
+            if (! $newest instanceof CarbonImmutable || $createdAt->isAfter($newest)) {
                 $newest = $createdAt;
             }
         }

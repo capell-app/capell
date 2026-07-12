@@ -50,8 +50,8 @@ it('loads page options through registered page variations and query callbacks', 
 
     $site = Site::factory()->withTranslations()->createOne();
     $type = Blueprint::factory()->page()->createOne(['key' => 'landing']);
-    $visiblePage = Page::factory()->site($site)->type($type)->createOne(['name' => 'Alpha landing']);
-    $hiddenPage = Page::factory()->site($site)->type($type)->createOne(['name' => 'Hidden landing']);
+    $visiblePage = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Alpha landing']);
+    $hiddenPage = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Hidden landing']);
 
     $mounted = mountedPageMorphOptionSelectForTest(
         PageMorphToOptionSelect::make()

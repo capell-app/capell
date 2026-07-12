@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Settings;
 
-use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Core\Contracts\SettingsContract;
+use Capell\Core\Contracts\SettingsSchema;
 use InvalidArgumentException;
 
 class SettingsSchemaRegistry
@@ -16,7 +16,7 @@ class SettingsSchemaRegistry
     /**
      * Map of group => array of schema class names
      *
-     * @var array<string, array<string, class-string<HasSchema>>>
+     * @var array<string, array<string, class-string<SettingsSchema>>>
      */
     private array $schemas = [];
 
@@ -31,16 +31,16 @@ class SettingsSchemaRegistry
      * Register a schema class for a group
      *
      * @param  string  $group  Settings group (e.g., 'core', 'admin', 'frontend')
-     * @param  class-string<HasSchema>  $schemaClass  Must implement HasSchema
+     * @param  class-string<SettingsSchema>  $schemaClass  Must implement SettingsSchema
      * @param  ?string  $key  Unique identifier for this schema in the group (default: short class name)
      *
-     * @throws InvalidArgumentException if schema class does not implement HasSchema
+     * @throws InvalidArgumentException if schema class does not implement SettingsSchema
      */
     public function register(string $group, string $schemaClass, ?string $key = null): void
     {
-        if (! class_exists($schemaClass) || ! is_a($schemaClass, HasSchema::class, true)) {
+        if (! class_exists($schemaClass) || ! is_a($schemaClass, SettingsSchema::class, true)) {
             throw new InvalidArgumentException(
-                sprintf('Schema class %s must implement %s', $schemaClass, HasSchema::class),
+                sprintf('Schema class %s must implement %s', $schemaClass, SettingsSchema::class),
             );
         }
 
@@ -96,7 +96,7 @@ class SettingsSchemaRegistry
      * Replace a schema class in a group
      * Useful for overriding default schemas
      *
-     * @param  class-string<HasSchema>  $schemaClass
+     * @param  class-string<SettingsSchema>  $schemaClass
      * @param  string  $key  Schema identifier (must exist)
      *
      * @throws InvalidArgumentException if key does not exist
@@ -137,7 +137,7 @@ class SettingsSchemaRegistry
     /**
      * Get all schema classes for a group
      *
-     * @return array<string, class-string<HasSchema>>
+     * @return array<string, class-string<SettingsSchema>>
      */
     public function getSchemas(string $group): array
     {
@@ -147,7 +147,7 @@ class SettingsSchemaRegistry
     /**
      * Get a specific schema by group and key
      *
-     * @return class-string<HasSchema>|null
+     * @return class-string<SettingsSchema>|null
      */
     public function getSchema(string $group, string $key): ?string
     {
@@ -206,7 +206,7 @@ class SettingsSchemaRegistry
     /**
      * Get all registered schemas (all groups)
      *
-     * @return array<string, array<string, class-string<HasSchema>>>
+     * @return array<string, array<string, class-string<SettingsSchema>>>
      */
     public function all(): array
     {
@@ -224,7 +224,7 @@ class SettingsSchemaRegistry
 
         $schemaClass = $settingsClass::schema();
 
-        if (! is_string($schemaClass) || ! is_a($schemaClass, HasSchema::class, true)) {
+        if (! is_string($schemaClass) || ! is_a($schemaClass, SettingsSchema::class, true)) {
             return;
         }
 

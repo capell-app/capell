@@ -56,9 +56,9 @@ class SiteFactory extends Factory
         return $this->set('theme_id', $theme->id);
     }
 
-    public function type(Blueprint $type): static
+    public function blueprint(Blueprint $blueprint): static
     {
-        return $this->set('blueprint_id', $type->id);
+        return $this->set('blueprint_id', $blueprint->id);
     }
 
     /**

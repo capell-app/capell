@@ -115,7 +115,7 @@ class ComponentSelect extends SelectField
                 if (! in_array($state, [null, '', '0'], true)) {
                     $tooltip = $state;
                 } else {
-                    if ($record instanceof Model && ! $record instanceof Blueprint && method_exists($record, 'type')) {
+                    if ($record instanceof Model && ! $record instanceof Blueprint && method_exists($record, 'blueprint')) {
                         $relatedType = $record->getRelationValue('blueprint');
                         if ($relatedType instanceof Blueprint) {
                             $statePath = $component->getStatePath(isAbsolute: false);

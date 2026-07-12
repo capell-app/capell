@@ -88,7 +88,7 @@ it('rejects authoring markers from the primary livewire component response path'
         'meta' => [],
     ]);
     $page = Page::factory()->make();
-    $page->setRelation('type', $type);
+    $page->setRelation('blueprint', $type);
 
     (new LivewireFrontendResponseRenderer)->render(new FrontendRenderContextData(
         page: $page,
@@ -134,7 +134,7 @@ it('selects the page type livewire component when configured', function (): void
         'component' => 'app.page.show',
     ]);
     $page = Page::factory()->make();
-    $page->setRelation('type', $type);
+    $page->setRelation('blueprint', $type);
 
     (new LivewireFrontendResponseRenderer)->render(new FrontendRenderContextData(
         page: $page,
@@ -176,7 +176,7 @@ it('falls back to the default livewire page component', function (): void {
         'meta' => [],
     ]);
     $page = Page::factory()->make();
-    $page->setRelation('type', $type);
+    $page->setRelation('blueprint', $type);
 
     (new LivewireFrontendResponseRenderer)->render(new FrontendRenderContextData(
         page: $page,
@@ -218,9 +218,9 @@ it('does not lazy load the page type while resolving the livewire component', fu
         'component' => 'app.page.show',
     ]);
     $page = Page::factory()
-        ->type($type)
+        ->blueprint($type)
         ->create()
-        ->unsetRelation('type');
+        ->unsetRelation('blueprint');
 
     DB::flushQueryLog();
     DB::enableQueryLog();

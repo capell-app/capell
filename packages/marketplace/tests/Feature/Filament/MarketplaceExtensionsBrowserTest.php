@@ -119,6 +119,20 @@ function ensureMarketplaceBrowserDeploymentPublisherTestContracts(): void
             }
         PHP);
     }
+
+    if (! class_exists('Capell\\Deployments\\Actions\\AuthorizeComposerPublicationAction')) {
+        eval(<<<'PHP'
+            namespace Capell\Deployments\Actions;
+
+            final class AuthorizeComposerPublicationAction
+            {
+                public static function run(string $operationId, object $requirement): object
+                {
+                    return (object) ['operationId' => $operationId, 'requirement' => $requirement];
+                }
+            }
+        PHP);
+    }
 }
 
 it('renders author and rating information in the marketplace card', function (): void {

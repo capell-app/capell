@@ -26,11 +26,11 @@ it('builds page options scoped by site type and search text', function (): void 
     $landingType = Blueprint::factory()->page()->create(['key' => 'landing', 'name' => 'Landing']);
     $systemType = Blueprint::factory()->page()->group(BlueprintGroupEnum::System->value)->create(['key' => 'system']);
 
-    $parent = Page::factory()->site($site)->type($landingType)->create(['name' => 'Knowledge']);
-    $article = Page::factory()->site($site)->type($articleType)->parent($parent)->create(['name' => 'Knowledge Base']);
-    Page::factory()->site($site)->type($landingType)->create(['name' => 'Landing Page']);
-    Page::factory()->site($otherSite)->type($articleType)->create(['name' => 'Knowledge Other']);
-    Page::factory()->site($site)->type($systemType)->create(['name' => 'Knowledge System']);
+    $parent = Page::factory()->site($site)->blueprint($landingType)->create(['name' => 'Knowledge']);
+    $article = Page::factory()->site($site)->blueprint($articleType)->parent($parent)->create(['name' => 'Knowledge Base']);
+    Page::factory()->site($site)->blueprint($landingType)->create(['name' => 'Landing Page']);
+    Page::factory()->site($otherSite)->blueprint($articleType)->create(['name' => 'Knowledge Other']);
+    Page::factory()->site($site)->blueprint($systemType)->create(['name' => 'Knowledge System']);
 
     $options = pageSelectOptions(
         PageSelect::make('page_id')->pageType('article'),
@@ -55,8 +55,8 @@ it('filters page options by admin resource group', function (): void {
     $pageType = Blueprint::factory()->page()->create(['key' => 'standard', 'group' => null]);
     $articleType = Blueprint::factory()->page()->create(['key' => 'article', 'group' => 'article']);
 
-    $page = Page::factory()->site($site)->type($pageType)->create(['name' => 'Visible page']);
-    Page::factory()->site($site)->type($articleType)->create(['name' => 'Article page']);
+    $page = Page::factory()->site($site)->blueprint($pageType)->create(['name' => 'Visible page']);
+    Page::factory()->site($site)->blueprint($articleType)->create(['name' => 'Article page']);
 
     $options = pageSelectOptions(
         PageSelect::make('page_id')->pageGroup('page'),
@@ -74,11 +74,11 @@ it('applies parent page type and custom query constraints to page options', func
     $sectionType = Blueprint::factory()->page()->create(['key' => 'section']);
     $otherParentType = Blueprint::factory()->page()->create(['key' => 'other-section']);
 
-    $section = Page::factory()->site($site)->type($sectionType)->create(['name' => 'Docs']);
-    $allowedChild = Page::factory()->site($site)->type($articleType)->parent($section)->create(['name' => 'Published child']);
-    $draftChild = Page::factory()->site($site)->type($articleType)->parent($section)->create(['name' => 'Draft child']);
-    $otherParent = Page::factory()->site($site)->type($otherParentType)->create(['name' => 'Other']);
-    Page::factory()->site($site)->type($articleType)->parent($otherParent)->create(['name' => 'Wrong parent child']);
+    $section = Page::factory()->site($site)->blueprint($sectionType)->create(['name' => 'Docs']);
+    $allowedChild = Page::factory()->site($site)->blueprint($articleType)->parent($section)->create(['name' => 'Published child']);
+    $draftChild = Page::factory()->site($site)->blueprint($articleType)->parent($section)->create(['name' => 'Draft child']);
+    $otherParent = Page::factory()->site($site)->blueprint($otherParentType)->create(['name' => 'Other']);
+    Page::factory()->site($site)->blueprint($articleType)->parent($otherParent)->create(['name' => 'Wrong parent child']);
 
     $options = pageSelectOptions(
         PageSelect::make('page_id')
@@ -97,7 +97,7 @@ it('adds a disabled more-results option when the available page count exceeds th
     $site = Site::factory()->withTranslations()->create();
     $type = Blueprint::factory()->page()->create(['key' => 'article']);
 
-    Page::factory()->count(3)->site($site)->type($type)->sequence(
+    Page::factory()->count(3)->site($site)->blueprint($type)->sequence(
         ['name' => 'Alpha'],
         ['name' => 'Beta'],
         ['name' => 'Gamma'],
@@ -121,8 +121,8 @@ it('applies tagged page table extenders when building admin page options', funct
     $site = Site::factory()->withTranslations()->create();
     $type = Blueprint::factory()->page()->create(['key' => 'article']);
 
-    $visiblePage = Page::factory()->site($site)->type($type)->create(['name' => 'Visible page']);
-    Page::factory()->site($site)->type($type)->create(['name' => 'Hidden page']);
+    $visiblePage = Page::factory()->site($site)->blueprint($type)->create(['name' => 'Visible page']);
+    Page::factory()->site($site)->blueprint($type)->create(['name' => 'Hidden page']);
 
     $options = pageSelectOptions(
         PageSelect::make('page_id')->pageType('article'),
@@ -137,7 +137,7 @@ it('configures create and edit option actions for nested page management', funct
     $site = Site::factory()->withTranslations()->create();
     $type = Blueprint::factory()->page()->create(['key' => 'article', 'name' => 'Article']);
     $layout = Layout::factory()->create();
-    $page = Page::factory()->site($site)->type($type)->create(['name' => 'Knowledge Base']);
+    $page = Page::factory()->site($site)->blueprint($type)->create(['name' => 'Knowledge Base']);
 
     $pageSelect = PageSelect::make('page_id');
     $pageSelect->withCreateForm();
@@ -194,7 +194,7 @@ it('configures create and edit option actions for nested page management', funct
 it('only exposes the hint edit link for persisted selected pages', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $type = Blueprint::factory()->page()->create(['key' => 'article']);
-    $page = Page::factory()->site($site)->type($type)->create(['name' => 'Editable page']);
+    $page = Page::factory()->site($site)->blueprint($type)->create(['name' => 'Editable page']);
 
     $component = mountedPageSelect(
         PageSelect::make('page_id')->withHintEditAction(),

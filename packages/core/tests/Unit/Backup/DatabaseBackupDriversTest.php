@@ -34,6 +34,7 @@ it('copies sqlite databases and restores only beneath the scratch directory', fu
 
     $driver = new SqliteDatabaseBackupDriver(config());
     $driver->create('backup_test', $dump);
+
     $restored = $driver->restore('backup_test', $dump, 'capell_restore_test');
 
     expect(backupSqliteValue($dump))->toBe('sqlite-backup-content')
@@ -65,6 +66,7 @@ it('builds mysql backup and restore processes without exposing passwords in argu
 
     $driver = new MySqlDatabaseBackupDriver(config(), $factory);
     $driver->create('backup_test', $this->temporaryDirectory . '/dump.sql');
+
     $restored = $driver->restore('backup_test', $source, 'capell_restore_test');
 
     expect($restored)->toBe('capell_restore_test')
@@ -95,6 +97,7 @@ it('builds postgres backup and restore processes without exposing passwords in a
 
     $driver = new PostgresDatabaseBackupDriver(config(), $factory);
     $driver->create('backup_test', $this->temporaryDirectory . '/dump.sql');
+
     $restored = $driver->restore('backup_test', $source, 'capell_restore_test');
 
     expect($restored)->toBe('capell_restore_test')
@@ -130,11 +133,11 @@ it('reports failed process operations without leaking connection secrets', funct
     ]);
 
     try {
-        (new MySqlDatabaseBackupDriver(config(), $factory))->create('backup_test', $this->temporaryDirectory . '/dump.sql');
-    } catch (RuntimeException $exception) {
-        expect($exception->getMessage())->toBe('MySQL backup create failed for connection [backup_test].')
-            ->and($exception->getPrevious())->toBeNull()
-            ->and($exception->getTraceAsString())->not->toContain('never-print-this');
+        new MySqlDatabaseBackupDriver(config(), $factory)->create('backup_test', $this->temporaryDirectory . '/dump.sql');
+    } catch (RuntimeException $runtimeException) {
+        expect($runtimeException->getMessage())->toBe('MySQL backup create failed for connection [backup_test].')
+            ->and($runtimeException->getPrevious())->toBeNull()
+            ->and($runtimeException->getTraceAsString())->not->toContain('never-print-this');
 
         return;
     }
@@ -165,17 +168,13 @@ final class RecordingBackupProcessFactory implements ProcessFactoryInterface
 
 function backupSqliteValue(string $databasePath): string
 {
-    $statement = (new PDO('sqlite:' . $databasePath))->query('SELECT value FROM examples');
+    $statement = new PDO('sqlite:' . $databasePath)->query('SELECT value FROM examples');
 
-    if ($statement === false) {
-        throw new RuntimeException('Unable to read the SQLite backup fixture.');
-    }
+    throw_if($statement === false, RuntimeException::class, 'Unable to read the SQLite backup fixture.');
 
     $value = $statement->fetchColumn();
 
-    if (! is_string($value)) {
-        throw new RuntimeException('The SQLite backup fixture did not contain a value.');
-    }
+    throw_unless(is_string($value), RuntimeException::class, 'The SQLite backup fixture did not contain a value.');
 
     return $value;
 }

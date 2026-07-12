@@ -31,11 +31,11 @@ class CreateSiteAction extends CreateAction
             ->resource(SiteResource::class)
             ->schema(function (Schema $schema, self $action): Schema {
                 $arguments = $action->getArguments();
-                $type = $arguments['type'] ?? null;
+                $blueprint = $arguments['blueprint'] ?? null;
 
                 return SiteResource::configuredForm($schema->operation('createOption'), ConfiguratorContextData::forCreate(
                     ConfiguratorTypeEnum::Site,
-                    is_string($type) ? $type : null,
+                    is_string($blueprint) ? $blueprint : null,
                 ));
             })
             ->after(function (Site $record, self $action): void {

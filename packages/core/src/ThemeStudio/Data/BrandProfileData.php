@@ -108,12 +108,12 @@ class BrandProfileData extends Data
             '--theme-overlay-treatment' => $this->allowed($this->overlayTreatment, ['none', 'subtle', 'strong'], 'subtle'),
             '--theme-overlay-opacity' => $this->overlayOpacity($this->overlayTreatment),
             ...collect($this->customTokens)
-                ->mapWithKeys(fn (string $value, string $key): array => [self::customProperty($key) => $value])
+                ->mapWithKeys(fn (string $value, string $key): array => [$this->customProperty($key) => $value])
                 ->all(),
         ];
     }
 
-    private static function customProperty(string $key): string
+    private function customProperty(string $key): string
     {
         $kebab = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $key));
 

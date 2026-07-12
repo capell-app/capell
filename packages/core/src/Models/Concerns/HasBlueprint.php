@@ -24,17 +24,6 @@ trait HasBlueprint
         return $this->belongsTo(Blueprint::class);
     }
 
-    /**
-     * Compatibility alias for persisted Livewire state created before the
-     * blueprint terminology migration.
-     *
-     * @return BelongsTo<Blueprint, $this>
-     */
-    public function type(): BelongsTo
-    {
-        return $this->blueprint();
-    }
-
     public function getBlueprint(): Blueprint
     {
         /** @var Blueprint $blueprint */

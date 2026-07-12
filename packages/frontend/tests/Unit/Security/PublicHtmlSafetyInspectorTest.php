@@ -11,7 +11,7 @@ it('consumes the core public output leak policy', function (): void {
     $inspector = new PublicHtmlSafetyInspector($policy);
 
     foreach ($policy->authoringAttributes() as $attribute) {
-        expect($inspector->containsAuthoringSurface("<div {$attribute}=\"value\"></div>"))->toBeTrue();
+        expect($inspector->containsAuthoringSurface(sprintf('<div %s="value"></div>', $attribute)))->toBeTrue();
     }
 });
 

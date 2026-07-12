@@ -105,11 +105,11 @@ jobs:
 
           composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
           dev_tools=(
-            "pestphp/pest:^0.0"
-            "pestphp/pest-plugin-arch:^0.0"
-            "pestphp/pest-plugin-laravel:^0.0"
-            "pestphp/pest-plugin-livewire:^0.0"
-            "pestphp/pest-plugin-type-coverage:^0.0"
+            "pestphp/pest:^4.3"
+            "pestphp/pest-plugin-arch:^4.0"
+            "pestphp/pest-plugin-laravel:^4.0"
+            "pestphp/pest-plugin-livewire:^4.0"
+            "pestphp/pest-plugin-type-coverage:^4.0"
             "phpstan/phpstan:^2.1"
             "phpstan/phpstan-mockery:^2.0"
             "phpstan/phpstan-strict-rules:^2.0"
@@ -127,8 +127,8 @@ jobs:
           composer require --no-interaction --no-progress --ansi --dev --no-update "${dev_tools[@]}"
           composer require --no-interaction --no-progress --ansi --no-update \
             livewire/livewire:^3.7 \
-            filament/filament:^4.7 \
-            filament/support:^4.7 \
+            "filament/filament:^5.6.8 <5.7.0-beta" \
+            "filament/support:^5.6.8 <5.7.0-beta" \
             pboivin/filament-peek:^3.0 \
             symfony/html-sanitizer:^7.0 \
             openspout/openspout:^4.22

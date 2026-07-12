@@ -281,7 +281,7 @@ it('ignores null loaded model relations when loadSite runs from cache', function
     $cachedSite = $site->fresh();
     expect($cachedSite)->toBeInstanceOf(Site::class);
 
-    $cachedSite->setRelation('type', null);
+    $cachedSite->setRelation('blueprint', null);
     CapellCore::setToCache(CacheEnum::site($site->id, $english->id), $cachedSite);
 
     $manager = CapellCore::getFacadeRoot();

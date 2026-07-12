@@ -218,7 +218,7 @@ it('rejects livewire state without package page or page type permission', functi
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::BladeOnly->value],
         'is_livewire' => false,
     ]);
-    $page = Page::factory()->type($type)->create([
+    $page = Page::factory()->blueprint($type)->create([
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::BladeOnly->value],
     ]);
     $page->load('blueprint');
@@ -273,7 +273,7 @@ it('allows livewire state when the current page rendering strategy allows livewi
 
 it('allows livewire state when the current page type opts into livewire', function (): void {
     $type = Blueprint::factory()->page()->meta(['livewire' => true])->create();
-    $page = Page::factory()->type($type)->create();
+    $page = Page::factory()->blueprint($type)->create();
     $page->load('blueprint');
 
     $context = new FrontendContext(null, null, $page, null, null, [], null);
@@ -289,7 +289,7 @@ it('allows livewire state when the current page type opts into livewire', functi
 
 it('still rejects internal marker names when a loaded livewire page type allows livewire state', function (): void {
     $type = Blueprint::factory()->page()->meta(['livewire' => true])->create();
-    $page = Page::factory()->type($type)->create();
+    $page = Page::factory()->blueprint($type)->create();
     $page->load('blueprint');
 
     $context = new FrontendContext(null, null, $page, null, null, [], null);

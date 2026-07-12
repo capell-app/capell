@@ -28,9 +28,7 @@ final class DatabaseBackupDriverRegistry
         foreach ($driver->supportedDrivers() as $name) {
             $name = strtolower(trim($name));
 
-            if ($name === '') {
-                throw new LogicException('Database backup drivers must declare a non-empty driver name.');
-            }
+            throw_if($name === '', LogicException::class, 'Database backup drivers must declare a non-empty driver name.');
 
             if (isset($this->drivers[$name])) {
                 throw new LogicException(sprintf('Database backup driver [%s] is already registered.', $name));
