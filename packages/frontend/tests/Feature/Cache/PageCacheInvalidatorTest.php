@@ -19,7 +19,7 @@ it('invalidates listing and model caches when a page is saved', function (): voi
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::now())
         ->withTranslations($language, [], slug: 'test-invalidate')
         ->create();

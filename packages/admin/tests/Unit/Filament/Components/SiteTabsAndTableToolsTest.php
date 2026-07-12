@@ -28,9 +28,9 @@ it('configures page select filter defaults and fluent options', function (): voi
 it('filters pageable table records and describes the selected pages', function (): void {
     $site = Site::factory()->withTranslations()->createOne();
     $type = Blueprint::factory()->page()->createOne(['key' => 'standard']);
-    $alphaPage = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Alpha page']);
-    $betaPage = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Beta page']);
-    $otherPage = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Other page']);
+    $alphaPage = Page::factory()->site($site)->type($type)->createOne(['name' => 'Alpha page']);
+    $betaPage = Page::factory()->site($site)->type($type)->createOne(['name' => 'Beta page']);
+    $otherPage = Page::factory()->site($site)->type($type)->createOne(['name' => 'Other page']);
 
     $alphaUrl = PageUrl::factory()->site($site)->page($alphaPage)->createOne(['url' => '/alpha']);
     $betaUrl = PageUrl::factory()->site($site)->page($betaPage)->createOne(['url' => '/beta']);

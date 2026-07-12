@@ -12,7 +12,7 @@ final class TestPublishingWorkflowAttentionContribution implements ContributesWo
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^0.0';
+        return '^4.0';
     }
 
     /**

@@ -176,7 +176,7 @@ it('does not resolve a revision page with a disabled or inaccessible type', func
     $revisionType = Blueprint::factory()->page()->state($typeAttributes)->create();
     $revisionPage = Page::factory()
         ->site($fixture['site'])
-        ->blueprint($revisionType)
+        ->type($revisionType)
         ->create();
 
     Translation::factory()

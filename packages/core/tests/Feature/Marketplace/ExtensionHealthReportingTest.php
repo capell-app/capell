@@ -16,7 +16,7 @@ it('builds extension health reports from installed extension runtime state', fun
     config([
         'app.url' => 'https://example.test',
         'app.env' => 'production',
-        'capell.version' => '0.0.x-dev',
+        'capell.version' => '1.x-dev',
     ]);
 
     CapellExtension::query()->create([
@@ -52,7 +52,7 @@ it('builds extension health reports from installed extension runtime state', fun
     expect($report)->toMatchArray([
         'install_id' => 'install-123',
         'app_url' => 'https://example.test',
-        'capell_version' => '0.0.x-dev',
+        'capell_version' => '1.x-dev',
         'environment' => 'production',
         'metadata' => [
             'source' => 'heartbeat',

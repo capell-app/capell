@@ -15,11 +15,11 @@ it('blocks page deletion for non-deletable page types and canonical dependants',
         'name' => 'Protected Type',
         'admin' => ['deletable' => false],
     ]);
-    $protectedPage = Page::factory()->blueprint($protectedType)->create(['name' => 'Protected Page']);
+    $protectedPage = Page::factory()->type($protectedType)->create(['name' => 'Protected Page']);
 
     $canonicalType = Blueprint::factory()->page()->create(['name' => 'Canonical Type']);
-    $canonicalPage = Page::factory()->blueprint($canonicalType)->create(['name' => 'Canonical Page']);
-    Page::factory()->blueprint($canonicalType)->canonicalPage($canonicalPage)->create();
+    $canonicalPage = Page::factory()->type($canonicalType)->create(['name' => 'Canonical Page']);
+    Page::factory()->type($canonicalType)->canonicalPage($canonicalPage)->create();
 
     $validator = new PageDeleteValidationHarness;
 
@@ -29,7 +29,7 @@ it('blocks page deletion for non-deletable page types and canonical dependants',
 
 it('uses content graph delete impact checks for otherwise deletable pages', function (): void {
     $type = Blueprint::factory()->page()->create(['name' => 'Article']);
-    $page = Page::factory()->blueprint($type)->create(['name' => 'Article Page']);
+    $page = Page::factory()->type($type)->create(['name' => 'Article Page']);
     $preview = new ContentImpactPreviewData(
         blocked: true,
         strongCount: 2,
@@ -59,7 +59,7 @@ it('uses content graph delete impact checks for otherwise deletable pages', func
 
 it('blocks blueprint deletion when records still use the blueprint', function (): void {
     $type = Blueprint::factory()->page()->create(['name' => 'Landing Page Type']);
-    Page::factory()->blueprint($type)->create();
+    Page::factory()->type($type)->create();
 
     $validator = new BlueprintDeleteValidationHarness;
 

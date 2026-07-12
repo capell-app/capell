@@ -11,6 +11,9 @@ use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
 use Capell\Core\Models\Blueprint;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\RelationManagers\RelationGroup;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Resources\RelationManagers\RelationManagerConfiguration;
 
 /**
  * @mixin  EditRecord
@@ -51,5 +54,37 @@ trait HasBlueprintRelationManagers
         }
 
         return $adminType::relationManagers($this->record);
+    }
+
+    /**
+     * @return array<class-string<RelationManager>|RelationGroup|RelationManagerConfiguration>
+     */
+    protected function getAllRelationManagers(): array
+    {
+        $relationManagers = [
+            ...$this->getResource()::getRelations(),
+            ...$this->getTypeRelationManagers(),
+        ];
+
+        $seen = [];
+
+        return array_values(array_filter(
+            $relationManagers,
+            static function (string|RelationGroup|RelationManagerConfiguration $manager) use (&$seen): bool {
+                $key = match (true) {
+                    is_string($manager) => $manager,
+                    $manager instanceof RelationManagerConfiguration => $manager->relationManager,
+                    default => 'group:' . spl_object_id($manager),
+                };
+
+                if (isset($seen[$key])) {
+                    return false;
+                }
+
+                $seen[$key] = true;
+
+                return true;
+            },
+        ));
     }
 }

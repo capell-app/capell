@@ -9,7 +9,7 @@ use Filament\Tables\Columns\TextColumn;
 
 it('links table column states and related pageable records to their edit pages', function (): void {
     $type = Blueprint::factory()->page()->createOne(['key' => 'standard']);
-    $page = Page::factory()->blueprint($type)->createOne(['name' => 'Linked page']);
+    $page = Page::factory()->type($type)->createOne(['name' => 'Linked page']);
     $pageUrl = PageUrl::factory()->page($page)->site($page->site)->createOne(['url' => '/linked']);
     $pageUrl->setRelation('pageable', $page);
 

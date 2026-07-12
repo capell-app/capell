@@ -10,6 +10,7 @@ const ignoredDirectories = new Set([
 
 const ignoredMarkdownPrefixes = [
     '.github/',
+    'docs/', // documentation pages may be text-only; referenced visuals are still validated
     'packages/core/resources/boost/skills/',
 ]
 

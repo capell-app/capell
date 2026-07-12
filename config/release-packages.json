@@ -1,1 +1,27 @@
-["admin", "core", "frontend", "installer", "marketplace"]
+[
+    {
+        "name": "capell-app/core",
+        "path": "packages/core",
+        "repository": "capell-app/core"
+    },
+    {
+        "name": "capell-app/admin",
+        "path": "packages/admin",
+        "repository": "capell-app/admin"
+    },
+    {
+        "name": "capell-app/frontend",
+        "path": "packages/frontend",
+        "repository": "capell-app/frontend"
+    },
+    {
+        "name": "capell-app/installer",
+        "path": "packages/installer",
+        "repository": "capell-app/installer"
+    },
+    {
+        "name": "capell-app/marketplace",
+        "path": "packages/marketplace",
+        "repository": "capell-app/marketplace"
+    }
+]

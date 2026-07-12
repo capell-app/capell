@@ -73,9 +73,9 @@ it('installs a package with no requirements', function (): void {
 });
 
 it('installs and enables every bundle member before the bundle', function (): void {
-    CapellCore::registerPackage('vendor/member-one', version: '^0.0');
-    CapellCore::registerPackage('vendor/member-two', version: '^0.0');
-    CapellCore::registerPackage('vendor/showcase', version: '^0.0');
+    CapellCore::registerPackage('vendor/member-one', version: '^1.0');
+    CapellCore::registerPackage('vendor/member-two', version: '^1.0');
+    CapellCore::registerPackage('vendor/showcase', version: '^1.0');
     $bundle = CapellCore::getPackage('vendor/showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member-one', 'vendor/member-two'];
@@ -95,10 +95,10 @@ it('installs and enables every bundle member before the bundle', function (): vo
 });
 
 it('rolls back newly activated bundle members when installation fails', function (): void {
-    CapellCore::registerPackage('vendor/member-good', version: '^0.0');
-    CapellCore::registerPackage('vendor/member-broken', version: '^0.0');
+    CapellCore::registerPackage('vendor/member-good', version: '^1.0');
+    CapellCore::registerPackage('vendor/member-broken', version: '^1.0');
     CapellCore::getPackage('vendor/member-broken')->requirements = ['vendor/missing'];
-    CapellCore::registerPackage('vendor/failing-showcase', version: '^0.0');
+    CapellCore::registerPackage('vendor/failing-showcase', version: '^1.0');
     $bundle = CapellCore::getPackage('vendor/failing-showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member-good', 'vendor/member-broken'];
@@ -207,9 +207,9 @@ it('does not leave a throwing runtime provider bundle member installed', functio
     ThrowingRuntimeProviderInstallPackageFixture::reset($failingMemberName);
 
     try {
-        CapellCore::registerPackage($goodMemberName, version: '^0.0');
-        CapellCore::registerPackage($failingMemberName, path: $failingMemberPath, version: '^0.0');
-        CapellCore::registerPackage($bundleName, version: '^0.0');
+        CapellCore::registerPackage($goodMemberName, version: '^1.0');
+        CapellCore::registerPackage($failingMemberName, path: $failingMemberPath, version: '^1.0');
+        CapellCore::registerPackage($bundleName, version: '^1.0');
 
         $bundle = CapellCore::getPackage($bundleName);
         $bundle->kind = 'bundle';
@@ -587,8 +587,8 @@ function makeInstallActionManifestPackageFixture(string $composerName, string $r
             'slug' => 'runtime-provider-package',
             'displayName' => 'Runtime Provider Package',
             'kind' => 'package',
-            'capellApiVersion' => '^0.0',
-            'version' => '0.0.x-dev',
+            'capellApiVersion' => '^1.0',
+            'version' => '1.x-dev',
             'description' => 'Runtime provider package.',
             'product' => [
                 'group' => 'Testing',

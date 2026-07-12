@@ -17,7 +17,7 @@ test('page with neighbors', function (): void {
 
     $pages = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->parent($parent)
         ->withTranslations()
         ->forEachSequence(

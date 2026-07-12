@@ -265,7 +265,7 @@ it('renders cacheable frontend GET requests anonymously even when Laravel has a 
     $type = Blueprint::factory()->page()->meta(['cache_time' => CacheTime::Daily->value])->createOne();
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published()
         ->withTranslations($language, ['title' => 'Cacheable'])
         ->createOne()

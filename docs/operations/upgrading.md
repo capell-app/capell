@@ -79,7 +79,7 @@ Security advisories appear before bug advisories and normal updates. High and cr
 
 Normal update notices may be dismissed temporarily. High and critical security notices cannot be permanently dismissed while the installed version remains affected.
 
-Composer remains manual in Capell 0.0.x on purpose. Capell tells owners what needs upgrading and gives the suggested Composer command, but package updates still happen through your normal deploy workflow:
+Composer remains manual in Capell 4.x on purpose. Capell tells owners what needs upgrading and gives the suggested Composer command, but package updates still happen through your normal deploy workflow:
 
 ```bash
 composer update capell-app/blog

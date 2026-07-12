@@ -2,12 +2,9 @@
 
 ## Supported Versions
 
-Security fixes are provided for the current Capell 0.0.x line.
+While Capell remains on the 0.0.x release line, security fixes target the current stable 0.0.x release. Users must upgrade all Capell packages together to that release before requesting a fix.
 
-| Version | Supported |
-| ------- | --------- |
-| main     | Yes       |
-| 1.x-3.x | No        |
+From Capell 1.0, each 1.x minor receives security fixes for 24 months from its release date. The latest 1.x minor is always supported.
 
 ## Reporting a Vulnerability
 

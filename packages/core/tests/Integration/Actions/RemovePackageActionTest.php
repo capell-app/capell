@@ -103,14 +103,14 @@ it('promotes bundle members while preserving direct constraints', function (): v
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
     $filesystem = new BundleComposerFilesystem([
-        $composerPath => json_encode(['require' => ['capell-app/widget-showcase' => '^0.0', 'capell-app/widget-slideshow' => '^9.0']], JSON_THROW_ON_ERROR),
+        $composerPath => json_encode(['require' => ['capell-app/widget-showcase' => '^1.1', 'capell-app/widget-slideshow' => '^9.0']], JSON_THROW_ON_ERROR),
         $lockPath => '{"lock":"before"}',
-        $bundlePath . '/composer.json' => json_encode(['require' => ['capell-app/widget-slideshow' => '^0.0', 'capell-app/widget-youtube' => '^0.0']], JSON_THROW_ON_ERROR),
+        $bundlePath . '/composer.json' => json_encode(['require' => ['capell-app/widget-slideshow' => '^1.1', 'capell-app/widget-youtube' => '^1.1']], JSON_THROW_ON_ERROR),
     ]);
     app()->instance(Filesystem::class, $filesystem);
-    CapellCore::registerPackage('capell-app/widget-slideshow', version: '^0.0');
-    CapellCore::registerPackage('capell-app/widget-youtube', version: '^0.0');
-    CapellCore::registerPackage('capell-app/widget-showcase', path: $bundlePath, version: '^0.0');
+    CapellCore::registerPackage('capell-app/widget-slideshow', version: '^1.1');
+    CapellCore::registerPackage('capell-app/widget-youtube', version: '^1.1');
+    CapellCore::registerPackage('capell-app/widget-showcase', path: $bundlePath, version: '^1.1');
     $bundle = CapellCore::getPackage('capell-app/widget-showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['capell-app/widget-slideshow', 'capell-app/widget-youtube'];
@@ -138,7 +138,7 @@ it('promotes bundle members while preserving direct constraints', function (): v
     $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
     expect($composer['require'])->not->toHaveKey('capell-app/widget-showcase')
         ->and($composer['require']['capell-app/widget-slideshow'])->toBe('^9.0')
-        ->and($composer['require']['capell-app/widget-youtube'])->toBe('^0.0')
+        ->and($composer['require']['capell-app/widget-youtube'])->toBe('^1.1')
         ->and($filesystem->contents[$lockPath])->toBe('{"lock":"after"}');
 });
 
@@ -146,12 +146,12 @@ it('restores composer files when bundle deletion fails', function (): void {
     $bundlePath = '/virtual/failing-showcase';
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
-    $originalComposer = json_encode(['require' => ['vendor/showcase' => '^0.0']], JSON_THROW_ON_ERROR);
+    $originalComposer = json_encode(['require' => ['vendor/showcase' => '^1.1']], JSON_THROW_ON_ERROR);
     $originalLock = '{"lock":"original"}';
-    $filesystem = new BundleComposerFilesystem([$composerPath => $originalComposer, $lockPath => $originalLock, $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/member' => '^0.0']], JSON_THROW_ON_ERROR)]);
+    $filesystem = new BundleComposerFilesystem([$composerPath => $originalComposer, $lockPath => $originalLock, $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/member' => '^1.1']], JSON_THROW_ON_ERROR)]);
     app()->instance(Filesystem::class, $filesystem);
-    CapellCore::registerPackage('vendor/member', version: '^0.0');
-    CapellCore::registerPackage('vendor/showcase', path: $bundlePath, version: '^0.0');
+    CapellCore::registerPackage('vendor/member', version: '^1.1');
+    CapellCore::registerPackage('vendor/showcase', path: $bundlePath, version: '^1.1');
     $bundle = CapellCore::getPackage('vendor/showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member'];
@@ -244,16 +244,16 @@ it('restores composer files when post-composer bundle finalization fails', funct
     $bundlePath = '/virtual/finalization-failing-showcase';
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
-    $originalComposer = json_encode(['require' => ['vendor/finalization-showcase' => '^0.0']], JSON_THROW_ON_ERROR);
+    $originalComposer = json_encode(['require' => ['vendor/finalization-showcase' => '^1.1']], JSON_THROW_ON_ERROR);
     $originalLock = '{"lock":"original"}';
     $filesystem = new BundleComposerFilesystem([
         $composerPath => $originalComposer,
         $lockPath => $originalLock,
-        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/finalization-member' => '^0.0']], JSON_THROW_ON_ERROR),
+        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/finalization-member' => '^1.1']], JSON_THROW_ON_ERROR),
     ]);
     app()->instance(Filesystem::class, $filesystem);
-    CapellCore::registerPackage('vendor/finalization-member', version: '^0.0');
-    CapellCore::registerPackage('vendor/finalization-showcase', path: $bundlePath, version: '^0.0');
+    CapellCore::registerPackage('vendor/finalization-member', version: '^1.1');
+    CapellCore::registerPackage('vendor/finalization-showcase', path: $bundlePath, version: '^1.1');
     $bundle = CapellCore::getPackage('vendor/finalization-showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/finalization-member'];
@@ -301,13 +301,13 @@ it('updates already-direct bundle members and verifies the bundle leaves the loc
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
     $filesystem = new BundleComposerFilesystem([
-        $composerPath => json_encode(['require' => ['vendor/member' => '^0.0']], JSON_THROW_ON_ERROR),
+        $composerPath => json_encode(['require' => ['vendor/member' => '^1.1']], JSON_THROW_ON_ERROR),
         $lockPath => json_encode(['packages' => [['name' => 'vendor/showcase'], ['name' => 'vendor/member']]], JSON_THROW_ON_ERROR),
-        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/member' => '^0.0']], JSON_THROW_ON_ERROR),
+        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/member' => '^1.1']], JSON_THROW_ON_ERROR),
     ]);
     app()->instance(Filesystem::class, $filesystem);
-    CapellCore::registerPackage('vendor/member', version: '^0.0');
-    CapellCore::registerPackage('vendor/showcase', path: $bundlePath, version: '^0.0');
+    CapellCore::registerPackage('vendor/member', version: '^1.1');
+    CapellCore::registerPackage('vendor/showcase', path: $bundlePath, version: '^1.1');
     $bundle = CapellCore::getPackage('vendor/showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member'];
@@ -339,16 +339,16 @@ it('restores composer files when a transitive bundle remains locked', function (
     $bundlePath = '/virtual/retained-showcase';
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
-    $originalComposer = json_encode(['require' => ['vendor/member' => '^0.0']], JSON_THROW_ON_ERROR);
+    $originalComposer = json_encode(['require' => ['vendor/member' => '^1.1']], JSON_THROW_ON_ERROR);
     $originalLock = json_encode(['packages' => [['name' => 'vendor/showcase'], ['name' => 'vendor/member']]], JSON_THROW_ON_ERROR);
     $filesystem = new BundleComposerFilesystem([
         $composerPath => $originalComposer,
         $lockPath => $originalLock,
-        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/member' => '^0.0']], JSON_THROW_ON_ERROR),
+        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/member' => '^1.1']], JSON_THROW_ON_ERROR),
     ]);
     app()->instance(Filesystem::class, $filesystem);
-    CapellCore::registerPackage('vendor/member', version: '^0.0');
-    CapellCore::registerPackage('vendor/showcase', path: $bundlePath, version: '^0.0');
+    CapellCore::registerPackage('vendor/member', version: '^1.1');
+    CapellCore::registerPackage('vendor/showcase', path: $bundlePath, version: '^1.1');
     $bundle = CapellCore::getPackage('vendor/showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member'];
@@ -386,16 +386,16 @@ it('restores composer files and reports safe operator diagnostics when recovery 
     $bundlePath = '/virtual/recovery-failing-showcase';
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
-    $originalComposer = json_encode(['require' => ['vendor/recovery-showcase' => '^0.0']], JSON_THROW_ON_ERROR);
+    $originalComposer = json_encode(['require' => ['vendor/recovery-showcase' => '^1.1']], JSON_THROW_ON_ERROR);
     $originalLock = json_encode(['packages' => [['name' => 'vendor/recovery-showcase'], ['name' => 'vendor/recovery-member']]], JSON_THROW_ON_ERROR);
     $filesystem = new BundleComposerFilesystem([
         $composerPath => $originalComposer,
         $lockPath => $originalLock,
-        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/recovery-member' => '^0.0']], JSON_THROW_ON_ERROR),
+        $bundlePath . '/composer.json' => json_encode(['require' => ['vendor/recovery-member' => '^1.1']], JSON_THROW_ON_ERROR),
     ]);
     app()->instance(Filesystem::class, $filesystem);
-    CapellCore::registerPackage('vendor/recovery-member', version: '^0.0');
-    CapellCore::registerPackage('vendor/recovery-showcase', path: $bundlePath, version: '^0.0');
+    CapellCore::registerPackage('vendor/recovery-member', version: '^1.1');
+    CapellCore::registerPackage('vendor/recovery-showcase', path: $bundlePath, version: '^1.1');
     $bundle = CapellCore::getPackage('vendor/recovery-showcase');
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/recovery-member'];
@@ -489,7 +489,7 @@ it('restores composer files and reports safe operator diagnostics when recovery 
 it('wraps recovery process creation setup and timeout failures safely', function (string $failurePoint): void {
     $composerPath = base_path('composer.json');
     $lockPath = base_path('composer.lock');
-    $originalComposer = json_encode(['require' => ['vendor/throwing-package' => '^0.0']], JSON_THROW_ON_ERROR);
+    $originalComposer = json_encode(['require' => ['vendor/throwing-package' => '^1.1']], JSON_THROW_ON_ERROR);
     $originalLock = json_encode(['packages' => [['name' => 'vendor/throwing-package']]], JSON_THROW_ON_ERROR);
     $filesystem = new BundleComposerFilesystem([
         $composerPath => $originalComposer,

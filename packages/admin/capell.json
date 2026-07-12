@@ -4,8 +4,8 @@
     "slug": "admin",
     "displayName": "Capell Admin",
     "kind": "package",
-    "capellApiVersion": "^0.0",
-    "version": "0.0.x-dev",
+    "capellApiVersion": "^1.0",
+    "version": "1.x-dev",
     "description": "Admin provides the Filament panel, resources, dashboards, settings UI, users, page editing, media UI, and recovery shell.",
     "product": {
         "group": "Capell Foundation",

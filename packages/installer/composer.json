@@ -20,7 +20,7 @@
     "require": {
         "php": "^8.4",
         "ext-intl": "*",
-        "capell-app/core": "self.version",
+        "capell-app/core": "^1.0",
         "spatie/laravel-package-tools": "^1.14.1"
     },
     "autoload": {
@@ -43,7 +43,7 @@
             ]
         },
         "branch-alias": {
-            "dev-main": "4.x-dev"
+            "dev-main": "1.x-dev"
         }
     },
     "minimum-stability": "stable",

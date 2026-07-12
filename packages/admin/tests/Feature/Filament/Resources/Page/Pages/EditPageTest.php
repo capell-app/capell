@@ -11,8 +11,11 @@ use Capell\Admin\Filament\Components\Forms\Page\ContentEditor;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
 use Capell\Admin\Filament\Configurators\Pages\LandingPageConfigurator;
 use Capell\Admin\Filament\Configurators\Pages\ResultsPageConfigurator;
+use Capell\Admin\Filament\RelationManagers\ActivityHistoryRelationManager;
+use Capell\Admin\Filament\RelationManagers\EventSourcedHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
+use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\ContentStructure;
@@ -31,7 +34,6 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\Builder\Block;
-use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
@@ -99,6 +101,28 @@ test('can render page', function (): void {
         ->assertSuccessful();
 });
 
+test('standard page relations survive blueprint relations without duplicates', function (): void {
+    $page = Page::factory()->createOne();
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])->instance();
+
+    assert($component instanceof EditPage);
+
+    $relationManagers = $component->getRelationManagers();
+
+    expect($relationManagers)
+        ->toContain(ActivityHistoryRelationManager::class)
+        ->toContain(EventSourcedHistoryRelationManager::class)
+        ->toContain(UrlsRelationManager::class)
+        ->and(count(array_filter(
+            $relationManagers,
+            static fn (mixed $relationManager): bool => $relationManager === UrlsRelationManager::class,
+        )))
+        ->toBe(1);
+});
+
 test('renders the typed Blocks page-body editor for a page-level content structure override', function (): void {
     $language = Language::factory()->createOne();
     $page = Page::factory()
@@ -137,7 +161,7 @@ test('edit page hides authoring surface markup', function (bool $layoutEditable)
             'layout_editable' => $layoutEditable,
         ],
     ]);
-    $page = Page::factory()->blueprint($type)->create();
+    $page = Page::factory()->type($type)->create();
 
     $response = get(PageResource::getUrl('edit', [
         'record' => $page,
@@ -719,7 +743,7 @@ it('can save', function (PageTypeEnum $pageTypeEnum): void {
 
     $pageType = $pageTypeEnum->createPageType();
 
-    $page = Page::factory()->site($site)->blueprint($pageType)->create();
+    $page = Page::factory()->site($site)->type($pageType)->create();
     setupPage($page, $languages);
 
     $newData = Page::factory()
@@ -749,12 +773,12 @@ it('can edit database-backed page fields from the admin form', function (): void
     $newLayout = $site->layouts()->save(Layout::factory()->make());
     $type = Blueprint::factory()->page()->create();
     $newType = Blueprint::factory()->page()->create();
-    $parent = Page::factory()->site($site)->blueprint($type)->layout($layout)->create();
+    $parent = Page::factory()->site($site)->type($type)->layout($layout)->create();
     setupPage($parent, $languages);
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->layout($layout)
         ->parent($parent)
         ->create([
@@ -872,10 +896,10 @@ it('prevents assigning a parent page that is missing one of the edited page lang
         ->create();
     $type = Blueprint::factory()->page()->create();
 
-    $parent = Page::factory()->site($site)->blueprint($type)->create(['name' => 'Parent']);
+    $parent = Page::factory()->site($site)->type($type)->create(['name' => 'Parent']);
     $parent->translations()->save(Translation::factory()->language($english)->make());
 
-    $page = Page::factory()->site($site)->blueprint($type)->create(['name' => 'Child']);
+    $page = Page::factory()->site($site)->type($type)->create(['name' => 'Child']);
     $page->translations()->saveMany([
         Translation::factory()->language($english)->make(),
         Translation::factory()->language($french)->make(),
@@ -1288,7 +1312,7 @@ it('ignores tampered redirect event payloads that were not recorded url changes'
 test('can save content string into blocks', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
-    $page = Page::factory()->recycle($language)->blueprint($type)->withTranslations()->create();
+    $page = Page::factory()->recycle($language)->type($type)->withTranslations()->create();
     $content = $page->translation->content;
 
     Livewire::test(EditPage::class, [
@@ -1313,7 +1337,7 @@ test('can save content string into blocks', function (): void {
 test('can save content blocks into string', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->create();
-    $page = Page::factory()->recycle($language)->blueprint($type)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
 
     $translation = Translation::factory()
         ->language($language)
@@ -1340,7 +1364,7 @@ test('can save content blocks into string', function (): void {
 test('can convert html content to blocks from the content editor hint action', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Html)->create();
-    $page = Page::factory()->recycle($language)->blueprint($type)->withTranslations()->create();
+    $page = Page::factory()->recycle($language)->type($type)->withTranslations()->create();
     $translation = $page->translation;
     $content = $translation->content;
 
@@ -1405,7 +1429,7 @@ test('default content block uses a simplified content-only schema', function ():
 test('can convert content blocks back to html from the content editor hint action', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
-    $page = Page::factory()->recycle($language)->blueprint($type)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
 
     $translation = Translation::factory()
         ->language($language)
@@ -1430,10 +1454,8 @@ test('can convert content blocks back to html from the content editor hint actio
 
     expect($page->refresh()->content_structure)->toBe(ContentStructure::Html);
 
-    $editorContent = data_get($component->get('data'), sprintf('translations.record-%d.content', $translation->getKey()));
-
-    expect($editorContent)->toBeArray()
-        ->and(RichContentRenderer::make($editorContent)->toHtml())->toBe($content);
+    expect(data_get($component->instance()->data, sprintf('translations.record-%d.content', $translation->getKey())))
+        ->toBe($content);
 });
 
 test('can edit page type and handle updated the content data changing to builder', function (): void {
@@ -1482,7 +1504,7 @@ test('can edit page type and handle updated the content data changing to builder
 
 it('warns editors when the page type content structure changes', function (): void {
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Html)->create();
-    $page = Page::factory()->blueprint($type)->create();
+    $page = Page::factory()->type($type)->create();
 
     $component = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),

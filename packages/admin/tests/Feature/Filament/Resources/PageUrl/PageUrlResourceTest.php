@@ -28,12 +28,12 @@ test('admin render page urls page with redirect filter', function (): void {
 
     $language = Language::factory()->createOne();
     $site = Site::factory()->recycle($language)->create();
-    SiteDomain::factory()->recycle($site)->recycle($language)->create();
+    SiteDomain::factory()->default()->recycle($site)->recycle($language)->create();
     $page = Page::factory()->recycle($site)->create();
     PageUrl::factory()->site($site)->language($language)->page($page)->redirect()->create();
     Translation::factory()->language($language)->translatable($page)->create();
 
-    get(PageUrlResource::getUrl(parameters: ['tableFilters' => ['type' => ['value' => 'redirect']]]))
+    get(PageUrlResource::getUrl(parameters: ['filters' => ['filters[type][value]' => 'redirect']]))
         ->assertOk()
         ->assertSeeText('Showing 1 result');
 });

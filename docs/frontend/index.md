@@ -2,9 +2,25 @@
 
 Capell Frontend resolves public requests and renders published pages. It owns site/page loading, layout/theme context, frontend settings, cache-aware rendering, public HTML safety, and package-facing frontend hooks.
 
-> **Who's this for?** Developers building the public site (Blade, Livewire, Inertia) on Capell. Rendering, themes, assets, caching, and safety.
+Use this section if you build or test the public site with Blade, Livewire, or Inertia.
 
 Status: `Available` · Package: `capell-app/frontend`
+
+| I need to...                               | Read                                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------------- |
+| Choose how to compose a page               | [Build a page](../getting-started/building-pages.md)                       |
+| Understand the render pipeline             | [Frontend guide](guide.md)                                                 |
+| Resolve site, page, and language loading   | [Page and site loading](../../packages/frontend/docs/page-site-loading.md) |
+| Protect anonymous public output            | [Public HTML safety](public-html-safety.md)                                |
+| Configure server fallback and static cache | [Server config](../../packages/frontend/docs/server-config.md)             |
+| Register render hooks                      | [Render hooks](../../packages/frontend/docs/extending-render-hooks.md)     |
+| Work with themes                           | [Frontend themes](themes.md)                                               |
+| Register package Tailwind assets           | [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md)         |
+| Render media safely                        | [Media rendering](media-rendering.md)                                      |
+| Add and configure frontend widgets         | [Widgets](widgets.md)                                                      |
+| Build with Inertia                         | [Capell Inertia runtime](../getting-started/inertia-runtime.md)            |
+| Test public output                         | [Frontend testing](../../packages/frontend/docs/testing-frontend.md)       |
+| Debug public output or cache bypasses      | [Debugging public output](debugging-public-output.md)                      |
 
 ## Request Flow
 
@@ -70,28 +86,14 @@ For public-output safety, assert absence as well as presence.
 
 Use `sinnbeck/laravel-dom-assertions` when the element, region, attribute, or repeated component count matters. App/theme tests can request seeded public pages directly; package tests can use factories when they need to own the fixture. The frontend package guide has copy-pasteable examples.
 
-## Read Next
+## More Frontend Guides
 
-| Need                                             | Read                                                                       |
-| ------------------------------------------------ | -------------------------------------------------------------------------- |
-| Choose page composition                          | [Build a page](../getting-started/building-pages.md)                       |
-| Understand the render pipeline                   | [Frontend guide](guide.md)                                                 |
-| Resolve site/page/language loading               | [Page and site loading](../../packages/frontend/docs/page-site-loading.md) |
-| Configure server fallback and static cache rules | [Server config](../../packages/frontend/docs/server-config.md)             |
-| Register render hooks                            | [Render hooks](../../packages/frontend/docs/extending-render-hooks.md)     |
-| Understand theme runtime                         | [Frontend themes](themes.md)                                               |
-| Register package Tailwind assets                 | [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md)         |
-| Compile symlinked vendor CSS with Tailwind v4    | [Tailwind v4 + symlinked vendor CSS](tailwind-vendor-css.md)               |
-| Render media safely                              | [Media rendering](media-rendering.md)                                      |
-| Add frontend widgets                             | [Widgets](widgets.md)                                                      |
-| Register a widget and load its assets            | [Widget registration](widget-registration.md)                              |
-| Set widget instance and presentation state       | [Widget state](widget-state.md)                                            |
-| Open lazy widget and fragment targets            | [Widget and fragment targets](widget-targets.md)                           |
-| Build with Inertia                               | [Capell Inertia runtime](../getting-started/inertia-runtime.md)            |
-| Build interactive widget and fragment targets    | [Capell Interactions](../getting-started/capell-interactions.md)           |
-| Support Blaze templates                          | [Blaze support](blaze-support.md)                                          |
-| Test public output                               | [Frontend testing](../../packages/frontend/docs/testing-frontend.md)       |
-| Debug public output or cache bypasses            | [Debugging public output](debugging-public-output.md)                      |
+- [Tailwind v4 with symlinked vendor CSS](tailwind-vendor-css.md)
+- [Widget registration and assets](widget-registration.md)
+- [Widget instance and presentation state](widget-state.md)
+- [Lazy widget and fragment targets](widget-targets.md)
+- [Interactive widget and fragment targets](../getting-started/capell-interactions.md)
+- [Blaze support](blaze-support.md)
 
 ## Optional Frontend Features
 

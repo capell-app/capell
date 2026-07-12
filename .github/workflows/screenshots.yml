@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     branches:
-      - main
+      - 4.x
     paths:
       - 'docs/screenshots.json'
       - 'packages/**'
@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: capell-app/capell
-          ref: ${{ github.repository == 'capell-app/capell' && github.sha || 'main' }}
+          ref: ${{ github.repository == 'capell-app/capell' && github.sha || '4.x' }}
           token: ${{ secrets.ACCESS_TOKEN }}
           fetch-depth: 0
           path: repositories/capell
@@ -95,15 +95,6 @@ jobs:
           ref: ${{ inputs.screenshot_runner_ref || 'main' }}
           token: ${{ secrets.ACCESS_TOKEN }}
           path: services/capell-screenshot-runner
-
-      - name: Checkout foundation theme assets
-        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          repository: capell-app/foundation-theme
-          ref: 4.x
-          token: ${{ secrets.ACCESS_TOKEN }}
-          path: services/capell-screenshot-runner/vendor/capell-app/foundation-theme
 
       - name: Setup PHP
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true

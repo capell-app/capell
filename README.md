@@ -2,17 +2,38 @@
 
 ![Capell CMS banner showing the Pages admin surface](docs/images/capell-readme-banner.jpg)
 
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
+[![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg)](https://app.codecov.io/gh/capell-app/capell)
+[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
+[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 **Capell is a CMS layer for Laravel, built on Filament.** It gives your app the content model most teams rebuild on every project — pages, multi-site, multi-language URLs, media, redirects, roles, settings — while leaving the public frontend entirely in your hands.
 
 You keep Laravel: Eloquent models, queues, Blade, Composer, tests, and your deploy pipeline. Capell adds the CMS, an editor workspace, and clean extension points, so a content site never turns into an endless series of one-off page builds.
 
-![Capell admin dashboard](docs/images/admin-dashboard.png)
+## Choose Your Path
+
+Pick the path that matches what you are doing. The full route map lives at [docs/README.md](docs/README.md).
+
+| I want to...                                       | Read this                                                                                                                                                                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Try Capell in a fresh Laravel app                  | [Quickstart](docs/getting-started/quickstart.md)                                                                                                                                                                               |
+| Install Capell into an existing app                | [Install guide](docs/getting-started/install.md)                                                                                                                                                                               |
+| Learn the core concepts in order                   | [Capell Learn](docs/getting-started/capell-learn.md)                                                                                                                                                                           |
+| Understand the developer architecture              | [How Capell works](docs/getting-started/how-capell-works.md)                                                                                                                                                                   |
+| Build or extend a Capell package                   | [Packages](docs/packages/README.md)                                                                                                                                                                                            |
+| Spend my first session as an editor                | [First session](docs/getting-started/first-session.md)                                                                                                                                                                         |
+| Build pages, frontends, and interactive components | Page structure: [Build a page](docs/getting-started/building-pages.md) · Inertia/Vue: [Inertia runtime](docs/getting-started/inertia-runtime.md) · Live fragments: [Interactions](docs/getting-started/capell-interactions.md) |
+| Contribute to the host monorepo                    | [Contribution guide](CONTRIBUTING.md)                                                                                                                                                                                          |
 
 ## See Capell In Practice
 
 Capell's admin is a Filament workspace for real content operations: page trees, media, settings, theme workflows, diagnostics, and package-backed tools all sit inside the Laravel app you already deploy.
+
+![Capell admin dashboard](docs/images/admin-dashboard.png)
 
 | Surface                                                                  | What it shows                                                                                                                            |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -69,22 +90,6 @@ php -S 127.0.0.1:8000 -t public public/index.php
 ```
 
 Open `http://localhost:8000/admin` for the admin panel and `http://localhost:8000` for the frontend. The [Quickstart](docs/getting-started/quickstart.md) covers database setup, queue notes, screenshots, and first-run fixes.
-
-## Start Here
-
-Pick the path that matches what you are doing. The full route map lives at [docs/README.md](docs/README.md).
-
-| I want to...                              | Read this                                                                                                                |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Try Capell in a fresh Laravel app         | [Quickstart](docs/getting-started/quickstart.md)                                                                         |
-| Install Capell into an existing app       | [Install guide](docs/getting-started/install.md)                                                                         |
-| Learn the core concepts in order          | [Capell Learn](docs/getting-started/capell-learn.md)                                                                     |
-| Understand the developer architecture     | [How Capell works](docs/getting-started/how-capell-works.md)                                                             |
-| Build or extend a Capell package          | [Packages](docs/packages/README.md)                                                                                      |
-| Spend my first session as an editor       | [First session](docs/getting-started/first-session.md)                                                                   |
-| Choose how to build a page                | [Build a page](docs/getting-started/building-pages.md)                                                                   |
-| Build with Inertia, Vue, or interactivity | [Inertia runtime](docs/getting-started/inertia-runtime.md) · [Interactions](docs/getting-started/capell-interactions.md) |
-| Browse every getting-started guide        | [Getting Started index](docs/getting-started/index.md)                                                                   |
 
 ## What This Repository Contains
 
@@ -183,15 +188,15 @@ This section is for working _inside_ this monorepo. Installing Capell into your 
 
 Common Composer scripts:
 
-| Command                  | Purpose                                                       |
-| ------------------------ | ------------------------------------------------------------- |
-| `composer test`          | Run the Pest test suite                                       |
-| `composer test:fast`     | Run the sharded fast Pest command                             |
-| `composer lint`          | Run changed-file Pint formatting                              |
-| `composer analyze`       | Run the fast PHPStan configuration                            |
-| `composer preflight`     | Run PHPStan and changed-file formatting                       |
-| `composer preflight:all` | Full non-mutating quality gate (checks, PHPStan, audit, Pest) |
-| `composer serve`         | Build and serve the Testbench workbench at localhost          |
+| Command                  | Purpose                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| `composer test`          | Run the Pest test suite                                                                  |
+| `composer test:fast`     | Run the sharded fast Pest command                                                        |
+| `composer lint`          | Run changed-file Pint formatting                                                         |
+| `composer analyze`       | Run the fast PHPStan configuration                                                       |
+| `composer preflight`     | Run the fast quality and test gate (PHPStan, Rector, formatting, ESLint, preflight Pest) |
+| `composer preflight:all` | Full non-mutating quality gate (checks, PHPStan, audit, Pest)                            |
+| `composer serve`         | Build and serve the Testbench workbench at localhost                                     |
 
 A Docker harness is available when you need a clean shell for agent, CI, or local verification (`docker compose up -d`, then `docker compose exec app composer test`). It is a CLI package-development harness, not an application runtime, and provides MariaDB, Redis, Mailpit, Node, and the required PHP extensions.
 

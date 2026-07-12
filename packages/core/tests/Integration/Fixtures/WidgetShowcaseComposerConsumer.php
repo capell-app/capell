@@ -182,15 +182,15 @@ final class WidgetShowcaseComposerConsumer
                 ? [self::TRANSITIVE_DEPENDENCY => '1.0.0']
                 : [];
 
-            $this->writePackage($memberName, '0.0.2', $requirements);
+            $this->writePackage($memberName, '4.1.0', $requirements);
         }
 
         $bundleRequirements = ['php' => '^8.4'];
         foreach (self::MEMBERS as $memberName) {
-            $bundleRequirements[$memberName] = '^0.0 || 0.0.x-dev';
+            $bundleRequirements[$memberName] = '^1.0';
         }
 
-        $this->writePackage(self::BUNDLE, '0.0.2', $bundleRequirements);
+        $this->writePackage(self::BUNDLE, '4.1.0', $bundleRequirements);
         $this->writeJson($this->rootPath . '/composer.json', [
             'name' => 'capell-tests/widget-showcase-consumer',
             'type' => 'project',
@@ -204,9 +204,9 @@ final class WidgetShowcaseComposerConsumer
                 ],
             ],
             'require' => [
-                'capell-app/widget-content-reveal' => '0.0.2',
-                'capell-app/widget-hotspots' => '^0.0',
-                self::BUNDLE => '^0.0',
+                'capell-app/widget-content-reveal' => '4.1.0',
+                'capell-app/widget-hotspots' => '^1.1',
+                self::BUNDLE => '^1.1',
             ],
             'config' => [
                 'allow-plugins' => false,

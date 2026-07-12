@@ -2,6 +2,12 @@
 
 ![Capell Installer package selection and guided setup handoff](docs/assets/readme/hero.jpg)
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/installer.svg?style=flat-square)](https://packagist.org/packages/capell-app/installer)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=installer)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/installer?components%5B0%5D=installer&displayType=list)
+[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
+[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
+[![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
+
 `capell-app/installer` provides the browser installation workflow for fresh Capell CMS applications. It owns the install routes, progress screens, install guide patches, not-installed dashboard warning, and post-install setup package removal.
 
 Use this package while bootstrapping a new Capell app. It is designed to be removable after setup.
@@ -87,6 +93,18 @@ Run installer tests after changing installer routes, setup validation, preflight
 vendor/bin/pest tests
 ```
 
+## Requirements And Support Policy
+
+| Surface | Supported versions                          |
+| ------- | ------------------------------------------- |
+| PHP     | `^8.4`                                      |
+| Laravel | Host Laravel `^12.41.1` or `^13.0` via Core |
+| Core    | The same release as this package            |
+
+Security fixes target the current stable Capell release. While Capell remains on 0.0.x, upgrade all Capell packages together to the latest stable 0.0.x release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+
+Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
+
 ## Troubleshooting
 
 | Symptom                                             | Check                                                                                                                | Fix                                                                                                    |
@@ -99,6 +117,10 @@ vendor/bin/pest tests
 | Progress says the session expired                   | Check the cache driver and `capell.install.{installId}.*` keys                                                       | Restart the installer with a persistent cache store or use the CLI installer.                          |
 | A guide patch fails                                 | Read the patch `reason()` and matching patch test                                                                    | Fix the host file or update the patch probe/apply logic with regression coverage.                      |
 | Reports/progress pages remain reachable after setup | `composer show capell-app/installer`                                                                                 | Remove the package or restrict access immediately.                                                     |
+
+## Development
+
+Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
 ## Further Reading
 

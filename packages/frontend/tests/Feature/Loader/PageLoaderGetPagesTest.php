@@ -28,7 +28,7 @@ beforeEach(function (): void {
 
     $bravoPage = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-01-10 10:00:00'))
         ->state([
             'created_at' => CarbonImmutable::parse('2026-01-10 10:00:00'),
@@ -39,7 +39,7 @@ beforeEach(function (): void {
 
     $alphaPage = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-03-10 10:00:00'))
         ->state([
             'created_at' => CarbonImmutable::parse('2026-03-10 10:00:00'),
@@ -50,7 +50,7 @@ beforeEach(function (): void {
 
     $charliePage = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-02-10 10:00:00'))
         ->state([
             'created_at' => CarbonImmutable::parse('2026-02-10 10:00:00'),
@@ -70,7 +70,7 @@ beforeEach(function (): void {
 
     $parentPage = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-03-01 00:00:00'))
         ->state(['order' => 1])
         ->withTranslations($language, ['title' => 'Parent'], slug: 'parent-page')
@@ -79,7 +79,7 @@ beforeEach(function (): void {
     $childOne = Page::factory()
         ->site($site)
         ->parent($parentPage)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-03-01 00:00:00'))
         ->state(['order' => 2])
         ->withTranslations($language, ['title' => 'Child One'], slug: 'child-one')
@@ -88,7 +88,7 @@ beforeEach(function (): void {
     $childTwo = Page::factory()
         ->site($site)
         ->parent($parentPage)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-03-01 00:00:00'))
         ->state(['order' => 3])
         ->withTranslations($language, ['title' => 'Child Two'], slug: 'child-two')
@@ -101,7 +101,7 @@ beforeEach(function (): void {
 
     $groupedPage = Page::factory()
         ->site($site)
-        ->blueprint($groupedType)
+        ->type($groupedType)
         ->published(CarbonImmutable::parse('2026-03-01 00:00:00'))
         ->state(['order' => 40])
         ->withTranslations($language, ['title' => 'Grouped'], slug: 'grouped-page')
@@ -113,7 +113,7 @@ beforeEach(function (): void {
 
     $nonListablePage = Page::factory()
         ->site($site)
-        ->blueprint($nonListableType)
+        ->type($nonListableType)
         ->published(CarbonImmutable::parse('2026-03-01 00:00:00'))
         ->state(['order' => 50])
         ->withTranslations($language, ['title' => 'Hidden'], slug: 'hidden-page')
@@ -229,7 +229,7 @@ it('skips pages whose type does not opt into next and previous navigation', func
 
     $currentPage = Page::factory()
         ->site($this->site)
-        ->blueprint($navigableType)
+        ->type($navigableType)
         ->parent($this->parentPage)
         ->published(CarbonImmutable::parse('2026-04-01 10:00:00'))
         ->state(['order' => 4])
@@ -238,7 +238,7 @@ it('skips pages whose type does not opt into next and previous navigation', func
 
     Page::factory()
         ->site($this->site)
-        ->blueprint($nonNavigableType)
+        ->type($nonNavigableType)
         ->parent($this->parentPage)
         ->published(CarbonImmutable::parse('2026-04-02 10:00:00'))
         ->state(['order' => 5])
@@ -247,7 +247,7 @@ it('skips pages whose type does not opt into next and previous navigation', func
 
     $nextPage = Page::factory()
         ->site($this->site)
-        ->blueprint($navigableType)
+        ->type($navigableType)
         ->parent($this->parentPage)
         ->published(CarbonImmutable::parse('2026-04-03 10:00:00'))
         ->state(['order' => 6])

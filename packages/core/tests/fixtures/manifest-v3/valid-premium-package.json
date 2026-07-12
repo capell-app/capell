@@ -4,8 +4,8 @@
     "slug": "example",
     "displayName": "Example",
     "kind": "package",
-    "capellApiVersion": "^0.0",
-    "version": "0.0.x-dev",
+    "capellApiVersion": "^1.0",
+    "version": "1.x-dev",
     "description": "Example extension.",
     "product": {
         "group": "Developer Tools",

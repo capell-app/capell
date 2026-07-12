@@ -103,7 +103,7 @@ class SitesTable implements TableConfigurator
                         ->slideOver()
                         ->modalWidth(Width::ScreenLarge)
                         ->mutateFormDataUsing(fn (array $data, Site $record): array => ThemesTable::editorRecordData($record->theme, $data))
-                        ->action(fn (Site $record, array $data): bool => $record->theme->update($data))
+                        ->action(fn (Site $record, array $data): mixed => $record->theme->update($data))
                         ->hidden(fn (Site $record): bool => ! $record->theme instanceof Theme || $record->theme->trashed()),
                     Action::make('edit-blueprint')
                         ->label(__('capell-admin::button.edit_blueprint'))

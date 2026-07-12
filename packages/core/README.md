@@ -3,6 +3,9 @@
 ![Capell Core architectural cutaway showing Site, Language, Page, URL, Settings, Theme, and Extension layers](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/core.svg?style=flat-square)](https://packagist.org/packages/capell-app/core)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=core)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/core?components%5B0%5D=core&displayType=list)
+[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
+[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/core` is the platform package for Capell CMS. It owns the shared content model, package registry, install and upgrade orchestration, settings infrastructure, and extension contracts used by Admin, Frontend, Installer, Marketplace, and first-party add-ons.
@@ -109,7 +112,9 @@ composer preflight
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |
 
-While Capell remains on the 0.0.x release line, defect and security support targets the current stable 0.0.x release. Users must upgrade to that release before requesting a fix. The published 1.x maintenance windows begin with Capell 1.0: each 1.x minor will receive bug fixes for 12 months and security fixes for 24 months from release, with the latest 1.x minor always supported.
+Security fixes target the current stable 0.0.x release. Upgrade all Capell packages together to that release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+
+The published 1.x maintenance windows begin with Capell 1.0.
 
 Support covers the dependency ranges above. When an upstream PHP, Laravel, Filament, or Symfony release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 
@@ -119,6 +124,10 @@ Support covers the dependency ranges above. When an upstream PHP, Laravel, Filam
 - New migrations that work in tests but not on install are usually missing from `HasMigrations::getMigrations()`.
 - Missing default page records or Blueprint warnings should be checked with `php artisan capell:doctor` before changing seed or setup code.
 - Do not document moved features as Core behavior. Publishing Studio, generated HTML cache, site discovery, frontend authoring, SEO, blog, navigation, and Migration Assistant workflows are package-owned.
+
+## Development
+
+Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
 ## Further Reading
 

@@ -4,8 +4,8 @@
     "slug": "core",
     "displayName": "Capell Core",
     "kind": "package",
-    "capellApiVersion": "^0.0",
-    "version": "0.0.x-dev",
+    "capellApiVersion": "^1.0",
+    "version": "1.x-dev",
     "description": "Core owns sites, pages, languages, types, settings, package registry, and install/upgrade orchestration.",
     "product": {
         "group": "Capell Foundation",

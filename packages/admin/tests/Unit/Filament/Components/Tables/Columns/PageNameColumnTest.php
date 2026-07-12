@@ -42,7 +42,7 @@ it('renders linked names child counts type icons and deleted page colours', func
         ],
     ]);
 
-    $page = Page::factory()->blueprint($type)->createOne([
+    $page = Page::factory()->type($type)->createOne([
         'name' => 'Child page',
         'deleted_at' => now(),
     ]);
@@ -67,9 +67,9 @@ it('renders linked names child counts type icons and deleted page colours', func
 it('renders ancestor and URL descriptions from loaded page relationships', function (): void {
     $site = Site::factory()->withTranslations(siteDomainData: ['domain' => 'example.test', 'scheme' => 'https'])->createOne();
     $type = Blueprint::factory()->page()->createOne(['key' => 'standard']);
-    $section = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Section']);
-    $parent = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Parent']);
-    $page = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Child']);
+    $section = Page::factory()->site($site)->type($type)->createOne(['name' => 'Section']);
+    $parent = Page::factory()->site($site)->type($type)->createOne(['name' => 'Parent']);
+    $page = Page::factory()->site($site)->type($type)->createOne(['name' => 'Child']);
 
     PageUrl::factory()
         ->site($site)
@@ -117,7 +117,7 @@ it('renders ancestor and URL descriptions from loaded page relationships', funct
 it('formats related pageable records and reports missing page relationships', function (): void {
     $site = Site::factory()->withTranslations()->createOne();
     $type = Blueprint::factory()->page()->createOne(['key' => 'standard']);
-    $page = Page::factory()->site($site)->blueprint($type)->createOne(['name' => 'Related page']);
+    $page = Page::factory()->site($site)->type($type)->createOne(['name' => 'Related page']);
     $page->setAttribute('children_count', 0);
 
     $pageUrl = PageUrl::factory()->site($site)->page($page)->createOne(['url' => '/related']);

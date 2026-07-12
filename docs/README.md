@@ -1,116 +1,69 @@
 # Capell Docs
 
-Use this page as the route map. The docs are intentionally small: each page should answer a busy developer's next question without sending them through a chain of fragments.
-
-## Implementation records
-
-- [Core Nano Banana finished artwork plan](superpowers/plans/2026-07-11-core-nanobanana-finished-artwork.md)
-- [Core engraving artwork revision plan](superpowers/plans/2026-07-11-core-engraving-artwork-revision.md)
-- [Core Nano Banana finished artwork design](superpowers/specs/2026-07-11-core-nanobanana-finished-artwork-design.md)
-- [Core structural spine artwork design](superpowers/specs/2026-07-11-core-structural-spine-artwork-design.md)
+Use this page to find the shortest route to your next task.
 
 ![Capell Pages admin surface](images/capell-readme-banner.jpg)
 
-## Start Here
+## Choose Your Path
 
-| Job                                  | Read                                                                    |
-| ------------------------------------ | ----------------------------------------------------------------------- |
-| Try Capell quickly                   | [Quickstart](getting-started/quickstart.md)                             |
-| Pick the right install path          | [Install matrix](getting-started/install-matrix.md)                     |
-| Explain Capell without code          | [Why Capell](getting-started/why-capell.md)                             |
-| Compare WordPress and Craft CMS      | [Capell, WordPress, and Craft CMS](getting-started/comparing-capell.md) |
-| Deep-dive the developer architecture | [How Capell works](getting-started/how-capell-works.md)                 |
-| See interactive page experiences     | [Capell Interactions](getting-started/capell-interactions.md)           |
-| Build with Inertia                   | [Capell Inertia runtime](getting-started/inertia-runtime.md)            |
-| Understand the AI-ready path         | [AI-ready Capell](getting-started/ai-ready.md)                          |
-| See durable upgrade operations       | [Durable Upgrade Operations](platform/upgrade-operations.md)            |
-| Learn the core concepts in order     | [Capell Learn](getting-started/capell-learn.md)                         |
-| Spend a first session as an editor   | [First session](getting-started/first-session.md)                       |
- | Build a page                         | [Build a page](getting-started/building-pages.md)                       |
-| Understand blueprints                | [Blueprints](getting-started/types.md)                                  |
-| Install it in a real Laravel app     | [Install guide](getting-started/install.md)                             |
-| Use the admin panel                  | [Admin](admin/index.md)                                                 |
-| Work on public rendering             | [Frontend](frontend/index.md)                                           |
-| Manage themes end to end             | [Theme Library](admin/theme-library.md)                                 |
-| Build a custom theme package         | [Creating custom themes](packages/creating-custom-themes.md)            |
-| Build or maintain an extension       | [Packages](packages/README.md)                                          |
-| Scaffold a package                   | [Package authoring](platform/package-authoring.md)                      |
-| Build an extension from scratch      | [Build an extension end to end](packages/build-extension-end-to-end.md) |
-| Decide where a feature belongs       | [Host, package, or app code](development/package-boundaries.md)         |
-| Work in this repo                    | [Development](development/index.md)                                     |
-| Understand CI and test shards        | [CI and test shards](development/ci.md)                                 |
-| Debug production behavior            | [Operations](operations/index.md)                                       |
-| Plan a reversible exit               | [Export and exit plan](operations/export-and-exit.md)                   |
-| See a realistic content model        | [Music store CMS example](examples/music-store-cms.md)                  |
-
-## Build pages with the right amount of structure
-
-Start with a normal HTML page body, move to typed blocks when content needs shape, use approved Layout Builder widgets for section composition, and keep dedicated Blade layouts for genuinely bespoke pages. The frontend stays in your Laravel application.
-
-[Choose a page-building path](getting-started/building-pages.md)
-
-## Featured Build Path
-
-| Widget                    | Start                                                        | Continue                                                                                                           | Extension page                                 |
-| ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| Build Inertia with Capell | [Capell Inertia runtime](getting-started/inertia-runtime.md) | [Inertia widgets](getting-started/inertia-widgets.md) and [Bookings](getting-started/inertia-bookings-showcase.md) | [Packages and extensions](packages/catalog.md) |
+| I want to...                  | Start with                                                              | Then read                                                                                                                                        |
+| ----------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Evaluate or install Capell    | [Why Capell](getting-started/why-capell.md)                             | [Compare Capell with WordPress and Craft](getting-started/comparing-capell.md), then choose an [install path](getting-started/install-matrix.md) |
+| Build and edit a site         | [Your first session](getting-started/first-session.md)                  | [Create your first page](getting-started/create-your-first-page.md), then [choose a page-building path](getting-started/building-pages.md)       |
+| Build a page                  | [Build a page](getting-started/building-pages.md)                       | Choose the right authoring structure, from HTML through dedicated Blade layouts.                                                                 |
+| Build an extension            | [Build an extension end to end](packages/build-extension-end-to-end.md) | [Host, package, or app code](development/package-boundaries.md), then the [extension point chooser](packages/extension-point-chooser.md)         |
+| Operate a production site     | [Operations](operations/index.md)                                       | [Back up the site](operations/backups.md), then follow the [upgrade runbook](operations/upgrading.md)                                            |
+| Maintain the Capell host repo | [Development](development/index.md)                                     | [Local development](development/local-development.md), then [CI and test shards](development/ci.md)                                              |
 
 ## Visual Tour
 
-Use these pages when you need to see the product before reading architecture detail:
+Use these pages to see a workflow before reading its implementation details.
 
 | Screen or flow         | Start with                                                          | What to look for                                                                 |
 | ---------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Admin workspace        | [Admin interface](admin/interface.md)                               | Dashboard, Pages, Media, Settings, Theme Library, and Site Health screenshots.   |
+| Admin workspace        | [Admin interface](admin/interface.md)                               | Dashboard, Pages, Media, Settings, Theme Library, and Site Health.               |
 | First page authoring   | [Create your first page](getting-started/create-your-first-page.md) | Site and parent selection, URL preview, content editor, draft actions, settings. |
-| Theme management       | [Theme Library](admin/theme-library.md)                             | Installed themes, available themes, diagnostics, customize, preview, and apply.  |
+| Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customization, preview, and apply.  |
 | Operations diagnostics | [Site Health](operations/site-health.md)                            | Cache status, public-output safety, static generation, optimizer, server checks. |
-| Real content model     | [Music store CMS example](examples/music-store-cms.md)              | How pages, articles, events, products, artists, and navigation fit together.     |
+| Real content model     | [Music store CMS example](examples/music-store-cms.md)              | Pages, articles, events, products, artists, and navigation working together.     |
 
-## Main Docs
+## Build pages with the right amount of structure
 
-| Page                                               | Covers                                                                                                                                 |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [Getting Started](getting-started/index.md)        | Evaluation, install paths, first authoring session, core concepts, and interactive build paths.                                        |
-| [Admin](admin/index.md)                            | Filament resources, settings, users, media, recovery shell, dashboard Filament widgets, admin extension points.                        |
-| [Frontend](frontend/index.md)                      | Site/page resolution, public HTML safety, media output, render hooks, Tailwind assets, server rules, frontend tests.                   |
-| [Packages](packages/README.md)                     | Package shape, manifests, service providers, extension points, Actions/Data/settings, admin/frontend contributions, migrations, tests. |
-| [Performance & Caching](performance/README.md)     | Page cache, fragment cache, model URL cache, ETags, critical assets, lazy hydration.                                                   |
-| [Package authoring](platform/package-authoring.md) | Package authoring surfaces and [durable upgrade operations](platform/upgrade-operations.md) for Capell platform capabilities.          |
-| [Operations](operations/index.md)                  | Site Health, Lockdown, upgrades, Marketplace connection, install/admin/frontend troubleshooting.                                       |
-| [Development](development/index.md)                | Local repo shape, commands, configuration, seeders, diagnostics, settings migrations.                                                  |
-| [Reference](reference/index.md)                    | Glossary, relationship maps, credits, and package boundary references.                                                                 |
+[Choose a page-building path](getting-started/building-pages.md) based on what editors and the frontend need: a normal HTML page body, typed blocks, approved Layout Builder widgets, or dedicated Blade layouts. The frontend stays in your Laravel application.
 
-## Common Decisions
+## Documentation Sections
 
-| Question                                                     | Read                                                                                                                                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which install path should I use?                             | [Install matrix](getting-started/install-matrix.md)                                                                                                           |
-| How should I build this page?                                | [Build a page](getting-started/building-pages.md)                                                                                                             |
-| Does this belong in the host repo, a package, or an app?     | [Host, package, or app code](development/package-boundaries.md)                                                                                               |
-| Which extension point should a package use?                  | [Extension point chooser](packages/extension-point-chooser.md)                                                                                                |
-| How should I scaffold a package?                             | [Package authoring](platform/package-authoring.md)                                                                                                            |
-| How should packages integrate with Installer or Marketplace? | [Installer extension contracts](packages/installer-extension-contracts.md) and [Marketplace extension contracts](packages/marketplace-extension-contracts.md) |
-| What exact contract/tag/test should I use?                   | [Extension point API reference](packages/extension-point-api-reference.md)                                                                                    |
-| Why is my package contribution missing?                      | [Extension troubleshooting](packages/extension-troubleshooting.md)                                                                                            |
-| What can public HTML expose?                                 | [Public HTML safety contract](frontend/public-html-safety.md)                                                                                                 |
-| How do themes reach the frontend?                            | [Frontend themes](frontend/themes.md)                                                                                                                         |
-| How do I create a theme package?                             | [Creating custom themes](packages/creating-custom-themes.md)                                                                                                  |
-| How do lazy widgets and fragments work?                      | [Capell Interactions](getting-started/capell-interactions.md)                                                                                                 |
-| Which patterns are forbidden?                                | [Do not do this](development/do-not-do-this.md)                                                                                                               |
-| Where should a new doc go?                                   | [Docs ownership rules](development/docs-ownership.md)                                                                                                         |
+| Section                                            | Covers                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [Getting Started](getting-started/index.md)        | Evaluation, installation, first authoring tasks, core concepts, and interactive build paths.                        |
+| [Admin](admin/index.md)                            | Content, media, users, settings, themes, the dashboard, and admin extension points.                                 |
+| [Frontend](frontend/index.md)                      | Site and page resolution, public HTML safety, themes, media, render hooks, assets, and frontend tests.              |
+| [Packages](packages/README.md)                     | Package ownership, manifests, providers, extension points, admin and frontend contributions, migrations, and tests. |
+| [Performance](performance/README.md)               | Page and fragment caches, model URL caches, ETags, critical assets, and lazy hydration.                             |
+| [Package authoring](platform/package-authoring.md) | Platform authoring surfaces and durable package operations.                                                         |
+| [Operations](operations/index.md)                  | Site Health, backups, Lockdown, upgrades, Marketplace connection, and production troubleshooting.                   |
+| [Development](development/index.md)                | Host repo setup, commands, configuration, seeders, diagnostics, and CI.                                             |
+| [Reference](reference/index.md)                    | Glossary, relationship maps, architecture diagrams, credits, and package boundaries.                                |
 
-## URL Preservation
+## High-Risk Decisions
 
-Treat published URLs as durable. When replacing, moving, or rebuilding an old page, keep the new page clean and preserve the old address with a Page URL whose type is **Redirect**. The redirect record owns the legacy source path and points it at the current page URL, so visitors, bookmarks, inbound links, and search engines still reach the right content without keeping a duplicate page around.
+| I need to...                                      | Read                                                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Preserve a published URL after moving content     | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
+| Decide whether code belongs in the host or add-on | [Host, package, or app code](development/package-boundaries.md)                                                              |
+| Change anonymous frontend output                  | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
+| Choose or add an extension point                  | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |
+| Change production package or database state       | [Backups and restore](operations/backups.md) and [upgrades](operations/upgrading.md)                                         |
+| Plan a reversible move away from Capell           | [Export and exit plan](operations/export-and-exit.md)                                                                        |
+| How should I build this page?                     | [Build a page](getting-started/building-pages.md)                                                                            |
 
-Capell also creates automatic redirect Page URLs when a published page URL changes because a slug or parent path changed. Add a manual redirect when you are creating a new page to replace an existing URL, consolidating old content, or importing legacy routes from another CMS.
-
-For the detailed model, read [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects).
+Published URLs are durable. Capell creates redirect Page URLs when a published page URL changes because its slug or parent path changed. Add a manual redirect when replacing content, consolidating pages, or importing legacy routes.
 
 ## Host Packages
 
-| Package     | Composer name            | Package doc                                                      |
+The host repo owns these five packages. Optional add-on behavior belongs to the package that provides it.
+
+| Package     | Composer name            | Package documentation                                            |
 | ----------- | ------------------------ | ---------------------------------------------------------------- |
 | Core        | `capell-app/core`        | [Core overview](../packages/core/docs/overview.md)               |
 | Admin       | `capell-app/admin`       | [Admin overview](../packages/admin/docs/overview.md)             |
@@ -118,14 +71,10 @@ For the detailed model, read [Page management: URL history and redirects](../pac
 | Installer   | `capell-app/installer`   | [Installer overview](../packages/installer/docs/overview.md)     |
 | Marketplace | `capell-app/marketplace` | [Marketplace overview](../packages/marketplace/docs/overview.md) |
 
-First-party add-ons are documented by their generated extension pages and package-owned READMEs. Use [Packages and extensions](packages/catalog.md) for host package boundaries and authoring entry points.
+Use [Packages and extensions](packages/catalog.md) for add-on boundaries and authoring entry points.
 
-## Rules For New Docs
+## Documentation Ownership
 
-- Update an existing page before adding a new file.
-- Link every new doc from this page, a section index, a package overview, or another doc.
-- Put historical plans outside the public docs tree.
-- Do not keep "moved" stubs unless a published URL needs a temporary redirect.
-- Keep extension-point examples beside the reader task that needs them.
-- Do not document optional packages as built-in host behavior.
-- Public frontend docs must preserve the safety rule: anonymous HTML must not expose authoring controls, model IDs, selectors, signed editor URLs, or package internals.
+Update an existing page before adding a new one, and link every new page from the narrowest relevant index. Keep optional-package behavior with its owning package and public frontend safety rules beside rendering guidance.
+
+Use [Docs ownership rules](development/docs-ownership.md) to choose the right location and avoid duplicate or orphaned pages.

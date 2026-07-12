@@ -3,6 +3,9 @@
 ![Capell Frontend site and locale resolution flowing into the responsive Foundation theme](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/frontend.svg?style=flat-square)](https://packagist.org/packages/capell-app/frontend)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=frontend)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/frontend?components%5B0%5D=frontend&displayType=list)
+[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
+[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/frontend` is the public rendering package for Capell CMS. It resolves Core page, site, language, layout, and theme records into Laravel responses and exposes the frontend extension points used by themes and frontend add-ons.
@@ -91,6 +94,19 @@ For public output changes, include the safety-focused tests:
 vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php
 ```
 
+## Requirements And Support Policy
+
+| Surface  | Supported versions               |
+| -------- | -------------------------------- |
+| PHP      | `^8.4`                           |
+| Laravel  | `^12.41.1` or `^13.0`            |
+| Livewire | `^3.0` or `^4.0`                 |
+| Core     | The same release as this package |
+
+Security fixes target the current stable Capell release. While Capell remains on 0.0.x, upgrade all Capell packages together to the latest stable 0.0.x release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+
+Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
+
 ## Troubleshooting
 
 - A Capell route catching admin or package URLs usually means the frontend route regex or reserved path registry needs checking.
@@ -98,6 +114,10 @@ vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaCo
 - Stale public output usually means cache invalidation did not run, the queue worker is stopped, or the optional cache package has stale artifacts.
 - Missing Tailwind styles usually mean a package did not register its source/import path or frontend assets were not regenerated.
 - If `/` does not resolve, check `CAPELL_FRONTEND_REGISTER_HOME_ROUTE`; the package does not register the home route by default.
+
+## Development
+
+Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
 ## Further Reading
 

@@ -26,7 +26,7 @@ class UrlFactory extends Factory
             'url' => '/' . $this->faker->slug() . '/' . $this->faker->slug(),
             'language_id' => fn () => Language::query()->value('id') ?? Language::factory(),
             'site_id' => fn (array $attributes) => Site::factory(['language_id' => $attributes['language_id']])
-                ->has(SiteDomain::factory()->state(['language_id' => $attributes['language_id']])),
+                ->has(SiteDomain::factory()->default()->state(['language_id' => $attributes['language_id']])),
             'pageable_type' => resolve(Page::class)->getMorphClass(),
             'pageable_id' => fn (array $attributes): PageFactory => Page::factory()->site($attributes['site_id']),
             'status' => true,

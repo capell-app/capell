@@ -21,7 +21,7 @@ it('reports ready pages without findings when required translations and urls exi
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($blueprint)
+        ->type($blueprint)
         ->withTranslations([$english, $welsh])
         ->createOne(['name' => 'Ready launch page']);
 
@@ -43,7 +43,7 @@ it('reports missing required translations and urls as blockers', function (): vo
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($blueprint)
+        ->type($blueprint)
         ->withTranslations($english)
         ->createOne(['name' => 'Incomplete launch page']);
 
@@ -67,7 +67,7 @@ it('reports scheduled pages as warnings without marking them blocked', function 
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($blueprint)
+        ->type($blueprint)
         ->withTranslations($english)
         ->createOne([
             'name' => 'Scheduled launch page',
@@ -91,7 +91,7 @@ it('reports soft-deleted blueprints without trying to build an edit url', functi
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($blueprint)
+        ->type($blueprint)
         ->withTranslations($english)
         ->createOne(['name' => 'Orphaned launch page']);
 
@@ -117,7 +117,7 @@ it('renders publishing readiness findings on the report page', function (): void
 
     Page::factory()
         ->site($site)
-        ->blueprint($blueprint)
+        ->type($blueprint)
         ->withTranslations($english)
         ->createOne(['name' => 'Page visible in report']);
 

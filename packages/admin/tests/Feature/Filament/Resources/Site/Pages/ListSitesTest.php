@@ -138,7 +138,7 @@ test('can replicate site', function (): void {
 test('groups related theme and blueprint editing actions for sites', function (): void {
     $theme = Theme::factory()->createOne(['name' => 'Site theme']);
     $blueprint = Blueprint::factory()->site()->createOne(['name' => 'Site blueprint']);
-    $site = Site::factory()->theme($theme)->blueprint($blueprint)->createOne();
+    $site = Site::factory()->theme($theme)->type($blueprint)->createOne();
 
     $component = Livewire::test(ListSites::class)
         ->assertSuccessful()

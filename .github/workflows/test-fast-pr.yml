@@ -31,7 +31,7 @@ permissions:
 jobs:
   test:
     if: github.event.pull_request.draft == false
-    name: Test - L${{ matrix.laravel }}
+    name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -41,10 +41,26 @@ jobs:
             laravel: 12.*
             testbench: 10.*
             db: sqlite
+            shard: 1
+            total_shards: 3
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 2
+            total_shards: 3
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 3
+            total_shards: 3
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
+            shard: 1
+            total_shards: 1
 
     steps:
       - name: Checkout code
@@ -89,7 +105,7 @@ jobs:
 
           composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
           dev_tools=(
-            "pestphp/pest:^4.7"
+            "pestphp/pest:^4.3"
             "pestphp/pest-plugin-arch:^4.0"
             "pestphp/pest-plugin-laravel:^4.0"
             "pestphp/pest-plugin-livewire:^4.0"
@@ -123,5 +139,5 @@ jobs:
           echo "DB_CONNECTION=sqlite" >> .env
           echo "DB_DATABASE=:memory:" >> .env
 
-      - name: Run test suite
-        run: PEST_PROCESSES=4 composer run test:all:ci
+      - name: Run test:fast
+        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci

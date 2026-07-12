@@ -37,7 +37,7 @@ composer update
 ## Notes
 
 - Ensure your local paths are correct relative to your Laravel project root.
-- If you are setting up the host and add-on repositories from scratch, follow [Creating the Capell 0.0.x Monorepo Branches](monorepo-4x-branch.md) first.
+- If you are setting up the host and add-on repositories from scratch, follow [Creating the Capell 4.x Monorepo Branches](monorepo-4x-branch.md) first.
 - Symlinks allow instant reflection of code changes without reinstalling packages.
 - For VCS repositories and other dependencies, see the main install guide in [README.md](../README.md).
 

@@ -80,8 +80,8 @@ it('stores and returns an ordered int array from the listing cache', function ()
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $type = Blueprint::factory()->page()->create();
 
-    Page::factory()->site($site)->blueprint($type)->withTranslations($language, [], slug: 'a')->create();
-    Page::factory()->site($site)->blueprint($type)->withTranslations($language, [], slug: 'b')->create();
+    Page::factory()->site($site)->type($type)->withTranslations($language, [], slug: 'a')->create();
+    Page::factory()->site($site)->type($type)->withTranslations($language, [], slug: 'b')->create();
 
     $spec = new PageListingSpec(
         languageId: $language->id,
