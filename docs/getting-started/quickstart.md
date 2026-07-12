@@ -42,7 +42,11 @@ APP_URL=http://localhost:8000
 
 ## 2. Install Capell
 
-Capell is proprietary and privately distributed. Obtain a licence, Composer credentials, and the repository configuration supplied for your account, then add that configuration to `composer.json`. Once Composer can resolve the private packages, require the installer; it pulls in core, and `capell:install` adds the admin and frontend packages:
+Capell is installed into your Laravel application through Composer. The stable
+`v0.0.4` package release is available through Packagist; Marketplace access may
+be required separately for commercial extensions or customer services. Require
+the installer first: it pulls in core, and `capell:install` adds the admin and
+frontend packages:
 
 ```bash
 composer require capell-app/installer
@@ -100,6 +104,27 @@ php artisan migrate
 ```
 
 ContentSections adds reusable content and widget-based layout building to the admin.
+
+## Agency proof install
+
+Use this short path when you want to prove that a Laravel project can become an
+editable, branded agency site without building a custom CMS foundation first:
+
+```bash
+composer require capell-app/theme-agency
+php artisan capell:theme-agency-demo --url=http://localhost:8000 --force
+```
+
+Check three outcomes before treating the proof as complete:
+
+1. The Agency demo homepage renders at `http://localhost:8000`.
+2. Its page tree is editable from Filament at `http://localhost:8000/admin`.
+3. A saved and published content change appears on the public page without any
+   authoring controls or preview state.
+
+The demo is intentionally repeatable: use `--force` when you need to reconcile
+the local proof content. See the Theme Agency package documentation before
+turning the demo structure into a client-specific build.
 
 ## First-run fixes
 
