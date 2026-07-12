@@ -20,6 +20,7 @@ use Capell\Core\Actions\Install\PublishPackageMigrationsAction;
 use Capell\Core\Actions\Install\PublishVendorMigrationsAction;
 use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\Install\ResolveInstallUserAction;
+use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Data\PackageData;
@@ -65,7 +66,7 @@ final class InstallStepExecutor
         }
 
         match ($stepKey) {
-            InstallPlan::STEP_PREFLIGHT_CHECKS => null,
+            InstallPlan::STEP_PREFLIGHT_CHECKS => RunInstallPreflightChecksAction::run($state->inputData, $state->reporter),
             InstallPlan::STEP_PREPARE_FRESH_INSTALL => PrepareFreshInstallAction::run($state->reporter),
             InstallPlan::STEP_PREPARE_ENVIRONMENT => PrepareEnvironmentAction::run($state->reporter),
             InstallPlan::STEP_PUBLISH_VENDOR_MIGRATIONS, InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS => PublishVendorMigrationsAction::run($state->reporter),
