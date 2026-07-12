@@ -225,9 +225,23 @@ class PageUrl extends Model implements Statusable, Userstampable
      */
     public function fullUrl(): string
     {
-        $siteDomain = $this->relationLoaded('siteDomain')
+        $loadedSiteDomain = $this->relationLoaded('siteDomain')
             ? $this->getRelation('siteDomain')
-            : $this->siteDomain()->first();
+            : null;
+
+        $loadedActiveSiteDomain = $loadedSiteDomain instanceof SiteDomain && $loadedSiteDomain->status
+            ? $loadedSiteDomain
+            : null;
+
+        $siteDomain = $loadedActiveSiteDomain?->default
+            ? $loadedActiveSiteDomain
+            : $this->siteDomain()
+                ->where('site_domains.status', true)
+                ->where('site_domains.default', true)
+                ->first();
+
+        $siteDomain ??= $loadedActiveSiteDomain
+            ?? $this->siteDomain()->where('site_domains.status', true)->first();
 
         if (! $siteDomain instanceof SiteDomain) {
             $this->logMissingSiteDomainDiagnostic();
