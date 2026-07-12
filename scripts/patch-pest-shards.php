@@ -19,6 +19,9 @@ if (! is_string($contents)) {
 $originalPattern = "preg_match_all('/ - (?:P\\\\\\\\)?(Tests\\\\\\\\[^:]+)::/', \$output, \$matches);";
 $patchedPattern = "preg_match_all('/ - (?:P\\\\\\\\)?([^:\\\\r\\\\n]+)::/', \$output, \$matches);";
 
+$fullyQualifiedPattern = "preg_match_all('/ - ([^:\\r\\n]+)::/', \$output, \$matches);";
+$contents = str_replace($fullyQualifiedPattern, $patchedPattern, $contents);
+
 if (str_contains($contents, $patchedPattern)) {
     echo "Pest shard namespace patch already applied.\n";
 } elseif (! str_contains($contents, $originalPattern)) {
