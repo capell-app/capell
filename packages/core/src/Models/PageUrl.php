@@ -243,6 +243,10 @@ class PageUrl extends Model implements Statusable, Userstampable
         $siteDomain ??= $loadedActiveSiteDomain
             ?? $this->siteDomain()->where('site_domains.status', true)->first();
 
+        $siteDomain ??= $loadedSiteDomain instanceof SiteDomain
+            ? $loadedSiteDomain
+            : $this->siteDomain()->first();
+
         if (! $siteDomain instanceof SiteDomain) {
             $this->logMissingSiteDomainDiagnostic();
 
