@@ -42,6 +42,78 @@ it('accepts a stable v1 internal minimum', function (): void {
     expect(true)->toBeTrue();
 });
 
+it('validates local package requirements against an imported external ledger', function (): void {
+    $sourceCommit = str_repeat('a', 40);
+    $externalCommit = str_repeat('b', 40);
+    $externalTree = str_repeat('c', 40);
+    $localTree = str_repeat('d', 40);
+    $external = [
+        'name' => 'capell-app/core',
+        'path' => 'packages/core',
+        'repository' => 'capell-app/core',
+        'version' => '1.0.0',
+        'previous_version' => null,
+        'source_commit' => $externalCommit,
+        'subtree_hash' => $externalTree,
+        'direct_capell_dependencies' => [],
+        'resolved_minimum_versions' => [],
+    ];
+    $local = [
+        'name' => 'capell-app/example',
+        'path' => 'packages/example',
+        'repository' => 'capell-app/example',
+        'version' => '1.0.0',
+        'previous_version' => null,
+        'source_commit' => $sourceCommit,
+        'subtree_hash' => $localTree,
+        'direct_capell_dependencies' => ['capell-app/core'],
+        'resolved_minimum_versions' => ['capell-app/core' => '1.0.0'],
+    ];
+    $selected = [
+        'name' => 'capell-app/example',
+        'path' => 'packages/example',
+        'split_repository' => 'capell-app/example',
+        'current_version' => null,
+        'proposed_version' => '1.0.0',
+        'source_commit' => $sourceCommit,
+        'subtree_hash' => $localTree,
+        'direct_capell_dependencies' => ['capell-app/core'],
+        'resolved_minimum_versions' => ['capell-app/core' => '1.0.0'],
+        'reason' => 'baseline',
+        'release_type' => 'baseline',
+        'publication_state' => 'pending',
+        'tag_sha' => null,
+    ];
+    $plan = [
+        'schema_version' => 1,
+        'source' => ['repository' => 'source', 'commit' => $sourceCommit],
+        'inventory' => [['name' => 'capell-app/example', 'path' => 'packages/example', 'repository' => 'capell-app/example', 'version' => '1.0.0']],
+        'external_ledger' => [$external],
+        'ledger' => [$local],
+        'packages' => [$selected],
+        'dependency_order' => ['capell-app/example'],
+    ];
+
+    (new PlanValidator)->validate($plan);
+    expect(true)->toBeTrue();
+
+    $missing = $plan;
+    $missing['external_ledger'] = [];
+    expect(fn () => (new PlanValidator)->validate($missing))
+        ->toThrow(ReleaseException::class, 'unknown, duplicate, or self dependency');
+
+    $incompatible = $plan;
+    $incompatible['external_ledger'][0]['version'] = '1.1.0';
+    expect(fn () => (new PlanValidator)->validate($incompatible))
+        ->toThrow(ReleaseException::class, 'incompatible minimum');
+
+    $cycle = $plan;
+    $cycle['external_ledger'][0]['direct_capell_dependencies'] = ['capell-app/example'];
+    $cycle['external_ledger'][0]['resolved_minimum_versions'] = ['capell-app/example' => '1.0.0'];
+    expect(fn () => (new PlanValidator)->validate($cycle))
+        ->toThrow(ReleaseException::class, 'Dependency cycle');
+});
+
 it('resumes only an existing matching immutable tag', function (): void {
     expect(ResumeDecision::forTag(null, 'abc'))->toBe('publish')
         ->and(ResumeDecision::forTag('abc', 'abc'))->toBe('resume');
