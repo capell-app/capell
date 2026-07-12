@@ -15,7 +15,6 @@ it('keeps every core split pull request forwarding workflow aligned with the cor
     );
 
     expect($matrixMatchCount)->toBe(1);
-    assert(isset($matrixMatches['packages']));
 
     if (! isset($matrixMatches['packages'])) {
         throw new RuntimeException('The split workflow package matrix could not be read.');
