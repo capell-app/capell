@@ -34,8 +34,6 @@ jobs:
         run: |
           echo '{}' > "${RUNNER_TEMP}/pre-split-main-shas.json"
           while IFS= read -r package; do
-            test "$(gh api "repos/capell-app/${package}" --jq '.permissions.push')" = 'true'
-
             main_sha="$(gh api "repos/capell-app/${package}/git/ref/heads/main" --jq '.object.sha')"
             jq --arg package "${package}" --arg sha "${main_sha}" \
               '. + {($package): $sha}' "${RUNNER_TEMP}/pre-split-main-shas.json" \
