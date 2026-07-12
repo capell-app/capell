@@ -107,9 +107,7 @@ it('publishes honest comparison recovery and exit guidance without recycled doc 
 
     expect($docs)->not->toBeFalse();
 
-    if ($docs === false) {
-        throw new RuntimeException('Unable to read documentation files.');
-    }
+    throw_if($docs === false, RuntimeException::class, 'Unable to read documentation files.');
 
     foreach ($docs as $doc) {
         expect((string) file_get_contents($doc))->not->toMatch($recycledHeroPattern);

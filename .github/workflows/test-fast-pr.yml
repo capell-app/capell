@@ -42,7 +42,19 @@ jobs:
             testbench: 10.*
             db: sqlite
             shard: 1
-            total_shards: 1
+            total_shards: 3
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 2
+            total_shards: 3
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            db: sqlite
+            shard: 3
+            total_shards: 3
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
@@ -99,4 +111,4 @@ jobs:
           echo "DB_DATABASE=:memory:" >> .env
 
       - name: Run test:fast
-        run: composer run test:fast:ci
+        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci
