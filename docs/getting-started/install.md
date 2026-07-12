@@ -7,7 +7,7 @@ This guide has two paths:
 
 For the fastest demo, use the [quickstart](quickstart.md).
 
-Most fresh apps should use the **guided browser installer**: install the packages, open `/install`, and let it create your admin user and apply the required changes. The numbered steps below document the same work for headless/CI installs, existing apps, and anyone who wants to apply each change by hand.
+Most fresh apps should use the **guided browser installer**: install the packages, open `/install`, and let it create your admin user and apply the required changes. The numbered steps below document the same work for non-interactive CI installs, existing apps, and anyone who wants to apply each change by hand.
 
 ![Capell guided installer screen](../images/generated/package-surfaces/install-guide-page.png)
 
@@ -139,7 +139,7 @@ do not need to remain writable by the web process.
 There are two ways to pull in the Capell packages. Both end at the same `php artisan capell:install` step:
 
 - **Recommended — the installer.** `composer require capell-app/installer` brings in core, and the guided `/install` flow (or `capell:install`) composer-requires the admin and frontend packages you select and removes the installer when you are done. Best for most fresh apps. Use this in step 3 below.
-- **Manual — require packages directly.** Skip the installer and `composer require` the exact packages you want (`capell-app/core` is the only hard dependency; `admin` and `frontend` are optional). Best when you want core only, a headless setup, or to pin the package set yourself. See [Manual install](#manual-install-without-the-installer) at the end of step 3.
+- **Manual — require packages directly.** Skip the installer and `composer require` the exact packages you want (`capell-app/core` is the only hard dependency; `admin` and `frontend` are optional). Best when you want Core without the admin or public frontend, or need to pin the package set yourself. See [Manual install](#manual-install-without-the-installer) at the end of step 3.
 
 ### 1. Create the app
 
@@ -156,25 +156,11 @@ Set your database values in `.env`, then confirm Laravel can boot:
 php artisan about
 ```
 
-### 2. Configure private Capell access
+### 2. Install the public foundation
 
-Capell is proprietary and its packages are privately distributed. Obtain a licence, Composer credentials, and the repository configuration assigned to your account before requiring packages. If Capell supplied private VCS repository access, add those repositories before continuing:
+Core, Admin, Frontend, Installer and Marketplace have public source repositories and public Packagist packages under the Capell licence. The next step can therefore require `capell-app/installer` directly without adding a custom Composer repository or authentication.
 
-```json
-{
-    "repositories": [
-        { "type": "vcs", "url": "https://github.com/capell-app/core" },
-        { "type": "vcs", "url": "https://github.com/capell-app/admin" },
-        { "type": "vcs", "url": "https://github.com/capell-app/frontend" },
-        { "type": "vcs", "url": "https://github.com/capell-app/marketplace" },
-        { "type": "vcs", "url": "https://github.com/capell-app/installer" }
-    ],
-    "minimum-stability": "dev",
-    "prefer-stable": true
-}
-```
-
-Do not substitute public Packagist or unauthorised repository URLs. Use the access method and credentials supplied for the licensed project.
+Paid marketplace packages use authenticated Composer access. After purchase or entitlement assignment, follow the Composer repository and bearer-token instructions shown in the Capell account for that customer organisation. Those credentials are scoped to protected packages and are not needed for the public foundation.
 
 ### 3. Install Capell and the setup package
 
@@ -194,7 +180,7 @@ Prefer to control the package set yourself? Skip `capell-app/installer` and requ
 # Full stack, no installer
 composer require capell-app/core capell-app/admin capell-app/frontend -W
 
-# Core only (headless / API-style use)
+# Core only, without Admin or Frontend
 composer require capell-app/core -W
 
 # Core + admin, no public frontend
@@ -211,7 +197,7 @@ Without `--packages`, `capell:install` defaults to all installable packages and 
 
 > **Recommended — run the guided installer.** Serve the app and open `/install`. The browser installer runs preflight checks, lets you choose packages, creates your first admin user, and applies the work in steps 4–8 for you: the `User` model traits, the Filament panel (plugin, navigation, colors, widgets, theme), the `page_cache` disk and `capell` log channel, the theme `@source` lines, and the welcome-route handover. Check the success report, then remove the installer from the success screen. A few items — queue worker, web-server cache rules, media backend — stay manual and are shown as guidance.
 >
-> Prefer to apply each change yourself, or installing headless/CI? Continue with steps 4–9.
+> Prefer to apply each change yourself, or installing through non-interactive CI? Continue with steps 4–9.
 
 ### 4. Prepare your admin user
 

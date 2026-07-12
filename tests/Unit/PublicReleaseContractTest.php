@@ -40,3 +40,30 @@ it('defines the public v0.0.4 split package release contract', function (): void
         ->and($packagistScript)->toContain('https://packagist.org/api/github')
         ->and($packagistScript)->toContain('Packagist preflight failed.');
 });
+
+it('documents one public distribution and commercial licensing story', function (): void {
+    $root = dirname(__DIR__, 2);
+    $readme = file_get_contents($root . '/README.md');
+    $quickstart = file_get_contents($root . '/docs/getting-started/quickstart.md');
+    $install = file_get_contents($root . '/docs/getting-started/install.md');
+    $supportPolicy = file_get_contents($root . '/packages/core/README.md');
+
+    expect($readme)
+        ->toContain('public source repositories')
+        ->toContain('public Packagist packages')
+        ->toContain('Capell licence')
+        ->not->toContain('not published through a public source repository')
+        ->not->toContain('distributed through private Composer access')
+        ->and($quickstart)
+        ->toContain('stable `v0.0.4` foundation release')
+        ->toContain('public Packagist')
+        ->and($install)
+        ->toContain('Install the public foundation')
+        ->toContain('Paid marketplace packages use authenticated Composer access')
+        ->not->toContain('Configure private Capell access')
+        ->not->toContain('Do not substitute public Packagist')
+        ->and($supportPolicy)
+        ->toContain('current stable 0.0.x release')
+        ->toContain('The published 1.x maintenance windows begin with Capell 1.0')
+        ->not->toContain('For each Capell 1.x minor release');
+});
