@@ -50,7 +50,7 @@ jobs:
         run: echo 'started=true' >> "${GITHUB_OUTPUT}"
       - name: Split admin
         uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: '${{ steps.split-token.outputs.token }}' }
+        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
         with:
           {
             package_directory: packages/admin,
@@ -63,7 +63,7 @@ jobs:
           }
       - name: Split core
         uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: '${{ steps.split-token.outputs.token }}' }
+        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
         with:
           {
             package_directory: packages/core,
@@ -76,7 +76,7 @@ jobs:
           }
       - name: Split frontend
         uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: '${{ steps.split-token.outputs.token }}' }
+        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
         with:
           {
             package_directory: packages/frontend,
@@ -89,7 +89,7 @@ jobs:
           }
       - name: Split installer
         uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: '${{ steps.split-token.outputs.token }}' }
+        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
         with:
           {
             package_directory: packages/installer,
@@ -102,7 +102,7 @@ jobs:
           }
       - name: Split marketplace
         uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: '${{ steps.split-token.outputs.token }}' }
+        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
         with:
           {
             package_directory: packages/marketplace,
