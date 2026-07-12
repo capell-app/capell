@@ -31,36 +31,17 @@ permissions:
 jobs:
   test:
     if: github.event.pull_request.draft == false
-    name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
+    name: Test - L${{ matrix.framework.laravel }} - shard ${{ matrix.shard }}/6
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
-        include:
-          - php: 8.4
-            laravel: 12.*
+        framework:
+          - laravel: 12.*
             testbench: 10.*
-            db: sqlite
-            shard: 1
-            total_shards: 3
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 2
-            total_shards: 3
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 3
-            total_shards: 3
-          - php: 8.4
-            laravel: 13.*
+          - laravel: 13.*
             testbench: 11.*
-            db: sqlite
-            shard: 1
-            total_shards: 1
+        shard: [1, 2, 3, 4, 5, 6]
 
     steps:
       - name: Checkout code
@@ -70,12 +51,12 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: vendor
-          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-${{ matrix.db }}-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-fast-pr.yml') }}
+          key: dependencies-php-8.4-laravel-${{ matrix.framework.laravel }}-testbench-${{ matrix.framework.testbench }}-sqlite-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-fast-pr.yml') }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: 8.4
           extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_sqlite, simplexml, sqlite3, zip
           tools: composer:v2
           coverage: none
@@ -99,9 +80,9 @@ jobs:
         run: |
           composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
           composer require --no-interaction --no-progress --ansi --no-update \
-            "laravel/framework:${{ matrix.laravel }}"
+            "laravel/framework:${{ matrix.framework.laravel }}"
           composer require --no-interaction --no-progress --ansi --dev --no-update \
-            "orchestra/testbench:${{ matrix.testbench }}"
+            "orchestra/testbench:${{ matrix.framework.testbench }}"
 
           composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
 
@@ -111,4 +92,4 @@ jobs:
           echo "DB_DATABASE=:memory:" >> .env
 
       - name: Run test:fast
-        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci
+        run: PEST_SHARD=${{ matrix.shard }}/6 composer run test:fast:ci
