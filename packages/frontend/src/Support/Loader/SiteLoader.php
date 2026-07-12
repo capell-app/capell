@@ -200,6 +200,12 @@ class SiteLoader
                     }
 
                     if ($url === null) {
+                        $url = $site->siteDomains
+                            ->firstWhere('language_id', $siteLanguage->id)
+                            ?->full_url;
+                    }
+
+                    if ($url === null) {
                         $home = PageLoader::getSiteHomePage($site, $language);
                         if ($home instanceof Pageable) {
                             $url = $home->pageUrl->full_url;

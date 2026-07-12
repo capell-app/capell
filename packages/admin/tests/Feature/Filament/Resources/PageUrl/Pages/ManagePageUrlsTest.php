@@ -83,6 +83,7 @@ test('can search full page url', function (): void {
         'scheme' => 'https',
         'language_id' => $language->id,
         'path' => null,
+        'default' => true,
     ]);
     $page = Page::factory()->recycle($site)->recycle($language)->create();
     $pageUrl = PageUrl::factory()->page($page)->language($language)->site($site)->create([
@@ -114,6 +115,7 @@ test('can search full page url for a null site domain', function (): void {
         'scheme' => null,
         'language_id' => $language->id,
         'path' => '/tenant',
+        'default' => true,
     ]);
     $page = Page::factory()->recycle($site)->recycle($language)->create();
     $pageUrl = PageUrl::factory()->page($page)->language($language)->site($site)->create([
@@ -179,7 +181,7 @@ test('can create page url', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()
         ->state(['language_id' => $language->id])
-        ->has(SiteDomain::factory()->state(['language_id' => $language->id]))
+        ->has(SiteDomain::factory()->default()->state(['language_id' => $language->id]))
         ->create();
 
     $page = Page::factory()

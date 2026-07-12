@@ -433,6 +433,7 @@ it('records all main pushes but creates no tags when multi-package preflight fai
             if (str_contains($text, 'subtree split')) {
                 return ['output' => ++$this->splitCalls === 1 ? str_repeat('d', 40) : str_repeat('e', 40), 'exitCode' => 0];
             }
+
             if (str_contains($text, '^{tree}')) {
                 return ['output' => ++$this->treeCalls === 1 ? $this->trees['capell-app/core'] : $this->trees['capell-app/admin'], 'exitCode' => 0];
             }
@@ -496,7 +497,7 @@ it('checks a later mismatched tag before any main push or state write', function
 
         private int $tagRefs = 0;
 
-        public function __construct(private string $sha, private array $trees) {}
+        public function __construct(private readonly string $sha, private array $trees) {}
 
         public function run(array $command, ?string $workingDirectory = null): array
         {
@@ -505,12 +506,15 @@ it('checks a later mismatched tag before any main push or state write', function
             if (str_contains($text, 'subtree split')) {
                 return ['output' => ++$this->splits === 1 ? str_repeat('d', 40) : str_repeat('e', 40), 'exitCode' => 0];
             }
+
             if (str_contains($text, '^{tree}')) {
                 return ['output' => ++$this->splitTrees === 1 ? $this->trees['capell-app/core'] : $this->trees['capell-app/admin'], 'exitCode' => 0];
             }
+
             if (str_contains($text, 'git/ref/tags')) {
                 return ++$this->tagRefs === 1 ? ['output' => '', 'exitCode' => 1] : ['output' => str_repeat('f', 40), 'exitCode' => 0];
             }
+
             if (str_contains($text, 'git/tags/')) {
                 return ['output' => str_repeat('9', 40), 'exitCode' => 0];
             }
@@ -520,7 +524,7 @@ it('checks a later mismatched tag before any main push or state write', function
             }, 'exitCode' => 0];
         }
     };
-    expect(fn () => (new ReleaseEngine(dirname(__DIR__, 2), $runner))->publish(twoPackageReleasePlan($sha, $trees), $path))->toThrow(ReleaseException::class, 'immutable tag');
+    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(twoPackageReleasePlan($sha, $trees), $path))->toThrow(ReleaseException::class, 'immutable tag');
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty()->and(file_exists($path . '.state.json'))->toBeFalse();
 });
 
@@ -532,7 +536,7 @@ it('rejects a matching tag without plan-bound passed preflight state', function 
     {
         public array $commands = [];
 
-        public function __construct(private string $sha, private string $tree, private string $split) {}
+        public function __construct(private readonly string $sha, private readonly string $tree, private readonly string $split) {}
 
         public function run(array $command, ?string $workingDirectory = null): array
         {
@@ -544,6 +548,6 @@ it('rejects a matching tag without plan-bound passed preflight state', function 
             }, 'exitCode' => 0];
         }
     };
-    expect(fn () => (new ReleaseEngine(dirname(__DIR__,2),$runner))->publish(releaseEnginePlan($sha,$tree),tempnam(sys_get_temp_dir(),'plan-')))->toThrow(ReleaseException::class,'passed preflight state');
-    expect(array_filter($runner->commands,fn (array $command): bool => in_array('push',$command,true)))->toBeEmpty();
+    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'passed preflight state');
+    expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty();
 });

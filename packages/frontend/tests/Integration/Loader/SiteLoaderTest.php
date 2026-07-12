@@ -25,7 +25,7 @@ it('loads languages in order', function (): void {
     SiteDomain::factory()
         ->site($site)
         ->forEachSequence(
-            ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $french->id, 'path' => '/fr'],
+            ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $french->id, 'path' => '/fr', 'default' => true],
             ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $english->id, 'path' => null],
             ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $german->id, 'path' => '/de'],
         )
@@ -89,6 +89,8 @@ it('loads site languages', function (): void {
             ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $german->id, 'path' => '/de'],
         )
         ->create();
+
+    $site->load('siteDomains');
 
     Page::factory()->site($site)->home()->withTranslations(slug: '/')->create();
 

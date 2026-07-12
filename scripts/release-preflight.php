@@ -30,7 +30,12 @@ $repositories = [];
 $requirements = [];
 foreach ($plan['ledger'] as $package) {
     $repositories[] = ['type' => 'vcs', 'url' => 'https://github.com/' . $package['repository'] . '.git'];
-    $requirements[$package['name']] = isset($selected[$package['name']]) ? 'dev-main as ' . $package['version'] : $package['version'];
+    if (isset($selected[$package['name']])) {
+        [$major, $minor] = explode('.', $selected[$package['name']]['proposed_version']);
+        $requirements[$package['name']] = "dev-main as {$major}.{$minor}.x-dev";
+    } else {
+        $requirements[$package['name']] = $package['version'];
+    }
 }
 file_put_contents($temporary . '/composer.json', json_encode(['name' => 'capell-app/release-preflight', 'repositories' => $repositories, 'require' => $requirements, 'minimum-stability' => 'dev', 'prefer-stable' => true], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 passthru('cd ' . escapeshellarg($temporary) . ' && composer update -W --no-interaction --no-progress --prefer-dist', $exitCode);

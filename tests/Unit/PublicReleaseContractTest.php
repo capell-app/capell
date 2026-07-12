@@ -48,12 +48,14 @@ it('defines the public v4 split package release contract', function (): void {
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');
+    $releasePreflight = file_get_contents($root . '/scripts/release-preflight.php');
     $fastTestWorkflow = file_get_contents($root . '/.github/workflows/test-fast-pr.yml');
     $fullTestWorkflow = file_get_contents($root . '/.github/workflows/test-full.yml');
     $localSplitScript = file_get_contents($root . '/scripts/local-split-packages.sh');
     $packagistScript = file_get_contents($root . '/scripts/create-packagist-packages.sh');
 
     expect($splitWorkflow)
+        ->toContain('actions: read')
         ->toContain('actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349')
         ->toContain('SPLIT_APP_ID')
         ->toContain('SPLIT_APP_PRIVATE_KEY')
@@ -100,6 +102,11 @@ it('defines the public v4 split package release contract', function (): void {
         ->not->toContain('filament/filament:^4.7')
         ->and($fullTestWorkflow)
         ->toContain('- main');
+
+    expect($releasePreflight)
+        ->toContain('[$major, $minor]')
+        ->toContain('"dev-main as {$major}.{$minor}.x-dev"')
+        ->not->toContain("'dev-main as ' . \$package['version']");
 
     expect($localSplitScript)->toContain('config/release-packages.json')
         ->and($packagistScript)->toContain('config/release-packages.json');
