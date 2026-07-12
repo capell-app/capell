@@ -161,25 +161,13 @@ class LayoutsTable implements TableConfigurator
                     ->icon('heroicon-o-swatch')
                     ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Theme->permission('update')) === true)
                     ->schema(fn (Schema $schema): Schema => ThemeResource::form($schema))
-                    ->fillForm(function (Layout $record): array {
-                        $theme = $record->theme;
-
-                        return $theme instanceof Theme ? $theme->attributesToArray() : [];
-                    })
-                    ->modalHeading(function (Layout $record): string {
-                        $theme = $record->theme;
-
-                        return $theme instanceof Theme ? $theme->name : '';
-                    })
+                    ->fillForm(fn (Layout $record): array => $record->theme?->attributesToArray() ?? [])
+                    ->modalHeading(fn (Layout $record): string => $record->theme->name ?? '')
                     ->slideOver()
                     ->modalWidth(Width::ScreenLarge)
-                    ->mutateFormDataUsing(function (array $data, Layout $record): array {
-                        $theme = $record->theme;
-
-                        return $theme instanceof Theme
-                            ? ThemesTable::editorRecordData($theme, $data)
-                            : $data;
-                    })
+                    ->mutateFormDataUsing(fn (array $data, Layout $record): array => $record->theme instanceof Theme
+                        ? ThemesTable::editorRecordData($record->theme, $data)
+                        : $data)
                     ->action(function (Layout $record, array $data): void {
                         $record->theme?->update($data);
                     })

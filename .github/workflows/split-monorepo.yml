@@ -1,8 +1,16 @@
-name: monorepo-split
+name: Independent package release
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      plan_path:
+        description: Approved release plan path in this commit
+        required: true
+        type: string
+      resume_state_run_id:
+        description: Optional prior workflow run ID containing release state
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -12,7 +20,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  split-monorepo:
+  prepare-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Validate committed release plan
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+        run: |
+          test -n "${PLAN_PATH}"
+          case "/${PLAN_PATH}/" in
+            *"/../"*|*"/./"*) echo 'Plan path must be normalized and workspace-relative.' >&2; exit 1 ;;
+          esac
+          case "${PLAN_PATH}" in
+            /*) echo 'Plan path must be workspace-relative.' >&2; exit 1 ;;
+          esac
+          candidate="${GITHUB_WORKSPACE}/${PLAN_PATH}"
+          test -f "${candidate}"
+          resolved="$(realpath "${candidate}")"
+          case "${resolved}" in
+            "${GITHUB_WORKSPACE}"/*) ;;
+            *) echo 'Plan path escapes the checked-out workspace.' >&2; exit 1 ;;
+          esac
+          php scripts/release.php validate "${resolved}"
+          cp "${resolved}" "${RUNNER_TEMP}/release-plan.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: approved-release-plan
+          path: ${{ runner.temp }}/release-plan.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: prepare-plan
     runs-on: ubuntu-latest
     steps:
       - name: Create split repository token
@@ -25,110 +68,45 @@ jobs:
           repositories: admin,core,frontend,installer,marketplace
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
-      - name: Verify repositories and release tags
+      - uses: actions/download-artifact@v4
+        with:
+          name: approved-release-plan
+          path: ${{ runner.temp }}/approved-plan
+      - uses: actions/download-artifact@v4
+        if: inputs.resume_state_run_id != ''
+        with:
+          name: release-plan-state
+          path: ${{ runner.temp }}/resume-state
+          run-id: ${{ inputs.resume_state_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - name: Validate prior state artifact
+        if: inputs.resume_state_run_id != ''
+        run: |
+          test "$(find "${RUNNER_TEMP}/resume-state" -type f | wc -l | tr -d ' ')" = 1
+          test -f "${RUNNER_TEMP}/resume-state/release-plan.json.state.json"
+          cp "${RUNNER_TEMP}/resume-state/release-plan.json.state.json" "${RUNNER_TEMP}/approved-plan/release-plan.json.state.json"
+      - name: Validate and publish the approved plan
         env:
           GH_TOKEN: ${{ steps.split-token.outputs.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PLAN: ${{ runner.temp }}/approved-plan/release-plan.json
+          RELEASE_PREFLIGHT_SCRIPT: ${{ github.workspace }}/scripts/release-preflight.php
         run: |
-          echo '{}' > "${RUNNER_TEMP}/pre-split-main-shas.json"
-          while IFS= read -r package; do
-            main_sha="$(gh api "repos/capell-app/${package}/git/ref/heads/main" --jq '.object.sha')"
-            jq --arg package "${package}" --arg sha "${main_sha}" \
-              '. + {($package): $sha}' "${RUNNER_TEMP}/pre-split-main-shas.json" \
-              > "${RUNNER_TEMP}/pre-split-main-shas.next.json"
-            mv "${RUNNER_TEMP}/pre-split-main-shas.next.json" "${RUNNER_TEMP}/pre-split-main-shas.json"
-
-            if gh api "repos/capell-app/${package}/git/ref/tags/${RELEASE_TAG}" --silent 2>/dev/null; then
-              echo "Tag ${RELEASE_TAG} already exists in capell-app/${package}." >&2
-              exit 1
-            fi
-          done < <(jq -r '.[]' config/release-packages.json)
-      - name: Mark split transaction started
-        id: split-start
-        run: echo 'started=true' >> "${GITHUB_OUTPUT}"
-      - name: Split admin
-        uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
+          php scripts/release.php validate "${RELEASE_PLAN}"
+          php scripts/release.php resume "${RELEASE_PLAN}"
+          php scripts/release.php verify "${RELEASE_PLAN}"
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          {
-            package_directory: packages/admin,
-            repository_organization: capell-app,
-            repository_name: admin,
-            branch: main,
-            tag: '${{ github.event.release.tag_name }}',
-            user_name: capell-app,
-            user_email: appcapello@gmail.com,
-          }
-      - name: Split core
-        uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
-        with:
-          {
-            package_directory: packages/core,
-            repository_organization: capell-app,
-            repository_name: core,
-            branch: main,
-            tag: '${{ github.event.release.tag_name }}',
-            user_name: capell-app,
-            user_email: appcapello@gmail.com,
-          }
-      - name: Split frontend
-        uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
-        with:
-          {
-            package_directory: packages/frontend,
-            repository_organization: capell-app,
-            repository_name: frontend,
-            branch: main,
-            tag: '${{ github.event.release.tag_name }}',
-            user_name: capell-app,
-            user_email: appcapello@gmail.com,
-          }
-      - name: Split installer
-        uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
-        with:
-          {
-            package_directory: packages/installer,
-            repository_organization: capell-app,
-            repository_name: installer,
-            branch: main,
-            tag: '${{ github.event.release.tag_name }}',
-            user_name: capell-app,
-            user_email: appcapello@gmail.com,
-          }
-      - name: Split marketplace
-        uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
-        env: { GITHUB_TOKEN: 'x-access-token:${{ steps.split-token.outputs.token }}' }
-        with:
-          {
-            package_directory: packages/marketplace,
-            repository_organization: capell-app,
-            repository_name: marketplace,
-            branch: main,
-            tag: '${{ github.event.release.tag_name }}',
-            user_name: capell-app,
-            user_email: appcapello@gmail.com,
-          }
-      - name: Compensate release tags after a split failure
-        if: failure() && steps.split-start.outputs.started == 'true'
-        env:
-          GH_TOKEN: ${{ steps.split-token.outputs.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          encoded_tag="$(jq -rn --arg tag "${RELEASE_TAG}" '$tag|@uri')"
-          while IFS= read -r package; do
-            gh api --method DELETE "repos/capell-app/${package}/git/refs/tags/${encoded_tag}" --silent 2>/dev/null || true
-            previous_sha="$(jq -r --arg package "${package}" '.[$package]' "${RUNNER_TEMP}/pre-split-main-shas.json")"
-            gh api --method PATCH "repos/capell-app/${package}/git/refs/heads/main" \
-              -f sha="${previous_sha}" -F force=true --silent
-          done < <(jq -r '.[]' config/release-packages.json)
+          name: release-plan-state
+          path: ${{ runner.temp }}/approved-plan/release-plan.json.state.json
+          if-no-files-found: ignore
+          retention-days: 30
 
   public-release-smoke:
-    needs: split-monorepo
+    needs: publish
     uses: ./.github/workflows/public-release-smoke.yml
     with:
-      version: ${{ github.event.release.tag_name }}
+      plan_path: release-plan.json
+      plan_artifact: approved-release-plan

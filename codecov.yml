@@ -1,0 +1,40 @@
+coverage:
+  precision: 2
+  round: down
+  range: '90...100'
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+    patch:
+      default:
+        target: 90%
+
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: 90%
+        threshold: 1%
+  individual_components:
+    - component_id: core
+      name: Core
+      paths:
+        - packages/core/**
+    - component_id: admin
+      name: Admin
+      paths:
+        - packages/admin/**
+    - component_id: frontend
+      name: Frontend
+      paths:
+        - packages/frontend/**
+    - component_id: installer
+      name: Installer
+      paths:
+        - packages/installer/**
+    - component_id: marketplace
+      name: Marketplace
+      paths:
+        - packages/marketplace/**

@@ -31,7 +31,7 @@ class SiteDomainFactory extends Factory
                     'language_id' => $attributes['language_id'],
                 ])
                 ->hasTranslations(['language_id' => $attributes['language_id']]),
-            'default' => false,
+            'default' => null,
             'status' => true,
             'created_at' => $this->faker->dateTimeBetween('-1 year', '-6 month'),
             'updated_at' => $this->faker->dateTimeBetween('-5 month'),

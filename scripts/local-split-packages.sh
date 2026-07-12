@@ -5,7 +5,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT}/.env.deploy.local"
 DRY_RUN=false
-FORCE_ALIGN=false
 REF=""
 TAG=""
 BRANCH="${CAPELL_SPLIT_BRANCH:-main}"
@@ -27,7 +26,6 @@ Options:
   --remote-template <fmt>   printf template for repo URL, e.g. file:///tmp/%s.git.
   --env-file <path>         Env file. Defaults to .env.deploy.local.
   --dry-run                 Print commands without pushing.
-  --force-align             Snapshot the destination branch, then align it with --force-with-lease.
   -h, --help                Show this help.
 USAGE
 }
@@ -64,10 +62,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dry-run)
       DRY_RUN=true
-      shift
-      ;;
-    --force-align)
-      FORCE_ALIGN=true
       shift
       ;;
     -h|--help)
@@ -217,20 +211,7 @@ for package in "${PACKAGES[@]}"; do
   split_sha="$(git subtree split --prefix "packages/${package}" "${REF}")"
   remote_url="$(remote_url_for "${package}")"
 
-  if [[ "${FORCE_ALIGN}" == true ]]; then
-    remote_branch_sha="$(git ls-remote "${remote_url}" "refs/heads/${BRANCH}" | awk 'NR == 1 { print $1 }')"
-
-    if [[ -n "${remote_branch_sha}" ]]; then
-      backup_ref="refs/remotes/capell-split/${package}/${BRANCH}"
-      git fetch --no-tags "${remote_url}" "+refs/heads/${BRANCH}:${backup_ref}"
-      git push "${remote_url}" "${backup_ref}:refs/heads/release-backup/${TAG}-${BRANCH}"
-      git push "--force-with-lease=refs/heads/${BRANCH}:${remote_branch_sha}" "${remote_url}" "${split_sha}:refs/heads/${BRANCH}"
-    else
-      git push "${remote_url}" "${split_sha}:refs/heads/${BRANCH}"
-    fi
-  else
-    git push "${remote_url}" "${split_sha}:refs/heads/${BRANCH}"
-  fi
+  git push "${remote_url}" "${split_sha}:refs/heads/${BRANCH}"
   git push "${remote_url}" "${split_sha}:refs/tags/${TAG}"
   PUSHED_PACKAGES+=("${package}")
 done

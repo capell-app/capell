@@ -88,6 +88,36 @@
             "notes": "Optional until the manifest grows edit-record actions; shown as the media resource surface for now."
         },
         {
+            "id": "page-history-timeline",
+            "title": "Page history timeline.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage/EventSourcedHistoryRelationManager",
+            "scenario": "admin-index",
+            "url": "/pages/107/edit",
+            "waitFor": "button[wire\\:click*='rollback']",
+            "docsPage": "packages/admin/docs/overview.md",
+            "output": "packages/admin/docs/images/screenshots/page-history-timeline.png",
+            "required": true,
+            "notes": "Authentic populated Standard Admin Page History capture showing append-only edit and restore revisions, the current version, and available rollback and roll-forward actions."
+        },
+        {
+            "id": "page-history-rollback-preview",
+            "title": "Page history rollback and roll-forward preview.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-action-modal",
+            "target": "EventSourcedHistoryRelationManager/rollback",
+            "scenario": "admin-index",
+            "url": "/pages/107/edit",
+            "waitFor": ".fi-modal-open",
+            "docsPage": "packages/admin/docs/overview.md",
+            "output": "packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
+            "required": true,
+            "notes": "Authentic validated roll-forward preview showing the target revision, reversible append-only recovery explanation, and real field-level differences before confirmation."
+        },
+        {
             "id": "admin-media-ai-doctor-image",
             "title": "Media AIOrchestrator doctor image action.",
             "package": "admin",

@@ -80,12 +80,6 @@ return RectorConfig::configure()
         AssertElementToAssertContainsElementRule::class,
     ])
     ->withSkip([
-        EnvVariableToEnvHelperRector::class => [
-            __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
-        ],
-        ServerVariableToRequestFacadeRector::class => [
-            __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
-        ],
         PostIncDecToPreIncDecRector::class,
         AddTypeToConstRector::class,
         PrivatizeFinalClassPropertyRector::class,
@@ -99,6 +93,12 @@ return RectorConfig::configure()
         ],
         MakeModelAttributesAndScopesProtectedRector::class => [
             __DIR__ . '/packages/core/src/Enums/Attribute/EnumAttributeHelper.php',
+        ],
+        EnvVariableToEnvHelperRector::class => [
+            __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
+        ],
+        ServerVariableToRequestFacadeRector::class => [
+            __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
         ],
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [
             __DIR__ . '/packages/admin/tests/Feature/Filament/Pages/ExtensionsPageTest.php',

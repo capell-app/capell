@@ -36,7 +36,7 @@ function makeCachingFixture(): array
     for ($index = 0; $index < 5; $index++) {
         $createdPages[] = Page::factory()
             ->site($site)
-            ->blueprint($type)
+            ->type($type)
             ->published(CarbonImmutable::parse('2026-01-' . (10 + $index) . ' 10:00:00'))
             ->state([
                 'created_at' => CarbonImmutable::parse('2026-01-' . (10 + $index) . ' 10:00:00'),

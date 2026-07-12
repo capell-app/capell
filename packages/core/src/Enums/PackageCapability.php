@@ -8,8 +8,6 @@ enum PackageCapability: string
 {
     // App-package capabilities: package identities and cross-package contract surfaces.
     case AccessGateCustomerPortalGatedResourceFeed = 'access-gate-customer-portal-gated-resource-feed';
-    case AccessGateFailClosedStorage = 'access-gate-fail-closed-storage';
-    case AccessGatePathScopedAllowlist = 'access-gate-path-scoped-allowlist';
     case AiCreator = 'ai-creator';
     case AiCreatorAgentBridge = 'ai-creator-agent-bridge';
     case Contacts = 'contacts';
@@ -27,12 +25,10 @@ enum PackageCapability: string
     case ContentSectionsLayoutBuilderPayloads = 'content-sections-layout-builder-payloads';
     case ContentSectionsPublicActionsBridge = 'content-sections-public-actions-bridge';
     case ContentSectionsPublishingStudioBridge = 'content-sections-publishing-studio-bridge';
-    case BlockRichTextRenderSanitization = 'block-rich-text-render-sanitization';
     case DocumentLifecycleCustomerPortalDocumentFeed = 'document-lifecycle-customer-portal-document-feed';
     case FrontendOptimizerConsole = 'frontend-optimizer-console';
     case InsightsPrivacyCenterMirror = 'insights-privacy-center-mirror';
     case SearchSiteDiscoveryIndexing = 'search-site-discovery-indexing';
-    case SearchPublicRateLimit = 'search-public-rate-limit';
     case SeoSuiteBlogArticleSchema = 'seo-suite-blog-article-schema';
     case SeoSuiteBrokenUrlImport = 'seo-suite-broken-url-import';
     case SeoSuitePublishingStudioGates = 'seo-suite-publishing-studio-gates';

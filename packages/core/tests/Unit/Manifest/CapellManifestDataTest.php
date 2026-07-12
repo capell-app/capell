@@ -13,7 +13,7 @@ it('hydrates from a valid manifest v3 array', function (): void {
         ->and($manifest->slug)->toBe('package')
         ->and($manifest->displayName)->toBe('Package')
         ->and($manifest->kind)->toBe('package')
-        ->and($manifest->capellApiVersion)->toBe('^0.0')
+        ->and($manifest->capellApiVersion)->toBe('^4.0')
         ->and($manifest->productGroup)->toBe('Tests')
         ->and($manifest->tier)->toBe('free')
         ->and($manifest->demo)->toBeFalse()
@@ -123,7 +123,7 @@ it('rejects legacy manifest v2 arrays during hydration', function (): void {
         'manifest-version' => 2,
         'name' => 'vendor/package',
         'kind' => 'package',
-        'capell-version' => '^0.0',
+        'capell-version' => '^4.0',
     ]))->toThrow(InvalidManifestException::class, 'manifest-version 3');
 });
 
@@ -132,7 +132,7 @@ it('round-trips through toArray and fromArray without legacy capell-version', fu
     $array = $manifest->toArray();
 
     expect($array['manifest-version'])->toBe(3)
-        ->and($array)->toHaveKey('capellApiVersion', '^0.0')
+        ->and($array)->toHaveKey('capellApiVersion', '^4.0')
         ->and($array)->not->toHaveKey('capell-version')
         ->and(CapellManifestData::fromArray($array)->toArray())->toBe($array);
 });

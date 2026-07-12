@@ -17,13 +17,13 @@ it('loads canonical child pages with localized url and translation relations', f
     $type = Blueprint::factory()->page()->create();
     $canonicalPage = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published()
         ->withTranslations($language, ['title' => 'Canonical'], slug: '/canonical')
         ->create();
     $alternatePage = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->canonicalPage($canonicalPage)
         ->published()
         ->withTranslations($language, ['title' => 'Alternate'], slug: '/alternate')
@@ -74,7 +74,7 @@ it('getErrorPage with withEvents false returns the page when one exists', functi
         ?? Blueprint::factory()->page()->state(['key' => 'error'])->create();
     $errorPage = Page::factory()
         ->site($site)
-        ->blueprint($errorType)
+        ->type($errorType)
         ->withTranslations($language)
         ->create();
 
@@ -173,13 +173,13 @@ it('loadPage hydrates parent translation for public page variables', function ()
     $type = Blueprint::factory()->page()->create();
     $parent = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published()
         ->withTranslations($language, ['title' => 'Article'], slug: '/articles')
         ->create();
     $child = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->parent($parent)
         ->published()
         ->withTranslations($language, ['title' => 'Child'], slug: '/articles/child')
@@ -274,21 +274,21 @@ it('getPageAncestors returns localized published ancestors in hierarchy order', 
     $type = Blueprint::factory()->page()->create();
     $grandparent = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published()
         ->withTranslations($language, ['title' => 'Grandparent'], slug: '/grandparent')
         ->create();
     $parent = Page::factory()
         ->site($site)
         ->parent($grandparent)
-        ->blueprint($type)
+        ->type($type)
         ->published()
         ->withTranslations($language, ['title' => 'Parent'], slug: '/grandparent/parent')
         ->create();
     $child = Page::factory()
         ->site($site)
         ->parent($parent)
-        ->blueprint($type)
+        ->type($type)
         ->published()
         ->withTranslations($language, ['title' => 'Child'], slug: '/grandparent/parent/child')
         ->create();
@@ -315,7 +315,7 @@ it('returns the previous public sibling for next and previous navigation', funct
     $type = Blueprint::factory()->page()->meta(['with_next_prev' => true])->create();
     $parent = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-04-01 09:00:00'))
         ->state(['order' => 1])
         ->withTranslations($language, ['title' => 'Parent'], slug: '/parent')
@@ -323,7 +323,7 @@ it('returns the previous public sibling for next and previous navigation', funct
     $previous = Page::factory()
         ->site($site)
         ->parent($parent)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-04-01 10:00:00'))
         ->state(['order' => 2])
         ->withTranslations($language, ['title' => 'Previous'], slug: '/previous')
@@ -331,7 +331,7 @@ it('returns the previous public sibling for next and previous navigation', funct
     $current = Page::factory()
         ->site($site)
         ->parent($parent)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::parse('2026-04-01 11:00:00'))
         ->state(['order' => 3])
         ->withTranslations($language, ['title' => 'Current'], slug: '/current')

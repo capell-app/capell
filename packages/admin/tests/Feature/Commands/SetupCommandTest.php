@@ -483,7 +483,7 @@ function registerInstalledSetupTheme(string $packageName, string $themeKey): voi
         'slug' => str($packageName)->after('/')->toString(),
         'displayName' => str($packageName)->after('/')->headline()->toString(),
         'kind' => 'theme',
-        'capellApiVersion' => '^0.0',
+        'capellApiVersion' => '^4.0',
         'version' => '1.0.0',
         'product' => [
             'group' => 'Theme',

@@ -30,7 +30,7 @@ it('returns a hydrated page with translation and pageUrl on the first call', fun
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::now())
         ->withTranslations($language, ['title' => 'Cached Page'], slug: 'cached-page')
         ->create();
@@ -62,7 +62,7 @@ it('does not hit the database on a warm cache call', function (): void {
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::now())
         ->withTranslations($language, [], slug: 'warm-test')
         ->create();
@@ -88,7 +88,7 @@ it('invalidates a specific model entry by key', function (): void {
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->published(CarbonImmutable::now())
         ->withTranslations($language, ['title' => 'Before'], slug: 'before-page')
         ->create();

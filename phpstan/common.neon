@@ -49,4 +49,5 @@ parameters:
         - stubs/optional-packages.stub
     scanFiles:
         - stubs/optional-packages.stub
+        - ../scripts/release/ReleaseEngine.php
         - ../tests/Pest.php

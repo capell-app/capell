@@ -3,7 +3,7 @@ name: Build Frontend Package
 on:
   pull_request:
     branches:
-      - main
+      - 4.x
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'packages/frontend/**'

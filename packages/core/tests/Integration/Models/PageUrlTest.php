@@ -70,7 +70,7 @@ it('has a url attribute', function (): void {
 });
 
 it('has a full url attribute', function (): void {
-    $siteDomain = SiteDomain::factory()->createOne(['domain' => 'example.com', 'path' => null, 'scheme' => 'https', 'status' => true, 'default' => true]);
+    $siteDomain = SiteDomain::factory()->createOne(['domain' => 'example.com', 'path' => null, 'scheme' => 'https']);
 
     $pageUrl = PageUrl::factory()
         ->recycle($siteDomain->site)
@@ -78,34 +78,6 @@ it('has a full url attribute', function (): void {
         ->create([
             'url' => '/test',
         ]);
-
-    expect($pageUrl->full_url)->toBe('https://example.com/test');
-});
-
-it('builds its full url with the active default site domain', function (): void {
-    $defaultDomain = SiteDomain::factory()->createOne([
-        'domain' => 'example.com',
-        'path' => null,
-        'scheme' => 'https',
-        'status' => true,
-        'default' => true,
-    ]);
-
-    SiteDomain::factory()
-        ->recycle($defaultDomain->site)
-        ->recycle($defaultDomain->language)
-        ->create([
-            'domain' => '127.0.0.1',
-            'path' => null,
-            'scheme' => 'https',
-            'status' => true,
-            'default' => false,
-        ]);
-
-    $pageUrl = PageUrl::factory()
-        ->recycle($defaultDomain->site)
-        ->recycle($defaultDomain->language)
-        ->create(['url' => '/test']);
 
     expect($pageUrl->full_url)->toBe('https://example.com/test');
 });

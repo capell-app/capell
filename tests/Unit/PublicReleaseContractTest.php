@@ -11,9 +11,12 @@ it('defines the public v4 split package release contract', function (): void {
         JSON_THROW_ON_ERROR,
     );
 
-    expect($splitPackages)->toBe(['admin', 'core', 'frontend', 'installer', 'marketplace']);
+    expect(array_column($splitPackages, 'name'))->toBe([
+        'capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/installer', 'capell-app/marketplace',
+    ]);
 
-    foreach ($splitPackages as $splitPackage) {
+    foreach ($splitPackages as $definition) {
+        $splitPackage = basename((string) $definition['path']);
         $manifest = json_decode(
             file_get_contents($root . '/packages/' . $splitPackage . '/composer.json'),
             true,
@@ -22,7 +25,7 @@ it('defines the public v4 split package release contract', function (): void {
         );
 
         expect($manifest['name'])->toBe('capell-app/' . $splitPackage)
-            ->and($manifest['extra']['branch-alias']['dev-main'] ?? null)->toBe('4.x-dev');
+            ->and($manifest['extra']['branch-alias']['dev-main'] ?? null)->toBe('1.x-dev');
     }
 
     $marketplaceManifest = json_decode(
@@ -40,8 +43,8 @@ it('defines the public v4 split package release contract', function (): void {
     );
 
     expect($coreManifest['require']['spatie/laravel-settings'])->toBe('^3.0')
-        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('self.version')
-        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('self.version');
+        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('^1.0')
+        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^1.0');
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');
@@ -54,16 +57,25 @@ it('defines the public v4 split package release contract', function (): void {
         ->toContain('actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349')
         ->toContain('SPLIT_APP_ID')
         ->toContain('SPLIT_APP_PRIVATE_KEY')
-        ->toContain('Compensate release tags after a split failure')
-        ->toContain("if: failure() && steps.split-start.outputs.started == 'true'")
-        ->toContain('git/refs/tags/${encoded_tag}')
-        ->toContain('pre-split-main-shas.json')
-        ->toContain('git/refs/heads/main')
-        ->toContain('-F force=true')
+        ->toContain('workflow_dispatch:')
+        ->toContain('plan_artifact:')
+        ->toContain('PLAN_PATH: ${{ inputs.plan_path }}')
+        ->toContain('test -n "${PLAN_PATH}"')
+        ->toContain('realpath "${candidate}"')
+        ->toContain('Plan path escapes the checked-out workspace.')
+        ->toContain('plan_path: release-plan.json')
+        ->toContain('resume_state_run_id:')
+        ->toContain('run-id: ${{ inputs.resume_state_run_id }}')
+        ->toContain('repository: ${{ github.repository }}')
+        ->toContain('github-token: ${{ github.token }}')
+        ->toContain('release-plan.json.state.json')
+        ->toContain('if: always()')
+        ->toContain('if-no-files-found: ignore')
+        ->not->toContain('test -f "${{ inputs.plan_path }}"')
+        ->toContain('php scripts/release.php resume')
         ->toContain('uses: ./.github/workflows/public-release-smoke.yml')
-        ->not->toContain('matrix:')
-        ->not->toContain('fail-fast: false')
-        ->not->toContain('secrets.ACCESS_TOKEN')
+        ->not->toContain('release:')
+        ->not->toContain('rollback')
         ->and($localSplitScript)->toContain('BRANCH="${CAPELL_SPLIT_BRANCH:-main}"')
         ->toContain('rollback_release_tags')
         ->toContain('git push "${remote_url}" ":refs/tags/${TAG}"')
@@ -74,32 +86,22 @@ it('defines the public v4 split package release contract', function (): void {
         ->and($packagistScript)->toContain('Packagist preflight failed.');
 
     expect($releaseSmokeWorkflow)
-        ->toContain('package: [admin, core, frontend, installer, marketplace]')
-        ->toContain('Wait for one exact version across every package')
-        ->toContain('comm -12')
-        ->toContain('composer create-project')
-        ->toContain('php artisan capell:install')
-        ->toContain('--all-packages')
-        ->toContain('--install-welcome-route')
-        ->toContain('curl --fail --silent --show-error http://127.0.0.1:8000/')
-        ->toContain('php artisan package:discover')
-        ->toContain('php artisan migrate --force')
-        ->not->toContain("inputs.version || '*'")
+        ->toContain('plan_path:')
+        ->toContain('workflow_call:')
+        ->not->toContain('workflow_dispatch:')
+        ->toContain('cd "$(mktemp -d)"')
+        ->toContain('${GITHUB_WORKSPACE}/scripts/release.php')
+        ->toContain("jq -r '.packages[] | [.name, .proposed_version] | @tsv'")
+        ->toContain('composer update --no-interaction')
         ->and($fastTestWorkflow)
         ->toContain('- main')
-        ->toContain('"pestphp/pest:^4.7"')
+        ->toContain('"pestphp/pest:^4.3"')
         ->toContain('"filament/filament:^5.6.8 <5.7.0-beta"')
         ->not->toContain('filament/filament:^4.7')
         ->and($fullTestWorkflow)
         ->toContain('- main');
 
-    preg_match_all('/repository_name:\s*([a-z0-9-]+)/', $splitWorkflow, $splitRepositoryMatches);
-    preg_match('/package:\s*\[([^]]+)]/', $releaseSmokeWorkflow, $smokeMatrixMatch);
-    $smokePackages = array_map(trim(...), explode(',', $smokeMatrixMatch[1] ?? ''));
-
-    expect($splitRepositoryMatches[1])->toBe($splitPackages)
-        ->and($smokePackages)->toBe($splitPackages)
-        ->and($localSplitScript)->toContain('config/release-packages.json')
+    expect($localSplitScript)->toContain('config/release-packages.json')
         ->and($packagistScript)->toContain('config/release-packages.json');
 });
 
@@ -179,13 +181,9 @@ it('publishes honest comparison recovery and exit guidance without recycled doc 
         ->toContain('Do not delete the source environment');
 
     $recycledHeroPattern = '/\\A#[^\\n]+\\n\\n!\\[[^]]+\\]\\(\\.\\.\\/images\\/generated\\/admin\\/(?:site-health-page|theme-library-admin-flow)\\.png\\)$/m';
-    $docs = glob($root . '/docs/{frontend,packages,performance,operations,development,platform}/*.md', GLOB_BRACE);
+    $docs = glob($root . '/docs/{frontend,packages,performance,operations,development,platform}/*.md', GLOB_BRACE) ?: [];
 
-    expect($docs)->not->toBeFalse();
-
-    if ($docs === false) {
-        return;
-    }
+    expect($docs)->not->toBeEmpty();
 
     foreach ($docs as $doc) {
         expect((string) file_get_contents($doc))->not->toMatch($recycledHeroPattern);

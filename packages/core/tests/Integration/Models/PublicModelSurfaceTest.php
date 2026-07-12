@@ -39,7 +39,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
     $home = Page::factory()
         ->home()
         ->site($site)
-        ->blueprint($homeType)
+        ->type($homeType)
         ->published()
         ->withTranslations($english, ['title' => 'Home', 'content' => 'Welcome'], slug: '/')
         ->createOne(['order' => 1]);
@@ -47,7 +47,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
 
     $parent = Page::factory()
         ->site($site)
-        ->blueprint($articleType)
+        ->type($articleType)
         ->published(now()->subDays(4)->toImmutable())
         ->withTranslations($english, ['title' => 'Parent', 'content' => 'Parent content'], slug: 'parent')
         ->createOne(['order' => 2]);
@@ -56,7 +56,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
     $child = Page::factory()
         ->site($site)
         ->parent($parent)
-        ->blueprint($articleType)
+        ->type($articleType)
         ->published(now()->subDays(2)->toImmutable())
         ->withTranslations($english, [
             'title' => 'Child',
@@ -77,8 +77,8 @@ it('hydrates public page model behavior across publish windows urls ordering and
         ],
     ])->save();
 
-    $pending = Page::factory()->site($site)->blueprint($articleType)->pending()->createOne(['name' => 'Pending']);
-    $expired = Page::factory()->site($site)->blueprint($articleType)->expired()->createOne(['name' => 'Expired']);
+    $pending = Page::factory()->site($site)->type($articleType)->pending()->createOne(['name' => 'Pending']);
+    $expired = Page::factory()->site($site)->type($articleType)->expired()->createOne(['name' => 'Expired']);
 
     $site->load(['language', 'siteDomains.language', 'theme']);
     $child->load(['site.siteDomains', 'translation', 'pageUrl', 'blueprint', 'parent.translation']);
@@ -169,7 +169,7 @@ it('exposes blueprint site theme translation and userstamp behavior through pers
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($blueprint)
+        ->type($blueprint)
         ->withTranslations($english, [
             'title' => 'Article title',
             'content' => '<p>This content becomes a summary.</p>',
@@ -189,7 +189,7 @@ it('exposes blueprint site theme translation and userstamp behavior through pers
     ])->save();
 
     test()->actingAs($admin);
-    $stampedPage = Page::factory()->site($site)->blueprint($blueprint)->createOne(['created_by' => null, 'updated_by' => null]);
+    $stampedPage = Page::factory()->site($site)->type($blueprint)->createOne(['created_by' => null, 'updated_by' => null]);
     $stampedPage->update(['name' => 'Updated by admin']);
     $stampedPage->delete();
     $stampedPage->restore();

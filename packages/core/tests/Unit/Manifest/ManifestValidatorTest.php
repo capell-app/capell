@@ -12,7 +12,7 @@ it('rejects legacy manifest v2 contracts', function (): void {
         'manifest-version' => 2,
         'name' => 'capell-app/blog',
         'kind' => 'package',
-        'capell-version' => '^0.0',
+        'capell-version' => '^4.0',
         'surfaces' => ['admin', 'frontend'],
     ]))->toThrow(InvalidManifestException::class, 'manifest-version 3');
 });
@@ -21,7 +21,7 @@ it('rejects v3 manifests that keep the v2 capell-version field', function (): vo
     $validator = new ManifestValidator;
 
     $manifest = manifestV3ValidatorLegacyFixture();
-    $manifest['capell-version'] = '^0.0';
+    $manifest['capell-version'] = '^4.0';
 
     expect(fn () => $validator->validate($manifest, composerJson: manifestV3ValidatorComposerJson()))
         ->toThrow(InvalidManifestException::class, 'capell-version');

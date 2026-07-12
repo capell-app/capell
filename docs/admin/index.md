@@ -1,14 +1,29 @@
 # Admin
 
-![Capell Admin screenshot](../images/admin-dashboard.png)
-
 Capell Admin is the Filament surface for editing and operating Capell sites. It owns the dashboard, pages, sites, languages, layouts, themes, media, users, roles, settings, extension pages, and package-owned admin screens.
 
-> **Who's this for?** Editors using the Filament admin, and the developers who configure it. Managing content, media, users, and settings.
+Use this section if you edit content or configure the Filament admin.
 
 Status: `Available` · Package: `capell-app/admin`
 
-## What To Use
+| I need to...                           | Read                                                            |
+| -------------------------------------- | --------------------------------------------------------------- |
+| Tour the admin screens                 | [Admin interface](interface.md)                                 |
+| Manage users, roles, and access        | [Users and roles](users-and-roles.md)                           |
+| Keep admin accounts secure             | [Account security](account-security.md)                         |
+| Install or repair the admin panel      | [Admin setup](setup.md)                                         |
+| Understand the admin domain model      | [Admin domain](admin-domain.md)                                 |
+| Register package admin surfaces        | [Admin bridges](admin-bridges.md)                               |
+| Debug missing extension surfaces       | [Debugging admin extensions](debugging-admin-extensions.md)     |
+| Customize the dashboard                | [Customize your dashboard](dashboard-customize.md)              |
+| Understand the dashboard widget system | [Dashboard widgets](dashboard-widgets.md)                       |
+| Register a dashboard Filament widget   | [Dashboard widget development](dashboard-widget-development.md) |
+| Work with media records                | [Media management](media-management.md)                         |
+| Manage installed themes                | [Theme Library](theme-library.md)                               |
+| Generate theme images                  | [Generated theme images](generated-theme-images.md)             |
+| Recover from broken admin state        | [Recovery Center](recovery.md)                                  |
+
+## Extension Points
 
 | Need                                                  | Use                                                                                                                        |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -36,25 +51,6 @@ Status: `Available` · Package: `capell-app/admin`
 | Site Health         | Read-only checks for public traffic readiness.                                               |
 | Recovery            | Import/export shell; execution belongs to `capell-app/migration-assistant` when installed.   |
 | Lockdown            | Emergency frontend lock-down and break-glass admin access.                                   |
-
-## Read Next
-
-| Need                                   | Read                                                                    |
-| -------------------------------------- | ----------------------------------------------------------------------- |
-| Tour the admin screens                 | [Admin interface](interface.md)                                         |
-| Manage users, roles, and access        | [Users and roles](users-and-roles.md)                                   |
-| Keep admin accounts secure             | [Account security](account-security.md)                                 |
-| Install or repair the admin panel      | [Admin setup](setup.md)                                                 |
-| Understand the admin domain model      | [Admin domain](admin-domain.md)                                         |
-| Register package admin surfaces        | [Admin bridges](admin-bridges.md)                                       |
-| Debug missing admin extension surfaces | [Debugging admin extensions](debugging-admin-extensions.md)             |
-| Customize your dashboard               | [Customize your dashboard](dashboard-customize.md)                      |
-| Understand the dashboard widget system | [Dashboard widgets](dashboard-widgets.md)                               |
-| Register a dashboard Filament widget   | [Register a dashboard Filament widget](dashboard-widget-development.md) |
-| Work with media records                | [Media management](media-management.md)                                 |
-| Manage installed themes                | [Theme Library](theme-library.md)                                       |
-| Generate theme images from the admin   | [Generated theme images](generated-theme-images.md)                     |
-| Recover from broken admin state        | [Recovery Center](recovery.md)                                          |
 
 ## Extension Rules
 

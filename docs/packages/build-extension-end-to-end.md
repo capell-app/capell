@@ -86,7 +86,7 @@ The namespace should match the package. Do not place app-specific models or host
     "slug": "announcement-bar",
     "displayName": "Announcement Bar",
     "kind": "package",
-    "capellApiVersion": "^0.0",
+    "capellApiVersion": "^4.0",
     "version": "1.0.0",
     "description": "Adds a site-wide public announcement banner.",
     "product": {

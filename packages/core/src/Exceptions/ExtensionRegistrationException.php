@@ -13,7 +13,7 @@ class ExtensionRegistrationException extends RuntimeException
     public function __construct(
         string $class,
         string $expectedInterface,
-        string $docUrl = 'https://github.com/capell-app/capell/blob/main/docs/extending-capell.md',
+        string $docUrl = 'https://github.com/capell-app/capell/blob/4.x/docs/extending-capell.md',
         ?Throwable $previous = null,
     ) {
         parent::__construct(
@@ -33,7 +33,7 @@ class ExtensionRegistrationException extends RuntimeException
         return new self(
             $class,
             PageTypeData::class,
-            'https://github.com/capell-app/capell/blob/main/docs/extending-capell.md#page-types',
+            'https://github.com/capell-app/capell/blob/4.x/docs/extending-capell.md#page-types',
             $previous,
         );
     }
@@ -43,7 +43,7 @@ class ExtensionRegistrationException extends RuntimeException
         return new self(
             $class,
             'Capell\Core\Contracts\SchemaInterface',
-            'https://github.com/capell-app/capell/blob/main/docs/extending-capell.md#schemas',
+            'https://github.com/capell-app/capell/blob/4.x/docs/extending-capell.md#schemas',
             $previous,
         );
     }
@@ -53,7 +53,7 @@ class ExtensionRegistrationException extends RuntimeException
         return new self(
             $class,
             'Capell\Core\Contracts\WidgetInterface',
-            'https://github.com/capell-app/capell/blob/main/docs/extending-capell.md#widgets',
+            'https://github.com/capell-app/capell/blob/4.x/docs/extending-capell.md#widgets',
             $previous,
         );
     }

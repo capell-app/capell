@@ -218,7 +218,7 @@ it('does not lazy load the page type while resolving the livewire component', fu
         'component' => 'app.page.show',
     ]);
     $page = Page::factory()
-        ->blueprint($type)
+        ->type($type)
         ->create()
         ->unsetRelation('blueprint');
 

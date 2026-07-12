@@ -151,6 +151,7 @@ A page can be **linked** to another page across sites. This is useful when you h
 
 ## Further Reading
 
+- [Page event history and rollback](../../../docs/development/page-event-history.md) — automatic revision recording, workflow boundaries, validation, and replay
 - [Content Management](content-management.md) — content types, widgets, translations, media
 - [Multi-site & Multi-lingual](multi-site-multi-lingual.md) — per-locale URLs, hreflang
 - [Extending Capell](extending-capell.md) — custom page subjects and blueprints

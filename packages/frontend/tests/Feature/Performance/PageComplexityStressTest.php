@@ -157,7 +157,7 @@ function seedFrontendStressPage(
 
     $page = Page::factory()
         ->site($site)
-        ->blueprint($type)
+        ->type($type)
         ->layout($layout)
         ->withTranslations(
             languages: $language,

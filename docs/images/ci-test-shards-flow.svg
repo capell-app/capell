@@ -20,7 +20,7 @@
         <rect x="700" y="132" width="210" height="116" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
         <text x="726" y="170" fill="#0f172a" font-weight="700">Weekly Rebalance</text>
         <text x="726" y="200" fill="#475569">JUnit timings</text>
-        <text x="726" y="226" fill="#475569">small PR to main</text>
+        <text x="726" y="226" fill="#475569">small PR to 4.x</text>
     </g>
     <g fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
         <path d="M258 190h88"/>

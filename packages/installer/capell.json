@@ -5,8 +5,8 @@
     "displayName": "Capell Installer",
     "kind": "package",
     "visibility": "support",
-    "capellApiVersion": "^0.0",
-    "version": "0.0.x-dev",
+    "capellApiVersion": "^4.0",
+    "version": "1.x-dev",
     "description": "Installer provides the browser installer guide and installer cleanup flow.",
     "product": {
         "group": "Capell Foundation",

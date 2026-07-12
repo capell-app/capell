@@ -154,7 +154,7 @@ final class DefaultPageConfiguratorTest extends AdminTestCase
         $type = Blueprint::factory()->page()->createOne([
             'key' => PageTypeEnum::Maintenance->value,
         ]);
-        $page = Page::factory()->blueprint($type)->createOne();
+        $page = Page::factory()->type($type)->createOne();
         $page->setRelation('blueprint', $type);
 
         $configurator = new DefaultPageConfigurator;

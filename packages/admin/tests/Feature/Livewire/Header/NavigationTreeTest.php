@@ -363,7 +363,7 @@ it('suppresses search results when a required ancestor is not visible', function
 
     $restrictedParent = Page::factory()
         ->recycle($site)
-        ->blueprint($restrictedType)
+        ->type($restrictedType)
         ->create(['name' => 'Restricted parent']);
 
     Page::factory()
@@ -390,7 +390,7 @@ it('does not mark a page as expandable when its only children are hidden by role
     Page::factory()
         ->recycle($site)
         ->parent($parent)
-        ->blueprint($restrictedType)
+        ->type($restrictedType)
         ->create(['name' => 'Hidden child']);
 
     Auth::login(createHeaderNavigationUser(collect([$site->getKey()])));

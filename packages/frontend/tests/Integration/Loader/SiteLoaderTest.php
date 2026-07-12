@@ -158,16 +158,16 @@ it('getSites sets language relations on siteDomains and translations', function 
     expect($loadedSite)->not()->toBeNull();
     assert($loadedSite instanceof Site);
 
-    $firstDomain = $loadedSite->siteDomains[0] ?? null;
-    $secondDomain = $loadedSite->siteDomains[1] ?? null;
-    assert($firstDomain instanceof SiteDomain);
-    assert($secondDomain instanceof SiteDomain);
+    $frenchDomain = $loadedSite->siteDomains->firstWhere('language_id', $french->id);
+    $englishDomain = $loadedSite->siteDomains->firstWhere('language_id', $english->id);
+    assert($frenchDomain instanceof SiteDomain);
+    assert($englishDomain instanceof SiteDomain);
 
     expect($loadedSite->siteDomains)->toHaveCount(2);
-    expect($firstDomain->getRelation('language'))->toBeInstanceOf(Language::class)
-        ->and($firstDomain->getRelation('language')->id)->toBe($french->id);
-    expect($secondDomain->getRelation('language'))->toBeInstanceOf(Language::class)
-        ->and($secondDomain->getRelation('language')->id)->toBe($english->id);
+    expect($frenchDomain->getRelation('language'))->toBeInstanceOf(Language::class)
+        ->and($frenchDomain->getRelation('language')->id)->toBe($french->id);
+    expect($englishDomain->getRelation('language'))->toBeInstanceOf(Language::class)
+        ->and($englishDomain->getRelation('language')->id)->toBe($english->id);
 
     $translations = $loadedSite->translations;
     $translations->each(function ($translation): void {

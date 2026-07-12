@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 it('keeps every core split pull request forwarding workflow aligned with the core monorepo', function (): void {
     $repositoryRoot = dirname(__DIR__, 2);
-    $packageNames = json_decode(
+    $packages = json_decode(
         file_get_contents($repositoryRoot . '/config/release-packages.json'),
         true,
         512,
         JSON_THROW_ON_ERROR,
     );
 
-    expect($packageNames)->toBe([
-        'admin',
-        'core',
-        'frontend',
-        'installer',
-        'marketplace',
+    expect(array_column($packages, 'path'))->toBe([
+        'packages/core',
+        'packages/admin',
+        'packages/frontend',
+        'packages/installer',
+        'packages/marketplace',
     ]);
 
     $expectedWorkflow = null;
 
-    foreach ($packageNames as $packageName) {
-        $workflowPath = $repositoryRoot . sprintf('/packages/%s/.github/workflows/forward-pr-to-monorepo.yml', $packageName);
+    foreach ($packages as $package) {
+        $workflowPath = $repositoryRoot . '/' . $package['path'] . '/.github/workflows/forward-pr-to-monorepo.yml';
 
         expect($workflowPath)->toBeFile();
 
@@ -32,7 +32,7 @@ it('keeps every core split pull request forwarding workflow aligned with the cor
             ->toBeString()
             ->toContain("github.event.repository.name != 'capell'")
             ->toContain('MONOREPO_REPOSITORY: capell-app/capell')
-            ->toContain('MONOREPO_BASE: main')
+            ->toContain('MONOREPO_BASE: 4.x')
             ->toContain('repository: capell-app/capell')
             ->not->toContain('capell-app/capell-packages');
 

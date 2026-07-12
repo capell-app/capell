@@ -2,6 +2,12 @@
 
 ![Capell Marketplace catalogue discovery, extension evaluation, and operation state](docs/assets/readme/hero.jpg)
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/marketplace.svg?style=flat-square)](https://packagist.org/packages/capell-app/marketplace)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=marketplace)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/marketplace?components%5B0%5D=marketplace&displayType=list)
+[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
+[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
+[![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
+
 `capell-app/marketplace` connects a Capell installation to the Capell extension marketplace. It owns catalogue browsing, Capell account linking, heartbeat/update advisory state, account-based Marketplace install eligibility decisions, queued local Composer install operations, free-install telemetry, and signed install/upgrade authorization records for protected extensions.
 
 Use this package when an admin needs to discover, authorize, or maintain extensions from the Capell marketplace. Local enable, disable, uninstall, and bulk extension management remain part of the installed Extensions surface.
@@ -103,6 +109,19 @@ vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php
 vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php
 ```
 
+## Requirements And Support Policy
+
+| Surface | Supported versions               |
+| ------- | -------------------------------- |
+| PHP     | `^8.4`                           |
+| Laravel | `^12.41.1` or `^13.0`            |
+| Core    | The same release as this package |
+| Admin   | The same release as this package |
+
+Security fixes target the current stable Capell release. While Capell remains on 0.0.x, upgrade all Capell packages together to the latest stable 0.0.x release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+
+Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
+
 ## Troubleshooting
 
 | Symptom                                               | Check                                                                                                              | Fix                                                                                                                                                                                                                                                                                                                                                  |
@@ -119,6 +138,10 @@ vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControlle
 | Heartbeat/update check fails                          | `PhoneHomeAction::lastFailureMessage()` or admin notification copy                                                 | Set `APP_URL` or `CAPELL_MARKETPLACE_WEBHOOK_URL`, confirm an instance exists, and check network access to the API URL.                                                                                                                                                                                                                              |
 | Catalogue looks stale                                 | Cache keys beginning `capell-marketplace.marketplace.*`                                                            | Run `php artisan cache:clear` locally, or use the browser refresh action when available.                                                                                                                                                                                                                                                             |
 | Marketplace surfaces disappear                        | `CAPELL_MARKETPLACE_ENABLED` and `php artisan optimize:clear`                                                      | Re-enable the package config and clear cached config/routes.                                                                                                                                                                                                                                                                                         |
+
+## Development
+
+Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
 ## Further Reading
 

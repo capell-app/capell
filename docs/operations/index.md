@@ -1,8 +1,16 @@
 # Operations
 
-Use this page during deploys, upgrades, incidents, and production checks.
+Use this section if you deploy, upgrade, or respond to incidents on an installed Capell site.
 
-> **Who's this for?** Operators and developers running an installed Capell site. Deploys, caches, upgrades, and incidents.
+| I need to...                                | Read                                              |
+| ------------------------------------------- | ------------------------------------------------- |
+| Check whether the site is ready for traffic | [Site Health](site-health.md)                     |
+| Back up or restore data                     | [Backups and restore](backups.md)                 |
+| Block public traffic during an incident     | [Lockdown](lockdown.md)                           |
+| Upgrade packages and plan rollback          | [Upgrades](upgrading.md)                          |
+| Diagnose an installed site                  | [Troubleshooting](troubleshooting.md)             |
+| Debug Marketplace connection or installs    | [Debugging Marketplace](debugging-marketplace.md) |
+| Plan a reversible migration away            | [Export and exit plan](export-and-exit.md)        |
 
 ## First Checks
 
@@ -65,10 +73,9 @@ Rollback behavior depends on the app deploy platform and database backup strateg
 
 Use the [backup and restore runbook](backups.md) before production changes. Use the [upgrade runbook](upgrading.md) for durable run tracking, package compatibility, migrations, cache clearing, and post-upgrade checks. For a product-facing explanation of the feature, use [Durable Upgrade Operations](../platform/upgrade-operations.md).
 
-## Backup health and recovery drills
+## Backup Health And Recovery Drills
 
-Capell Core can create database/media snapshots, verify freshness and artifact
-checksums, enforce retention, and restore only into isolated scratch targets.
+Capell Core can create database/media snapshots, verify freshness and artifact checksums, enforce retention, and restore only into isolated scratch targets.
 
 ```bash
 php artisan capell:backup:create
@@ -76,14 +83,9 @@ php artisan capell:backup:health --json
 php artisan capell:backup:prune
 ```
 
-Alert on a non-zero health exit. Run `capell:backup:prune` without `--force`
-first, and schedule a scratch restore drill at least monthly. The
-[backup and restore runbook](backups.md) contains configuration, scheduling,
-restore, cleanup, and production-recovery boundaries.
+Alert on a non-zero health exit. Run `capell:backup:prune` without `--force` first, and schedule a scratch restore drill at least monthly. The [backup and restore runbook](backups.md) contains configuration, scheduling, restore, cleanup, and production-recovery boundaries.
 
-Use the [export and exit plan](export-and-exit.md) to inventory portable data,
-create Migration Assistant packages, rehearse a move, and retain a safe rollback
-window when leaving Capell or moving between installations.
+Use the [export and exit plan](export-and-exit.md) to inventory portable data, create Migration Assistant packages, rehearse a move, and retain a safe rollback window when leaving Capell or moving between installations.
 
 ## Marketplace
 

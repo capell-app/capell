@@ -26,7 +26,7 @@ it('kernel steps produce expected bootstrap result', function (string $path, boo
         ?? Blueprint::factory()->page()->state(['key' => 'error'])->create();
     Page::factory()
         ->site($site)
-        ->blueprint($errorType)
+        ->type($errorType)
         ->withTranslations()
         ->create();
     $domain = $site->siteDomains->first();

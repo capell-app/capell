@@ -1,16 +1,23 @@
 # Packages
 
-![Capell extensions page](../images/generated/admin/admin-extensions-page.png)
-
 Capell packages extend the CMS without adding feature code to Core, Admin, or Frontend. Use a package when a capability can be installed, versioned, tested, and disabled independently.
 
-> **Who's this for?** Third-party developers building or maintaining Capell packages. Package shape, extension points, and contributions.
+Use this section if you build or maintain a Capell package.
 
-Use [Extension surface vocabulary](extension-surface-vocabulary.md) for the shared language behind packages, surfaces, contributions, capabilities, install impact, and marketplace proof. Use [Package authoring jobs](package-authoring-jobs.md) when you know what you want the package to do and need the shortest safe path to the right extension points.
+| I need to...                               | Read                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| Decide between host, package, and app code | [Host, package, or app code](../development/package-boundaries.md) |
+| Build a package from start to finish       | [Build an extension end to end](build-extension-end-to-end.md)     |
+| Find the shortest path for a package task  | [Package authoring jobs](package-authoring-jobs.md)                |
+| Understand package files and structure     | [Package anatomy](package-anatomy.md)                              |
+| Choose an extension point                  | [Extension point chooser](extension-point-chooser.md)              |
+| Add admin surfaces                         | [Admin extensions](admin-extensions.md)                            |
+| Add anonymous-safe frontend output         | [Frontend extensions](frontend-extensions.md)                      |
+| Look up exact contracts, tags, and tests   | [Extension point API reference](extension-point-api-reference.md)  |
+| Test a package                             | [Testing packages](testing-packages.md)                            |
+| Debug missing package output               | [Extension troubleshooting](extension-troubleshooting.md)          |
 
-![Marketplace extension catalogue](../images/generated/admin/marketplace-list.png)
-
-![Marketplace extension detail overview](../images/generated/package-surfaces/marketplace-extension-detail-overview.png)
+Use [Extension surface vocabulary](extension-surface-vocabulary.md) when you need the shared definitions for packages, surfaces, contributions, capabilities, install impact, and Marketplace proof.
 
 ## When To Create A Package
 
@@ -58,10 +65,6 @@ Use `minimal` for a lean installable package with Composer metadata, `capell.jso
 ## Install A Package In An App
 
 Capell packages are Composer packages. For a published package:
-
-![Marketplace extension docs and access state](../images/generated/package-surfaces/marketplace-extension-detail-docs-and-access.png)
-
-![Capell package operations page](../images/generated/admin/package-operations.png)
 
 ```bash
 composer require vendor/example
@@ -218,29 +221,20 @@ Use the [package checklist](package-checklist.md) before release.
 
 ## Read Next
 
-| Need                                        | Read                                                              |
-| ------------------------------------------- | ----------------------------------------------------------------- |
-| Add ready-made page sections                | [Content Sections](content-sections.md)                           |
-| Build pages visually with widgets           | [Layout Builder](layout-builder.md)                               |
-| Understand package/surface/capability terms | [Extension surface vocabulary](extension-surface-vocabulary.md)   |
-| Understand package file layout              | [Package anatomy](package-anatomy.md)                             |
-| Write package service providers             | [Service providers](service-providers.md)                         |
-| Understand the extension lifecycle          | [Extension lifecycle](extension-lifecycle.md)                     |
-| Contribute admin surfaces                   | [Admin extensions](admin-extensions.md)                           |
-| Contribute frontend output                  | [Frontend extensions](frontend-extensions.md)                     |
-| Use Actions, Data, and settings correctly   | [Actions, Data, and settings](data-actions-settings.md)           |
-| Ship migrations and settings tables         | [Database and migrations](database-and-migrations.md)             |
-| Study worked extension examples             | [Extension examples](extension-examples.md)                       |
-| Test a package properly                     | [Testing packages](testing-packages.md)                           |
-| Group packages into products                | [Package product groups](product-groups.md)                       |
-| Scaffold packages with AI assistance        | [AI creator](ai-creator.md)                                       |
-| Choose by job instead of API name           | [Package authoring jobs](package-authoring-jobs.md)               |
-| Understand package authoring as a platform  | [Package authoring](../platform/package-authoring.md)             |
-| Build a realistic package from scratch      | [Build an extension end to end](build-extension-end-to-end.md)    |
-| Create an installable theme package         | [Creating custom themes](creating-custom-themes.md)               |
-| Understand package boot/provider buckets    | [Package boot lifecycle](package-boot-lifecycle.md)               |
-| Pick the right extension point              | [Extension point chooser](extension-point-chooser.md)             |
-| Look up exact contracts/tags/tests          | [Extension point API reference](extension-point-api-reference.md) |
-| Debug Composer/manifest/provider discovery  | [Debugging package discovery](debugging-package-discovery.md)     |
-| Debug missing package contributions         | [Extension troubleshooting](extension-troubleshooting.md)         |
-| Avoid unsafe package patterns               | [Do not do this](../development/do-not-do-this.md)                |
+| Need                                        | Read                                                            |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| Add ready-made page sections                | [Content Sections](content-sections.md)                         |
+| Build pages visually with widgets           | [Layout Builder](layout-builder.md)                             |
+| Understand package/surface/capability terms | [Extension surface vocabulary](extension-surface-vocabulary.md) |
+| Write package service providers             | [Service providers](service-providers.md)                       |
+| Understand the extension lifecycle          | [Extension lifecycle](extension-lifecycle.md)                   |
+| Use Actions, Data, and settings correctly   | [Actions, Data, and settings](data-actions-settings.md)         |
+| Ship migrations and settings tables         | [Database and migrations](database-and-migrations.md)           |
+| Study worked extension examples             | [Extension examples](extension-examples.md)                     |
+| Group packages into products                | [Package product groups](product-groups.md)                     |
+| Scaffold packages with AI assistance        | [AI creator](ai-creator.md)                                     |
+| Understand package authoring as a platform  | [Package authoring](../platform/package-authoring.md)           |
+| Create an installable theme package         | [Creating custom themes](creating-custom-themes.md)             |
+| Understand package boot/provider buckets    | [Package boot lifecycle](package-boot-lifecycle.md)             |
+| Debug Composer/manifest/provider discovery  | [Debugging package discovery](debugging-package-discovery.md)   |
+| Avoid unsafe package patterns               | [Do not do this](../development/do-not-do-this.md)              |

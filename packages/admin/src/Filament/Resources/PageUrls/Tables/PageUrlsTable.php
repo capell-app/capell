@@ -61,7 +61,7 @@ class PageUrlsTable implements TableConfigurator
                     ])
                     ->withWhereHas(
                         'site',
-                        fn (BuilderContract $query): BuilderContract => $query->with('siteDomain'),
+                        fn (BuilderContract $query): BuilderContract => $query->withWhereHas('siteDomain'),
                     ),
             )
             ->defaultSort('created_at', 'desc')
@@ -186,7 +186,7 @@ class PageUrlsTable implements TableConfigurator
                 ->orWhereHas(
                     'site',
                     fn (BuilderContract $query): BuilderContract => $query->whereHas(
-                        'siteDomains',
+                        'siteDomain',
                         fn (BuilderContract $query): BuilderContract => self::applyFullUrlSearch($query, $search),
                     ),
                 )

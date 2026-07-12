@@ -27,7 +27,7 @@ it('marks installed platform constraints as compatible or incompatible', functio
 
 it('treats missing constraints and unavailable package versions as non-blocking', function (): void {
     $listing = marketplaceCompatibilityListing([
-        'capell_version_constraint' => '^0.0',
+        'capell_version_constraint' => '^4.0',
         'livewire_version_constraint' => null,
     ]);
 

@@ -59,14 +59,14 @@ it('removes widget-showcase safely in a clean offline Composer consumer', functi
             CapellCore::registerPackage(
                 $memberName,
                 path: $consumer->packagePath($memberName),
-                version: '^0.0',
+                version: '^4.1',
             );
         }
 
         CapellCore::registerPackage(
             WidgetShowcaseComposerConsumer::BUNDLE,
             path: $consumer->packagePath(WidgetShowcaseComposerConsumer::BUNDLE),
-            version: '^0.0',
+            version: '^4.1',
         );
         $bundle = CapellCore::getPackage(WidgetShowcaseComposerConsumer::BUNDLE);
         $bundle->kind = 'bundle';
@@ -116,8 +116,8 @@ it('removes widget-showcase safely in a clean offline Composer consumer', functi
 
         expect($result['status'])->toBe('removed')
             ->and($requirements)->not->toHaveKey(WidgetShowcaseComposerConsumer::BUNDLE)
-            ->and($requirements['capell-app/widget-content-reveal'])->toBe('0.0.2')
-            ->and($requirements['capell-app/widget-hotspots'])->toBe('^0.0')
+            ->and($requirements['capell-app/widget-content-reveal'])->toBe('4.1.0')
+            ->and($requirements['capell-app/widget-hotspots'])->toBe('^4.1')
             ->and($requirements)->toHaveKeys(WidgetShowcaseComposerConsumer::MEMBERS)
             ->and($requirements)->not->toHaveKey(WidgetShowcaseComposerConsumer::TRANSITIVE_DEPENDENCY)
             ->and($lockedPackageNames)->not->toContain(WidgetShowcaseComposerConsumer::BUNDLE)

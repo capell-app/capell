@@ -3,6 +3,9 @@
 ![Capell Admin expanded navigation, page table, editing form, and dashboard workspace](docs/assets/readme/hero.jpg)
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/admin.svg?style=flat-square)](https://packagist.org/packages/capell-app/admin)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=admin)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/admin?components%5B0%5D=admin&displayType=list)
+[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
+[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/admin` is the Filament panel package for Capell CMS. It adds the authenticated editor and operator surface for managing Core records, settings, package state, dashboards, permissions, and admin extension points.
@@ -73,7 +76,7 @@ Use the documented extension points instead of extending Filament resources dire
 | Adjust tables, edit pages, exports, or relation managers | the matching tagged extender interface                       |
 | Add settings UI                                          | `SettingsSchemaRegistry::register()` from the owning package |
 
-Do not run `php artisan capell:admin-publish-schemas` for normal extension work. It copies framework-owned schema files into the app and makes upgrades harder.
+Normal extension work should use the extenders and registries above. The advanced `php artisan capell:admin-publish-resources [--type=<group>] [--resource=<label-or-class>] [--force]` command publishes registered admin resources into the host application for direct customization. Published copies become host-maintained and can drift from package updates.
 
 ## Data And Permissions
 
@@ -93,6 +96,19 @@ vendor/bin/pest tests
 
 For resource or schema changes, include the matching focused test file first. For UI behavior, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
 
+## Requirements And Support Policy
+
+| Surface  | Supported versions               |
+| -------- | -------------------------------- |
+| PHP      | `^8.4`                           |
+| Laravel  | `^12.41.1` or `^13.0`            |
+| Filament | `^5.6.8 <5.7.0-beta`             |
+| Core     | The same release as this package |
+
+Security fixes target the current stable Capell release. While Capell remains on 0.0.x, upgrade all Capell packages together to the latest stable 0.0.x release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+
+Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
+
 ## Troubleshooting
 
 - Missing navigation usually means the resource/page contribution was not registered, a permission blocks it, or the package cache is stale.
@@ -100,6 +116,10 @@ For resource or schema changes, include the matching focused test file first. Fo
 - If Admin appears on the wrong host or path, check `CAPELL_ADMIN_PATH`, `CAPELL_ADMIN_DOMAIN`, and cached config.
 - If theme preview stops working after an entrypoint change, regenerate preview links against the current admin host/path; signed URLs are host/path-sensitive.
 - If cache commands do not affect newly added blocks or configurators, confirm the package registered its block/configurator classes and rerun the matching admin cache command.
+
+## Development
+
+Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
 ## Further Reading
 

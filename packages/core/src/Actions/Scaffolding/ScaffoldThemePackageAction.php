@@ -38,8 +38,8 @@ final class ScaffoldThemePackageAction
             'description' => $input->displayName . ' theme for Capell.',
             'type' => 'library',
             'require' => [
-                'capell-app/core' => '^0.0',
-                'capell-app/frontend' => '^0.0',
+                'capell-app/core' => '^4.0',
+                'capell-app/frontend' => '^4.0',
                 'spatie/laravel-package-tools' => '^1.14',
             ],
             'autoload' => [

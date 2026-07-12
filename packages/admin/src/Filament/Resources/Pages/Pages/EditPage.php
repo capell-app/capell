@@ -162,7 +162,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Override]
     public function getRelationManagers(): array
     {
-        $managers = $this->getTypeRelationManagers();
+        $managers = $this->getAllRelationManagers();
 
         return array_filter(
             $managers,
@@ -291,11 +291,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 $contentStructure,
                 force: true,
             );
-        }
-
-        if ($contentStructure === ContentStructure::Html) {
-            $this->cachedSchemas = [];
-            $this->form->fill($this->data);
         }
     }
 
