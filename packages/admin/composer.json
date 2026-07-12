@@ -25,7 +25,7 @@
         "amidesfahani/filament-tinyeditor": "^4.0",
         "awcodes/filament-badgeable-column": "^3.0|^4.0",
         "bezhansalleh/filament-shield": "^4.1",
-        "capell-app/core": "^1.0",
+        "capell-app/core": "self.version",
         "cms-multi/filament-clear-cache": "^3.0",
         "codewithdennis/filament-select-tree": "^4.0",
         "filament/filament": "^5.6.8 <5.7.0-beta",
