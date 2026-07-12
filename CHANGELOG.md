@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.88 - 2026-07-12
+
+### What's Changed
+
+* Authenticate split pushes with GitHub App token by @capell-app-user in https://github.com/capell-app/capell/pull/29
+* Update CHANGELOG for v2.0.87 by @capell-app-user in https://github.com/capell-app/capell/pull/28
+
+**Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.87...v2.0.88
+
 ## v2.0.87 - 2026-07-12
 
 ### What's Changed
