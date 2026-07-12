@@ -26,7 +26,7 @@
         "@codemirror/state": "^6.5.2",
         "@codemirror/theme-one-dark": "^6.1.2",
         "@codemirror/view": "^6.36.6",
-        "@tailwindcss/cli": "^0.0.11",
+        "@tailwindcss/cli": "^4.1.11",
         "@tailwindcss/forms": "^0.5.10",
         "@tailwindcss/typography": "^0.5.9",
         "@tiptap/extension-highlight": "^3.0.9",
@@ -37,11 +37,11 @@
         "codemirror-v6": "npm:codemirror@^6.0.0",
         "cropperjs": "^1.6.2",
         "esbuild": "^0.28.1",
-        "npm-run-all": "^0.0.5",
+        "npm-run-all": "^4.1.5",
         "postcss": "^8.4.14",
         "postcss-import": "^15.1.0",
         "prettier": "^3.6.2",
-        "tailwindcss": "^0.0.11",
+        "tailwindcss": "^4.1.11",
         "tippy.js": "^6.3.7"
     }
 }

@@ -17,6 +17,7 @@ if ($repositoryRoot === false) {
  */
 $allowedOrphans = [
     'docs/packages.md', // redirect stub kept alive for published docs-site URLs
+    'docs/superpowers/', // internal plans and design records are not public documentation
 ];
 
 $entryPoints = [
