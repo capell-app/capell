@@ -34,6 +34,14 @@ it('returns false if blueprint key is not error', function (): void {
     expect($page->isErrorPage())->toBeFalse();
 });
 
+it('keeps type as a compatibility alias for the blueprint relationship', function (): void {
+    $page = new Page;
+    $relation = $page->type();
+
+    expect($relation->getRelated())->toBeInstanceOf(Blueprint::class)
+        ->and($relation->getForeignKeyName())->toBe('blueprint_id');
+});
+
 it('creates AssetAttachment via factory and resolves HasAssets relations', function (): void {
     // Arrange: a related Page and an asset Page
     $relatedPage = Page::factory()->createOne();
