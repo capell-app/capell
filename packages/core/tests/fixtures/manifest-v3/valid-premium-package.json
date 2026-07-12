@@ -5,7 +5,7 @@
     "displayName": "Example",
     "kind": "package",
     "capellApiVersion": "^0.0",
-    "version": "4.x-dev",
+    "version": "0.0.x-dev",
     "description": "Example extension.",
     "product": {
         "group": "Developer Tools",

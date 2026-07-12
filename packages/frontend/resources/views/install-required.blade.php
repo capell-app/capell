@@ -78,7 +78,7 @@
             <p>
                 Full guide:
                 <a
-                    href="https://github.com/capell-app/capell/blob/4.x/docs/install-guide.md"
+                    href="https://github.com/capell-app/capell/blob/main/docs/install-guide.md"
                 >
                     docs/install-guide.md
                 </a>

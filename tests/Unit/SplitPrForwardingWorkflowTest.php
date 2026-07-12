@@ -50,7 +50,7 @@ it('keeps every core split pull request forwarding workflow aligned with the cor
             ->toBeString()
             ->toContain("github.event.repository.name != 'capell'")
             ->toContain('MONOREPO_REPOSITORY: capell-app/capell')
-            ->toContain('MONOREPO_BASE: 4.x')
+            ->toContain('MONOREPO_BASE: main')
             ->toContain('repository: capell-app/capell')
             ->not->toContain('capell-app/capell-packages');
 

@@ -2,11 +2,11 @@
 
 ## Supported Versions
 
-Security fixes are provided for the current Capell 4.x line.
+Security fixes are provided for the current Capell 0.0.x line.
 
 | Version | Supported |
 | ------- | --------- |
-| 4.x     | Yes       |
+| main     | Yes       |
 | 1.x-3.x | No        |
 
 ## Reporting a Vulnerability

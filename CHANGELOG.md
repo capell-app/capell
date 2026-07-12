@@ -2,23 +2,23 @@
 
 ## v2.0.85 - 2026-07-09
 
-Release v2.0.85 for Capell 4.x.
+Release v2.0.85 for Capell 0.0.x.
 
 ## v2.0.84 - 2026-07-05
 
-Release v2.0.84 for Capell 4.x.
+Release v2.0.84 for Capell 0.0.x.
 
 ## v2.0.83 - 2026-07-04
 
-Release v2.0.83 for Capell 4.x.
+Release v2.0.83 for Capell 0.0.x.
 
 ## v2.0.82 - 2026-07-04
 
-Release v2.0.82 for Capell 4.x.
+Release v2.0.82 for Capell 0.0.x.
 
 ## v2.0.81 - 2026-07-02
 
-Release v2.0.81 for Capell 4.x.
+Release v2.0.81 for Capell 0.0.x.
 
 ## v2.0.33 - 2026-06-03
 
@@ -131,7 +131,7 @@ Release v2.0.81 for Capell 4.x.
 
 ### What's Changed
 
-* feature/4.x by @howdu in https://github.com/capell-app/capell/pull/50
+* feature/main by @howdu in https://github.com/capell-app/capell/pull/50
 
 **Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.13...v2.0.14
 
@@ -147,7 +147,7 @@ Release v2.0.81 for Capell 4.x.
 
 ### What's Changed
 
-* Feature/4.x by @capell-app in https://github.com/capell-app/capell/pull/48
+* Feature/main by @capell-app in https://github.com/capell-app/capell/pull/48
 
 **Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.11...v2.0.12
 
@@ -157,7 +157,7 @@ Release v2.0.81 for Capell 4.x.
 
 * Bump dependabot/fetch-metadata from 2.5.0 to 3.0.0 by @dependabot[bot] in https://github.com/capell-app/capell/pull/47
 * Bump actions/upload-artifact from 6 to 7 by @dependabot[bot] in https://github.com/capell-app/capell/pull/45
-* Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/46
+* Feature/main by @howdu in https://github.com/capell-app/capell/pull/46
 
 **Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.10...v2.0.11
 
@@ -167,14 +167,14 @@ Release v2.0.81 for Capell 4.x.
 
 * Add tests by @howdu in https://github.com/capell-app/capell/pull/35
 * Bump dependabot/fetch-metadata from 2.4.0 to 2.5.0 by @dependabot[bot] in https://github.com/capell-app/capell/pull/36
-* Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/37
+* Feature/main by @howdu in https://github.com/capell-app/capell/pull/37
 * Bump danharrin/monorepo-split-github-action from 2.4.0 to 2.4.2 by @dependabot[bot] in https://github.com/capell-app/capell/pull/39
-* Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/41
+* Feature/main by @howdu in https://github.com/capell-app/capell/pull/41
 * Bump actions/checkout from 4 to 6 by @dependabot[bot] in https://github.com/capell-app/capell/pull/40
 * Bump actions/upload-artifact from 4 to 6 by @dependabot[bot] in https://github.com/capell-app/capell/pull/38
 * Bump danharrin/monorepo-split-github-action from 2.4.2 to 2.4.4 by @dependabot[bot] in https://github.com/capell-app/capell/pull/42
-* Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/43
-* Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/44
+* Feature/main by @howdu in https://github.com/capell-app/capell/pull/43
+* Feature/main by @howdu in https://github.com/capell-app/capell/pull/44
 
 **Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.9...v2.0.10
 
@@ -182,7 +182,7 @@ Release v2.0.81 for Capell 4.x.
 
 ### What's Changed
 
-- Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/34
+- Feature/main by @howdu in https://github.com/capell-app/capell/pull/34
 - Bump actions/checkout from 4 to 6 by @dependabot[bot] in https://github.com/capell-app/capell/pull/33
 - Bump actions/setup-node from 4 to 6 by @dependabot[bot] in https://github.com/capell-app/capell/pull/32
 - Bump actions/cache from 4 to 5 by @dependabot[bot] in https://github.com/capell-app/capell/pull/30
@@ -193,7 +193,7 @@ Release v2.0.81 for Capell 4.x.
 
 ### What's Changed
 
-- Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/31
+- Feature/main by @howdu in https://github.com/capell-app/capell/pull/31
 
 **Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.7...v2.0.8
 
@@ -217,8 +217,8 @@ Release v2.0.81 for Capell 4.x.
 
 ### What's Changed
 
-- Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/26
-- Feature/4.x by @howdu in https://github.com/capell-app/capell/pull/27
+- Feature/main by @howdu in https://github.com/capell-app/capell/pull/26
+- Feature/main by @howdu in https://github.com/capell-app/capell/pull/27
 - Bump actions/checkout from 5 to 6 by @dependabot[bot] in https://github.com/capell-app/capell/pull/25
 
 **Full Changelog**: https://github.com/capell-app/capell/compare/v2.0.4...v2.0.5
