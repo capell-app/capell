@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -19,12 +20,13 @@ final class PublishMarketplaceComposerChangeAction
     /**
      * @return array{status: string, reference?: string, type?: string, failure_reason?: string, fallback?: string}
      */
-    public function handle(ExtensionAcquisitionData $acquisition, ExtensionListingData $listing): array
+    public function handle(ExtensionAcquisitionData $acquisition, ExtensionListingData $listing, MarketplaceInstallAttempt $attempt): array
     {
         $publisherContract = 'Capell\\Deployments\\Contracts\\PublishesComposerChanges';
         $requirementData = 'Capell\\Deployments\\Data\\ComposerRequirementData';
+        $authorizationAction = 'Capell\\Deployments\\Actions\\AuthorizeComposerPublicationAction';
 
-        if (! interface_exists($publisherContract) || ! class_exists($requirementData) || ! App::bound($publisherContract)) {
+        if (! interface_exists($publisherContract) || ! class_exists($requirementData) || ! class_exists($authorizationAction) || ! App::bound($publisherContract)) {
             return [
                 'status' => 'unavailable',
                 'fallback' => 'composer_command',
@@ -32,12 +34,14 @@ final class PublishMarketplaceComposerChangeAction
         }
 
         try {
-            $result = App::make($publisherContract)->publish(new $requirementData(
+            $requirement = new $requirementData(
                 composerName: $acquisition->composerName,
                 versionConstraint: $acquisition->versionConstraint,
                 repositoryUrl: $acquisition->repositoryUrl,
                 label: $listing->name,
-            ));
+            );
+            $operation = $authorizationAction::run((string) $attempt->getKey(), $requirement);
+            $result = App::make($publisherContract)->publish($operation);
         } catch (ModelNotFoundException $throwable) {
             $reason = $this->redactedText($throwable->getMessage());
 

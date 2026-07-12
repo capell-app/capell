@@ -126,7 +126,7 @@ final class QueueMarketplaceInstallAttemptAction
         }
 
         $deployment = [
-            ...PublishMarketplaceComposerChangeAction::run($acquisition, $listing),
+            ...PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $attempt),
             ...$deploymentMetadata,
         ];
 

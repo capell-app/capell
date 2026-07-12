@@ -60,12 +60,13 @@ class RedirectsTable implements TableConfigurator
                         ->icon('heroicon-o-building-storefront')
                         ->url(fn (PageUrl $record): ?string => self::siteEditUrl($record))
                         ->hidden(fn (PageUrl $record): bool => self::siteEditUrl($record) === null),
-                    EditAction::make('edit-language')
+                    Action::make('edit-language')
                         ->label(__('capell-admin::button.edit'))
                         ->icon('heroicon-o-language')
-                        ->record(fn (PageUrl $record): ?Language => self::language($record))
                         ->authorize(fn (PageUrl $record): bool => self::canEditLanguage($record))
-                        ->schema(fn (Schema $schema): Schema => LanguageResource::form($schema))
+                        ->schema(fn (Schema $schema): Schema => LanguageResource::form($schema->model(Language::class)))
+                        ->fillForm(fn (PageUrl $record): array => self::language($record)?->attributesToArray() ?? [])
+                        ->action(fn (PageUrl $record, array $data): bool => self::language($record)?->update($data) ?? false)
                         ->slideOver()
                         ->hidden(fn (PageUrl $record): bool => ! self::canEditLanguage($record)),
                     DeleteAction::make(),

@@ -27,9 +27,15 @@ final class AssertContentWidgetKeysAvailableAction
         $owners = [];
 
         foreach (CapellCore::getPackages(withoutCore: false) as $installedPackage) {
-            if (! $installedPackage instanceof PackageData
-                || ! $installedPackage->isInstalled()
-                || in_array($installedPackage->name, $candidateNames, true)) {
+            if (! $installedPackage instanceof PackageData) {
+                continue;
+            }
+
+            if (! $installedPackage->isInstalled()) {
+                continue;
+            }
+
+            if (in_array($installedPackage->name, $candidateNames, true)) {
                 continue;
             }
 
@@ -50,7 +56,11 @@ final class AssertContentWidgetKeysAvailableAction
             }
 
             $key = $contribution->metadata['key'] ?? null;
-            if (! is_string($key) || $key === '') {
+            if (! is_string($key)) {
+                continue;
+            }
+
+            if ($key === '') {
                 continue;
             }
 

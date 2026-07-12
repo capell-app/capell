@@ -36,8 +36,7 @@ class BuildSelectedFrontendResourceRequirementsAction
                 }
 
                 $publicId = data_get($usage, 'publicId');
-                $loadingStrategy = data_get($usage, 'loadingStrategy')
-                    ?? data_get($usage, 'presentation.loadingStrategy');
+                $loadingStrategy = data_get($usage, 'loadingStrategy', data_get($usage, 'presentation.loadingStrategy'));
 
                 return collect($groups[$groupKey]->resources)
                     ->map(fn (FrontendResourceData $resource): FrontendAssetRequirementData => $this->requirement(

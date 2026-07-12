@@ -15,5 +15,8 @@ class FrontendMediaHintData extends Data
         public readonly ?int $width = null,
         public readonly ?int $height = null,
         public readonly string $fetchPriority = 'high',
+        public readonly ?string $mediaUrl = null,
+        public readonly ?string $imageSrcset = null,
+        public readonly ?string $imageSizes = null,
     ) {}
 }

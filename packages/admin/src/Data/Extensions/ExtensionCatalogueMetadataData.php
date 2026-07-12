@@ -32,12 +32,12 @@ final class ExtensionCatalogueMetadataData extends Data
             return new self;
         }
 
-        return (new self(
+        return new self(
             catalogueRole: $catalogueRole,
             maturity: $maturity,
             maturityLabel: $maturityLabel,
             includedWithCapellAll: $includedWithCapellAll,
-        ))->withSafeFallbacks();
+        )->withSafeFallbacks();
     }
 
     /** @return array{catalogueRole: string, maturity: string, maturityLabel: string, includedWithCapellAll: bool} */

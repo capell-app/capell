@@ -1946,6 +1946,8 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     CapellCore::getPackage('capell-app/demo-kit')->demo = true;
     CapellCore::getPackage('vendor/demo-package')->demo = true;
     config()->set('app.url', 'https://demo.example.test');
+    config()->set('capell.install.debug', true);
+    Log::spy();
     $capturedInput = null;
 
     RunInstallAction::shouldRun()

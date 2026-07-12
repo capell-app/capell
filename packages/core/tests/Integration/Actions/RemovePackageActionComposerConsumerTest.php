@@ -116,7 +116,7 @@ it('removes widget-showcase safely in a clean offline Composer consumer', functi
 
         expect($result['status'])->toBe('removed')
             ->and($requirements)->not->toHaveKey(WidgetShowcaseComposerConsumer::BUNDLE)
-            ->and($requirements['capell-app/widget-content-reveal'])->toBe('4.1.0')
+            ->and($requirements['capell-app/widget-content-reveal'])->toBe('0.0.2')
             ->and($requirements['capell-app/widget-hotspots'])->toBe('^0.0')
             ->and($requirements)->toHaveKeys(WidgetShowcaseComposerConsumer::MEMBERS)
             ->and($requirements)->not->toHaveKey(WidgetShowcaseComposerConsumer::TRANSITIVE_DEPENDENCY)

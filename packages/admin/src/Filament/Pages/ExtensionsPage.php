@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
 use Capell\Admin\Actions\Extensions\FilterExtensionManagementEntriesAction;
@@ -400,7 +401,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
         }
 
         return collect(resolve(SettingsSchemaRegistry::class)->getSchemas($settingsGroup))
-            ->flatMap(fn (string $schemaClass): array => $schemaClass::make($schema))
+            ->flatMap(fn (string $schemaClass): array => BuildSettingsSchemaComponentsAction::run($schemaClass, $schema))
             ->values()
             ->all();
     }

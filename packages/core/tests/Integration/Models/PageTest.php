@@ -34,9 +34,9 @@ it('returns false if blueprint key is not error', function (): void {
     expect($page->isErrorPage())->toBeFalse();
 });
 
-it('keeps type as a compatibility alias for the blueprint relationship', function (): void {
+it('exposes only the canonical blueprint relationship', function (): void {
     $page = new Page;
-    $relation = $page->type();
+    $relation = $page->blueprint();
 
     expect($relation->getRelated())->toBeInstanceOf(Blueprint::class)
         ->and($relation->getForeignKeyName())->toBe('blueprint_id');
@@ -253,8 +253,8 @@ it('isAccessibleByUser denies roles assigned only to another site', function ():
 
     $allowedSite = Site::factory()->createOne();
     $deniedSite = Site::factory()->createOne();
-    $allowedPage = Page::factory()->site($allowedSite)->type($type)->create();
-    $deniedPage = Page::factory()->site($deniedSite)->type($type)->create();
+    $allowedPage = Page::factory()->site($allowedSite)->blueprint($type)->create();
+    $deniedPage = Page::factory()->site($deniedSite)->blueprint($type)->create();
     $user = User::factory()->createOne();
 
     DB::table('model_has_roles')->insert([

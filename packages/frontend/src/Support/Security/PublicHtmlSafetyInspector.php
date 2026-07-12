@@ -192,7 +192,7 @@ final class PublicHtmlSafetyInspector
             return true;
         }
 
-        return array_any($this->leakPolicy->allowedCapellRuntimeAttributePrefixes(), fn ($prefix): bool => str_starts_with($attribute, $prefix));
+        return array_any($this->leakPolicy->allowedCapellRuntimeAttributePrefixes(), fn ($prefix): bool => str_starts_with($attribute, (string) $prefix));
     }
 
     private function detectLiteralAuthoringMarker(string $html): ?string

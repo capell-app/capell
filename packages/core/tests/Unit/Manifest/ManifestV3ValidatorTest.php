@@ -588,9 +588,9 @@ it('publishes the current extension API version from one typed source', function
 });
 
 it('exposes a content widget contribution contract', function (): void {
-    expect(interface_exists('Capell\\Core\\Contracts\\Extensions\\RegistersExtensionContentWidget'))->toBeTrue()
+    expect(interface_exists(RegistersExtensionContentWidget::class))->toBeTrue()
         ->and(is_subclass_of(
-            'Capell\\Core\\Contracts\\Extensions\\RegistersExtensionContentWidget',
+            RegistersExtensionContentWidget::class,
             ExtensionContribution::class,
         ))->toBeTrue();
 });

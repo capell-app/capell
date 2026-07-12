@@ -114,6 +114,7 @@ class ContentEditor
                 ->action(function (mixed $livewire): void {
                     if ($livewire instanceof EditPage) {
                         $livewire->pageTypeContentStructureUpdated(ContentStructure::Html);
+                        $livewire->skipRender();
                     }
                 }),
         );

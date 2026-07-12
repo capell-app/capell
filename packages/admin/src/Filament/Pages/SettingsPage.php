@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\NormalizeDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\Reports\BuildReportVisibilityFormStateAction;
@@ -338,7 +339,7 @@ class SettingsPage extends AbstractAdminSettingsPage
         $components = [];
 
         foreach ($schemas as $schemaClass) {
-            $components = array_merge($components, $schemaClass::make($schema));
+            $components = array_merge($components, BuildSettingsSchemaComponentsAction::run($schemaClass, $schema));
         }
 
         return $components;
@@ -378,7 +379,7 @@ class SettingsPage extends AbstractAdminSettingsPage
 
         foreach ($schemas as $schemaClass) {
             $tabs[] = Tab::make($this->settingsSchemaLabel($schemaClass))
-                ->schema($schemaClass::make($schema))
+                ->schema(BuildSettingsSchemaComponentsAction::run($schemaClass, $schema))
                 ->columns();
         }
 

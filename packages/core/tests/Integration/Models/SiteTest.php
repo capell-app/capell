@@ -76,7 +76,7 @@ it('has many site domains', function (): void {
 
 it('has one site domain', function (): void {
     $site = Site::factory()->createOne();
-    $siteDomain = SiteDomain::factory()->createOne(['site_id' => $site->id]);
+    $siteDomain = SiteDomain::factory()->default()->createOne(['site_id' => $site->id]);
 
     expect($site->siteDomain)->toBeInstanceOf(SiteDomain::class)
         ->and($site->siteDomain->id)->toBe($siteDomain->id);

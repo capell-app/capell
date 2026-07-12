@@ -55,14 +55,29 @@ class ResolveBrandProfileAction
         $tokens = [];
 
         foreach ($declarations as $key => $declaration) {
-            if (! is_string($key) || BrandProfileData::supportsToken($key) || ! is_array($declaration)) {
+            if (! is_string($key)) {
+                continue;
+            }
+
+            if (BrandProfileData::supportsToken($key)) {
+                continue;
+            }
+
+            if (! is_array($declaration)) {
                 continue;
             }
 
             $options = $declaration['options'] ?? null;
             $value = $values[$key] ?? null;
+            if (! is_array($options)) {
+                continue;
+            }
 
-            if (! is_array($options) || ! is_string($value) || ! in_array($value, $options, true)) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            if (! in_array($value, $options, true)) {
                 continue;
             }
 

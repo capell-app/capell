@@ -20,16 +20,12 @@ final readonly class ResolveThemeEditorSchemaAction
     {
         $editor = data_get($definition->frontend, 'editor', []);
 
-        if (! is_array($editor)) {
-            throw new InvalidArgumentException('Theme frontend.editor must be an array.');
-        }
+        throw_unless(is_array($editor), InvalidArgumentException::class, 'Theme frontend.editor must be an array.');
 
         $declaredGroups = $editor['groups'] ?? [];
         $declaredTokens = $editor['tokens'] ?? [];
 
-        if (! is_array($declaredGroups) || ! is_array($declaredTokens)) {
-            throw new InvalidArgumentException('Theme frontend.editor groups and tokens must be arrays.');
-        }
+        throw_if(! is_array($declaredGroups) || ! is_array($declaredTokens), InvalidArgumentException::class, 'Theme frontend.editor groups and tokens must be arrays.');
 
         $tokens = $this->tokens($declaredTokens);
         $seenTokens = [];
@@ -38,22 +34,16 @@ final readonly class ResolveThemeEditorSchemaAction
         foreach ($declaredGroups as $groupKey => $groupTokens) {
             $groupKey = $this->key($groupKey, 'group');
 
-            if (! is_array($groupTokens) || $groupTokens === []) {
-                throw new InvalidArgumentException("Theme editor group [{$groupKey}] must reference at least one token.");
-            }
+            throw_if(! is_array($groupTokens) || $groupTokens === [], InvalidArgumentException::class, sprintf('Theme editor group [%s] must reference at least one token.', $groupKey));
 
             $resolvedTokens = [];
 
             foreach ($groupTokens as $tokenKey) {
                 $tokenKey = $this->key($tokenKey, 'token');
 
-                if (! isset($tokens[$tokenKey])) {
-                    throw new InvalidArgumentException("Theme editor group [{$groupKey}] references unknown token [{$tokenKey}].");
-                }
+                throw_unless(isset($tokens[$tokenKey]), InvalidArgumentException::class, sprintf('Theme editor group [%s] references unknown token [%s].', $groupKey, $tokenKey));
 
-                if (isset($seenTokens[$tokenKey])) {
-                    throw new InvalidArgumentException("Theme editor token [{$tokenKey}] is declared in more than one group.");
-                }
+                throw_if(isset($seenTokens[$tokenKey]), InvalidArgumentException::class, sprintf('Theme editor token [%s] is declared in more than one group.', $tokenKey));
 
                 $seenTokens[$tokenKey] = true;
                 $resolvedTokens[] = $tokens[$tokenKey];
@@ -86,15 +76,11 @@ final readonly class ResolveThemeEditorSchemaAction
         foreach ($declarations as $tokenKey => $declaration) {
             $tokenKey = $this->key($tokenKey, 'token');
 
-            if (! is_array($declaration)) {
-                throw new InvalidArgumentException("Theme editor token [{$tokenKey}] must be an array.");
-            }
+            throw_unless(is_array($declaration), InvalidArgumentException::class, sprintf('Theme editor token [%s] must be an array.', $tokenKey));
 
             $options = $declaration['options'] ?? null;
 
-            if (! is_array($options) || $options === []) {
-                throw new InvalidArgumentException("Theme editor token [{$tokenKey}] must declare allowed options.");
-            }
+            throw_if(! is_array($options) || $options === [], InvalidArgumentException::class, sprintf('Theme editor token [%s] must declare allowed options.', $tokenKey));
 
             $resolvedOptions = collect($options)
                 ->map(fn (mixed $option): ThemeEditorOptionData => $this->option($option))
@@ -112,9 +98,7 @@ final readonly class ResolveThemeEditorSchemaAction
 
     private function option(mixed $value): ThemeEditorOptionData
     {
-        if (! is_string($value) || preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $value) !== 1) {
-            throw new InvalidArgumentException('Theme editor option values must be closed-set identifiers.');
-        }
+        throw_if(! is_string($value) || preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]*$/', $value) !== 1, InvalidArgumentException::class, 'Theme editor option values must be closed-set identifiers.');
 
         return new ThemeEditorOptionData(
             value: $value,
@@ -124,9 +108,7 @@ final readonly class ResolveThemeEditorSchemaAction
 
     private function key(mixed $value, string $kind): string
     {
-        if (! is_string($value) || preg_match('/^[A-Za-z][A-Za-z0-9]*$/', $value) !== 1) {
-            throw new InvalidArgumentException("Theme editor {$kind} keys must be camel-case identifiers.");
-        }
+        throw_if(! is_string($value) || preg_match('/^[A-Za-z][A-Za-z0-9]*$/', $value) !== 1, InvalidArgumentException::class, sprintf('Theme editor %s keys must be camel-case identifiers.', $kind));
 
         return $value;
     }

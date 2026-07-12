@@ -1,0 +1,152 @@
+name: Public release smoke
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact stable Packagist version to verify (for example v0.0.8)
+        required: true
+        type: string
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Wait for one exact version across every package
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          packages=()
+          while IFS= read -r package; do
+            packages+=("${package}")
+          done < <(jq -r '.[]' config/release-packages.json)
+          requested="${REQUESTED_VERSION#v}"
+
+          for attempt in {1..30}; do
+            common_file="$(mktemp)"
+            first=true
+
+            for package in "${packages[@]}"; do
+              versions_file="$(mktemp)"
+              curl --fail --silent --show-error "https://repo.packagist.org/p2/capell-app/${package}.json" \
+                | jq -r '.packages[][] | select(.version_normalized | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.0$")) | .version_normalized' \
+                | sed 's/\.0$//' \
+                | sort -Vu > "${versions_file}"
+
+              if [[ "${first}" == true ]]; then
+                cp "${versions_file}" "${common_file}"
+                first=false
+              else
+                intersection="$(mktemp)"
+                comm -12 "${common_file}" "${versions_file}" > "${intersection}"
+                mv "${intersection}" "${common_file}"
+              fi
+            done
+
+            if [[ -n "${requested}" ]] && grep -Fxq "${requested}" "${common_file}"; then
+              version="${requested}"
+            elif [[ -z "${requested}" ]]; then
+              version="$(sort -V "${common_file}" | tail -n 1)"
+            else
+              version=''
+            fi
+
+            if [[ -n "${version}" ]]; then
+              echo "version=${version}" >> "${GITHUB_OUTPUT}"
+              echo "Verifying common stable version ${version}."
+              exit 0
+            fi
+
+            echo "Exact version ${requested:-<latest-common>} is not available across all packages (attempt ${attempt}/30)."
+            sleep 20
+          done
+
+          echo "No single required stable version is available across all five packages." >&2
+          exit 1
+
+  split-packages:
+    needs: resolve-version
+    name: Install ${{ matrix.package }} at ${{ needs.resolve-version.outputs.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        package: [admin, core, frontend, installer, marketplace]
+    steps:
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: fileinfo, intl, simplexml
+          tools: composer:v2
+          coverage: none
+      - name: Resolve standalone package at the exact common version
+        env:
+          CAPELL_VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          composer init --no-interaction --name=capell-app/release-smoke \
+            --require="capell-app/${{ matrix.package }}:${CAPELL_VERSION}"
+          composer update --no-interaction --no-progress --prefer-dist
+
+  fresh-laravel-install-and-public-render:
+    needs: resolve-version
+    name: Fresh Laravel install and public render at ${{ needs.resolve-version.outputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: dom, fileinfo, gd, intl, mbstring, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+      - name: Create fresh Laravel application and install the public stack
+        env:
+          CAPELL_VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel skeleton
+          cd skeleton
+          composer require --no-interaction --no-progress --prefer-dist \
+            "capell-app/admin:${CAPELL_VERSION}" \
+            "capell-app/core:${CAPELL_VERSION}" \
+            "capell-app/frontend:${CAPELL_VERSION}" \
+            "capell-app/installer:${CAPELL_VERSION}" \
+            "capell-app/marketplace:${CAPELL_VERSION}"
+          touch database/database.sqlite
+          php artisan package:discover --ansi
+          php artisan migrate --force --ansi
+          php artisan capell:install \
+            --no-interaction \
+            --url=http://127.0.0.1:8000 \
+            --all-packages \
+            --theme=none \
+            --name='Release Smoke Admin' \
+            --email=release-smoke@example.test \
+            --password='release-smoke-password' \
+            --clear-cache \
+            --install-welcome-route
+          php artisan about --ansi
+          php artisan serve --host=127.0.0.1 --port=8000 > "${RUNNER_TEMP}/capell-serve.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "${server_pid}"' EXIT
+          for attempt in {1..15}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/ > "${RUNNER_TEMP}/capell-public.html"; then
+              test -s "${RUNNER_TEMP}/capell-public.html"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "${RUNNER_TEMP}/capell-serve.log" >&2
+          exit 1

@@ -2,9 +2,16 @@
 
 declare(strict_types=1);
 
-it('defines the public v0.0.14 split package release contract', function (): void {
+it('defines the public v4 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
-    $splitPackages = ['admin', 'core', 'frontend', 'installer', 'marketplace'];
+    $splitPackages = json_decode(
+        file_get_contents($root . '/config/release-packages.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($splitPackages)->toBe(['admin', 'core', 'frontend', 'installer', 'marketplace']);
 
     foreach ($splitPackages as $splitPackage) {
         $manifest = json_decode(
@@ -15,7 +22,7 @@ it('defines the public v0.0.14 split package release contract', function (): voi
         );
 
         expect($manifest['name'])->toBe('capell-app/' . $splitPackage)
-            ->and($manifest['extra']['branch-alias']['dev-main'] ?? null)->toBe('0.0.x-dev');
+            ->and($manifest['extra']['branch-alias']['dev-main'] ?? null)->toBe('4.x-dev');
     }
 
     $marketplaceManifest = json_decode(
@@ -25,20 +32,75 @@ it('defines the public v0.0.14 split package release contract', function (): voi
         JSON_THROW_ON_ERROR,
     );
 
-    expect($marketplaceManifest['require']['capell-app/admin'])->toBe('^0.0.14 || 0.0.x-dev')
-        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^0.0.14 || 0.0.x-dev');
+    $coreManifest = json_decode(
+        file_get_contents($root . '/packages/core/composer.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($coreManifest['require']['spatie/laravel-settings'])->toBe('^3.0')
+        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('self.version')
+        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('self.version');
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
+    $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');
+    $fastTestWorkflow = file_get_contents($root . '/.github/workflows/test-fast-pr.yml');
+    $fullTestWorkflow = file_get_contents($root . '/.github/workflows/test-full.yml');
     $localSplitScript = file_get_contents($root . '/scripts/local-split-packages.sh');
     $packagistScript = file_get_contents($root . '/scripts/create-packagist-packages.sh');
 
-    expect($splitWorkflow)->toContain("branch: 'main'")
+    expect($splitWorkflow)
+        ->toContain('actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349')
+        ->toContain('SPLIT_APP_ID')
+        ->toContain('SPLIT_APP_PRIVATE_KEY')
+        ->toContain('Compensate release tags after a split failure')
+        ->toContain("if: failure() && steps.split-start.outputs.started == 'true'")
+        ->toContain('git/refs/tags/${encoded_tag}')
+        ->toContain('pre-split-main-shas.json')
+        ->toContain('git/refs/heads/main')
+        ->toContain('-F force=true')
+        ->toContain('uses: ./.github/workflows/public-release-smoke.yml')
+        ->not->toContain('matrix:')
+        ->not->toContain('fail-fast: false')
+        ->not->toContain('secrets.ACCESS_TOKEN')
         ->and($localSplitScript)->toContain('BRANCH="${CAPELL_SPLIT_BRANCH:-main}"')
+        ->toContain('rollback_release_tags')
+        ->toContain('git push "${remote_url}" ":refs/tags/${TAG}"')
         ->and($packagistScript)->toContain('PACKAGES+=("capell")')
         ->and($packagistScript)->toContain('--preflight')
         ->and($packagistScript)->toContain('repos/${repository}/contents/composer.json')
         ->and($packagistScript)->toContain('https://packagist.org/api/github')
         ->and($packagistScript)->toContain('Packagist preflight failed.');
+
+    expect($releaseSmokeWorkflow)
+        ->toContain('package: [admin, core, frontend, installer, marketplace]')
+        ->toContain('Wait for one exact version across every package')
+        ->toContain('comm -12')
+        ->toContain('composer create-project')
+        ->toContain('php artisan capell:install')
+        ->toContain('--all-packages')
+        ->toContain('--install-welcome-route')
+        ->toContain('curl --fail --silent --show-error http://127.0.0.1:8000/')
+        ->toContain('php artisan package:discover')
+        ->toContain('php artisan migrate --force')
+        ->not->toContain("inputs.version || '*'")
+        ->and($fastTestWorkflow)
+        ->toContain('- main')
+        ->toContain('"pestphp/pest:^4.7"')
+        ->toContain('"filament/filament:^5.6.8 <5.7.0-beta"')
+        ->not->toContain('filament/filament:^4.7')
+        ->and($fullTestWorkflow)
+        ->toContain('- main');
+
+    preg_match_all('/repository_name:\s*([a-z0-9-]+)/', $splitWorkflow, $splitRepositoryMatches);
+    preg_match('/package:\s*\[([^]]+)]/', $releaseSmokeWorkflow, $smokeMatrixMatch);
+    $smokePackages = array_map(trim(...), explode(',', $smokeMatrixMatch[1] ?? ''));
+
+    expect($splitRepositoryMatches[1])->toBe($splitPackages)
+        ->and($smokePackages)->toBe($splitPackages)
+        ->and($localSplitScript)->toContain('config/release-packages.json')
+        ->and($packagistScript)->toContain('config/release-packages.json');
 });
 
 it('documents one public distribution and commercial licensing story', function (): void {
@@ -55,7 +117,7 @@ it('documents one public distribution and commercial licensing story', function 
         ->not->toContain('not published through a public source repository')
         ->not->toContain('distributed through private Composer access')
         ->and($quickstart)
-        ->toContain('stable `v0.0.14` foundation release')
+        ->toContain('current stable 0.0.x foundation release')
         ->toContain('public Packagist')
         ->and($install)
         ->toContain('Install the public foundation')
@@ -66,6 +128,20 @@ it('documents one public distribution and commercial licensing story', function 
         ->toContain('current stable 0.0.x release')
         ->toContain('The published 1.x maintenance windows begin with Capell 1.0')
         ->not->toContain('For each Capell 1.x minor release');
+});
+
+it('keeps split package readmes standalone', function (): void {
+    $root = dirname(__DIR__, 2);
+
+    foreach (['admin', 'core', 'frontend', 'installer', 'marketplace'] as $package) {
+        $readme = file_get_contents($root . '/packages/' . $package . '/README.md');
+
+        expect($readme)
+            ->not->toContain('../../docs/')
+            ->not->toContain('packages/' . $package . '/')
+            ->not->toContain('vendor/bin/pest packages/' . $package . '/')
+            ->toContain('https://docs.capell.app');
+    }
 });
 
 it('rejects placeholder changelog entries and generates useful release notes', function (): void {
@@ -107,7 +183,9 @@ it('publishes honest comparison recovery and exit guidance without recycled doc 
 
     expect($docs)->not->toBeFalse();
 
-    throw_if($docs === false, RuntimeException::class, 'Unable to read documentation files.');
+    if ($docs === false) {
+        return;
+    }
 
     foreach ($docs as $doc) {
         expect((string) file_get_contents($doc))->not->toMatch($recycledHeroPattern);

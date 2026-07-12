@@ -36,7 +36,12 @@ final class PrepareFrontendRenderAction
         $context->setFrontendData('publicPageRenderData', $renderContext->publicRenderData);
         $context->setFrontendData('assetManifest', $renderContext->publicRenderData->assetManifest);
         $context->setFrontendData('mediaHints', $renderContext->publicRenderData->mediaHints);
-        $context->setFrontendData('lcpMediaUrl', $renderContext->publicRenderData->mediaHints[0]->url ?? null);
+        $context->setFrontendData(
+            'lcpMediaUrl',
+            $renderContext->publicRenderData->mediaHints[0]->mediaUrl
+                ?? $renderContext->publicRenderData->mediaHints[0]->url
+                ?? null,
+        );
         $context->setFrontendData(
             'performanceReport',
             BuildPublicRenderPerformanceReportAction::run($renderContext->publicRenderData, $renderContext),

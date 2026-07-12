@@ -20,7 +20,7 @@ final class EnrichExtensionTableRecordsAction
     public function handle(array $records): array
     {
         $composerNames = array_values(array_filter(array_map(
-            fn (array $record): ?string => $this->composerName($record),
+            $this->composerName(...),
             $records,
         )));
         $metadata = $this->catalogueMetadata(array_values(array_unique($composerNames)));
@@ -63,7 +63,11 @@ final class EnrichExtensionTableRecordsAction
                 }
 
                 foreach ($providedMetadata as $composerName => $extensionMetadata) {
-                    if (! is_string($composerName) || ! $extensionMetadata instanceof ExtensionCatalogueMetadataData) {
+                    if (! is_string($composerName)) {
+                        continue;
+                    }
+
+                    if (! $extensionMetadata instanceof ExtensionCatalogueMetadataData) {
                         continue;
                     }
 

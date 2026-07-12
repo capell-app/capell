@@ -73,7 +73,7 @@ it('coordinates the complete console install sequence through a presentation hos
     $clearCaches = Mockery::mock(ClearCachesAction::class);
     $clearCaches->shouldReceive('handle')->once()->with(['all'], $reporter);
 
-    (new OrchestrateInstallAction($preflight, $runInstall, $clearCaches))->handle(
+    new OrchestrateInstallAction($preflight, $runInstall, $clearCaches)->handle(
         $inputData,
         new InstallOrchestrationData(
             outputPlan: true,
@@ -118,7 +118,7 @@ it('skips optional console operations when they were not requested', function ()
     $clearCaches = Mockery::mock(ClearCachesAction::class);
     $clearCaches->shouldReceive('handle')->once()->with([], $reporter);
 
-    (new OrchestrateInstallAction($preflight, $runInstall, $clearCaches))->handle(
+    new OrchestrateInstallAction($preflight, $runInstall, $clearCaches)->handle(
         $inputData,
         new InstallOrchestrationData(
             outputPlan: false,

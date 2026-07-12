@@ -217,14 +217,14 @@ it('runs marketplace package lifecycle actions without requiring legacy command 
     Notification::fake();
     LifecycleRecorderAction::reset();
     $admin = test()->createUserWithRole('super_admin');
-    $packagePath = dirname(__DIR__, 5) . '/packages/marketplace-job-action-package';
+    $packagePath = sys_get_temp_dir() . '/capell-marketplace-job-action-package-' . uniqid();
 
     File::ensureDirectoryExists($packagePath);
     File::put($packagePath . '/composer.json', json_encode([
         'name' => 'capell-app/marketplace-job-action-package',
         'autoload' => ['psr-4' => []],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
-    File::put($packagePath . '/capell.json', json_encode(capellManifestV3Array(
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
         name: 'capell-app/marketplace-job-action-package',
         surfaces: ['shared'],
         overrides: [
@@ -237,7 +237,8 @@ it('runs marketplace package lifecycle actions without requiring legacy command 
                 'install' => LifecycleRecorderAction::class,
             ],
         ],
-    ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    ), $packagePath);
+    File::put($packagePath . '/capell.json', json_encode($manifest->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
     $attempt = marketplaceOperationAttempt([
         'composer_name' => 'capell-app/marketplace-job-action-package',
@@ -246,10 +247,14 @@ it('runs marketplace package lifecycle actions without requiring legacy command 
         'user_id' => (string) $admin->getKey(),
     ]);
 
-    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
+    app()->instance(MarketplaceComposerRunner::class, new readonly class($manifest) implements MarketplaceComposerRunner
     {
+        public function __construct(private CapellManifestData $manifest) {}
+
         public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
         {
+            CapellCore::registerManifestPackage($this->manifest);
+
             return new MarketplaceComposerResultData(
                 exitCode: 0,
                 output: 'Package installed.',
@@ -283,7 +288,7 @@ it('runs lifecycle without Composer when the package is already downloaded but n
     Notification::fake();
     LifecycleRecorderAction::reset();
     $admin = test()->createUserWithRole('super_admin');
-    $packagePath = dirname(__DIR__, 5) . '/packages/marketplace-downloaded-action-package';
+    $packagePath = sys_get_temp_dir() . '/capell-marketplace-downloaded-action-package-' . uniqid();
 
     File::ensureDirectoryExists($packagePath);
     File::put($packagePath . '/composer.json', json_encode([

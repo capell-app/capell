@@ -12,6 +12,7 @@ use Capell\Frontend\Data\FrontendAssetContextData;
 use Capell\Frontend\Data\FrontendAssetManifestData;
 use Capell\Frontend\Data\FrontendAssetRequirementData;
 use Capell\Frontend\Data\FrontendContext;
+use Capell\Frontend\Data\FrontendMediaHintData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
@@ -196,3 +197,85 @@ it('delegates public manifest rendering through the asset manifest renderer cont
         ->toContain('<meta name="asset-renderer-contract" content="used">')
         ->not->toContain('vendor/capell/themes/saas.css');
 });
+
+it('renders responsive lcp preload attributes', function (): void {
+    bindAppHeadTestContext([
+        'mediaHints' => [
+            new FrontendMediaHintData(
+                url: 'https://example.test/hero-large.webp',
+                imageSrcset: implode(', ', [
+                    'https://example.test/hero-small.webp 640w',
+                    'https://example.test/hero-large.webp 2560w',
+                ]),
+                imageSizes: '100vw',
+            ),
+        ],
+    ]);
+
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+
+    expect($html)
+        ->toContain('imagesrcset="https://example.test/hero-small.webp 640w, https://example.test/hero-large.webp 2560w"')
+        ->toContain('imagesizes="100vw"');
+});
+
+it('uses swap rendering for local theme fonts', function (): void {
+    $theme = Theme::factory()->defaultMeta()->create();
+    $theme->setAttribute('meta', [
+        ...$theme->meta,
+        'fonts' => [[
+            'type' => 'local',
+            'name' => 'Inter',
+            'files' => ['fonts/inter.woff2'],
+            'style' => 'normal',
+            'weight' => '400',
+        ]],
+    ]);
+
+    bindAppHeadTestContext(theme: $theme);
+
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+
+    expect($html)
+        ->toContain("font-family: 'Inter'")
+        ->toContain('font-display: swap');
+});
+
+/** @param array<string, mixed> $params */
+function bindAppHeadTestContext(array $params = [], ?Theme $theme = null): void
+{
+    $language = Language::factory()->createOne();
+    $theme ??= Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()
+        ->language($language)
+        ->theme($theme)
+        ->withTranslations($language, ['title' => 'Example Site'])
+        ->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()
+        ->site($site)
+        ->layout($layout)
+        ->withTranslations($language, ['title' => 'Example Page'])
+        ->create();
+
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation']);
+    $page->load(['pageUrl', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
+
+    $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
+    $assetManifest = new FrontendAssetManifestData([], [], [], [], $runtimeManifest);
+
+    app()->instance(CapellFrontendContext::class, new CapellFrontendContext(new FrontendContext(
+        site: $site,
+        language: $language,
+        page: $page,
+        layout: $layout,
+        theme: $theme,
+        params: [
+            'assetManifest' => $assetManifest,
+            'runtimeManifest' => $runtimeManifest,
+            ...$params,
+        ],
+        slug: null,
+    )));
+    Frontend::clearResolvedInstance(CapellFrontendContext::class);
+}

@@ -78,10 +78,10 @@ class InstallPackageAction
 
             CapellCore::markPackageInstalled($package->name);
             self::registerInstalledPackageProviders($package);
-        } catch (Throwable $exception) {
-            CapellCore::markPackageFailed($package->name, $exception->getMessage());
+        } catch (Throwable $throwable) {
+            CapellCore::markPackageFailed($package->name, $throwable->getMessage());
 
-            throw $exception;
+            throw $throwable;
         }
 
         CapellCore::clearCachedComponents();

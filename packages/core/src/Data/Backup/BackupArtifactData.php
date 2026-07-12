@@ -30,13 +30,9 @@ final class BackupArtifactData extends Data
             }
         }
 
-        if (! is_int($artifact['bytes'] ?? null) || $artifact['bytes'] < 0) {
-            throw new UnexpectedValueException('Backup artifact [bytes] is invalid.');
-        }
+        throw_if(! is_int($artifact['bytes'] ?? null) || $artifact['bytes'] < 0, UnexpectedValueException::class, 'Backup artifact [bytes] is invalid.');
 
-        if (preg_match('/\A[a-f0-9]{64}\z/', $artifact['sha256']) !== 1) {
-            throw new UnexpectedValueException('Backup artifact [sha256] is invalid.');
-        }
+        throw_if(preg_match('/\A[a-f0-9]{64}\z/', $artifact['sha256']) !== 1, UnexpectedValueException::class, 'Backup artifact [sha256] is invalid.');
 
         foreach (['source_disk', 'source_path'] as $key) {
             if (isset($artifact[$key]) && ! is_string($artifact[$key])) {

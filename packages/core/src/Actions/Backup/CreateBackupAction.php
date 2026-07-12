@@ -37,9 +37,7 @@ final class CreateBackupAction
         $databaseDriver = $this->databaseDriver($connectionName);
         $mediaDisks = $databaseOnly ? [] : $this->mediaDisks();
 
-        if (in_array($this->store->diskName(), $mediaDisks, true)) {
-            throw new RuntimeException('Backup storage cannot also be a media source.');
-        }
+        throw_if(in_array($this->store->diskName(), $mediaDisks, true), RuntimeException::class, 'Backup storage cannot also be a media source.');
 
         $now = CarbonImmutable::now('UTC');
         $snapshotId = $now->format('Ymd\THis\Z') . '-' . bin2hex(random_bytes(6));
@@ -143,15 +141,19 @@ final class CreateBackupAction
         $destination = gzopen($destinationPath, 'wb9');
 
         if ($source === false || $destination === false) {
-            is_resource($source) && fclose($source);
-            is_resource($destination) && gzclose($destination);
+            if (is_resource($source)) {
+                fclose($source);
+            }
+
+            if (is_resource($destination)) {
+                gzclose($destination);
+            }
+
             throw new RuntimeException('Unable to compress the database backup.');
         }
 
         try {
-            if (stream_copy_to_stream($source, $destination) === false) {
-                throw new RuntimeException('Unable to compress the database backup.');
-            }
+            throw_if(stream_copy_to_stream($source, $destination) === false, RuntimeException::class, 'Unable to compress the database backup.');
         } finally {
             fclose($source);
             gzclose($destination);
@@ -163,14 +165,10 @@ final class CreateBackupAction
     {
         $destination = fopen($destinationPath, 'wb');
 
-        if ($destination === false) {
-            throw new RuntimeException('Unable to create a temporary media artifact.');
-        }
+        throw_if($destination === false, RuntimeException::class, 'Unable to create a temporary media artifact.');
 
         try {
-            if (stream_copy_to_stream($source, $destination) === false) {
-                throw new RuntimeException('Unable to copy a media artifact.');
-            }
+            throw_if(stream_copy_to_stream($source, $destination) === false, RuntimeException::class, 'Unable to copy a media artifact.');
         } finally {
             fclose($destination);
         }
@@ -186,9 +184,7 @@ final class CreateBackupAction
         $bytes = filesize($localPath);
         $sha256 = hash_file('sha256', $localPath);
 
-        if ($bytes === false || $sha256 === false) {
-            throw new RuntimeException('Unable to inspect a backup artifact.');
-        }
+        throw_if($bytes === false || $sha256 === false, RuntimeException::class, 'Unable to inspect a backup artifact.');
 
         return new BackupArtifactData($kind, $storedPath, $bytes, $sha256, $sourceDisk, $sourcePath);
     }
@@ -197,9 +193,7 @@ final class CreateBackupAction
     {
         $connection = $this->config->get('backup.connection') ?? $this->config->get('database.default');
 
-        if (! is_string($connection) || $connection === '') {
-            throw new RuntimeException('The backup database connection is not configured.');
-        }
+        throw_if(! is_string($connection) || $connection === '', RuntimeException::class, 'The backup database connection is not configured.');
 
         return $connection;
     }
@@ -219,13 +213,8 @@ final class CreateBackupAction
     private function mediaDisks(): array
     {
         $disks = $this->config->get('backup.media_disks', []);
+        throw_unless(is_array($disks), RuntimeException::class, 'Backup media disks must be an array.');
 
-        if (! is_array($disks)) {
-            throw new RuntimeException('Backup media disks must be an array.');
-        }
-
-        $disks = array_values(array_unique(array_filter($disks, static fn (mixed $disk): bool => is_string($disk) && $disk !== '')));
-
-        return $disks;
+        return array_values(array_unique(array_filter($disks, static fn (mixed $disk): bool => is_string($disk) && $disk !== '')));
     }
 }

@@ -169,6 +169,7 @@ test('saves partial theme studio tokens without dropping existing profile keys',
         'headingScale' => ThemeStudioHeadingScaleEnum::Expressive->value,
         'cardDensity' => ThemeStudioCardDensityEnum::Spacious->value,
         'overlayTreatment' => ThemeStudioOverlayTreatmentEnum::Strong->value,
+        'customTokens' => [],
     ]);
 
     Livewire::test(SettingsPage::class)

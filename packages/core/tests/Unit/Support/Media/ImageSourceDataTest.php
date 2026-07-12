@@ -32,9 +32,10 @@ it('does not retain image settings between sequential requests', function (): vo
     $firstSettings = Mockery::mock(CoreSettings::class);
     $firstSettings->allowed_remote_image_domains = ['first.example.com'];
     $firstSettings->allow_relative_image_urls = false;
+
     app()->instance(CoreSettings::class, $firstSettings);
 
-    $policy = app(ImageUrlPolicy::class);
+    $policy = resolve(ImageUrlPolicy::class);
 
     expect($policy->allows('https://first.example.com/image.jpg'))->toBeTrue()
         ->and($policy->allows('/image.jpg'))->toBeFalse();
@@ -42,6 +43,7 @@ it('does not retain image settings between sequential requests', function (): vo
     $secondSettings = Mockery::mock(CoreSettings::class);
     $secondSettings->allowed_remote_image_domains = ['second.example.com'];
     $secondSettings->allow_relative_image_urls = true;
+
     app()->instance(CoreSettings::class, $secondSettings);
 
     $policy->flushOctaneState();

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 $mediaDisks = array_values(array_filter(array_map(
-    static fn (string $disk): string => trim($disk),
+    trim(...),
     explode(',', (string) env('CAPELL_BACKUP_MEDIA_DISKS', '')),
 )));
 

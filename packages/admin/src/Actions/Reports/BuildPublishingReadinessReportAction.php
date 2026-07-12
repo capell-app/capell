@@ -123,7 +123,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
                 'site.siteDomains.language:id,name,code',
                 'translations:id,translatable_type,translatable_id,language_id,title,content,meta',
                 'translations.language:id,name,code',
-                'type:id,name,admin',
+                'blueprint:id,name,admin',
             ])
             ->latest('updated_at')
             ->select([

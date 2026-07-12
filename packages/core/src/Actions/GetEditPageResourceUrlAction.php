@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
-use Capell\Admin\Enums\ResourceEnum;
 use Capell\Core\Contracts\Pageable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -38,7 +37,7 @@ class GetEditPageResourceUrlAction
 
         if (app()->bound('filament')) {
             try {
-                $resourceClass = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $page->blueprint);
+                $resourceClass = GetResourceFromBlueprintAction::run($page->blueprint);
             } catch (InvalidArgumentException) {
                 $resourceClass = null;
             }

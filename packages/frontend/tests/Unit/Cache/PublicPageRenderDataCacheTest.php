@@ -87,6 +87,7 @@ it('remembers public page render data when the render data cache is enabled', fu
 it('changes cache keys and entries when the optional payload schema fingerprint changes', function (): void {
     config()->set('cache.default', 'array');
     config()->set('capell-frontend.public_render_data_cache', true);
+
     $fingerprintedBuilder = new class implements PublicContentWidgetPayloadBuilder
     {
         public string $version = 'schema-v1';
@@ -136,6 +137,7 @@ it('changes cache keys and entries when the optional payload schema fingerprint 
 
     $cache->remember($context, $factory);
     $cache->remember($context, $factory);
+
     $fingerprintedBuilder->version = 'schema-v2';
     $secondKey = $cache->keyForContext($context);
     $cache->remember($context, $factory);

@@ -24,7 +24,7 @@ Environment:
 
 Options:
   --package <name>         Package/repository slug to create. Repeatable.
-                           Defaults to the split workflow matrix.
+                           Defaults to all public split packages.
   --setup-github-hooks     Add Packagist push webhooks to the GitHub repositories.
   --preflight              Read-only verification of repositories, package names,
                            Packagist registrations, and GitHub webhooks.
@@ -71,14 +71,12 @@ fi
 MATRIX_PACKAGES=()
 while IFS= read -r package; do
   MATRIX_PACKAGES+=("${package}")
-done < <(
-  awk '/matrix:/{in_matrix=1} in_matrix && /^[[:space:]]+- [a-z0-9-]+[[:space:]]*$/ {gsub(/^[[:space:]]+- /, ""); gsub(/[[:space:]]+$/, ""); print}' "${ROOT}/.github/workflows/split-monorepo.yml"
-)
-
-if [[ ${#MATRIX_PACKAGES[@]} -eq 0 ]]; then
-  echo "Could not read package matrix from .github/workflows/split-monorepo.yml." >&2
-  exit 1
-fi
+done < <(php -r '
+  $packages = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+  foreach ($packages as $package) {
+      echo $package, PHP_EOL;
+  }
+' "${ROOT}/config/release-packages.json")
 
 PACKAGES=("${MATRIX_PACKAGES[@]}")
 

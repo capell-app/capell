@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Concerns\Validate;
 
 use Capell\Admin\Actions\ContentGraph\ValidateContentDeleteImpactAction;
-use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Models\Blueprint;
@@ -66,7 +65,7 @@ trait PageValidation
                         ->label(__('capell-admin::button.view_pages'))
                         ->button()
                         ->url(function () use ($record, $blueprint): ?string {
-                            $resource = GetResourceFromBlueprintAction::run(ResourceEnum::Page, $blueprint);
+                            $resource = GetResourceFromBlueprintAction::run($blueprint);
 
                             if ($resource === null) {
                                 return null;

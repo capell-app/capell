@@ -89,14 +89,14 @@ class EditSite extends EditRecord
     #[Override]
     public function getSubheading(): string|Htmlable|null
     {
-        $type = $this->record->blueprint;
+        $blueprint = $this->record->blueprint;
 
-        if (! $type instanceof Blueprint) {
+        if (! $blueprint instanceof Blueprint) {
             return null;
         }
 
         return __('capell-admin::heading.site_type', [
-            'type' => $type->name,
+            'type' => $blueprint->name,
         ]);
     }
 

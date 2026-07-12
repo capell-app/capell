@@ -36,8 +36,7 @@ class BuildFrontendWidgetResourceUsagesAction
             ->filter(fn (mixed $usage): bool => $usage instanceof LayoutWidgetResourceUsageData)
             ->merge($usages)
             ->unique(function (mixed $usage): string {
-                $loadingStrategy = data_get($usage, 'loadingStrategy')
-                    ?? data_get($usage, 'presentation.loadingStrategy');
+                $loadingStrategy = data_get($usage, 'loadingStrategy', data_get($usage, 'presentation.loadingStrategy'));
 
                 return implode(':', [
                     data_get($usage, 'widgetKey', ''),

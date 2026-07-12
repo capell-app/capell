@@ -112,6 +112,7 @@ it('reads typed loading strategies from structured widget usage presentation dat
 
     $theme = new Theme;
     $theme->meta = [];
+
     $manifest = BuildFrontendAssetManifestAction::run(new FrontendAssetContextData(
         page: null,
         site: null,
@@ -212,10 +213,12 @@ it('promotes lazy strategies deterministically and keeps every public id mapping
             ]],
         );
     }
+
     app()->instance(FrontendResourceRegistry::class, $registry);
 
     $theme = new Theme;
     $theme->meta = [];
+
     $usages = collect(['interaction', 'idle', 'visible'])
         ->map(fn (string $key): array => [
             'widgetKey' => $key,

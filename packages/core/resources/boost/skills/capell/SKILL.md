@@ -47,7 +47,7 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 
 - To verify a fresh demo setup, run `php artisan capell:install --fresh=force --demo`.
 - `--fresh` without `=force` prompts for destructive confirmation and defaults to no in non-TTY runs.
-- For prompt-free agent runs, include required prompt options: `--url=<url>`, `--package-mode=all` or `--packages=...`, `--theme=default`, `--name=...`, `--email=...`, `--password=...`, `--clear-cache`, and `--install-welcome-route`.
+- For prompt-free agent runs, include required prompt options: `--url=<url>`, `--package-mode=all` or `--packages=...`, `--theme=foundation`, `--name=...`, `--email=...`, `--password=...`, `--clear-cache`, and `--install-welcome-route`.
 - Full details and option mapping live in `references/commands.md`.
 
 ## References

@@ -69,7 +69,7 @@ beforeEach(function (): void {
         $pages->push(
             Page::factory()
                 ->site($site)
-                ->type($type)
+                ->blueprint($type)
                 ->published($date)
                 ->state(['created_at' => $date])
                 ->withTranslations($language, ['title' => 'Page ' . $index], slug: 'page-' . $index)
@@ -142,7 +142,7 @@ it('orders pages with identical published dates deterministically by id descendi
 
     $tiePageFirst = Page::factory()
         ->site($this->site)
-        ->type($tieType)
+        ->blueprint($tieType)
         ->published($sharedDate)
         ->state(['created_at' => $sharedDate])
         ->withTranslations($this->language, ['title' => 'Tie First'], slug: 'tie-first')
@@ -150,7 +150,7 @@ it('orders pages with identical published dates deterministically by id descendi
 
     $tiePageSecond = Page::factory()
         ->site($this->site)
-        ->type($tieType)
+        ->blueprint($tieType)
         ->published($sharedDate)
         ->state(['created_at' => $sharedDate])
         ->withTranslations($this->language, ['title' => 'Tie Second'], slug: 'tie-second')
@@ -158,7 +158,7 @@ it('orders pages with identical published dates deterministically by id descendi
 
     $tiePageThird = Page::factory()
         ->site($this->site)
-        ->type($tieType)
+        ->blueprint($tieType)
         ->published($sharedDate)
         ->state(['created_at' => $sharedDate])
         ->withTranslations($this->language, ['title' => 'Tie Third'], slug: 'tie-third')

@@ -60,7 +60,7 @@ it('uses loaded theme blueprint resources as the resource group fallback', funct
     ];
     $theme = new Theme;
     $theme->meta = [];
-    $theme->setRelation('type', $type);
+    $theme->setRelation('blueprint', $type);
 
     $group = (new ThemeResourceResolver)->group($theme, 'theme.lightbox');
 

@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use BezhanSalleh\FilamentShield\FilamentShieldServiceProvider;
+use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Console\Commands\SyncPermissionsCommand;
 use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
+use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Facades\CapellCore;
@@ -345,6 +348,25 @@ it('reloads package runtime providers before final install permission sync', fun
             CapellAdmin::contributeToAdminSurface(
                 AdminSurfaceContributionData::page(RuntimePermissionPage::class),
             );
+        }
+    });
+    app()->instance(AdminPermissionSynchronizer::class, new class($events) implements AdminPermissionSynchronizer
+    {
+        /** @param array<int, string> $events */
+        public function __construct(private array &$events) {}
+
+        public function hasBootedPanel(): bool
+        {
+            return true;
+        }
+
+        public function syncForInstall(): void
+        {
+            $this->events[] = 'runtime-providers-reloaded';
+            CapellAdmin::contributeToAdminSurface(
+                AdminSurfaceContributionData::page(RuntimePermissionPage::class),
+            );
+            SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
         }
     });
 

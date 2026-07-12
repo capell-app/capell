@@ -26,7 +26,7 @@ The browser installer works without the Admin panel, but the Filament installer 
 
 ## Install
 
-This is the recommended entrypoint for installing Capell. Requiring it pulls in `capell-app/core`; the guided flow then composer-requires the admin and frontend packages you choose and can remove the installer afterwards (`--remove-installer`). Prefer to pick packages by hand? Skip this and `composer require capell-app/core` (plus `admin`/`frontend` as needed) directly — see the [install guide](../../docs/getting-started/install.md#manual-install-without-the-installer).
+This is the recommended entrypoint for installing Capell. Requiring it pulls in `capell-app/core`; the guided flow then composer-requires the admin and frontend packages you choose and can remove the installer afterwards (`--remove-installer`). Prefer to pick packages by hand? Skip this and require `capell-app/core` (plus `admin` or `frontend` as needed) directly. The complete install guide is published at [docs.capell.app](https://docs.capell.app).
 
 ```bash
 composer require capell-app/installer
@@ -61,8 +61,8 @@ Do not pass an encrypted or already-hashed value to `CAPELL_SETUP_ADMIN_PASSWORD
 ## Runtime Surfaces
 
 - Provider: `Capell\Installer\Providers\InstallerServiceProvider`
-- Config: `packages/installer/config/capell-installer.php`
-- Routes: `packages/installer/routes/web.php`
+- Config: `config/capell-installer.php`
+- Routes: `routes/web.php`
 - Controller: `Capell\Installer\Http\Controllers\InstallController`
 - Middleware: `Capell\Installer\Http\Middleware\EnsureNotInstalled`
 - Pages: `InstallCapellPage`, `InstallGuidePage`, `InstallProgressPage`
@@ -84,20 +84,7 @@ The browser installer discovers package and theme choices from Capell package me
 Run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
 
 ```bash
-vendor/bin/pest packages/installer/tests --configuration=phpunit.xml
-```
-
-Run the browser installer spec when changing the web installer flow:
-
-```bash
-npm run test:installer-browser
-```
-
-Screenshot capture and validation are run from the monorepo root:
-
-```bash
-npm run screenshots
-npm run screenshots:check
+vendor/bin/pest tests
 ```
 
 ## Troubleshooting
@@ -115,10 +102,8 @@ npm run screenshots:check
 
 ## Further Reading
 
-| Page                                                                     | Covers                                           |
-| ------------------------------------------------------------------------ | ------------------------------------------------ |
-| [Installer overview](docs/overview.md)                                   | Installer responsibilities and setup boundaries. |
-| [Install guide](../../docs/getting-started/install.md)                   | Installing Capell into a Laravel app.            |
-| [Install matrix](../../docs/getting-started/install-matrix.md)           | Choosing the right install path.                 |
-| [Admin install and setup](../../docs/development/admin-install-setup.md) | Admin setup behavior used during installation.   |
-| [Packages and extensions](../../docs/packages/catalog.md)                | Host packages and extension documentation links. |
+| Page                                   | Covers                                           |
+| -------------------------------------- | ------------------------------------------------ |
+| [Installer overview](docs/overview.md) | Installer responsibilities and setup boundaries. |
+
+The complete installation and package-selection guides are published at [docs.capell.app](https://docs.capell.app).

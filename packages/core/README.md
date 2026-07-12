@@ -47,7 +47,7 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 ## Runtime Surfaces
 
 - Provider: `Capell\Core\Providers\CapellServiceProvider`
-- Config: `packages/core/config/capell.php`, `packages/core/config/redirects.php`
+- Config: `config/capell.php`, `config/redirects.php`
 - Main models: `Page`, `PageUrl`, `Site`, `SiteDomain`, `Language`, `Layout`, `Theme`, `Blueprint`, `Type`, `Media`, `CapellExtension`, `UpgradeLogEntry`
 - Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make-*`
 - Test case support: `Capell\Core\Testing\ExtensionTestHarness`
@@ -68,7 +68,7 @@ Use these extension points instead of patching first-party models or providers:
 | Register Tailwind source/import metadata   | `TailwindAssetsRegistry::registerSource()` / `registerImport()` |
 | Create package files from project patterns | `capell:make-*` maker commands                                  |
 
-When adding a Core migration, also append it to `packages/core/src/Concerns/HasMigrations.php`; otherwise package installs can miss the migration.
+When adding a Core migration, also append it to `src/Concerns/HasMigrations.php`; otherwise package installs can miss the migration.
 
 ## Data And Persistence
 
@@ -83,13 +83,13 @@ Core records are used by public rendering and admin workflows, so avoid adding a
 Run the smallest relevant check first:
 
 ```bash
-vendor/bin/pest packages/core/tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 For shared contract changes, also run the package boundary and manifest tests:
 
 ```bash
-vendor/bin/pest packages/core/tests/Arch packages/core/tests/Unit/Manifest --configuration=phpunit.xml
+vendor/bin/pest tests/Arch tests/Unit/Manifest
 ```
 
 Before landing broader Core changes, run the repo preflight command:
@@ -104,7 +104,7 @@ composer preflight
 | -------------------------- | -------------------------------------------------------------- |
 | PHP                        | `^8.4` with `ext-intl`                                         |
 | Laravel                    | `^12.41.1` or `^13.0`                                          |
-| Filament support           | `^5.7@beta`                                                    |
+| Filament support           | `^5.6.8 <5.7.0-beta`                                           |
 | Symfony filesystem/process | `^7.2` or `^8.0`                                               |
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |
@@ -122,18 +122,18 @@ Support covers the dependency ranges above. When an upstream PHP, Laravel, Filam
 
 ## Further Reading
 
-| Page                                                             | Covers                                                                          |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Core overview](docs/overview.md)                                | Core responsibilities and the package docs index.                               |
-| [Page management](docs/page-management.md)                       | Pages, URLs, types, and publishing state.                                       |
-| [Content management](docs/content-management.md)                 | Shared content records and ownership boundaries.                                |
-| [Extending Capell](docs/extending-capell.md)                     | Core contracts and extension surfaces.                                          |
-| [Cache](docs/cache.md)                                           | Shared cache helpers and invalidation behavior.                                 |
-| [Multi-site and multi-lingual](docs/multi-site-multi-lingual.md) | Sites, domains, languages, and localized URLs.                                  |
-| [Relationship diagnostics](docs/relationship-diagnostics.md)     | Debug missing active site domains for page URL rendering.                       |
-| [Subscriber manager](docs/subscriber-manager.md)                 | Lifecycle subscription registration.                                            |
-| [Static-site extensions](docs/static-site-extensions.md)         | Static export integration points.                                               |
-| [Authoring upgrade steps](docs/authoring-upgrade-steps.md)       | Upgrading packages that integrate authoring behavior.                           |
-| [Install debugging](docs/install-debugging.md)                   | Common install and setup failures.                                              |
-| [Package authoring docs](../../docs/packages/README.md)          | Package shape, service providers, Actions/Data/settings, migrations, and tests. |
-| [Packages and extensions](../../docs/packages/catalog.md)        | Host package boundaries and extension documentation entry points.               |
+| Page                                                             | Covers                                                    |
+| ---------------------------------------------------------------- | --------------------------------------------------------- |
+| [Core overview](docs/overview.md)                                | Core responsibilities and the package docs index.         |
+| [Page management](docs/page-management.md)                       | Pages, URLs, types, and publishing state.                 |
+| [Content management](docs/content-management.md)                 | Shared content records and ownership boundaries.          |
+| [Extending Capell](docs/extending-capell.md)                     | Core contracts and extension surfaces.                    |
+| [Cache](docs/cache.md)                                           | Shared cache helpers and invalidation behavior.           |
+| [Multi-site and multi-lingual](docs/multi-site-multi-lingual.md) | Sites, domains, languages, and localized URLs.            |
+| [Relationship diagnostics](docs/relationship-diagnostics.md)     | Debug missing active site domains for page URL rendering. |
+| [Subscriber manager](docs/subscriber-manager.md)                 | Lifecycle subscription registration.                      |
+| [Static-site extensions](docs/static-site-extensions.md)         | Static export integration points.                         |
+| [Authoring upgrade steps](docs/authoring-upgrade-steps.md)       | Upgrading packages that integrate authoring behavior.     |
+| [Install debugging](docs/install-debugging.md)                   | Common install and setup failures.                        |
+
+The complete integration and extension guides are published at [docs.capell.app](https://docs.capell.app).

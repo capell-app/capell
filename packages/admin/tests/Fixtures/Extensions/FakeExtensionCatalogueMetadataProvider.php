@@ -20,9 +20,7 @@ final class FakeExtensionCatalogueMetadataProvider implements ExtensionCatalogue
 
     public function metadataForComposerNames(array $composerNames): array
     {
-        if ($this->unavailable) {
-            throw new RuntimeException('Catalogue unavailable.');
-        }
+        throw_if($this->unavailable, RuntimeException::class, 'Catalogue unavailable.');
 
         return array_intersect_key($this->metadata, array_flip($composerNames));
     }
