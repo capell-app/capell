@@ -1,7 +1,5 @@
 # Package Anatomy
 
-![Capell Package Anatomy screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 A typical local package lives in the consuming app's configured package path, such as `packages/<name>`.
 
 For a new package, start with the scaffold command:

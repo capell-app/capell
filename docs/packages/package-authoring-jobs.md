@@ -1,7 +1,5 @@
 # Package authoring jobs
 
-![Capell Package authoring jobs screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Start with the job the package performs, then choose the smallest extension points that make that job installable and testable.
 
 ## Add a page type

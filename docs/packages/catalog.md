@@ -1,7 +1,5 @@
 # Capell Packages and Extensions
 
-![Capell Packages and Extensions screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Capell core stays small. This repository owns the host packages that make a Capell application run, while optional product capability lives in installable extension packages with their own manifests, docs, tests, and release process.
 
 Use the generated [Capell Extensions explorer](https://docs.capell.app/packages/) for the current add-on package catalogue. Use this page for the stable host package boundaries and links into package-authoring documentation.

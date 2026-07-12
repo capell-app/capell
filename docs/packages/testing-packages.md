@@ -1,7 +1,5 @@
 # Testing Packages
 
-![Capell Testing Packages screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Package tests should prove the package boots, registers its extension points, and owns its behavior.
 
 ## Test Case

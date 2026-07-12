@@ -1,7 +1,5 @@
 # Frontend Widgets
 
-![Capell Frontend Widgets screenshot](../images/generated/admin/site-health-page.png)
-
 Frontend widgets are registered public components that Capell can render in normal content, lazy interaction targets, and package-owned experiences. A widget definition answers four questions:
 
 | Question                                                         | Defined by                                                     |

@@ -1,7 +1,5 @@
 # Extension Examples
 
-![Capell Extension Examples screenshot](../images/generated/admin/site-health-page.png)
-
 These examples show the usual shape of a package that adds admin UI, page fields, settings, frontend output, runtime assets, Tailwind sources, cache invalidation, and lifecycle work.
 
 Keep examples this small in real packages too. Put the wiring in service providers and bridges, keep business behaviour in Actions, and keep public frontend output free from admin-only context.

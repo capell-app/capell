@@ -64,6 +64,9 @@ Statamic is a strong CMS, especially when flat-file content is the right model. 
 
 If you mainly need an editorial website with flat files, Statamic can be excellent. If you need a CMS inside a Laravel system with database-backed workflows, Capell fits more naturally.
 
+For the same decision against common database-backed alternatives, read
+[Compare Capell with WordPress and Craft CMS](comparing-capell.md).
+
 ## Compared with building everything yourself
 
 The danger in custom CMS work is not the first page editor. It is everything around it:

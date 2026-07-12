@@ -1,7 +1,5 @@
 # Widget And Fragment Targets
 
-![Capell Widget And Fragment Targets screenshot](../images/generated/admin/site-health-page.png)
-
 A widget can expose interaction triggers that open another experience when the visitor acts. Targets render lazily through encrypted public routes, so the page never ships the target content or its internals up front.
 
 ## Interaction Targets

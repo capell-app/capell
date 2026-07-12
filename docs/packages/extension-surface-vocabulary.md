@@ -1,7 +1,5 @@
 # Extension surface vocabulary
 
-![Capell Extension surface vocabulary screenshot](../images/generated/admin/site-health-page.png)
-
 Capell packages are installable extension units. A package should declare what it owns in `capell.json`, register runtime behavior through providers, and keep public output safe for anonymous visitors and cached HTML.
 
 ## Core terms

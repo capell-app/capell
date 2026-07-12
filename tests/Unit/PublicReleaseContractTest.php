@@ -80,3 +80,34 @@ it('rejects placeholder changelog entries and generates useful release notes', f
         ->and($changelog)
         ->not->toMatch('/Release v2\\.0\\.(?:81|82|83|84|85) for Capell 4\\.x\\./');
 });
+
+it('publishes honest comparison recovery and exit guidance without recycled doc heroes', function (): void {
+    $root = dirname(__DIR__, 2);
+    $docsIndex = file_get_contents($root . '/docs/README.md');
+    $comparison = file_get_contents($root . '/docs/getting-started/comparing-capell.md');
+    $backups = file_get_contents($root . '/docs/operations/backups.md');
+    $exitPlan = file_get_contents($root . '/docs/operations/export-and-exit.md');
+
+    expect($docsIndex)
+        ->toContain('getting-started/comparing-capell.md')
+        ->toContain('operations/export-and-exit.md')
+        ->and($comparison)
+        ->toContain('WordPress')
+        ->toContain('Craft CMS')
+        ->toContain('fit check, not a claim that one tool wins every project')
+        ->and($backups)
+        ->toContain('Worked production recovery example')
+        ->toContain('capell_restore_incident_20260712')
+        ->and($exitPlan)
+        ->toContain('migration-assistant:export')
+        ->toContain('Do not delete the source environment');
+
+    $recycledHeroPattern = '/\\A#[^\\n]+\\n\\n!\\[[^]]+\\]\\(\\.\\.\\/images\\/generated\\/admin\\/(?:site-health-page|theme-library-admin-flow)\\.png\\)$/m';
+    $docs = glob($root . '/docs/{frontend,packages,performance,operations,development,platform}/*.md', GLOB_BRACE);
+
+    expect($docs)->not->toBeFalse();
+
+    foreach ($docs as $doc) {
+        expect((string) file_get_contents($doc))->not->toMatch($recycledHeroPattern);
+    }
+});

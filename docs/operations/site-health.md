@@ -1,7 +1,5 @@
 # Site Health
 
-![Capell Site Health screenshot](../images/generated/admin/site-health-page.png)
-
 Use Site Health before serving a Capell site from production domains and after any deployment that changes frontend rendering, cache behaviour, static output, optimizer jobs, queues, or server configuration.
 
 ## Admin diagnostics

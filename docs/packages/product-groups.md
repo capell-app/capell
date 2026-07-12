@@ -1,7 +1,5 @@
 # Package Product Groups
 
-![Capell Package Product Groups screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Capell packages are grouped by customer-facing value, not by internal implementation detail. The Composer package names remain stable, while package manifests expose `productGroup`, `tier`, and `bundle` for catalogue, marketplace, and pricing screens.
 
 ## Free Foundation

@@ -1,7 +1,5 @@
 # Package Checklist
 
-![Capell Package Checklist screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Use [Extension examples](extension-examples.md) when you need concrete snippets for admin bridges, settings, frontend hooks, Tailwind assets, and cache invalidation.
 
 Use this checklist when creating or reviewing a Capell package.

@@ -1,7 +1,5 @@
 # Actions, Data, And Settings
 
-![Capell Actions, Data, And Settings screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Capell packages use Actions for behavior and Data objects for typed boundaries.
 
 ## Actions

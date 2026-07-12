@@ -1,7 +1,5 @@
 # Fragment Caching
 
-![Capell Fragment Caching screenshot](../images/generated/admin/site-health-page.png)
-
 > **Who is this for?**
 > Developers who want to cache expensive Blade partials (navigation menus, sidebars, computed product lists) that don't change as often as the page itself.
 

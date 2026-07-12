@@ -1,7 +1,5 @@
 # Cache Invalidation
 
-![Capell Cache Invalidation screenshot](../images/generated/admin/site-health-page.png)
-
 > **Who is this for?**
 > Developers adding custom models that should invalidate frontend caches when changed (e.g., custom news articles, product data, or settings).
 

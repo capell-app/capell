@@ -1,7 +1,5 @@
 # Build An Extension End To End
 
-![Capell Build An Extension End To End screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 This tutorial builds a small `capell-app/announcement-bar` package. It adds one settings group, one admin control page, one frontend render hook, cache invalidation for public output, and focused tests.
 
 Use this shape for real packages: keep package logic in Actions/Data, register through Capell extension points, and prove the public output is safe.

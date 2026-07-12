@@ -1,7 +1,5 @@
 # Tailwind v4 + symlinked vendor CSS
 
-![Capell Tailwind v4 + symlinked vendor CSS screenshot](../images/generated/admin/site-health-page.png)
-
 > **Status:** Skeleton — sections below are outlines.
 
 ## Scope

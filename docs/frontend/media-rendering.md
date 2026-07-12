@@ -1,7 +1,5 @@
 # Media Rendering
 
-![Capell Media Rendering screenshot](../images/generated/admin/site-health-page.png)
-
 The frontend media component renders Capell media records with responsive image URLs, width and height attributes, and localized accessibility metadata.
 
 ## Localized Alt Text
