@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update:
@@ -76,9 +77,13 @@ jobs:
           release-notes: ${{ steps.changelog.outputs.release_notes }}
           release-date: ${{ steps.changelog.outputs.release_date }}
 
-      - name: Commit updated CHANGELOG
-        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+      - name: Open changelog pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
-          branch: main
-          commit_message: Update CHANGELOG
-          file_pattern: CHANGELOG.md
+          token: ${{ secrets.ACCESS_TOKEN }}
+          branch: automation/changelog-${{ steps.changelog.outputs.latest_version }}
+          base: main
+          commit-message: Update CHANGELOG for ${{ steps.changelog.outputs.latest_version }}
+          title: Update CHANGELOG for ${{ steps.changelog.outputs.latest_version }}
+          body: Automated changelog update for `${{ steps.changelog.outputs.latest_version }}`.
+          add-paths: CHANGELOG.md

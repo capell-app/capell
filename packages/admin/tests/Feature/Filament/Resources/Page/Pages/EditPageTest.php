@@ -31,6 +31,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
@@ -1429,8 +1430,10 @@ test('can convert content blocks back to html from the content editor hint actio
 
     expect($page->refresh()->content_structure)->toBe(ContentStructure::Html);
 
-    expect(data_get($component->instance()->data, sprintf('translations.record-%d.content', $translation->getKey())))
-        ->toBe($content);
+    $editorContent = data_get($component->get('data'), sprintf('translations.record-%d.content', $translation->getKey()));
+
+    expect($editorContent)->toBeArray()
+        ->and(RichContentRenderer::make($editorContent)->toHtml())->toBe($content);
 });
 
 test('can edit page type and handle updated the content data changing to builder', function (): void {

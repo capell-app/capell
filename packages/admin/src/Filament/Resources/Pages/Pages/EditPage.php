@@ -292,6 +292,11 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 force: true,
             );
         }
+
+        if ($contentStructure === ContentStructure::Html) {
+            $this->cachedSchemas = [];
+            $this->form->fill($this->data);
+        }
     }
 
     public function saveAsDraft(): void
