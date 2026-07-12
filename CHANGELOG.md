@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.0.16 - 2026-07-12
+
+### What's Changed
+
+* Update CHANGELOG for v0.0.15 by @capell-app-user in https://github.com/capell-app/capell/pull/32
+* Respect explicit test memory limits by @capell-app-user in https://github.com/capell-app/capell/pull/33
+
+**Full Changelog**: https://github.com/capell-app/capell/compare/v0.0.15...v0.0.16
+
 ## v0.0.15 - 2026-07-12
 
 ### What's Changed
