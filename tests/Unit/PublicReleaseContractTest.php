@@ -43,8 +43,8 @@ it('defines the public v4 split package release contract', function (): void {
     );
 
     expect($coreManifest['require']['spatie/laravel-settings'])->toBe('^3.0')
-        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('^1.0')
-        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^1.0');
+        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('self.version')
+        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('self.version');
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');
