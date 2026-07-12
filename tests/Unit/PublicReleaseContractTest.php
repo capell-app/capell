@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('defines the public v0.0.4 split package release contract', function (): void {
+it('defines the public v0.0.14 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
     $splitPackages = ['admin', 'core', 'frontend', 'installer', 'marketplace'];
 
@@ -25,8 +25,8 @@ it('defines the public v0.0.4 split package release contract', function (): void
         JSON_THROW_ON_ERROR,
     );
 
-    expect($marketplaceManifest['require']['capell-app/admin'])->toBe('^0.0.4 || 0.0.x-dev')
-        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^0.0.4 || 0.0.x-dev');
+    expect($marketplaceManifest['require']['capell-app/admin'])->toBe('^0.0.14 || 0.0.x-dev')
+        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^0.0.14 || 0.0.x-dev');
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $localSplitScript = file_get_contents($root . '/scripts/local-split-packages.sh');
@@ -55,7 +55,7 @@ it('documents one public distribution and commercial licensing story', function 
         ->not->toContain('not published through a public source repository')
         ->not->toContain('distributed through private Composer access')
         ->and($quickstart)
-        ->toContain('stable `v0.0.4` foundation release')
+        ->toContain('stable `v0.0.14` foundation release')
         ->toContain('public Packagist')
         ->and($install)
         ->toContain('Install the public foundation')
