@@ -8,6 +8,7 @@ use Capell\Core\Contracts\UpgradeReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Data\VersionAudit;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
 use Illuminate\Console\Command;
@@ -20,7 +21,7 @@ final class ReportCapellUpgradeDryRunAction
 {
     use AsObject;
 
-    private const string CURRENT_CAPELL_API_VERSION = '4.0.0';
+    private const string CURRENT_CAPELL_API_VERSION = CapellExtensionApi::CURRENT_VERSION;
 
     private const int MAX_MANIFEST_FINDINGS = 20;
 

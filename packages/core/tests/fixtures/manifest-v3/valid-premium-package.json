@@ -4,7 +4,7 @@
     "slug": "example",
     "displayName": "Example",
     "kind": "package",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^0.0",
     "version": "4.x-dev",
     "description": "Example extension.",
     "product": {

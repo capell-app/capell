@@ -36,7 +36,7 @@ beforeAll(function (): void {
             class ExamplePage implements \\' . ExtensionContribution::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -45,7 +45,7 @@ beforeAll(function (): void {
             class ExampleRoutes implements \\' . RegistersExtensionRoute::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -54,7 +54,7 @@ beforeAll(function (): void {
             class ExampleSettings implements \\' . RegistersExtensionSetting::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -63,7 +63,7 @@ beforeAll(function (): void {
             class ExampleAssets implements \\' . RegistersExtensionAsset::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -72,7 +72,7 @@ beforeAll(function (): void {
             class ExampleScheduledJob implements \\' . RunsScheduledExtensionJob::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -81,7 +81,7 @@ beforeAll(function (): void {
             class ExampleTablesHealthCheck implements \\' . ChecksExtensionHealth::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -90,7 +90,7 @@ beforeAll(function (): void {
             class ExampleWorkflowAttention implements \\' . ContributesWorkflowAttention::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
 
                 public function attentionItems(?\\Illuminate\\Contracts\\Auth\\Authenticatable $user = null): array
@@ -104,7 +104,7 @@ beforeAll(function (): void {
             class ExampleFrontendComponent implements \\' . RegistersExtensionFrontendComponent::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
-                    return "^4.0";
+                    return "^0.0";
                 }
             }
         }
@@ -497,7 +497,7 @@ it('requires manifest version 3 and rejects v2-only capell-version', function (a
 })->with([
     'missing manifest-version' => [['manifest-version' => null], 'manifest-version 3'],
     'manifest v2' => [['manifest-version' => 2], 'manifest-version 3'],
-    'capell-version' => [['capell-version' => '^4.0'], 'capell-version'],
+    'capell-version' => [['capell-version' => '^0.0'], 'capell-version'],
 ]);
 
 it('keeps provider buckets locked to manifest v3 buckets exactly', function (Closure $mutate, string $message): void {
@@ -584,7 +584,7 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
 });
 
 it('publishes the current extension API version from one typed source', function (): void {
-    expect(CapellExtensionApi::CURRENT_VERSION)->toBe('4.1.0');
+    expect(CapellExtensionApi::CURRENT_VERSION)->toBe('0.0.0');
 });
 
 it('exposes a content widget contribution contract', function (): void {

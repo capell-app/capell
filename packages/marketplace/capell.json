@@ -5,8 +5,8 @@
     "displayName": "Capell Marketplace",
     "kind": "package",
     "visibility": "support",
-    "capellApiVersion": "^4.0",
-    "version": "4.x-dev",
+    "capellApiVersion": "^0.0",
+    "version": "0.0.x-dev",
     "description": "Marketplace provides extension browsing, acquisition, and install authorization records.",
     "product": {
         "group": "Capell Foundation",
