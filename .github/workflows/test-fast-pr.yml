@@ -31,7 +31,7 @@ permissions:
 jobs:
   test:
     if: github.event.pull_request.draft == false
-    name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
+    name: Test - L${{ matrix.laravel }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -41,26 +41,10 @@ jobs:
             laravel: 12.*
             testbench: 10.*
             db: sqlite
-            shard: 1
-            total_shards: 3
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 2
-            total_shards: 3
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 3
-            total_shards: 3
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
-            shard: 1
-            total_shards: 1
 
     steps:
       - name: Checkout code
@@ -139,5 +123,5 @@ jobs:
           echo "DB_CONNECTION=sqlite" >> .env
           echo "DB_DATABASE=:memory:" >> .env
 
-      - name: Run test:fast
-        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci
+      - name: Run test suite
+        run: PEST_PROCESSES=4 composer run test:all:ci
