@@ -50,6 +50,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\LazyCollection;
+use RuntimeException;
 
 class LayoutsTable implements TableConfigurator
 {
@@ -161,13 +162,13 @@ class LayoutsTable implements TableConfigurator
                     ->icon('heroicon-o-swatch')
                     ->authorize(fn (): bool => auth()->user()?->can(ResourceEnum::Theme->permission('update')) === true)
                     ->schema(fn (Schema $schema): Schema => ThemeResource::form($schema))
-                    ->fillForm(fn (Layout $record): array => $record->theme?->attributesToArray() ?? [])
-                    ->modalHeading(fn (Layout $record): string => $record->theme?->name ?? '')
+                    ->fillForm(fn (Layout $record): array => self::requiredTheme($record)->attributesToArray())
+                    ->modalHeading(fn (Layout $record): string => self::requiredTheme($record)->name)
                     ->slideOver()
                     ->modalWidth(Width::ScreenLarge)
-                    ->mutateFormDataUsing(fn (array $data, Layout $record): array => ThemesTable::editorRecordData($record->theme, $data))
+                    ->mutateFormDataUsing(fn (array $data, Layout $record): array => ThemesTable::editorRecordData(self::requiredTheme($record), $data))
                     ->action(function (Layout $record, array $data): void {
-                        $record->theme?->update($data);
+                        self::requiredTheme($record)->update($data);
                     })
                     ->hidden(fn (Layout $record): bool => ! $record->theme instanceof Theme || $record->theme->trashed()),
                 ReplicateAction::make()
@@ -322,5 +323,12 @@ class LayoutsTable implements TableConfigurator
             $qualifiedPageTable,
             $assignedSiteIds->implode(','),
         );
+    }
+
+    private static function requiredTheme(Layout $layout): Theme
+    {
+        throw_unless($layout->theme instanceof Theme, RuntimeException::class, 'The layout theme is unavailable.');
+
+        return $layout->theme;
     }
 }

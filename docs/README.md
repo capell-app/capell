@@ -2,6 +2,13 @@
 
 Use this page as the route map. The docs are intentionally small: each page should answer a busy developer's next question without sending them through a chain of fragments.
 
+## Implementation records
+
+- [Core Nano Banana finished artwork plan](superpowers/plans/2026-07-11-core-nanobanana-finished-artwork.md)
+- [Core engraving artwork revision plan](superpowers/plans/2026-07-11-core-engraving-artwork-revision.md)
+- [Core Nano Banana finished artwork design](superpowers/specs/2026-07-11-core-nanobanana-finished-artwork-design.md)
+- [Core structural spine artwork design](superpowers/specs/2026-07-11-core-structural-spine-artwork-design.md)
+
 ![Capell Pages admin surface](images/capell-readme-banner.jpg)
 
 ## Start Here

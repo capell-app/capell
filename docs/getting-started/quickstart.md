@@ -10,7 +10,7 @@ For existing Laravel apps, use the [install guide](install.md#path-b-existing-la
 | -------- | -------------------------------------------------------------------- |
 | PHP      | 8.4+                                                                 |
 | Laravel  | 12.41.1+ or 13.x                                                     |
-| Filament | 5.7+ (currently `^5.7@beta`)                                         |
+| Filament | 5.6.8 (currently `^5.6.8 <5.7.0-beta`)                              |
 | Node.js  | 20+                                                                  |
 | Composer | 2.7+                                                                 |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or your configured Laravel database |
