@@ -67,3 +67,16 @@ it('documents one public distribution and commercial licensing story', function 
         ->toContain('The published 1.x maintenance windows begin with Capell 1.0')
         ->not->toContain('For each Capell 1.x minor release');
 });
+
+it('rejects placeholder changelog entries and generates useful release notes', function (): void {
+    $root = dirname(__DIR__, 2);
+    $workflow = file_get_contents($root . '/.github/workflows/update-changelog.yml');
+    $changelog = file_get_contents($root . '/CHANGELOG.md');
+
+    expect($workflow)
+        ->toContain('placeholderReleaseNotesPattern')
+        ->toContain('generateReleaseNotes')
+        ->toContain("core.setFailed('Release notes are empty after generation.')")
+        ->and($changelog)
+        ->not->toMatch('/Release v2\\.0\\.(?:81|82|83|84|85) for Capell 4\\.x\\./');
+});
