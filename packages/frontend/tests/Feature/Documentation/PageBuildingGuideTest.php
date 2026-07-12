@@ -130,7 +130,7 @@ it('declares deterministic screenshot provenance for guide-owned captures', func
             ->and($entry['targetType'] ?? null)->toBe('admin-surface')
             ->and($entry['scenario'] ?? null)->toBe('admin-form')
             ->and($entry['colorSchemes'] ?? null)->toBe(['light'])
-            ->and($entry['required'] ?? false)->toBeTrue()
+            ->and($entry['required'] ?? true)->toBeFalse()
             ->and($entry['target'] ?? null)->toBe($expectedEntry['target'])
             ->and($entry['url'] ?? null)->toBe($expectedEntry['url'])
             ->and($entry['waitFor'] ?? null)->toBe($expectedEntry['waitFor'])
