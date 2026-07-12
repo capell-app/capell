@@ -118,7 +118,7 @@ jobs:
         run: |
           composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel skeleton
           cd skeleton
-          composer require --no-interaction --no-progress --prefer-dist \
+          composer require --no-interaction --no-progress --prefer-dist --with-all-dependencies \
             "capell-app/admin:${CAPELL_VERSION}" \
             "capell-app/core:${CAPELL_VERSION}" \
             "capell-app/frontend:${CAPELL_VERSION}" \
