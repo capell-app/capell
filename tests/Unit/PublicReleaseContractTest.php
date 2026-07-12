@@ -87,7 +87,7 @@ it('defines the public v4 split package release contract', function (): void {
         ->not->toContain("inputs.version || '*'")
         ->and($fastTestWorkflow)
         ->toContain('- main')
-        ->toContain('"pestphp/pest:^4.3"')
+        ->toContain('"pestphp/pest:^4.7"')
         ->toContain('"filament/filament:^5.6.8 <5.7.0-beta"')
         ->not->toContain('filament/filament:^4.7')
         ->and($fullTestWorkflow)
