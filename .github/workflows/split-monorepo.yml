@@ -23,7 +23,20 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.release.tag_name }}
+      - name: Check existing package tag
+        id: package-tag
+        env:
+          GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if gh api "repos/capell-app/${{ matrix.package }}/git/ref/tags/${RELEASE_TAG}" --silent 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "${RELEASE_TAG} already exists for ${{ matrix.package }}; skipping the completed split."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Monorepo Split of ${{ matrix.package }}
+        if: steps.package-tag.outputs.exists != 'true'
         uses: danharrin/monorepo-split-github-action@14e42e2437f674b8987c1f50ca3689116aea1893 # v2.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
