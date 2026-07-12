@@ -83,16 +83,22 @@ final class PlanValidator
         $names = array_column($plan['packages'], 'name');
         $inventoryNames = array_column($plan['inventory'], 'name');
         $ledgerNames = array_column($plan['ledger'], 'name');
+        $externalLedger = $plan['external_ledger'] ?? [];
+        if (! is_array($externalLedger) || array_intersect($ledgerNames, array_column($externalLedger, 'name')) !== []) {
+            throw new ReleaseException('External ledger must be disjoint from local inventory.');
+        }
+        $combinedLedger = [...$externalLedger, ...$plan['ledger']];
+        $combinedNames = array_column($combinedLedger, 'name');
         if ($inventoryNames !== $ledgerNames || count(array_unique($ledgerNames)) !== count($ledgerNames)) {
             throw new ReleaseException('Plan ledger must exactly cover inventory in stable order.');
         }
-        foreach ($plan['ledger'] as $entry) {
+        foreach ($combinedLedger as $entry) {
             foreach (['name', 'path', 'repository', 'version', 'previous_version', 'source_commit', 'subtree_hash', 'direct_capell_dependencies', 'resolved_minimum_versions'] as $field) {
                 if (! array_key_exists($field, $entry)) {
                     throw new ReleaseException("Ledger entry is missing {$field}.");
                 }
             }
-            if (! preg_match('/^[a-f0-9]{40}$/', $entry['subtree_hash']) || ! self::isCanonicalVersion($entry['version'])) {
+            if (! preg_match('/^[a-f0-9]{40}$/', $entry['source_commit']) || ! preg_match('/^[a-f0-9]{40}$/', $entry['subtree_hash']) || ! self::isCanonicalVersion($entry['version'])) {
                 throw new ReleaseException("Ledger entry {$entry['name']} is invalid.");
             }
         }
@@ -105,16 +111,16 @@ final class PlanValidator
             }
         }
         $ledgerGraph = [];
-        foreach ($plan['ledger'] as $entry) {
+        foreach ($combinedLedger as $entry) {
             $dependencies = $entry['direct_capell_dependencies'];
-            if (count($dependencies) !== count(array_unique($dependencies)) || array_diff($dependencies, $ledgerNames) !== [] || in_array($entry['name'], $dependencies, true)) {
+            if (count($dependencies) !== count(array_unique($dependencies)) || array_diff($dependencies, $combinedNames) !== [] || in_array($entry['name'], $dependencies, true)) {
                 throw new ReleaseException("Ledger entry {$entry['name']} has an unknown, duplicate, or self dependency.");
             }
             if (array_diff(array_keys($entry['resolved_minimum_versions']), $dependencies) !== [] || array_diff($dependencies, array_keys($entry['resolved_minimum_versions'])) !== []) {
                 throw new ReleaseException("Ledger entry {$entry['name']} must resolve every direct dependency exactly once.");
             }
             foreach ($entry['resolved_minimum_versions'] as $dependency => $minimum) {
-                $referenced = current(array_filter($plan['ledger'], fn (array $candidate): bool => $candidate['name'] === $dependency));
+                $referenced = current(array_filter($combinedLedger, fn (array $candidate): bool => $candidate['name'] === $dependency));
                 if ($referenced === false || $minimum !== $referenced['version']) {
                     throw new ReleaseException("Ledger entry {$entry['name']} has an incompatible minimum for {$dependency}.");
                 }
@@ -155,14 +161,14 @@ final class PlanValidator
                 throw new ReleaseException("Package {$package['name']} has a drifting source or invalid tree hash.");
             }
             foreach ($package['direct_capell_dependencies'] as $dependency) {
-                if (! in_array($dependency, $inventoryNames, true) || $dependency === $package['name']) {
+                if (! in_array($dependency, $combinedNames, true) || $dependency === $package['name']) {
                     throw new ReleaseException("Package {$package['name']} has an unknown dependency.");
                 }
             }
             foreach ($package['resolved_minimum_versions'] as $dependency => $version) {
                 $dependencyPackage = current(array_filter($plan['packages'], fn (array $candidate): bool => $candidate['name'] === $dependency));
-                $inventoryPackage = current(array_filter($plan['inventory'], fn (array $candidate): bool => $candidate['name'] === $dependency));
-                $expected = $dependencyPackage === false ? ($inventoryPackage['version'] ?? null) : $dependencyPackage['proposed_version'];
+                $ledgerPackage = current(array_filter($combinedLedger, fn (array $candidate): bool => $candidate['name'] === $dependency));
+                $expected = $dependencyPackage === false ? ($ledgerPackage['version'] ?? null) : $dependencyPackage['proposed_version'];
                 if (! in_array($dependency, $package['direct_capell_dependencies'], true) || $expected === null || $version !== $expected) {
                     throw new ReleaseException("Incompatible planned requirement for {$package['name']}.");
                 }
@@ -229,7 +235,7 @@ final class ReleaseEngine
     public function __construct(private readonly string $root, private readonly CommandRunner $runner = new ProcessCommandRunner) {}
 
     /** @return array<string,mixed> */
-    public function plan(string $version, ?array $previous = null, array $bumps = []): array
+    public function plan(string $version, ?array $previous = null, array $bumps = [], array $externalLedger = []): array
     {
         if ($previous === null && $version !== '1.0.0') {
             throw new ReleaseException('The baseline version must be exactly 1.0.0.');
@@ -240,7 +246,7 @@ final class ReleaseEngine
         $packages = [];
         $candidates = [];
         $graph = [];
-        $knownNames = array_column($definitions, 'name');
+        $knownNames = [...array_column($definitions, 'name'), ...array_column($externalLedger, 'name')];
         foreach ($bumps as $name => $type) {
             if (! in_array($name, $knownNames, true) || ! in_array($type, ['patch', 'minor', 'major'], true)) {
                 throw new ReleaseException("Invalid or unknown bump {$name}={$type}.");
@@ -290,7 +296,8 @@ final class ReleaseEngine
         foreach ($packages as &$package) {
             foreach ($package['direct_capell_dependencies'] as $dependency) {
                 $planned = current(array_filter($packages, fn (array $item): bool => $item['name'] === $dependency));
-                $prior = $previous === null ? false : current(array_filter($previous['ledger'], fn (array $item): bool => $item['name'] === $dependency));
+                $priorLedger = $previous === null ? $externalLedger : [...($previous['external_ledger'] ?? []), ...$previous['ledger']];
+                $prior = current(array_filter($priorLedger, fn (array $item): bool => $item['name'] === $dependency));
                 $package['resolved_minimum_versions'][$dependency] = $planned['proposed_version'] ?? $prior['version'];
             }
         }
@@ -312,7 +319,7 @@ final class ReleaseEngine
 
             return ['name' => $definition['name'], 'path' => $definition['path'], 'repository' => $definition['repository'], 'version' => $planned['proposed_version'] ?? $prior['version'], 'previous_version' => $planned['current_version'] ?? $prior['previous_version'] ?? null, 'source_commit' => $planned['source_commit'] ?? $prior['source_commit'] ?? $previous['source']['commit'] ?? null, 'subtree_hash' => $candidate['tree'], 'direct_capell_dependencies' => $candidate['dependencies'], 'resolved_minimum_versions' => $planned['resolved_minimum_versions'] ?? $prior['resolved_minimum_versions']];
         }, $definitions);
-        $plan = ['schema_version' => 1, 'source' => ['repository' => $this->git(['config', '--get', 'remote.origin.url']), 'commit' => $commit, 'ref' => "refs/commits/{$commit}"], 'inventory' => $inventory, 'ledger' => $ledger, 'packages' => $packages, 'dependency_order' => DependencyGraph::order($selectedGraph)];
+        $plan = ['schema_version' => 1, 'source' => ['repository' => $this->git(['config', '--get', 'remote.origin.url']), 'commit' => $commit, 'ref' => "refs/commits/{$commit}"], 'inventory' => $inventory, 'external_ledger' => $externalLedger, 'ledger' => $ledger, 'packages' => $packages, 'dependency_order' => DependencyGraph::order($selectedGraph)];
         (new PlanValidator)->validate($plan);
 
         return $plan;

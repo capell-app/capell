@@ -16,6 +16,7 @@ try {
         $baseline = null;
         $from = null;
         $bumps = [];
+        $dependenciesFrom = null;
         foreach (array_slice($argv, 2) as $argument) {
             if (str_starts_with($argument, '--baseline-version=')) {
                 $baseline = substr($argument, 19);
@@ -31,13 +32,22 @@ try {
                 [$package, $type] = explode('=', $value, 2);
                 $bumps[$package] = $type;
             }
+            if (str_starts_with($argument, '--dependencies-from=')) {
+                $dependenciesFrom = substr($argument, 20);
+            }
         }
         $previous = $from === null ? null : json_decode((string) file_get_contents($from), true, 512, JSON_THROW_ON_ERROR);
         $version = $baseline ?? 'incremental';
         if (! is_string($version)) {
             throw new ReleaseException('plan requires --baseline-version or --from.');
         }
-        echo json_encode((new ReleaseEngine($root))->plan($version, $previous, $bumps), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+        $externalLedger = [];
+        if ($dependenciesFrom !== null) {
+            $dependencyPlan = json_decode((string) file_get_contents($dependenciesFrom), true, 512, JSON_THROW_ON_ERROR);
+            (new PlanValidator)->validate($dependencyPlan);
+            $externalLedger = [...($dependencyPlan['external_ledger'] ?? []), ...$dependencyPlan['ledger']];
+        }
+        echo json_encode((new ReleaseEngine($root))->plan($version, $previous, $bumps, $externalLedger), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
         exit(0);
     }
     $path = $argv[2] ?? null;
