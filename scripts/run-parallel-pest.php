@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require __DIR__ . '/../vendor/autoload.php';
+
 $processes = getenv('PEST_PROCESSES') ?: '4';
 $shard = getenv('PEST_SHARD') ?: '1/1';
 
