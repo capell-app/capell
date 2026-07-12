@@ -365,6 +365,7 @@ final class ReleaseEngine
             $decision = ResumeDecision::forTag($peeled, $splitSha);
             $sourceTag = $package['source_tag'];
             $localSourceTagSha = $this->optional(['git','rev-parse','-q','--verify','refs/tags/'.$sourceTag.'^{commit}']);
+            $localSourceTagSha = $localSourceTagSha === '' ? null : $localSourceTagSha;
             $sourceLine = $this->optional(['git','ls-remote','--tags','origin','refs/tags/'.$sourceTag]);
             $sourceTagSha = $sourceLine === null || $sourceLine === '' ? null : strtok($sourceLine, "\t ");
             if (($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit'])) {
