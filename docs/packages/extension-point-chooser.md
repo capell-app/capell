@@ -1,7 +1,5 @@
 # Extension Point Chooser
 
-![Capell Extension Point Chooser screenshot](../images/generated/admin/site-health-page.png)
-
 Use this page before adding a hook, service provider call, or package integration. Start with the table that matches the runtime you are changing, then follow the linked page for the full contract and examples.
 
 If you are not sure which runtime you are changing, start with [Package authoring jobs](package-authoring-jobs.md) and [Extension surface vocabulary](extension-surface-vocabulary.md). Those pages define the package surfaces and install-impact terms used by this chooser.

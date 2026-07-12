@@ -1,7 +1,5 @@
 # Debugging Package Discovery
 
-![Capell Debugging Package Discovery screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Use this when a package is installed with Composer but Capell cannot see its commands, settings, admin surfaces, frontend output, or Marketplace metadata.
 
 ## Discovery Flow

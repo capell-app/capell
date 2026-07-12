@@ -1,7 +1,5 @@
 # Extension Lifecycle
 
-![Capell Extension Lifecycle screenshot](../images/generated/admin/site-health-page.png)
-
 Use this when a package should be discovered, audited, installed, enabled, and surfaced by Capell without patching host package code.
 
 The lifecycle has four parts:

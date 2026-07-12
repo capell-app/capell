@@ -1,7 +1,5 @@
 # Public HTML Safety Contract
 
-![Capell Public HTML Safety Contract screenshot](../images/generated/admin/site-health-page.png)
-
 Public Capell pages must look like ordinary public HTML to every non-admin visitor.
 
 This applies to anonymous users, signed-in non-admin users, crawlers, cached HTML, static exports, previews served outside the admin, and CDN copies.

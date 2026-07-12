@@ -1,7 +1,5 @@
 # Frontend
 
-![Capell Frontend screenshot](../images/generated/admin/site-health-page.png)
-
 Capell Frontend resolves public requests and renders published pages. It owns site/page loading, layout/theme context, frontend settings, cache-aware rendering, public HTML safety, and package-facing frontend hooks.
 
 > **Who's this for?** Developers building the public site (Blade, Livewire, Inertia) on Capell. Rendering, themes, assets, caching, and safety.

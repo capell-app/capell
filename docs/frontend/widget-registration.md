@@ -1,7 +1,5 @@
 # Widget Registration
 
-![Capell Widget Registration screenshot](../images/generated/admin/site-health-page.png)
-
 Register a frontend widget so editors can choose it and Capell can render its Blade, Livewire, or Inertia component. Registration is also where you declare the resource groups that load the widget's CSS and JavaScript.
 
 ## Register A Widget

@@ -1,7 +1,5 @@
 # Screenshot State Guide
 
-![Capell Screenshot State Guide screenshot](../images/generated/admin/site-health-page.png)
-
 Screenshots should show real product states that help someone debug or understand the workflow. Avoid one perfect happy-path screenshot when the feature has meaningful states.
 
 ## State Matrix

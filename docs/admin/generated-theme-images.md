@@ -1,7 +1,5 @@
 # Generated Theme Images
 
-![Capell Generated Theme Images screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 If a theme card has no preview picture, here is what to know:
 
 - You can upload your own preview image, and it always overrides the generated one.

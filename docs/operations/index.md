@@ -1,7 +1,5 @@
 # Operations
 
-![Capell Operations screenshot](../images/generated/admin/site-health-page.png)
-
 Use this page during deploys, upgrades, incidents, and production checks.
 
 > **Who's this for?** Operators and developers running an installed Capell site. Deploys, caches, upgrades, and incidents.
@@ -82,6 +80,10 @@ Alert on a non-zero health exit. Run `capell:backup:prune` without `--force`
 first, and schedule a scratch restore drill at least monthly. The
 [backup and restore runbook](backups.md) contains configuration, scheduling,
 restore, cleanup, and production-recovery boundaries.
+
+Use the [export and exit plan](export-and-exit.md) to inventory portable data,
+create Migration Assistant packages, rehearse a move, and retain a safe rollback
+window when leaving Capell or moving between installations.
 
 ## Marketplace
 

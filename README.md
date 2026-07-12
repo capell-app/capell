@@ -57,7 +57,7 @@ Definitions for every term — editor-facing and developer-facing — live in th
 
 ## Quick Local Demo
 
-Capell is proprietary software distributed through private Composer access. Obtain a licence, Composer credentials, and the repository configuration for your account before running this disposable local demo:
+Capell's foundation packages have public source repositories and public Packagist packages under the Capell licence. You do not need private Composer credentials for this disposable local demo:
 
 ```bash
 composer create-project laravel/laravel music-store
@@ -103,7 +103,7 @@ Each package also ships a source README:
 
 ## Installing
 
-Capell packages are not published through a public source repository or public Packagist distribution. Before either install path, obtain an appropriate licence and configure the private Composer credentials and repository details supplied by Capell. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and the Filament 5.7 beta release line.
+Capell's five foundation packages have public source repositories and public Packagist packages. Paid marketplace packages use authenticated Composer access and require an active entitlement. Review the Capell licence before production use. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and the Filament 5.7 beta release line.
 
 ### Recommended — the installer
 
@@ -114,7 +114,7 @@ composer require capell-app/installer
 php artisan capell:install
 ```
 
-The full walkthrough — requirements, panel scaffolding, model patches, and headless/CI flags — is in the [install guide](docs/getting-started/install.md).
+The full walkthrough — requirements, panel scaffolding, model patches, and non-interactive CI flags — is in the [install guide](docs/getting-started/install.md).
 
 ### Manual — require packages directly
 
@@ -124,7 +124,7 @@ Skip the installer and require exactly the packages you want. `capell-app/core` 
 # Full stack, no installer
 composer require capell-app/core capell-app/admin capell-app/frontend -W
 
-# Headless / core only
+# Core only, without Admin or Frontend
 composer require capell-app/core -W
 
 # Core + admin, no public frontend
@@ -175,7 +175,7 @@ Not sure which to reach for? Use the [Extension point chooser](docs/packages/ext
 
 See the [install guide](docs/getting-started/install.md) for required PHP extensions, permissions, and install paths.
 
-Capell 1.x minors receive bug fixes for 12 months and security fixes for 24 months from release. The latest 1.x minor is always supported. See the [Core support policy](packages/core/README.md#requirements-and-support-policy) for the exact package requirements and backport policy.
+While Capell remains on the 0.0.x release line, support targets the current stable release. The published 1.x maintenance windows begin with Capell 1.0. See the [Core support policy](packages/core/README.md#requirements-and-support-policy) for the exact package requirements.
 
 ## Contributing To This Repository
 
@@ -199,10 +199,10 @@ For local path-repository setup, branch guidance, and the contribution workflow,
 
 ## License, Pricing & Support
 
-Capell is commercial, proprietary software (`"license": "proprietary"`). Each licensed copy may run in one production environment at a time, and the license does not include updates or support unless those are part of the commercial agreement. See [LICENSE.md](LICENSE.md) for the full terms.
+Capell is commercial software (`"license": "proprietary"`) with public foundation source and Composer distribution. Public visibility does not change the Capell licence. Each licensed copy may run in one production environment at a time, and the licence does not include updates or support unless those are part of the commercial agreement. See [LICENSE.md](LICENSE.md) for the full terms.
 
-Licence scope and pricing are confirmed for each approved project before private package access is granted. Some companion packages require a separate entitlement; see [capell.app](https://capell.app) or contact Capell for the terms that apply.
+The public foundation installs from Packagist. Capell All Access — Complete Collection is £199 GBP for twelve months of approved first-party extensions, themes, updates and support; protected packages require an active entitlement. See [Capell pricing](https://capell.app/pricing) for the current scope, renewal and refund terms.
 
-- **Questions and discussion:** use the customer contact path or the private repository discussion area when your agreement includes repository access.
+- **Questions and discussion:** use the customer contact path or the relevant public repository issue tracker. Customer-specific entitlement and support questions belong in the Capell account support flow.
 - **Documentation:** [docs.capell.app](https://docs.capell.app)
 - **Security:** report privately via [SECURITY.md](SECURITY.md) — do not open a public issue for an undisclosed vulnerability.

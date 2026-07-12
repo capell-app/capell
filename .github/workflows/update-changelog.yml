@@ -40,9 +40,10 @@ jobs:
 
             const targetCommitish = release.target_commitish || 'main';
             let releaseNotes = (release.body || '').trim();
+            const placeholderReleaseNotesPattern = /^Release\s+v?\d+\.\d+\.\d+\s+for\s+Capell\s+4\.x\.?$/i;
 
-            if (!releaseNotes) {
-              core.info(`Release notes are empty for ${tagName}; generating notes from GitHub.`);
+            if (!releaseNotes || placeholderReleaseNotesPattern.test(releaseNotes)) {
+              core.info(`Release notes are empty or generic for ${tagName}; generating notes from GitHub.`);
 
               const generated = await github.rest.repos.generateReleaseNotes({
                 owner: context.repo.owner,
@@ -52,6 +53,11 @@ jobs:
               });
 
               releaseNotes = (generated.data.body || '').trim();
+            }
+
+            if (!releaseNotes) {
+              core.setFailed('Release notes are empty after generation.');
+              return;
             }
 
             const releaseDate = release.published_at

@@ -1,7 +1,5 @@
 # Debugging Public Output
 
-![Capell Debugging Public Output screenshot](../images/generated/admin/site-health-page.png)
-
 Use this when a public page renders the wrong HTML, leaks internal state, misses package output, bypasses cache, or serves stale content.
 
 ## Public Render Flow

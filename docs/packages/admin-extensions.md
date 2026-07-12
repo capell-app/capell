@@ -1,7 +1,5 @@
 # Admin Extensions
 
-![Capell Admin Extensions screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Packages extend the admin through `CapellAdmin`, admin bridges, tagged contracts, settings contributors, and Filament classes.
 
 ## Admin Bridges

@@ -1,7 +1,5 @@
 # Blaze Support
 
-![Capell Blaze Support screenshot](../images/generated/admin/site-health-page.png)
-
 Capell registers anonymous Blade component directories with Livewire Blaze using function compilation only.
 
 ## Default Strategy

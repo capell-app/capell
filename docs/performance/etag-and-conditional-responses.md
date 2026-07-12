@@ -1,7 +1,5 @@
 # ETag & Conditional Responses
 
-![Capell ETag & Conditional Responses screenshot](../images/generated/admin/site-health-page.png)
-
 > **Who is this for?**
 > Developers building themes or caching strategies who want HTTP-level cache hits without rebuilding the full page cache layer.
 

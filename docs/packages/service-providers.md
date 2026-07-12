@@ -1,7 +1,5 @@
 # Service Providers
 
-![Capell Service Providers screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Split service providers by runtime context. Providers should wire registrations, not contain business logic.
 
 ## Lifecycle Provider Buckets

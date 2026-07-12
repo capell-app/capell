@@ -1,7 +1,5 @@
 # Package Authoring
 
-![Capell Package Authoring screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Capell treats package authoring as a platform surface, not a side effect of Laravel auto-discovery. A package should declare what it owns in `capell.json`, route runtime work through provider buckets, and keep public output safe for anonymous users and cached HTML.
 
 ## Scaffold First

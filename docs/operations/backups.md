@@ -1,7 +1,5 @@
 # Backups and restore
 
-![Capell Backups and restore screenshot](../images/generated/admin/site-health-page.png)
-
 Capell can create versioned database and media snapshots, verify their health,
 apply retention, and prove recovery in isolated scratch targets. Backups are
 disabled by default and never restore over live data.
@@ -115,3 +113,48 @@ Capell does not automate in-place production recovery because overwriting live
 data is a high-impact, platform-specific operation. Keep `.env`, `APP_KEY`,
 deployment state, and non-media files in the infrastructure backup plan, and
 test that plan alongside this snapshot drill.
+
+## Worked production recovery example
+
+Assume an operator confirms database corruption at 09:42 and the newest healthy
+snapshot completed at 09:00.
+
+1. Record the incident time, affected release, database host, newest healthy
+   snapshot ID, and recovery lead. Enable maintenance or lockdown and stop
+   queue workers so writes do not continue.
+2. Preserve the failed database and current media state. Do not overwrite the
+   only evidence while trying to recover quickly.
+3. Verify backup health, then restore into isolated scratch targets:
+
+   ```bash
+   php artisan capell:backup:health --json
+   php artisan capell:backup:restore \
+     20260712T090000Z-a1b2c3d4e5f6 \
+     capell_restore_incident_20260712 \
+     --media-disk=restore-scratch \
+     --media-prefix=incidents/20260712
+   ```
+
+4. Review the doctor result. On the scratch copy, compare critical record
+   counts, open representative pages and media, and confirm that the accepted
+   recovery point loses no more data than the incident decision allows.
+5. Use the database and storage provider's documented promotion/import process
+   to replace production from the verified result. This is intentionally
+   outside Capell and needs the platform's rollback mechanism.
+6. Deploy the matching application release, run migrations only when required,
+   then clear caches and restart workers:
+
+   ```bash
+   php artisan optimize:clear
+   php artisan queue:restart
+   php artisan capell:doctor --json
+   php artisan capell:backup:health --json
+   ```
+
+7. Verify signed-out pages, admin login, publishing, media, redirects, scheduled
+   work, and Marketplace connectivity before reopening traffic. Record the
+   recovery point, lost-write window, evidence, and cleanup owner.
+
+If verification fails, keep traffic closed and roll back through the
+infrastructure provider. Do not improvise an in-place database merge during an
+incident unless that procedure was already rehearsed.

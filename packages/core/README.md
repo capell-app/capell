@@ -109,7 +109,7 @@ composer preflight
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |
 
-For each Capell 1.x minor release, Capell provides bug fixes for 12 months and security fixes for 24 months from that minor's release date. The latest 1.x minor is always supported. Users must upgrade to the latest patch release of a supported minor before requesting a backport or security fix.
+While Capell remains on the 0.0.x release line, defect and security support targets the current stable 0.0.x release. Users must upgrade to that release before requesting a fix. The published 1.x maintenance windows begin with Capell 1.0: each 1.x minor will receive bug fixes for 12 months and security fixes for 24 months from release, with the latest 1.x minor always supported.
 
 Support covers the dependency ranges above. When an upstream PHP, Laravel, Filament, or Symfony release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 

@@ -1,7 +1,5 @@
 # Lazy Page Hydration
 
-![Capell Lazy Page Hydration screenshot](../images/generated/admin/site-health-page.png)
-
 > **Who is this for?**
 > Developers working on Capell public rendering, cache hits, and runtime selection.
 

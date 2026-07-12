@@ -1,7 +1,5 @@
 # Extension Point API Reference
 
-![Capell Extension Point API Reference screenshot](../images/generated/admin/site-health-page.png)
-
 Use this page when you know what you want to extend and need the exact contract, registration point, and fallback behavior. Start with [Extension point chooser](extension-point-chooser.md) if you are still deciding.
 
 ## Reading The Tables

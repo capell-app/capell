@@ -1,7 +1,5 @@
 # Extension Troubleshooting
 
-![Capell Extension Troubleshooting screenshot](../images/generated/admin/site-health-page.png)
-
 Use this when a package extension does not appear, does not run, or behaves differently between admin and public requests. Start with the smallest check that proves whether Capell can see the package, then move toward the specific runtime.
 
 For focused debugging paths, use:

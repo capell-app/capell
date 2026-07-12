@@ -1,7 +1,5 @@
 # Database And Migrations
 
-![Capell Database And Migrations screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Packages own their database tables. Core tables should not grow package-specific columns unless the column is part of a stable extension contract.
 
 ## Package Migrations

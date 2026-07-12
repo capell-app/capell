@@ -1,7 +1,5 @@
 # Widget State
 
-![Capell Widget State screenshot](../images/generated/admin/site-health-page.png)
-
 A widget instance carries its own content props plus Capell runtime metadata. This page covers the two instance-state layers, how presentation settings resolve, and how to choose a loading strategy.
 
 ## Instance State

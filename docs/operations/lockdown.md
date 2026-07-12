@@ -1,7 +1,5 @@
 # Lockdown
 
-![Capell Lockdown screenshot](../images/generated/admin/site-health-page.png)
-
 Lockdown is an emergency control for suspected admin account compromise or active frontend incidents. Use it when the public site should stop serving normal pages but one trusted admin session still needs access to investigate, rotate credentials, or recover the install.
 
 When enabled from the Capell admin tools menu:

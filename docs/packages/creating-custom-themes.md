@@ -1,7 +1,5 @@
 # Creating Custom Themes
 
-![Capell Creating Custom Themes screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Create a custom theme as a Capell package when it should be installable, testable, and reusable across apps. Keep one-off project styling in the app only when it depends on private app code.
 
 ## Package Shape

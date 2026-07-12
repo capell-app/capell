@@ -1,7 +1,5 @@
 # Package Boot Lifecycle
 
-![Capell Package Boot Lifecycle screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 Capell package boot is deliberately split into metadata, install-time work, admin/runtime registration, and frontend rendering. Most extension bugs happen when code runs in the wrong bucket.
 
 ## Lifecycle Diagram

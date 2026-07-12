@@ -1,7 +1,5 @@
 # How To Create A Capell Extension
 
-![Capell How To Create A Capell Extension screenshot](../images/generated/admin/theme-library-admin-flow.png)
-
 A Capell extension is a focused Laravel package that registers capabilities with Capell through public extension points. It should be installable, testable, removable, and understandable from the Extensions page.
 
 Use an extension when a feature needs to live outside `capell-app/core`, `capell-app/admin`, or `capell-app/frontend`: page types, widgets, admin tools, frontend output, integrations, dashboard reports, package settings, or example content.

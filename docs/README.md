@@ -11,6 +11,7 @@ Use this page as the route map. The docs are intentionally small: each page shou
 | Try Capell quickly                   | [Quickstart](getting-started/quickstart.md)                             |
 | Pick the right install path          | [Install matrix](getting-started/install-matrix.md)                     |
 | Explain Capell without code          | [Why Capell](getting-started/why-capell.md)                             |
+| Compare WordPress and Craft CMS      | [Capell, WordPress, and Craft CMS](getting-started/comparing-capell.md) |
 | Deep-dive the developer architecture | [How Capell works](getting-started/how-capell-works.md)                 |
 | See interactive page experiences     | [Capell Interactions](getting-started/capell-interactions.md)           |
 | Build with Inertia                   | [Capell Inertia runtime](getting-started/inertia-runtime.md)            |
@@ -32,6 +33,7 @@ Use this page as the route map. The docs are intentionally small: each page shou
 | Work in this repo                    | [Development](development/index.md)                                     |
 | Understand CI and test shards        | [CI and test shards](development/ci.md)                                 |
 | Debug production behavior            | [Operations](operations/index.md)                                       |
+| Plan a reversible exit               | [Export and exit plan](operations/export-and-exit.md)                   |
 | See a realistic content model        | [Music store CMS example](examples/music-store-cms.md)                  |
 
 ## Build pages with the right amount of structure

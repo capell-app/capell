@@ -1,7 +1,5 @@
 # Frontend Guide
 
-![Capell Frontend Guide screenshot](../images/generated/admin/site-health-page.png)
-
 This guide explains the practical shape of Capell Frontend: how requests resolve, how cache behaviour works, how Tailwind inputs are aggregated, and which configuration points matter most in day-to-day site operations.
 
 ![Rendered Capell frontend page](../images/generated/package-surfaces/frontend-published-page.png)
