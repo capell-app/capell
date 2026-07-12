@@ -44,7 +44,7 @@ it('normalizes marketplace extension health reports from remote payloads', funct
         'site_id' => 1001,
         'install_id' => '',
         'app_url' => 'https://example.test',
-        'capell_version' => '4.x-dev',
+        'capell_version' => '0.0.x-dev',
         'laravel_version' => '12.x',
         'php_version' => PHP_VERSION,
         'environment' => 'production',

@@ -4,8 +4,8 @@
     "slug": "{{ jsonSlug }}",
     "displayName": "{{ jsonDisplayName }}",
     "kind": "theme",
-    "capellApiVersion": "^4.0",
-    "version": "4.x-dev",
+    "capellApiVersion": "^0.0",
+    "version": "0.0.x-dev",
     "description": "{{ jsonDisplayName }} theme for Capell.",
     "product": {
         "group": "Client Themes",

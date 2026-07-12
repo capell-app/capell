@@ -411,7 +411,7 @@ Packages should describe themselves through `capell.json` and Composer metadata.
 
 Provider-side `CapellCore::registerPackage(...)` remains for trusted first-party bootstrap and compatibility paths. New packages should prefer manifest metadata and keep providers focused on wiring concrete runtime registrations.
 
-Capell extension API 4.1 adds the `content-widget` contribution type. Its class must implement `RegistersExtensionContentWidget`; Core treats it as public frontend output for capability, install-impact, and cache-safety auditing even when the manifest omits redundant frontend surface metadata. New packages may declare `capellApiVersion: ^4.1`, while existing `^4.0` packages remain compatible with the current 4.x API.
+Capell extension API 4.1 adds the `content-widget` contribution type. Its class must implement `RegistersExtensionContentWidget`; Core treats it as public frontend output for capability, install-impact, and cache-safety auditing even when the manifest omits redundant frontend surface metadata. New packages may declare `capellApiVersion: ^0.0`, while existing `^0.0` packages remain compatible with the current main API.
 
 Register package models with `CapellCore::registerModels([...])` when they should appear in diagnostics, protected-table checks, morph maps, exports, or package metadata. This does not replace a Core model implementation; use a container binding for that.
 

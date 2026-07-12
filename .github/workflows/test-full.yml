@@ -3,7 +3,7 @@ name: Test All
 on:
   push:
     branches:
-      - 4.x
+      - main
 
 concurrency:
   group: ${{ github.ref }}-phpunit-full

@@ -2,13 +2,13 @@
 
 ![Capell Development screenshot](../images/admin-dashboard.png)
 
-Use this page when working in the Capell 4.x host repo or wiring Capell into a Laravel app. Product concepts live in [How Capell works](../getting-started/how-capell-works.md); package-authoring rules live in [Packages](../packages/README.md).
+Use this page when working in the Capell 0.0.x host repo or wiring Capell into a Laravel app. Product concepts live in [How Capell works](../getting-started/how-capell-works.md); package-authoring rules live in [Packages](../packages/README.md).
 
 > **Who's this for?** Contributors working inside this monorepo. Local setup, commands, and tests — not needed to install or use Capell ([start here](../getting-started/quickstart.md)).
 
 ## Repository Shape
 
-Local 4.x work normally uses two sibling repos:
+Local main work normally uses two sibling repos:
 
 ```text
 capell/
@@ -18,7 +18,7 @@ capell/
 
 The host repo owns Core, Admin, Frontend, Installer, and Marketplace. Add-on package behavior belongs in `../capell-packages-4` unless the host repo owns the contract or extension point.
 
-Use Composer path repositories for local package development. Keep matching `4.x` branches in both repos when a change spans host and add-on packages.
+Use Composer path repositories for local package development. Keep matching `main` branches in both repos when a change spans host and add-on packages.
 
 ## Daily Commands
 
@@ -74,7 +74,7 @@ Optional-package commands such as `capell:static-site`, `capell:xml-sitemap`, an
 | Decide host vs package vs app ownership | [Host, package, or app code](package-boundaries.md)    |
 | Pick an install path                    | [Install matrix](../getting-started/install-matrix.md) |
 | Configure local repo work               | [Local development](local-development.md)              |
-| Work with the 4.x monorepo branch       | [Monorepo 4.x branch](monorepo-4x-branch.md)           |
+| Work with the main monorepo branch       | [Monorepo main branch](monorepo-4x-branch.md)           |
 | Run Capell in containers                | [Container development](container-development.md)      |
 | Install or repair admin setup           | [Admin install setup](admin-install-setup.md)          |
 | Seed content safely                     | [Seeding content](seeding-content.md)                  |

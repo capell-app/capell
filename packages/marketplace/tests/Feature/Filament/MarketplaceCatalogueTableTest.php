@@ -1836,8 +1836,8 @@ it('can install filament peek through the admin marketplace catalogue', function
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
         ->and($attempt->extension_slug)->toBe('filament-peek')
         ->and($attempt->composer_name)->toBe('capell-app/filament-peek')
-        ->and($attempt->composer_command)->toBe('composer require capell-app/filament-peek:^4.1.2')
-        ->and($attempt->version_constraint)->toBe('^4.1.2')
+        ->and($attempt->composer_command)->toBe('composer require capell-app/filament-peek:^0.0.2')
+        ->and($attempt->version_constraint)->toBe('^0.0.2')
         ->and($attempt->requested_options)->toBeNull()
         ->and($attempt->eligibility)->toMatchArray([
             'state' => MarketplaceInstallState::FreeAvailable->value,

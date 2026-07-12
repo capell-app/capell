@@ -88,7 +88,7 @@ Pick the path that matches what you are doing. The full route map lives at [docs
 
 ## What This Repository Contains
 
-This repo is the 4.x **host monorepo**: the five foundation packages every Capell site is built on. First-party feature packages (themes, SEO, Publishing Studio, and more) live separately and install via Composer — browse the [package catalogue](docs/packages/catalog.md).
+This repo is the main **host monorepo**: the five foundation packages every Capell site is built on. First-party feature packages (themes, SEO, Publishing Studio, and more) live separately and install via Composer — browse the [package catalogue](docs/packages/catalog.md).
 
 | Package     | Composer name            | What it owns                                                                                                 | Docs                                              |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |

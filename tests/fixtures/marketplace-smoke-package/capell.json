@@ -4,7 +4,7 @@
     "slug": "marketplace-smoke-qa",
     "displayName": "Marketplace Smoke QA",
     "kind": "package",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^0.0",
     "version": "1.0.0",
     "description": "Local fixture package for hosted marketplace install and uninstall smoke tests.",
     "product": {

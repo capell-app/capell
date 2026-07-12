@@ -30,7 +30,7 @@ it('loads a valid manifest v3 capell.json from a given path', function (): void 
     expect($manifest)->toBeInstanceOf(CapellManifestData::class)
         ->and($manifest->manifestVersion)->toBe(3)
         ->and($manifest->name)->toBe('vendor/package')
-        ->and($manifest->capellApiVersion)->toBe('^4.0')
+        ->and($manifest->capellApiVersion)->toBe('^0.0')
         ->and($manifest->kind)->toBe('package');
 });
 
@@ -79,7 +79,7 @@ it('rejects legacy manifest v2 capell.json files on direct load', function (): v
         'manifest-version' => 2,
         'name' => 'vendor/package',
         'kind' => 'package',
-        'capell-version' => '^4.0',
+        'capell-version' => '^0.0',
         'surfaces' => ['admin'],
     ]);
 
@@ -156,8 +156,8 @@ it('normalises composer metadata used during manifest discovery', function (): v
             ],
         ])
         ->and($requiredPackages->invoke($loader, [
-            'require' => ['capell-app/admin' => '^4.0'],
-            'require-dev' => ['capell-app/frontend' => '^4.0'],
+            'require' => ['capell-app/admin' => '^0.0'],
+            'require-dev' => ['capell-app/frontend' => '^0.0'],
         ]))->toBe(['capell-app/admin', 'capell-app/frontend']);
 });
 
@@ -166,7 +166,7 @@ it('skips legacy or unreadable discovered manifest payloads without treating the
         'manifest-version' => 2,
         'name' => 'vendor/legacy',
         'kind' => 'package',
-        'capell-version' => '^4.0',
+        'capell-version' => '^0.0',
         'surfaces' => ['admin'],
     ]);
 

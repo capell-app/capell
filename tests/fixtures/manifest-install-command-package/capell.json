@@ -4,7 +4,7 @@
     "slug": "manifest-install-command-package",
     "displayName": "Manifest Install Command Package",
     "kind": "package",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^0.0",
     "version": "1.0.0",
     "description": "Fixture package that registers an install command through a manifest provider.",
     "product": {

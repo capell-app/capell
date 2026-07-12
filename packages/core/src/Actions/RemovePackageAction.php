@@ -178,7 +178,7 @@ class RemovePackageAction
                 continue;
             }
 
-            $require[$memberName] = $constraints[$memberName] ?? '^4.1';
+            $require[$memberName] = $constraints[$memberName] ?? '^0.0';
             $promoted[] = $memberName;
         }
 

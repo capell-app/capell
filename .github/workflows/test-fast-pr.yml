@@ -3,7 +3,7 @@ name: Test
 on:
   pull_request:
     branches:
-      - 4.x
+      - main
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'packages/**/*.php'
@@ -105,11 +105,11 @@ jobs:
 
           composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
           dev_tools=(
-            "pestphp/pest:^4.1"
-            "pestphp/pest-plugin-arch:^4.0"
-            "pestphp/pest-plugin-laravel:^4.0"
-            "pestphp/pest-plugin-livewire:^4.0"
-            "pestphp/pest-plugin-type-coverage:^4.0"
+            "pestphp/pest:^0.0"
+            "pestphp/pest-plugin-arch:^0.0"
+            "pestphp/pest-plugin-laravel:^0.0"
+            "pestphp/pest-plugin-livewire:^0.0"
+            "pestphp/pest-plugin-type-coverage:^0.0"
             "phpstan/phpstan:^2.1"
             "phpstan/phpstan-mockery:^2.0"
             "phpstan/phpstan-strict-rules:^2.0"

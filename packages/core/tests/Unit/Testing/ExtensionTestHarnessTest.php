@@ -46,7 +46,7 @@ final class HarnessRoutes implements RegistersExtensionRoute
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^0.0';
     }
 }
 PHP);
@@ -251,7 +251,7 @@ final class HarnessRoutes implements RegistersExtensionRoute
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^0.0';
     }
 }
 PHP);
@@ -269,7 +269,7 @@ final class HarnessJob implements RunsScheduledExtensionJob
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^0.0';
     }
 }
 PHP);

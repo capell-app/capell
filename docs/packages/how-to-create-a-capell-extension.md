@@ -80,7 +80,7 @@ Composer discovery should register only the package bootstrap provider. Use Cape
     "slug": "example",
     "displayName": "Example",
     "kind": "package",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^0.0",
     "version": "1.0.0",
     "description": "Example extension for Capell.",
     "product": {
