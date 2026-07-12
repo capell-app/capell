@@ -23,3 +23,22 @@ it('scopes enabled and default domains', function (): void {
     expect(SiteDomain::query()->enabled()->default()->pluck('id')->all())
         ->toBe([$enabledDefault->id]);
 });
+
+it('resolves the default domain as the singular site domain', function (): void {
+    $site = Site::factory()->create();
+
+    SiteDomain::factory()->for($site)->create([
+        'domain' => '127.0.0.1',
+        'status' => true,
+        'default' => false,
+    ]);
+
+    $defaultDomain = SiteDomain::factory()->for($site)->create([
+        'domain' => 'capell.app',
+        'status' => true,
+        'default' => true,
+    ]);
+
+    expect($site->fresh()->siteDomain)->toBeInstanceOf(SiteDomain::class)
+        ->and($site->fresh()->siteDomain?->is($defaultDomain))->toBeTrue();
+});

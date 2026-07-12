@@ -286,7 +286,7 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
     /** @return HasOne<SiteDomain, $this> */
     public function siteDomain(): HasOne
     {
-        return $this->hasOne(SiteDomain::class);
+        return $this->defaultDomain();
     }
 
     /** @return HasOne<SiteDomain, $this> */
