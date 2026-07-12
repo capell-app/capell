@@ -116,8 +116,8 @@
             "@test:mutate:ci"
         ],
         "test:unit": "@php -d memory_limit=1G scripts/run-parallel-pest.php --colors=always --parallel --processes={processes} --compact --configuration=phpunit.xml",
-        "test:fast": "@php -d memory_limit=1G scripts/run-parallel-pest.php --colors=always --parallel --processes={processes} --compact --shard={shard} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:fast:ci": "@php -d memory_limit=1G scripts/run-parallel-pest.php --colors=always --parallel --processes={processes} --compact --shard={shard} --configuration=phpunit.xml",
+        "test:fast": "@php -d memory_limit=1G scripts/run-parallel-pest.php --colors=always --parallel --processes={processes} --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:fast:ci": "@php -d memory_limit=1G scripts/run-parallel-pest.php --colors=always --compact --shard={shard} --configuration=phpunit.xml",
         "test:preflight": "@php scripts/run-pest-shards.php",
         "test:preflight:serial": "@php -d memory_limit=1536M -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
         "test:all": "@php -d memory_limit=1G scripts/run-parallel-pest.php --colors=always --parallel --processes={processes} --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
