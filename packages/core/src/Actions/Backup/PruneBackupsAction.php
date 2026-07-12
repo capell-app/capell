@@ -28,9 +28,7 @@ final class PruneBackupsAction
         $this->store->assertAvailable();
         $retain = (int) $this->config->get('backup.retain', 30);
 
-        if ($retain < 1) {
-            throw new RuntimeException('Backup retention must keep at least one completed snapshot.');
-        }
+        throw_if($retain < 1, RuntimeException::class, 'Backup retention must keep at least one completed snapshot.');
 
         $completed = [];
 

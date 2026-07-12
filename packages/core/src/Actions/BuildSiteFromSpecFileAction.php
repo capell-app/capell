@@ -18,9 +18,7 @@ final class BuildSiteFromSpecFileAction
     {
         $contents = is_file($path) ? file_get_contents($path) : false;
 
-        if (! is_string($contents)) {
-            throw new RuntimeException("Could not read a spec file at: {$path}");
-        }
+        throw_unless(is_string($contents), RuntimeException::class, 'Could not read a spec file at: ' . $path);
 
         try {
             $payload = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
@@ -28,9 +26,7 @@ final class BuildSiteFromSpecFileAction
             $payload = [];
         }
 
-        if (! is_array($payload)) {
-            throw new RuntimeException('The site spec must decode to a JSON object.');
-        }
+        throw_unless(is_array($payload), RuntimeException::class, 'The site spec must decode to a JSON object.');
 
         return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::validateAndCreate($payload));
     }

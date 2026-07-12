@@ -119,15 +119,15 @@ test('shows normal pages by default and keeps system pages behind the advanced f
         ->createOne(['group' => BlueprintGroupEnum::System->value, 'name' => 'System page']);
 
     $defaultPage = Page::factory()
-        ->type($defaultType)
+        ->blueprint($defaultType)
         ->createOne(['name' => 'Default visible page']);
     $marketingPage = Page::factory()
         ->site($defaultPage->site)
-        ->type($marketingType)
+        ->blueprint($marketingType)
         ->createOne(['name' => 'Marketing visible page']);
     $systemPage = Page::factory()
         ->site($defaultPage->site)
-        ->type($systemType)
+        ->blueprint($systemType)
         ->createOne(['name' => 'Protected system page']);
 
     Livewire::test(ListPages::class)
@@ -157,7 +157,7 @@ test('offers a guided page type chooser while keeping quick create available', f
         ]);
 
     Page::factory()
-        ->type($landingType)
+        ->blueprint($landingType)
         ->createOne(['name' => 'Campaign page']);
 
     Livewire::test(ListPages::class)
@@ -186,15 +186,15 @@ test('can show all pages or only system pages through the system pages filter', 
         ->createOne(['group' => BlueprintGroupEnum::System->value, 'name' => 'System page']);
 
     $defaultPage = Page::factory()
-        ->type($defaultType)
+        ->blueprint($defaultType)
         ->createOne(['name' => 'Default filtered page']);
     $marketingPage = Page::factory()
         ->site($defaultPage->site)
-        ->type($marketingType)
+        ->blueprint($marketingType)
         ->createOne(['name' => 'Marketing filtered page']);
     $systemPage = Page::factory()
         ->site($defaultPage->site)
-        ->type($systemType)
+        ->blueprint($systemType)
         ->createOne(['name' => 'System filtered page']);
 
     Livewire::test(ListPages::class)
@@ -223,15 +223,15 @@ test('site tab badges follow the system pages filter', function (): void {
 
     Page::factory()
         ->site($primarySite)
-        ->type($defaultType)
+        ->blueprint($defaultType)
         ->createOne();
     Page::factory()
         ->site($primarySite)
-        ->type($systemType)
+        ->blueprint($systemType)
         ->createOne();
     Page::factory()
         ->site($secondarySite)
-        ->type($defaultType)
+        ->blueprint($defaultType)
         ->createOne();
 
     $normalTabs = Livewire::test(ListPages::class)

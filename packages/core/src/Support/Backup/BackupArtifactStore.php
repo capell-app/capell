@@ -19,9 +19,7 @@ final readonly class BackupArtifactStore
 
     public function assertAvailable(): void
     {
-        if ($this->config->get('backup.enabled') !== true) {
-            throw new RuntimeException('Backups are disabled.');
-        }
+        throw_if($this->config->get('backup.enabled') !== true, RuntimeException::class, 'Backups are disabled.');
 
         $this->diskName();
         $this->prefix();
@@ -31,9 +29,7 @@ final readonly class BackupArtifactStore
     {
         $disk = $this->config->get('backup.disk');
 
-        if (! is_string($disk) || trim($disk) === '') {
-            throw new RuntimeException('The backup storage disk is not configured.');
-        }
+        throw_if(! is_string($disk) || trim($disk) === '', RuntimeException::class, 'The backup storage disk is not configured.');
 
         return trim($disk);
     }
@@ -42,24 +38,18 @@ final readonly class BackupArtifactStore
     {
         $prefix = $this->config->get('backup.prefix');
 
-        if (! is_string($prefix)) {
-            throw new RuntimeException('The backup storage prefix is invalid.');
-        }
+        throw_unless(is_string($prefix), RuntimeException::class, 'The backup storage prefix is invalid.');
 
         $prefix = trim($prefix, " \t\n\r\0\x0B/");
 
-        if ($prefix === '' || $this->containsUnsafeSegment($prefix)) {
-            throw new RuntimeException('The backup storage prefix is invalid.');
-        }
+        throw_if($prefix === '' || $this->containsUnsafeSegment($prefix), RuntimeException::class, 'The backup storage prefix is invalid.');
 
         return $prefix;
     }
 
     public function snapshotPath(string $snapshotId, string $relativePath = ''): string
     {
-        if (preg_match('/\A[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}\z/', $snapshotId) !== 1) {
-            throw new RuntimeException('The backup snapshot identifier is invalid.');
-        }
+        throw_if(preg_match('/\A\d{8}T\d{6}Z-[a-f0-9]{12}\z/', $snapshotId) !== 1, RuntimeException::class, 'The backup snapshot identifier is invalid.');
 
         $path = $this->prefix() . '/' . $snapshotId;
 
@@ -69,9 +59,7 @@ final readonly class BackupArtifactStore
 
         $relativePath = ltrim(str_replace('\\', '/', $relativePath), '/');
 
-        if ($relativePath === '' || $this->containsUnsafeSegment($relativePath)) {
-            throw new RuntimeException('The backup artifact path is invalid.');
-        }
+        throw_if($relativePath === '' || $this->containsUnsafeSegment($relativePath), RuntimeException::class, 'The backup artifact path is invalid.');
 
         return $path . '/' . $relativePath;
     }
@@ -80,14 +68,10 @@ final readonly class BackupArtifactStore
     {
         $stream = fopen($localPath, 'rb');
 
-        if ($stream === false) {
-            throw new RuntimeException('Unable to read a local backup artifact.');
-        }
+        throw_if($stream === false, RuntimeException::class, 'Unable to read a local backup artifact.');
 
         try {
-            if (! $this->disk()->put($path, $stream)) {
-                throw new RuntimeException('Unable to write a backup artifact.');
-            }
+            throw_unless($this->disk()->put($path, $stream), RuntimeException::class, 'Unable to write a backup artifact.');
         } finally {
             fclose($stream);
         }
@@ -100,9 +84,7 @@ final readonly class BackupArtifactStore
     {
         $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
-        if (! $this->disk()->put($this->snapshotPath($snapshotId, 'manifest.json'), $json . PHP_EOL)) {
-            throw new RuntimeException('Unable to write the backup manifest.');
-        }
+        throw_unless($this->disk()->put($this->snapshotPath($snapshotId, 'manifest.json'), $json . PHP_EOL), RuntimeException::class, 'Unable to write the backup manifest.');
     }
 
     /** @return list<string> */
@@ -128,21 +110,15 @@ final readonly class BackupArtifactStore
     {
         $path = $this->snapshotPath($snapshotId, 'manifest.json');
 
-        if (! $this->disk()->exists($path)) {
-            throw new UnexpectedValueException('Backup manifest is missing.');
-        }
+        throw_unless($this->disk()->exists($path), UnexpectedValueException::class, 'Backup manifest is missing.');
 
         $contents = $this->disk()->get($path);
 
-        if (! is_string($contents)) {
-            throw new UnexpectedValueException('Backup manifest is unreadable.');
-        }
+        throw_unless(is_string($contents), UnexpectedValueException::class, 'Backup manifest is unreadable.');
 
         $manifest = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
 
-        if (! is_array($manifest)) {
-            throw new UnexpectedValueException('Backup manifest is invalid.');
-        }
+        throw_unless(is_array($manifest), UnexpectedValueException::class, 'Backup manifest is invalid.');
 
         return $manifest;
     }
@@ -186,15 +162,19 @@ final readonly class BackupArtifactStore
         $destination = fopen($localPath, 'wb');
 
         if (! is_resource($source) || $destination === false) {
-            is_resource($source) && fclose($source);
-            is_resource($destination) && fclose($destination);
+            if (is_resource($source)) {
+                fclose($source);
+            }
+
+            if (is_resource($destination)) {
+                fclose($destination);
+            }
+
             throw new RuntimeException('Unable to download a backup artifact.');
         }
 
         try {
-            if (stream_copy_to_stream($source, $destination) === false) {
-                throw new RuntimeException('Unable to download a backup artifact.');
-            }
+            throw_if(stream_copy_to_stream($source, $destination) === false, RuntimeException::class, 'Unable to download a backup artifact.');
         } finally {
             fclose($source);
             fclose($destination);
@@ -203,9 +183,7 @@ final readonly class BackupArtifactStore
 
     public function deleteSnapshot(string $snapshotId): void
     {
-        if (! $this->disk()->deleteDirectory($this->snapshotPath($snapshotId))) {
-            throw new RuntimeException('Unable to remove an incomplete backup snapshot.');
-        }
+        throw_unless($this->disk()->deleteDirectory($this->snapshotPath($snapshotId)), RuntimeException::class, 'Unable to remove an incomplete backup snapshot.');
     }
 
     public function disk(): Filesystem
@@ -219,12 +197,6 @@ final readonly class BackupArtifactStore
             return true;
         }
 
-        foreach (explode('/', str_replace('\\', '/', $path)) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(explode('/', str_replace('\\', '/', $path)), fn ($segment): bool => in_array($segment, ['', '.', '..'], true));
     }
 }

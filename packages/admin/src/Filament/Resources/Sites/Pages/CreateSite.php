@@ -30,7 +30,7 @@ class CreateSite extends CreateRecord
     use SiteDomainValidation;
 
     #[Url]
-    public ?string $type = null;
+    public ?string $blueprint = null;
 
     /** @var array<string, mixed> */
     private array $siteDomains = [];
@@ -52,7 +52,7 @@ class CreateSite extends CreateRecord
 
         return $resource::configuredForm($schema, ConfiguratorContextData::forCreate(
             ConfiguratorTypeEnum::Site,
-            $this->type,
+            $this->blueprint,
         ));
     }
 

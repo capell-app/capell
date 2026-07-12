@@ -195,8 +195,8 @@ it('uses allow-listed diagnostics when composer removal fails', function (string
 
     try {
         RemovePackageAction::run('vendor/unsafe-package');
-    } catch (RuntimeException $exception) {
-        $caught = $exception;
+    } catch (RuntimeException $runtimeException) {
+        $caught = $runtimeException;
     }
 
     expect($caught?->getMessage())->toBe(
@@ -462,8 +462,8 @@ it('restores composer files and reports safe operator diagnostics when recovery 
             'vendor/recovery-showcase',
             static fn (): never => throw $originalFailure,
         );
-    } catch (RuntimeException $exception) {
-        $caught = $exception;
+    } catch (RuntimeException $runtimeException) {
+        $caught = $runtimeException;
     }
 
     expect($caught)->toBeInstanceOf(RuntimeException::class)
@@ -566,8 +566,8 @@ it('wraps recovery process creation setup and timeout failures safely', function
             'vendor/throwing-package',
             static fn (): never => throw $originalFailure,
         );
-    } catch (RuntimeException $exception) {
-        $caught = $exception;
+    } catch (RuntimeException $runtimeException) {
+        $caught = $runtimeException;
     }
 
     expect($caught?->getMessage())->toBe(
@@ -588,21 +588,25 @@ final class BundleComposerFilesystem extends Filesystem
     /** @param array<string, string> $contents */
     public function __construct(public array $contents) {}
 
+    #[Override]
     public function exists($path): bool
     {
         return array_key_exists((string) $path, $this->contents);
     }
 
+    #[Override]
     public function get($path, $lock = false): string
     {
         return $this->contents[(string) $path];
     }
 
+    #[Override]
     public function replace($path, $content, $mode = null): void
     {
         $this->contents[(string) $path] = (string) $content;
     }
 
+    #[Override]
     public function delete($paths): bool
     {
         foreach ((array) $paths as $path) {

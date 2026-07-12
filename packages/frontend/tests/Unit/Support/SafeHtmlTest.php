@@ -15,5 +15,5 @@ it('can only be constructed through a sanitizer', function (): void {
         ->and($safeHtml->toHtml())->toBe('<p>Hello</p>')
         ->and($safeHtml->isEmpty())->toBeFalse()
         ->and((string) $safeHtml)->toBe('<p>Hello</p>')
-        ->and((new ReflectionClass(SafeHtml::class))->getConstructor()?->isPrivate())->toBeTrue();
+        ->and(new ReflectionClass(SafeHtml::class)->getConstructor()?->isPrivate())->toBeTrue();
 });

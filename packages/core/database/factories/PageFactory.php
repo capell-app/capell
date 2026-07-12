@@ -94,9 +94,9 @@ class PageFactory extends Factory
         return $this->set('site_id', $site instanceof Site ? $site->id : $site);
     }
 
-    public function type(Blueprint $type): static
+    public function blueprint(Blueprint $blueprint): static
     {
-        return $this->set('blueprint_id', $type->id);
+        return $this->set('blueprint_id', $blueprint->id);
     }
 
     public function children(int $count = 1): static

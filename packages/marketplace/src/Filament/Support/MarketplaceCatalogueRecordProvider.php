@@ -180,8 +180,15 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         foreach ($composerNames as $composerName) {
             $requestedComposerName = trim($composerName);
             $normalizedComposerName = ExtensionListingData::localPackageComposerName($requestedComposerName);
+            if ($requestedComposerName === '') {
+                continue;
+            }
 
-            if ($requestedComposerName === '' || $normalizedComposerName === null || $normalizedComposerName === '') {
+            if ($normalizedComposerName === null) {
+                continue;
+            }
+
+            if ($normalizedComposerName === '') {
                 continue;
             }
 

@@ -133,7 +133,7 @@ it('does not resolve pages whose type is disabled by direct path', function (): 
     $site = Site::factory()->createOne();
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->state(['status' => false])->create();
-    $page = Page::factory()->site($site)->type($type)->create();
+    $page = Page::factory()->site($site)->blueprint($type)->create();
     PageUrl::factory()->page($page)->language($language)->site($site)->state(['url' => '/disabled-type'])->create();
 
     $result = resolvePublicPageForTest($site, $language, '/disabled-type', abortMissingForBot: true);
@@ -146,7 +146,7 @@ it('does not resolve pages whose type is inaccessible by direct path', function 
     $site = Site::factory()->createOne();
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->meta(['accessible' => false])->create();
-    $page = Page::factory()->site($site)->type($type)->create();
+    $page = Page::factory()->site($site)->blueprint($type)->create();
     PageUrl::factory()->page($page)->language($language)->site($site)->state(['url' => '/inaccessible-type'])->create();
 
     $result = resolvePublicPageForTest($site, $language, '/inaccessible-type', abortMissingForBot: true);

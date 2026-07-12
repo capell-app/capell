@@ -10,7 +10,7 @@ For existing Laravel apps, use the [install guide](install.md#path-b-existing-la
 | -------- | -------------------------------------------------------------------- |
 | PHP      | 8.4+                                                                 |
 | Laravel  | 12.41.1+ or 13.x                                                     |
-| Filament | 5.6.8 (currently `^5.6.8 <5.7.0-beta`)                              |
+| Filament | 5.6.8+ below 5.7 (`^5.6.8 <5.7.0-beta`)                              |
 | Node.js  | 20+                                                                  |
 | Composer | 2.7+                                                                 |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or your configured Laravel database |
@@ -42,7 +42,7 @@ APP_URL=http://localhost:8000
 
 ## 2. Install Capell
 
-Capell is installed into your Laravel application through Composer. The stable `v0.0.14` foundation release is available through public Packagist packages; Marketplace access may
+Capell is installed into your Laravel application through Composer. The current stable 0.0.x foundation release is available through public Packagist packages; Marketplace access may
 be required separately for commercial extensions or customer services. Require
 the installer first: it pulls in core, and `capell:install` adds the admin and
 frontend packages:

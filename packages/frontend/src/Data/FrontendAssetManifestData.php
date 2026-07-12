@@ -99,7 +99,7 @@ class FrontendAssetManifestData extends Data
         }
 
         return array_map(
-            static fn (array $publicAssets): array => array_values($publicAssets),
+            array_values(...),
             $assets,
         );
     }

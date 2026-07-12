@@ -30,6 +30,7 @@ beforeEach(function (): void {
         'schema_labels.media' => 'Media',
     ], 'capell-admin');
     $loader->addMessages('en', 'generic', ['compact' => 'Compact'], 'capell-admin');
+
     $translator = new Translator($loader, 'en');
 
     app()->instance('translator', $translator);

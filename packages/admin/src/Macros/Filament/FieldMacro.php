@@ -6,6 +6,7 @@ namespace Capell\Admin\Macros\Filament;
 
 use Capell\Admin\Filament\Support\HelperText;
 use Capell\Admin\Support\Filament\RawState;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Support\CapellCoreHelper;
 use Closure;
 use Filament\Forms\Components\Field;
@@ -43,17 +44,17 @@ class FieldMacro
                 $record = $component->getRootContainer()->getRecord();
                 $rawState = RawState::array($component->getRootContainer()->getRawState());
 
-                $type = null;
+                $blueprint = null;
                 if ($record instanceof Model && $record->relationLoaded('blueprint')) {
-                    /** @var Model $record */
-                    $type = $record->getAttribute('type');
+                    $relatedBlueprint = $record->getRelation('blueprint');
+                    $blueprint = $relatedBlueprint instanceof Blueprint ? $relatedBlueprint : null;
                 } else {
-                    $type = CapellCoreHelper::getBlueprint(
+                    $blueprint = CapellCoreHelper::getBlueprint(
                         typeId: $rawState['blueprint_id'] ?? null,
                     );
                 }
 
-                $requiredFields = $type?->admin['required_fields'] ?? [];
+                $requiredFields = $blueprint?->admin['required_fields'] ?? [];
 
                 if (! $requiredFields) {
                     return false;

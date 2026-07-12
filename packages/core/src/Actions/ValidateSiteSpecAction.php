@@ -42,8 +42,8 @@ final class ValidateSiteSpecAction
             $spec = CapellSiteSpecData::validateAndCreate($payload);
 
             return ['valid' => true, 'errors' => [], 'normalized' => $spec->toArray()];
-        } catch (ValidationException $exception) {
-            return ['valid' => false, 'errors' => $exception->errors(), 'normalized' => null];
+        } catch (ValidationException $validationException) {
+            return ['valid' => false, 'errors' => $validationException->errors(), 'normalized' => null];
         }
     }
 

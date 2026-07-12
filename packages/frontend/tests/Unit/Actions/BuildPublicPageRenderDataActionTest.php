@@ -130,9 +130,9 @@ it('builds optional typed content widget payloads before public rendering', func
         public string $title = 'Hydrated';
     };
 
-    app()->bind(PublicContentWidgetPayloadBuilder::class, fn (): PublicContentWidgetPayloadBuilder => new class($payload) implements PublicContentWidgetPayloadBuilder
+    app()->bind(PublicContentWidgetPayloadBuilder::class, fn (): PublicContentWidgetPayloadBuilder => new readonly class($payload) implements PublicContentWidgetPayloadBuilder
     {
-        public function __construct(private readonly object $payload) {}
+        public function __construct(private object $payload) {}
 
         public function build(FrontendRenderContextData $context): array
         {

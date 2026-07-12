@@ -34,6 +34,7 @@ it('passes a securely created temporary site spec to install and removes it afte
     config()->set('capell.cloud.install_packages', '');
     config()->set('capell.cloud.install_theme', 'default');
     config()->set('capell.cloud.admin_user.email', 'admin@example.com');
+
     $command = Mockery::mock(CloudBootstrapCommand::class)->makePartial()->shouldAllowMockingProtectedMethods();
     $command->shouldReceive('call')->once()->with('capell:install', Mockery::on(function (array $arguments) use (&$specPath, &$specPermissions): bool {
         $specPath = $arguments['--spec'] ?? null;
@@ -44,7 +45,7 @@ it('passes a securely created temporary site spec to install and removes it afte
 
     $method = new ReflectionMethod(CloudBootstrapCommand::class, 'installCapell');
 
-    expect(fn () => $method->invoke($command, 'https://acme.test', [
+    expect(fn (): mixed => $method->invoke($command, 'https://acme.test', [
         'name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'secret', '_site_spec' => ['site' => ['name' => 'Acme']],
     ]))->toThrow(RuntimeException::class)
         ->and($specPath)->toBeString()

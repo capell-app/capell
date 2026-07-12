@@ -170,7 +170,7 @@ final class ReportCapellUpgradeDryRunAction
     /** @param array<string, string> $composerVersions */
     private function reportVersionAudit(array $composerVersions, ?VersionAudit $versionAudit, UpgradeReporter $reporter): void
     {
-        if ($versionAudit === null) {
+        if (! $versionAudit instanceof VersionAudit) {
             $reporter->error('  Version-ledger compatibility is unknown because upgrade history could not be read.');
 
             return;
@@ -284,7 +284,6 @@ final class ReportCapellUpgradeDryRunAction
         try {
             $reflection = new ReflectionObject(app());
             $property = $reflection->getProperty('tags');
-            $property->setAccessible(true);
             $tags = $property->getValue(app());
         } catch (Throwable) {
             return [];

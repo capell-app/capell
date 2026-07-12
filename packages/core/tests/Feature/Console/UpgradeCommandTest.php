@@ -86,16 +86,24 @@ it('reports a blocking preflight without creating upgrade state', function (): v
     Process::assertNothingRan();
 });
 
-it('reports an unregistered core source migration as pending', function (): void {
-    $migrationPath = dirname(__DIR__, 3) . '/database/migrations/2099_01_01_000000_report_only_source_fixture.php';
+it('reports an unregistered package source migration as pending', function (): void {
+    $packagePath = sys_get_temp_dir() . '/capell-report-only-migration-' . uniqid();
+    $migrationDirectory = $packagePath . '/database/migrations';
+    mkdir($migrationDirectory, 0777, true);
+    $migrationPath = $migrationDirectory . '/2099_01_01_000000_report_only_source_fixture.php';
     file_put_contents($migrationPath, "<?php\n\ndeclare(strict_types=1);\n");
+    CapellCore::forcePackageInstalled('vendor/report-only-migration');
+    CapellCore::registerPackage('vendor/report-only-migration', path: $packagePath);
 
     try {
         artisanCommand('capell:upgrade', ['--dry-run' => true])
-            ->expectsOutputToContain('2099_01_01_000000_report_only_source_fixture')
+            ->expectsOutputToContain('vendor/report-only-migration — schema: unknown pending status')
             ->assertFailed();
     } finally {
         @unlink($migrationPath);
+        @rmdir($migrationDirectory);
+        @rmdir($packagePath . '/database');
+        @rmdir($packagePath);
     }
 });
 
@@ -129,7 +137,7 @@ it('audits manifest declarations without autoloading extension classes', functio
 
     try {
         artisanCommand('capell:upgrade', ['--dry-run' => true])
-            ->expectsOutputToContain('capell-app/report-only-manifest: capellApiVersion does not include 4.0.0.')
+            ->expectsOutputToContain('capell-app/report-only-manifest: capellApiVersion does not include 0.0.0.')
             ->assertFailed();
 
         expect(file_exists($markerPath))->toBeFalse();

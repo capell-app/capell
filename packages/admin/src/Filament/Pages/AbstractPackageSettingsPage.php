@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
+use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\Extensions\ResolveExtensionUninstallAvailabilityAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Data\Extensions\ExtensionUninstallAvailabilityData;
@@ -181,7 +182,7 @@ abstract class AbstractPackageSettingsPage extends AbstractAdminSettingsPage
         $components = [];
 
         foreach (resolve(SettingsSchemaRegistry::class)->getSchemas(static::settingsGroup()) as $schemaClass) {
-            $components = array_merge($components, $schemaClass::make($schema));
+            $components = array_merge($components, BuildSettingsSchemaComponentsAction::run($schemaClass, $schema));
         }
 
         return $components;

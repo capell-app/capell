@@ -12,6 +12,7 @@ BRANCH="${CAPELL_SPLIT_BRANCH:-main}"
 ORG="${CAPELL_SPLIT_ORG:-capell-app}"
 REMOTE_TEMPLATE="${CAPELL_SPLIT_REMOTE_TEMPLATE:-}"
 SELECTED_PACKAGES=()
+PUSHED_PACKAGES=()
 
 usage() {
   cat <<'USAGE'
@@ -20,7 +21,7 @@ Usage: scripts/local-split-packages.sh --tag <tag> [options]
 Options:
   --tag <tag>               Release tag to split and push.
   --ref <branch|tag|sha>    Source ref to split. Defaults to --tag.
-  --package <name>          Package to split. Repeatable. Defaults to workflow matrix.
+  --package <name>          Package to split. Repeatable. Defaults to all public split packages.
   --branch <branch>         Destination branch. Defaults to main.
   --org <org>               GitHub org. Defaults to capell-app.
   --remote-template <fmt>   printf template for repo URL, e.g. file:///tmp/%s.git.
@@ -104,14 +105,12 @@ fi
 MATRIX_PACKAGES=()
 while IFS= read -r package; do
   MATRIX_PACKAGES+=("${package}")
-done < <(
-  awk '/matrix:/{in_matrix=1} in_matrix && /^[[:space:]]+- [a-z0-9-]+[[:space:]]*$/ {gsub(/^[[:space:]]+- /, ""); gsub(/[[:space:]]+$/, ""); print}' "${ROOT}/.github/workflows/split-monorepo.yml"
-)
-
-if [[ ${#MATRIX_PACKAGES[@]} -eq 0 ]]; then
-  echo "Could not read package matrix from .github/workflows/split-monorepo.yml." >&2
-  exit 1
-fi
+done < <(php -r '
+  $packages = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+  foreach ($packages as $package) {
+      echo $package, PHP_EOL;
+  }
+' "${ROOT}/config/release-packages.json")
 
 PACKAGES=("${MATRIX_PACKAGES[@]}")
 
@@ -129,7 +128,7 @@ require_package_in_matrix() {
     fi
   done
 
-  echo "Package '${package}' is not in the workflow split matrix." >&2
+  echo "Package '${package}' is not a public split package." >&2
   exit 1
 }
 
@@ -180,6 +179,24 @@ run() {
 
 cd "${ROOT}"
 
+rollback_release_tags() {
+  local package
+  local remote_url
+
+  if [[ ${#PUSHED_PACKAGES[@]} -eq 0 ]]; then
+    return
+  fi
+
+  echo "Split failed; removing ${TAG} from repositories updated by this run." >&2
+
+  for package in "${PUSHED_PACKAGES[@]}"; do
+    remote_url="$(remote_url_for "${package}")"
+    git push "${remote_url}" ":refs/tags/${TAG}" || true
+  done
+}
+
+trap rollback_release_tags ERR
+
 for package in "${PACKAGES[@]}"; do
   require_package_in_matrix "${package}"
 
@@ -215,4 +232,7 @@ for package in "${PACKAGES[@]}"; do
     git push "${remote_url}" "${split_sha}:refs/heads/${BRANCH}"
   fi
   git push "${remote_url}" "${split_sha}:refs/tags/${TAG}"
+  PUSHED_PACKAGES+=("${package}")
 done
+
+trap - ERR

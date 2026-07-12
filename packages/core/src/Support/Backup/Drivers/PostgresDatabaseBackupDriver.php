@@ -40,13 +40,9 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
 
     public function restore(string $connectionName, string $sourcePath, string $scratchDatabase): string
     {
-        if (preg_match('/\A[A-Za-z][A-Za-z0-9_]{2,62}\z/', $scratchDatabase) !== 1) {
-            throw new InvalidArgumentException('PostgreSQL restore requires a safe scratch database name.');
-        }
+        throw_if(preg_match('/\A[A-Za-z]\w{2,62}\z/', $scratchDatabase) !== 1, InvalidArgumentException::class, 'PostgreSQL restore requires a safe scratch database name.');
 
-        if (! is_file($sourcePath)) {
-            throw new RuntimeException('The PostgreSQL backup artifact does not exist.');
-        }
+        throw_unless(is_file($sourcePath), RuntimeException::class, 'The PostgreSQL backup artifact does not exist.');
 
         $connection = $this->connection($connectionName);
         $binary = (string) $this->config->get('backup.binaries.psql', 'psql');

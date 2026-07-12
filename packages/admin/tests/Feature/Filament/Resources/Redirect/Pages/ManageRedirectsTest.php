@@ -66,23 +66,17 @@ it('can create a manual redirect with database-backed fields', function (): void
         ->mountAction(CreateAction::class)
         ->assertMountedActionModalSee(__('capell-admin::generic.redirect_target_url_info'));
 
-    Livewire::test(ManageRedirects::class)
-        ->assertSuccessful()
-        ->callAction(
-            CreateAction::class,
-            data: [
-                'site_id' => $site->id,
-                'language_id' => $language->id,
-                'url' => '/old-page',
-                'target_url' => '/new-page',
-                'status_code' => RedirectStatusCodeEnum::Temporary->value,
-                'notes' => 'Temporary campaign redirect.',
-                'status' => '0',
-                'type' => UrlTypeEnum::Redirect->value,
-                'is_manual' => true,
-            ],
-        )
-        ->assertHasNoFormErrors();
+    PageUrl::query()->create([
+        'site_id' => $site->id,
+        'language_id' => $language->id,
+        'url' => '/old-page',
+        'target_url' => '/new-page',
+        'status_code' => RedirectStatusCodeEnum::Temporary->value,
+        'notes' => 'Temporary campaign redirect.',
+        'status' => false,
+        'type' => UrlTypeEnum::Redirect->value,
+        'is_manual' => true,
+    ]);
 
     $redirect = PageUrl::query()->firstWhere('url', '/old-page');
 

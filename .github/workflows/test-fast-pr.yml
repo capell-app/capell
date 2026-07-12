@@ -31,7 +31,7 @@ permissions:
 jobs:
   test:
     if: github.event.pull_request.draft == false
-    name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
+    name: Test - L${{ matrix.laravel }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -41,26 +41,10 @@ jobs:
             laravel: 12.*
             testbench: 10.*
             db: sqlite
-            shard: 1
-            total_shards: 3
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 2
-            total_shards: 3
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 3
-            total_shards: 3
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
-            shard: 1
-            total_shards: 1
 
     steps:
       - name: Checkout code
@@ -103,6 +87,35 @@ jobs:
           composer require --no-interaction --no-progress --ansi --dev --no-update \
             "orchestra/testbench:${{ matrix.testbench }}"
 
+          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
+          dev_tools=(
+            "pestphp/pest:^4.7"
+            "pestphp/pest-plugin-arch:^4.0"
+            "pestphp/pest-plugin-laravel:^4.0"
+            "pestphp/pest-plugin-livewire:^4.0"
+            "pestphp/pest-plugin-type-coverage:^4.0"
+            "phpstan/phpstan:^2.1"
+            "phpstan/phpstan-mockery:^2.0"
+            "phpstan/phpstan-strict-rules:^2.0"
+            "canvural/larastan-strict-rules:^3.0"
+            "phpstan/phpstan-beberlei-assert:^2.0"
+            "rector/rector:^2.0"
+            "driftingly/rector-laravel:^2.0"
+            "larastan/larastan:^3.0"
+          )
+
+          if [ "${{ matrix.laravel }}" != "13.*" ]; then
+            dev_tools+=("soyhuce/phpstan-extension:^2.1")
+          fi
+
+          composer require --no-interaction --no-progress --ansi --dev --no-update "${dev_tools[@]}"
+          composer require --no-interaction --no-progress --ansi --no-update \
+            livewire/livewire:^4.1 \
+            "filament/filament:^5.6.8 <5.7.0-beta" \
+            "filament/support:^5.6.8 <5.7.0-beta" \
+            pboivin/filament-peek:^4.1 \
+            symfony/html-sanitizer:^7.0 \
+            openspout/openspout:^4.22
           composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
 
       - name: Configure environment
@@ -110,5 +123,5 @@ jobs:
           echo "DB_CONNECTION=sqlite" >> .env
           echo "DB_DATABASE=:memory:" >> .env
 
-      - name: Run test:fast
-        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci
+      - name: Run test suite
+        run: PEST_PROCESSES=4 composer run test:all:ci

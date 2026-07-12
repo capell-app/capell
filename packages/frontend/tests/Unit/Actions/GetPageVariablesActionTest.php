@@ -104,12 +104,12 @@ it('adds archive date variables and parent labels from public route params', fun
     $type = Blueprint::factory()->page()->create();
     $parent = Page::factory()
         ->site($site)
-        ->type($type)
+        ->blueprint($type)
         ->withTranslations($language, ['title' => 'Article'], '/articles')
         ->create();
     $page = Page::factory()
         ->site($site)
-        ->type($type)
+        ->blueprint($type)
         ->parent($parent)
         ->withTranslations($language, [
             'title' => 'February Notes',

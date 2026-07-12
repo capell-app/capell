@@ -6,6 +6,7 @@ namespace Capell\Core\Tests\Feature\Console\Fixtures;
 
 use Capell\Core\Data\UpgradeContext;
 use Capell\Core\Support\Upgrade\AbstractUpgradeStep;
+use Override;
 
 final class ReportOnlyMutatingStep extends AbstractUpgradeStep
 {
@@ -21,6 +22,7 @@ final class ReportOnlyMutatingStep extends AbstractUpgradeStep
         return 'Report-only mutating step';
     }
 
+    #[Override]
     public function shouldRun(UpgradeContext $context): bool
     {
         self::$shouldRunCalls++;

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
-use Capell\Admin\Actions\SyncCapellPermissionsAction;
-use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\CreateAdditionalInstallUsersAction;
 use Capell\Core\Actions\Install\GenerateSitemapAction;
@@ -23,12 +21,11 @@ use Capell\Core\Actions\Install\ResolveInstallUserAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Actions\RunNpmBuildAction;
+use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
-use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
-use Filament\Facades\Filament;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
@@ -37,6 +34,8 @@ use Throwable;
 
 final class InstallStepExecutor
 {
+    private const string FILAMENT_SERVICE_PROVIDER = FilamentServiceProvider::class;
+
     private const string INSTALL_PERMISSIONS_DOC_URL = 'https://docs.capell.app/getting-started/install/#install-time-write-permissions';
 
     public function execute(string $stepKey, InstallRunState $state): InstallRunState
@@ -153,7 +152,7 @@ final class InstallStepExecutor
 
     private function composerProviderPriority(string $providerClass): int
     {
-        if ($providerClass === FilamentServiceProvider::class) {
+        if ($providerClass === self::FILAMENT_SERVICE_PROVIDER) {
             return 0;
         }
 
@@ -417,13 +416,6 @@ final class InstallStepExecutor
             return;
         }
 
-        $actionClass = SyncCapellPermissionsAction::class;
-        $modeClass = PermissionSyncMode::class;
-
-        if (! class_exists($actionClass) || ! enum_exists($modeClass)) {
-            return;
-        }
-
         $state->reporter->step('Syncing admin permissions…');
 
         // On a fresh install the Filament AdminPanelProvider is created and
@@ -435,30 +427,22 @@ final class InstallStepExecutor
         // default panel and all registered Capell resources. When a default
         // panel is already booted (e.g. re-running on an installed app), sync
         // in-process to avoid spawning a subprocess.
-        if (! $this->hasBootedDefaultFilamentPanel() && $this->runAdminPermissionSyncInFreshProcess($state)) {
+        $synchronizer = app()->bound(AdminPermissionSynchronizer::class)
+            ? resolve(AdminPermissionSynchronizer::class)
+            : null;
+
+        if (($synchronizer === null || ! $synchronizer->hasBootedPanel()) && $this->runAdminPermissionSyncInFreshProcess($state)) {
             $state->reporter->report('✓ Admin permissions synced');
 
             return;
         }
 
-        CapellCore::clearExtensionCache();
-        resolve(CapellPackageLoader::class)->loadProviders();
+        if ($synchronizer === null) {
+            return;
+        }
 
-        $actionClass::run($modeClass::Install);
+        $synchronizer->syncForInstall();
         $state->reporter->report('✓ Admin permissions synced');
-    }
-
-    private function hasBootedDefaultFilamentPanel(): bool
-    {
-        if (! class_exists(Filament::class)) {
-            return false;
-        }
-
-        try {
-            return Filament::getDefaultPanel() !== null;
-        } catch (Throwable) {
-            return false;
-        }
     }
 
     private function runAdminPermissionSyncInFreshProcess(InstallRunState $state): bool

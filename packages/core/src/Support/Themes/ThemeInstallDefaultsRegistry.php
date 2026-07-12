@@ -15,9 +15,7 @@ final class ThemeInstallDefaultsRegistry
     /** @param callable(): void $handler */
     public function register(string $themeKey, callable $handler): void
     {
-        if (isset($this->handlers[$themeKey])) {
-            throw new LogicException("Theme install defaults are already registered for [{$themeKey}].");
-        }
+        throw_if(isset($this->handlers[$themeKey]), LogicException::class, sprintf('Theme install defaults are already registered for [%s].', $themeKey));
 
         $this->handlers[$themeKey] = Closure::fromCallable($handler);
     }

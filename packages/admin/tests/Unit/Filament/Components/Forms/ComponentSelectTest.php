@@ -107,8 +107,8 @@ it('shows inherited component hints from a related blueprint when no component i
             'meta.hero_component' => 'views/components/hero.blade.php',
         ],
     ]);
-    $page = Page::factory()->type($blueprint)->createOne();
-    $page->setRelation('type', $blueprint);
+    $page = Page::factory()->blueprint($blueprint)->createOne();
+    $page->setRelation('blueprint', $blueprint);
 
     $component = Schema::make(Livewire::make()->data([
         'component' => null,

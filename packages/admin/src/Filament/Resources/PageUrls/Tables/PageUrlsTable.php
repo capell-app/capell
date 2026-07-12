@@ -61,7 +61,7 @@ class PageUrlsTable implements TableConfigurator
                     ])
                     ->withWhereHas(
                         'site',
-                        fn (BuilderContract $query): BuilderContract => $query->withWhereHas('siteDomain'),
+                        fn (BuilderContract $query): BuilderContract => $query->with('siteDomain'),
                     ),
             )
             ->defaultSort('created_at', 'desc')
@@ -186,7 +186,7 @@ class PageUrlsTable implements TableConfigurator
                 ->orWhereHas(
                     'site',
                     fn (BuilderContract $query): BuilderContract => $query->whereHas(
-                        'siteDomain',
+                        'siteDomains',
                         fn (BuilderContract $query): BuilderContract => self::applyFullUrlSearch($query, $search),
                     ),
                 )
@@ -249,7 +249,7 @@ class PageUrlsTable implements TableConfigurator
     private static function pageableMorphRelations(): array
     {
         return collect(self::pageableMorphTypes())
-            ->mapWithKeys(fn (string $model): array => [$model => ['type']])
+            ->mapWithKeys(fn (string $model): array => [$model => ['blueprint']])
             ->all();
     }
 }

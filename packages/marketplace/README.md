@@ -45,8 +45,8 @@ Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace AP
 ## Runtime Surfaces
 
 - Provider: `Capell\Marketplace\Providers\MarketplaceServiceProvider`
-- Config: `packages/marketplace/config/capell-marketplace.php`
-- Routes: `packages/marketplace/routes/marketplace.php`
+- Config: `config/capell-marketplace.php`
+- Routes: `routes/marketplace.php`
 - Marketplace client: `Capell\Marketplace\Services\MarketplaceClient`
 - Main Filament surfaces: `MarketplaceExtensionDetailPage`, `MarketplacePackageOperationsPage`, `MarketplaceExtensionsBrowser`, marketplace actions on the installed Extensions page, connection status actions, and the extension health widget
 - Admin extenders: `MarketplaceExtensionsPageExtender` tagged as `ExtensionsPageExtender::TAG`; `ThemeMarketplaceHeaderActionExtender` tagged as `ResourceHeaderActionExtender::TAG`
@@ -93,14 +93,14 @@ Active and attention-needed operations are opened from the Extensions page heade
 Run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
 
 ```bash
-vendor/bin/pest packages/marketplace/tests --configuration=phpunit.xml
+composer test
 ```
 
 Run focused action or HTTP tests first when changing a specific flow, for example:
 
 ```bash
-vendor/bin/pest packages/marketplace/tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php --configuration=phpunit.xml
-vendor/bin/pest packages/marketplace/tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php
+vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php
 ```
 
 ## Troubleshooting
@@ -122,9 +122,8 @@ vendor/bin/pest packages/marketplace/tests/Feature/Http/MarketplaceAccountConnec
 
 ## Further Reading
 
-| Page                                                      | Covers                                                                         |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [Marketplace overview](docs/overview.md)                  | Marketplace responsibilities, admin flow, account linking, and install access. |
-| [Operations docs](../../docs/operations/index.md)         | Marketplace connection and production troubleshooting entry points.            |
-| [Packages and extensions](../../docs/packages/catalog.md) | Host package boundaries and extension documentation entry points.              |
-| [Package authoring docs](../../docs/packages/README.md)   | Package shape, manifests, extension points, migrations, and tests.             |
+| Page                                     | Covers                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| [Marketplace overview](docs/overview.md) | Marketplace responsibilities, admin flow, account linking, and install access. |
+
+The complete Marketplace operations and package-authoring guides are published at [docs.capell.app](https://docs.capell.app).

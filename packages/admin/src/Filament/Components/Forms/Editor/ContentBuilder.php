@@ -297,7 +297,9 @@ class ContentBuilder extends Builder
         $component->rawState($items);
         $component->collapsed(false, shouldMakeComponentCollapsible: false);
         $component->callAfterStateUpdated();
-        $component->shouldPartiallyRenderAfterActionsCalled() ? $component->partiallyRender() : null;
+        if ($component->shouldPartiallyRenderAfterActionsCalled()) {
+            $component->partiallyRender();
+        }
     }
 
     /**

@@ -35,9 +35,7 @@ final class ThrowingRuntimeProviderInstallPackageFixture extends ServiceProvider
     {
         $packageName = self::$packageName;
 
-        if ($packageName === null) {
-            throw new LogicException('The throwing runtime provider fixture was not configured.');
-        }
+        throw_if($packageName === null, LogicException::class, 'The throwing runtime provider fixture was not configured.');
 
         self::$calls++;
         self::$observedInstalled = CapellCore::isPackageInstalled($packageName);

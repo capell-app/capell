@@ -12,6 +12,8 @@ use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\Php83\Rector\ClassConst\AddTypeToConstRector;
 use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
 use Rector\Privatization\Rector\Property\PrivatizeFinalClassPropertyRector;
+use RectorLaravel\Rector\ArrayDimFetch\EnvVariableToEnvHelperRector;
+use RectorLaravel\Rector\ArrayDimFetch\ServerVariableToRequestFacadeRector;
 use RectorLaravel\Rector\ClassMethod\MakeModelAttributesAndScopesProtectedRector;
 use RectorLaravel\Rector\If_\AbortIfRector;
 use RectorLaravel\Set\LaravelSetList;
@@ -78,6 +80,12 @@ return RectorConfig::configure()
         AssertElementToAssertContainsElementRule::class,
     ])
     ->withSkip([
+        EnvVariableToEnvHelperRector::class => [
+            __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
+        ],
+        ServerVariableToRequestFacadeRector::class => [
+            __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
+        ],
         PostIncDecToPreIncDecRector::class,
         AddTypeToConstRector::class,
         PrivatizeFinalClassPropertyRector::class,

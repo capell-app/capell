@@ -35,53 +35,37 @@ final class BackupManifestData extends Data
             }
         }
 
-        if (($manifest['format_version'] ?? null) !== 1) {
-            throw new UnexpectedValueException('Backup manifest format version is unsupported.');
-        }
+        throw_if(($manifest['format_version'] ?? null) !== 1, UnexpectedValueException::class, 'Backup manifest format version is unsupported.');
 
-        if (! is_array($manifest['database'] ?? null) || ! is_array($manifest['media'] ?? null)) {
-            throw new UnexpectedValueException('Backup manifest artifacts are invalid.');
-        }
+        throw_if(! is_array($manifest['database'] ?? null) || ! is_array($manifest['media'] ?? null), UnexpectedValueException::class, 'Backup manifest artifacts are invalid.');
 
-        if (preg_match('/\A[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}\z/', $manifest['snapshot_id']) !== 1
+        throw_if(preg_match('/\A\d{8}T\d{6}Z-[a-f0-9]{12}\z/', $manifest['snapshot_id']) !== 1
             || ! in_array($manifest['database_driver'], ['sqlite', 'mysql', 'mariadb', 'pgsql'], true)
-            || preg_match('/\A[A-Za-z0-9_.-]+\z/', $manifest['connection_name']) !== 1) {
-            throw new UnexpectedValueException('Backup manifest identity is invalid.');
-        }
+            || preg_match('/\A[A-Za-z0-9_.-]+\z/', $manifest['connection_name']) !== 1, UnexpectedValueException::class, 'Backup manifest identity is invalid.');
 
         $createdAt = DateTimeImmutable::createFromFormat(DATE_ATOM, $manifest['created_at']);
 
-        if ($createdAt === false || $createdAt->format(DATE_ATOM) !== $manifest['created_at']) {
-            throw new UnexpectedValueException('Backup manifest timestamp is invalid.');
-        }
+        throw_if($createdAt === false || $createdAt->format(DATE_ATOM) !== $manifest['created_at'], UnexpectedValueException::class, 'Backup manifest timestamp is invalid.');
 
         $database = BackupArtifactData::fromManifestArray($manifest['database']);
 
-        if ($database->kind !== 'database') {
-            throw new UnexpectedValueException('Backup manifest database artifact is invalid.');
-        }
+        throw_if($database->kind !== 'database', UnexpectedValueException::class, 'Backup manifest database artifact is invalid.');
 
         $media = [];
 
         foreach ($manifest['media'] as $artifact) {
-            if (! is_array($artifact)) {
-                throw new UnexpectedValueException('Backup manifest media artifact is invalid.');
-            }
+            throw_unless(is_array($artifact), UnexpectedValueException::class, 'Backup manifest media artifact is invalid.');
 
             $mediaArtifact = BackupArtifactData::fromManifestArray($artifact);
 
-            if ($mediaArtifact->kind !== 'media' || $mediaArtifact->sourceDisk === null || $mediaArtifact->sourcePath === null) {
-                throw new UnexpectedValueException('Backup manifest media artifact is invalid.');
-            }
+            throw_if($mediaArtifact->kind !== 'media' || $mediaArtifact->sourceDisk === null || $mediaArtifact->sourcePath === null, UnexpectedValueException::class, 'Backup manifest media artifact is invalid.');
 
             $media[] = $mediaArtifact;
         }
 
         $mediaBytes = array_sum(array_map(static fn (BackupArtifactData $artifact): int => $artifact->bytes, $media));
 
-        if (($manifest['media_file_count'] ?? null) !== count($media) || ($manifest['media_bytes'] ?? null) !== $mediaBytes) {
-            throw new UnexpectedValueException('Backup manifest media totals are invalid.');
-        }
+        throw_if(($manifest['media_file_count'] ?? null) !== count($media) || ($manifest['media_bytes'] ?? null) !== $mediaBytes, UnexpectedValueException::class, 'Backup manifest media totals are invalid.');
 
         return new self(
             formatVersion: 1,

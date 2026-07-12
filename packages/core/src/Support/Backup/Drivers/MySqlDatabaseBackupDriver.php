@@ -41,13 +41,9 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
 
     public function restore(string $connectionName, string $sourcePath, string $scratchDatabase): string
     {
-        if (preg_match('/\A[A-Za-z][A-Za-z0-9_]{2,62}\z/', $scratchDatabase) !== 1) {
-            throw new InvalidArgumentException('MySQL restore requires a safe scratch database name.');
-        }
+        throw_if(preg_match('/\A[A-Za-z]\w{2,62}\z/', $scratchDatabase) !== 1, InvalidArgumentException::class, 'MySQL restore requires a safe scratch database name.');
 
-        if (! is_file($sourcePath)) {
-            throw new RuntimeException('The MySQL backup artifact does not exist.');
-        }
+        throw_unless(is_file($sourcePath), RuntimeException::class, 'The MySQL backup artifact does not exist.');
 
         $connection = $this->connection($connectionName);
         $binary = (string) $this->config->get('backup.binaries.mysql', 'mysql');
@@ -62,9 +58,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
 
         $input = fopen($sourcePath, 'rb');
 
-        if ($input === false) {
-            throw new RuntimeException('Unable to read the MySQL backup artifact.');
-        }
+        throw_if($input === false, RuntimeException::class, 'Unable to read the MySQL backup artifact.');
 
         try {
             $process = $this->processes->make([$binary, ...$arguments, $scratchDatabase], environment: $environment);

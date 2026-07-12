@@ -163,6 +163,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Laravel\Octane\Contracts\OperationTerminated;
 use ReflectionClass;
 use Spatie\EventSourcing\EventSourcingServiceProvider;
 use Spatie\LaravelPackageTools\Package;
@@ -366,12 +367,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         $this->app->singleton(FlushResettableState::class);
 
-        if (! interface_exists('Laravel\\Octane\\Contracts\\OperationTerminated')) {
+        if (! interface_exists(OperationTerminated::class)) {
             return $this;
         }
 
         $this->app->make(Dispatcher::class)->listen(
-            'Laravel\\Octane\\Contracts\\OperationTerminated',
+            OperationTerminated::class,
             function (object $event): void {
                 $sandbox = method_exists($event, 'sandbox') ? $event->sandbox() : null;
                 $application = $sandbox instanceof Application ? $sandbox : $this->app;

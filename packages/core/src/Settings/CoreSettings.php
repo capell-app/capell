@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Settings;
 
-use Capell\Admin\Filament\Settings\CoreSettingsSchema;
 use Capell\Core\Contracts\SettingsContract;
-use Capell\Core\Contracts\SettingsSchemaContract;
 use Spatie\LaravelSettings\Settings;
 
-class CoreSettings extends Settings implements SettingsContract, SettingsSchemaContract
+class CoreSettings extends Settings implements SettingsContract
 {
     public string $default_locale;
 
@@ -25,10 +23,5 @@ class CoreSettings extends Settings implements SettingsContract, SettingsSchemaC
     public static function group(): string
     {
         return 'core';
-    }
-
-    public static function schema(): string
-    {
-        return CoreSettingsSchema::class;
     }
 }

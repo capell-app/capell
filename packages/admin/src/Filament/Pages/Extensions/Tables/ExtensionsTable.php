@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Pages\Extensions\Tables;
 
+use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\Extensions\ResolveExtensionUninstallAvailabilityAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
@@ -763,7 +764,7 @@ class ExtensionsTable implements TableConfigurator
         }
 
         return collect(resolve(SettingsSchemaRegistry::class)->getSchemas($settingsGroup))
-            ->flatMap(fn (string $schemaClass): array => $schemaClass::make($schema))
+            ->flatMap(fn (string $schemaClass): array => BuildSettingsSchemaComponentsAction::run($schemaClass, $schema))
             ->values()
             ->all();
     }

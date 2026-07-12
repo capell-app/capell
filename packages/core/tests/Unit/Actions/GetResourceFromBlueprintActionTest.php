@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Data\AdminSurfaceContributionData;
-use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
-use Capell\Admin\Support\CapellAdminManager;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Contracts\AdminResourceResolver;
 
 beforeEach(function (): void {
-    CapellCore::shouldReceive('hasPackage')->andReturn(true);
+    $resolver = Mockery::mock(AdminResourceResolver::class);
+    $resolver->shouldReceive('hasPageResource')->andReturnTrue();
+    $resolver->shouldReceive('getPageResource')->andReturn(PageResource::class);
 
-    app()->forgetInstance(CapellAdminManager::class);
-    CapellAdmin::clearResolvedInstance(CapellAdminManager::class);
-    CapellAdmin::clearAdminSurfaceContributions();
-    CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(PageResource::class, 'Page'));
+    app()->instance(AdminResourceResolver::class, $resolver);
 });
 
 it('maps type to resource', function (): void {
-    $resource = GetResourceFromBlueprintAction::run('Page');
+    $resource = GetResourceFromBlueprintAction::run();
 
     expect($resource)->toBeString()->toContain('Page');
 });
 
-it('throws on invalid type', function (): void {
-    expect(fn () => GetResourceFromBlueprintAction::run('Unknown'))
-        ->toThrow(InvalidArgumentException::class, 'Resource not found for type: Unknown, name: default');
+it('throws when the page resource is not registered', function (): void {
+    $resolver = Mockery::mock(AdminResourceResolver::class);
+    $resolver->shouldReceive('hasPageResource')->with('default')->andReturnFalse();
+    app()->instance(AdminResourceResolver::class, $resolver);
+
+    expect(fn () => GetResourceFromBlueprintAction::run())
+        ->toThrow(InvalidArgumentException::class, 'Page resource not found for name: default');
 });

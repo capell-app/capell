@@ -37,16 +37,20 @@ afterEach(function (): void {
     }
 
     foreach (glob($this->scratchDirectory . '/*') ?: [] as $path) {
-        is_file($path) && unlink($path);
+        if (is_file($path)) {
+            unlink($path);
+        }
     }
 
-    is_dir($this->scratchDirectory) && rmdir($this->scratchDirectory);
+    if (is_dir($this->scratchDirectory)) {
+        rmdir($this->scratchDirectory);
+    }
 });
 
 it('restores a verified snapshot only into scratch database and media targets', function (): void {
     Storage::disk('media')->put('images/example.txt', 'original-media');
     $manifest = resolve(CreateBackupAction::class)->handle();
-    (new PDO('sqlite:' . $this->databasePath))->exec("UPDATE examples SET value = 'changed-live'");
+    new PDO('sqlite:' . $this->databasePath)->exec("UPDATE examples SET value = 'changed-live'");
 
     $result = resolve(RestoreBackupAction::class)->handle(
         snapshotId: $manifest->snapshotId,
@@ -93,11 +97,9 @@ it('rejects checksum failures before creating a scratch database', function (): 
 
 function backupRestoredValue(string $databasePath): string
 {
-    $statement = (new PDO('sqlite:' . $databasePath))->query('SELECT value FROM examples');
+    $statement = new PDO('sqlite:' . $databasePath)->query('SELECT value FROM examples');
 
-    if ($statement === false) {
-        throw new RuntimeException('Unable to read the restored backup fixture.');
-    }
+    throw_if($statement === false, RuntimeException::class, 'Unable to read the restored backup fixture.');
 
     $value = $statement->fetchColumn();
 

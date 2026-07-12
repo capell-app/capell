@@ -99,8 +99,8 @@ it('scopes page translation defaults and addable languages to the current site',
         ->createOne();
 
     $blueprint = Blueprint::factory()->page()->createOne();
-    $page = Page::factory()->site($site)->type($blueprint)->createOne();
-    Page::factory()->site($otherSite)->type($blueprint)->createOne();
+    $page = Page::factory()->site($site)->blueprint($blueprint)->createOne();
+    Page::factory()->site($otherSite)->blueprint($blueprint)->createOne();
 
     $component = mountedPageTranslationsRepeaterForTest([
         'site_id' => $site->getKey(),
@@ -147,7 +147,7 @@ it('uses the page content structure override when preparing translation content'
         ->createOne();
     $page = Page::factory()
         ->site($site)
-        ->type($blueprint)
+        ->blueprint($blueprint)
         ->createOne();
     $page->setAttribute('content_structure_override', ContentStructure::Blocks->value);
 
@@ -179,10 +179,10 @@ it('blocks page translation additions that would violate parent language coverag
         ->createOne();
 
     $blueprint = Blueprint::factory()->page()->createOne();
-    $parent = Page::factory()->site($site)->type($blueprint)->createOne(['name' => 'Parent page']);
+    $parent = Page::factory()->site($site)->blueprint($blueprint)->createOne(['name' => 'Parent page']);
     $parent->translations()->save(Translation::factory()->language($english)->make());
 
-    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+    $page = Page::factory()->site($site)->blueprint($blueprint)->createOne();
 
     $component = mountedNestedPageTranslationsRepeaterForTest([
         'site_id' => $site->getKey(),
@@ -251,7 +251,7 @@ it('adds the only available page translation language when add action arguments 
         ->createOne();
 
     $blueprint = Blueprint::factory()->page()->createOne();
-    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+    $page = Page::factory()->site($site)->blueprint($blueprint)->createOne();
 
     $component = mountedPageTranslationsRepeaterForTest([
         'site_id' => $site->getKey(),

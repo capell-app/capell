@@ -6,13 +6,13 @@ use Capell\Core\Actions\Backup\CreateBackupAction;
 use Capell\Core\Actions\Backup\InspectBackupHealthAction;
 use Capell\Core\Actions\Backup\PruneBackupsAction;
 use Capell\Core\Support\Backup\BackupArtifactStore;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
     Storage::fake('backups');
     $this->databasePath = sys_get_temp_dir() . '/capell-health-backup-' . bin2hex(random_bytes(6)) . '.sqlite';
-    (new PDO('sqlite:' . $this->databasePath))->exec('CREATE TABLE examples (value TEXT NOT NULL)');
+    new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');
     config([
         'backup.enabled' => true,
         'backup.disk' => 'backups',
@@ -24,11 +24,11 @@ beforeEach(function (): void {
         'backup.retain' => 2,
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
-    Carbon::setTestNow('2026-07-10 12:00:00 UTC');
+    Date::setTestNow('2026-07-10 12:00:00 UTC');
 });
 
 afterEach(function (): void {
-    Carbon::setTestNow();
+    Date::setTestNow();
 
     if (is_file($this->databasePath)) {
         unlink($this->databasePath);
@@ -47,14 +47,12 @@ it('reports healthy only when freshness retention and artifact integrity pass', 
 
 it('reports stale missing and checksum-mismatched backup artifacts', function (): void {
     $manifest = resolve(CreateBackupAction::class)->handle(databaseOnly: true);
-    Carbon::setTestNow('2026-07-10 15:00:01 UTC');
+    Date::setTestNow('2026-07-10 15:00:01 UTC');
 
     $stale = resolve(InspectBackupHealthAction::class)->handle();
     $artifact = Storage::disk('backups')->get($manifest->database->path);
 
-    if (! is_string($artifact) || $artifact === '') {
-        throw new RuntimeException('Backup integrity fixture is missing.');
-    }
+    throw_if(! is_string($artifact) || $artifact === '', RuntimeException::class, 'Backup integrity fixture is missing.');
 
     $artifact[0] = $artifact[0] === 'x' ? 'y' : 'x';
     Storage::disk('backups')->put($manifest->database->path, $artifact);
@@ -98,7 +96,7 @@ it('previews pruning and deletes only completed snapshots beyond retention when 
     $snapshots = [];
 
     foreach (['12:00:00', '12:01:00', '12:02:00'] as $time) {
-        Carbon::setTestNow('2026-07-10 ' . $time . ' UTC');
+        Date::setTestNow('2026-07-10 ' . $time . ' UTC');
         $snapshots[] = resolve(CreateBackupAction::class)->handle(databaseOnly: true)->snapshotId;
     }
 

@@ -68,7 +68,7 @@ it('falls back to error page when the requested url is not found', function (): 
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $errorType = Blueprint::query()->where('key', 'error')->first()
         ?? Blueprint::factory()->page()->state(['key' => 'error'])->create();
-    Page::factory()->site($site)->type($errorType)->withTranslations($language)->create();
+    Page::factory()->site($site)->blueprint($errorType)->withTranslations($language)->create();
 
     $work = makePageResolveWork($site, $language, '/page-that-does-not-exist');
 

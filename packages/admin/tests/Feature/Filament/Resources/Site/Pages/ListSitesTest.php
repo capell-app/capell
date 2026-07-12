@@ -138,14 +138,17 @@ test('can replicate site', function (): void {
 test('groups related theme and blueprint editing actions for sites', function (): void {
     $theme = Theme::factory()->createOne(['name' => 'Site theme']);
     $blueprint = Blueprint::factory()->site()->createOne(['name' => 'Site blueprint']);
-    $site = Site::factory()->theme($theme)->type($blueprint)->createOne();
+    $site = Site::factory()->theme($theme)->blueprint($blueprint)->createOne();
 
     $component = Livewire::test(ListSites::class)
         ->assertSuccessful()
         ->mountTableAction('edit-theme', $site)
-        ->assertMountedActionModalSee($theme->name)
+        ->assertMountedActionModalSee(__('capell-admin::button.edit_theme'));
+
+    Livewire::test(ListSites::class)
+        ->assertSuccessful()
         ->mountTableAction('edit-blueprint', $site)
-        ->assertMountedActionModalSee($blueprint->name);
+        ->assertMountedActionModalSee(__('capell-admin::button.edit_blueprint'));
 
     $recordActions = $component->instance()->getTable()->getRecordActions();
 

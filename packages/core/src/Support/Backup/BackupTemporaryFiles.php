@@ -22,13 +22,9 @@ final class BackupTemporaryFiles
     {
         $directory = $this->directory !== '' ? $this->directory : sys_get_temp_dir();
 
-        if (! is_dir($directory) && ! mkdir($directory, 0700, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create the backup temporary directory.');
-        }
+        throw_if(! is_dir($directory) && ! mkdir($directory, 0700, true) && ! is_dir($directory), RuntimeException::class, 'Unable to create the backup temporary directory.');
 
-        if (preg_match('/\A[A-Za-z0-9_-]+\z/', $prefix) !== 1) {
-            throw new RuntimeException('The backup temporary file prefix is invalid.');
-        }
+        throw_if(preg_match('/\A[A-Za-z0-9_-]+\z/', $prefix) !== 1, RuntimeException::class, 'The backup temporary file prefix is invalid.');
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $path = $directory . DIRECTORY_SEPARATOR . $prefix . bin2hex(random_bytes(16));

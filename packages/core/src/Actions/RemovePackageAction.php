@@ -43,6 +43,7 @@ class RemovePackageAction
             if ($bundleUpdate['complete']) {
                 return $this->success($name, 'Bundle requirements were already promoted.');
             }
+
             if ($bundleUpdate['update_members'] !== []) {
                 $command = [
                     'composer',
@@ -85,12 +86,9 @@ class RemovePackageAction
                 } catch (Throwable) {
                     $this->restoreComposerFiles($composerPath, $lockPath, $originalComposer, $originalLock);
 
-                    throw new RuntimeException(
-                        'Composer files were restored after package removal failed, but the installed package graph could not be recovered. '
-                        . 'Composer output was withheld because it may contain credentials. Installed dependencies may not match composer.lock. '
-                        . 'Run "composer install --no-interaction --no-scripts" from the application root in a trusted terminal.',
-                        previous: $throwable,
-                    );
+                    throw new RuntimeException('Composer files were restored after package removal failed, but the installed package graph could not be recovered. '
+                    . 'Composer output was withheld because it may contain credentials. Installed dependencies may not match composer.lock. '
+                    . 'Run "composer install --no-interaction --no-scripts" from the application root in a trusted terminal.', $throwable->getCode(), previous: $throwable);
                 }
             }
 
@@ -111,9 +109,7 @@ class RemovePackageAction
         }
 
         $lock = json_decode($this->files->get($lockPath), true, flags: JSON_THROW_ON_ERROR);
-        if (! is_array($lock)) {
-            throw new RuntimeException('The application composer.lock file is invalid.');
-        }
+        throw_unless(is_array($lock), RuntimeException::class, 'The application composer.lock file is invalid.');
 
         foreach (['packages', 'packages-dev'] as $section) {
             $packages = is_array($lock[$section] ?? null) ? $lock[$section] : [];
@@ -158,15 +154,13 @@ class RemovePackageAction
         if (! CapellCore::hasPackage($name) || CapellCore::getPackage($name)->getKind() !== 'bundle') {
             return ['complete' => false, 'update_members' => []];
         }
-        if ($composerContents === null) {
-            throw new RuntimeException('The application composer.json file is unavailable.');
-        }
+
+        throw_if($composerContents === null, RuntimeException::class, 'The application composer.json file is unavailable.');
 
         $bundle = CapellCore::getPackage($name);
         $composer = json_decode($composerContents, true, flags: JSON_THROW_ON_ERROR);
-        if (! is_array($composer)) {
-            throw new RuntimeException('The application composer.json file is invalid.');
-        }
+        throw_unless(is_array($composer), RuntimeException::class, 'The application composer.json file is invalid.');
+
         $require = is_array($composer['require'] ?? null) ? $composer['require'] : [];
         $requireDev = is_array($composer['require-dev'] ?? null) ? $composer['require-dev'] : [];
         $bundleWasDirect = array_key_exists($name, $require) || array_key_exists($name, $requireDev);
@@ -174,7 +168,11 @@ class RemovePackageAction
         $promoted = [];
 
         foreach ($bundle->getRequirements() as $memberName) {
-            if (array_key_exists($memberName, $require) || array_key_exists($memberName, $requireDev)) {
+            if (array_key_exists($memberName, $require)) {
+                continue;
+            }
+
+            if (array_key_exists($memberName, $requireDev)) {
                 continue;
             }
 
@@ -216,6 +214,7 @@ class RemovePackageAction
         if ($composerContents !== null) {
             $this->files->replace($composerPath, $composerContents);
         }
+
         if ($lockContents !== null) {
             $this->files->replace($lockPath, $lockContents);
         } elseif ($this->files->exists($lockPath)) {
