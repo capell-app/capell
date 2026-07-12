@@ -187,7 +187,7 @@ final class WidgetShowcaseComposerConsumer
 
         $bundleRequirements = ['php' => '^8.4'];
         foreach (self::MEMBERS as $memberName) {
-            $bundleRequirements[$memberName] = '^4.1 || 4.x-dev';
+            $bundleRequirements[$memberName] = '^1.0';
         }
 
         $this->writePackage(self::BUNDLE, '4.1.0', $bundleRequirements);
@@ -205,8 +205,8 @@ final class WidgetShowcaseComposerConsumer
             ],
             'require' => [
                 'capell-app/widget-content-reveal' => '4.1.0',
-                'capell-app/widget-hotspots' => '^4.1',
-                self::BUNDLE => '^4.1',
+                'capell-app/widget-hotspots' => '^1.1',
+                self::BUNDLE => '^1.1',
             ],
             'config' => [
                 'allow-plugins' => false,

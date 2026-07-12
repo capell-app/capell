@@ -8,7 +8,7 @@ final class CapellExtensionApi
 {
     public const string CURRENT_VERSION = '4.1.0';
 
-    public const string COMPATIBILITY_CONSTRAINT = '^4.0';
+    public const string COMPATIBILITY_CONSTRAINT = '^1.0';
 
     public const string DEVELOPMENT_VERSION = '1.x-dev';
 
