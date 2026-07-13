@@ -487,10 +487,22 @@ final class ReleaseEngine
     {
         $result = $this->runner->run($command, $cwd);
         if ($result['exitCode'] !== 0) {
-            throw new ReleaseException('Command failed: ' . implode(' ', $command));
+            $error = $command[0] === 'git' ? $this->sanitiseError((string) ($result['error'] ?? '')) : '';
+            $description = (string) ($command[0] ?? 'unknown');
+            throw new ReleaseException('Command failed: ' . $description . ($error === '' ? '' : ": {$error}"));
         }
 
         return $result['output'];
+    }
+
+    private function sanitiseError(string $error): string
+    {
+        $token = getenv('GH_TOKEN');
+        if (is_string($token) && $token !== '') {
+            $error = str_replace($token, '[redacted]', $error);
+        }
+
+        return trim((string) preg_replace('/(?:authorization:\s*)?bearer\s+\S+/i', '[redacted]', $error));
     }
 
     private function optional(array $command): ?string
