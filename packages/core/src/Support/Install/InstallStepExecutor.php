@@ -462,7 +462,7 @@ final class InstallStepExecutor
             base_path(),
             ComposerProcessEnvironment::forInstall($_SERVER),
         );
-        $process->setTimeout(120);
+        $process->setTimeout(null);
         $process->run(function (string $type, string $buffer) use ($state): void {
             foreach (explode("\n", trim($buffer)) as $line) {
                 if ($line !== '') {
