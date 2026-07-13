@@ -105,6 +105,14 @@
                                         {{ __('capell-marketplace::marketplace.selection.premium_badge') }}
                                     </span>
                                 @endif
+
+                                @if (($record['maturity'] ?? null) === 'beta')
+                                    <span
+                                        class="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300"
+                                    >
+                                        {{ __('capell-marketplace::marketplace.release_status.beta') }}
+                                    </span>
+                                @endif
                             </div>
 
                             @if ($composerName !== '')
@@ -279,6 +287,27 @@
         </div>
     @endif
 
+    @if ($selection['contains_beta'])
+        <label
+            class="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+        >
+            <x-filament::input.checkbox
+                wire:model.live="betaMarketplaceExtensionsAcknowledged"
+            />
+
+            <span class="space-y-1">
+                <span
+                    class="block font-semibold text-amber-950 dark:text-amber-100"
+                >
+                    {{ __('capell-marketplace::marketplace.selection.beta_acknowledgement_label') }}
+                </span>
+                <span class="block text-amber-800 dark:text-amber-200">
+                    {{ __('capell-marketplace::marketplace.selection.beta_acknowledgement_help') }}
+                </span>
+            </span>
+        </label>
+    @endif
+
     <label
         class="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-500/30 dark:bg-blue-500/10"
     >
@@ -313,11 +342,11 @@
                 wire:click="installReviewedMarketplaceExtensions"
                 wire:loading.attr="disabled"
                 wire:target="installReviewedMarketplaceExtensions"
-                @disabled(! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed)
+                @disabled(! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged))
                 @class([
                     'inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition',
-                    'bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' => $selection['can_install'] && $this->installReviewedMarketplaceExtensionsConfirmed,
-                    'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500' => ! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed,
+                    'bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' => $selection['can_install'] && $this->installReviewedMarketplaceExtensionsConfirmed && (! $selection['contains_beta'] || $this->betaMarketplaceExtensionsAcknowledged),
+                    'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500' => ! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged),
                 ])
             >
                 <span

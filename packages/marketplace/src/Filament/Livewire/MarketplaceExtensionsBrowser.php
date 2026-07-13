@@ -38,6 +38,13 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     private const string STEP_REVIEW = 'review';
 
+    /** @var list<string> */
+    private const array MARKETPLACE_MANAGED_DEPENDENCIES = [
+        'capell-app/ai-orchestrator',
+        'capell-app/block-library',
+        'capell-app/insights',
+    ];
+
     public ?string $lockedKind = null;
 
     public ?string $initialSearch = null;
@@ -52,6 +59,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     public array $selectedMarketplaceComposerNames = [];
 
     public bool $installReviewedMarketplaceExtensionsConfirmed = false;
+
+    public bool $betaMarketplaceExtensionsAcknowledged = false;
 
     /** @var array<string, mixed> */
     public array $selectedMarketplaceInstallOptions = [];
@@ -136,6 +145,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         $this->selectedMarketplaceComposerNames = [];
         $this->resolvedMarketplaceSelectionReview = null;
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
+        $this->betaMarketplaceExtensionsAcknowledged = false;
         $this->marketplaceStep = self::STEP_BROWSE;
     }
 
@@ -189,6 +199,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $this->marketplaceStep = self::STEP_REVIEW;
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
+        $this->betaMarketplaceExtensionsAcknowledged = false;
         $this->selectedMarketplaceInstallOptions = [
             ...$this->defaultMarketplaceInstallOptions($selection['install_records']),
             ...$this->selectedMarketplaceInstallOptions,
@@ -208,7 +219,9 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $selection = $this->marketplaceSelectionReview();
 
-        if (! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed) {
+        if (! $selection['can_install']
+            || ! $this->installReviewedMarketplaceExtensionsConfirmed
+            || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged)) {
             Notification::make()
                 ->warning()
                 ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
@@ -222,7 +235,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             try {
                 $this->redirect(StartMarketplaceInstallFlowAction::run(new CreateMarketplaceInstallFlowSessionData(
                     selectedExtensions: $this->marketplaceInstallFlowSelections($selection['install_records']),
-                    installOptions: $this->selectedMarketplaceInstallOptionsByRecord($selection['install_records']),
+                    installOptions: [
+                        ...$this->selectedMarketplaceInstallOptionsByRecord($selection['install_records']),
+                        'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
+                    ],
                     dependencySnapshot: [
                         'missing_dependencies' => $selection['missing_dependencies'],
                         'blocked_dependencies' => $selection['blocked_dependencies'],
@@ -377,6 +393,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      *     total_cents: int,
      *     total_label: string,
      *     has_premium_records: bool,
+     *     contains_beta: bool,
      *     can_install: bool
      * }
      */
@@ -397,6 +414,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
              *     total_cents: int,
              *     total_label: string,
              *     has_premium_records: bool,
+             *     contains_beta: bool,
              *     can_install: bool
              * } $review */
             $review = $this->resolvedMarketplaceSelectionReview;
@@ -508,6 +526,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             $installRecords,
             $this->marketplaceRecordRequiresPremiumFlow(...),
         ));
+        $containsBeta = collect($installRecords)
+            ->contains(fn (array $record): bool => ($record['maturity'] ?? null) === 'beta');
 
         $this->resolvedMarketplaceSelectionReview = [
             'explicit_records' => array_values($explicitRecords),
@@ -523,6 +543,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             'total_cents' => $totalCents,
             'total_label' => $this->marketplaceSelectionTotalLabel($totalCents),
             'has_premium_records' => $premiumRecords !== [],
+            'contains_beta' => $containsBeta,
             'can_install' => $installRecords !== [] && $missingDependencies === [] && $blockedDependencies === [],
         ];
 
@@ -725,6 +746,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     private function dependencyIsSatisfied(string $composerName): bool
     {
+        if (in_array($composerName, self::MARKETPLACE_MANAGED_DEPENDENCIES, true)) {
+            return true;
+        }
+
         foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
             try {
                 if (InstalledVersions::isInstalled($candidateComposerName)) {
