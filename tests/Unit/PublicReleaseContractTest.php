@@ -57,8 +57,14 @@ it('defines the public v1 split package release contract', function (): void {
     expect($splitWorkflow)
         ->toContain('actions: read')
         ->toContain('actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349')
+        ->toContain('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02')
+        ->toContain('actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093')
         ->toContain('SPLIT_APP_ID')
         ->toContain('SPLIT_APP_PRIVATE_KEY')
+        ->toContain('permission-contents: write')
+        ->toContain('persist-credentials: false')
+        ->toContain('Configure split repository git credentials')
+        ->toContain('url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"')
         ->toContain('workflow_dispatch:')
         ->toContain('plan_artifact:')
         ->toContain('PLAN_PATH: ${{ inputs.plan_path }}')
@@ -108,7 +114,10 @@ it('defines the public v1 split package release contract', function (): void {
     expect($releasePreflight)
         ->toContain('[$major, $minor]')
         ->toContain('"dev-main as {$major}.{$minor}.x-dev"')
+        ->toContain('artisan serve --no-reload')
         ->not->toContain("'dev-main as ' . \$package['version']");
+
+    expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
 
     expect($localSplitScript)->toContain('config/release-packages.json')
         ->and($packagistScript)->toContain('config/release-packages.json');

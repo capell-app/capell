@@ -394,7 +394,8 @@ final class ReleaseEngine
             }
             $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             if ($main !== $splitSha) {
-                $this->required(self::pushCommand($repository, "{$splitSha}:refs/heads/main"), $this->root);
+                $lease = is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main) ? $main : null;
+                $this->required(self::pushCommand($repository, "{$splitSha}:refs/heads/main", $lease), $this->root);
             }
             $state['packages'][$name] = array_merge($state['packages'][$name] ?? [], ['state' => 'main_pushed', 'split_sha' => $splitSha, 'tag' => $tag]);
             $this->writeState($planPath, $state);
@@ -410,7 +411,7 @@ final class ReleaseEngine
                 if ($localSourceTagSha === null) {
                     $this->required(['git', 'tag', $sourceTag, $plan['source']['commit']], $this->root);
                 }
-                $this->required(['git', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
+                $this->required(['git', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
             }
             if ($decision === 'publish') {
                 $this->required(self::pushCommand($repository, "{$splitSha}:refs/tags/{$tag}"), $this->root);
@@ -465,9 +466,9 @@ final class ReleaseEngine
         };
     }
 
-    private static function pushCommand(string $repository, string $refspec): array
+    private static function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
-        return ['git', '-c', 'credential.helper=!gh auth git-credential', 'push', "https://github.com/{$repository}.git", $refspec];
+        return ['git', 'push', ...($lease === null ? [] : ["--force-with-lease=refs/heads/main:{$lease}"]), "https://github.com/{$repository}.git", $refspec];
     }
 
     private function assertExactSource(array $plan): void
@@ -487,10 +488,22 @@ final class ReleaseEngine
     {
         $result = $this->runner->run($command, $cwd);
         if ($result['exitCode'] !== 0) {
-            throw new ReleaseException('Command failed: ' . implode(' ', $command));
+            $error = $command[0] === 'git' ? $this->sanitiseError((string) ($result['error'] ?? '')) : '';
+            $description = (string) ($command[0] ?? 'unknown');
+            throw new ReleaseException('Command failed: ' . $description . ($error === '' ? '' : ": {$error}"));
         }
 
         return $result['output'];
+    }
+
+    private function sanitiseError(string $error): string
+    {
+        $token = getenv('GH_TOKEN');
+        if (is_string($token) && $token !== '') {
+            $error = str_replace($token, '[redacted]', $error);
+        }
+
+        return trim((string) preg_replace('/(?:authorization:\s*)?bearer\s+\S+/i', '[redacted]', $error));
     }
 
     private function optional(array $command): ?string

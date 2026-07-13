@@ -66,5 +66,5 @@ passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover &
 if ($exitCode !== 0) {
     exit($exitCode);
 }
-passthru('cd ' . escapeshellarg($consumer) . ' && php artisan serve --host=127.0.0.1 --port=8099 >/tmp/capell-release-preflight.log 2>&1 & server=$!; trap "kill $server" EXIT; for path in / /admin/login; do for attempt in 1 2 3 4 5 6 7 8 9 10; do curl --location --fail --silent http://127.0.0.1:8099$path >/dev/null && break; sleep 1; done; curl --location --fail --silent http://127.0.0.1:8099$path >/dev/null || exit 1; done', $exitCode);
+passthru('cd ' . escapeshellarg($consumer) . ' && php artisan serve --no-reload --host=127.0.0.1 --port=8099 >/tmp/capell-release-preflight.log 2>&1 & server=$!; trap "kill $server" EXIT; for path in / /admin/login; do for attempt in 1 2 3 4 5 6 7 8 9 10; do curl --location --fail --silent http://127.0.0.1:8099$path >/dev/null && break; sleep 1; done; curl --location --fail --silent http://127.0.0.1:8099$path >/dev/null || exit 1; done', $exitCode);
 exit($exitCode);
