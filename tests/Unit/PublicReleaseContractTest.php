@@ -71,6 +71,8 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('repository: ${{ github.repository }}')
         ->toContain('github-token: ${{ github.token }}')
         ->toContain('release-plan.json.state.json')
+        ->toContain('Check out the approved plan source')
+        ->toContain('git checkout --detach "${source_commit}"')
         ->toContain('if: always()')
         ->toContain('if-no-files-found: ignore')
         ->not->toContain('test -f "${{ inputs.plan_path }}"')
