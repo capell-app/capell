@@ -50,7 +50,7 @@ Open `http://localhost:8000/admin` for the admin panel and `http://localhost:800
 
 ## What This Repository Contains
 
-This 4.x host monorepo contains the five foundation packages. First-party features such as themes, SEO, and Publishing Studio live in separate Composer packages listed in the [package catalogue](docs/packages/catalog.md).
+This 1.x host monorepo contains the five foundation packages. First-party features such as themes, SEO, and Publishing Studio live in separate Composer packages listed in the [package catalogue](docs/packages/catalog.md).
 
 | Package     | Composer name            | What it owns                                                                                                 | Docs                                              |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |

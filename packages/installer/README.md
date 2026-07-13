@@ -93,7 +93,7 @@ The browser installer discovers package and theme choices from Capell package me
 From the host monorepo root, run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
 
 ```bash
-vendor/bin/pest packages/installer/tests --configuration=phpunit.xml
+vendor/bin/pest tests --configuration=phpunit.xml
 ```
 
 ## Requirements And Support Policy

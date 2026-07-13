@@ -61,7 +61,7 @@ final class RedactUpgradeRunContextAction
 
         return preg_replace([
             '/\b((?:https?|git):\/\/)[^\s\/@:]+:[^\s\/@]+@/i',
-            '/\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/',
+            '/\b(?:gh[pousr]_\w{20,}|github_pat_\w{20,})\b/',
             '/(password|passwd|token|secret|api[_-]?key|authorization)(=|:)\s*[^ \n\r]+/i',
             '/Bearer\s+[A-Za-z0-9._~+\/=-]+/i',
             '/(COMPOSER_AUTH=)[^\s]+/i',

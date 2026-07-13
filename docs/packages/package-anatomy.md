@@ -72,7 +72,7 @@ Composer autoloading makes package classes available. `capell.json` tells Capell
     "displayName": "Example",
     "kind": "package",
     "visibility": "catalogue",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^1.0",
     "version": "1.0.0",
     "description": "Example extension for Capell.",
     "product": {

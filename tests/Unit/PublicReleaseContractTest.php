@@ -120,13 +120,13 @@ it('documents one public distribution and commercial licensing story', function 
     $supportPolicy = file_get_contents($root . '/packages/core/README.md');
 
     expect($readme)
-        ->toContain('public source repositories')
-        ->toContain('public Packagist packages')
+        ->toContain('public foundation source')
+        ->toContain('public Packagist repositories')
         ->toContain('Capell licence')
         ->not->toContain('not published through a public source repository')
         ->not->toContain('distributed through private Composer access')
         ->and($quickstart)
-        ->toContain('current stable 0.0.x foundation release')
+        ->toContain('current 1.x foundation release')
         ->toContain('public Packagist')
         ->and($install)
         ->toContain('Install the public foundation')
@@ -134,8 +134,7 @@ it('documents one public distribution and commercial licensing story', function 
         ->not->toContain('Configure private Capell access')
         ->not->toContain('Do not substitute public Packagist')
         ->and($supportPolicy)
-        ->toContain('current stable 0.0.x release')
-        ->toContain('The published 1.x maintenance windows begin with Capell 1.0')
+        ->toContain('Each Capell 1.x minor receives security fixes for 24 months')
         ->not->toContain('For each Capell 1.x minor release');
 });
 

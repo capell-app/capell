@@ -89,13 +89,13 @@ Tailwind source/import generation depends on installed packages declaring their 
 From the host monorepo root, run package tests after changing frontend routing, render actions, cache invalidation, or public safety checks:
 
 ```bash
-vendor/bin/pest packages/frontend/tests --configuration=phpunit.xml
+vendor/bin/pest tests --configuration=phpunit.xml
 ```
 
 For public output changes, include the safety-focused tests:
 
 ```bash
-vendor/bin/pest packages/frontend/tests/Feature/StaticBladeRenderingTest.php packages/frontend/tests/Feature/MediaComponentMetadataTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php --configuration=phpunit.xml
 ```
 
 ## Requirements And Support Policy

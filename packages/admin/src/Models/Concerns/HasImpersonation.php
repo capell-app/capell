@@ -27,7 +27,7 @@ trait HasImpersonation
      */
     private function isPrivilegedImpersonationTarget(): bool
     {
-        if (method_exists($this, 'isGlobalAdmin') && $this->isGlobalAdmin()) {
+        if ($this->isGlobalAdmin()) {
             return true;
         }
 

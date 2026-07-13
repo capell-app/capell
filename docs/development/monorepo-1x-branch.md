@@ -1,8 +1,8 @@
-# Creating the Capell 4.x Monorepo Branches
+# Creating the Capell 1.x Monorepo Branches
 
-![Capell Creating the Capell 4.x Monorepo Branches screenshot](../images/admin-dashboard.png)
+![Capell Creating the Capell 1.x Monorepo Branches screenshot](../images/admin-dashboard.png)
 
-Use this guide when setting up a fresh Capell development workspace where the host repository and the first-party package repository need to work together on the `4.x` branch.
+Use this guide when setting up a fresh Capell development workspace where the host repository and the first-party package repository need to work together on the `1.x` branch.
 
 ## Expected Layout
 
@@ -18,7 +18,7 @@ Keep both repositories as siblings:
 
 ## Clone Or Create The Repositories
 
-Clone the host repository, then create a local `4.x` branch from the remote branch:
+Clone the host repository, then create a local `1.x` branch from the remote branch:
 
 ```sh
 mkdir -p ~/Sites/packages/capell
@@ -27,16 +27,16 @@ cd ~/Sites/packages/capell
 git clone git@github.com:capell-app/capell.git capell-4
 cd capell-4
 git fetch origin
-git switch --track origin/4.x
+git switch --track origin/1.x
 ```
 
-If the host repository has no `4.x` branch yet, run this from `capell-4`:
+If the host repository has no `1.x` branch yet, run this from `capell-4`:
 
 ```sh
-git switch main && git pull --ff-only && git switch -c 4.x && git push -u origin 4.x
+git switch main && git pull --ff-only && git switch -c 1.x && git push -u origin 1.x
 ```
 
-Clone the add-on packages repository beside it and switch to its `4.x` branch:
+Clone the add-on packages repository beside it and switch to its `1.x` branch:
 
 ```sh
 cd ~/Sites/packages/capell
@@ -44,13 +44,13 @@ cd ~/Sites/packages/capell
 git clone git@github.com:capell-app/capell-packages.git capell-packages-4
 cd capell-packages-4
 git fetch origin
-git switch --track origin/4.x
+git switch --track origin/1.x
 ```
 
-If the add-on packages repository has no `4.x` branch yet, run this from `capell-packages-4`:
+If the add-on packages repository has no `1.x` branch yet, run this from `capell-packages-4`:
 
 ```sh
-git switch main && git pull --ff-only && git switch -c 4.x && git push -u origin 4.x
+git switch main && git pull --ff-only && git switch -c 1.x && git push -u origin 1.x
 ```
 
 ## Wire Composer To The Local Packages
@@ -79,15 +79,15 @@ Before working on a change that spans host and add-on packages:
 
 ```sh
 cd ~/Sites/packages/capell/capell-4
-git switch 4.x
+git switch 1.x
 git pull --ff-only
 
 cd ~/Sites/packages/capell/capell-packages-4
-git switch 4.x
+git switch 1.x
 git pull --ff-only
 ```
 
-Create feature branches from `4.x` in whichever repository needs changes:
+Create feature branches from `1.x` in whichever repository needs changes:
 
 ```sh
 git switch -c feat/my-capell-change

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Workbench\App\Providers;
 
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -15,14 +14,6 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $database = env('CAPELL_SCREENSHOT_DATABASE');
-
-        if (is_string($database) && $database !== '') {
-            Config::set('database.default', 'sqlite');
-            Config::set('database.connections.sqlite.database', $database);
-            Config::set('database.connections.sqlite.url');
-        }
-
         config([
             'capell-marketplace.marketplace.base_url' => 'http://127.0.0.1:8145/api/v1',
             'capell-marketplace.marketplace.web_url' => 'http://127.0.0.1:8145',

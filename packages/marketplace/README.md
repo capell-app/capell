@@ -102,14 +102,14 @@ Active and attention-needed operations are opened from the Extensions page heade
 From the host monorepo root, run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
 
 ```bash
-vendor/bin/pest packages/marketplace/tests --configuration=phpunit.xml
+vendor/bin/pest tests --configuration=phpunit.xml
 ```
 
 Run focused action or HTTP tests first when changing a specific flow, for example:
 
 ```bash
-vendor/bin/pest packages/marketplace/tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php --configuration=phpunit.xml
-vendor/bin/pest packages/marketplace/tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php --configuration=phpunit.xml
 ```
 
 ## Requirements And Support Policy

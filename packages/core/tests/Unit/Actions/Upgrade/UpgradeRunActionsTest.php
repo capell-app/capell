@@ -90,7 +90,7 @@ it('redacts composer auth credentials embedded in upgrade diagnostic strings', f
 it('redacts URL userinfo and standalone GitHub tokens', function (): void {
     $token = 'ghp_' . str_repeat('a', 36);
     $redacted = RedactUpgradeRunContextAction::run([
-        'output' => "Clone https://deploy-user:deploy-secret@example.com/repo.git with {$token}",
+        'output' => 'Clone https://deploy-user:deploy-secret@example.com/repo.git with ' . $token,
     ]);
 
     expect($redacted['output'])

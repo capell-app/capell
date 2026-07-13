@@ -9,10 +9,15 @@ Use this page to find the shortest route to your next task.
 | I want to...                  | Start with                                                              | Then read                                                                                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Evaluate or install Capell    | [Why Capell](getting-started/why-capell.md)                             | [Compare Capell with WordPress and Craft](getting-started/comparing-capell.md), then choose an [install path](getting-started/install-matrix.md) |
+| Build a page                  | [Build a page](getting-started/building-pages.md)                       | Choose between HTML content, structured blocks, Layout Builder widgets, and custom Blade rendering.                                              |
 | Build and edit a site         | [Your first session](getting-started/first-session.md)                  | [Create your first page](getting-started/create-your-first-page.md), then [choose a page-building path](getting-started/building-pages.md)       |
 | Build an extension            | [Build an extension end to end](packages/build-extension-end-to-end.md) | [Host, package, or app code](development/package-boundaries.md), then the [extension point chooser](packages/extension-point-chooser.md)         |
 | Operate a production site     | [Operations](operations/index.md)                                       | [Back up the site](operations/backups.md), then follow the [upgrade runbook](operations/upgrading.md)                                            |
 | Maintain the Capell host repo | [Development](development/index.md)                                     | [Local development](development/local-development.md), then [CI and test shards](development/ci.md)                                              |
+
+## Build pages with the right amount of structure
+
+[Choose a page-building path](getting-started/building-pages.md) based on the content and editing experience the page needs: a normal HTML page body, typed blocks, approved Layout Builder widgets, or dedicated Blade layouts. The frontend stays in your Laravel application.
 
 ## Visual Tour
 
@@ -45,6 +50,7 @@ Use these pages to see a workflow before reading its implementation details.
 | Before I...                                        | Read                                                                                                                         |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Move or rename published content                   | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
+| How should I build this page?                      | [Build a page](getting-started/building-pages.md)                                                                            |
 | Put feature code in the host, an add-on, or an app | [Host, package, or app code](development/package-boundaries.md)                                                              |
 | Change anonymous frontend output                   | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
 | Add or change an extension point                   | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |

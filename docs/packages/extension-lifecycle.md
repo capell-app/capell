@@ -61,7 +61,7 @@ Keep the Composer-discovered provider safe. It can publish metadata, but it shou
     "displayName": "Example",
     "kind": "package",
     "visibility": "catalogue",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^1.0",
     "version": "1.0.0",
     "description": "Example extension for Capell.",
     "product": {

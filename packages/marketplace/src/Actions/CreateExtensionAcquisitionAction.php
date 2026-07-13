@@ -83,9 +83,7 @@ final class CreateExtensionAcquisitionAction
             installOptions: $selectedInstallOptions,
         );
 
-        if ($authorization->composerName !== '' && $authorization->composerName !== $listing->composerName) {
-            throw new UnexpectedValueException('Marketplace authorization returned a package that does not match the selected extension.');
-        }
+        throw_if($authorization->composerName !== '' && $authorization->composerName !== $listing->composerName, UnexpectedValueException::class, 'Marketplace authorization returned a package that does not match the selected extension.');
 
         $composerName = $authorization->composerName !== '' ? $authorization->composerName : $listing->composerName;
         $versionConstraint = $authorization->versionConstraint !== '' ? $authorization->versionConstraint : ($listing->latestVersion !== null ? '^' . $listing->latestVersion : '*');

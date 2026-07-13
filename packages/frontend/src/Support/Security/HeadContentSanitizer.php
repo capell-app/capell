@@ -45,7 +45,11 @@ final class HeadContentSanitizer
         }
 
         foreach (iterator_to_array($container->childNodes) as $node) {
-            if (! $node instanceof DOMElement || ! in_array($node->tagName, ['meta', 'link'], true)) {
+            if (! $node instanceof DOMElement) {
+                continue;
+            }
+
+            if (! in_array($node->tagName, ['meta', 'link'], true)) {
                 continue;
             }
 
