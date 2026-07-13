@@ -114,7 +114,10 @@ it('defines the public v1 split package release contract', function (): void {
     expect($releasePreflight)
         ->toContain('[$major, $minor]')
         ->toContain('"dev-main as {$major}.{$minor}.x-dev"')
+        ->toContain('artisan serve --no-reload')
         ->not->toContain("'dev-main as ' . \$package['version']");
+
+    expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
 
     expect($localSplitScript)->toContain('config/release-packages.json')
         ->and($packagistScript)->toContain('config/release-packages.json');

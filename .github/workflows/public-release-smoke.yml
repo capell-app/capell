@@ -53,7 +53,7 @@ jobs:
           php artisan package:discover --ansi
           php artisan migrate --force --ansi
           php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --all-packages --theme=none --name='Release Smoke' --email=release@example.test --password='release-smoke-password' --clear-cache --install-welcome-route
-          php artisan serve --host=127.0.0.1 --port=8000 > "${RUNNER_TEMP}/capell.log" 2>&1 &
+          php artisan serve --no-reload --host=127.0.0.1 --port=8000 > "${RUNNER_TEMP}/capell.log" 2>&1 &
           trap 'kill $!' EXIT
           for path in / /admin/login; do
             for attempt in {1..15}; do curl --fail --silent --show-error "http://127.0.0.1:8000${path}" >/dev/null && break; sleep 1; done
