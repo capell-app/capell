@@ -1,10 +1,10 @@
 # Frontend Themes
 
-![Capell layouts list](../images/generated/admin/admin-layouts-list.png)
-
 Capell themes connect installed admin theme records to public rendering. The admin owns selection and customization; the frontend receives a resolved runtime with a theme definition, preset, brand tokens, section renderers, and safe assets.
 
 Layouts are the editorial bridge between page records and public templates. Theme records then decide the presentation runtime used when those layouts render.
+
+The optional [Layout Builder package](https://docs.capell.app/packages/layout-builder) owns its editor UI and screenshot evidence.
 
 ![Theme Library admin workflow](../images/generated/admin/theme-library-admin-flow.png)
 

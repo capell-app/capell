@@ -54,9 +54,7 @@ Site records expose the operational details that public resolution depends on: d
 
 Layouts connect page records to frontend rendering. Themes hold presentation records used by the frontend surface and by theme-aware packages.
 
-![Capell layouts list](../images/generated/admin/admin-layouts-list.png)
-
-The normal Admin package provides the management screens. Richer theme tooling can come from optional theme packages.
+The normal Admin package provides the core management screens. The optional [Layout Builder package](https://docs.capell.app/packages/layout-builder) owns its richer layout editor, fixtures, and screenshot evidence.
 
 ![Theme Library admin workflow](../images/generated/admin/theme-library-admin-flow.png)
 
