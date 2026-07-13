@@ -137,7 +137,7 @@ it('audits manifest declarations without autoloading extension classes', functio
 
     try {
         artisanCommand('capell:upgrade', ['--dry-run' => true])
-            ->expectsOutputToContain('capell-app/report-only-manifest: capellApiVersion does not include 4.1.0.')
+            ->expectsOutputToContain('capell-app/report-only-manifest: capellApiVersion does not include 1.1.0.')
             ->assertFailed();
 
         expect(file_exists($markerPath))->toBeFalse();

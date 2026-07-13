@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Extensions;
 
 final class CapellExtensionApi
 {
-    public const string CURRENT_VERSION = '4.1.0';
+    public const string CURRENT_VERSION = '1.1.0';
 
     public const string COMPATIBILITY_CONSTRAINT = '^1.0';
 
