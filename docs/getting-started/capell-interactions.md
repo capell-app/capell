@@ -2,7 +2,7 @@
 
 ![Capell Interactions screenshot](../images/capell-readme-banner.jpg)
 
-Capell Interactions lets an editor attach a public action to a widget or [Layout Builder](../packages/layout-builder.md) block. The action can open another widget in a modal, slide in a form, reveal inline content, replace a region, or fetch a Layout Builder fragment only when the visitor asks for it.
+Capell Interactions lets an editor attach a public action to a widget or [Layout Builder](https://docs.capell.app/packages/layout-builder) block. The action can open another widget in a modal, slide in a form, reveal inline content, replace a region, or fetch a Layout Builder fragment only when the visitor asks for it.
 
 The target is not a separate mini-app. It is a normal Capell widget or public Layout Builder block rendered through the same typed, tested rendering pipeline as the rest of the page. That is the point of the feature: rich interactive pages without one-off theme JavaScript, hidden IDs in HTML, or bespoke controller routes for every campaign.
 
@@ -10,11 +10,11 @@ The target is not a separate mini-app. It is a normal Capell widget or public La
 
 Think of every interaction as three pieces:
 
-| Piece | What it means | Example |
-| --- | --- | --- |
-| Trigger | The public control the visitor can use | `Play video` button |
-| Behaviour | How the target appears | Modal, slide-over, inline reveal, replace region |
-| Target | The content Capell renders after the trigger runs | Video widget, form widget, gallery widget, Layout Builder fragment |
+| Piece     | What it means                                     | Example                                                            |
+| --------- | ------------------------------------------------- | ------------------------------------------------------------------ |
+| Trigger   | The public control the visitor can use            | `Play video` button                                                |
+| Behaviour | How the target appears                            | Modal, slide-over, inline reveal, replace region                   |
+| Target    | The content Capell renders after the trigger runs | Video widget, form widget, gallery widget, Layout Builder fragment |
 
 Editors configure those pieces in the admin. Developers register the widget types, resources, defaults, and safe render boundaries. Visitors only receive the trigger plus an encrypted URL for the lazy target. They do not receive widget data, block keys, model IDs, component names, package names, field paths, or editor metadata.
 
@@ -34,14 +34,14 @@ That makes interactive pages easier to sell, build, cache, and maintain.
 
 ## What Editors Can Build
 
-| Interaction | Visitor experience | Capell target |
-| --- | --- | --- |
-| Play video | Opens a video in a modal | Video widget |
-| Book demo | Opens a form in a slide-over | Form widget |
-| Compare plans | Replaces a pricing teaser with a comparison view | Widget target |
-| Show gallery | Opens a carousel without loading it upfront | Widget target with runtime resources |
-| Reveal details | Expands technical content below the button | Inline widget |
-| Load more context | Fetches a Layout Builder block fragment on demand | Lazy fragment |
+| Interaction       | Visitor experience                                | Capell target                        |
+| ----------------- | ------------------------------------------------- | ------------------------------------ |
+| Play video        | Opens a video in a modal                          | Video widget                         |
+| Book demo         | Opens a form in a slide-over                      | Form widget                          |
+| Compare plans     | Replaces a pricing teaser with a comparison view  | Widget target                        |
+| Show gallery      | Opens a carousel without loading it upfront       | Widget target with runtime resources |
+| Reveal details    | Expands technical content below the button        | Inline widget                        |
+| Load more context | Fetches a Layout Builder block fragment on demand | Lazy fragment                        |
 
 The result feels like a lightweight interaction builder, but the implementation stays Laravel-native and package-safe.
 
@@ -58,10 +58,10 @@ Most page content stays server-rendered. Interactions only change the target con
 
 There are two lazy endpoints:
 
-| Endpoint | Renders | Used for |
-| --- | --- | --- |
-| `/_capell/widgets/{reference}` | Registered widget targets | Video modals, forms, galleries, calculators, comparison panels |
-| `/_capell/fragments/{reference}` | Layout Builder public block fragments | Expensive or optional block content |
+| Endpoint                         | Renders                               | Used for                                                       |
+| -------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| `/_capell/widgets/{reference}`   | Registered widget targets             | Video modals, forms, galleries, calculators, comparison panels |
+| `/_capell/fragments/{reference}` | Layout Builder public block fragments | Expensive or optional block content                            |
 
 Both references are encrypted JSON. Both endpoints fail generically when a reference is invalid. Public pages never use plain route parameters such as page IDs, block keys, widget keys, or component names.
 
@@ -112,13 +112,13 @@ For Laravel teams, the value is not just that a button can open a modal. The val
 
 ## Who Should Read What
 
-| Reader | Start here |
-| --- | --- |
-| Editor or demo audience | This page |
-| Theme/package developer adding widgets | [Frontend widgets](../frontend/widgets.md) |
-| Developer wiring resources, presentation, and lazy endpoints | [Presentation delivery](../../packages/frontend/docs/presentation-delivery.md) |
-| Admin developer reusing Filament schema helpers | [Presentation and interactions admin controls](../../packages/admin/docs/presentation-and-interactions.md) |
-| Layout Builder package maintainer | Layout Builder package docs |
+| Reader                                                       | Start here                                                                                                 |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Editor or demo audience                                      | This page                                                                                                  |
+| Theme/package developer adding widgets                       | [Frontend widgets](../frontend/widgets.md)                                                                 |
+| Developer wiring resources, presentation, and lazy endpoints | [Presentation delivery](../../packages/frontend/docs/presentation-delivery.md)                             |
+| Admin developer reusing Filament schema helpers              | [Presentation and interactions admin controls](../../packages/admin/docs/presentation-and-interactions.md) |
+| Layout Builder package maintainer                            | [Layout Builder package docs](https://docs.capell.app/packages/layout-builder)                             |
 
 ## Read Next
 
