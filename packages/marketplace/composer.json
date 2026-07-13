@@ -40,8 +40,8 @@
     },
     "require": {
         "php": "^8.4",
-        "capell-app/admin": "self.version",
-        "capell-app/core": "self.version",
+        "capell-app/admin": "^1.0",
+        "capell-app/core": "^1.0",
         "laravel/framework": "^12.41.1|^13.0",
         "lorisleiva/laravel-actions": "^2.8",
         "spatie/laravel-data": "^4.5",
