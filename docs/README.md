@@ -10,7 +10,6 @@ Use this page to find the shortest route to your next task.
 | ----------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Evaluate or install Capell    | [Why Capell](getting-started/why-capell.md)                             | [Compare Capell with WordPress and Craft](getting-started/comparing-capell.md), then choose an [install path](getting-started/install-matrix.md) |
 | Build and edit a site         | [Your first session](getting-started/first-session.md)                  | [Create your first page](getting-started/create-your-first-page.md), then [choose a page-building path](getting-started/building-pages.md)       |
-| Build a page                  | [Build a page](getting-started/building-pages.md)                       | Choose the right authoring structure, from HTML through dedicated Blade layouts.                                                                 |
 | Build an extension            | [Build an extension end to end](packages/build-extension-end-to-end.md) | [Host, package, or app code](development/package-boundaries.md), then the [extension point chooser](packages/extension-point-chooser.md)         |
 | Operate a production site     | [Operations](operations/index.md)                                       | [Back up the site](operations/backups.md), then follow the [upgrade runbook](operations/upgrading.md)                                            |
 | Maintain the Capell host repo | [Development](development/index.md)                                     | [Local development](development/local-development.md), then [CI and test shards](development/ci.md)                                              |
@@ -26,10 +25,6 @@ Use these pages to see a workflow before reading its implementation details.
 | Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customization, preview, and apply.  |
 | Operations diagnostics | [Site Health](operations/site-health.md)                            | Cache status, public-output safety, static generation, optimizer, server checks. |
 | Real content model     | [Music store CMS example](examples/music-store-cms.md)              | Pages, articles, events, products, artists, and navigation working together.     |
-
-## Build pages with the right amount of structure
-
-[Choose a page-building path](getting-started/building-pages.md) based on what editors and the frontend need: a normal HTML page body, typed blocks, approved Layout Builder widgets, or dedicated Blade layouts. The frontend stays in your Laravel application.
 
 ## Documentation Sections
 
@@ -47,15 +42,15 @@ Use these pages to see a workflow before reading its implementation details.
 
 ## High-Risk Decisions
 
-| I need to...                                      | Read                                                                                                                         |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Preserve a published URL after moving content     | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
-| Decide whether code belongs in the host or add-on | [Host, package, or app code](development/package-boundaries.md)                                                              |
-| Change anonymous frontend output                  | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
-| Choose or add an extension point                  | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |
-| Change production package or database state       | [Backups and restore](operations/backups.md) and [upgrades](operations/upgrading.md)                                         |
-| Plan a reversible move away from Capell           | [Export and exit plan](operations/export-and-exit.md)                                                                        |
-| How should I build this page?                     | [Build a page](getting-started/building-pages.md)                                                                            |
+| Before I...                                        | Read                                                                                                                         |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Move or rename published content                   | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
+| Put feature code in the host, an add-on, or an app | [Host, package, or app code](development/package-boundaries.md)                                                              |
+| Change anonymous frontend output                   | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
+| Add or change an extension point                   | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |
+| Change production package or database state        | [Backups and restore](operations/backups.md) and [upgrades](operations/upgrading.md)                                         |
+| Restrict traffic during a suspected compromise     | [Lockdown](operations/lockdown.md)                                                                                           |
+| Plan a reversible move away from Capell            | [Export and exit plan](operations/export-and-exit.md)                                                                        |
 
 Published URLs are durable. Capell creates redirect Page URLs when a published page URL changes because its slug or parent path changed. Add a manual redirect when replacing content, consolidating pages, or importing legacy routes.
 
