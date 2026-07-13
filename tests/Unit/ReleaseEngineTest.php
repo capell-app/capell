@@ -443,7 +443,7 @@ it('never exposes command stderr secrets when a push fails', function (): void {
         new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-'));
         expect(false)->toBeTrue();
     } catch (ReleaseException $releaseException) {
-        expect($releaseException->getMessage())->not->toContain($secret)->not->toContain('Bearer')->not->toContain('authorization');
+        expect($releaseException->getMessage())->not->toContain($secret)->not->toContain('Bearer')->toContain('[redacted]');
     }
 });
 
