@@ -64,7 +64,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('permission-contents: write')
         ->toContain('persist-credentials: false')
         ->toContain('Configure split repository git credentials')
-        ->toContain('credential.helper store')
+        ->toContain('url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"')
         ->toContain('workflow_dispatch:')
         ->toContain('plan_artifact:')
         ->toContain('PLAN_PATH: ${{ inputs.plan_path }}')
