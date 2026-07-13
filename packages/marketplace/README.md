@@ -85,7 +85,7 @@ Account linking is the trust path for protected extensions. An admin connects a 
 
 ## Data And Security
 
-Marketplace is schema-owning. It creates registration session, instance, update advisory, append-only install attempt, legacy install intent, and account connection tables. Older installations may retain legacy domain tables, but this package no longer reads them for install access.
+Marketplace is schema-owning. Its current tables are `marketplace_instances`, `marketplace_update_advisory_snapshots`, `marketplace_update_notice_dismissals`, `marketplace_account_connection_sessions`, `marketplace_install_flow_sessions`, `marketplace_install_attempts`, the append-only `marketplace_install_attempt_events` timeline, and legacy `marketplace_install_intents`. Older installations may retain legacy domain tables, but this package no longer reads them for install access.
 
 The package stores Marketplace instance IDs and encrypted signing secrets. Authorization requests are signed before they are sent to Capell App. Do not expose instance credentials, signing secrets, or licence keys in public output or unauthenticated admin copy.
 
@@ -99,17 +99,17 @@ Active and attention-needed operations are opened from the Extensions page heade
 
 ## Verification
 
-Run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
+From the host monorepo root, run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
 
 ```bash
-composer test
+vendor/bin/pest packages/marketplace/tests --configuration=phpunit.xml
 ```
 
 Run focused action or HTTP tests first when changing a specific flow, for example:
 
 ```bash
-vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php
-vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php
+vendor/bin/pest packages/marketplace/tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php --configuration=phpunit.xml
+vendor/bin/pest packages/marketplace/tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php --configuration=phpunit.xml
 ```
 
 ## Requirements And Support Policy

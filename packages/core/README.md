@@ -86,16 +86,16 @@ Core records are used by public rendering and admin workflows, so avoid adding a
 
 ## Verification
 
-Run the smallest relevant check first:
+From the host monorepo root, run the smallest relevant check first:
 
 ```bash
-vendor/bin/pest tests
+vendor/bin/pest packages/core/tests --configuration=phpunit.xml
 ```
 
 For shared contract changes, also run the package boundary and manifest tests:
 
 ```bash
-vendor/bin/pest tests/Arch tests/Unit/Manifest
+vendor/bin/pest packages/core/tests/Arch packages/core/tests/Unit/Manifest --configuration=phpunit.xml
 ```
 
 Before landing broader Core changes, run the repo preflight command:

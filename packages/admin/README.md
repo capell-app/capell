@@ -91,10 +91,10 @@ All editor-facing labels, notifications, and validation messages should use pack
 
 ## Verification
 
-Run Admin package tests after changing resources, policies, settings schemas, or panel registration:
+From the host monorepo root, run Admin package tests after changing resources, policies, settings schemas, or panel registration:
 
 ```bash
-vendor/bin/pest tests
+vendor/bin/pest packages/admin/tests --configuration=phpunit.xml
 ```
 
 For resource or schema changes, include the matching focused test file first. For UI behavior, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
