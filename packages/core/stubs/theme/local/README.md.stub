@@ -18,7 +18,7 @@ Add the host app path repository if it is not already present:
         }
     ],
     "require": {
-        "{{ packageName }}": "4.x-dev"
+        "{{ packageName }}": "1.x-dev"
     }
 }
 ```

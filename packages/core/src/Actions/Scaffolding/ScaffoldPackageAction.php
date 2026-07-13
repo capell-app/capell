@@ -35,13 +35,13 @@ final class ScaffoldPackageAction
     private function composerJson(PackageScaffoldInputData $input): array
     {
         $requires = [
-            'capell-app/core' => '^4.0',
+            'capell-app/core' => '^1.0',
             'spatie/laravel-package-tools' => '^1.14',
         ];
 
         if ($input->profile === PackageScaffoldProfile::Full) {
-            $requires['capell-app/admin'] = '^4.0';
-            $requires['capell-app/frontend'] = '^4.0';
+            $requires['capell-app/admin'] = '^1.0';
+            $requires['capell-app/frontend'] = '^1.0';
         }
 
         return [
