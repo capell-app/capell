@@ -61,6 +61,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093')
         ->toContain('SPLIT_APP_ID')
         ->toContain('SPLIT_APP_PRIVATE_KEY')
+        ->toContain('permission-contents: write')
         ->toContain('workflow_dispatch:')
         ->toContain('plan_artifact:')
         ->toContain('PLAN_PATH: ${{ inputs.plan_path }}')
