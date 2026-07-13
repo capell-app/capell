@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Policies\PagePolicy;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -57,6 +59,23 @@ beforeEach(function (): void {
 
 it('denies viewAny when the user has no page permissions', function (): void {
     expect($this->user->can('viewAny', Page::class))->toBeFalse();
+});
+
+it('does not treat a site-scoped super admin role as a global policy bypass', function (): void {
+    $role = Role::findOrCreate('super_admin');
+    DB::table('model_has_roles')->insert([
+        'role_id' => $role->getKey(),
+        'model_type' => $this->user->getMorphClass(),
+        'model_id' => $this->user->getKey(),
+        'team_id' => $this->site->getKey(),
+    ]);
+
+    $type = Blueprint::factory()->page()->create();
+    $restrictedPage = Page::factory()->for($this->site)->create(['blueprint_id' => $type->id]);
+    $restrictedRole = Role::findOrCreate('restricted-page-role');
+    $type->roleRestrictions()->create(['role_id' => $restrictedRole->getKey()]);
+
+    expect(resolve(PagePolicy::class)->view($this->user, $restrictedPage))->toBeFalse();
 });
 
 it('allows viewAny when the user has view_any permission', function (): void {

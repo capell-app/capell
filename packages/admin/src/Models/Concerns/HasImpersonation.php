@@ -27,7 +27,7 @@ trait HasImpersonation
      */
     private function isPrivilegedImpersonationTarget(): bool
     {
-        if ($this->hasRole((string) config('filament-shield.super_admin.name', 'super_admin'))) {
+        if (method_exists($this, 'isGlobalAdmin') && $this->isGlobalAdmin()) {
             return true;
         }
 

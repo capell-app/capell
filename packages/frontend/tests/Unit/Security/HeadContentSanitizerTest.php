@@ -33,3 +33,14 @@ it('keeps safe meta and link snippets while removing executable head html', func
         ->not->toContain('onclick')
         ->not->toContain('javascript:');
 });
+
+it('removes slash-separated event handlers and encoded unsafe URLs', function (): void {
+    $sanitized = HeadContentSanitizer::headSnippet(
+        '<meta/name="x"/onclick="alert(1)" content="ok"><link rel="canonical" href="&#106;avascript:alert(1)">',
+    );
+
+    expect($sanitized)
+        ->not->toContain('onclick')
+        ->not->toContain('javascript:')
+        ->not->toContain('href=');
+});

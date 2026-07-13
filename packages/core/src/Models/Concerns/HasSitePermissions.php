@@ -134,9 +134,10 @@ trait HasSitePermissions
      */
     public function isGlobalAdmin(): bool
     {
-        return $this->roles()
-            ->whereNull('model_has_roles.team_id')
-            ->exists();
+        $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
+        $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
+
+        return $this->hasGlobalRole($superAdminRole);
     }
 
     private function hasGlobalRole(string|Role $role): bool

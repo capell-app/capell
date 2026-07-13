@@ -428,6 +428,8 @@ it('keeps the installer package dependency javascript syntactically separated', 
     expect($view)
         ->toContain('type="application/json"')
         ->toContain('id="capell-installer-config"')
+        ->toContain('Illuminate\\Support\\Js::encode($installerConfig)')
+        ->not->toContain('json_encode($installerConfig')
         ->toContain('resources/js/install.js')
         ->toContain('data-submit-label')
         ->toContain('class="submit-arrow"')
