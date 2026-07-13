@@ -2,11 +2,10 @@
 
 ![Capell Admin expanded navigation, page table, editing form, and dashboard workspace](docs/assets/readme/hero.jpg)
 
-[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/admin?style=flat-square&label=release)](https://github.com/capell-app/admin/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/admin.svg?style=flat-square)](https://packagist.org/packages/capell-app/admin)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=admin)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/admin?components%5B0%5D=admin&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/admin?style=flat)](https://packagist.org/packages/capell-app/admin)
 [![Filament](https://img.shields.io/badge/Filament-5.6.8%20to%20%3C5.7-FDAE4B?style=flat-square&logo=filament&logoColor=000)](#requirements-and-support-policy)
@@ -92,10 +91,10 @@ All editor-facing labels, notifications, and validation messages should use pack
 
 ## Verification
 
-From the host monorepo root, run Admin package tests after changing resources, policies, settings schemas, or panel registration:
+From the split repository root, with development dependencies installed, run Admin package tests after changing resources, policies, settings schemas, or panel registration:
 
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 For resource or schema changes, include the matching focused test file first. For UI behavior, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.

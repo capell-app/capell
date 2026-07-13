@@ -36,8 +36,7 @@ it('links into the guide from the canonical documentation paths', function (): v
     $frontendIndex = pageBuildingGuideContents('docs/frontend/index.md');
 
     expect($readme)->toContain('[Build a page](docs/getting-started/building-pages.md)')
-        ->and($documentationIndex)->toMatch('/\\|\\s*Build a page\\s*\\|\\s*\\[Build a page\\]\\(getting-started\\/building-pages\\.md\\)/')
-        ->and($documentationIndex)->toMatch('/\\|\\s*How should I build this page\\?\\s*\\|\\s*\\[Build a page\\]\\(getting-started\\/building-pages\\.md\\)/')
+        ->and($documentationIndex)->toMatch('/\\|\\s*Build and edit a site\\s*\\|[^\\n]*\\[choose a page-building path\\]\\(getting-started\\/building-pages\\.md\\)/')
         ->and($firstPageGuide)->toContain('[Build a page](building-pages.md)')
         ->and($frontendIndex)->toContain('[Build a page](../getting-started/building-pages.md)');
 });
@@ -46,13 +45,9 @@ it('features the page-building path from the documentation landing page', functi
     $documentationIndex = pageBuildingGuideContents('docs/README.md');
 
     expect($documentationIndex)
-        ->toContain('## Build pages with the right amount of structure')
-        ->toContain('[Choose a page-building path](getting-started/building-pages.md)')
-        ->toContain('normal HTML page body')
-        ->toContain('typed blocks')
-        ->toContain('approved Layout Builder widgets')
-        ->toContain('dedicated Blade layouts')
-        ->toContain('The frontend stays in your Laravel application.');
+        ->toContain('| Build and edit a site')
+        ->toContain('[choose a page-building path](getting-started/building-pages.md)')
+        ->not->toContain('## Build pages with the right amount of structure');
 });
 
 it('keeps the guide illustration and documented screenshot captures available', function (): void {

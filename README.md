@@ -51,7 +51,7 @@ Open `http://localhost:8000/admin` for the admin panel and `http://localhost:800
 
 ## What This Repository Contains
 
-This 1.x host monorepo contains the five foundation packages. First-party features such as themes, SEO, and Publishing Studio live in separate Composer packages listed in the [package catalogue](docs/packages/catalog.md).
+This 4.x host monorepo contains the five foundation packages. First-party features such as themes, SEO, and Publishing Studio live in separate Composer packages listed in the [package catalogue](docs/packages/catalog.md).
 
 | Package     | Composer name            | What it owns                                                                                                 | Docs                                              |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
@@ -159,7 +159,7 @@ For local path-repository setup, branch guidance, and the contribution workflow,
 
 Capell is commercial software (`"license": "proprietary"`) with public foundation source and Composer distribution. Public visibility does not change the Capell licence. Each licensed copy may run in one production environment at a time, and the licence does not include updates or support unless those are part of the commercial agreement. See [LICENSE.md](LICENSE.md) for the full terms.
 
-The public foundation installs from Packagist. Capell All Access — Complete Collection is £199 GBP for twelve months of approved first-party extensions, themes, updates and support; protected packages require an active entitlement. See [Capell pricing](https://capell.app/pricing) for the current scope, renewal and refund terms.
+Foundation packages install from public Packagist repositories. Capell All Access — Complete Collection is £199 GBP for twelve months of approved first-party extensions, themes, updates and support; protected packages require an active entitlement. See [Capell pricing](https://capell.app/pricing) for the current scope, renewal and refund terms.
 
 - **Questions and discussion:** use the customer contact path or the relevant public repository issue tracker. Customer-specific entitlement and support questions belong in the Capell account support flow.
 - **Documentation:** [docs.capell.app](https://docs.capell.app)

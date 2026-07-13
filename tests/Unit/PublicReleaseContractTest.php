@@ -71,6 +71,8 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('repository: ${{ github.repository }}')
         ->toContain('github-token: ${{ github.token }}')
         ->toContain('release-plan.json.state.json')
+        ->toContain('Check out the approved plan source')
+        ->toContain('git checkout --detach "${source_commit}"')
         ->toContain('if: always()')
         ->toContain('if-no-files-found: ignore')
         ->not->toContain('test -f "${{ inputs.plan_path }}"')
@@ -120,22 +122,26 @@ it('documents one public distribution and commercial licensing story', function 
     $supportPolicy = file_get_contents($root . '/packages/core/README.md');
 
     expect($readme)
-        ->toContain('public foundation source')
-        ->toContain('public Packagist repositories')
-        ->toContain('Capell licence')
+        ->toContain('Foundation packages install from public Packagist repositories.')
+        ->toContain('For the shipped 1.x line')
+        ->toContain('Capell is commercial software (`"license": "proprietary"`)')
+        ->toContain('Public visibility does not change the Capell licence.')
         ->not->toContain('not published through a public source repository')
         ->not->toContain('distributed through private Composer access')
         ->and($quickstart)
-        ->toContain('current 1.x foundation release')
-        ->toContain('public Packagist')
+        ->toContain('current 1.x foundation release is available through public Packagist packages')
         ->and($install)
         ->toContain('Install the public foundation')
         ->toContain('Paid marketplace packages use authenticated Composer access')
         ->not->toContain('Configure private Capell access')
         ->not->toContain('Do not substitute public Packagist')
         ->and($supportPolicy)
-        ->toContain('Each Capell 1.x minor receives security fixes for 24 months')
-        ->not->toContain('For each Capell 1.x minor release');
+        ->toContain('Each Capell 1.x minor receives security fixes for 24 months from its release date')
+        ->toContain('the latest 1.x minor is always supported');
+
+    foreach ([$readme, $quickstart, $install, $supportPolicy] as $publicDocument) {
+        expect($publicDocument)->not->toContain('0.0.x');
+    }
 });
 
 it('keeps split package readmes standalone', function (): void {
@@ -143,11 +149,17 @@ it('keeps split package readmes standalone', function (): void {
 
     foreach (['admin', 'core', 'frontend', 'installer', 'marketplace'] as $package) {
         $readme = file_get_contents($root . '/packages/' . $package . '/README.md');
+        $releaseBadge = '[![Latest Release](https://img.shields.io/github/v/release/capell-app/' . $package
+            . '?style=flat-square&label=release)](https://github.com/capell-app/' . $package . '/releases/latest)';
 
         expect($readme)
             ->not->toContain('../../docs/')
             ->not->toContain('packages/' . $package . '/')
             ->not->toContain('vendor/bin/pest packages/' . $package . '/')
+            ->toContain("```bash\nvendor/bin/pest tests\n```")
+            ->toContain($releaseBadge)
+            ->not->toContain('github/v/release/capell-app/capell?')
+            ->not->toContain('github.com/capell-app/capell/releases/latest')
             ->toContain('https://docs.capell.app');
     }
 });

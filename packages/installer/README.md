@@ -2,11 +2,10 @@
 
 ![Capell Installer package selection and guided setup handoff](docs/assets/readme/hero.jpg)
 
-[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/installer?style=flat-square&label=release)](https://github.com/capell-app/installer/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/installer.svg?style=flat-square)](https://packagist.org/packages/capell-app/installer)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=installer)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/installer?components%5B0%5D=installer&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -90,10 +89,10 @@ The browser installer discovers package and theme choices from Capell package me
 
 ## Verification
 
-From the host monorepo root, run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
+From the split repository root, with development dependencies installed, run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
 
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 ## Requirements And Support Policy

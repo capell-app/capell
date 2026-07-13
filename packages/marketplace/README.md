@@ -2,11 +2,10 @@
 
 ![Capell Marketplace catalogue discovery, extension evaluation, and operation state](docs/assets/readme/hero.jpg)
 
-[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/marketplace?style=flat-square&label=release)](https://github.com/capell-app/marketplace/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/marketplace.svg?style=flat-square)](https://packagist.org/packages/capell-app/marketplace)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=marketplace)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/marketplace?components%5B0%5D=marketplace&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/marketplace?style=flat)](https://packagist.org/packages/capell-app/marketplace)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -99,10 +98,10 @@ Active and attention-needed operations are opened from the Extensions page heade
 
 ## Verification
 
-From the host monorepo root, run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
+From the split repository root, with development dependencies installed, run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
 
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 Run focused action or HTTP tests first when changing a specific flow, for example:

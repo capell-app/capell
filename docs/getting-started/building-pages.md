@@ -47,7 +47,7 @@ Use Layout Builder when the page needs approved section composition: named regio
 
 The layout is shared by every page assigned to it. Create or clone a layout before making a change that should not affect other pages. Each widget owns its reusable content and any widget assets it needs; the layout owns placement and container settings.
 
-Layout Builder is a companion package, so its documentation and screenshot evidence remain package-owned. See the [Layout Builder documentation](https://docs.capell.app/packages/layout-builder) for the real container, widget, asset, and editor surfaces. This Core guide deliberately does not duplicate those fixtures or implementation details.
+Layout Builder is a companion package, so its implementation details and screenshot evidence remain package-owned. Use the [Layout Builder documentation](https://docs.capell.app/packages/layout-builder) for its real container, widget, asset, and editor surfaces.
 
 ## 4. Custom Blade rendering
 

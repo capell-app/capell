@@ -2,11 +2,10 @@
 
 ![Capell Core architectural cutaway showing Site, Language, Page, URL, Settings, Theme, and Extension layers](docs/assets/readme/hero.jpg)
 
-[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/core?style=flat-square&label=release)](https://github.com/capell-app/core/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/core.svg?style=flat-square)](https://packagist.org/packages/capell-app/core)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=core)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/core?components%5B0%5D=core&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/core?style=flat)](https://packagist.org/packages/capell-app/core)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -86,22 +85,16 @@ Core records are used by public rendering and admin workflows, so avoid adding a
 
 ## Verification
 
-From the host monorepo root, run the smallest relevant check first:
+From the split repository root, with development dependencies installed, run the smallest relevant check first:
 
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 For shared contract changes, also run the package boundary and manifest tests:
 
 ```bash
-vendor/bin/pest tests/Arch tests/Unit/Manifest --configuration=phpunit.xml
-```
-
-Before landing broader Core changes, run the repo preflight command:
-
-```bash
-composer preflight
+vendor/bin/pest tests/Arch tests/Unit/Manifest
 ```
 
 ## Requirements And Support Policy

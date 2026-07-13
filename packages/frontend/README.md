@@ -2,11 +2,10 @@
 
 ![Capell Frontend site and locale resolution flowing into the responsive Foundation theme](docs/assets/readme/hero.jpg)
 
-[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/frontend?style=flat-square&label=release)](https://github.com/capell-app/frontend/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/frontend.svg?style=flat-square)](https://packagist.org/packages/capell-app/frontend)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=frontend)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/frontend?components%5B0%5D=frontend&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/frontend?style=flat)](https://packagist.org/packages/capell-app/frontend)
 [![Livewire Compatibility](https://badge.laravel.cloud/livewire-badge/capell-app/frontend?style=flat)](https://packagist.org/packages/capell-app/frontend)
@@ -86,10 +85,10 @@ Tailwind source/import generation depends on installed packages declaring their 
 
 ## Verification
 
-From the host monorepo root, run package tests after changing frontend routing, render actions, cache invalidation, or public safety checks:
+From the split repository root, with development dependencies installed, run package tests after changing frontend routing, render actions, cache invalidation, or public safety checks:
 
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+vendor/bin/pest tests
 ```
 
 For public output changes, include the safety-focused tests:

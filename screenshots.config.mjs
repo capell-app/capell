@@ -47,6 +47,10 @@ export default {
             repositoryRoot,
             'workbench/database/screenshots.sqlite',
         ),
+        CAPELL_SCREENSHOT_DATABASE: join(
+            repositoryRoot,
+            'workbench/database/screenshots.sqlite',
+        ),
         CACHE_STORE: 'array',
         SESSION_DRIVER: 'file',
         QUEUE_CONNECTION: 'sync',

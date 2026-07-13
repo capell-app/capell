@@ -74,6 +74,13 @@ jobs:
         with:
           name: approved-release-plan
           path: ${{ runner.temp }}/approved-plan
+      - name: Check out the approved plan source
+        env:
+          RELEASE_PLAN: ${{ runner.temp }}/approved-plan/release-plan.json
+        run: |
+          source_commit="$(jq -r '.source.commit' "${RELEASE_PLAN}")"
+          test "${source_commit}" != null
+          git checkout --detach "${source_commit}"
       - uses: actions/download-artifact@v4
         if: inputs.resume_state_run_id != ''
         with:
