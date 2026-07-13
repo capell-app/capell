@@ -8,7 +8,8 @@
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=admin)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/admin?components%5B0%5D=admin&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
-[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
+[![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/admin?style=flat)](https://packagist.org/packages/capell-app/admin)
+[![Filament](https://img.shields.io/badge/Filament-5.6.8%20to%20%3C5.7-FDAE4B?style=flat-square&logo=filament&logoColor=000)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/admin` is the Filament panel package for Capell CMS. It adds the authenticated editor and operator surface for managing Core records, settings, package state, dashboards, permissions, and admin extension points.
