@@ -394,7 +394,8 @@ final class ReleaseEngine
             }
             $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             if ($main !== $splitSha) {
-                $this->required(self::pushCommand($repository, "{$splitSha}:refs/heads/main"), $this->root);
+                $lease = is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main) ? $main : null;
+                $this->required(self::pushCommand($repository, "{$splitSha}:refs/heads/main", $lease), $this->root);
             }
             $state['packages'][$name] = array_merge($state['packages'][$name] ?? [], ['state' => 'main_pushed', 'split_sha' => $splitSha, 'tag' => $tag]);
             $this->writeState($planPath, $state);
@@ -465,9 +466,9 @@ final class ReleaseEngine
         };
     }
 
-    private static function pushCommand(string $repository, string $refspec): array
+    private static function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
-        return ['git', 'push', "https://github.com/{$repository}.git", $refspec];
+        return ['git', 'push', ...($lease === null ? [] : ["--force-with-lease=refs/heads/main:{$lease}"]), "https://github.com/{$repository}.git", $refspec];
     }
 
     private function assertExactSource(array $plan): void
