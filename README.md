@@ -2,9 +2,10 @@
 
 ![Capell CMS banner showing the Pages admin surface](docs/images/capell-readme-banner.jpg)
 
-[![Latest Release](https://img.shields.io/github/v/release/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/releases/latest)
+[![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![PHPStan Level](https://img.shields.io/badge/PHPStan-level%208-4F5B93?style=flat-square&logo=php)](phpstan/common.neon)
 [![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg)](https://app.codecov.io/gh/capell-app/capell)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)

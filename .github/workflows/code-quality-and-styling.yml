@@ -1,6 +1,9 @@
 name: PHP Quality
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - 1.x
