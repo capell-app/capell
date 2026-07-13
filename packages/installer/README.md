@@ -2,8 +2,11 @@
 
 ![Capell Installer package selection and guided setup handoff](docs/assets/readme/hero.jpg)
 
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/installer?style=flat-square&label=release)](https://github.com/capell-app/installer/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/installer.svg?style=flat-square)](https://packagist.org/packages/capell-app/installer)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=installer)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/installer?components%5B0%5D=installer&displayType=list)
+[![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
+[![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=installer)](https://app.codecov.io/gh/capell-app/capell?components%5B0%5D=installer&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -87,7 +90,7 @@ The browser installer discovers package and theme choices from Capell package me
 
 ## Verification
 
-Run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
+From the split repository root, with development dependencies installed, run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
 
 ```bash
 vendor/bin/pest tests
@@ -101,7 +104,7 @@ vendor/bin/pest tests
 | Laravel | Host Laravel `^12.41.1` or `^13.0` via Core |
 | Core    | The same release as this package            |
 
-Security fixes target the current stable Capell release. While Capell remains on 0.0.x, upgrade all Capell packages together to the latest stable 0.0.x release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.
 
 Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 

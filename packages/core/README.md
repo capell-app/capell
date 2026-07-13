@@ -2,8 +2,11 @@
 
 ![Capell Core architectural cutaway showing Site, Language, Page, URL, Settings, Theme, and Extension layers](docs/assets/readme/hero.jpg)
 
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/core?style=flat-square&label=release)](https://github.com/capell-app/core/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/core.svg?style=flat-square)](https://packagist.org/packages/capell-app/core)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=core)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/core?components%5B0%5D=core&displayType=list)
+[![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
+[![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=core)](https://app.codecov.io/gh/capell-app/capell?components%5B0%5D=core&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -83,7 +86,7 @@ Core records are used by public rendering and admin workflows, so avoid adding a
 
 ## Verification
 
-Run the smallest relevant check first:
+From the split repository root, with development dependencies installed, run the smallest relevant check first:
 
 ```bash
 vendor/bin/pest tests
@@ -93,12 +96,6 @@ For shared contract changes, also run the package boundary and manifest tests:
 
 ```bash
 vendor/bin/pest tests/Arch tests/Unit/Manifest
-```
-
-Before landing broader Core changes, run the repo preflight command:
-
-```bash
-composer preflight
 ```
 
 ## Requirements And Support Policy
@@ -112,9 +109,7 @@ composer preflight
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |
 
-Security fixes target the current stable 0.0.x release. Upgrade all Capell packages together to that release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
-
-The published 1.x maintenance windows begin with Capell 1.0.
+Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.
 
 Support covers the dependency ranges above. When an upstream PHP, Laravel, Filament, or Symfony release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 

@@ -2,8 +2,11 @@
 
 ![Capell Marketplace catalogue discovery, extension evaluation, and operation state](docs/assets/readme/hero.jpg)
 
+[![Latest Release](https://img.shields.io/github/v/release/capell-app/marketplace?style=flat-square&label=release)](https://github.com/capell-app/marketplace/releases/latest)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/marketplace.svg?style=flat-square)](https://packagist.org/packages/capell-app/marketplace)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=marketplace)](https://app.codecov.io/gh/capell-app/capell/tree/main/packages/marketplace?components%5B0%5D=marketplace&displayType=list)
+[![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
+[![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=marketplace)](https://app.codecov.io/gh/capell-app/capell?components%5B0%5D=marketplace&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
@@ -82,7 +85,7 @@ Account linking is the trust path for protected extensions. An admin connects a 
 
 ## Data And Security
 
-Marketplace is schema-owning. It creates registration session, instance, update advisory, append-only install attempt, legacy install intent, and account connection tables. Older installations may retain legacy domain tables, but this package no longer reads them for install access.
+Marketplace is schema-owning. Its current tables are `marketplace_instances`, `marketplace_update_advisory_snapshots`, `marketplace_update_notice_dismissals`, `marketplace_account_connection_sessions`, `marketplace_install_flow_sessions`, `marketplace_install_attempts`, the append-only `marketplace_install_attempt_events` timeline, and legacy `marketplace_install_intents`. Older installations may retain legacy domain tables, but this package no longer reads them for install access.
 
 The package stores Marketplace instance IDs and encrypted signing secrets. Authorization requests are signed before they are sent to Capell App. Do not expose instance credentials, signing secrets, or licence keys in public output or unauthenticated admin copy.
 
@@ -96,10 +99,10 @@ Active and attention-needed operations are opened from the Extensions page heade
 
 ## Verification
 
-Run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
+From the split repository root, with development dependencies installed, run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
 
 ```bash
-composer test
+vendor/bin/pest tests
 ```
 
 Run focused action or HTTP tests first when changing a specific flow, for example:
@@ -118,7 +121,7 @@ vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControlle
 | Core    | The same release as this package |
 | Admin   | The same release as this package |
 
-Security fixes target the current stable Capell release. While Capell remains on 0.0.x, upgrade all Capell packages together to the latest stable 0.0.x release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for supported release windows and vulnerability reporting.
+Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.
 
 Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 
