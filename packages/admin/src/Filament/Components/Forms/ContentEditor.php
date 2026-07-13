@@ -36,6 +36,14 @@ class ContentEditor
             $component = self::getContentBuilder((string) $name);
             if ($withContentStructureConversion) {
                 self::addConvertContentToHtmlHintAction($component);
+
+                // A Blocks → HTML conversion flips the record's structure and
+                // rewrites the bound state to an HTML string within the same
+                // Livewire request. Hide the now-stale Builder so Filament v5 does
+                // not render it against that string (Builder items must be arrays);
+                // the schema rebuilds as an HTML editor on the next form mount.
+                $component->visible(fn (mixed $livewire): bool => ! ($livewire instanceof EditPage)
+                    || $livewire->record->content_structure === ContentStructure::Blocks);
             }
 
             return $configure !== null ? $configure($component) : $component;

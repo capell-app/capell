@@ -584,7 +584,7 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
 });
 
 it('publishes the current extension API version from one typed source', function (): void {
-    expect(CapellExtensionApi::CURRENT_VERSION)->toBe('4.1.0');
+    expect(CapellExtensionApi::CURRENT_VERSION)->toBe('1.1.0');
 });
 
 it('exposes a content widget contribution contract', function (): void {
