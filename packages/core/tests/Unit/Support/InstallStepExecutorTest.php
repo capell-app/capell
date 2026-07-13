@@ -411,7 +411,7 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     expect(array_key_exists('capell:admin-sync-permissions', Artisan::all()))->toBeTrue();
 
     $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->with(120)->andReturnSelf();
+    $process->shouldReceive('setTimeout')->with(null)->andReturnSelf();
     $process->shouldReceive('run')->once()->andReturnUsing(function (?callable $callback = null): int {
         if ($callback !== null) {
             $callback('out', 'Capell admin permissions synced.');
