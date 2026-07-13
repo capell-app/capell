@@ -96,7 +96,7 @@ it('accepts both current and previous minor extension API constraints', function
     $messages = collect(AuditExtensionContractsAction::run($directory))->pluck('message')->all();
 
     expect($messages)->not->toContain('Manifest capellApiVersion does not allow the current Capell API.');
-})->with(['^4.0', '^4.1']);
+})->with(['^1.0', '^1.1']);
 
 it('fails unsafe public cache declarations for frontend contributions', function (): void {
     $directory = makeExtensionAuditPackage(
@@ -137,7 +137,7 @@ final class PublicCard implements RegistersExtensionFrontendComponent
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -185,7 +185,7 @@ final class HeroWidget implements RegistersExtensionContentWidget
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.1';
+        return '^1.1';
     }
 }
 PHP,
@@ -240,7 +240,7 @@ final class PublicRoutes implements RegistersExtensionRoute
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -300,7 +300,7 @@ final class BillingSettings implements RegistersExtensionSetting
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -317,7 +317,7 @@ final class BillingHealthCheck implements ChecksExtensionHealth
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -377,7 +377,7 @@ final class BillingSettingsContribution implements ExtensionContribution, Regist
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -394,7 +394,7 @@ final class BillingHealthContribution implements ChecksExtensionHealth
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -411,7 +411,7 @@ final class BillingSettings implements RegistersExtensionSetting
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,
@@ -428,7 +428,7 @@ final class BillingHealthCheck implements ChecksExtensionHealth
 {
     public static function compatibleCapellApiVersion(): string
     {
-        return '^4.0';
+        return '^1.0';
     }
 }
 PHP,

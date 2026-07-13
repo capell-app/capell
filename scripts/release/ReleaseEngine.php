@@ -8,10 +8,7 @@ use RuntimeException;
 
 interface CommandRunner
 {
-    /**
-     * @param  list<string>  $command
-     * @return array{output:string,exitCode:int,error?:string}
-     */
+    /** @return array{output:string,exitCode:int,error?:string} */
     public function run(array $command, ?string $workingDirectory = null): array;
 }
 
@@ -86,16 +83,22 @@ final class PlanValidator
         $names = array_column($plan['packages'], 'name');
         $inventoryNames = array_column($plan['inventory'], 'name');
         $ledgerNames = array_column($plan['ledger'], 'name');
+        $externalLedger = $plan['external_ledger'] ?? [];
+        if (! is_array($externalLedger) || array_intersect($ledgerNames, array_column($externalLedger, 'name')) !== []) {
+            throw new ReleaseException('External ledger must be disjoint from local inventory.');
+        }
+        $combinedLedger = [...$externalLedger, ...$plan['ledger']];
+        $combinedNames = array_column($combinedLedger, 'name');
         if ($inventoryNames !== $ledgerNames || count(array_unique($ledgerNames)) !== count($ledgerNames)) {
             throw new ReleaseException('Plan ledger must exactly cover inventory in stable order.');
         }
-        foreach ($plan['ledger'] as $entry) {
+        foreach ($combinedLedger as $entry) {
             foreach (['name', 'path', 'repository', 'version', 'previous_version', 'source_commit', 'subtree_hash', 'direct_capell_dependencies', 'resolved_minimum_versions'] as $field) {
                 if (! array_key_exists($field, $entry)) {
                     throw new ReleaseException("Ledger entry is missing {$field}.");
                 }
             }
-            if (! preg_match('/^[a-f0-9]{40}$/', $entry['subtree_hash']) || ! self::isCanonicalVersion($entry['version'])) {
+            if (! preg_match('/^[a-f0-9]{40}$/', $entry['source_commit']) || ! preg_match('/^[a-f0-9]{40}$/', $entry['subtree_hash']) || ! self::isCanonicalVersion($entry['version'])) {
                 throw new ReleaseException("Ledger entry {$entry['name']} is invalid.");
             }
         }
@@ -108,16 +111,16 @@ final class PlanValidator
             }
         }
         $ledgerGraph = [];
-        foreach ($plan['ledger'] as $entry) {
+        foreach ($combinedLedger as $entry) {
             $dependencies = $entry['direct_capell_dependencies'];
-            if (count($dependencies) !== count(array_unique($dependencies)) || array_diff($dependencies, $ledgerNames) !== [] || in_array($entry['name'], $dependencies, true)) {
+            if (count($dependencies) !== count(array_unique($dependencies)) || array_diff($dependencies, $combinedNames) !== [] || in_array($entry['name'], $dependencies, true)) {
                 throw new ReleaseException("Ledger entry {$entry['name']} has an unknown, duplicate, or self dependency.");
             }
             if (array_diff(array_keys($entry['resolved_minimum_versions']), $dependencies) !== [] || array_diff($dependencies, array_keys($entry['resolved_minimum_versions'])) !== []) {
                 throw new ReleaseException("Ledger entry {$entry['name']} must resolve every direct dependency exactly once.");
             }
             foreach ($entry['resolved_minimum_versions'] as $dependency => $minimum) {
-                $referenced = current(array_filter($plan['ledger'], fn (array $candidate): bool => $candidate['name'] === $dependency));
+                $referenced = current(array_filter($combinedLedger, fn (array $candidate): bool => $candidate['name'] === $dependency));
                 if ($referenced === false || $minimum !== $referenced['version']) {
                     throw new ReleaseException("Ledger entry {$entry['name']} has an incompatible minimum for {$dependency}.");
                 }
@@ -129,8 +132,9 @@ final class PlanValidator
             throw new ReleaseException('Plan packages must be non-empty and unique.');
         }
         $graph = [];
+        $sourceTags = [];
         foreach ($plan['packages'] as $package) {
-            foreach (['name', 'path', 'split_repository', 'current_version', 'proposed_version', 'source_commit', 'subtree_hash', 'direct_capell_dependencies', 'resolved_minimum_versions', 'reason', 'release_type', 'publication_state', 'tag_sha'] as $field) {
+            foreach (['name', 'path', 'split_repository', 'current_version', 'proposed_version', 'source_commit', 'source_tag', 'subtree_hash', 'direct_capell_dependencies', 'resolved_minimum_versions', 'reason', 'release_type', 'publication_state', 'tag_sha'] as $field) {
                 if (! array_key_exists($field, $package)) {
                     throw new ReleaseException("Package {$package['name']} is missing {$field}.");
                 }
@@ -138,6 +142,11 @@ final class PlanValidator
             if (! self::isCanonicalVersion($package['proposed_version'])) {
                 throw new ReleaseException("Invalid proposed version for {$package['name']}.");
             }
+            $expectedSourceTag = basename($package['path']) . '/v' . $package['proposed_version'];
+            if ($package['source_tag'] !== $expectedSourceTag || in_array($package['source_tag'], $sourceTags, true)) {
+                throw new ReleaseException("Invalid or duplicate source tag for {$package['name']}.");
+            }
+            $sourceTags[] = $package['source_tag'];
             if (($package['current_version'] === null && $package['release_type'] !== 'baseline') || ($package['current_version'] !== null && ! self::isCanonicalVersion($package['current_version']))) {
                 throw new ReleaseException("Invalid current version for {$package['name']}.");
             }
@@ -158,14 +167,14 @@ final class PlanValidator
                 throw new ReleaseException("Package {$package['name']} has a drifting source or invalid tree hash.");
             }
             foreach ($package['direct_capell_dependencies'] as $dependency) {
-                if (! in_array($dependency, $inventoryNames, true) || $dependency === $package['name']) {
+                if (! in_array($dependency, $combinedNames, true) || $dependency === $package['name']) {
                     throw new ReleaseException("Package {$package['name']} has an unknown dependency.");
                 }
             }
             foreach ($package['resolved_minimum_versions'] as $dependency => $version) {
                 $dependencyPackage = current(array_filter($plan['packages'], fn (array $candidate): bool => $candidate['name'] === $dependency));
-                $inventoryPackage = current(array_filter($plan['inventory'], fn (array $candidate): bool => $candidate['name'] === $dependency));
-                $expected = $dependencyPackage === false ? ($inventoryPackage['version'] ?? null) : $dependencyPackage['proposed_version'];
+                $ledgerPackage = current(array_filter($combinedLedger, fn (array $candidate): bool => $candidate['name'] === $dependency));
+                $expected = $dependencyPackage === false ? ($ledgerPackage['version'] ?? null) : $dependencyPackage['proposed_version'];
                 if (! in_array($dependency, $package['direct_capell_dependencies'], true) || $expected === null || $version !== $expected) {
                     throw new ReleaseException("Incompatible planned requirement for {$package['name']}.");
                 }
@@ -232,7 +241,7 @@ final class ReleaseEngine
     public function __construct(private readonly string $root, private readonly CommandRunner $runner = new ProcessCommandRunner) {}
 
     /** @return array<string,mixed> */
-    public function plan(string $version, ?array $previous = null, array $bumps = []): array
+    public function plan(string $version, ?array $previous = null, array $bumps = [], array $externalLedger = []): array
     {
         if ($previous === null && $version !== '1.0.0') {
             throw new ReleaseException('The baseline version must be exactly 1.0.0.');
@@ -243,7 +252,7 @@ final class ReleaseEngine
         $packages = [];
         $candidates = [];
         $graph = [];
-        $knownNames = array_column($definitions, 'name');
+        $knownNames = [...array_column($definitions, 'name'), ...array_column($externalLedger, 'name')];
         foreach ($bumps as $name => $type) {
             if (! in_array($name, $knownNames, true) || ! in_array($type, ['patch', 'minor', 'major'], true)) {
                 throw new ReleaseException("Invalid or unknown bump {$name}={$type}.");
@@ -293,7 +302,8 @@ final class ReleaseEngine
         foreach ($packages as &$package) {
             foreach ($package['direct_capell_dependencies'] as $dependency) {
                 $planned = current(array_filter($packages, fn (array $item): bool => $item['name'] === $dependency));
-                $prior = $previous === null ? false : current(array_filter($previous['ledger'], fn (array $item): bool => $item['name'] === $dependency));
+                $priorLedger = $previous === null ? $externalLedger : [...($previous['external_ledger'] ?? []), ...$previous['ledger']];
+                $prior = current(array_filter($priorLedger, fn (array $item): bool => $item['name'] === $dependency));
                 $package['resolved_minimum_versions'][$dependency] = $planned['proposed_version'] ?? $prior['version'];
             }
         }
@@ -315,7 +325,7 @@ final class ReleaseEngine
 
             return ['name' => $definition['name'], 'path' => $definition['path'], 'repository' => $definition['repository'], 'version' => $planned['proposed_version'] ?? $prior['version'], 'previous_version' => $planned['current_version'] ?? $prior['previous_version'] ?? null, 'source_commit' => $planned['source_commit'] ?? $prior['source_commit'] ?? $previous['source']['commit'] ?? null, 'subtree_hash' => $candidate['tree'], 'direct_capell_dependencies' => $candidate['dependencies'], 'resolved_minimum_versions' => $planned['resolved_minimum_versions'] ?? $prior['resolved_minimum_versions']];
         }, $definitions);
-        $plan = ['schema_version' => 1, 'source' => ['repository' => $this->git(['config', '--get', 'remote.origin.url']), 'commit' => $commit, 'ref' => "refs/commits/{$commit}"], 'inventory' => $inventory, 'ledger' => $ledger, 'packages' => $packages, 'dependency_order' => DependencyGraph::order($selectedGraph)];
+        $plan = ['schema_version' => 1, 'source' => ['repository' => $this->git(['config', '--get', 'remote.origin.url']), 'commit' => $commit, 'ref' => "refs/commits/{$commit}"], 'inventory' => $inventory, 'external_ledger' => $externalLedger, 'ledger' => $ledger, 'packages' => $packages, 'dependency_order' => DependencyGraph::order($selectedGraph)];
         (new PlanValidator)->validate($plan);
 
         return $plan;
@@ -353,6 +363,20 @@ final class ReleaseEngine
             $existing = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
             $peeled = $existing === null ? null : $this->optional(['gh', 'api', "repos/{$repository}/git/tags/{$existing}", '--jq', '.object.sha']) ?? $existing;
             $decision = ResumeDecision::forTag($peeled, $splitSha);
+            $sourceTag = $package['source_tag'];
+            $localSourceTagSha = $this->optional(['git', 'rev-parse', '-q', '--verify', 'refs/tags/' . $sourceTag . '^{commit}']);
+            $localSourceTagSha = $localSourceTagSha === '' ? null : $localSourceTagSha;
+            $sourceLine = $this->optional(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $sourceTag]);
+            $sourceTagSha = $sourceLine === null || $sourceLine === '' ? null : strtok($sourceLine, "\t ");
+            if (($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit'])) {
+                throw new ReleaseException("Existing source tag {$sourceTag} does not match the planned source commit.");
+            }
+            if ($sourceTagSha !== null) {
+                $record = $state['packages'][$name] ?? null;
+                if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash || ($record['source_tag_sha'] ?? null) !== $sourceTagSha) {
+                    throw new ReleaseException("Existing source tag {$sourceTag} is not backed by this plan's passed preflight state.");
+                }
+            }
             if ($decision === 'resume') {
                 $record = $state['packages'][$name] ?? null;
                 if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash
@@ -360,7 +384,7 @@ final class ReleaseEngine
                     throw new ReleaseException("Existing matching tag for {$name} is not backed by this plan's passed preflight state.");
                 }
             }
-            $releases[] = compact('name', 'repository', 'tag', 'splitSha', 'decision');
+            $releases[] = compact('name', 'repository', 'tag', 'splitSha', 'decision', 'sourceTag', 'sourceTagSha', 'localSourceTagSha');
         }
         foreach ($releases as $release) {
             ['name' => $name,'repository' => $repository,'tag' => $tag,'splitSha' => $splitSha] = $release;
@@ -381,7 +405,13 @@ final class ReleaseEngine
             $this->writeState($planPath, $state);
         }
         foreach ($releases as $release) {
-            ['name' => $name,'repository' => $repository,'tag' => $tag,'splitSha' => $splitSha,'decision' => $decision] = $release;
+            ['name' => $name,'repository' => $repository,'tag' => $tag,'splitSha' => $splitSha,'decision' => $decision,'sourceTag' => $sourceTag,'sourceTagSha' => $sourceTagSha,'localSourceTagSha' => $localSourceTagSha] = $release;
+            if ($sourceTagSha === null) {
+                if ($localSourceTagSha === null) {
+                    $this->required(['git', 'tag', $sourceTag, $plan['source']['commit']], $this->root);
+                }
+                $this->required(['git', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
+            }
             if ($decision === 'publish') {
                 $this->required(self::pushCommand($repository, "{$splitSha}:refs/tags/{$tag}"), $this->root);
             }
@@ -389,7 +419,7 @@ final class ReleaseEngine
                 $this->required(['gh', 'release', 'create', $tag, '--repo', $repository, '--verify-tag', '--generate-notes']);
             }
             $tagSha = $this->required(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
-            $state['packages'][$name] = ['state' => 'published', 'split_sha' => $splitSha, 'tag' => $tag, 'tag_sha' => $tagSha];
+            $state['packages'][$name] = ['state' => 'published', 'split_sha' => $splitSha, 'tag' => $tag, 'tag_sha' => $tagSha, 'source_tag' => $sourceTag, 'source_tag_sha' => $plan['source']['commit']];
             $this->writeState($planPath, $state);
         }
     }
@@ -412,12 +442,16 @@ final class ReleaseEngine
             if ($main !== $state['packages'][$package['name']]['split_sha']) {
                 throw new ReleaseException("Remote main drift for {$package['name']}.");
             }
+            $sourceLine = $this->required(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $package['source_tag']]);
+            if (! str_starts_with($sourceLine, $plan['source']['commit'])) {
+                throw new ReleaseException("Source tag drift for {$package['name']}.");
+            }
         }
     }
 
     private static function packageEntry(array $definition, array $dependencies, array|false|null $old, string $tree, string $commit, string $proposed, string $reason, string $type): array
     {
-        return ['name' => $definition['name'], 'path' => $definition['path'], 'split_repository' => $definition['repository'], 'current_version' => $old['version'] ?? null, 'proposed_version' => $proposed, 'source_commit' => $commit, 'source_ref' => "refs/commits/{$commit}", 'subtree_hash' => $tree, 'direct_capell_dependencies' => $dependencies, 'resolved_minimum_versions' => [], 'reason' => $reason, 'release_type' => $type, 'publication_state' => 'pending', 'tag_sha' => null];
+        return ['name' => $definition['name'], 'path' => $definition['path'], 'split_repository' => $definition['repository'], 'current_version' => $old['version'] ?? null, 'proposed_version' => $proposed, 'source_commit' => $commit, 'source_ref' => "refs/commits/{$commit}", 'source_tag' => basename($definition['path']) . '/v' . $proposed, 'subtree_hash' => $tree, 'direct_capell_dependencies' => $dependencies, 'resolved_minimum_versions' => [], 'reason' => $reason, 'release_type' => $type, 'publication_state' => 'pending', 'tag_sha' => null];
     }
 
     private static function bump(string $version, string $type): string

@@ -35,7 +35,7 @@ it('hydrates manifest v3 fields into immutable data objects', function (): void 
         ->and($manifest->name)->toBe('capell-app/example')
         ->and($manifest->slug)->toBe('example')
         ->and($manifest->displayName)->toBe('Example')
-        ->and($manifest->capellApiVersion)->toBe('^4.0')
+        ->and($manifest->capellApiVersion)->toBe('^1.0')
         ->and($manifest->version)->toBe('1.x-dev')
         ->and($manifest->productGroup)->toBe('Developer Tools')
         ->and($manifest->tier)->toBe('premium')

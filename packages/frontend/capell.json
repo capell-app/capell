@@ -4,7 +4,7 @@
     "slug": "frontend",
     "displayName": "Capell Frontend",
     "kind": "package",
-    "capellApiVersion": "^4.0",
+    "capellApiVersion": "^1.0",
     "version": "1.x-dev",
     "description": "Frontend provides public rendering, static HTML cache, Tailwind aggregation, Blade helpers, and performance middleware.",
     "product": {

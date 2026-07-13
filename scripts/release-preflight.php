@@ -28,7 +28,7 @@ register_shutdown_function(static function () use ($temporary): void {
 });
 $repositories = [];
 $requirements = [];
-foreach ($plan['ledger'] as $package) {
+foreach ([...($plan['external_ledger'] ?? []), ...$plan['ledger']] as $package) {
     $repositories[] = ['type' => 'vcs', 'url' => 'https://github.com/' . $package['repository'] . '.git'];
     if (isset($selected[$package['name']])) {
         [$major, $minor] = explode('.', $selected[$package['name']]['proposed_version']);

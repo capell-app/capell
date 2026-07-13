@@ -42,6 +42,80 @@ it('accepts a stable v1 internal minimum', function (): void {
     expect(true)->toBeTrue();
 });
 
+it('validates local package requirements against an imported external ledger', function (): void {
+    $sourceCommit = str_repeat('a', 40);
+    $externalCommit = str_repeat('b', 40);
+    $externalTree = str_repeat('c', 40);
+    $localTree = str_repeat('d', 40);
+    $external = [
+        'name' => 'capell-app/core',
+        'path' => 'packages/core',
+        'repository' => 'capell-app/core',
+        'version' => '1.0.0',
+        'previous_version' => null,
+        'source_commit' => $externalCommit,
+        'subtree_hash' => $externalTree,
+        'direct_capell_dependencies' => [],
+        'resolved_minimum_versions' => [],
+    ];
+    $local = [
+        'name' => 'capell-app/example',
+        'path' => 'packages/example',
+        'repository' => 'capell-app/example',
+        'version' => '1.0.0',
+        'previous_version' => null,
+        'source_commit' => $sourceCommit,
+        'source_tag' => 'example/v1.0.0',
+        'subtree_hash' => $localTree,
+        'direct_capell_dependencies' => ['capell-app/core'],
+        'resolved_minimum_versions' => ['capell-app/core' => '1.0.0'],
+    ];
+    $selected = [
+        'name' => 'capell-app/example',
+        'path' => 'packages/example',
+        'split_repository' => 'capell-app/example',
+        'current_version' => null,
+        'proposed_version' => '1.0.0',
+        'source_commit' => $sourceCommit,
+        'source_tag' => 'example/v1.0.0',
+        'subtree_hash' => $localTree,
+        'direct_capell_dependencies' => ['capell-app/core'],
+        'resolved_minimum_versions' => ['capell-app/core' => '1.0.0'],
+        'reason' => 'baseline',
+        'release_type' => 'baseline',
+        'publication_state' => 'pending',
+        'tag_sha' => null,
+    ];
+    $plan = [
+        'schema_version' => 1,
+        'source' => ['repository' => 'source', 'commit' => $sourceCommit],
+        'inventory' => [['name' => 'capell-app/example', 'path' => 'packages/example', 'repository' => 'capell-app/example', 'version' => '1.0.0']],
+        'external_ledger' => [$external],
+        'ledger' => [$local],
+        'packages' => [$selected],
+        'dependency_order' => ['capell-app/example'],
+    ];
+
+    (new PlanValidator)->validate($plan);
+    expect(true)->toBeTrue();
+
+    $missing = $plan;
+    $missing['external_ledger'] = [];
+    expect(fn () => (new PlanValidator)->validate($missing))
+        ->toThrow(ReleaseException::class, 'unknown, duplicate, or self dependency');
+
+    $incompatible = $plan;
+    $incompatible['external_ledger'][0]['version'] = '1.1.0';
+    expect(fn () => (new PlanValidator)->validate($incompatible))
+        ->toThrow(ReleaseException::class, 'incompatible minimum');
+
+    $cycle = $plan;
+    $cycle['external_ledger'][0]['direct_capell_dependencies'] = ['capell-app/example'];
+    $cycle['external_ledger'][0]['resolved_minimum_versions'] = ['capell-app/example' => '1.0.0'];
+    expect(fn () => (new PlanValidator)->validate($cycle))
+        ->toThrow(ReleaseException::class, 'Dependency cycle');
+});
+
 it('resumes only an existing matching immutable tag', function (): void {
     expect(ResumeDecision::forTag(null, 'abc'))->toBe('publish')
         ->and(ResumeDecision::forTag('abc', 'abc'))->toBe('resume');
@@ -78,7 +152,7 @@ it('publishes a verified split and records atomic resumable state', function ():
     };
     $plan = ['schema_version' => 1, 'source' => ['repository' => 'source', 'commit' => $sha], 'inventory' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0']], 'ledger' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => []]], 'packages' => [[
         'name' => 'capell-app/core', 'path' => 'packages/core', 'split_repository' => 'capell-app/core', 'current_version' => null,
-        'proposed_version' => '1.0.0', 'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [],
+        'proposed_version' => '1.0.0', 'source_commit' => $sha, 'source_tag' => 'core/v1.0.0', 'subtree_hash' => $tree, 'direct_capell_dependencies' => [],
         'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null,
     ]], 'dependency_order' => ['capell-app/core']];
     $path = tempnam(sys_get_temp_dir(), 'release-plan-');
@@ -92,8 +166,9 @@ it('publishes a verified split and records atomic resumable state', function ():
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
+    $sourceTagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0'));
     $tagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/tags/v1.0.0'));
-    expect($mainIndex)->toBeLessThan($preflightIndex)->and($preflightIndex)->toBeLessThan($tagIndex);
+    expect($mainIndex)->toBeLessThan($preflightIndex)->and($preflightIndex)->toBeLessThan($sourceTagIndex)->and($sourceTagIndex)->toBeLessThan($tagIndex);
     @unlink($path);
     @unlink($path . '.state.json');
 });
@@ -188,7 +263,7 @@ function releaseEnginePlan(string $sha, string $tree): array
 
     return ['schema_version' => 1, 'source' => ['repository' => 'source', 'commit' => $sha], 'inventory' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0']], 'ledger' => [$history], 'packages' => [[
         'name' => 'capell-app/core', 'path' => 'packages/core', 'split_repository' => 'capell-app/core', 'current_version' => null, 'proposed_version' => '1.0.0',
-        'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline',
+        'source_commit' => $sha, 'source_tag' => 'core/v1.0.0', 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline',
         'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null,
     ]], 'dependency_order' => ['capell-app/core']];
 }
@@ -198,7 +273,7 @@ function twoPackageReleasePlan(string $sha, array $trees): array
     $plan = releaseEnginePlan($sha, $trees['capell-app/core']);
     $plan['inventory'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0'];
     $plan['ledger'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => []];
-    $plan['packages'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'split_repository' => 'capell-app/admin', 'current_version' => null, 'proposed_version' => '1.0.0', 'source_commit' => $sha, 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null];
+    $plan['packages'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'split_repository' => 'capell-app/admin', 'current_version' => null, 'proposed_version' => '1.0.0', 'source_commit' => $sha, 'source_tag' => 'admin/v1.0.0', 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null];
     $plan['dependency_order'][] = 'capell-app/admin';
 
     return $plan;
@@ -240,7 +315,8 @@ it('persists full history across incremental subsets and recursively releases de
 
     $engine = new ReleaseEngine($root, $runner);
     $baseline = $engine->plan('1.0.0');
-    expect($baseline['ledger'])->toHaveCount(3)->and($baseline['packages'])->toHaveCount(3);
+    expect($baseline['ledger'])->toHaveCount(3)->and($baseline['packages'])->toHaveCount(3)
+        ->and(array_column($baseline['packages'], 'source_tag'))->toBe(['core/v1.0.0', 'admin/v1.0.0', 'marketplace/v1.0.0']);
 
     $runner->commit = str_repeat('2', 40);
     $runner->trees['core'] = str_repeat('d', 40);
@@ -311,9 +387,9 @@ it('rejects cross-representation disagreements', function (Closure $mutate, stri
     'inventory version' => [fn (array &$plan): string => $plan['inventory'][0]['version'] = '1.0.1', 'Inventory and ledger'],
     'inventory path' => [fn (array &$plan): string => $plan['inventory'][0]['path'] = 'packages/wrong', 'Inventory and ledger'],
     'selected unknown' => [fn (array &$plan): string => $plan['packages'][0]['name'] = 'capell-app/unknown', 'absent from ledger'],
-    'selected path' => [fn (array &$plan): string => $plan['packages'][0]['path'] = 'packages/wrong', 'disagrees with ledger'],
+    'selected path' => [fn (array &$plan): string => $plan['packages'][0]['path'] = 'packages/wrong', 'source tag'],
     'selected repository' => [fn (array &$plan): string => $plan['packages'][0]['split_repository'] = 'capell-app/wrong', 'disagrees with ledger'],
-    'selected version' => [fn (array &$plan): string => $plan['packages'][0]['proposed_version'] = '1.0.1', 'disagrees with ledger'],
+    'selected version' => [fn (array &$plan): string => $plan['packages'][0]['proposed_version'] = '1.0.1', 'source tag'],
     'selected hash' => [fn (array &$plan): string => $plan['packages'][0]['subtree_hash'] = str_repeat('c', 40), 'disagrees with ledger'],
     'selected dependencies' => [fn (array &$plan): array => $plan['packages'][0]['direct_capell_dependencies'] = ['capell-app/missing'], 'disagrees with ledger'],
     'selected minimums' => [fn (array &$plan): array => $plan['packages'][0]['resolved_minimum_versions'] = ['capell-app/missing' => '1.0.0'], 'disagrees with ledger'],

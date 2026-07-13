@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('defines the public v4 split package release contract', function (): void {
+it('defines the public v1 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
     $splitPackages = json_decode(
         file_get_contents($root . '/config/release-packages.json'),
@@ -43,8 +43,8 @@ it('defines the public v4 split package release contract', function (): void {
     );
 
     expect($coreManifest['require']['spatie/laravel-settings'])->toBe('^3.0')
-        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('self.version')
-        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('self.version');
+        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('^1.0')
+        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^1.0');
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');

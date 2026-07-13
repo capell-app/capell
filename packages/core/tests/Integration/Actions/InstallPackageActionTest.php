@@ -587,7 +587,7 @@ function makeInstallActionManifestPackageFixture(string $composerName, string $r
             'slug' => 'runtime-provider-package',
             'displayName' => 'Runtime Provider Package',
             'kind' => 'package',
-            'capellApiVersion' => '^4.0',
+            'capellApiVersion' => '^1.0',
             'version' => '1.x-dev',
             'description' => 'Runtime provider package.',
             'product' => [
