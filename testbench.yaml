@@ -2,6 +2,7 @@ laravel: '@testbench'
 
 env:
   AUTH_MODEL: 'Capell\Tests\Fixtures\Models\User'
+  APP_KEY: 'base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE='
 
 providers:
   - Lorisleiva\Actions\ActionServiceProvider
@@ -41,10 +42,11 @@ providers:
   - Capell\Admin\Providers\AdminServiceProvider
   - Capell\Frontend\Providers\FrontendServiceProvider
   - Capell\Marketplace\Providers\MarketplaceServiceProvider
+  - Workbench\App\Providers\ScreenshotWorkbenchServiceProvider
   - Capell\Admin\Providers\Filament\AdminPanelProvider
 
 migrations:
-  - tests/database/migrations
+  - workbench/screenshot-migrations
   - packages/core/database/migrations
   - packages/marketplace/database/migrations
 

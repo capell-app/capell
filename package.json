@@ -3,6 +3,7 @@
     "scripts": {
         "screenshots": "node scripts/run-core-screenshots.js",
         "screenshots:check": "node scripts/run-core-screenshots.js --dry-run",
+        "screenshots:prepare": "bash scripts/screenshots/prepare-workbench.sh",
         "docs:screenshot-coverage": "node scripts/check-doc-screenshot-coverage.js",
         "docs:filament-action-screenshots": "node scripts/check-filament-action-screenshots.js",
         "docs:screenshots:check": "node scripts/check-doc-screenshots.js",
