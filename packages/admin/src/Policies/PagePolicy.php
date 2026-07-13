@@ -227,11 +227,7 @@ class PagePolicy
 
     private function isSuperAdmin(User $user): bool
     {
-        if ($user->isGlobalAdmin()) {
-            return true;
-        }
-
-        return $user->hasRole(config('capell.roles.super_admin', 'super_admin'));
+        return $user->isGlobalAdmin();
     }
 
     private function hasPermission(User $user, string $permission): bool

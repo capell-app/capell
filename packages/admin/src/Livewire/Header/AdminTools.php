@@ -205,13 +205,13 @@ class AdminTools extends Component
 
     private function isGlobalAdmin(object $user): bool
     {
-        if (method_exists($user, 'isGlobalAdmin') && $user->isGlobalAdmin()) {
-            return true;
-        }
-
         $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
         $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
 
-        return method_exists($user, 'hasRole') && $user->hasRole($superAdminRole);
+        if (method_exists($user, 'hasRole')) {
+            return $user->hasRole($superAdminRole);
+        }
+
+        return method_exists($user, 'isGlobalAdmin') && $user->isGlobalAdmin();
     }
 }

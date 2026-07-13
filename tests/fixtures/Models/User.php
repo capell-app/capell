@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -85,10 +86,18 @@ class User extends Authenticatable implements FilamentUser, HasMedia
 
     public function isGlobalAdmin(): bool
     {
-        $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
-        $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
+        $roleName = (string) config('filament-shield.super_admin.name', 'super_admin');
+        $roleId = DB::table('roles')
+            ->where('name', $roleName)
+            ->where('guard_name', 'web')
+            ->value('id');
 
-        return $this->hasRole($superAdminRole);
+        return $roleId !== null && DB::table('model_has_roles')
+            ->where('role_id', $roleId)
+            ->where('model_type', $this->getMorphClass())
+            ->where('model_id', $this->getKey())
+            ->whereNull('team_id')
+            ->exists();
     }
 
     /** @return Collection<int, int> */

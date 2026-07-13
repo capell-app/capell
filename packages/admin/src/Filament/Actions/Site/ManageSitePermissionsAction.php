@@ -146,12 +146,18 @@ final class ManageSitePermissionsAction extends Action
     private function roleOptions(): array
     {
         return Role::query()
+            ->where('name', '!=', $this->superAdminRoleName())
             ->orderBy('name')
             ->pluck('name', 'id')
             ->mapWithKeys(fn (string $name, mixed $roleId): array => [
                 (int) $roleId => $name,
             ])
             ->all();
+    }
+
+    private function superAdminRoleName(): string
+    {
+        return (string) config('filament-shield.super_admin.name', 'super_admin');
     }
 
     private function modelHasRolesTable(): string

@@ -46,6 +46,24 @@
             "notes": "Used in the Admin overview to show the page tree entry point."
         },
         {
+            "id": "admin-layouts-list",
+            "title": "Layouts list.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "LayoutResource",
+            "scenario": "admin-index",
+            "url": "/layouts",
+            "waitFor": "table",
+            "docsPage": "packages/admin/docs/overview.md",
+            "output": "packages/admin/docs/images/screenshots/admin-layouts-list.png",
+            "required": false,
+            "notes": "Shows layout cards and their site, theme, replication, and deletion actions.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php"
+            ]
+        },
+        {
             "id": "admin-media-list",
             "title": "Media list.",
             "package": "admin",
