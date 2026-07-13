@@ -62,9 +62,6 @@ it('keeps the guide illustration and documented screenshot captures available', 
         'docs/images/generated/page-building-continuum.webp',
         'docs/images/generated/admin/first-page-content-editor.png',
         'docs/images/generated/page-building-blocks-editor.png',
-        'docs/images/generated/page-building-layout-builder-editor.png',
-        'docs/images/generated/page-building-layout-builder-add-widget.png',
-        'docs/images/generated/admin/admin-layouts-list.png',
     ];
 
     foreach ($paths as $path) {
@@ -93,30 +90,6 @@ it('declares deterministic screenshot provenance for guide-owned captures', func
             'url' => '/screenshot-fixtures/page-building-blocks-editor',
             'waitFor' => '.fi-fo-builder',
             'interactions' => null,
-        ],
-        'page-building-layout-builder-editor' => [
-            'output' => 'docs/images/generated/page-building-layout-builder-editor.png',
-            'target' => 'PageResource/EditPage',
-            'url' => '/screenshot-fixtures/layout-builder-admin-editor',
-            'waitFor' => '.layout-builder-visual-toolbar',
-            'interactions' => [
-                ['type' => 'scrollIntoView', 'selector' => '[wire\\:name="capell-layout-builder::filament.layout-builder"]'],
-                ['type' => 'click', 'selector' => '[data-layout-builder-action="add-container"]:visible'],
-                ['type' => 'waitFor', 'selector' => '.fi-modal-window:visible'],
-            ],
-        ],
-        'page-building-layout-builder-add-widget' => [
-            'output' => 'docs/images/generated/page-building-layout-builder-add-widget.png',
-            'target' => 'PageResource/EditPage',
-            'url' => '/screenshot-fixtures/layout-builder-admin-editor',
-            'waitFor' => '.layout-builder-visual-toolbar',
-            'interactions' => [
-                ['type' => 'scrollIntoView', 'selector' => '[wire\\:name="capell-layout-builder::filament.layout-builder"]'],
-                ['type' => 'click', 'selector' => '[data-layout-builder-tree-item="main"]'],
-                ['type' => 'waitFor', 'selector' => '[data-layout-builder-selected="true"]'],
-                ['type' => 'click', 'selector' => '[data-layout-builder-action="add-widget"]:visible'],
-                ['type' => 'waitFor', 'selector' => '.fi-modal-window:visible'],
-            ],
         ],
     ];
 

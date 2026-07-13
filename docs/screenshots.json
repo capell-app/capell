@@ -137,25 +137,6 @@
             "notes": "Shows the site-level edit surface for branding, domains, language, and contact details."
         },
         {
-            "id": "admin-layouts-list",
-            "title": "Capell Layouts list.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "LayoutResource",
-            "scenario": "admin-index",
-            "url": "/layout-builder/layouts",
-            "waitFor": "table",
-            "docsPage": "docs/frontend/themes.md",
-            "output": "docs/images/generated/admin/admin-layouts-list.png",
-            "colorSchemes": ["light"],
-            "required": false,
-            "notes": "Shows layout records that connect page content to frontend templates.",
-            "covers": [
-                "packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php"
-            ]
-        },
-        {
             "id": "admin-extensions-page",
             "title": "Capell Extensions page.",
             "package": "documentation",
@@ -504,37 +485,6 @@
             "notes": "Shows the default rich content editor."
         },
         {
-            "id": "page-building-layout-builder-editor",
-            "title": "Layout Builder composition canvas with named containers.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/EditPage",
-            "scenario": "admin-form",
-            "url": "/screenshot-fixtures/layout-builder-admin-editor",
-            "waitFor": ".layout-builder-visual-toolbar",
-            "docsPage": "docs/getting-started/building-pages.md",
-            "output": "docs/images/generated/page-building-layout-builder-editor.png",
-            "colorSchemes": ["light"],
-            "required": true,
-            "notes": "Documentation-owned copy of the package Add Container fixture. It visibly shows the named Main and Sidebar containers in the layout tree and composition canvas behind the form.",
-            "useCase": "A developer can see the page-to-layout-to-container composition boundary and the real container-editing surface before adopting Layout Builder.",
-            "interactions": [
-                {
-                    "type": "scrollIntoView",
-                    "selector": "[wire\\:name=\"capell-layout-builder::filament.layout-builder\"]"
-                },
-                {
-                    "type": "click",
-                    "selector": "[data-layout-builder-action=\"add-container\"]:visible"
-                },
-                {
-                    "type": "waitFor",
-                    "selector": ".fi-modal-window:visible"
-                }
-            ]
-        },
-        {
             "id": "page-building-blocks-editor",
             "title": "Page body Blocks editor.",
             "package": "documentation",
@@ -550,45 +500,6 @@
             "required": true,
             "notes": "The screenshot runner creates or refreshes a page with ContentStructure::Blocks as its per-page override, then redirects to Capell's real PageResource EditPage. This is the typed, reorderable page-body builder, not a Layout Builder widget surface.",
             "useCase": "An editor can see the page-level Blocks authoring path and its real add, configure, clone, and reorder controls before choosing it over HTML content."
-        },
-        {
-            "id": "page-building-layout-builder-add-widget",
-            "title": "Layout Builder Add Widget modal.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/EditPage",
-            "scenario": "admin-form",
-            "url": "/screenshot-fixtures/layout-builder-admin-editor",
-            "waitFor": ".layout-builder-visual-toolbar",
-            "docsPage": "docs/getting-started/building-pages.md",
-            "output": "docs/images/generated/page-building-layout-builder-add-widget.png",
-            "colorSchemes": ["light"],
-            "required": true,
-            "notes": "Documentation-owned copy of the package fixture with Add Widget open for the selected main container.",
-            "useCase": "A developer can see that widgets are added to a named container and carry reusable assets with them.",
-            "interactions": [
-                {
-                    "type": "scrollIntoView",
-                    "selector": "[wire\\:name=\"capell-layout-builder::filament.layout-builder\"]"
-                },
-                {
-                    "type": "click",
-                    "selector": "[data-layout-builder-tree-item=\"main\"]"
-                },
-                {
-                    "type": "waitFor",
-                    "selector": "[data-layout-builder-selected=\"true\"]"
-                },
-                {
-                    "type": "click",
-                    "selector": "[data-layout-builder-action=\"add-widget\"]:visible"
-                },
-                {
-                    "type": "waitFor",
-                    "selector": ".fi-modal-window:visible"
-                }
-            ]
         },
         {
             "id": "first-page-extra-content",
