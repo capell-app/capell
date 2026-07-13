@@ -8,7 +8,10 @@ use RuntimeException;
 
 interface CommandRunner
 {
-    /** @return array{output:string,exitCode:int,error?:string} */
+    /**
+     * @param  list<string>  $command
+     * @return array{output:string,exitCode:int,error?:string}
+     */
     public function run(array $command, ?string $workingDirectory = null): array;
 }
 
