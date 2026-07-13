@@ -60,7 +60,19 @@ jobs:
             testbench: 11.*
             db: sqlite
             shard: 1
-            total_shards: 1
+            total_shards: 3
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            db: sqlite
+            shard: 2
+            total_shards: 3
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            db: sqlite
+            shard: 3
+            total_shards: 3
 
     steps:
       - name: Checkout code
