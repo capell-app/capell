@@ -9,7 +9,7 @@ Frontend widgets are registered public components that Capell can render in norm
 | Which frontend assets does it need?                              | `resourceGroups`                                               |
 | How should it present, load, and expose interactions by default? | `defaultPresentationSettings` and `defaultInteractionTriggers` |
 
-[Content Sections](../packages/content-sections.md) and [Layout Builder](../packages/layout-builder.md) use this same surface for editor-managed content. The registry lives in the core/frontend boundary so packages can ship reusable widget targets without inventing their own modal systems, asset loaders, or public routes.
+[Content Sections](../packages/content-sections.md) and [Layout Builder](https://docs.capell.app/packages/layout-builder) use this same surface for editor-managed content. The registry lives in the core/frontend boundary so packages can ship reusable widget targets without inventing their own modal systems, asset loaders, or public routes.
 
 ## In This Section
 
