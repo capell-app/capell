@@ -42,7 +42,7 @@ APP_URL=http://localhost:8000
 
 ## 2. Install Capell
 
-Capell is installed into your Laravel application through Composer. The current stable 0.0.x foundation release is available through public Packagist packages; Marketplace access may
+Capell is installed into your Laravel application through Composer. The current 1.x foundation release is available through public Packagist packages; Marketplace access may
 be required separately for commercial extensions or customer services. Require
 the installer first: it pulls in core, and `capell:install` adds the admin and
 frontend packages:

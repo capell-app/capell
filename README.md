@@ -16,6 +16,7 @@
 
 | Task                                      | Start with                                                                                                                                                                                   |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Evaluate Capell for a project             | [Why Capell](docs/getting-started/why-capell.md)                                                                                                                                             |
 | Try Capell in a fresh Laravel application | [Quickstart](docs/getting-started/quickstart.md)                                                                                                                                             |
 | Install it in an existing application     | [Install guide](docs/getting-started/install.md)                                                                                                                                             |
 | Learn the concepts and architecture       | [Capell Learn](docs/getting-started/capell-learn.md), then [How Capell works](docs/getting-started/how-capell-works.md)                                                                      |
