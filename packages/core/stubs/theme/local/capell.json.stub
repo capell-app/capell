@@ -5,7 +5,7 @@
     "displayName": "{{ jsonDisplayName }}",
     "kind": "theme",
     "capellApiVersion": "^1.0",
-    "version": "4.x-dev",
+    "version": "1.x-dev",
     "description": "{{ jsonDisplayName }} theme for Capell.",
     "product": {
         "group": "Client Themes",
