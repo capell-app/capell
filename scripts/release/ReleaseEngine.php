@@ -410,7 +410,7 @@ final class ReleaseEngine
                 if ($localSourceTagSha === null) {
                     $this->required(['git', 'tag', $sourceTag, $plan['source']['commit']], $this->root);
                 }
-                $this->required(['git', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
+                $this->required(['git', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
             }
             if ($decision === 'publish') {
                 $this->required(self::pushCommand($repository, "{$splitSha}:refs/tags/{$tag}"), $this->root);
@@ -467,7 +467,7 @@ final class ReleaseEngine
 
     private static function pushCommand(string $repository, string $refspec): array
     {
-        return ['git', '-c', 'credential.helper=!gh auth git-credential', 'push', "https://github.com/{$repository}.git", $refspec];
+        return ['git', 'push', "https://github.com/{$repository}.git", $refspec];
     }
 
     private function assertExactSource(array $plan): void
