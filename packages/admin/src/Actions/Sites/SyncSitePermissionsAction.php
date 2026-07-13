@@ -12,6 +12,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -24,6 +25,8 @@ final class SyncSitePermissionsAction
     public function handle(User $actor, Site $site, SyncSitePermissionsData $input): void
     {
         throw_unless($actor->can('managePermissions', $site), AuthorizationException::class);
+
+        $this->assertAssignmentsExcludeReservedRoles($input);
 
         $modelHasRolesTable = $this->modelHasRolesTable();
         $teamColumn = $this->teamColumn();
@@ -53,6 +56,25 @@ final class SyncSitePermissionsAction
         });
 
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    private function assertAssignmentsExcludeReservedRoles(SyncSitePermissionsData $input): void
+    {
+        $roleIds = collect($input->assignments)
+            ->flatMap(fn (UserSiteRoleAssignmentData $assignment): array => $assignment->roleIds)
+            ->unique()
+            ->values();
+
+        if ($roleIds->isEmpty()) {
+            return;
+        }
+
+        $reservedRoleSubmitted = Role::query()
+            ->whereKey($roleIds->all())
+            ->where('name', (string) config('filament-shield.super_admin.name', 'super_admin'))
+            ->exists();
+
+        throw_if($reservedRoleSubmitted, AuthorizationException::class);
     }
 
     private function modelHasRolesTable(): string

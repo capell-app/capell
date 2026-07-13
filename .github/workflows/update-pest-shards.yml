@@ -71,7 +71,7 @@ jobs:
           git commit -m "chore: update Pest shard timings"
           git push --set-upstream origin "${branch}"
           gh pr create \
-            --base 4.x \
+            --base 1.x \
             --head "${branch}" \
             --title "Update Pest shard timings" \
             --body "Refreshes tests/.pest/shards.json for Pest time-balanced sharding."

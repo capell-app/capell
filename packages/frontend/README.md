@@ -6,9 +6,9 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/frontend.svg?style=flat-square)](https://packagist.org/packages/capell-app/frontend)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=frontend)](https://app.codecov.io/gh/capell-app/capell?components%5B0%5D=frontend&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
-[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
+[![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/frontend?style=flat)](https://packagist.org/packages/capell-app/frontend)
+[![Livewire Compatibility](https://badge.laravel.cloud/livewire-badge/capell-app/frontend?style=flat)](https://packagist.org/packages/capell-app/frontend)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/frontend` is the public rendering package for Capell CMS. It resolves Core page, site, language, layout, and theme records into Laravel responses and exposes the frontend extension points used by themes and frontend add-ons.
@@ -94,7 +94,7 @@ vendor/bin/pest tests
 For public output changes, include the safety-focused tests:
 
 ```bash
-vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php
+vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php --configuration=phpunit.xml
 ```
 
 ## Requirements And Support Policy

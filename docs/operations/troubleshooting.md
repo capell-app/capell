@@ -503,7 +503,7 @@ php artisan migrate
 php artisan test
 ```
 
-If this happens in package tests, update to the latest Capell 4.x packages and clear Testbench state:
+If this happens in package tests, update to the latest Capell 1.x packages and clear Testbench state:
 
 ```bash
 composer update capell-app/core capell-app/admin capell-app/frontend -W

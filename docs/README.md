@@ -45,6 +45,7 @@ Use these pages to see a workflow before reading its implementation details.
 | Before I...                                        | Read                                                                                                                         |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Move or rename published content                   | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
+| How should I build this page?                      | [Build a page](getting-started/building-pages.md)                                                                            |
 | Put feature code in the host, an add-on, or an app | [Host, package, or app code](development/package-boundaries.md)                                                              |
 | Change anonymous frontend output                   | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
 | Add or change an extension point                   | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |

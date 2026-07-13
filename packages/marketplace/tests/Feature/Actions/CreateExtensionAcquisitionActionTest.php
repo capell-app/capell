@@ -172,3 +172,47 @@ it('uses repository URLs only from protected install authorization responses', f
     expect($acquisition->repositoryUrl)->toBeNull()
         ->and($acquisition->requiresDeployment)->toBeFalse();
 });
+
+it('rejects an authorization for a different composer package', function (): void {
+    $listing = new ExtensionListingData(
+        slug: 'private-suite',
+        name: 'Private Suite',
+        composerName: 'capell-app/private-suite',
+        kind: 'package',
+        description: null,
+        priceCents: 9900,
+        isPaid: true,
+        forkRepoUrl: null,
+        productId: null,
+        latestVersion: '2.1.0',
+        installEligibilityPolicy: new MarketplaceInstallEligibilityData(
+            state: MarketplaceInstallState::Authorized,
+            canInstall: true,
+        ),
+    );
+
+    config([
+        'capell-marketplace.instance.id' => '00000000-0000-4000-8000-000000000002',
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+    ]);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000002',
+        'signing_secret_encrypted' => 'test-secret',
+        'connection_mode' => MarketplaceConnectionMode::AccountLinked,
+        'account_id' => 'acct_substitution_test',
+        'account_email_verified_at' => now(),
+        'last_heartbeat_at' => now(),
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/private-suite/install-authorization' => Http::response([
+            'data' => [
+                'composer_name' => 'attacker/substitute-package',
+                'version_constraint' => '^1.0',
+            ],
+        ]),
+    ]);
+
+    CreateExtensionAcquisitionAction::run($listing);
+})->throws(UnexpectedValueException::class);

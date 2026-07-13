@@ -1,9 +1,12 @@
 name: PHP Quality
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
-      - 4.x
+      - 1.x
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'packages/**/*.php'

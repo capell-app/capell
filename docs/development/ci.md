@@ -10,7 +10,7 @@ Capell's CI keeps two separate concerns visible: code quality checks run in the 
 
 Shard weights are maintained by `composer run test:shards:balance`, which runs `scripts/update-pest-shard-timings.php`. That script gathers per-file JUnit durations and rewrites `tests/.pest/shards.json` with repo-relative file timings. `scripts/patch-pest-shards.php` keeps the manifest available after Composer autoload refreshes.
 
-The `.github/workflows/update-pest-shards.yml` workflow runs weekly and on demand. When timings change, it commits only `tests/.pest/shards.json` and opens a PR against `4.x`.
+The `.github/workflows/update-pest-shards.yml` workflow runs weekly and on demand. When timings change, it commits only `tests/.pest/shards.json` and opens a PR against `1.x`.
 
 ## Composer Refresh For Screenshot Fixtures
 

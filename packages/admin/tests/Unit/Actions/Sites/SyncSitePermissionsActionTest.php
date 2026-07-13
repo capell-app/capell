@@ -137,6 +137,25 @@ it('does not delete global role assignments', function (): void {
         ->exists())->toBeTrue();
 });
 
+it('rejects assigning the reserved super admin role within a site', function (): void {
+    $site = Site::factory()->createOne();
+    $actor = makeSitePermissionActionTestUser();
+    $target = makeSitePermissionActionTestUser();
+    $superAdminRole = Role::findOrCreate('super_admin');
+
+    $actor->givePermissionTo('ManagePermissions:Site');
+
+    SyncSitePermissionsAction::run(
+        actor: $actor,
+        site: $site,
+        input: SyncSitePermissionsData::fromArray([
+            'assignments' => [
+                ['user_id' => $target->getKey(), 'role_ids' => [$superAdminRole->getKey()]],
+            ],
+        ]),
+    );
+})->throws(AuthorizationException::class);
+
 it('uses the submitted users morph class when a morph map alias is active', function (): void {
     $previousMorphMap = Relation::morphMap();
     $previousRequiresMorphMap = Relation::requiresMorphMap();

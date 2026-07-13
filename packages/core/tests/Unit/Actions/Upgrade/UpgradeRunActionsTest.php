@@ -87,6 +87,19 @@ it('redacts composer auth credentials embedded in upgrade diagnostic strings', f
         ]);
 });
 
+it('redacts URL userinfo and standalone GitHub tokens', function (): void {
+    $token = 'ghp_' . str_repeat('a', 36);
+    $redacted = RedactUpgradeRunContextAction::run([
+        'output' => 'Clone https://deploy-user:deploy-secret@example.com/repo.git with ' . $token,
+    ]);
+
+    expect($redacted['output'])
+        ->not->toContain('deploy-user')
+        ->not->toContain('deploy-secret')
+        ->not->toContain($token)
+        ->toContain('https://[redacted]@example.com/repo.git');
+});
+
 it('marks runs as terminal without overwriting terminal state', function (): void {
     $run = CreateUpgradeRunAction::run(
         options: new UpgradeRunOptions,

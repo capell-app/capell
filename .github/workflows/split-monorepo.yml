@@ -48,7 +48,7 @@ jobs:
           esac
           php scripts/release.php validate "${resolved}"
           cp "${resolved}" "${RUNNER_TEMP}/release-plan.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: approved-release-plan
           path: ${{ runner.temp }}/release-plan.json
@@ -67,10 +67,18 @@ jobs:
           private-key: ${{ secrets.SPLIT_APP_PRIVATE_KEY }}
           owner: capell-app
           repositories: admin,core,frontend,installer,marketplace
+          permission-contents: write
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+          persist-credentials: false
+      - name: Configure split repository git credentials
+        env:
+          GH_TOKEN: ${{ steps.split-token.outputs.token }}
+        run: |
+          git config --global --unset-all credential.helper || true
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: approved-release-plan
           path: ${{ runner.temp }}/approved-plan
@@ -81,7 +89,7 @@ jobs:
           source_commit="$(jq -r '.source.commit' "${RELEASE_PLAN}")"
           test "${source_commit}" != null
           git checkout --detach "${source_commit}"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         if: inputs.resume_state_run_id != ''
         with:
           name: release-plan-state
@@ -104,7 +112,7 @@ jobs:
           php scripts/release.php validate "${RELEASE_PLAN}"
           php scripts/release.php resume "${RELEASE_PLAN}"
           php scripts/release.php verify "${RELEASE_PLAN}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: release-plan-state

@@ -1573,7 +1573,7 @@
                 id="capell-installer-config"
                 type="application/json"
             >
-                {!! json_encode($installerConfig, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+                {!! Js::encode($installerConfig) !!}
             </script>
             <script>
                 {!! $installerScript !!}

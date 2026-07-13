@@ -6,9 +6,8 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/capell-app/marketplace.svg?style=flat-square)](https://packagist.org/packages/capell-app/marketplace)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg?component=marketplace)](https://app.codecov.io/gh/capell-app/capell?components%5B0%5D=marketplace&displayType=list)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
-[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
+[![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/marketplace?style=flat)](https://packagist.org/packages/capell-app/marketplace)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/marketplace` connects a Capell installation to the Capell extension marketplace. It owns catalogue browsing, Capell account linking, heartbeat/update advisory state, account-based Marketplace install eligibility decisions, queued local Composer install operations, free-install telemetry, and signed install/upgrade authorization records for protected extensions.
@@ -108,8 +107,8 @@ vendor/bin/pest tests
 Run focused action or HTTP tests first when changing a specific flow, for example:
 
 ```bash
-vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php
-vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php
+vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php --configuration=phpunit.xml
 ```
 
 ## Requirements And Support Policy

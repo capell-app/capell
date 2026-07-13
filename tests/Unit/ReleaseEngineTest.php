@@ -138,6 +138,10 @@ it('publishes a verified split and records atomic resumable state', function ():
             $this->commands[] = $command;
             $joined = implode(' ', $command);
 
+            if (str_contains($joined, 'git/ref/heads/main')) {
+                return ['output' => str_repeat('f', 40), 'exitCode' => 0];
+            }
+
             return match (true) {
                 str_contains($joined, 'status --porcelain') => ['output' => '', 'exitCode' => 0],
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
@@ -162,7 +166,7 @@ it('publishes a verified split and records atomic resumable state', function ():
     expect($state['packages']['capell-app/core']['split_sha'])->toBe($split)
         ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
         ->and(implode("\n", array_map(fn (array $command): string => implode(' ', $command), $runner->commands)))
-        ->toContain(':refs/heads/main')->toContain(':refs/tags/v1.0.0')->not->toContain('--force');
+        ->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
@@ -443,7 +447,7 @@ it('never exposes command stderr secrets when a push fails', function (): void {
         new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-'));
         expect(false)->toBeTrue();
     } catch (ReleaseException $releaseException) {
-        expect($releaseException->getMessage())->not->toContain($secret)->not->toContain('Bearer')->not->toContain('authorization');
+        expect($releaseException->getMessage())->not->toContain($secret)->not->toContain('Bearer')->toContain('[redacted]');
     }
 });
 

@@ -10,6 +10,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use STS\FilamentImpersonate\Actions\Impersonate;
 
 uses(CreatesAdminUser::class)
@@ -40,4 +41,14 @@ it('hides the impersonate action when the target user is a super admin', functio
             Impersonate::getDefaultName() ?? 'impersonate',
             $superAdminTarget,
         );
+});
+
+it('protects a global super admin target while another site scope is active', function (): void {
+    $superAdminTarget = UserFactory::new()->createOne();
+    $superAdminRoleName = (string) config('filament-shield.super_admin.name', 'super_admin');
+    $superAdminTarget->assignRole(Role::findOrCreate($superAdminRoleName, 'web'));
+
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId(999999);
+
+    expect($superAdminTarget->canBeImpersonated())->toBeFalse();
 });
