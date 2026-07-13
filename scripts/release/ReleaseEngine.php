@@ -142,7 +142,7 @@ final class PlanValidator
             if (! self::isCanonicalVersion($package['proposed_version'])) {
                 throw new ReleaseException("Invalid proposed version for {$package['name']}.");
             }
-            $expectedSourceTag = basename($package['path']).'/v'.$package['proposed_version'];
+            $expectedSourceTag = basename($package['path']) . '/v' . $package['proposed_version'];
             if ($package['source_tag'] !== $expectedSourceTag || in_array($package['source_tag'], $sourceTags, true)) {
                 throw new ReleaseException("Invalid or duplicate source tag for {$package['name']}.");
             }
@@ -364,9 +364,9 @@ final class ReleaseEngine
             $peeled = $existing === null ? null : $this->optional(['gh', 'api', "repos/{$repository}/git/tags/{$existing}", '--jq', '.object.sha']) ?? $existing;
             $decision = ResumeDecision::forTag($peeled, $splitSha);
             $sourceTag = $package['source_tag'];
-            $localSourceTagSha = $this->optional(['git','rev-parse','-q','--verify','refs/tags/'.$sourceTag.'^{commit}']);
+            $localSourceTagSha = $this->optional(['git', 'rev-parse', '-q', '--verify', 'refs/tags/' . $sourceTag . '^{commit}']);
             $localSourceTagSha = $localSourceTagSha === '' ? null : $localSourceTagSha;
-            $sourceLine = $this->optional(['git','ls-remote','--tags','origin','refs/tags/'.$sourceTag]);
+            $sourceLine = $this->optional(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $sourceTag]);
             $sourceTagSha = $sourceLine === null || $sourceLine === '' ? null : strtok($sourceLine, "\t ");
             if (($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit'])) {
                 throw new ReleaseException("Existing source tag {$sourceTag} does not match the planned source commit.");
@@ -408,9 +408,9 @@ final class ReleaseEngine
             ['name' => $name,'repository' => $repository,'tag' => $tag,'splitSha' => $splitSha,'decision' => $decision,'sourceTag' => $sourceTag,'sourceTagSha' => $sourceTagSha,'localSourceTagSha' => $localSourceTagSha] = $release;
             if ($sourceTagSha === null) {
                 if ($localSourceTagSha === null) {
-                    $this->required(['git','tag',$sourceTag,$plan['source']['commit']], $this->root);
+                    $this->required(['git', 'tag', $sourceTag, $plan['source']['commit']], $this->root);
                 }
-                $this->required(['git','-c','credential.helper=!gh auth git-credential','push','origin','refs/tags/'.$sourceTag.':refs/tags/'.$sourceTag], $this->root);
+                $this->required(['git', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
             }
             if ($decision === 'publish') {
                 $this->required(self::pushCommand($repository, "{$splitSha}:refs/tags/{$tag}"), $this->root);
@@ -419,7 +419,7 @@ final class ReleaseEngine
                 $this->required(['gh', 'release', 'create', $tag, '--repo', $repository, '--verify-tag', '--generate-notes']);
             }
             $tagSha = $this->required(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
-            $state['packages'][$name] = ['state' => 'published', 'split_sha' => $splitSha, 'tag' => $tag, 'tag_sha' => $tagSha, 'source_tag'=>$sourceTag, 'source_tag_sha'=>$plan['source']['commit']];
+            $state['packages'][$name] = ['state' => 'published', 'split_sha' => $splitSha, 'tag' => $tag, 'tag_sha' => $tagSha, 'source_tag' => $sourceTag, 'source_tag_sha' => $plan['source']['commit']];
             $this->writeState($planPath, $state);
         }
     }
@@ -442,7 +442,7 @@ final class ReleaseEngine
             if ($main !== $state['packages'][$package['name']]['split_sha']) {
                 throw new ReleaseException("Remote main drift for {$package['name']}.");
             }
-            $sourceLine = $this->required(['git','ls-remote','--tags','origin','refs/tags/'.$package['source_tag']]);
+            $sourceLine = $this->required(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $package['source_tag']]);
             if (! str_starts_with($sourceLine, $plan['source']['commit'])) {
                 throw new ReleaseException("Source tag drift for {$package['name']}.");
             }
@@ -451,7 +451,7 @@ final class ReleaseEngine
 
     private static function packageEntry(array $definition, array $dependencies, array|false|null $old, string $tree, string $commit, string $proposed, string $reason, string $type): array
     {
-        return ['name' => $definition['name'], 'path' => $definition['path'], 'split_repository' => $definition['repository'], 'current_version' => $old['version'] ?? null, 'proposed_version' => $proposed, 'source_commit' => $commit, 'source_ref' => "refs/commits/{$commit}", 'source_tag' => basename($definition['path']).'/v'.$proposed, 'subtree_hash' => $tree, 'direct_capell_dependencies' => $dependencies, 'resolved_minimum_versions' => [], 'reason' => $reason, 'release_type' => $type, 'publication_state' => 'pending', 'tag_sha' => null];
+        return ['name' => $definition['name'], 'path' => $definition['path'], 'split_repository' => $definition['repository'], 'current_version' => $old['version'] ?? null, 'proposed_version' => $proposed, 'source_commit' => $commit, 'source_ref' => "refs/commits/{$commit}", 'source_tag' => basename($definition['path']) . '/v' . $proposed, 'subtree_hash' => $tree, 'direct_capell_dependencies' => $dependencies, 'resolved_minimum_versions' => [], 'reason' => $reason, 'release_type' => $type, 'publication_state' => 'pending', 'tag_sha' => null];
     }
 
     private static function bump(string $version, string $type): string
