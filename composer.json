@@ -272,7 +272,8 @@
             "Capell\\Core\\Tests\\": "packages/core/tests/",
             "Capell\\Installer\\Tests\\": "packages/installer/tests/",
             "Capell\\Marketplace\\Tests\\": "packages/marketplace/tests",
-            "Capell\\Frontend\\Tests\\": "packages/frontend/tests/"
+            "Capell\\Frontend\\Tests\\": "packages/frontend/tests/",
+            "Workbench\\App\\": "workbench/app/"
         }
     },
     "config": {

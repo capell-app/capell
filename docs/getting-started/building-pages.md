@@ -45,21 +45,9 @@ _The Blocks page-body editor on a page whose `content_structure_override` is Blo
 
 Use Layout Builder when the page needs approved section composition: named regions, reusable widgets, and widget assets arranged as a layout. It is appropriate when the page needs a hero plus a main area, sidebar, proof strip, or a repeatable campaign structure.
 
-![Capell Layout Builder composition canvas with named Main and Sidebar containers visible behind the Add Container form.](../images/generated/page-building-layout-builder-editor.png)
-
-_The Layout Builder composition canvas: the selected Main container and Sidebar container are visible behind the real container form. An assigned layout holds named containers, and containers hold reusable widgets._
-
-![Capell's Add Widget modal, opened for a selected Layout Builder container.](../images/generated/page-building-layout-builder-add-widget.png)
-
-_The Add Widget modal opens in the context of the selected container, so editors compose from approved widget definitions rather than arbitrary page markup._
-
 The layout is shared by every page assigned to it. Create or clone a layout before making a change that should not affect other pages. Each widget owns its reusable content and any widget assets it needs; the layout owns placement and container settings.
 
-For package installation, widget definitions, containers, assets, and extension details, use the package-owned [Layout Builder documentation](https://docs.capell.app/packages/layout-builder). Do not duplicate its implementation API in a page guide.
-
-![Capell's Layouts list, where shared layouts can be reviewed before assigning or cloning one.](../images/generated/admin/admin-layouts-list.png)
-
-_The Layouts list is the shared-composition boundary. A page assignment chooses a layout; editing that layout can affect every assigned page._
+Layout Builder is a companion package, so its implementation details and screenshot evidence remain package-owned. Use the [Layout Builder documentation](https://docs.capell.app/packages/layout-builder) for its real container, widget, asset, and editor surfaces.
 
 ## 4. Custom Blade rendering
 
