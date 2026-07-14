@@ -3,9 +3,23 @@
         $snapshot = $this->reportSnapshot();
     @endphp
 
-    <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
-        {{ __('capell-admin::reports.generated_at', ['time' => $snapshot->generatedAt->toDayDateTimeString()]) }}
-    </p>
+    <div class="mb-4 flex items-center justify-between gap-3">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{ __('capell-admin::reports.generated_at', ['time' => $snapshot->generatedAt->toDayDateTimeString()]) }}
+        </p>
+
+        @if (method_exists($this, 'rerun'))
+            <button
+                type="button"
+                wire:click="rerun"
+                wire:loading.attr="disabled"
+                wire:target="rerun"
+                class="text-primary-600 hover:text-primary-500 dark:text-primary-400 inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-50"
+            >
+                {{ __('capell-admin::reports.demo_install_health_rerun') }}
+            </button>
+        @endif
+    </div>
 
     @if ($snapshot->metrics !== [] || $snapshot->findings !== [])
         @if ($snapshot->metrics !== [])

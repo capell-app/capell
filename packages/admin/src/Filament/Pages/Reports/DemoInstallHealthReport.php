@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages\Reports;
 
 use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
-use Filament\Actions\Action;
 
 final class DemoInstallHealthReport extends AbstractCoreReportPage
 {
@@ -13,16 +12,12 @@ final class DemoInstallHealthReport extends AbstractCoreReportPage
 
     protected const string REPORT_ACTION = BuildDemoInstallHealthReportAction::class;
 
+    public int $reportRun = 0;
+
     protected static ?string $slug = 'reports/demo-install-health';
 
-    /** @return array<Action> */
-    protected function getHeaderActions(): array
+    public function rerun(): void
     {
-        return [
-            Action::make('rerun')
-                ->label(__('capell-admin::reports.demo_install_health_rerun'))
-                ->icon('heroicon-o-arrow-path')
-                ->action(fn (): mixed => $this->dispatch('$refresh')),
-        ];
+        $this->reportRun++;
     }
 }
