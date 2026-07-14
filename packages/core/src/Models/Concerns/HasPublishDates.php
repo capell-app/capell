@@ -16,7 +16,12 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @phpstan-require-implements Publishable
  *
+ * @method static Builder<static> deleted()
+ * @method static Builder<static> draft()
+ * @method static Builder<static> expired()
+ * @method static Builder<static> published()
  * @method static Builder<static> publishedDate()
+ * @method static Builder<static> scheduled()
  *
  * @property CarbonImmutable|null $visible_from
  * @property CarbonImmutable|null $visible_until
@@ -27,14 +32,15 @@ trait HasPublishDates
     {
         $publishTo = $this->normalizeDateAttribute('visible_until');
 
-        return (bool) $publishTo?->isPast();
+        return $publishTo?->lessThanOrEqualTo(CarbonImmutable::now()) === true;
     }
 
     public function isPending(): bool
     {
-        $publishFrom = $this->normalizeDateAttribute('visible_from');
+        $state = $this->publishVisibilityState();
 
-        return (bool) $publishFrom?->isFuture();
+        return $state === PublishVisibilityStateEnum::draft
+            || $state === PublishVisibilityStateEnum::scheduled;
     }
 
     public function getPublishStatus(): PublishStatusEnum
@@ -73,8 +79,7 @@ trait HasPublishDates
     {
         $model = $builder->getModel();
         $column = $model->qualifyColumn('visible_until');
-        $now = now();
-        $builder->whereNotNull($column)->where($column, '<', $now);
+        $builder->whereNotNull($column)->where($column, '<=', CarbonImmutable::now());
     }
 
     /**
@@ -89,8 +94,14 @@ trait HasPublishDates
     {
         $model = $builder->getModel();
         $column = $model->qualifyColumn('visible_from');
-        $now = now();
-        $builder->whereNotNull($column)->where($column, '>', $now);
+        $now = CarbonImmutable::now();
+        $builder
+            ->whereNotNull($column)
+            ->where($column, '>', $now)
+            ->where(function (Builder $query) use ($model, $now): void {
+                $until = $model->qualifyColumn('visible_until');
+                $query->whereNull($until)->orWhere($until, '>', $now);
+            });
     }
 
     /**
@@ -100,8 +111,24 @@ trait HasPublishDates
      */
     protected function scopeDraftSentinel(Builder $builder): void
     {
-        $column = $builder->getModel()->qualifyColumn('visible_from');
-        $builder->whereNotNull($column)->where($column, '>', PublishSentinel::draftBoundary());
+        $this->scopeDraft($builder);
+    }
+
+    /**
+     * @param  Builder<Model>  $builder
+     */
+    protected function scopeDraft(Builder $builder): void
+    {
+        $model = $builder->getModel();
+        $from = $model->qualifyColumn('visible_from');
+        $until = $model->qualifyColumn('visible_until');
+        $now = CarbonImmutable::now();
+        $builder
+            ->whereNotNull($from)
+            ->where($from, '>', PublishSentinel::draftBoundary($now))
+            ->where(function (Builder $query) use ($until, $now): void {
+                $query->whereNull($until)->orWhere($until, '>', $now);
+            });
     }
 
     /**
@@ -112,12 +139,17 @@ trait HasPublishDates
      */
     protected function scopeScheduled(Builder $builder): void
     {
-        $column = $builder->getModel()->qualifyColumn('visible_from');
+        $model = $builder->getModel();
+        $column = $model->qualifyColumn('visible_from');
+        $until = $model->qualifyColumn('visible_until');
         $now = CarbonImmutable::now();
         $builder
             ->whereNotNull($column)
             ->where($column, '>', $now)
-            ->where($column, '<=', PublishSentinel::draftBoundary($now));
+            ->where($column, '<=', PublishSentinel::draftBoundary($now))
+            ->where(function (Builder $query) use ($until, $now): void {
+                $query->whereNull($until)->orWhere($until, '>', $now);
+            });
     }
 
     /**
@@ -125,15 +157,31 @@ trait HasPublishDates
      */
     protected function scopePublishedDate(Builder $builder): void
     {
-        $now = now();
+        $this->scopePublished($builder);
+    }
+
+    /**
+     * @param  Builder<Model>  $builder
+     */
+    protected function scopePublished(Builder $builder): void
+    {
+        $now = CarbonImmutable::now();
         $model = $builder->getModel();
         $builder->where(function (Builder $query) use ($model, $now): void {
             $column = $model->qualifyColumn('visible_from');
             $query->whereNull($column)->orWhere($column, '<=', $now);
         })->where(function (Builder $query) use ($model, $now): void {
             $column = $model->qualifyColumn('visible_until');
-            $query->whereNull($column)->orWhere($column, '>=', $now);
+            $query->whereNull($column)->orWhere($column, '>', $now);
         });
+    }
+
+    /**
+     * @param  Builder<Model>  $builder
+     */
+    protected function scopeDeleted(Builder $builder): void
+    {
+        $builder->onlyTrashed();
     }
 
     protected function getPublishStatusAttribute(): PublishStatusEnum
