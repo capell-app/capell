@@ -6,8 +6,10 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Data\Interactions\InteractionTriggerData;
 use Capell\Core\Enums\InteractionTargetType;
-use Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder;
+use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\WidgetInteractionLocatorResolver;
+use Capell\Frontend\Exceptions\PublicFragmentReferenceInvalid;
+use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -73,13 +75,22 @@ class BuildInteractionRenderDataAction
                 return null;
             }
 
-            if (! app()->bound(DeferredFragmentReferenceBuilder::class)) {
-                Log::debug('capell-frontend: no deferred fragment reference builder is bound; fragment interaction trigger omitted from public output.');
+            if (! app()->bound(PublicFragmentUrlResolverRegistry::class)
+                || ! resolve(PublicFragmentUrlResolverRegistry::class)->hasResolvers()) {
+                Log::debug('capell-frontend: no public fragment owner is registered; fragment interaction trigger omitted from public output.');
 
                 return null;
             }
 
-            return resolve(DeferredFragmentReferenceBuilder::class)->url($target->fragmentReference);
+            try {
+                $reference = resolve(PublicFragmentReferenceCodec::class)->decode($target->fragmentReference);
+
+                return resolve(PublicFragmentUrlResolverRegistry::class)->url($reference);
+            } catch (PublicFragmentReferenceInvalid) {
+                Log::debug('capell-frontend: public fragment reference is invalid or has no registered owner; trigger omitted from public output.');
+
+                return null;
+            }
         }
 
         if ($target->type === InteractionTargetType::PublicAction) {

@@ -47,6 +47,7 @@ use Capell\Frontend\Contracts\AssetsRegistryInterface;
 use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
+use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
 use Capell\Frontend\Contracts\FrontendAssetContributor;
 use Capell\Frontend\Contracts\FrontendAssetManifestRenderer;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
@@ -107,6 +108,7 @@ use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
 use Capell\Frontend\Support\Font\FontMimeTypeResolver;
 use Capell\Frontend\Support\Fragments\EncryptedPublicFragmentReferenceCodec;
+use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
 use Capell\Frontend\Support\Kernel\Steps\BuildContextStep;
@@ -247,6 +249,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FontMimeTypeResolverInterface::class, FontMimeTypeResolver::class);
         $this->app->singleton(HtmlMinifier::class, VokuHtmlMinifier::class);
         $this->app->singleton(PublicFragmentReferenceCodec::class, EncryptedPublicFragmentReferenceCodec::class);
+        $this->app->scoped(
+            PublicFragmentUrlResolverRegistry::class,
+            fn (Application $application): PublicFragmentUrlResolverRegistry => new PublicFragmentUrlResolverRegistry(
+                $application->tagged(PublicFragmentUrlResolver::TAG),
+            ),
+        );
         $this->app->singletonIf(FrontendAssetManifestRenderer::class, DefaultFrontendAssetManifestRenderer::class);
         $this->app->singletonIf(RedirectResolver::class, NullRedirectResolver::class);
         $this->app->bind(DefaultSystemPageResolver::class);
