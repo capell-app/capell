@@ -93,9 +93,9 @@
             "@php -r \"echo PHP_EOL . 'Checking Composer lock file...' . PHP_EOL;\"",
             "@check:composer-lock",
             "@php -r \"echo PHP_EOL . 'Running Rector...' . PHP_EOL;\"",
-            "@rector:all",
+            "@rector:all:check",
             "@php -r \"echo PHP_EOL . 'Running Pint...' . PHP_EOL;\"",
-            "@cs:fix",
+            "@cs:check",
             "@php -r \"echo PHP_EOL . 'Checking Prettier formatting...' . PHP_EOL;\"",
             "@prettier:check",
             "@php -r \"echo PHP_EOL . 'Running ESLint...' . PHP_EOL;\"",
@@ -109,6 +109,15 @@
             "@check:pest-shards",
             "@php -r \"echo PHP_EOL . 'Running Pest...' . PHP_EOL;\"",
             "@test:preflight"
+        ],
+        "preflight:fix": [
+            "@php -r \"echo PHP_EOL . 'Applying Rector transformations...' . PHP_EOL;\"",
+            "@rector:all",
+            "@php -r \"echo PHP_EOL . 'Applying Pint formatting...' . PHP_EOL;\"",
+            "@cs:fix",
+            "@php -r \"echo PHP_EOL . 'Applying Prettier formatting...' . PHP_EOL;\"",
+            "@prettier",
+            "@preflight:all"
         ],
         "quality:all": [
             "@preflight:all",
