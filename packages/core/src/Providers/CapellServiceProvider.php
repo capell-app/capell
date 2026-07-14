@@ -43,6 +43,7 @@ use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
+use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageTypeData;
@@ -132,6 +133,7 @@ use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
+use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Redirects\PageUrlRedirectRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
@@ -253,6 +255,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         $this
             ->registerSettingsSchemaRegistry()
+            ->registerPublicationTransitions()
             ->registerMailMarkdownComponents()
             ->registerLocalAppThemeDiscovery()
             ->registerPackageMetadata()
@@ -278,6 +281,16 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerEventSourcing()
             ->configureMailMarkdownLogo()
             ->dispatchServingEvent();
+    }
+
+    private function registerPublicationTransitions(): self
+    {
+        $this->app->bind(
+            AuthorizesPublicationTransition::class,
+            GatePublicationTransitionAuthorizer::class,
+        );
+
+        return $this;
     }
 
     /**
