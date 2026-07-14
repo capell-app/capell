@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Reports\BuildBlueprintSchemaDriftReportAction;
 use Capell\Admin\Actions\Reports\BuildCacheFreshnessReportAction;
 use Capell\Admin\Actions\Reports\BuildContentIntegrityReportAction;
-use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
 use Capell\Admin\Actions\Reports\BuildLayoutWidgetUsageReportAction;
 use Capell\Admin\Actions\Reports\BuildNavigationCoverageReportAction;
 use Capell\Admin\Actions\Reports\BuildPackageReadinessReportAction;
@@ -385,7 +384,6 @@ it('returns empty-state snapshots from core report actions', function (string $a
     'cache freshness' => [BuildCacheFreshnessReportAction::class, 'core.cache_freshness'],
     'navigation coverage' => [BuildNavigationCoverageReportAction::class, 'core.navigation_coverage'],
     'permissions access surface' => [BuildPermissionsAccessSurfaceReportAction::class, 'core.permissions_access_surface'],
-    'demo install health' => [BuildDemoInstallHealthReportAction::class, 'core.demo_install_health'],
 ]);
 
 it('builds public render safety report metrics from recorded contract events', function (): void {

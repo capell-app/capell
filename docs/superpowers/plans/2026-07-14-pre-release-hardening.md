@@ -82,12 +82,12 @@ Admin `InteractionSettingsSchema::targetOptions()` never offers Fragment.
 **Problem.** `BuildDemoInstallHealthReportAction` extends `BuildEmptyReportAction` —
 always-empty snapshot at `/reports/demo-install-health`.
 
-- [ ] Implement real snapshot following `BuildPackageReadinessReportAction` pattern:
+- [x] Implement real snapshot following `BuildPackageReadinessReportAction` pattern:
   reuse `BuildDoctorReportAction` checks + demo-specific metrics (sites/pages/admin user/
   storage link/default theme+layout/settings rows/event-sourcing tables).
-- [ ] Metrics as `ReportMetricData`, failures as `ReportFindingData` with severity;
+- [x] Metrics as `ReportMetricData`, failures as `ReportFindingData` with severity;
   lang keys in `packages/admin/resources/lang/en/reports.php`.
-- [ ] Feature test proving populated snapshot after install-shaped state (red first).
+- [x] Feature test proving populated snapshot after install-shaped state (red first).
 
 ## Verification (per phase)
 
