@@ -7,7 +7,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
-use Capell\Frontend\Data\FrontendAssetManifestData;
+use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
@@ -69,7 +69,7 @@ it('remembers public page render data when the render data cache is enabled', fu
             theme: $context->theme,
             layoutGraph: null,
             runtimeManifest: $runtime,
-            assetManifest: new FrontendAssetManifestData([], [], [], [], $runtime),
+            resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
             surrogateKeys: [],
         );
     };
@@ -130,7 +130,7 @@ it('changes cache keys and entries when the optional payload schema fingerprint 
             $context->theme,
             null,
             $runtime,
-            new FrontendAssetManifestData([], [], [], [], $runtime),
+            new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
             [],
         );
     };

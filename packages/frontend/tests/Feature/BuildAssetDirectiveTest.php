@@ -36,9 +36,7 @@ it('defaults build assets to vite', function (): void {
     try {
         $html = Blade::render('@buildAssets(["resources/js/example.js"], "vendor/capell-test-assets")');
 
-        expect(config('capell-frontend.asset_build_tool'))
-            ->toBe('vite')
-            ->and($html)
+        expect($html)
             ->not->toContain('resources/js/example.js')
             ->toContain('http://localhost/vendor/capell-test-assets/assets/example-123.js');
     } finally {

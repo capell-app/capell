@@ -2,54 +2,50 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
+use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 
-it('registers resource groups with css and javascript assets', function (): void {
-    $registry = new FrontendResourceRegistry;
-
-    $registry->group('theme.carousel')
-        ->css('resources/css/widgets/carousel.css', buildPath: 'vendor/theme')
-        ->js('resources/js/widgets/carousel.js', buildPath: 'vendor/theme', loading: PresentationLoadingStrategy::Visible);
-
-    $group = $registry->get('theme.carousel');
-
-    expect($group?->key)->toBe('theme.carousel')
-        ->and($group?->resources)->toHaveCount(2)
-        ->and($group?->resources[1]->loadingStrategy)->toBe(PresentationLoadingStrategy::Visible);
-});
-
-it('deduplicates equivalent resources inside a group', function (): void {
-    $registry = new FrontendResourceRegistry;
-
-    $registry->group('theme.carousel')
-        ->css('resources/css/widgets/carousel.css', buildPath: 'vendor/theme')
-        ->css('resources/css/widgets/carousel.css', buildPath: 'vendor/theme');
-
-    expect($registry->get('theme.carousel')?->resources)->toHaveCount(1);
-});
-
-it('registers package default groups with metadata and validation warnings', function (): void {
-    $registry = new FrontendResourceRegistry;
-
-    $registry->register(
-        key: 'package.gallery',
+it('registers immutable typed resource groups', function (): void {
+    $group = new FrontendResourceGroupData(
+        key: 'gallery',
         label: 'Gallery',
-        assets: [
-            ['source' => 'resources/css/gallery.css'],
-            ['missing' => true],
-        ],
-        description: 'Gallery widget resources',
         package: 'capell-app/gallery',
-        defaultBuildPath: 'vendor/gallery',
+        resources: [
+            FrontendResourceData::style(
+                handle: 'capell-app/gallery:styles',
+                package: 'capell-app/gallery',
+                source: new PublicResourceSourceData('vendor/gallery/gallery.css'),
+            ),
+        ],
     );
+    $registry = new FrontendResourceRegistry;
 
-    $group = $registry->get('package.gallery');
+    $registry->register($group);
 
-    expect($group?->label)->toBe('Gallery')
-        ->and($group?->description)->toBe('Gallery widget resources')
-        ->and($group?->package)->toBe('capell-app/gallery')
-        ->and($group?->origin)->toBe('package')
-        ->and($group?->validation->warnings)->toHaveCount(1)
-        ->and($group?->resources[0]->buildPath)->toBe('vendor/gallery');
+    expect($registry->has('gallery'))->toBeTrue()
+        ->and($registry->get('gallery'))->toBe($group)
+        ->and($registry->all())->toBe(['gallery' => $group])
+        ->and($registry->resource('capell-app/gallery:styles'))->toBe($group->resources[0]);
 });
+
+it('rejects duplicate group keys', function (): void {
+    $group = new FrontendResourceGroupData('gallery', 'Gallery', 'capell-app/gallery');
+    $registry = new FrontendResourceRegistry;
+    $registry->register($group);
+
+    $registry->register($group);
+})->throws(InvalidArgumentException::class, 'already registered');
+
+it('rejects duplicate handles across groups', function (): void {
+    $resource = FrontendResourceData::style(
+        'capell-app/gallery:styles',
+        'capell-app/gallery',
+        new PublicResourceSourceData('vendor/gallery/gallery.css'),
+    );
+    $registry = new FrontendResourceRegistry;
+    $registry->register(new FrontendResourceGroupData('gallery', 'Gallery', 'capell-app/gallery', [$resource]));
+
+    $registry->register(new FrontendResourceGroupData('carousel', 'Carousel', 'capell-app/gallery', [$resource]));
+})->throws(InvalidArgumentException::class, 'handle is already registered');

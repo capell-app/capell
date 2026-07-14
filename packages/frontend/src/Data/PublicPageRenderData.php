@@ -9,6 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Spatie\LaravelData\Data;
 
 class PublicPageRenderData extends Data
@@ -27,7 +28,7 @@ class PublicPageRenderData extends Data
         public ?Theme $theme,
         public ?object $layoutGraph,
         public FrontendRuntimeManifestData $runtimeManifest,
-        public FrontendAssetManifestData $assetManifest,
+        public FrontendResourcePlanData $resourcePlan,
         public array $surrogateKeys,
         public array $mediaHints = [],
         public array $contentWidgetPayloads = [],

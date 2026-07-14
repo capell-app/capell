@@ -4,271 +4,175 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Console\Commands;
 
-use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
-use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
-use Capell\Core\Data\VendorAssetData;
-use Capell\Core\Enums\VendorAssetEnum;
-use Capell\Core\Facades\CapellCore;
 use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
+use Capell\Frontend\Actions\ResolveFrontendDependencyPlanAction;
+use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
+use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
 use function Laravel\Prompts\confirm;
 
-use RuntimeException;
-
-class AfterInstallCommand extends Command
+final class AfterInstallCommand extends Command
 {
     use DescribesCommandOptions;
-    use PromptsWithOptionFallback;
 
-    protected $signature = 'capell:frontend-after-install {--dev : Run the Vite dev build instead of production build}';
+    protected $signature = 'capell:frontend-after-install
+        {--apply : Apply the printed plan in non-interactive mode}
+        {--dev : Run the Vite development build instead of the production build}';
 
-    protected $description = 'Run post-install steps for the Capell Frontend package (Tailwind assets + npm build)';
+    protected $description = 'Plan or apply Capell frontend dependencies, Vite inputs, generated assets, and build';
 
     public function handle(): int
     {
-        $this->writeCommandIntro('run Capell Frontend post-install steps', $this->enabledOptionDetails([
+        $dependencyPlan = ResolveFrontendDependencyPlanAction::run();
+        $configuredInputs = [
+            (string) config('capell-frontend.tailwind.output_css', 'resources/css/capell/frontend.css'),
+            ...resolve(FrontendViteInputRegistry::class)->all(),
+        ];
+        $viteIntegrated = $this->viteInputHelperIsIntegrated();
+        $buildCommand = [$dependencyPlan->manager->value, 'run', $this->option('dev') ? 'dev' : 'build'];
+
+        $this->writeCommandIntro('plan Capell frontend installation', $this->enabledOptionDetails([
+            'apply' => 'apply the installation plan',
             'dev' => 'development build mode',
         ]));
+        $this->renderPlan($dependencyPlan, array_values(array_unique($configuredInputs)), $buildCommand, $viteIntegrated);
 
-        $this->generateTailwindAssets();
+        if (! $this->input->isInteractive() && ! $this->option('apply')) {
+            $this->comment('Report only: no frontend files, dependencies, or build outputs were changed. Re-run with --apply to apply this plan.');
 
-        $this->installRequiredNpmDependencies();
+            return self::SUCCESS;
+        }
 
-        $this->runNpmBuildIfRequested();
+        if ($this->input->isInteractive() && ! confirm('Apply this frontend installation plan?', default: false)) {
+            $this->comment('Frontend installation plan was not applied.');
 
-        $this->info('Capell Frontend post-install steps completed successfully.');
+            return self::SUCCESS;
+        }
+
+        if (! $viteIntegrated) {
+            $this->error('Capell Vite inputs are not integrated. Add the exact snippet shown above before applying the plan.');
+
+            return self::FAILURE;
+        }
+
+        if (! $this->runDependencyCommand($dependencyPlan->runtimeCommand) || ! $this->runDependencyCommand($dependencyPlan->developmentCommand)) {
+            return self::FAILURE;
+        }
+
+        $generated = GenerateTailwindAssetsAction::run();
+        $inputs = collect($generated)
+            ->map(fn (array $asset): string => $this->relativeInputPath($asset['path']))
+            ->merge(resolve(FrontendViteInputRegistry::class)->all())
+            ->unique()
+            ->sort()
+            ->filter()
+            ->values()
+            ->all();
+        $this->writeViteInputManifest($inputs);
+
+        $build = Process::run($buildCommand);
+        $this->outputProcessStreams($build->output(), $build->errorOutput());
+
+        if (! $build->successful()) {
+            $this->error('Capell remediation: install the planned dependencies, verify the generated input manifest, and re-run the displayed build command.');
+
+            return self::FAILURE;
+        }
+
+        $this->info('Capell frontend installation plan applied successfully.');
 
         return self::SUCCESS;
     }
 
-    private function generateTailwindAssets(): string
-    {
-        $results = GenerateTailwindAssetsAction::run();
-
-        foreach ($results as $result) {
-            $this->line(sprintf('Generated Tailwind assets at: %s', $result['path']));
-        }
-
-        $this->ensureGeneratedAssetsAreViteEntryPoints($results);
-
-        return $results[0]['path'] ?? '';
-    }
-
     /**
-     * @param  array<int, array{path: string, content: string}>  $generatedAssets
+     * @param  array<int, string>  $viteInputs
+     * @param  array<int, string>  $buildCommand
      */
-    private function ensureGeneratedAssetsAreViteEntryPoints(array $generatedAssets): void
+    private function renderPlan(FrontendDependencyPlanData $plan, array $viteInputs, array $buildCommand, bool $viteIntegrated): void
     {
-        if ($this->frontendAssetBuildTool() !== 'vite') {
-            return;
+        $this->line('Frontend installation plan:');
+        $this->line('- Package manager: ' . $plan->manager->value);
+        $this->line('- Runtime dependencies: ' . ($plan->runtimeCommand === [] ? 'none' : implode(' ', $plan->runtimeCommand)));
+        $this->line('- Development dependencies: ' . ($plan->developmentCommand === [] ? 'none' : implode(' ', $plan->developmentCommand)));
+        $this->line('- Generated Vite inputs: ' . implode(', ', $viteInputs));
+        $this->line('- Published assets: package-owned public/vendor files remain outside Vite');
+        $this->line('- Build command: ' . implode(' ', $buildCommand));
+        $this->line('- Vite input integration: ' . ($viteIntegrated ? 'present' : 'missing'));
+
+        if (! $viteIntegrated) {
+            $this->warn('Add this exact Vite integration:');
+            $this->line("import { capellViteInputs } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js'");
+            $this->line('input: [...capellViteInputs(), /* application entries */]');
         }
-
-        $viteConfigPath = base_path('vite.config.js');
-
-        if (! is_file($viteConfigPath)) {
-            return;
-        }
-
-        $generatedAssetPaths = collect($generatedAssets)
-            ->map(fn (array $asset): string => $this->relativePathForViteInput($asset['path']))
-            ->filter(fn (string $path): bool => $path !== '')
-            ->values();
-
-        if ($generatedAssetPaths->isEmpty()) {
-            return;
-        }
-
-        $config = file_get_contents($viteConfigPath);
-
-        if ($config === false) {
-            return;
-        }
-
-        $updatedConfig = preg_replace_callback(
-            '/input:\s*\[(?<inputs>.*?)\]/s',
-            function (array $matches) use ($generatedAssetPaths): string {
-                $inputs = $matches['inputs'];
-                $missingInputs = $generatedAssetPaths
-                    ->reject(fn (string $path): bool => str_contains($inputs, "'" . $path . "'") || str_contains($inputs, '"' . $path . '"'))
-                    ->values();
-
-                if ($missingInputs->isEmpty()) {
-                    return $matches[0];
-                }
-
-                $separator = str_contains($inputs, "\n") ? "\n" : ' ';
-                $prefix = str_ends_with(rtrim($inputs), ',') ? '' : ',';
-                $additions = $missingInputs
-                    ->map(fn (string $path): string => $this->javascriptString($path))
-                    ->implode(', ');
-
-                return 'input: [' . rtrim($inputs) . $prefix . $separator . $additions . ']';
-            },
-            $config,
-            1,
-            $replacementCount,
-        );
-
-        if ($replacementCount !== 1 || ! is_string($updatedConfig) || $updatedConfig === $config) {
-            return;
-        }
-
-        file_put_contents($viteConfigPath, $updatedConfig);
-
-        $this->line('Updated Vite inputs for generated Capell frontend assets.');
     }
 
-    private function frontendAssetBuildTool(): string
+    /** @param  array<int, string>  $command */
+    private function runDependencyCommand(array $command): bool
     {
-        return config('capell-frontend.asset_build_tool', 'vite');
-    }
-
-    private function relativePathForViteInput(string $path): string
-    {
-        $basePath = Str::finish(base_path(), DIRECTORY_SEPARATOR);
-
-        if (Str::startsWith($path, $basePath)) {
-            return str_replace(DIRECTORY_SEPARATOR, '/', Str::after($path, $basePath));
+        if ($command === []) {
+            return true;
         }
 
-        return str_replace(DIRECTORY_SEPARATOR, '/', $path);
-    }
-
-    private function installRequiredNpmDependencies(): void
-    {
-        $npmDeps = $this->collectNpmDependencies();
-        if ($npmDeps === []) {
-            return;
-        }
-
-        $this->line('The following npm packages are required by installed Capell packages:');
-        foreach ($npmDeps as $pkg => $version) {
-            $this->line(sprintf('- %s@%s', $pkg, $version));
-        }
-
-        $this->requireInteractiveOrFail('npm packages installation confirmation', 'Run this command interactively to confirm npm installation.');
-
-        $shouldInstall = confirm('Would you like to install these npm packages now?');
-        if (! $shouldInstall) {
-            return;
-        }
-
-        $packages = collect($npmDeps)
-            ->map(fn (string $version, string $package): string => $this->npmPackageSpecifier($package, $version))
-            ->values()
-            ->all();
-
-        $this->line('Running: npm install ' . implode(' ', $packages));
-        $result = Process::run(['npm', 'install', ...$packages]);
+        $result = Process::run($command);
+        $this->outputProcessStreams($result->output(), $result->errorOutput());
 
         if ($result->successful()) {
-            $this->info('npm packages installed successfully.');
-
-            return;
+            return true;
         }
 
-        $this->error('Failed to install npm packages.');
-        $this->line($result->output());
+        $this->error('Capell remediation: resolve the dependency constraints reported above, then re-run the exact command from the plan.');
+
+        return false;
     }
 
-    private function runNpmBuildIfRequested(): void
+    private function outputProcessStreams(string $output, string $errorOutput): void
     {
-        $this->requireInteractiveOrFail('npm build confirmation', 'Run this command interactively to confirm the npm build.');
-
-        $runBuild = confirm('Would you like to run an npm build after this command completes?', default: true);
-        if (! $runBuild) {
-            return;
+        if ($output !== '') {
+            $this->getOutput()->write($output);
         }
 
-        $isDev = $this->option('dev') !== null && $this->option('dev') !== false;
-        $command = $isDev ? 'npm run dev' : 'npm run build';
-
-        $this->line('Running: ' . $command);
-
-        try {
-            RunNpmBuildAction::run($isDev);
-            $this->info(($isDev ? 'Development' : 'Production') . ' build completed successfully.');
-        } catch (RuntimeException $runtimeException) {
-            $message = $runtimeException->getMessage();
-
-            $this->error('npm build failed.');
-            $this->line($message);
-
-            foreach ($this->buildFailureHints($message) as $hint) {
-                $this->newLine();
-                $this->warn($hint);
-            }
+        if ($errorOutput !== '') {
+            $this->getOutput()->write($errorOutput);
         }
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function buildFailureHints(string $output): array
+    /** @param  array<int, string>  $inputs */
+    private function writeViteInputManifest(array $inputs): void
     {
-        $hints = [];
+        $path = base_path('bootstrap/cache/capell-vite-inputs.json');
+        $directory = dirname($path);
 
-        if (preg_match("/Can't resolve '(swiper\\/[^']+)'/", $output) === 1
-            || str_contains($output, "Can't resolve 'swiper")
-        ) {
-            $hints[] = 'Hint: Swiper CSS paths failed to resolve. If Capell packages are symlinked via Composer path repositories, '
-                . 'Tailwind v4 does not honor the Swiper package exports map. Import direct file paths '
-                . '(e.g. `@import "swiper/swiper.css";`) or add Vite resolve.alias entries. '
-                . 'See docs/tailwind-vendor-css.md.';
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
         }
 
-        if (preg_match("/ENOENT: no such file or directory, open '([^']+)'/", $output) === 1) {
-            $hints[] = 'Hint: A file referenced by the build could not be found. '
-                . 'Run `npm install` and verify your `vite.config.js` path aliases.';
-        }
-
-        return $hints;
+        file_put_contents($path, json_encode(['inputs' => $inputs], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        $this->line('Generated Vite input manifest: bootstrap/cache/capell-vite-inputs.json');
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function collectNpmDependencies(): array
+    private function viteInputHelperIsIntegrated(): bool
     {
-        $deps = [];
+        $path = base_path('vite.config.js');
 
-        CapellCore::getVendorAssetsForType(VendorAssetEnum::NpmDependency)
-            ->filter(fn (VendorAssetData $asset): bool => $asset->packageName === null || CapellCore::isPackageInstalled($asset->packageName))
-            ->each(function (VendorAssetData $asset) use (&$deps): void {
-                $dependencyName = $asset->dependencyName();
-                $dependencyVersion = $asset->dependencyVersion();
-
-                if ($dependencyName === '' || ! is_string($dependencyVersion) || $dependencyVersion === '') {
-                    return;
-                }
-
-                $deps[$dependencyName] = $dependencyVersion;
-            });
-
-        return $deps;
-    }
-
-    private function javascriptString(string $value): string
-    {
-        $encoded = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-
-        return is_string($encoded) ? $encoded : '""';
-    }
-
-    private function npmPackageSpecifier(string $package, string $version): string
-    {
-        if (preg_match('/^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/', $package) !== 1) {
-            throw new RuntimeException(sprintf('Invalid npm package name "%s".', $package));
+        if (! is_file($path)) {
+            return false;
         }
 
-        if ($version === '' || preg_match('/[\s[:cntrl:]]/', $version) === 1) {
-            throw new RuntimeException(sprintf('Invalid npm package version for "%s".', $package));
-        }
+        $config = (string) file_get_contents($path);
 
-        return sprintf('%s@%s', $package, $version);
+        return str_contains($config, 'capellViteInputs') && str_contains($config, 'capell-vite-inputs.js');
+    }
+
+    private function relativeInputPath(string $path): string
+    {
+        $base = Str::finish(base_path(), DIRECTORY_SEPARATOR);
+
+        return Str::startsWith($path, $base)
+            ? str_replace(DIRECTORY_SEPARATOR, '/', Str::after($path, $base))
+            : str_replace(DIRECTORY_SEPARATOR, '/', $path);
     }
 }

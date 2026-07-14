@@ -6,13 +6,6 @@ use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\VendorAssetEnum;
 
 it('builds typed vendor asset descriptors for frontend tooling', function (): void {
-    expect(VendorAssetData::buildAsset('resources/js/app.js', 'app.js', 'capell/core', 'frontend-runtime'))
-        ->type->toBe(VendorAssetEnum::BuildAsset)
-        ->value->toBe('resources/js/app.js')
-        ->file()->toBe('app.js')
-        ->packageName->toBe('capell/core')
-        ->condition()->toBe('frontend-runtime');
-
     expect(VendorAssetData::tailwindImport('@source "./vendor/capell"', 'capell/core'))
         ->type->toBe(VendorAssetEnum::TailwindImport)
         ->value->toBe('@source "./vendor/capell"')
@@ -31,8 +24,4 @@ it('builds typed vendor asset descriptors for frontend tooling', function (): vo
         ->colorName()->toBe('primary')
         ->colorValue()->toBe('#0369a1');
 
-    expect(VendorAssetData::npmDependency('vite', '^7.0'))
-        ->type->toBe(VendorAssetEnum::NpmDependency)
-        ->dependencyName()->toBe('vite')
-        ->dependencyVersion()->toBe('^7.0');
 });

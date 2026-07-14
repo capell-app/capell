@@ -12,18 +12,10 @@ final class BuildAssetDirective
                 \$args = [{$expression}];
                 \$buildAssets = \\Illuminate\\Support\\Arr::wrap(\$args[0] ?? []);
                 \$buildPath = \$args[1] ?? null;
-                \$buildTool = \$args[2] ?? config('capell-frontend.asset_build_tool');
+                \$buildTool = \$args[2] ?? 'vite';
                 if (\$buildAssets !== []) {
                     if (\$buildTool === 'vite') {
                         echo app(\\Illuminate\\Foundation\\Vite::class)(\$buildAssets, \$buildPath);
-                    } elseif (\$buildTool === 'mix') {
-                        foreach (\$buildAssets as \$buildAsset) {
-                            if (\\Illuminate\\Support\\Str::endsWith(\$buildAsset, '.css')) {
-                                echo '<link rel=\"stylesheet\" href=\"' . app(\\Illuminate\\Foundation\\Mix::class)(\$buildAsset, \$buildPath) . '\">';
-                            } elseif (\\Illuminate\\Support\\Str::endsWith(\$buildAsset, '.js')) {
-                                echo '<script src=\"' . app(\\Illuminate\\Foundation\\Mix::class)(\$buildAsset, \$buildPath) . '\"></script>';
-                            }
-                        }
                     } else {
                         foreach (\$buildAssets as \$buildAsset) {
                             if (\\Illuminate\\Support\\Str::endsWith(\$buildAsset, '.css')) {

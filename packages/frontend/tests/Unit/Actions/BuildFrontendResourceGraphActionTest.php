@@ -2,51 +2,27 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\BuildFrontendResourceGraphAction;
-use Capell\Frontend\Data\FrontendAssetManifestData;
-use Capell\Frontend\Data\FrontendAssetRequirementData;
-use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
-use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
-use Capell\Frontend\Support\Assets\ThemeResourceResolver;
+use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
+use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 
-it('builds a resource graph with resource group metadata and asset reasons', function (): void {
-    $registry = new FrontendResourceRegistry;
-    $registry->register(
-        key: 'package.gallery',
-        label: 'Gallery',
-        assets: ['resources/css/gallery.css'],
-        package: 'capell-app/gallery',
-        defaultBuildPath: 'build',
+it('builds server-side graph diagnostics with ownership placement and fingerprint', function (): void {
+    $resource = FrontendResourceData::style(
+        'capell-app/gallery:styles',
+        'capell-app/gallery',
+        new PublicResourceSourceData('vendor/gallery/gallery.css'),
     );
+    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+        new FrontendResourceContributionData($resource),
+    ]);
 
-    $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
-    $manifest = new FrontendAssetManifestData(
-        css: [new FrontendAssetRequirementData('gallery', FrontendAssetRequirementData::KIND_CSS, 'resources/css/gallery.css', 'build')],
-        js: [],
-        inline: [],
-        preloads: [],
-        runtime: $runtime,
-    );
-    $theme = new Theme;
-    $theme->meta = [];
+    $graph = BuildFrontendResourceGraphAction::run($plan);
 
-    $context = new FrontendRenderContextData(
-        page: null,
-        site: null,
-        language: null,
-        layout: null,
-        theme: $theme,
-        runtimeManifest: $runtime,
-    );
-
-    $graph = app()->make(BuildFrontendResourceGraphAction::class, [
-        'resolver' => new ThemeResourceResolver($registry),
-    ])->handle($manifest, $context);
-
-    expect($graph['resourceGroups'])->toHaveCount(1)
-        ->and($graph['resourceGroups'][0]['key'])->toBe('package.gallery')
-        ->and($graph['assets'][0]['reasons'][0])->toBe('Resource group package.gallery includes resources/css/gallery.css.');
+    expect($graph['fingerprint'])->toBe($plan->fingerprint)
+        ->and($graph['assets'])->toHaveCount(1)
+        ->and($graph['assets'][0]['handle'])->toBe($resource->handle)
+        ->and($graph['assets'][0]['package'])->toBe('capell-app/gallery')
+        ->and($graph['assets'][0]['placement'])->toBe('head');
 });

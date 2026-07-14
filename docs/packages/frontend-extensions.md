@@ -1,5 +1,7 @@
 # Frontend Extensions
 
+Register package CSS, JavaScript, Vite entries, CDN resources, and npm dependencies through the canonical [Frontend Resources guide](../../packages/frontend/docs/frontend-resources.md).
+
 ![Capell navigation list](../images/generated/admin/navigation-list.png)
 
 Frontend packages should register behaviour through [render hooks](../../packages/frontend/docs/extending-render-hooks.md), route/path registries, Blade components, Livewire components, Inertia components, vendor assets, cache dependencies, and explicit package registries.

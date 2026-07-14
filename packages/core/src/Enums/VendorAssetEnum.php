@@ -6,8 +6,6 @@ namespace Capell\Core\Enums;
 
 enum VendorAssetEnum: string
 {
-    case BuildAsset = 'build_asset';
-
     case TailwindImport = 'tailwind_import';
 
     case TailwindPlugin = 'tailwind_plugin';
@@ -16,5 +14,4 @@ enum VendorAssetEnum: string
 
     case TailwindThemeColor = 'tailwind_theme_color';
 
-    case NpmDependency = 'npm_dependency';
 }

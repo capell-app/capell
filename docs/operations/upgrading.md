@@ -1,5 +1,9 @@
 # Upgrading Capell
 
+## Frontend resource graph breaking change
+
+The legacy asset manifest, Mix adapter, build-asset/npm vendor subtypes, loose resource builders, contributor contract, and renderer contract have been removed. Follow the [Frontend Resources upgrade guide](../../packages/frontend/docs/frontend-resources.md), add `capellViteInputs()` to the application Vite input array, run `php artisan capell:frontend-after-install`, and apply the reviewed plan explicitly.
+
 ![Capell upgrade page](../images/generated/admin/upgrade-page.png)
 
 Capell ships with a single upgrade entry point: `php artisan capell:upgrade`. Every operation is idempotent — re-running it is always safe.

@@ -1,5 +1,7 @@
 # Extending Asset & Result Rendering with Render Hooks
 
+Render hooks are not the normal CSS or JavaScript loading mechanism. Use the typed [Frontend resource graph](frontend-resources.md) for ordering, deduplication, lazy activation, CSP diagnostics, and output safety.
+
 ![Capell Extending Asset & Result Rendering with Render Hooks screenshot](./images/screenshots/frontend-published-page.png)
 
 The Render Hook system lets you inject custom content into asset and result components at specific locations—without overwriting Blade files. This is the recommended, future-proof way for any package to extend Capell Frontend UI.

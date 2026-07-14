@@ -3,11 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
-use Capell\Core\Actions\Diagnostics\VerifyFrontendBuildAssetsAction;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
-use Capell\Core\Data\Diagnostics\FrontendBuildAssetVerificationResultData;
-use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -217,46 +214,6 @@ it('reports when no Capell packages are marked installed', function (): void {
     expect($report->passed())->toBeFalse()
         ->and($check?->passed)->toBeFalse()
         ->and($check?->message)->toBe('No installed Capell packages were detected.');
-});
-
-it('uses frontend build asset verification results in the doctor report', function (): void {
-    seedHealthyDoctorInstall();
-
-    $asset = VendorAssetData::buildAsset('vendor/capell-test', 'resources/js/app.js');
-    bindFakeAction(VerifyFrontendBuildAssetsAction::class, collect([
-        new FrontendBuildAssetVerificationResultData(
-            asset: $asset,
-            buildPath: 'vendor/capell-test',
-            sourceFile: 'resources/js/app.js',
-            passed: false,
-            message: 'Missing build manifest: public/vendor/capell-test/manifest.json',
-            remediation: 'Publish the package build assets or rerun the package setup command.',
-        ),
-    ]));
-
-    $failedReport = BuildDoctorReportAction::run();
-    $failedCheck = $failedReport->checks->firstWhere('label', 'Published frontend build assets');
-
-    expect($failedReport->passed())->toBeFalse()
-        ->and($failedCheck?->passed)->toBeFalse()
-        ->and($failedCheck?->message)->toContain('Missing build manifest')
-        ->and($failedCheck?->remediation)->toContain('Publish the package build assets');
-
-    bindFakeAction(VerifyFrontendBuildAssetsAction::class, collect([
-        new FrontendBuildAssetVerificationResultData(
-            asset: $asset,
-            buildPath: 'vendor/capell-test',
-            sourceFile: 'resources/js/app.js',
-            passed: true,
-            message: 'Build asset is available for resources/js/app.js.',
-        ),
-    ]));
-
-    $passedReport = BuildDoctorReportAction::run();
-    $passedCheck = $passedReport->checks->firstWhere('label', 'Published frontend build assets');
-
-    expect($passedCheck?->passed)->toBeTrue()
-        ->and($passedCheck?->message)->toBe('1 registered build asset(s) are published.');
 });
 
 it('reports when the users table is absent during admin access checks', function (): void {

@@ -36,9 +36,6 @@ it('keeps shared frontend javascript limited to the generic alpine runtime', fun
         ->and($entrypoint)->toContain('window.Alpine.start()');
 });
 
-it('filters conditional vendor build assets before rendering the frontend head', function (): void {
-    $contributor = file_get_contents(dirname(__DIR__, 3) . '/src/Support/Assets/VendorBuildAssetContributor.php');
-
-    expect($contributor)->toContain('VendorAssetConditionRegistry')
-        ->and($contributor)->toContain('$this->conditions->passes($asset->condition(), $context)');
+it('does not retain the legacy vendor build asset bridge', function (): void {
+    expect(dirname(__DIR__, 3) . '/src/Support/Assets/VendorBuildAssetContributor.php')->not->toBeFile();
 });

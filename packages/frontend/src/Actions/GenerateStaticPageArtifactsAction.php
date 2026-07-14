@@ -136,7 +136,8 @@ class GenerateStaticPageArtifactsAction
         $context = resolve(FrontendContextReader::class);
         $context->setFrontendData('publicPageRenderData', null);
         $context->setFrontendData('runtimeManifest', null);
-        $context->setFrontendData('assetManifest', null);
+        $context->setFrontendData('resourcePlan', null);
+        $context->setFrontendData('renderedFrontendResources', null);
         $context->setFrontendData('mediaHints', null);
         $context->setFrontendData('lcpMediaUrl', null);
         $context->setFrontendData('publicHtmlSafetyInspected', null);

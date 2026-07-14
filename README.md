@@ -18,12 +18,12 @@ Choose Capell when repeated page types, layouts, URLs, publishing rules, and edi
 
 ## Why teams choose Capell
 
-| Outcome | What ships | Important boundary |
-| --- | --- | --- |
-| Recover page content confidently | Append-only page revision history, readable diffs, rollback preview, validated roll back, and roll forward | Standard recovery is page-scoped; it is not a database or media backup |
-| Upgrade visibly | Dry-run planning, recorded upgrade steps, diagnostics, and step rollback where the step declares it safe | Infrastructure and database rollback still belong to the deployed application |
-| Keep the frontend yours | Laravel routing and render integration for Blade, Livewire, Inertia, Vue, or a custom stack | Capell renders through the Laravel application; there is no delivery API |
-| Extend without patching Core | Composer packages, manifests, registries, health checks, install and uninstall lifecycles | Package maturity and removal impact must be reviewed before adoption |
+| Outcome                          | What ships                                                                                                 | Important boundary                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Recover page content confidently | Append-only page revision history, readable diffs, rollback preview, validated roll back, and roll forward | Standard recovery is page-scoped; it is not a database or media backup        |
+| Upgrade visibly                  | Dry-run planning, recorded upgrade steps, diagnostics, and step rollback where the step declares it safe   | Infrastructure and database rollback still belong to the deployed application |
+| Keep the frontend yours          | Laravel routing and render integration for Blade, Livewire, Inertia, Vue, or a custom stack                | Capell renders through the Laravel application; there is no delivery API      |
+| Extend without patching Core     | Composer packages, manifests, registries, health checks, install and uninstall lifecycles                  | Package maturity and removal impact must be reviewed before adoption          |
 
 ![A readable Capell activity diff showing old and new page values](docs/images/generated/admin/admin-activity-log-details.png)
 
@@ -33,8 +33,8 @@ The standard Admin history surface records page changes and supports page-only r
 
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. For a source-level evaluation, these current captures show the foundation workflow:
 
-| Organise and publish pages | Edit structured page content |
-| --- | --- |
+| Organise and publish pages                                                                | Edit structured page content                                                                                           |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | ![Capell Pages list with publish states and page types](docs/images/admin-pages-list.png) | ![Capell page editor with content, publishing, and page context](docs/images/generated/admin/admin-page-edit-form.png) |
 
 Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
@@ -72,13 +72,13 @@ Read [Theme Library](docs/admin/theme-library.md) to operate installed themes or
 
 The public foundation is split into five packages:
 
-| Package | Composer name | Responsibility |
-| --- | --- | --- |
-| Core | `capell-app/core` | Sites, languages, pages, URLs, layouts, themes, media, translations, settings, revision history, upgrade foundations, and registries |
-| Admin | `capell-app/admin` | Filament resources, editor workflows, page recovery UI, settings, users, diagnostics, and admin extension points |
-| Frontend | `capell-app/frontend` | Public routing, site context, themes, assets, render hooks, and response delivery |
-| Installer | `capell-app/installer` | Guided browser and CLI installation, health review, and installer cleanup |
-| Marketplace | `capell-app/marketplace` | Extension discovery, install authorisation, and package acquisition contracts |
+| Package     | Composer name            | Responsibility                                                                                                                             |
+| ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Core        | `capell-app/core`        | Sites, languages, pages, URLs, layouts, themes, media, translations, settings, revision history, upgrade foundations, and registries       |
+| Admin       | `capell-app/admin`       | Filament resources, editor workflows, page recovery UI, settings, users, diagnostics, and admin extension points                           |
+| Frontend    | `capell-app/frontend`    | Public routing, site context, themes, [typed resources](packages/frontend/docs/frontend-resources.md), render hooks, and response delivery |
+| Installer   | `capell-app/installer`   | Guided browser and CLI installation, health review, and installer cleanup                                                                  |
+| Marketplace | `capell-app/marketplace` | Extension discovery, install authorisation, and package acquisition contracts                                                              |
 
 Optional features arrive as Laravel packages. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path. The [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation; a source-only or Labs entry is not a promise that a public Composer package is available.
 
@@ -113,15 +113,15 @@ Read these before production:
 
 ## Requirements
 
-| Tool | Supported versions |
-| --- | --- |
-| PHP | 8.4+ |
-| Laravel | 12.41.1+ in the 12.x line or Laravel 13.x |
-| Filament | 5.6.8+ (`~5.6.8`) |
+| Tool     | Supported versions                                                  |
+| -------- | ------------------------------------------------------------------- |
+| PHP      | 8.4+                                                                |
+| Laravel  | 12.41.1+ in the 12.x line or Laravel 13.x                           |
+| Filament | 5.6.8+ (`~5.6.8`)                                                   |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
-| Node.js | 20+ |
-| Composer | 2.7+ |
-| Runtime | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP) |
+| Node.js  | 20+                                                                 |
+| Composer | 2.7+                                                                |
+| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP)       |
 
 Required PHP extensions and writable paths are listed in the [Install guide](docs/getting-started/install.md). The shipped product line is 1.x; use the latest compatible tag rather than a branch name in customer applications.
 
