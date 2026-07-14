@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Diagnostics;
 
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Collection;
@@ -28,16 +29,32 @@ final class BuildThemeDoctorReportAction
     {
         $themePath = $this->themePath($theme, $path);
         $checks = collect([
-            $this->checkManifest($theme, $themePath),
-            $this->checkComposerJson($themePath),
-            $this->checkViewsDirectory($themePath),
-            $this->checkSafeAssetUrls($themePath),
-            $this->checkRuntimeRegistry($theme, $themePath),
+            $this->identified($this->checkManifest($theme, $themePath), 'theme.manifest.valid', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkComposerJson($themePath), 'theme.composer.present', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkViewsDirectory($themePath), 'theme.views.present', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkSafeAssetUrls($themePath), 'theme.asset-urls.safe', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkRuntimeRegistry($theme, $themePath), 'theme.runtime.registered', DoctorCheckSeverity::Critical),
         ]);
 
         return new DoctorReportData(
             status: $checks->every(fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
             checks: $checks->values(),
+        );
+    }
+
+    private function identified(
+        DoctorCheckResultData $check,
+        string $id,
+        DoctorCheckSeverity $severity,
+    ): DoctorCheckResultData {
+        return new DoctorCheckResultData(
+            label: $check->label,
+            passed: $check->passed,
+            message: $check->message,
+            remediation: $check->remediation,
+            id: $id,
+            severity: $severity,
+            evidence: $check->evidence,
         );
     }
 

@@ -315,10 +315,13 @@ it('merges installed package doctor checks into the install summary', function (
             'status' => 'passed',
             'checks' => [
                 [
+                    'id' => 'test-package.health',
+                    'severity' => 'critical',
                     'label' => 'Package-owned doctor check',
                     'passed' => true,
                     'message' => 'Package doctor ran.',
                     'remediation' => null,
+                    'evidence' => [],
                 ],
             ],
         ], JSON_THROW_ON_ERROR));
@@ -393,10 +396,13 @@ it('can skip package doctor checks for installer health gates', function (): voi
             'status' => 'failed',
             'checks' => [
                 [
+                    'id' => 'test-package.failure',
+                    'severity' => 'critical',
                     'label' => 'Failing package-owned doctor check',
                     'passed' => false,
                     'message' => 'Package doctor failed.',
                     'remediation' => null,
+                    'evidence' => [],
                 ],
             ],
         ], JSON_THROW_ON_ERROR));
