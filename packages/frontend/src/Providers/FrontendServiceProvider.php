@@ -44,6 +44,7 @@ use Capell\Frontend\Console\Commands\InstallCommand;
 use Capell\Frontend\Console\Commands\UpgradeCommand;
 use Capell\Frontend\Contracts\AdminAccessCheckerInterface;
 use Capell\Frontend\Contracts\AssetsRegistryInterface;
+use Capell\Frontend\Contracts\Cache\TranslationCacheDependencyResolver;
 use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
@@ -100,6 +101,10 @@ use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Capell\Frontend\Support\Cache\Resolvers\MediaTranslationCacheDependencyResolver;
+use Capell\Frontend\Support\Cache\Resolvers\PageableTranslationCacheDependencyResolver;
+use Capell\Frontend\Support\Cache\Resolvers\SiteTranslationCacheDependencyResolver;
+use Capell\Frontend\Support\Cache\TranslationCacheDependencyRegistry;
 use Capell\Frontend\Support\CapellFrontendContext;
 use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
@@ -299,6 +304,20 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
         // Cache invalidation
         $this->app->scoped(CacheInvalidationExecutor::class);
+        $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
+        $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
+        $this->app->scoped(SiteTranslationCacheDependencyResolver::class);
+        $this->app->tag([
+            PageableTranslationCacheDependencyResolver::class,
+            MediaTranslationCacheDependencyResolver::class,
+            SiteTranslationCacheDependencyResolver::class,
+        ], TranslationCacheDependencyResolver::TAG);
+        $this->app->scoped(
+            TranslationCacheDependencyRegistry::class,
+            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
+                $app->tagged(TranslationCacheDependencyResolver::TAG),
+            ),
+        );
         $this->app->scoped(CacheInvalidationRegistry::class);
 
         // Admin access checker: can be faked in tests

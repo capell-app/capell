@@ -71,3 +71,22 @@ it('flushes the frontend tag and resolved local cache state', function (): void 
     expect($generation)->toBe(1)
         ->and($cachedModel)->toBeNull();
 });
+
+it('is safe to execute the same targeted invalidation plan repeatedly', function (): void {
+    $pageModelCache = resolve(PageModelCache::class);
+    $publicRenderDataCache = resolve(PublicPageRenderDataCache::class);
+    $modelKey = CacheEnum::pageModel(Page::class, 10, 20, 30);
+    $generationKey = CacheEnum::publicRenderDataGeneration(Page::class, 10, 20, 30);
+    $plan = new CacheInvalidationPlanData([
+        CacheInvalidationRule::pageModel(Page::class, 10, 20, 30),
+        CacheInvalidationRule::publicRenderData(Page::class, 10, 20, 30),
+    ]);
+
+    $pageModelCache->setToCache($modelKey, 'cached');
+    $executor = resolve(CacheInvalidationExecutor::class);
+    $executor->execute($plan);
+    $executor->execute($plan);
+
+    expect($pageModelCache->getFromCache($modelKey))->toBeNull()
+        ->and($publicRenderDataCache->getFromCache($generationKey))->toBe(2);
+});
