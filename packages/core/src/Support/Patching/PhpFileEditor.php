@@ -77,7 +77,9 @@ class PhpFileEditor
 
         foreach ($existingUses as $useStatement) {
             foreach ($useStatement->uses as $useUse) {
-                $existingNames[] = $useUse->getAlias()->name;
+                // Prefer the explicit alias; fall back to the imported name's
+                // last segment (mirrors UseItem::getAlias()).
+                $existingNames[] = $useUse->alias->name ?? $useUse->name->getLast();
             }
         }
 

@@ -75,7 +75,7 @@ function isPublicSafeCapellAttribute(string $attribute): bool
         'data-capell-insights-',
     ];
 
-    return array_any($families, fn ($prefix): bool => str_starts_with($attribute, (string) $prefix));
+    return array_any($families, fn (string $prefix): bool => str_starts_with($attribute, $prefix));
 }
 
 /**

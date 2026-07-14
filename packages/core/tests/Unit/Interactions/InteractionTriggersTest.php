@@ -27,10 +27,28 @@ it('normalizes widget interaction targets from nested widget builder state', fun
         ->and($triggers[0]->target->widgetData)->toBe(['content' => '<p>Video embed</p>']);
 });
 
+it('normalizes fragment interaction targets and keeps the opaque reference', function (): void {
+    $triggers = ResolveInteractionTriggersAction::run([
+        [
+            'label' => 'Load pricing section',
+            'target_type' => 'fragment',
+            'fragment_reference' => 'opaque-fragment-reference',
+            'fallback_url' => 'https://example.test/pricing',
+        ],
+    ]);
+
+    expect($triggers)->toHaveCount(1)
+        ->and($triggers[0]->label)->toBe('Load pricing section')
+        ->and($triggers[0]->target->type)->toBe(InteractionTargetType::Fragment)
+        ->and($triggers[0]->target->fragmentReference)->toBe('opaque-fragment-reference')
+        ->and($triggers[0]->target->fallbackUrl)->toBe('https://example.test/pricing');
+});
+
 it('drops invalid interaction targets instead of rendering broken public controls', function (): void {
     $triggers = ResolveInteractionTriggersAction::run([
         ['label' => 'Missing widget', 'target_type' => 'widget'],
         ['label' => 'Unsafe URL', 'target_type' => 'url', 'url' => 'javascript:alert(1)'],
+        ['label' => 'Missing fragment reference', 'target_type' => 'fragment'],
         ['target_type' => 'widget', 'widget_type' => 'content'],
     ]);
 

@@ -4,25 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Pages;
 
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 
 /**
- * Single source of truth for the "draft sentinel" date math used across the
- * page publishing flow.
+ * Admin-side alias for the Core draft-sentinel date math.
  *
- * Capell has no boolean `is_draft` column. Instead a page's draft/scheduled/
- * published state is derived from `visible_from`:
- *
- *   - past or null          → published (live now)
- *   - future, within +50yr  → scheduled (a real publish date the editor chose)
- *   - future, beyond +50yr  → draft (a far-future placeholder, never meant to go live)
- *
- * Reverting to draft writes the far-future {@see self::draftValue()} sentinel;
- * the {@see self::DRAFT_BOUNDARY_YEARS} cut-off distinguishes that placeholder
- * from a genuine future schedule. Both the bulk actions, the single-record
- * actions, and the publish panel's status derivation lean on this class so the
- * rule can never drift between them.
+ * All the boundary rules live in {@see PublishSentinel}; this class keeps the
+ * long-standing Admin API (and its call sites) stable while delegating every
+ * decision to Core so the rule can never drift between packages.
  */
 final class PagePublishSentinel
 {
@@ -32,22 +23,14 @@ final class PagePublishSentinel
      *
      * @var int
      */
-    public const DRAFT_BOUNDARY_YEARS = DefaultPageTableStatusResolver::DRAFT_SENTINEL_YEARS;
-
-    /**
-     * Extra years added on top of the boundary when *writing* the draft
-     * sentinel, so a reverted page sits comfortably clear of the cut-off.
-     *
-     * @var int
-     */
-    private const DRAFT_WRITE_OFFSET_YEARS = 50;
+    public const DRAFT_BOUNDARY_YEARS = PublishSentinel::DRAFT_BOUNDARY_YEARS;
 
     /**
      * The far-future `visible_from` value written to mark a page as draft.
      */
     public static function draftValue(): CarbonImmutable
     {
-        return CarbonImmutable::now()->addYears(self::DRAFT_BOUNDARY_YEARS + self::DRAFT_WRITE_OFFSET_YEARS);
+        return PublishSentinel::draftValue();
     }
 
     /**
@@ -56,7 +39,7 @@ final class PagePublishSentinel
      */
     public static function draftBoundary(): CarbonImmutable
     {
-        return CarbonImmutable::now()->addYears(self::DRAFT_BOUNDARY_YEARS);
+        return PublishSentinel::draftBoundary();
     }
 
     /**
@@ -65,7 +48,6 @@ final class PagePublishSentinel
      */
     public static function isDraftValue(?DateTimeInterface $visibleFrom): bool
     {
-        return $visibleFrom instanceof DateTimeInterface
-            && CarbonImmutable::instance($visibleFrom)->greaterThan(self::draftBoundary());
+        return PublishSentinel::isDraftValue($visibleFrom);
     }
 }

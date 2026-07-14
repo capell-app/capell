@@ -28,7 +28,7 @@ final class PageResolveStep
         $site = $work->state->site();
         $language = $work->state->language();
 
-        if (! ($site instanceof Site && $language instanceof Language)) {
+        if (! $site instanceof Site || ! $language instanceof Language) {
             return $next($work);
         }
 

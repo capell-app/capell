@@ -339,9 +339,6 @@ class PageLoader
         return $url;
     }
 
-    /**
-     * @return (Model&Pageable<Model>)|null
-     */
     public static function loadPage(
         string $type,
         int $id,

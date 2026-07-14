@@ -8,7 +8,7 @@
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/admin?style=flat)](https://packagist.org/packages/capell-app/admin)
-[![Filament](https://img.shields.io/badge/Filament-5.6.8%20to%20%3C5.7-FDAE4B?style=flat-square&logo=filament&logoColor=000)](#requirements-and-support-policy)
+[![Filament](https://img.shields.io/badge/Filament-5.6.8-FDAE4B?style=flat-square&logo=filament&logoColor=000)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/admin` is the Filament panel package for Capell CMS. It adds the authenticated editor and operator surface for managing Core records, settings, package state, dashboards, permissions, and admin extension points.
@@ -105,7 +105,7 @@ For resource or schema changes, include the matching focused test file first. Fo
 | -------- | -------------------------------- |
 | PHP      | `^8.4`                           |
 | Laravel  | `^12.41.1` or `^13.0`            |
-| Filament | `^5.6.8 <5.7.0-beta`             |
+| Filament | `~5.6.8`                         |
 | Core     | The same release as this package |
 
 Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.

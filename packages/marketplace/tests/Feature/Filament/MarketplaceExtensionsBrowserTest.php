@@ -1190,6 +1190,10 @@ it('redirects account verification required grouped installs through a hosted in
         'slug' => 'protected-suite',
         'name' => 'Protected Suite',
         'composer_name' => 'capell-app/protected-suite',
+        'catalogue_role' => 'extension',
+        'maturity' => 'beta',
+        'maturity_label' => 'Beta',
+        'included_with_capell_all' => true,
         'install_eligibility' => [
             'state' => 'blocked',
             'block_reason' => 'email_verification_required',
@@ -1239,6 +1243,9 @@ it('redirects account verification required grouped installs through a hosted in
         ->assertSet('selectedMarketplaceInstallOptions.starter_content', true)
         ->assertSee(trans_choice('capell-marketplace::marketplace.selection.final_install_count_button', 1, ['count' => 1]))
         ->assertSee(__('capell-marketplace::marketplace.selection.premium_notice'))
+        ->assertSee(__('capell-marketplace::marketplace.release_status.beta'))
+        ->assertSee(__('capell-marketplace::marketplace.selection.beta_acknowledgement_label'))
+        ->set('betaMarketplaceExtensionsAcknowledged', true)
         ->set('installReviewedMarketplaceExtensionsConfirmed', true)
         ->call('installReviewedMarketplaceExtensions')
         ->assertRedirect('https://marketplace.test/marketplace/install-flows/mif_123');
@@ -1254,8 +1261,77 @@ it('redirects account verification required grouped installs through a hosted in
     Http::assertSent(fn ($request): bool => (string) $request->url() === 'https://marketplace.test/api/marketplace/install-flows'
         && ($request->data()['contract_version'] ?? null) === 2
         && ($request->data()['selected_extensions'][0]['composer_name'] ?? null) === 'capell-app/protected-suite'
+        && ($request->data()['install_options']['beta_acknowledged'] ?? null) === true
         && ($request->data()['install_options']['capell-app/protected-suite'] ?? null) === ['starter_content' => true]
         && ($request->data()['install_options']['protected-suite'] ?? null) === ['starter_content' => true]);
+});
+
+it('detects transitive beta dependencies in install review', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'publishing-studio',
+                    'name' => 'Publishing Studio',
+                    'composer_name' => 'capell-app/publishing-studio',
+                    'catalogue_role' => 'extension',
+                    'maturity' => 'stable',
+                    'maturity_label' => 'Released',
+                    'included_with_capell_all' => true,
+                    'dependencies' => [
+                        'requires' => ['capell-app/migration-assistant'],
+                    ],
+                ]),
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'migration-assistant',
+                    'name' => 'Migration Assistant',
+                    'composer_name' => 'capell-app/migration-assistant',
+                    'catalogue_role' => 'extension',
+                    'maturity' => 'beta',
+                    'maturity_label' => 'Beta',
+                    'included_with_capell_all' => true,
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/publishing-studio')
+        ->call('showMarketplaceInstallReview')
+        ->assertSee('Migration Assistant')
+        ->assertSee(__('capell-marketplace::marketplace.release_status.beta'))
+        ->assertSee(__('capell-marketplace::marketplace.selection.beta_acknowledgement_label'));
+});
+
+it('does not show beta acknowledgement for the released Foundation theme', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [marketplaceBrowserExtensionPayload([
+                'slug' => 'theme-foundation',
+                'name' => 'Foundation Theme',
+                'composer_name' => 'capell-app/theme-foundation',
+                'kind' => 'theme',
+                'catalogue_role' => 'extension',
+                'maturity' => 'stable',
+                'maturity_label' => 'Released',
+                'included_with_capell_all' => true,
+            ])],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/theme-foundation')
+        ->call('showMarketplaceInstallReview')
+        ->assertSee('Foundation Theme')
+        ->assertDontSee(__('capell-marketplace::marketplace.selection.beta_acknowledgement_label'));
 });
 
 it('applies the marketplace author filter from the card action', function (): void {
@@ -1500,7 +1576,6 @@ it('can build marketplace records and table filters for a locked browser kind', 
     ]);
 
     $records = resolve(MarketplaceBrowser::class)->records(
-        search: null,
         filters: [
             'kind' => ['value' => 'tool'],
         ],

@@ -178,7 +178,7 @@ class TranslationsRepeater extends RepeaterTabs
         // Avoid empty(); check strictly for presence and null
         $languageId = $state['language_id'] ?? null;
 
-        if (! is_int($languageId) && ! (is_string($languageId) && is_numeric($languageId))) {
+        if (! is_int($languageId) && (! is_string($languageId) || ! is_numeric($languageId))) {
             return null;
         }
 

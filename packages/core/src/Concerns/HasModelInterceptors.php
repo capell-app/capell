@@ -65,7 +65,7 @@ trait HasModelInterceptors
     {
         $conditions = $this->normalizeKeyConditions($key);
         $entries = $this->modelInterceptors[$model] ?? [];
-        $this->modelInterceptors[$model] = array_values(array_filter($entries, fn (array $entry): bool => ! ($entry['class'] === $interceptorClass && $this->conditionsEqual($entry['conditions'], $conditions))));
+        $this->modelInterceptors[$model] = array_values(array_filter($entries, fn (array $entry): bool => $entry['class'] !== $interceptorClass || ! $this->conditionsEqual($entry['conditions'], $conditions)));
     }
 
     /**

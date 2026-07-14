@@ -63,7 +63,7 @@ This 4.x host monorepo contains the five foundation packages. First-party featur
 
 ## Installing
 
-Foundation packages install from public Packagist repositories. Paid marketplace packages require authenticated Composer access and an active entitlement. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and Filament `^5.6.8 <5.7.0-beta`.
+Foundation packages install from public Packagist repositories. Paid marketplace packages require authenticated Composer access and an active entitlement. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and Filament `~5.6.8`.
 
 ### Recommended — the installer
 
@@ -125,7 +125,7 @@ Use the [extension point chooser](docs/packages/extension-point-chooser.md) or [
 | -------- | -------------------------------------------------------------------- |
 | PHP      | 8.4+                                                                 |
 | Laravel  | 12.41.1+ or 13.x                                                     |
-| Filament | 5.6.8+ below 5.7 (`^5.6.8 <5.7.0-beta`)                              |
+| Filament | 5.6.8+ (`~5.6.8`)                                                    |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or your configured Laravel database |
 | Node.js  | 20+                                                                  |
 | Composer | 2.7+                                                                 |

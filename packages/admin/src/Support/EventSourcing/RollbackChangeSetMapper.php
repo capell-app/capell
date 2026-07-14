@@ -26,7 +26,6 @@ final class RollbackChangeSetMapper
                 afterValue: $change->after,
                 status: $this->status($change->changeType),
                 reversible: true,
-                skipReason: null,
                 label: $change->label,
             ),
             $preview->fields,

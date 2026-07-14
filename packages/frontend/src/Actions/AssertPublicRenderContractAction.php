@@ -204,7 +204,7 @@ final class AssertPublicRenderContractAction
      */
     private function containsAny(string $html, array $markers): bool
     {
-        return array_any($markers, fn ($marker): bool => stripos($html, (string) $marker) !== false);
+        return array_any($markers, fn (string $marker): bool => stripos($html, $marker) !== false);
     }
 
     private function fail(string $message, string $matched): never

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
-use Capell\Installer\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 

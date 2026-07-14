@@ -51,7 +51,6 @@ final class CreateExtensionAcquisitionAction
                 repositoryUrl: null,
                 purchaseUrl: $listing->purchaseUrl,
                 requiresDeployment: false,
-                composerAuth: null,
                 signedActivation: [],
                 metadata: [
                     'authorization_source' => 'local_free_policy',

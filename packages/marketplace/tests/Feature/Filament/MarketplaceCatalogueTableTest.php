@@ -1447,7 +1447,6 @@ it('can build marketplace records for a locked theme browser', function (): void
     ]);
 
     $records = resolve(MarketplaceBrowser::class)->records(
-        search: null,
         filters: [],
         lockedKind: 'theme',
     );

@@ -1,6 +1,6 @@
 # Widget And Fragment Targets
 
-A widget can expose interaction triggers that open another experience when the visitor acts. Targets render lazily through encrypted public routes, so the page never ships the target content or its internals up front.
+A widget can expose interaction triggers that open another experience when the visitor acts. Lazy targets render through opaque public URLs provided by companion packages, so the page never ships the target content or its internals up front.
 
 ## Interaction Targets
 
@@ -8,16 +8,21 @@ Widgets can expose interaction triggers through `data.__capell.interactions` or 
 
 Supported target types:
 
-| Target          | Use                                                                    |
-| --------------- | ---------------------------------------------------------------------- |
-| `widget`        | Render a registered widget through the lazy widget endpoint.           |
-| `fragment`      | Render an encrypted Layout Builder block fragment.                     |
-| `url`           | Link to a safe URL.                                                    |
-| `public_action` | Use a safe fallback URL unless a package renders the action elsewhere. |
+| Target          | Use                                                                     |
+| --------------- | ----------------------------------------------------------------------- |
+| `widget`        | Render a registered widget through a companion lazy widget endpoint.    |
+| `fragment`      | Render a Layout Builder block fragment through a companion endpoint.    |
+| `url`           | Link to a safe URL.                                                     |
+| `public_action` | Use a safe fallback URL unless a package renders the action elsewhere.  |
 
 Supported behaviours for lazy targets are `modal`, `slide_over`, `inline_reveal`, and `replace_region`.
 
-Widget targets render through `/_capell/widgets/{reference}`. The reference is encrypted JSON containing the widget type and data. The public trigger does not expose the widget type, component name, package name, target content, model IDs, field paths, or editor metadata.
+Capell Frontend does not ship the public endpoints for lazy targets. Each lazy target type activates when a companion package binds its contract in the container:
+
+- Widget targets activate when a package binds `Capell\Frontend\Contracts\WidgetInteractionLocatorResolver`, which returns the public URL for the target widget.
+- Fragment targets activate when a package binds `Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder`, which turns the stored opaque `fragment_reference` into the public URL that renders the fragment.
+
+While the matching contract is unbound, triggers for that target type are safely omitted from public output, and the Admin interaction schema does not offer the fragment target. The rendered trigger contains only the opaque URL the bound contract returns; it does not expose the widget type, component name, package name, target content, model IDs, field paths, or editor metadata.
 
 Use a widget target when the visitor is opening a separate experience, such as a video player, form, gallery, quote calculator, or comparison panel. Use a Layout Builder fragment target when the visitor is loading a public block fragment from the current layout.
 
@@ -45,9 +50,9 @@ The editor-facing shape for a trigger that opens a video in a modal looks like t
 ]
 ```
 
-The public page renders a safe trigger and an encrypted lazy widget URL. It does not render the target widget content until the visitor clicks.
+The public page renders a safe trigger and an opaque lazy widget URL. It does not render the target widget content until the visitor clicks.
 
-Fragment targets render through `/_fragments/{reference}` with the same encrypted-reference rules.
+Fragment targets follow the same rules: the public page renders only the trigger and the opaque URL returned by the bound `DeferredFragmentReferenceBuilder`.
 
 ## Public Output Rules
 

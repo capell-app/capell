@@ -246,7 +246,6 @@ final class ThemePackageCandidates
                     key: $definition->key,
                     name: $definition->name,
                     description: $definition->description,
-                    packageName: null,
                     previewImageUrl: $definition->previewImage,
                 ),
             ])

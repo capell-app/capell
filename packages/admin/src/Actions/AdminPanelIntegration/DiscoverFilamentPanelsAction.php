@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\AdminPanelIntegration;
 
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelCandidateData;
-use Capell\Admin\Support\AdminPanelIntegration\PhpFileEditor;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsObject;
 use PhpParser\Node\Arg;

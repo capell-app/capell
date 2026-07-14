@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
-use Capell\Installer\Support\InstallGuide\Patch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
-use Capell\Installer\Support\Patching\ConfigArrayEditor;
-use Capell\Installer\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\ConfigArrayEditor;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayItem;

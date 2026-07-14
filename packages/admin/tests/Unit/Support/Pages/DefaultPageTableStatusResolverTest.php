@@ -43,6 +43,22 @@ it('resolves scheduled pages with a compact day label', function (): void {
         ->and($status->date?->toDateTimeString())->toBe('2026-05-27 10:00:00');
 });
 
+it('resolves sentinel draft pages as draft, not scheduled', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-23 09:00:00'));
+
+    $page = Page::factory()->createOne([
+        'visible_from' => CarbonImmutable::now()->addYears(100),
+        'visible_until' => null,
+    ]);
+
+    $status = resolve(DefaultPageTableStatusResolver::class)->resolve($page);
+
+    expect($status->label)->toBe((string) __('capell-admin::table.page_status_draft'))
+        ->and($status->shortLabel)->toBe((string) __('capell-admin::table.page_status_draft_short'))
+        ->and($status->color)->toBe('gray')
+        ->and($status->date)->toBeNull();
+});
+
 it('resolves expired pages', function (): void {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-23 09:00:00'));
 

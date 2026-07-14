@@ -55,7 +55,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
      */
     private function installableListings(?string $only): array
     {
-        return collect($this->marketplace->listExtensions(maxPages: null))
+        return collect($this->marketplace->listExtensions())
             ->filter(fn (ExtensionListingData $listing): bool => $listing->composerName !== '')
             ->unique(fn (ExtensionListingData $listing): string => $listing->composerName)
             ->when(

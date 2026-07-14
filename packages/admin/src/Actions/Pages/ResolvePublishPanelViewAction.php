@@ -6,10 +6,11 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Admin\Data\Pages\PublishPanelViewData;
 use Capell\Admin\Enums\PublishPanelStatusEnum;
-use Capell\Admin\Support\Pages\PagePublishSentinel;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -17,8 +18,9 @@ use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * Derives the {@see PublishPanelViewData} the publish panel shows for any
- * publishable record. The draft/scheduled split is decided by
- * {@see PagePublishSentinel} so the far-future draft sentinel is never mistaken
+ * publishable record. The draft/scheduled split is decided by the Core
+ * visibility-state module ({@see PublishVisibilityStateEnum} +
+ * {@see PublishSentinel}) so the far-future draft sentinel is never mistaken
  * for a real future schedule; Active/Inactive status is read from
  * {@see Statusable} when the record implements it, and is `null` otherwise.
  */
@@ -35,13 +37,15 @@ final class ResolvePublishPanelViewAction
         $visibleFrom = $this->toImmutable($record->getAttribute('visible_from'));
         $visibleUntil = $this->toImmutable($record->getAttribute('visible_until'));
 
+        // The panel never renders a "deleted" pill, so trashed is not consulted.
+        $visibilityState = PublishVisibilityStateEnum::fromDates($visibleFrom, $visibleUntil, false);
+
         $isWorkspaceDraft = (int) ($record->getAttributes()['workspace_id'] ?? 0) !== 0;
-        $isDraft = $isWorkspaceDraft || PagePublishSentinel::isDraftValue($visibleFrom);
-        $isExpired = $visibleUntil instanceof CarbonImmutable && $visibleUntil->isPast();
+        $isDraft = $isWorkspaceDraft || PublishSentinel::isDraftValue($visibleFrom);
         $isScheduled = ! $isDraft && $visibleFrom instanceof CarbonImmutable && $visibleFrom->isFuture();
 
         $status = match (true) {
-            $isExpired => PublishPanelStatusEnum::expired,
+            $visibilityState === PublishVisibilityStateEnum::expired => PublishPanelStatusEnum::expired,
             $isDraft => PublishPanelStatusEnum::draft,
             $isScheduled => PublishPanelStatusEnum::scheduled,
             default => PublishPanelStatusEnum::published,

@@ -21,7 +21,7 @@ class SetupPageUrlsAction
      */
     public function handle(Pageable $page, bool $updateDescendants = true): void
     {
-        $page->loadMissing($this->getRelations());
+        $page->load($this->getRelations());
 
         $this->updateTranslations($page, $page->site);
 

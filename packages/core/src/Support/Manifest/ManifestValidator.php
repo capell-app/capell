@@ -592,7 +592,7 @@ final class ManifestValidator
      */
     private function classIsInNamespace(string $class, array $namespacePrefixes): bool
     {
-        return array_any($namespacePrefixes, fn ($namespacePrefix): bool => str_starts_with($class, (string) $namespacePrefix));
+        return array_any($namespacePrefixes, fn (string $namespacePrefix): bool => str_starts_with($class, $namespacePrefix));
     }
 
     private function expectedContributionContract(ExtensionContributionType $type): string

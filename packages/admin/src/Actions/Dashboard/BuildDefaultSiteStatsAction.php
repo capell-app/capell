@@ -19,7 +19,8 @@ final class BuildDefaultSiteStatsAction
     {
         [$rangeStart, $rangeEnd] = $this->resolveDateRange($period);
 
-        $pendingCount = $this->basePageQuery()->pending()->count();
+        // Genuine schedules only: sentinel drafts are not upcoming work.
+        $pendingCount = $this->basePageQuery()->scheduled()->count();
         $expiredCount = $this->basePageQuery()->expired()->count();
 
         return new SiteStatsData(

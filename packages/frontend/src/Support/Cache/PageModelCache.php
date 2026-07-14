@@ -27,7 +27,6 @@ final class PageModelCache
      * per (type, id, languageId).
      *
      * @param  class-string<Model&Pageable<Model>>  $type
-     * @return (Model&Pageable<Model>)|null
      */
     public function get(string $type, int $id, ?Site $site, Language $language, bool $withEvents = true): ?Pageable
     {
@@ -84,7 +83,7 @@ final class PageModelCache
         $relations = [
             'layout.theme',
             'pageUrls',
-            'image',
+            'image.translations',
             'blueprint',
             'canonicalPage.pageUrls',
             'translation' => function (Relation $query) use ($languageId): void {

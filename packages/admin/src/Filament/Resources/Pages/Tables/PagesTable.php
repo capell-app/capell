@@ -31,18 +31,17 @@ use Capell\Admin\Filament\Resources\Pages\Actions\BulkSchedulePagesBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Actions\ExportPagesBulkAction;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Loader\SiteLoader;
-use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageDeletedAction;
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page as PageModel;
 use Capell\Core\Models\Site;
-use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -221,12 +220,7 @@ class PagesTable implements TableConfigurator
             SelectFilter::make('publish_status')
                 ->label(__('capell-admin::table.publish_status'))
                 ->native(false)
-                ->options([
-                    'published' => __('capell-admin::table.page_status_published'),
-                    'draft' => __('capell-admin::table.page_status_draft'),
-                    'scheduled' => __('capell-admin::table.page_status_scheduled'),
-                    'expired' => __('capell-admin::table.page_status_expired'),
-                ])
+                ->options(self::getPublishStatusFilterOptions())
                 ->query(self::applyPublishStatusFilterQuery(...)),
 
             TrashedFilter::make()
@@ -295,6 +289,22 @@ class PagesTable implements TableConfigurator
     }
 
     /**
+     * The filter never offers "deleted" — the dedicated TrashedFilter owns
+     * that axis — so only the four date-derived states appear as options.
+     *
+     * @return array<string, string>
+     */
+    protected static function getPublishStatusFilterOptions(): array
+    {
+        return [
+            PublishVisibilityStateEnum::published->value => __('capell-admin::table.page_status_published'),
+            PublishVisibilityStateEnum::draft->value => __('capell-admin::table.page_status_draft'),
+            PublishVisibilityStateEnum::scheduled->value => __('capell-admin::table.page_status_scheduled'),
+            PublishVisibilityStateEnum::expired->value => __('capell-admin::table.page_status_expired'),
+        ];
+    }
+
+    /**
      * @param  Builder<PageModel>  $query
      * @param  array<string, mixed>  $data
      * @return Builder<PageModel>
@@ -306,27 +316,11 @@ class PagesTable implements TableConfigurator
             return $query;
         }
 
-        $now = CarbonImmutable::now();
-        $sentinelBoundary = $now->copy()->addYears(DefaultPageTableStatusResolver::DRAFT_SENTINEL_YEARS);
-        $vf = $query->getModel()->qualifyColumn('visible_from');
-        $vu = $query->getModel()->qualifyColumn('visible_until');
-
-        return match ($value) {
-            'draft' => $query->whereNotNull($vf)->where($vf, '>', $sentinelBoundary),
-            'scheduled' => $query
-                ->whereNotNull($vf)
-                ->where($vf, '>', $now)
-                ->where($vf, '<=', $sentinelBoundary),
-            'expired' => $query
-                ->whereNotNull($vu)
-                ->where($vu, '<', $now),
-            'published' => $query
-                ->where(function (Builder $q) use ($vf, $now): void {
-                    $q->whereNull($vf)->orWhere($vf, '<=', $now);
-                })
-                ->where(function (Builder $q) use ($vu, $now): void {
-                    $q->whereNull($vu)->orWhere($vu, '>=', $now);
-                }),
+        return match (PublishVisibilityStateEnum::tryFrom($value)) {
+            PublishVisibilityStateEnum::draft => $query->draftSentinel(),
+            PublishVisibilityStateEnum::scheduled => $query->scheduled(),
+            PublishVisibilityStateEnum::expired => $query->expired(),
+            PublishVisibilityStateEnum::published => $query->publishedDate(),
             default => $query,
         };
     }

@@ -8,7 +8,10 @@ use Capell\Core\Enums\InteractionBehavior;
 use Capell\Core\Enums\InteractionTargetType;
 use Capell\Core\Enums\InteractionTriggerEvent;
 use Capell\Frontend\Actions\BuildInteractionRenderDataAction;
+use Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder;
 use Capell\Frontend\Contracts\WidgetInteractionLocatorResolver;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 function interactionTrigger(): InteractionTriggerData
 {
@@ -26,6 +29,71 @@ function interactionTrigger(): InteractionTriggerData
         ),
     );
 }
+
+function fragmentInteractionTrigger(): InteractionTriggerData
+{
+    return new InteractionTriggerData(
+        key: 'open-fragment',
+        label: 'Load section',
+        icon: null,
+        style: 'default',
+        event: InteractionTriggerEvent::Click,
+        behavior: InteractionBehavior::Modal,
+        target: new InteractionTargetData(
+            type: InteractionTargetType::Fragment,
+            fragmentReference: 'raw-editor-reference-never-public',
+        ),
+    );
+}
+
+it('delegates fragment interaction URLs to the optional deferred fragment reference builder', function (): void {
+    app()->bind(DeferredFragmentReferenceBuilder::class, fn (): DeferredFragmentReferenceBuilder => new class implements DeferredFragmentReferenceBuilder
+    {
+        public function reference(Model $asset, array $meta): string
+        {
+            return 'unused-in-this-test';
+        }
+
+        public function url(string $fragmentReference): ?string
+        {
+            return $fragmentReference === 'raw-editor-reference-never-public'
+                ? 'https://example.test/_capell/fragments/opaque-locator'
+                : null;
+        }
+    });
+
+    $rendered = BuildInteractionRenderDataAction::run([fragmentInteractionTrigger()]);
+
+    expect($rendered)->toHaveCount(1)
+        ->and($rendered[0]['target_url'])->toBe('https://example.test/_capell/fragments/opaque-locator')
+        ->and(json_encode($rendered[0], JSON_THROW_ON_ERROR))
+        ->not->toContain('raw-editor-reference-never-public')
+        ->not->toContain('Capell\\');
+});
+
+it('drops fragment interactions when the builder rejects the reference', function (): void {
+    app()->bind(DeferredFragmentReferenceBuilder::class, fn (): DeferredFragmentReferenceBuilder => new class implements DeferredFragmentReferenceBuilder
+    {
+        public function reference(Model $asset, array $meta): string
+        {
+            return 'unused-in-this-test';
+        }
+
+        public function url(string $fragmentReference): ?string
+        {
+            return null;
+        }
+    });
+
+    expect(BuildInteractionRenderDataAction::run([fragmentInteractionTrigger()]))->toBe([]);
+});
+
+it('filters fragment interactions without warning-level noise when no builder is installed', function (): void {
+    Log::shouldReceive('debug')->once();
+    Log::shouldReceive('warning')->never();
+
+    expect(BuildInteractionRenderDataAction::run([fragmentInteractionTrigger()]))->toBe([]);
+});
 
 it('delegates widget interaction URLs to the optional host-neutral locator resolver', function (): void {
     app()->bind(WidgetInteractionLocatorResolver::class, fn (): WidgetInteractionLocatorResolver => new class implements WidgetInteractionLocatorResolver

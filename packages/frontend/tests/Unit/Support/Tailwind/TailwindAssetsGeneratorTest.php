@@ -55,7 +55,7 @@ it('generates css from config, vendor assets, provider assets, and default theme
     CapellCore::registerVendorAsset(VendorAssetData::tailwindPlugin('@tailwindcss/forms'));
     CapellCore::registerVendorAsset(VendorAssetData::tailwindSource('resources/views/components/**/*.blade.php'));
     CapellCore::registerVendorAsset(VendorAssetData::tailwindThemeColor('brand-primary', '#0f766e'));
-    CapellCore::registerVendorAsset(new VendorAssetData(VendorAssetEnum::TailwindImport, '', packageName: null));
+    CapellCore::registerVendorAsset(new VendorAssetData(VendorAssetEnum::TailwindImport, ''));
 
     app()->register(TailwindAssetsOkProvider::class);
 

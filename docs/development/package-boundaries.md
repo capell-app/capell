@@ -44,6 +44,23 @@ The host repo should document contracts that packages consume:
 
 The package repo should document the package feature itself.
 
+## Install Patch Ownership
+
+Core owns the install and upgrade primitives: the file editors in
+`Capell\Core\Support\Patching` (`PhpFileEditor`, `ConfigArrayEditor`, `EnvFileEditor`),
+the `Capell\Core\Support\Patching\Patch` contract with its `PatchStatus` enum, and the
+`Capell\Core\Support\Install\InstallPatchRegistry` seam. These exist exactly once — do
+not copy an editor or the patch contract into another package.
+
+The installer owns the installer flow: the install guide UI, its `PatchRegistry`
+catalogue, and the concrete patch classes under
+`Capell\Installer\Support\InstallGuide\Patches`. Patches that must run during
+`capell:install` are contributed through the Core `InstallPatchRegistry` from the
+installer's service provider (a factory per patch, keyed on the install selection
+context, optionally with an interactive confirmation). Core evaluates the registered
+factories and applies the patches without importing any installer class — Core never
+depends on `Capell\Installer`, and the Core arch test enforces this.
+
 ## Next
 
 - [Package authoring](../packages/README.md)

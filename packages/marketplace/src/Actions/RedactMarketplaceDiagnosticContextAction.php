@@ -75,6 +75,6 @@ final class RedactMarketplaceDiagnosticContextAction
     {
         $key = Str::lower($key);
 
-        return array_any(self::SECRET_KEY_FRAGMENTS, fn ($fragment): bool => str_contains($key, (string) $fragment));
+        return array_any(self::SECRET_KEY_FRAGMENTS, fn (string $fragment): bool => str_contains($key, $fragment));
     }
 }

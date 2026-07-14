@@ -106,7 +106,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->and($fastTestWorkflow)
         ->toContain('- main')
         ->toContain('"pestphp/pest:^4.3"')
-        ->toContain('"filament/filament:^5.6.8 <5.7.0-beta"')
+        ->toContain('"filament/filament:~5.6.8"')
         ->not->toContain('filament/filament:^4.7')
         ->and($fullTestWorkflow)
         ->toContain('- main');

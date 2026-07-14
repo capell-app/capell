@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Core\Support\Patching;
+
+use Filament\Support\Contracts\HasLabel;
+
+enum PatchStatus: string implements HasLabel
+{
+    case Applicable = 'applicable';
+    case AlreadyApplied = 'already_applied';
+    case Customised = 'customised';
+    case Unsupported = 'unsupported';
+
+    public function getLabel(): string
+    {
+        return match ($this) {
+            self::Applicable => __('capell-core::patching.status_applicable'),
+            self::AlreadyApplied => __('capell-core::patching.status_already_applied'),
+            self::Customised => __('capell-core::patching.status_customised'),
+            self::Unsupported => __('capell-core::patching.status_unsupported'),
+        };
+    }
+}

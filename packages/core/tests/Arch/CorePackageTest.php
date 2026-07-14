@@ -11,7 +11,7 @@ use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 
 arch('System package to be standalone')
     ->expect('Capell\Core')
-    ->not()->toUse(['Capell\Admin', 'Capell\Frontend', 'Capell\Address', 'Capell\AIOrchestrator', 'Capell\Blog', 'Capell\Hero', 'Capell\Layout'])
+    ->not()->toUse(['Capell\Admin', 'Capell\Frontend', 'Capell\Address', 'Capell\AIOrchestrator', 'Capell\Blog', 'Capell\Hero', 'Capell\Installer', 'Capell\Layout'])
     ->ignoring([
         MakeExtenderCommand::class,
         ManifestValidator::class,

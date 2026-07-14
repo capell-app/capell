@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {

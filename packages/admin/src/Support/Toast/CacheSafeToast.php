@@ -22,7 +22,6 @@ final class CacheSafeToast
             value: self::encode($toast),
             expire: now()->addMinutes(5),
             path: '/',
-            domain: null,
             secure: config('session.secure') === true,
             httpOnly: false,
             raw: false,

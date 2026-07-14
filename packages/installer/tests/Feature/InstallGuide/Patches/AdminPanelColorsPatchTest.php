@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelColorsPatch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 
 test('probe_detects_the_workbench_admin_panel_provider_state', function (): void {
     $patch = new AdminPanelColorsPatch;

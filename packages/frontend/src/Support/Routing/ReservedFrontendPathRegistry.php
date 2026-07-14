@@ -46,7 +46,7 @@ final class ReservedFrontendPathRegistry
             return true;
         }
 
-        return array_any(array_keys($this->prefixes), fn ($prefix): bool => $path === $prefix || str_starts_with($path, $prefix . '/'));
+        return array_any(array_keys($this->prefixes), fn (string $prefix): bool => $path === $prefix || str_starts_with($path, $prefix . '/'));
     }
 
     /**

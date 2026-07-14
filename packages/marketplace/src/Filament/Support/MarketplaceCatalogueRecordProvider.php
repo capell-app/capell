@@ -490,7 +490,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
     private function isInstalled(ExtensionListingData $extension): bool
     {
-        return array_any(ExtensionListingData::localPackageComposerNameCandidates($extension->composerName), fn ($composerName): bool => CapellCore::hasPackage($composerName) && CapellCore::isPackageInstalled($composerName));
+        return array_any(ExtensionListingData::localPackageComposerNameCandidates($extension->composerName), fn (string $composerName): bool => CapellCore::hasPackage($composerName) && CapellCore::isPackageInstalled($composerName));
     }
 
     private function matchesInstallAvailability(ExtensionListingData $extension, ?string $installedStatus, bool $includeLocalExtensionState): bool

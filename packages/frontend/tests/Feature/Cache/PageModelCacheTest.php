@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
@@ -34,6 +36,10 @@ it('returns a hydrated page with translation and pageUrl on the first call', fun
         ->published(CarbonImmutable::now())
         ->withTranslations($language, ['title' => 'Cached Page'], slug: 'cached-page')
         ->create();
+    $image = Media::factory()->model($page)->image()->create();
+    Translation::factory()->translatable($image)->language($language)->create([
+        'meta' => ['alt' => 'Cached page image alternative'],
+    ]);
 
     $siteDomainQueries = 0;
 
@@ -52,6 +58,8 @@ it('returns a hydrated page with translation and pageUrl on the first call', fun
     expect($translation->title)->toBe('Cached Page');
     expect($pageUrl)->not->toBeNull();
     expect($pageUrl->relationLoaded('siteDomain'))->toBeTrue();
+    expect($result->image?->relationLoaded('translations'))->toBeTrue();
+    expect(data_get($result->image?->translations->first()?->meta, 'alt'))->toBe('Cached page image alternative');
     expect($siteDomainQueries)->toBe(0);
 });
 

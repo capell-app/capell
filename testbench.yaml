@@ -53,6 +53,10 @@ migrations:
 dont-discover:
   - spatie/laravel-ray
 
+workbench:
+  discovers:
+    config: true
+
 purge:
   directories:
     - database/migrations

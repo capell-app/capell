@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Filament\Pages\InstallGuidePage;
-use Capell\Installer\Support\InstallGuide\Patch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 

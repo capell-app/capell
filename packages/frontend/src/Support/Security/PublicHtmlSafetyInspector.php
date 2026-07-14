@@ -192,7 +192,7 @@ final class PublicHtmlSafetyInspector
             return true;
         }
 
-        return array_any($this->leakPolicy->allowedCapellRuntimeAttributePrefixes(), fn ($prefix): bool => str_starts_with($attribute, (string) $prefix));
+        return array_any($this->leakPolicy->allowedCapellRuntimeAttributePrefixes(), fn (string $prefix): bool => str_starts_with($attribute, $prefix));
     }
 
     private function detectLiteralAuthoringMarker(string $html): ?string
@@ -337,7 +337,7 @@ final class PublicHtmlSafetyInspector
             return false;
         }
 
-        return array_any($this->signedAdminUrlPatterns(), fn ($pattern): bool => preg_match($pattern, $html) === 1);
+        return array_any($this->signedAdminUrlPatterns(), fn (string $pattern): bool => preg_match($pattern, $html) === 1);
     }
 
     /**

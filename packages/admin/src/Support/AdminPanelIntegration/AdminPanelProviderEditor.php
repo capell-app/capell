@@ -12,6 +12,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use Filament\Http\Middleware\Authenticate;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;

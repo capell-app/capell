@@ -53,6 +53,21 @@ it('creates the page url from the resolved parent url for each translation', fun
         ->and($parentUrl?->url)->toBe('/parent');
 });
 
+it('refreshes an already loaded translation before updating its url', function (): void {
+    $this->parent->load('translations.language');
+    $translation = Translation::query()
+        ->where('translatable_type', $this->parent->getMorphClass())
+        ->where('translatable_id', $this->parent->getKey())
+        ->firstOrFail();
+    $translation->forceFill([
+        'meta' => array_merge($translation->meta ?? [], ['slug' => 'renamed-parent']),
+    ])->save();
+
+    SetupPageUrlsAction::run($this->parent, updateDescendants: false);
+
+    expect(pageUrlFor($this->parent, $this->language)?->url)->toBe('/renamed-parent');
+});
+
 it('cascades url updates to descendants when requested', function (): void {
     SetupPageUrlsAction::run($this->parent, updateDescendants: true);
 

@@ -11,6 +11,7 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
@@ -122,7 +123,6 @@ class CreatePageAction extends CreateAction
 
                 ValidatePageAuthoringAction::run(
                     formData: $formData,
-                    page: null,
                     operation: ($action->getArguments()['draft'] ?? false) === true ? 'modal-create-draft' : 'modal-create',
                 );
             })
@@ -154,7 +154,7 @@ class CreatePageAction extends CreateAction
                         // Sentinel: a far-future visible_from means "draft / not yet published".
                         // pages.visible_from is DATETIME (not TIMESTAMP) so values beyond 2038 are safe.
                         // Do NOT change this back to a TIMESTAMP column or MySQL will reject the insert.
-                        $data['visible_from'] = now()->addYears(100);
+                        $data['visible_from'] = PagePublishSentinel::draftValue();
                     }
 
                     return self::saveActionUsing($data, $livewire);

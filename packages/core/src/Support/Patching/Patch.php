@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Capell\Installer\Support\InstallGuide;
+namespace Capell\Core\Support\Patching;
 
+/**
+ * A guarded, idempotent modification to an application file (models, providers,
+ * config, .env, routes). Implementations probe the current state before
+ * applying so callers can surface "already applied" or "customised" states
+ * instead of blindly rewriting user code.
+ */
 interface Patch
 {
     public function id(): string;

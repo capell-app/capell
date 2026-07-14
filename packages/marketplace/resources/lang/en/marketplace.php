@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
+    'release_status' => [
+        'beta' => 'Beta',
+    ],
     'card' => [
         'capabilities_tooltip' => 'Capabilities declared by this plugin.',
         'capell_constraint' => 'Capell: :constraint',
@@ -490,6 +493,8 @@ return [
         'price_low' => 'Price: low to high',
     ],
     'selection' => [
+        'beta_acknowledgement_label' => 'I understand this basket includes Beta software',
+        'beta_acknowledgement_help' => 'Beta extensions are supported for evaluation and active use, but may require upgrade work before their Released milestone.',
         'already_installed' => 'Already installed',
         'blocked' => [
             'activation_required' => 'Activation requires a licence key.',

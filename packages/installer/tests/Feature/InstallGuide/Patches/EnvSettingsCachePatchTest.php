@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Patching\EnvFileEditor;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\EnvSettingsCachePatch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
-use Capell\Installer\Support\Patching\EnvFileEditor;
 
 test('probe_returns_unsupported_when_env_file_does_not_exist', function (): void {
     $patch = new EnvSettingsCachePatch;

@@ -21,7 +21,7 @@ class SetupSiteLanguageAction
     {
         $translation = $site->translations()->first();
         $translationValues = $translation !== null
-            ? Arr::except($translation->replicate()->getAttributes(), [
+            ? Arr::except($translation->replicate()->attributesToArray(), [
                 'id',
                 'language_id',
                 'translatable_type',
