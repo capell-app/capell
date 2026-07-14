@@ -76,6 +76,6 @@ final class MarketplaceExtensionsLifecycleQaCommand extends Command
      */
     private function hasFailures(array $results): bool
     {
-        return array_any($results, fn ($result) => $result->failed());
+        return array_any($results, fn (MarketplaceExtensionLifecycleQaResultData $result): bool => $result->failed());
     }
 }

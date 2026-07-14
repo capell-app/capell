@@ -38,6 +38,6 @@ final class FrontendCachePolicy
         $hasSessionName = is_string($sessionName) && $sessionName !== '';
 
         // Preserve existing behavior: rely on current headers/middleware
-        return ! ($hasSessionName && $request->cookies->has($sessionName));
+        return ! $hasSessionName || ! $request->cookies->has($sessionName);
     }
 }

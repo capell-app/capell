@@ -35,7 +35,7 @@ final class HeaderNavigationAccessResolver
             return false;
         }
 
-        return ! ($actor instanceof FilamentUser && ! $actor->canAccessPanel(Filament::getPanel('admin')));
+        return ! $actor instanceof FilamentUser || $actor->canAccessPanel(Filament::getPanel('admin'));
     }
 
     /**

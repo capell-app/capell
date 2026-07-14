@@ -31,7 +31,6 @@ it('registers and resolves visible user menu items in sort order', function (): 
         label: 'First item',
         icon: Heroicon::OutlinedInbox,
         url: '/admin/first',
-        badge: null,
         visible: true,
         sort: 10,
     );

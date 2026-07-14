@@ -24,6 +24,12 @@ it('returns empty data for invalid deferred fragment references', function (): v
     expect(DeferredFragmentReference::decode('not-valid'))->toBe([]);
 });
 
+it('builds a stable cache key from an opaque reference', function (): void {
+    expect(DeferredFragmentReference::cacheKey('opaque-reference'))
+        ->toBe(DeferredFragmentReference::cacheKey('opaque-reference'))
+        ->not->toBe(DeferredFragmentReference::cacheKey('another-reference'));
+});
+
 it('formats optional deferred placeholder min height styles', function (): void {
     expect(new DeferredFragmentPlaceholderData(
         cacheKey: 'fragment-key',

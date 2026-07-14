@@ -24,9 +24,6 @@ class GetComponentClassAction
         private readonly BladeComponentResolverInterface $bladeResolver,
     ) {}
 
-    /**
-     * @return class-string|string
-     */
     public function handle(string $component, bool $livewire = false): string
     {
         if ($livewire) {

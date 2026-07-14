@@ -47,7 +47,7 @@ trait HasModelRelations
 
             // Avoid duplicate closures by spl_object_id
             if ($relation instanceof Closure) {
-                $already = array_any(self::$modelRelationsRegistry[$key], fn ($existing): bool => $existing instanceof Closure && spl_object_id($existing) === spl_object_id($relation));
+                $already = array_any(self::$modelRelationsRegistry[$key], fn (array|Closure|string $existing): bool => $existing instanceof Closure && spl_object_id($existing) === spl_object_id($relation));
                 if (! $already) {
                     self::$modelRelationsRegistry[$key][] = $relation;
                 }

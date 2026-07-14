@@ -52,7 +52,6 @@ it('does nothing if setupCommand is null', function (): void {
     $package = new PackageData(
         name: 'TestPackage',
         type: PackageTypeEnum::Plugin,
-        setupCommand: null,
     );
 
     // Should complete without error and without calling Artisan

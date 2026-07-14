@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 const ignoredDirectories = new Set([
+    '.claude',
     '.git',
     'node_modules',
     'storage',

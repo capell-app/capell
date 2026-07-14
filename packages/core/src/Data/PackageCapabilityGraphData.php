@@ -21,7 +21,7 @@ final class PackageCapabilityGraphData extends Data
 
     public function packageHas(string $packageName, PackageCapability $capability): bool
     {
-        return array_any($this->nodes, fn ($node): bool => $node->packageName === $packageName && $node->capability === $capability);
+        return array_any($this->nodes, fn (PackageCapabilityNodeData $node): bool => $node->packageName === $packageName && $node->capability === $capability);
     }
 
     /**

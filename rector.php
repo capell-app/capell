@@ -6,6 +6,7 @@ use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\ClassMethod\RemoveUselessUnionReturnDocblockRector;
 use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
 use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
@@ -87,6 +88,9 @@ return RectorConfig::configure()
         RemoveUselessVarTagRector::class => [
             __DIR__ . '/packages/admin/src/Settings/AdminSettings.php',
             __DIR__ . '/packages/core/src/ThemeStudio/Settings/ThemeStudioSettings.php',
+        ],
+        RemoveUselessUnionReturnDocblockRector::class => [
+            __DIR__ . '/packages/admin/src/Filament/Pages/UpgradePage.php',
         ],
         AbortIfRector::class => [
             __DIR__ . '/packages/frontend/src/Livewire/Page/Sitemap.php',

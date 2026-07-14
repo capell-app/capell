@@ -25,7 +25,6 @@ class CreatePageAction implements Actionable
     {
         ValidatePageAuthoringAction::run(
             formData: $data,
-            page: null,
             operation: 'action-create',
         );
 

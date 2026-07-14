@@ -9,7 +9,7 @@ use Capell\Frontend\Support\Fragments\DeferredFragmentReference;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static DeferredFragmentPlaceholderData|null run(array $meta, array $reference, string $url)
+ * @method static DeferredFragmentPlaceholderData|null run(array $meta, string $reference, string $url)
  */
 final class ResolveDeferredFragmentPlaceholderDataAction
 {
@@ -17,13 +17,12 @@ final class ResolveDeferredFragmentPlaceholderDataAction
 
     /**
      * @param  array<string, mixed>  $meta
-     * @param  array<string, mixed>  $reference
      */
-    public function handle(array $meta, array $reference, string $url): ?DeferredFragmentPlaceholderData
+    public function handle(array $meta, string $reference, string $url): ?DeferredFragmentPlaceholderData
     {
         $performance = is_array($meta['performance'] ?? null) ? $meta['performance'] : [];
 
-        if (($performance['defer'] ?? false) !== true || $reference === [] || $url === '') {
+        if (($performance['defer'] ?? false) !== true || $reference === '' || $url === '') {
             return null;
         }
 

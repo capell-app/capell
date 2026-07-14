@@ -9,11 +9,13 @@ use Throwable;
 
 final class DeferredFragmentReference
 {
-    /**
-     * @param  array<string, mixed>  $reference
-     */
-    public static function cacheKey(array $reference): string
+    /** @param  array<string, mixed>|string  $reference */
+    public static function cacheKey(array|string $reference): string
     {
+        if (is_string($reference)) {
+            return hash_hmac('sha256', $reference, (string) config('app.key'));
+        }
+
         ksort($reference);
 
         return hash_hmac('sha256', json_encode($reference, JSON_THROW_ON_ERROR), (string) config('app.key'));

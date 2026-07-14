@@ -1576,7 +1576,6 @@ it('can build marketplace records and table filters for a locked browser kind', 
     ]);
 
     $records = resolve(MarketplaceBrowser::class)->records(
-        search: null,
         filters: [
             'kind' => ['value' => 'tool'],
         ],

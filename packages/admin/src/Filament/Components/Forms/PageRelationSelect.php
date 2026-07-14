@@ -63,7 +63,7 @@ class PageRelationSelect extends SelectTree
 
     public function qualifiedForeignKeyName(string $key): self
     {
-        throw_if(mb_strpos($key, '.') === false, InvalidArgumentException::class, 'The qualifiedForeignKeyName must contain the table alias/name.');
+        throw_if(! str_contains($key, '.'), InvalidArgumentException::class, 'The qualifiedForeignKeyName must contain the table alias/name.');
 
         return $this;
     }

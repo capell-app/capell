@@ -157,6 +157,6 @@ final class BuildFrontendSourceMapAction
             return false;
         }
 
-        return ! (method_exists($model, 'isEnabled') && ! $model->isEnabled());
+        return ! method_exists($model, 'isEnabled') || $model->isEnabled();
     }
 }

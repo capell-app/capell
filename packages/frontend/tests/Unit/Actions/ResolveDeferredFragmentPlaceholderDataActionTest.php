@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Capell\Frontend\Actions\ResolveDeferredFragmentPlaceholderDataAction;
 
 it('returns null when a fragment is not deferred', function (): void {
-    expect(ResolveDeferredFragmentPlaceholderDataAction::run([], ['id' => 1], '/fragment'))->toBeNull();
+    expect(ResolveDeferredFragmentPlaceholderDataAction::run([], 'opaque-reference', '/fragment'))->toBeNull();
 });
 
 it('builds deferred fragment placeholder data from safe public metadata', function (): void {
@@ -17,7 +17,7 @@ it('builds deferred fragment placeholder data from safe public metadata', functi
                 'defer_min_height' => '18rem',
             ],
         ],
-        reference: ['id' => 1, 'updatedAt' => 123],
+        reference: 'opaque-reference',
         url: '/fragment/reference',
     );
 
@@ -38,7 +38,7 @@ it('resolves an allowlisted skeleton variant', function (): void {
                 'defer_skeleton' => 'gallery',
             ],
         ],
-        reference: ['id' => 1],
+        reference: 'opaque-reference',
         url: '/fragment/reference',
     );
 
@@ -57,7 +57,7 @@ it('normalises unsafe deferred placeholder settings', function (): void {
                 'defer_skeleton' => 'carousel',
             ],
         ],
-        reference: ['id' => 1],
+        reference: 'opaque-reference',
         url: '/fragment/reference',
     );
 

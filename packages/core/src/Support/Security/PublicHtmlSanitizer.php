@@ -298,7 +298,7 @@ final class PublicHtmlSanitizer
 
     private function containsBlockedPublicValue(string $value): bool
     {
-        return array_any($this->leakPolicy->blockedPublicValuePatterns(), fn ($pattern): bool => preg_match($pattern, $value) === 1);
+        return array_any($this->leakPolicy->blockedPublicValuePatterns(), fn (string $pattern): bool => preg_match($pattern, $value) === 1);
     }
 
     private function unwrapElement(DOMElement $element): void

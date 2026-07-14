@@ -15,7 +15,7 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $database = env('CAPELL_SCREENSHOT_DATABASE');
+        $database = config('screenshot.database');
 
         if (is_string($database) && $database !== '') {
             Config::set('database.default', 'sqlite');

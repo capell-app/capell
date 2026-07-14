@@ -117,7 +117,7 @@ class RepeaterTabs extends Repeater
 
         $languageId = $createItems[array_key_first($createItems)]['id'] ?? null;
 
-        if (! is_int($languageId) && ! (is_string($languageId) && is_numeric($languageId))) {
+        if (! is_int($languageId) && (! is_string($languageId) || ! is_numeric($languageId))) {
             return [];
         }
 
@@ -590,7 +590,7 @@ class RepeaterTabs extends Repeater
 
     private function canCreateLanguage(mixed $languageId): bool
     {
-        if (! is_int($languageId) && ! (is_string($languageId) && is_numeric($languageId))) {
+        if (! is_int($languageId) && (! is_string($languageId) || ! is_numeric($languageId))) {
             return false;
         }
 

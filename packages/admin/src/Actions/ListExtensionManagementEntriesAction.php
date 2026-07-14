@@ -117,7 +117,7 @@ final class ListExtensionManagementEntriesAction
         $manifestManagementEntries = $this->manifestManagementEntries($operations);
         $managementSurfaces = $this->managementSurfaces($packageName);
 
-        if ($accessiblePages->isEmpty() && $manifestManagementEntries === [] && $managementSurfaces === [] && ! ($operations instanceof ExtensionOperationPackageData && $this->shouldListOperationsPackage($operations))) {
+        if ($accessiblePages->isEmpty() && $manifestManagementEntries === [] && $managementSurfaces === [] && (! $operations instanceof ExtensionOperationPackageData || ! $this->shouldListOperationsPackage($operations))) {
             return null;
         }
 

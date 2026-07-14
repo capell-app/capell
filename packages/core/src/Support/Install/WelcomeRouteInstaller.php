@@ -138,7 +138,7 @@ PHP;
 
     private function containsStockWelcomeRoute(string $content): bool
     {
-        return array_any($this->stockWelcomeRoutePatterns(), fn ($pattern): bool => preg_match($pattern, $content) === 1);
+        return array_any($this->stockWelcomeRoutePatterns(), fn (string $pattern): bool => preg_match($pattern, $content) === 1);
     }
 
     private function routesWebPath(): string

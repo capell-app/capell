@@ -140,7 +140,6 @@ class RedirectForm implements FormConfigurator
                                     targetUrl: $value,
                                     siteId: (int) $get('site_id'),
                                     languageId: (int) $get('language_id'),
-                                    statusCode: null,
                                     validateDuplicateSource: false,
                                 );
 

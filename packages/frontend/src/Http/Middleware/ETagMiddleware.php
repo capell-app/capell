@@ -52,8 +52,8 @@ class ETagMiddleware
         }
 
         // Only add ETag to HTML and JSON responses
-        return mb_strpos($contentType, 'text/html') !== false
-            || mb_strpos($contentType, 'application/json') !== false;
+        return str_contains($contentType, 'text/html')
+            || str_contains($contentType, 'application/json');
     }
 
     private function generateETag(Response $response): string
