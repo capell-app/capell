@@ -9,6 +9,7 @@ use Capell\Core\Actions\RepairPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -122,7 +123,13 @@ class DoctorCommand extends Command
 
     private function outputCheckResult(DoctorCheckResultData $check): void
     {
-        $icon = $check->passed ? '<fg=green>✓</>' : '<fg=red>✗</>';
+        $icon = $check->passed
+            ? '<fg=green>✓</>'
+            : match ($check->severity) {
+                DoctorCheckSeverity::Info => '<fg=blue>i</>',
+                DoctorCheckSeverity::Warning => '<fg=yellow>!</>',
+                DoctorCheckSeverity::Critical => '<fg=red>✗</>',
+            };
         $message = $check->message;
 
         if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
@@ -131,7 +138,12 @@ class DoctorCommand extends Command
 
         $this->components->twoColumnDetail(
             sprintf('%s %s', $icon, $check->label),
-            $check->passed ? '<fg=green>' . $message . '</>' : '<fg=red>' . $message . '</>',
+            match (true) {
+                $check->passed => '<fg=green>' . $message . '</>',
+                $check->severity === DoctorCheckSeverity::Info => '<fg=blue>' . $message . '</>',
+                $check->severity === DoctorCheckSeverity::Warning => '<fg=yellow>' . $message . '</>',
+                default => '<fg=red>' . $message . '</>',
+            },
         );
     }
 }

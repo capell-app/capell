@@ -24,7 +24,7 @@ final class DoctorReportData extends Data
     }
 
     /**
-     * @return array{status: string, checks: array<int, array{label: string, passed: bool, message: string, remediation: string|null}>}
+     * @return array{status: string, checks: array<int, array{id: string, severity: string, label: string, passed: bool, message: string, remediation: string|null, evidence: array<string, mixed>}>}
      */
     #[Override]
     public function toArray(): array
