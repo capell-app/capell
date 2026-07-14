@@ -8,7 +8,9 @@ use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Data\Diagnostics\FrontendBuildAssetVerificationResultData;
 use Capell\Core\Data\VendorAssetData;
+use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -28,6 +30,10 @@ use Symfony\Component\Console\Command\Command;
 function seedHealthyDoctorInstall(): void
 {
     CapellCore::forcePackageInstalled('capell-app/core');
+    CapellExtension::query()->updateOrCreate(
+        ['composer_name' => 'capell-app/core'],
+        ['status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()],
+    );
 
     $cssPath = resource_path('css/capell/frontend.css');
     File::ensureDirectoryExists(dirname($cssPath));

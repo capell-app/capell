@@ -11,12 +11,15 @@ use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Data\Diagnostics\FrontendBuildAssetVerificationResultData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\Diagnostics\CapellInstallationState;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
@@ -35,6 +38,10 @@ use Throwable;
 final class BuildDoctorReportAction
 {
     use AsObject;
+
+    public function __construct(
+        private readonly CapellRuntimeSchemaContract $runtimeSchema,
+    ) {}
 
     public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
     {
@@ -127,19 +134,39 @@ final class BuildDoctorReportAction
 
     private function checkRequiredTablesExist(): DoctorCheckResultData
     {
-        $requiredTables = ['sites', 'languages', 'pages'];
-        $missingTables = array_filter($requiredTables, fn (string $table): bool => ! Schema::hasTable($table));
+        $missingTables = $this->runtimeSchema->missingTables();
+        $installationState = ResolveCapellInstallationStateAction::run();
 
-        if ($missingTables !== []) {
+        if ($installationState !== CapellInstallationState::Installed) {
             return new DoctorCheckResultData(
                 label: 'Required tables exist',
                 passed: false,
-                message: sprintf('Missing tables: %s.', implode(', ', $missingTables)),
+                message: $missingTables !== []
+                    ? sprintf('Missing tables: %s.', implode(', ', $missingTables))
+                    : 'Core lifecycle state does not record a complete installation.',
                 remediation: 'Run php artisan migrate.',
+                id: 'core.schema.required',
+                severity: DoctorCheckSeverity::Critical,
+                evidence: [
+                    'installation_state' => $installationState->value,
+                    'missing_tables' => $missingTables,
+                    'required_tables' => $this->runtimeSchema->requiredTables(),
+                ],
             );
         }
 
-        return new DoctorCheckResultData('Required tables exist', true, 'All required tables exist.');
+        return new DoctorCheckResultData(
+            label: 'Required tables exist',
+            passed: true,
+            message: 'All required tables exist.',
+            id: 'core.schema.required',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'installation_state' => $installationState->value,
+                'missing_tables' => [],
+                'required_tables' => $this->runtimeSchema->requiredTables(),
+            ],
+        );
     }
 
     private function checkPageUrlsHaveSiteDomains(): DoctorCheckResultData
