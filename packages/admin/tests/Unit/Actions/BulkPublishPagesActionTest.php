@@ -12,6 +12,7 @@ it('returns zero counts for empty collections', function (): void {
 
     $result = BulkPublishPagesAction::run($pages, $actor);
 
-    expect($result['published'])->toBe(0)
-        ->and($result['skipped'])->toBe(0);
+    expect($result->changed())->toBe(0)
+        ->and($result->blocked())->toBe(0)
+        ->and($result->records)->toBe([]);
 });

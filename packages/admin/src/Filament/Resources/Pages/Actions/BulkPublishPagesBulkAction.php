@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Pages\BulkPublishPagesAction;
+use Capell\Admin\Actions\Publishing\PreviewBulkPublicationTransitionAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Enums\Publishing\PublicationTransition;
+use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
 use Capell\Core\Models\Page;
+use Carbon\CarbonImmutable;
 use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -28,6 +32,19 @@ class BulkPublishPagesBulkAction extends BulkAction
             ->requiresConfirmation()
             ->modalHeading(__('capell-admin::bulk_actions.publish_pages_heading'))
             ->modalDescription(__('capell-admin::bulk_actions.publish_pages_description'))
+            ->modalContent(function (Collection $records) {
+                /** @var User $actor */
+                $actor = auth()->user();
+
+                return view('capell-admin::filament.actions.bulk-publication-preview', [
+                    'preview' => PreviewBulkPublicationTransitionAction::run(
+                        records: $records,
+                        actor: $actor,
+                        transition: PublicationTransition::PublishNow,
+                        now: CarbonImmutable::now(),
+                    ),
+                ]);
+            })
             ->action(function (Collection $records): void {
                 /** @var User $actor */
                 $actor = auth()->user();
@@ -36,22 +53,25 @@ class BulkPublishPagesBulkAction extends BulkAction
 
                 $notification = Notification::make()
                     ->title(__('capell-admin::bulk_actions.publish_pages_done', [
-                        'published' => $result['published'],
-                        'skipped' => $result['skipped'],
+                        'published' => $result->changed(),
+                        'skipped' => $records->count() - $result->changed(),
                     ]));
 
-                if (! empty($result['skipped_pages'])) {
-                    $body = collect($result['skipped_pages'])
+                $skipped = collect($result->records)
+                    ->reject(fn (array $row): bool => $row['result']->outcome === PublicationTransitionOutcome::Changed);
+
+                if ($skipped->isNotEmpty()) {
+                    $body = $skipped
                         ->map(fn (array $row): string => sprintf(
                             '• %s — %s',
-                            $row['name'],
-                            __('capell-admin::bulk_actions.publish_pages_reason_' . $row['reason']),
+                            $row['label'],
+                            __('capell-admin::bulk_actions.outcome_' . $row['result']->outcome->value),
                         ))
                         ->implode("\n");
                     $notification->body($body);
                 }
 
-                $result['published'] > 0 ? $notification->success() : $notification->warning();
+                $result->changed() > 0 ? $notification->success() : $notification->warning();
                 $notification->send();
             });
     }
