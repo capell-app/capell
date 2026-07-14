@@ -11,6 +11,10 @@ it('sets up a site language idempotently', function (): void {
     $english = Language::factory()->createOne(['code' => 'en']);
     $french = Language::factory()->createOne(['code' => 'fr']);
     $site = Site::factory()->language($english)->withTranslations($english)->create();
+    $englishTranslation = $site->translations()->where('language_id', $english->getKey())->firstOrFail();
+    $englishTranslation->forceFill([
+        'meta' => ['footer_copy' => '<p>Reliable multilingual content</p>'],
+    ])->save();
 
     SiteDomain::factory()->site($site)->language($english)->create([
         'path' => null,
@@ -22,5 +26,7 @@ it('sets up a site language idempotently', function (): void {
     expect($site->translations()->where('language_id', $french->getKey())->count())
         ->toBe(1)
         ->and($site->siteDomains()->where('language_id', $french->getKey())->count())
-        ->toBe(1);
+        ->toBe(1)
+        ->and($site->translations()->where('language_id', $french->getKey())->firstOrFail()->meta)
+        ->toBe(['footer_copy' => '<p>Reliable multilingual content</p>']);
 });
