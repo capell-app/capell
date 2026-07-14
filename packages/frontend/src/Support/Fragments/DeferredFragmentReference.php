@@ -13,6 +13,12 @@ final class DeferredFragmentReference
     public static function cacheKey(array|string $reference): string
     {
         if (is_string($reference)) {
+            $decodedReference = self::decode($reference);
+
+            if ($decodedReference !== []) {
+                return self::cacheKey($decodedReference);
+            }
+
             return hash_hmac('sha256', $reference, (string) config('app.key'));
         }
 
