@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Admin\Data\PagePublishStateData;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -38,7 +39,12 @@ final class ResolvePagePublishStateAction
 
     private function isDraft(Page $page): bool
     {
-        return (int) ($page->getAttributes()['workspace_id'] ?? 0) !== 0;
+        if ((int) ($page->getAttributes()['workspace_id'] ?? 0) !== 0) {
+            return true;
+        }
+
+        // The far-future draft sentinel is a draft, not a genuine schedule.
+        return PublishSentinel::isDraftValue($this->dateAttribute($page, 'visible_from'));
     }
 
     private function publishedAt(Page $page): ?CarbonImmutable
@@ -62,7 +68,9 @@ final class ResolvePagePublishStateAction
     {
         $visibleFrom = $this->dateAttribute($page, 'visible_from');
 
-        return $visibleFrom instanceof CarbonImmutable && $visibleFrom->isFuture()
+        return $visibleFrom instanceof CarbonImmutable
+            && $visibleFrom->isFuture()
+            && ! PublishSentinel::isDraftValue($visibleFrom)
             ? $visibleFrom
             : null;
     }

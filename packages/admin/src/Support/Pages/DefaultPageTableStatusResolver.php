@@ -6,7 +6,9 @@ namespace Capell\Admin\Support\Pages;
 
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\Pages\PageTableStatusData;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Filament\Support\Icons\Heroicon;
@@ -19,7 +21,7 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
      * treated as a Draft (sentinel pattern). Real scheduled publishes never
      * cross this threshold — the legacy convention is now()->addYears(100).
      */
-    public const DRAFT_SENTINEL_YEARS = 50;
+    public const DRAFT_SENTINEL_YEARS = PublishSentinel::DRAFT_BOUNDARY_YEARS;
 
     /**
      * @param  Builder<Page>  $query
@@ -32,64 +34,65 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
 
     public function resolve(Page $page): PageTableStatusData
     {
-        if ($page->trashed()) {
-            return new PageTableStatusData(
+        return match ($page->publishVisibilityState()) {
+            PublishVisibilityStateEnum::deleted => new PageTableStatusData(
                 label: (string) __('capell-admin::table.page_status_deleted'),
                 shortLabel: (string) __('capell-admin::table.page_status_deleted_short'),
                 tooltip: (string) __('capell-admin::table.page_status_deleted_tooltip'),
                 color: 'danger',
                 icon: Heroicon::OutlinedXCircle,
                 date: $this->carbonImmutable($page->deleted_at),
-            );
-        }
-
-        $visibleUntil = $this->carbonImmutable($page->visible_until);
-        if ($visibleUntil instanceof CarbonImmutable && $visibleUntil->isPast()) {
-            return new PageTableStatusData(
-                label: (string) __('capell-admin::table.page_status_expired'),
-                shortLabel: (string) __('capell-admin::table.page_status_expired_short'),
-                tooltip: (string) __('capell-admin::table.page_status_expired_tooltip', [
-                    'date' => $this->formatDate($visibleUntil),
-                ]),
+            ),
+            PublishVisibilityStateEnum::expired => $this->expiredStatus($page),
+            PublishVisibilityStateEnum::draft => new PageTableStatusData(
+                label: (string) __('capell-admin::table.page_status_draft'),
+                shortLabel: (string) __('capell-admin::table.page_status_draft_short'),
+                tooltip: (string) __('capell-admin::table.page_status_draft_tooltip'),
                 color: 'gray',
-                icon: Heroicon::OutlinedExclamationTriangle,
-                date: $visibleUntil,
-            );
-        }
+                icon: Heroicon::OutlinedPencilSquare,
+            ),
+            PublishVisibilityStateEnum::scheduled => $this->scheduledStatus($page),
+            PublishVisibilityStateEnum::published => new PageTableStatusData(
+                label: (string) __('capell-admin::table.page_status_published'),
+                shortLabel: (string) __('capell-admin::table.page_status_published_short'),
+                tooltip: (string) __('capell-admin::table.page_status_published_tooltip'),
+                color: 'success',
+                icon: Heroicon::OutlinedCheckCircle,
+            ),
+        };
+    }
 
-        $visibleFrom = $this->carbonImmutable($page->visible_from);
-        if ($visibleFrom instanceof CarbonImmutable && $visibleFrom->isFuture()) {
-            // Distinguish Draft (sentinel) from Scheduled (intentional date).
-            // A visible_from past +50 years is the addYears(100) draft sentinel.
-            $sentinelBoundary = CarbonImmutable::now()->addYears(self::DRAFT_SENTINEL_YEARS);
-            if ($visibleFrom->greaterThan($sentinelBoundary)) {
-                return new PageTableStatusData(
-                    label: (string) __('capell-admin::table.page_status_draft'),
-                    shortLabel: (string) __('capell-admin::table.page_status_draft_short'),
-                    tooltip: (string) __('capell-admin::table.page_status_draft_tooltip'),
-                    color: 'gray',
-                    icon: Heroicon::OutlinedPencilSquare,
-                );
-            }
-
-            return new PageTableStatusData(
-                label: (string) __('capell-admin::table.page_status_scheduled'),
-                shortLabel: $this->shortFutureLabel($visibleFrom),
-                tooltip: (string) __('capell-admin::table.page_status_scheduled_tooltip', [
-                    'date' => $this->formatDate($visibleFrom),
-                ]),
-                color: 'warning',
-                icon: Heroicon::OutlinedClock,
-                date: $visibleFrom,
-            );
-        }
+    private function expiredStatus(Page $page): PageTableStatusData
+    {
+        /** @var CarbonImmutable $visibleUntil expired state guarantees a past visible_until */
+        $visibleUntil = $this->carbonImmutable($page->visible_until);
 
         return new PageTableStatusData(
-            label: (string) __('capell-admin::table.page_status_published'),
-            shortLabel: (string) __('capell-admin::table.page_status_published_short'),
-            tooltip: (string) __('capell-admin::table.page_status_published_tooltip'),
-            color: 'success',
-            icon: Heroicon::OutlinedCheckCircle,
+            label: (string) __('capell-admin::table.page_status_expired'),
+            shortLabel: (string) __('capell-admin::table.page_status_expired_short'),
+            tooltip: (string) __('capell-admin::table.page_status_expired_tooltip', [
+                'date' => $this->formatDate($visibleUntil),
+            ]),
+            color: 'gray',
+            icon: Heroicon::OutlinedExclamationTriangle,
+            date: $visibleUntil,
+        );
+    }
+
+    private function scheduledStatus(Page $page): PageTableStatusData
+    {
+        /** @var CarbonImmutable $visibleFrom scheduled state guarantees a future visible_from */
+        $visibleFrom = $this->carbonImmutable($page->visible_from);
+
+        return new PageTableStatusData(
+            label: (string) __('capell-admin::table.page_status_scheduled'),
+            shortLabel: $this->shortFutureLabel($visibleFrom),
+            tooltip: (string) __('capell-admin::table.page_status_scheduled_tooltip', [
+                'date' => $this->formatDate($visibleFrom),
+            ]),
+            color: 'warning',
+            icon: Heroicon::OutlinedClock,
+            date: $visibleFrom,
         );
     }
 

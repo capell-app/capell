@@ -33,11 +33,30 @@ enum PublishStatusEnum: string implements HasColor, HasDescription, HasIcon, Has
      */
     public static function fromModel(Model $model): self
     {
+        if (method_exists($model, 'publishVisibilityState')) {
+            return self::fromVisibilityState($model->publishVisibilityState());
+        }
+
         return match (true) {
             $model->trashed() => PublishStatusEnum::deleted,
             $model->isExpired() => PublishStatusEnum::expired,
             $model->isPending() => PublishStatusEnum::pending,
             default => PublishStatusEnum::published,
+        };
+    }
+
+    /**
+     * Collapse the five-way visibility state into this coarser status: both
+     * drafts (sentinel) and genuine schedules are "pending" here.
+     */
+    public static function fromVisibilityState(PublishVisibilityStateEnum $state): self
+    {
+        return match ($state) {
+            PublishVisibilityStateEnum::deleted => self::deleted,
+            PublishVisibilityStateEnum::expired => self::expired,
+            PublishVisibilityStateEnum::draft,
+            PublishVisibilityStateEnum::scheduled => self::pending,
+            PublishVisibilityStateEnum::published => self::published,
         };
     }
 

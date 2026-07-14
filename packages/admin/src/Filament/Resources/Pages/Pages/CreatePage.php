@@ -17,6 +17,7 @@ use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
@@ -166,7 +167,6 @@ class CreatePage extends CreateRecord implements HasPageResource
     {
         ValidatePageAuthoringAction::run(
             formData: is_array($this->data) ? $this->data : [],
-            page: null,
             operation: $this->createdAsDraft ? 'create-draft' : 'create',
         );
 
@@ -247,7 +247,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             // Sentinel: a far-future visible_from means "draft / not yet published".
             // pages.visible_from is DATETIME (not TIMESTAMP) so values beyond 2038 are safe.
             // Do NOT change this back to a TIMESTAMP column or MySQL will reject the insert.
-            $data['visible_from'] = now()->addYears(100);
+            $data['visible_from'] = PagePublishSentinel::draftValue();
         }
 
         return $data;

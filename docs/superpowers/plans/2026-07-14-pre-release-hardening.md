@@ -14,30 +14,30 @@ classified differently per caller: publish panel + page table say *draft*,
 `BuildDefaultSiteStatsAction` counts sentinel drafts in `pendingCount`/`workQueueCount`.
 
 **Design.**
-- [ ] New `Capell\Core\Support\Publishing\PublishSentinel`: `DRAFT_BOUNDARY_YEARS = 50`,
+- [x] New `Capell\Core\Support\Publishing\PublishSentinel`: `DRAFT_BOUNDARY_YEARS = 50`,
   write offset +50 (sentinel = +100y), `draftValue(?CarbonImmutable $now = null)`,
   `draftBoundary(?CarbonImmutable $now = null)`, `isDraftValue(?DateTimeInterface, ?CarbonImmutable $now = null)`.
   Carry the DATETIME-not-TIMESTAMP warning comment.
-- [ ] New `Capell\Core\Enums\PublishVisibilityStateEnum` (string-backed, `HasLabel`):
+- [x] New `Capell\Core\Enums\PublishVisibilityStateEnum` (string-backed, `HasLabel`):
   `draft|scheduled|published|expired|deleted`. Static
   `fromDates(?DateTimeInterface $visibleFrom, ?DateTimeInterface $visibleUntil, bool $trashed, ?CarbonImmutable $now = null)`.
   Precedence (matches both existing Admin classifiers): deleted → expired → draft (sentinel)
   → scheduled → published. Exactly-at-boundary = scheduled (`greaterThan` semantics).
-- [ ] `HasPublishDates`: add `publishVisibilityState(?CarbonImmutable $now = null)`,
+- [x] `HasPublishDates`: add `publishVisibilityState(?CarbonImmutable $now = null)`,
   `isDraftSentinel()`, `scopeDraftSentinel`, `scopeScheduled` (future AND ≤ boundary).
   `isPending()`/`scopePending` UNCHANGED (umbrella incl. drafts — documented compat).
-- [ ] `PublishStatusEnum::fromModel` delegates to the state module via a
+- [x] `PublishStatusEnum::fromModel` delegates to the state module via a
   `fromVisibilityState()` mapping (draft+scheduled → pending) — behaviour identical.
-- [ ] Admin `PagePublishSentinel` delegates to Core `PublishSentinel` (API kept; tests kept).
+- [x] Admin `PagePublishSentinel` delegates to Core `PublishSentinel` (API kept; tests kept).
   `DefaultPageTableStatusResolver::DRAFT_SENTINEL_YEARS` now references the Core constant.
-- [ ] `ResolvePagePublishStateAction`: `isDraft` = workspace draft OR sentinel;
+- [x] `ResolvePagePublishStateAction`: `isDraft` = workspace draft OR sentinel;
   `scheduledPublishAt` only for genuine schedules. (The behaviour fix.)
-- [ ] `ResolvePublishPanelViewAction`, `DefaultPageTableStatusResolver` derive from
+- [x] `ResolvePublishPanelViewAction`, `DefaultPageTableStatusResolver` derive from
   `publishVisibilityState()`; Admin keeps DTOs/labels/colors/icons/workspace context.
-- [ ] `PagesTable::applyPublishStatusFilterQuery` uses Core scopes; no inline date math.
-- [ ] `BuildDefaultSiteStatsAction`: `pendingCount` uses `scheduled()` so sentinel drafts no
+- [x] `PagesTable::applyPublishStatusFilterQuery` uses Core scopes; no inline date math.
+- [x] `BuildDefaultSiteStatsAction`: `pendingCount` uses `scheduled()` so sentinel drafts no
   longer count as scheduled work (regression-tested behaviour change, called out in review).
-- [ ] Regression tests FIRST (red → green): Core enum derivation (frozen time, all states +
+- [x] Regression tests FIRST (red → green): Core enum derivation (frozen time, all states +
   boundary edge), trait state/scopes/`isPending` compat + `publishedDate()` exclusion,
   `ResolvePagePublishStateAction` sentinel-not-scheduled, resolver/panel/filter parity.
 

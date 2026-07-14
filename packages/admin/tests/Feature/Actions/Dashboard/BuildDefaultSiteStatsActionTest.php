@@ -27,3 +27,23 @@ it('builds default CMS stats from core pages', function (): void {
         ->and($data->expiredCount)->toBe(1)
         ->and($data->sparklinePublished)->toHaveCount(7);
 });
+
+it('excludes sentinel drafts from the pending count and work queue', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-03 12:00:00'));
+
+    Page::factory()->createOne([
+        'visible_from' => CarbonImmutable::parse('2026-05-05 09:00:00'),
+        'visible_until' => null,
+    ]);
+    Page::factory()->createOne([
+        'visible_from' => CarbonImmutable::now()->addYears(100),
+        'visible_until' => null,
+    ]);
+
+    $data = BuildDefaultSiteStatsAction::run('this_week');
+
+    expect($data->pendingCount)->toBe(1)
+        ->and($data->workQueueCount)->toBe(1)
+        ->and($data->expiredCount)->toBe(0)
+        ->and($data->totalPagesCount)->toBe(2);
+});
