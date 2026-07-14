@@ -106,11 +106,15 @@
                                     </span>
                                 @endif
 
-                                @if (($record['maturity'] ?? null) === 'beta')
+                                @if (is_string($record['maturity_label'] ?? null) && $record['maturity_label'] !== '')
                                     <span
-                                        class="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300"
+                                        @class([
+                                            'rounded-md px-2 py-0.5 text-xs font-medium ring-1',
+                                            'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300' => ($record['maturity'] ?? null) === 'beta',
+                                            'bg-gray-50 text-gray-600 ring-gray-500/20 dark:bg-white/5 dark:text-gray-300' => ($record['maturity'] ?? null) !== 'beta',
+                                        ])
                                     >
-                                        {{ __('capell-marketplace::marketplace.release_status.beta') }}
+                                        {{ $record['maturity_label'] }}
                                     </span>
                                 @endif
                             </div>
@@ -185,6 +189,18 @@
                                         class="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300"
                                     >
                                         {{ __('capell-marketplace::marketplace.selection.premium_badge') }}
+                                    </span>
+                                @endif
+
+                                @if (is_string($record['maturity_label'] ?? null) && $record['maturity_label'] !== '')
+                                    <span
+                                        @class([
+                                            'rounded-md px-2 py-0.5 text-xs font-medium ring-1',
+                                            'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300' => ($record['maturity'] ?? null) === 'beta',
+                                            'bg-gray-50 text-gray-600 ring-gray-500/20 dark:bg-white/5 dark:text-gray-300' => ($record['maturity'] ?? null) !== 'beta',
+                                        ])
+                                    >
+                                        {{ $record['maturity_label'] }}
                                     </span>
                                 @endif
                             </div>
@@ -304,6 +320,13 @@
                 <span class="block text-amber-800 dark:text-amber-200">
                     {{ __('capell-marketplace::marketplace.selection.beta_acknowledgement_help') }}
                 </span>
+                @if ($selection['beta_dependency_composer_names'] !== [])
+                    <span class="block text-amber-800 dark:text-amber-200">
+                        {{ __('capell-marketplace::marketplace.selection.beta_dependency_acknowledgement_help', [
+                            'dependencies' => implode(', ', $selection['beta_dependency_composer_names']),
+                        ]) }}
+                    </span>
+                @endif
             </span>
         </label>
     @endif

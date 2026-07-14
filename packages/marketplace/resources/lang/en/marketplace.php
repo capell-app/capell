@@ -495,6 +495,7 @@ return [
     'selection' => [
         'beta_acknowledgement_label' => 'I understand this basket includes Beta software',
         'beta_acknowledgement_help' => 'Beta extensions are supported for evaluation and active use, but may require upgrade work before their Released milestone.',
+        'beta_dependency_acknowledgement_help' => 'Beta dependencies requiring acknowledgement: :dependencies.',
         'already_installed' => 'Already installed',
         'blocked' => [
             'activation_required' => 'Activation requires a licence key.',

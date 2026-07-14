@@ -90,6 +90,25 @@ final class QueueMarketplaceInstallAttemptAction
         ?string $telemetryStatus = null,
         ?Authenticatable $user = null,
     ): MarketplaceInstallAttempt {
+        if (! $policyEvidence->entitlementAllowed
+            || ! $policyEvidence->compatibilityAllowed
+            || ! $policyEvidence->consentAllowed) {
+            return $this->recordPolicyBlockedAttempt(
+                listing: $listing,
+                acquisition: $acquisition,
+                eligibility: $eligibility,
+                betaAcknowledged: $betaAcknowledged,
+                policyEvidence: $policyEvidence,
+                actor: $actor,
+                source: $source,
+                requestedOptions: $requestedOptions,
+                context: $context,
+                deploymentMetadata: $deploymentMetadata,
+                telemetryStatus: $telemetryStatus,
+                user: $user,
+            );
+        }
+
         $this->guardDuplicateActiveInstall($acquisition->composerName);
 
         $attempt = RecordMarketplaceInstallAttemptAction::run(
@@ -177,6 +196,56 @@ final class QueueMarketplaceInstallAttemptAction
         RunMarketplaceInstallAttemptJob::dispatchAfterResponse((int) $attempt->getKey());
 
         return $attempt;
+    }
+
+    /**
+     * @param  array<string, mixed>  $requestedOptions
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $deploymentMetadata
+     */
+    private function recordPolicyBlockedAttempt(
+        ExtensionListingData $listing,
+        ExtensionAcquisitionData $acquisition,
+        MarketplaceInstallEligibilityData $eligibility,
+        bool $betaAcknowledged,
+        MarketplaceInstallPolicyEvidenceData $policyEvidence,
+        MarketplaceInstallActorData $actor,
+        MarketplaceInstallSource $source,
+        array $requestedOptions,
+        array $context,
+        array $deploymentMetadata,
+        ?string $telemetryStatus,
+        ?Authenticatable $user,
+    ): MarketplaceInstallAttempt {
+        $reason = $policyEvidence->reason
+            ?? match (false) {
+                $policyEvidence->compatibilityAllowed => 'incompatible',
+                $policyEvidence->entitlementAllowed => 'entitlement_required',
+                default => $policyEvidence->blockingDependency !== null
+                    ? 'beta_dependency_acknowledgement_required'
+                    : 'beta_acknowledgement_required',
+            };
+
+        return RecordMarketplaceInstallAttemptAction::run(
+            extensionSlug: $listing->slug,
+            extensionName: $listing->name,
+            composerName: $acquisition->composerName,
+            kind: $listing->kind,
+            status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $betaAcknowledged,
+            policyEvidence: $policyEvidence,
+            actor: $actor,
+            source: $source,
+            composerCommand: $acquisition->composerCommand,
+            versionConstraint: $acquisition->versionConstraint,
+            requestedOptions: $requestedOptions,
+            eligibility: $eligibility->toArray(),
+            context: $context,
+            deployment: $deploymentMetadata,
+            failureReason: $reason,
+            telemetryStatus: $telemetryStatus,
+            user: $user,
+        );
     }
 
     /**

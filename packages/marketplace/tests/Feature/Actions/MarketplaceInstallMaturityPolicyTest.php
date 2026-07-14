@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Http;
@@ -28,7 +31,7 @@ it('blocks and records a fresh direct beta without explicit acknowledgement', fu
         ]),
     ]);
 
-    InstallMarketplaceExtensionAction::run(['slug' => 'beta-suite']);
+    InstallMarketplaceExtensionAction::run(marketplaceMaturityRequest('beta-suite'));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
@@ -52,7 +55,7 @@ it('identifies and blocks the exact transitive beta dependency', function (): vo
             ->push(['data' => [marketplaceMaturityPayload('beta-dependency', 'capell-app/beta-dependency', 'beta')]]),
     ]);
 
-    InstallMarketplaceExtensionAction::run(['slug' => 'stable-suite']);
+    InstallMarketplaceExtensionAction::run(marketplaceMaturityRequest('stable-suite'));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
     expect($attempt->failure_reason)->toBe('beta_dependency_acknowledgement_required')
@@ -69,8 +72,7 @@ it('allows an explicitly acknowledged fresh beta listing', function (): void {
     ]);
 
     InstallMarketplaceExtensionAction::run(
-        ['slug' => 'beta-suite'],
-        ['install_options' => ['beta_acknowledged' => true]],
+        marketplaceMaturityRequest('beta-suite', true),
     );
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
@@ -101,4 +103,15 @@ function marketplaceMaturityPayload(
         'included_with_capell_all' => false,
         'dependencies' => ['requires' => $dependencies],
     ];
+}
+
+function marketplaceMaturityRequest(string $slug, bool $betaAcknowledged = false): MarketplaceInstallRequestData
+{
+    return MarketplaceInstallRequestData::make(
+        extensionSlug: $slug,
+        options: $betaAcknowledged ? ['install_options' => ['beta_acknowledged' => true]] : [],
+        actor: MarketplaceInstallActorData::system('marketplace-maturity-test'),
+        betaAcknowledged: $betaAcknowledged,
+        source: MarketplaceInstallSource::Programmatic,
+    );
 }

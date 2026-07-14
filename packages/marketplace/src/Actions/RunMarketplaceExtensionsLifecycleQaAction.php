@@ -37,11 +37,12 @@ final class RunMarketplaceExtensionsLifecycleQaAction
         bool $skipDelete = false,
         bool $stopOnFailure = false,
         bool $dryRun = false,
+        bool $betaAcknowledged = false,
     ): array {
         $results = [];
 
         foreach ($this->installableListings($only) as $listing) {
-            $result = $this->runListing($listing, $skipDelete, $dryRun);
+            $result = $this->runListing($listing, $skipDelete, $dryRun, $betaAcknowledged);
             $results[] = $result;
 
             if ($stopOnFailure && $result->failed()) {
@@ -70,8 +71,12 @@ final class RunMarketplaceExtensionsLifecycleQaAction
             ->all();
     }
 
-    private function runListing(ExtensionListingData $listing, bool $skipDelete, bool $dryRun): MarketplaceExtensionLifecycleQaResultData
-    {
+    private function runListing(
+        ExtensionListingData $listing,
+        bool $skipDelete,
+        bool $dryRun,
+        bool $betaAcknowledged,
+    ): MarketplaceExtensionLifecycleQaResultData {
         if ($dryRun) {
             return new MarketplaceExtensionLifecycleQaResultData(
                 name: $listing->name,
@@ -99,8 +104,14 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 listing: $listing,
                 acquisition: $acquisition,
                 eligibility: $eligibility,
-                betaAcknowledged: false,
-                policyEvidence: BuildMarketplaceInstallPolicyEvidenceAction::run($listing),
+                betaAcknowledged: $betaAcknowledged,
+                policyEvidence: BuildMarketplaceInstallPolicyEvidenceAction::run(
+                    listing: $listing,
+                    consentAllowed: $listing->maturity !== 'beta' || $betaAcknowledged,
+                    reason: $listing->maturity === 'beta' && ! $betaAcknowledged
+                        ? 'beta_acknowledgement_required'
+                        : null,
+                ),
                 actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa'),
                 source: MarketplaceInstallSource::Cli,
                 context: [
@@ -108,7 +119,10 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 ],
             );
 
-            new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($this->composer);
+            if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {
+                new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($this->composer);
+            }
+
             $attempt->refresh();
 
             if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {

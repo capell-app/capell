@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
@@ -50,13 +53,12 @@ it('orchestrates a free marketplace install with selected options and queued tel
     ]);
 
     InstallMarketplaceExtensionAction::run(
-        ['slug' => 'seo-suite'],
-        [
+        installMarketplaceActionRequest('seo-suite', [
             'install_options' => [
                 'starter_content' => true,
                 'ignored' => true,
             ],
-        ],
+        ]),
     );
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
@@ -86,7 +88,7 @@ it('records blocked marketplace eligibility before requesting authorization', fu
         ]),
     ]);
 
-    InstallMarketplaceExtensionAction::run(['slug' => 'protected-suite']);
+    InstallMarketplaceExtensionAction::run(installMarketplaceActionRequest('protected-suite'));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
@@ -123,8 +125,7 @@ it('records purchase-required authorization responses as blocked attempts', func
     ]);
 
     InstallMarketplaceExtensionAction::run(
-        ['slug' => 'paid-suite'],
-        ['email' => 'owner@example.test'],
+        installMarketplaceActionRequest('paid-suite', ['email' => 'owner@example.test']),
     );
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
@@ -157,7 +158,7 @@ it('records authorization failures in the marketplace install ledger', function 
         ], 500),
     ]);
 
-    InstallMarketplaceExtensionAction::run(['slug' => 'broken-suite']);
+    InstallMarketplaceExtensionAction::run(installMarketplaceActionRequest('broken-suite'));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
@@ -201,8 +202,7 @@ it('records authorization-blocked attempts and returns account connection redire
     ]);
 
     $redirectUrl = InstallMarketplaceExtensionAction::run(
-        ['slug' => 'auth-blocked-suite'],
-        redirectAccountActions: true,
+        installMarketplaceActionRequest('auth-blocked-suite', ['_redirect_account_actions' => true]),
     );
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
@@ -228,7 +228,7 @@ it('records theme install intents during marketplace install orchestration', fun
         ]),
     ]);
 
-    InstallMarketplaceExtensionAction::run(['slug' => 'theme-suite']);
+    InstallMarketplaceExtensionAction::run(installMarketplaceActionRequest('theme-suite'));
 
     $intent = MarketplaceInstallIntent::query()->sole();
     $attempt = MarketplaceInstallAttempt::query()->sole();
@@ -253,9 +253,9 @@ it('blocks duplicate active queue attempts for the same composer package', funct
         ]),
     ]);
 
-    InstallMarketplaceExtensionAction::run(['slug' => 'duplicate-suite']);
+    InstallMarketplaceExtensionAction::run(installMarketplaceActionRequest('duplicate-suite'));
 
-    expect(fn (): ?string => InstallMarketplaceExtensionAction::run(['slug' => 'duplicate-suite']))
+    expect(fn (): ?string => InstallMarketplaceExtensionAction::run(installMarketplaceActionRequest('duplicate-suite')))
         ->toThrow(ValidationException::class);
 
     expect(MarketplaceInstallAttempt::query()->count())->toBe(1);
@@ -290,4 +290,16 @@ function installMarketplaceExtensionActionConnectedInstance(): MarketplaceInstan
         'account_email_verified_at' => now(),
         'last_heartbeat_at' => now(),
     ]);
+}
+
+/** @param array<string, mixed> $options */
+function installMarketplaceActionRequest(string $slug, array $options = []): MarketplaceInstallRequestData
+{
+    return MarketplaceInstallRequestData::make(
+        extensionSlug: $slug,
+        options: $options,
+        actor: MarketplaceInstallActorData::system('marketplace-action-test'),
+        betaAcknowledged: data_get($options, 'install_options.beta_acknowledged') === true,
+        source: MarketplaceInstallSource::Programmatic,
+    );
 }

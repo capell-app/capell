@@ -278,7 +278,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             $redirectUrl = resolve(MarketplaceCatalogueTable::class)->installExtension(
                 arguments: $record,
                 data: [
-                    'install_options' => $this->selectedMarketplaceInstallOptionsForRecords([$record]),
+                    'install_options' => [
+                        ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
+                        'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
+                    ],
                 ],
                 redirectAccountActions: true,
             );
@@ -394,6 +397,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      *     total_label: string,
      *     has_premium_records: bool,
      *     contains_beta: bool,
+     *     beta_dependency_composer_names: array<int, string>,
      *     can_install: bool
      * }
      */
@@ -415,6 +419,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
              *     total_label: string,
              *     has_premium_records: bool,
              *     contains_beta: bool,
+             *     beta_dependency_composer_names: array<int, string>,
              *     can_install: bool
              * } $review */
             $review = $this->resolvedMarketplaceSelectionReview;
@@ -528,6 +533,12 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         ));
         $containsBeta = collect($installRecords)
             ->contains(fn (array $record): bool => ($record['maturity'] ?? null) === 'beta');
+        $betaDependencyComposerNames = array_values(array_filter(array_map(
+            fn (array $record): ?string => ($record['maturity'] ?? null) === 'beta'
+                ? $this->recordComposerName($record)
+                : null,
+            $dependencyRecords,
+        )));
 
         $this->resolvedMarketplaceSelectionReview = [
             'explicit_records' => array_values($explicitRecords),
@@ -544,6 +555,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             'total_label' => $this->marketplaceSelectionTotalLabel($totalCents),
             'has_premium_records' => $premiumRecords !== [],
             'contains_beta' => $containsBeta,
+            'beta_dependency_composer_names' => $betaDependencyComposerNames,
             'can_install' => $installRecords !== [] && $missingDependencies === [] && $blockedDependencies === [],
         ];
 

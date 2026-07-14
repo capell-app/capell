@@ -17,6 +17,7 @@ final class MarketplaceExtensionsLifecycleQaCommand extends Command
         {--only= : Limit QA to one composer package}
         {--skip-delete : Skip extension-owned data deletion during uninstall}
         {--stop-on-failure : Stop after the first failed extension}
+        {--acknowledge-beta : Explicitly allow beta extensions during lifecycle QA}
         {--dry-run : Resolve catalogue records and print the plan without installing, uninstalling, or deleting data}
     ';
 
@@ -30,6 +31,7 @@ final class MarketplaceExtensionsLifecycleQaCommand extends Command
             skipDelete: (bool) $this->option('skip-delete'),
             stopOnFailure: (bool) $this->option('stop-on-failure'),
             dryRun: (bool) $this->option('dry-run'),
+            betaAcknowledged: (bool) $this->option('acknowledge-beta'),
         );
 
         $report = array_map(
