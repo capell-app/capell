@@ -42,6 +42,7 @@ function seedHealthyDoctorInstall(): void
 
     $homePage = Page::factory()
         ->home()
+        ->published()
         ->site($site)
         ->layout($layout)
         ->withTranslations($language, ['title' => 'Home'], slug: '/')
@@ -284,8 +285,15 @@ it('requires generated frontend tailwind css when a generator is registered', fu
     File::delete(resource_path('css/capell/frontend.css'));
     app()->bind('capell.tailwind.generator', fn (): stdClass => new stdClass);
 
+    $report = BuildDoctorReportAction::run();
+    $check = $report->checks->firstWhere('label', 'Generated frontend Tailwind CSS');
+
+    expect($check?->remediation)
+        ->toBe('Run php artisan capell:frontend-install, then npm run build if the application Vite bundle is not current.');
+
     artisanCommand('capell:doctor')
         ->expectsOutputToContain('No generated Capell frontend CSS file was found.')
+        ->expectsOutputToContain('capell:frontend-install')
         ->assertExitCode(Command::FAILURE);
 });
 

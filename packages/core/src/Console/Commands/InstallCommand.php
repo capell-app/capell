@@ -232,10 +232,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'packages' => $packages->keys()->values()->all(),
         ]);
 
-        if ($packages->isEmpty()) {
-            $this->warn('No packages selected.');
-        }
-
         $reporter = new ConsoleProgressReporter($this);
 
         if (! $planOnly && ! $this->ensureFilamentIsInstalledForAdmin($packages, $reporter)) {
@@ -255,7 +251,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         [$packages, $themeExtraPackages] = $this->includeSelectedThemePackage($packages, $selectedThemeKey, $freshInstall);
-        $installTimePackageNames = $this->installTimePackageNamesFromPackagesOption();
+        $installTimePackageNames = $this->installTimePackageNamesFromSelection();
+
+        if ($packages->isEmpty() && $installTimePackageNames === [] && $themeExtraPackages === []) {
+            $this->warn('No packages selected.');
+        }
         $this->logInstallDebug('resolved theme selection', [
             'selected_theme_key' => $selectedThemeKey,
             'extra_packages' => array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
@@ -424,6 +424,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         } catch (RuntimeException $runtimeException) {
             $this->error('npm build failed.');
             $this->line($runtimeException->getMessage());
+
+            throw $runtimeException;
         }
     }
 
@@ -953,11 +955,19 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     /**
      * @return array<int, string>
      */
-    private function installTimePackageNamesFromPackagesOption(): array
+    private function installTimePackageNamesFromSelection(): array
     {
-        return collect($this->parseListOption('packages') ?? [])
+        $packageNames = collect($this->parseListOption('packages') ?? []);
+        $packageMode = $this->option('package-mode');
+
+        if ($packageMode === 'all' || $this->option('all-packages') || $this->shouldUseFreshDemoPackageDefaults()) {
+            $packageNames = $packageNames->merge(TrustedCorePackages::defaultInstallSelectionNames());
+        }
+
+        return $packageNames
             ->filter(fn (string $packageName): bool => TrustedCorePackages::contains($packageName))
             ->reject(fn (string $packageName): bool => CapellCore::hasPackage($packageName))
+            ->unique()
             ->values()
             ->all();
     }

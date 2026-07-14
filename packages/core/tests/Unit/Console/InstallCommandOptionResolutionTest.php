@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Console\OutputStyle;
@@ -161,6 +162,21 @@ it('resolves non-interactive fresh demo defaults without prompting', function ()
         ->and(callInstallCommandMethod($freshDemoCommand, 'resolveSites'))->toBe(['Capell Demo', 'Capell Knowledge', 'Capell Services'])
         ->and(callInstallCommandMethod($explicitDemoCommand, 'shouldUseFreshDemoDefaults'))->toBeFalse()
         ->and(callInstallCommandMethod($allPackagesCommand, 'shouldInstallAllPackages'))->toBeTrue();
+});
+
+it('requires missing foundation packages when all-package mode is selected', function (): void {
+    CapellCore::clearPackages();
+
+    $command = installCommandForOptions([
+        '--package-mode' => 'all',
+    ]);
+
+    expect(callInstallCommandMethod($command, 'installTimePackageNamesFromSelection'))
+        ->toBe([
+            'capell-app/admin',
+            'capell-app/frontend',
+            'capell-app/marketplace',
+        ]);
 });
 
 it('covers non-interactive install command branch decisions and manual-change reporting', function (): void {

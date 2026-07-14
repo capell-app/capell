@@ -8,6 +8,7 @@ use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Support\Collection;
 
 final class InstallPlan
@@ -136,7 +137,7 @@ final class InstallPlan
             $selectedPackages = self::selectedPackages($inputData);
 
             $selectedPackages
-                ->reject(fn (PackageData $package): bool => $package->isCore())
+                ->reject(fn (PackageData $package): bool => TrustedCorePackages::isCoreRuntimePackage($package->name))
                 ->each(function (PackageData $package) use ($steps): void {
                     $steps->push(new InstallStepData(
                         self::packageInstallStepKey($package->name),

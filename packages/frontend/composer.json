@@ -1,6 +1,6 @@
 {
     "name": "capell-app/frontend",
-    "description": "Frontend for Capell",
+    "description": "Public routing, rendering, themes, assets, and cache-safe delivery for Capell CMS.",
     "type": "library",
     "keywords": [
         "capell-app",

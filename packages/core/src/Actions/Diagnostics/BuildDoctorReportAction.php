@@ -429,7 +429,7 @@ final class BuildDoctorReportAction
             label: 'Generated frontend Tailwind CSS',
             passed: false,
             message: 'No generated Capell frontend CSS file was found.',
-            remediation: 'Run php artisan capell:frontend:setup or npm run build after installing frontend packages.',
+            remediation: 'Run php artisan capell:frontend-install, then npm run build if the application Vite bundle is not current.',
         );
     }
 

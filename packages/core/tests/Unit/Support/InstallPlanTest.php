@@ -72,7 +72,7 @@ it('includes sitemap and extra package steps when toggled', function (): void {
     expect($keys)->not->toContain(InstallPlan::STEP_INSTALL_FILAMENT_PANEL);
 });
 
-it('splits non-core package installation into per-package browser install steps', function (): void {
+it('splits package installation into per-package browser install steps while retaining distribution lifecycles', function (): void {
     CapellCore::registerPackage(name: 'capell-app/admin');
     CapellCore::getPackage('capell-app/admin')->sort = 10;
     CapellCore::registerPackage(
@@ -92,12 +92,12 @@ it('splits non-core package installation into per-package browser install steps'
     $stepKeys = array_column($plan, 'key');
 
     expect($stepKeys)->toContain(
+        InstallPlan::packageInstallStepKey('capell-app/admin'),
         InstallPlan::packageInstallStepKey('capell-app/blog'),
         InstallPlan::packageSetupStepKey('capell-app/blog'),
         InstallPlan::packageDemoStepKey('capell-app/blog'),
         InstallPlan::packageAfterInstallStepKey('capell-app/blog'),
     )
-        ->and($stepKeys)->not->toContain(InstallPlan::packageInstallStepKey('capell-app/admin'))
         ->and($stepKeys)->not->toContain(InstallPlan::STEP_INSTALL_PACKAGES)
         ->and(array_search(InstallPlan::packageInstallStepKey('capell-app/blog'), $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::packageSetupStepKey('capell-app/blog'), $stepKeys, true))
@@ -107,7 +107,7 @@ it('splits non-core package installation into per-package browser install steps'
         ->toBeLessThan(array_search(InstallPlan::packageAfterInstallStepKey('capell-app/blog'), $stepKeys, true));
 });
 
-it('includes setup steps for selected core packages with setup commands', function (): void {
+it('includes install and setup steps for selected distribution packages', function (): void {
     CapellCore::registerPackage(
         name: 'capell-app/admin',
         setupCommand: 'capell:admin-setup',
@@ -120,8 +120,10 @@ it('includes setup steps for selected core packages with setup commands', functi
 
     $stepKeys = array_column($plan, 'key');
 
-    expect($stepKeys)->toContain(InstallPlan::packageSetupStepKey('capell-app/admin'))
-        ->and($stepKeys)->not->toContain(InstallPlan::packageInstallStepKey('capell-app/admin'));
+    expect($stepKeys)->toContain(
+        InstallPlan::packageInstallStepKey('capell-app/admin'),
+        InstallPlan::packageSetupStepKey('capell-app/admin'),
+    );
 });
 
 it('includes setup steps for packages with setup lifecycle actions', function (): void {

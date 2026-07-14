@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\InvalidLifecycleAction;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     LifecycleRecorderAction::reset();
@@ -100,6 +102,43 @@ it('falls back to legacy commands when fallback is allowed', function (): void {
     );
 
     expect($legacyCommandRan)->toBeTrue();
+});
+
+it('runs a dynamically installed package command in a fresh process when the current artisan application cannot see it', function (): void {
+    $package = new PackageData(
+        name: 'vendor/dynamic-package',
+        type: PackageTypeEnum::Plugin,
+    );
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $process->shouldReceive('run')->once()->with(Mockery::type('callable'))->andReturn(0);
+    $process->shouldReceive('isSuccessful')->once()->andReturnTrue();
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->once()
+        ->with(
+            Mockery::on(fn (array $command): bool => $command === [
+                PHP_BINARY,
+                base_path('artisan'),
+                'vendor:dynamic-install',
+                '--no-interaction',
+                '--force',
+            ]),
+            base_path(),
+        )
+        ->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    config(['capell-installer.php_binary' => PHP_BINARY]);
+
+    resolve(PackageLifecycleRunner::class)->run(
+        package: $package,
+        phase: 'install',
+        command: 'vendor:dynamic-install',
+        actionClass: null,
+        arguments: ['--force' => true],
+        allowLegacyCommand: true,
+    );
 });
 
 it('rejects lifecycle classes that do not implement the package lifecycle contract', function (): void {

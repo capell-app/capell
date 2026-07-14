@@ -21,6 +21,11 @@ final class TrustedCorePackages
         'capell-app/marketplace',
     ];
 
+    private const array CORE_RUNTIME_PACKAGE_NAMES = [
+        'capell-app/capell',
+        'capell-app/core',
+    ];
+
     public static function contains(string $packageName): bool
     {
         return in_array($packageName, self::PACKAGE_NAMES, true);
@@ -29,6 +34,11 @@ final class TrustedCorePackages
     public static function isDefaultInstallSelection(string $packageName): bool
     {
         return in_array($packageName, self::DEFAULT_INSTALL_SELECTION_NAMES, true);
+    }
+
+    public static function isCoreRuntimePackage(string $packageName): bool
+    {
+        return in_array($packageName, self::CORE_RUNTIME_PACKAGE_NAMES, true);
     }
 
     /**
