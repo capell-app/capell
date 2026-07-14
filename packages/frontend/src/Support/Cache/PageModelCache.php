@@ -83,7 +83,7 @@ final class PageModelCache
         $relations = [
             'layout.theme',
             'pageUrls',
-            'image',
+            'image.translations',
             'blueprint',
             'canonicalPage.pageUrls',
             'translation' => function (Relation $query) use ($languageId): void {
