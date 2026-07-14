@@ -11,7 +11,7 @@ final class CapellRuntimeSchemaContract
     /** @return list<string> */
     public function footprintAnchors(): array
     {
-        return ['sites', 'languages', 'pages', 'capell_extensions'];
+        return ['sites', 'pages', 'capell_extensions'];
     }
 
     /** @return list<string> */

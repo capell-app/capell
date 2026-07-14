@@ -44,6 +44,8 @@ return [
     'publishing_readiness_description' => 'List content that is close to launch but still blocked by schedules, missing translations, disabled URLs, workflow state, or required fields.',
     'empty_state_publishing_readiness' => 'No publishing blockers have been reported.',
     'findings_heading' => 'Findings',
+    'generated_at' => 'Generated :time',
+    'demo_install_health_rerun' => 'Re-run checks',
     'finding_severity' => [
         'critical' => 'Critical',
         'warning' => 'Warning',

@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -60,16 +62,20 @@ it('reports missing event sourcing tables as a critical finding with remediation
 
     $snapshot = BuildDemoInstallHealthReportAction::run();
     $finding = collect($snapshot->findings)
-        ->firstWhere('title', __('capell-admin::reports.demo_install_health_check_event_sourcing'));
+        ->firstWhere('id', 'core.schema.required');
 
     expect($finding)->not->toBeNull()
         ->and($finding->severity)->toBe(ReportFindingSeverity::Critical)
         ->and($finding->description)->toContain('page_revisions')
-        ->and($finding->description)->toContain('php artisan migrate');
+        ->and($finding->remediation)->toContain('php artisan migrate');
 });
 
 it('returns the empty snapshot for a truly uninstalled app', function (): void {
-    Schema::drop('sites');
+    Schema::disableForeignKeyConstraints();
+    Schema::dropIfExists('pages');
+    Schema::dropIfExists('sites');
+    Schema::dropIfExists('capell_extensions');
+    Schema::enableForeignKeyConstraints();
     resolve(RuntimeSchemaState::class)->flush();
 
     $snapshot = BuildDemoInstallHealthReportAction::run();
@@ -82,6 +88,10 @@ it('returns the empty snapshot for a truly uninstalled app', function (): void {
 function demoInstallHealthSeedInstall(): void
 {
     CapellCore::forcePackageInstalled('capell-app/core');
+    CapellExtension::query()->updateOrCreate(
+        ['composer_name' => 'capell-app/core'],
+        ['status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()],
+    );
 
     $language = Language::factory()->english()->create();
     $theme = Theme::factory()->createOne(['default' => true]);

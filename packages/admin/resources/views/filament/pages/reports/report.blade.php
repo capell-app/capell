@@ -3,6 +3,10 @@
         $snapshot = $this->reportSnapshot();
     @endphp
 
+    <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+        {{ __('capell-admin::reports.generated_at', ['time' => $snapshot->generatedAt->toDayDateTimeString()]) }}
+    </p>
+
     @if ($snapshot->metrics !== [] || $snapshot->findings !== [])
         @if ($snapshot->metrics !== [])
             <div class="grid gap-4 md:grid-cols-3">
@@ -87,6 +91,31 @@
                                     >
                                         {{ $finding->description }}
                                     </p>
+
+                                    @if ($finding->remediation !== null)
+                                        <p
+                                            class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200"
+                                        >
+                                            {{ $finding->remediation }}
+                                        </p>
+                                    @endif
+
+                                    @if ($finding->evidence !== [])
+                                        <dl
+                                            class="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400"
+                                        >
+                                            @foreach ($finding->evidence as $key => $value)
+                                                <div class="flex gap-2">
+                                                    <dt class="font-medium">
+                                                        {{ str($key)->replace('_', ' ')->headline() }}:
+                                                    </dt>
+                                                    <dd>
+                                                        {{ is_scalar($value) || $value === null ? (string) ($value ?? '—') : json_encode($value, JSON_UNESCAPED_SLASHES) }}
+                                                    </dd>
+                                                </div>
+                                            @endforeach
+                                        </dl>
+                                    @endif
                                 </div>
 
                                 @if ($finding->url !== null && $finding->actionLabel !== null)

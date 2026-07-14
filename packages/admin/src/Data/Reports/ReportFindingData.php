@@ -16,5 +16,9 @@ final class ReportFindingData extends Data
         public readonly ?string $recordLabel = null,
         public readonly ?string $actionLabel = null,
         public readonly ?string $url = null,
+        public readonly ?string $id = null,
+        public readonly ?string $remediation = null,
+        /** @var array<string, mixed> */
+        public readonly array $evidence = [],
     ) {}
 }
