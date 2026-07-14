@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\ConfiguratorInterface;
+use Capell\Admin\Filament\Components\Forms\Interactions\InteractionSettingsSchema;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Illuminate\Console\Command;
 use Spatie\LaravelData\Data;
@@ -16,6 +17,7 @@ it('Admin package should be standalone')
     ])
     ->ignoring([
         FrontendSettingsSchema::class,
+        InteractionSettingsSchema::class,
     ]);
 
 arch()

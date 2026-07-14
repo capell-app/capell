@@ -52,15 +52,15 @@ Constraints: no migration, no new dependency, no one-adapter contract, public re
 Admin `InteractionSettingsSchema::targetOptions()` never offers Fragment.
 `DeferredFragmentReferenceBuilder` has zero implementations/bindings (free to adjust).
 
-- [ ] `BuildInteractionRenderDataAction`: when `DeferredFragmentReferenceBuilder` is bound,
+- [x] `BuildInteractionRenderDataAction`: when `DeferredFragmentReferenceBuilder` is bound,
   produce the trigger URL through it (mirror the `WidgetInteractionLocatorResolver`
   `app()->bound()` guard); when unbound, drop trigger with a debug-level log (no warning spam).
-- [ ] `InteractionSettingsSchema`: offer Fragment target (+ `fragment_reference` field)
+- [x] `InteractionSettingsSchema`: offer Fragment target (+ `fragment_reference` field)
   only when the builder is bound.
-- [ ] Tests: bound fake builder → trigger rendered with builder URL (opaque, no model IDs);
+- [x] Tests: bound fake builder → trigger rendered with builder URL (opaque, no model IDs);
   unbound → trigger safely dropped; Core fragment parsing covered in
   `InteractionTriggersTest`.
-- [ ] Docs: state plainly that fragment/widget targets activate when a companion package
+- [x] Docs: state plainly that fragment/widget targets activate when a companion package
   binds the contract; align the `/_fragments` wording with reality.
 
 ## Phase C — Installer patch ownership

@@ -8,6 +8,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\Presentation\PresentationSettingsSchema;
 use Capell\Core\Enums\InteractionBehavior;
 use Capell\Core\Enums\InteractionTargetType;
+use Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -40,6 +41,22 @@ class InteractionSettingsSchema
                         ->schema(self::triggerSchema()),
                 ]),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function targetOptions(): array
+    {
+        return collect([
+            InteractionTargetType::Widget,
+            InteractionTargetType::Fragment,
+            InteractionTargetType::Url,
+            InteractionTargetType::PublicAction,
+        ])
+            ->filter(fn (InteractionTargetType $targetType): bool => $targetType !== InteractionTargetType::Fragment || self::fragmentTargetsAvailable())
+            ->mapWithKeys(fn (InteractionTargetType $targetType): array => [$targetType->value => $targetType->getLabel()])
+            ->all();
     }
 
     /**
@@ -97,6 +114,10 @@ class InteractionSettingsSchema
                 ->maxItems(1)
                 ->columnSpanFull()
                 ->visible(fn (Get $get): bool => $get('target_type') === InteractionTargetType::Widget->value),
+            TextInput::make('fragment_reference')
+                ->label(__('capell-admin::form.fragment_reference'))
+                ->helperText(__('capell-admin::generic.fragment_reference_info'))
+                ->visible(fn (Get $get): bool => self::fragmentTargetsAvailable() && $get('target_type') === InteractionTargetType::Fragment->value),
             TextInput::make('url')
                 ->label(__('capell-admin::form.url'))
                 ->url()
@@ -118,15 +139,15 @@ class InteractionSettingsSchema
     }
 
     /**
-     * @return array<string, string>
+     * Fragment targets only work when a companion package binds the Frontend
+     * DeferredFragmentReferenceBuilder contract. Referencing the contract here
+     * is a sanctioned boundary exception (see tests/Arch/AdminPackageTest);
+     * the class constant never autoloads the interface, so Admin still runs
+     * without capell/frontend installed.
      */
-    private static function targetOptions(): array
+    private static function fragmentTargetsAvailable(): bool
     {
-        return [
-            InteractionTargetType::Widget->value => __('capell-admin::generic.widget'),
-            InteractionTargetType::Url->value => __('capell-admin::generic.url'),
-            InteractionTargetType::PublicAction->value => __('capell-admin::generic.public_action'),
-        ];
+        return app()->bound(DeferredFragmentReferenceBuilder::class);
     }
 
     /**

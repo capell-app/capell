@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Data\Interactions\InteractionTriggerData;
 use Capell\Core\Enums\InteractionTargetType;
+use Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder;
 use Capell\Frontend\Contracts\WidgetInteractionLocatorResolver;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -68,11 +69,17 @@ class BuildInteractionRenderDataAction
         }
 
         if ($target->type === InteractionTargetType::Fragment) {
-            Log::warning('capell-frontend: fragment interaction targets are not implemented; trigger filtered out.', [
-                'reference' => $target->fragmentReference,
-            ]);
+            if ($target->fragmentReference === null) {
+                return null;
+            }
 
-            return null;
+            if (! app()->bound(DeferredFragmentReferenceBuilder::class)) {
+                Log::debug('capell-frontend: no deferred fragment reference builder is bound; fragment interaction trigger omitted from public output.');
+
+                return null;
+            }
+
+            return resolve(DeferredFragmentReferenceBuilder::class)->url($target->fragmentReference);
         }
 
         if ($target->type === InteractionTargetType::PublicAction) {
