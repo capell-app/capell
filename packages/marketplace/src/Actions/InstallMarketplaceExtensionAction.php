@@ -6,9 +6,12 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Exceptions\PurchaseRequiredException;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
@@ -22,6 +25,7 @@ use Filament\Actions\Action as FilamentAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Throwable;
@@ -167,6 +171,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $listing->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, $eligibility->blockReason ?? 'blocked'),
+            actor: $this->installActor(),
+            source: MarketplaceInstallSource::LocalUi,
             requestedOptions: $selectedInstallOptions,
             eligibility: $eligibility->toArray(),
             context: $this->installAttemptContext(),
@@ -220,6 +228,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $listing->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, 'entitlement_required'),
+            actor: $this->installActor(),
+            source: MarketplaceInstallSource::LocalUi,
             requestedOptions: $selectedInstallOptions,
             eligibility: [
                 ...$eligibility->toArray(),
@@ -274,6 +286,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $listing->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::AuthorizationFailed,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, 'authorization_failed'),
+            actor: $this->installActor(),
+            source: MarketplaceInstallSource::LocalUi,
             requestedOptions: $selectedInstallOptions,
             eligibility: $eligibility->toArray(),
             context: $this->installAttemptContext(),
@@ -297,6 +313,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $acquisition->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, $authorizationEligibility?->blockReason ?? 'blocked'),
+            actor: $this->installActor(),
+            source: MarketplaceInstallSource::LocalUi,
             composerCommand: $acquisition->composerCommand,
             versionConstraint: $acquisition->versionConstraint,
             requestedOptions: $selectedInstallOptions,
@@ -320,6 +340,10 @@ final class InstallMarketplaceExtensionAction
             listing: $listing,
             acquisition: $acquisition,
             eligibility: $eligibility,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions),
+            actor: $this->installActor(),
+            source: MarketplaceInstallSource::LocalUi,
             requestedOptions: $selectedInstallOptions,
             context: $this->installAttemptContext(),
             deploymentMetadata: [
@@ -330,6 +354,36 @@ final class InstallMarketplaceExtensionAction
             telemetryStatus: $this->requiresMarketplaceAuthorization($listing) ? null : 'pending',
             user: auth()->user(),
         );
+    }
+
+    /** @param array<string, mixed> $selectedInstallOptions */
+    private function betaAcknowledged(array $selectedInstallOptions): bool
+    {
+        return ($selectedInstallOptions['beta_acknowledged'] ?? false) === true;
+    }
+
+    /** @param array<string, mixed> $selectedInstallOptions */
+    private function policyEvidence(
+        ExtensionListingData $listing,
+        array $selectedInstallOptions,
+        ?string $reason = null,
+    ): MarketplaceInstallPolicyEvidenceData {
+        $acknowledged = $this->betaAcknowledged($selectedInstallOptions);
+
+        return BuildMarketplaceInstallPolicyEvidenceAction::run(
+            listing: $listing,
+            consentAllowed: $listing->maturity !== 'beta' || $acknowledged,
+            reason: $reason,
+        );
+    }
+
+    private function installActor(): MarketplaceInstallActorData
+    {
+        $user = auth()->user();
+
+        return $user instanceof Authenticatable
+            ? MarketplaceInstallActorData::fromAuthenticatable($user)
+            : MarketplaceInstallActorData::system();
     }
 
     private function authorizationBlocksInstall(?MarketplaceInstallEligibilityData $eligibility): bool

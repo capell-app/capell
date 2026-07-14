@@ -26,6 +26,8 @@ use Override;
  * @property array<string, mixed>|null $context
  * @property array<string, mixed>|null $diagnostic_context
  * @property array<string, mixed>|null $deployment
+ * @property bool $beta_acknowledged
+ * @property array<string, mixed>|null $policy_evidence
  * @property string|null $failure_reason
  * @property string|null $failure_type
  * @property string|null $failure_stage
@@ -66,6 +68,8 @@ final class MarketplaceInstallAttempt extends Model
         'context',
         'diagnostic_context',
         'deployment',
+        'beta_acknowledged',
+        'policy_evidence',
         'failure_reason',
         'failure_type',
         'failure_stage',
@@ -118,6 +122,8 @@ final class MarketplaceInstallAttempt extends Model
             'context' => 'array',
             'diagnostic_context' => 'array',
             'deployment' => 'array',
+            'beta_acknowledged' => 'boolean',
+            'policy_evidence' => 'array',
             'resolved_at' => 'immutable_datetime',
             'retried_at' => 'immutable_datetime',
             'telemetry_attempted_at' => 'immutable_datetime',

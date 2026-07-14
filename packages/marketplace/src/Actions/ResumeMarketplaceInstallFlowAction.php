@@ -6,12 +6,15 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
@@ -126,6 +129,15 @@ final class ResumeMarketplaceInstallFlowAction
                     canUpdate: true,
                     canRunExisting: true,
                 ),
+                betaAcknowledged: ($installOptions['beta_acknowledged'] ?? false) === true,
+                policyEvidence: BuildMarketplaceInstallPolicyEvidenceAction::run(
+                    listing: $listing,
+                    consentAllowed: $listing->maturity !== 'beta' || ($installOptions['beta_acknowledged'] ?? false) === true,
+                ),
+                actor: auth()->user() instanceof Authenticatable
+                    ? MarketplaceInstallActorData::fromAuthenticatable(auth()->user())
+                    : MarketplaceInstallActorData::system('marketplace-hosted-resume'),
+                source: MarketplaceInstallSource::HostedResume,
                 requestedOptions: $installOptions,
                 context: [
                     'source' => 'marketplace_install_flow',

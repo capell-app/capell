@@ -6,10 +6,13 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -32,6 +35,10 @@ final class QueueMarketplaceInstallAttemptAction
         ExtensionListingData $listing,
         ExtensionAcquisitionData $acquisition,
         MarketplaceInstallEligibilityData $eligibility,
+        bool $betaAcknowledged,
+        MarketplaceInstallPolicyEvidenceData $policyEvidence,
+        MarketplaceInstallActorData $actor,
+        MarketplaceInstallSource $source,
         array $requestedOptions = [],
         array $context = [],
         array $deploymentMetadata = [],
@@ -49,6 +56,10 @@ final class QueueMarketplaceInstallAttemptAction
                 listing: $listing,
                 acquisition: $acquisition,
                 eligibility: $eligibility,
+                betaAcknowledged: $betaAcknowledged,
+                policyEvidence: $policyEvidence,
+                actor: $actor,
+                source: $source,
                 requestedOptions: $requestedOptions,
                 context: $context,
                 deploymentMetadata: $deploymentMetadata,
@@ -69,6 +80,10 @@ final class QueueMarketplaceInstallAttemptAction
         ExtensionListingData $listing,
         ExtensionAcquisitionData $acquisition,
         MarketplaceInstallEligibilityData $eligibility,
+        bool $betaAcknowledged,
+        MarketplaceInstallPolicyEvidenceData $policyEvidence,
+        MarketplaceInstallActorData $actor,
+        MarketplaceInstallSource $source,
         array $requestedOptions = [],
         array $context = [],
         array $deploymentMetadata = [],
@@ -83,6 +98,10 @@ final class QueueMarketplaceInstallAttemptAction
             composerName: $acquisition->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Queued,
+            betaAcknowledged: $betaAcknowledged,
+            policyEvidence: $policyEvidence,
+            actor: $actor,
+            source: $source,
             composerCommand: $acquisition->composerCommand,
             versionConstraint: $acquisition->versionConstraint,
             requestedOptions: $requestedOptions,

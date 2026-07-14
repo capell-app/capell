@@ -9,7 +9,9 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceExtensionLifecycleQaResultData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
@@ -97,6 +99,10 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 listing: $listing,
                 acquisition: $acquisition,
                 eligibility: $eligibility,
+                betaAcknowledged: false,
+                policyEvidence: BuildMarketplaceInstallPolicyEvidenceAction::run($listing),
+                actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa'),
+                source: MarketplaceInstallSource::Cli,
                 context: [
                     'source' => 'marketplace_lifecycle_qa',
                 ],

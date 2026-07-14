@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Models\MarketplaceAccountConnectionSession;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Models\UpdateAdvisorySnapshot;
@@ -40,6 +41,14 @@ it('keeps marketplace runtime models closed to arbitrary mass assignment', funct
         [
             'instance_id' => '00000000-0000-4000-8000-000000000001',
             'signing_secret_encrypted' => 'secret',
+        ],
+    ],
+    'marketplace install attempt' => [
+        MarketplaceInstallAttempt::class,
+        [
+            'extension_slug' => 'forms',
+            'beta_acknowledged' => true,
+            'policy_evidence' => ['reason' => null],
         ],
     ],
     'update advisory snapshot' => [
