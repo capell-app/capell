@@ -15,7 +15,7 @@ This design turns the roadmap into six ordered implementation plans. Each plan m
 The 2026-07-14 four-phase hardening plan is already merged. It provides:
 
 - `PublishVisibilityStateEnum`, `PublishSentinel`, and initial enum/scope/UI parity work.
-- A provisional `DeferredFragmentReferenceBuilder` seam and Layout Builder/Marketing implementations.
+- A provisional global fragment-builder seam and Layout Builder/Marketing implementations.
 - Core-owned patch primitives and package lifecycle registration.
 - A first populated Demo/Install Health report.
 - Existing release smoke and companion-package release-confidence tooling.
@@ -46,7 +46,7 @@ The Frontend package owns a shared encrypted transport, not a shared owner imple
 - A registry of explicit owner-to-URL-resolver bindings.
 - A public-context Action that reloads authoritative records and validates publication, ownership, language, layout, and content version before HTML is rendered.
 
-Layout Builder and the consuming application's Marketing surface each register distinct owners and routes. The registry never infers an owner from payload shape. The global `DeferredFragmentReferenceBuilder` is deleted without an adapter.
+Layout Builder and the consuming application's Marketing surface each register distinct owners and routes. The registry never infers an owner from payload shape. The legacy global fragment-builder contract is deleted without an adapter.
 
 ### 2. Publishing
 

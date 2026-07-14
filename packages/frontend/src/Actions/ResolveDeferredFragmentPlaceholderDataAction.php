@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Support\Fragments\DeferredFragmentPlaceholderData;
-use Capell\Frontend\Support\Fragments\DeferredFragmentReference;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -27,7 +26,7 @@ final class ResolveDeferredFragmentPlaceholderDataAction
         }
 
         return new DeferredFragmentPlaceholderData(
-            cacheKey: DeferredFragmentReference::cacheKey($reference),
+            cacheKey: hash('sha256', $reference),
             url: $url,
             strategy: $this->deferredStrategy($performance['defer_strategy'] ?? null),
             minHeight: $this->deferredMinHeight($performance['defer_min_height'] ?? null),

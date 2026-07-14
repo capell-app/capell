@@ -23,7 +23,7 @@ it('builds deferred fragment placeholder data from safe public metadata', functi
 
     expect($placeholder)
         ->not->toBeNull()
-        ->cacheKey->toBeString()
+        ->cacheKey->toBe(hash('sha256', 'opaque-reference'))
         ->url->toBe('/fragment/reference')
         ->strategy->toBe('idle')
         ->minHeight->toBe('18rem')

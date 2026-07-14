@@ -21,7 +21,7 @@ Use clean task worktrees. The current companion-package worktree has unrelated c
 ### Task 1: Lock the shared envelope and codec contract
 
 **Files:**
-- Delete: `packages/frontend/src/Contracts/DeferredFragmentReferenceBuilder.php`
+- Delete: the legacy global fragment-builder contract
 - Create: `packages/frontend/src/Data/Fragments/PublicFragmentReferenceData.php`
 - Create: `packages/frontend/src/Contracts/Fragments/PublicFragmentReferenceCodec.php`
 - Create: `packages/frontend/src/Support/Fragments/EncryptedPublicFragmentReferenceCodec.php`
@@ -107,7 +107,7 @@ Use clean task worktrees. The current companion-package worktree has unrelated c
 
   Run: `vendor/bin/pest packages/frontend/tests/Unit/Fragments/PublicFragmentUrlResolverRegistryTest.php packages/frontend/tests/Unit/Actions/BuildInteractionRenderDataActionTest.php packages/admin/tests/Feature/Filament/Components/InteractionSettingsSchemaTest.php`
 
-  Expected: PASS with no `DeferredFragmentReferenceBuilder` reference in the changed packages.
+  Expected: PASS with no legacy global fragment-builder reference in the changed packages.
 
 - [ ] **Step 6: Commit**
 
@@ -188,7 +188,7 @@ Use clean task worktrees. The current companion-package worktree has unrelated c
 ### Task 5: Register Marketing as a separate owner
 
 **Files:**
-- Delete: `app/Support/Marketing/Rendering/MarketingDeferredFragmentReferenceBuilder.php`
+- Delete: the legacy Marketing global fragment-builder implementation
 - Create: `app/Support/Marketing/Rendering/MarketingFragmentUrlResolver.php`
 - Modify: `app/Providers/AppServiceProvider.php`
 - Modify: `app/Actions/Marketing/RenderDeferredMarketingFragmentAction.php`
@@ -222,14 +222,14 @@ Use clean task worktrees. The current companion-package worktree has unrelated c
 - Modify: `packages/frontend/tests/Unit/FrontendPackageTest.php`
 - Create: `tests/Integration/PublicFragmentOwnershipContractTest.php`
 
-- [ ] **Step 1: Add an architecture assertion** that `DeferredFragmentReferenceBuilder` is absent from source, docs, and container bindings across all three repositories.
+- [ ] **Step 1: Add an architecture assertion** that the legacy global fragment-builder contract is absent from source, docs, and container bindings across all three repositories.
 
 - [ ] **Step 2: Update documentation** with envelope fields, owner registration, revocation semantics, generic 404 behavior, and the rule that cache headers follow authorization.
 
 - [ ] **Step 3: Run combined verification**
 
   ```bash
-  rg -n "DeferredFragmentReferenceBuilder" packages docs
+  rg -n "legacy global fragment-builder" packages docs
   vendor/bin/pest packages/frontend/tests packages/admin/tests/Feature/Filament/Components/InteractionSettingsSchemaTest.php tests/Integration/PublicFragmentOwnershipContractTest.php
   ```
 

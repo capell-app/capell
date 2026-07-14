@@ -17,10 +17,10 @@ Supported target types:
 
 Supported behaviours for lazy targets are `modal`, `slide_over`, `inline_reveal`, and `replace_region`.
 
-Capell Frontend does not ship the public endpoints for lazy targets. Each lazy target type activates when a companion package binds its contract in the container:
+Capell Frontend does not ship the public endpoints for lazy targets. Each lazy target type activates when a companion package registers its contract in the container:
 
 - Widget targets activate when a package binds `Capell\Frontend\Contracts\WidgetInteractionLocatorResolver`, which returns the public URL for the target widget.
-- Fragment targets activate when a package binds `Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder`, which turns the stored opaque `fragment_reference` into the public URL that renders the fragment.
+- Fragment targets activate when at least one package tags a `Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver`. Each resolver owns one stable identifier and only generates its own named public route.
 
 While the matching contract is unbound, triggers for that target type are safely omitted from public output, and the Admin interaction schema does not offer the fragment target. The rendered trigger contains only the opaque URL the bound contract returns; it does not expose the widget type, component name, package name, target content, model IDs, field paths, or editor metadata.
 
@@ -52,7 +52,22 @@ The editor-facing shape for a trigger that opens a video in a modal looks like t
 
 The public page renders a safe trigger and an opaque lazy widget URL. It does not render the target widget content until the visitor clicks.
 
-Fragment targets follow the same rules: the public page renders only the trigger and the opaque URL returned by the bound `DeferredFragmentReferenceBuilder`.
+Fragment targets follow the same rules. The stored `fragment_reference` is an encrypted, versioned envelope; Frontend decodes it and asks the resolver registered for its exact owner to generate the public URL. Unknown owners and invalid envelopes are omitted from public output.
+
+## Public Fragment Envelope
+
+Every public fragment reference contains these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `owner` | Stable resolver identifier, such as `layout-builder` or `marketing`. |
+| `formatVersion` | Shared protocol version. Unsupported versions are rejected. |
+| `pageableType`, `pageableId` | Morph identity of the authoritative public page. |
+| `siteId`, `languageId` | Public site and language context. |
+| `contentVersion` | Deterministic version of the current public render inputs. |
+| `ownerContext` | Scalar-only identifiers interpreted by the declared owner. |
+
+Before rendering, an endpoint must decode the envelope, assert its owner, run `ResolvePublicFragmentContextAction`, validate its owner-specific context, inspect the final HTML for authoring-surface leakage, and only then add public cache headers. Draft, scheduled, expired, deleted, inaccessible, stale, and cross-context references all return the same generic 404 response.
 
 ## Public Output Rules
 
