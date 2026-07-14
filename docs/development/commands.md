@@ -1,6 +1,5 @@
 # Capell CLI Command Index
 
-![Capell CLI Command Index screenshot](../images/admin-dashboard.png)
 
 This page is the short command map for the host packages in this repository. Run `php artisan list capell` inside an installed app for the live command list, including optional add-on packages.
 

@@ -1,6 +1,5 @@
 # Do Not Do This
 
-![Capell Do Not Do This screenshot](../images/admin-dashboard.png)
 
 These patterns create upgrade, security, performance, or support problems in Capell. Use the safer extension point instead.
 

@@ -1,6 +1,5 @@
 # Customize your dashboard
 
-![Capell Customize your dashboard screenshot](../images/admin-dashboard.png)
 
 The dashboard shows role-aware widgets. To change which widgets appear and their order:
 

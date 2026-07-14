@@ -1,120 +1,115 @@
 # Why Capell
 
-![Capell Why Capell screenshot](../images/capell-readme-banner.jpg)
+![Capell CMS page administration inside a Laravel application](../images/capell-readme-banner.jpg)
 
-Capell is for Laravel teams who want a real CMS without moving content, routing, roles, or public delivery into a separate product.
+Capell is a Laravel CMS built on Filament. It is for teams that want editors to manage structured pages, URLs, media, layouts, and publishing without moving the product into a separate CMS runtime.
 
-You keep Laravel, and add the CMS layer most teams underestimate.
+Its strongest practical difference is not another field builder. Capell makes change safer: page edits have append-only history and validated page-only rollback, while package upgrades can be planned, recorded, diagnosed, and rolled back when an upgrade step declares a safe reverse operation.
 
-**What you keep (Laravel)**
+## The decision in one minute
 
-- Eloquent models and relationships
-- Queues, Blade, and Composer
-- Tests and your existing deployment
+Choose Capell when:
 
-**What Capell adds**
+- the website is part of a Laravel product rather than an isolated publishing site;
+- repeated page types, layouts, URLs, and publishing rules should have one maintained shape;
+- editors need approved composition while developers retain control of public HTML;
+- Composer packages, Actions, Eloquent, queues, tests, and deployment should remain the extension model;
+- the team values visible upgrade, health, page-history, and exit contracts.
 
-- Page trees, multi-site setup, and multi-language URLs
-- Media contracts, redirects, permissions, and settings
-- Frontend delivery, [Marketplace](../../packages/marketplace/docs/overview.md) visibility, and extension points
+Choose another approach when:
 
-The host packages in this repository provide the foundation. First-party packages add product features such as visual content sections, in-page authoring, generated HTML cache, site discovery, SEO, Publishing Studio, Migration Assistant, Inertia, and themes.
+- a small site only needs a handful of stable editable fields;
+- WordPress already has the exact maintained theme/plugin combination the brief needs;
+- Statamic's flat-file model and editorial workflow fit better;
+- Craft's dedicated content-modelling ecosystem is the reason for the project;
+- a hosted no-code CMS or public content-delivery API is a hard requirement.
 
-## The short version
+Capell is not hosted software and does not ship a public content-delivery API. Public pages render through the Laravel application using Blade, Livewire, Inertia, Vue, or the host's own stack.
 
-| If you are thinking about...    | Capell gives you...                                                                                            |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Building a CMS on Filament      | The page tree, URLs, sites, languages, media, roles, settings, admin surfaces, and package hooks wired         |
-| Using a flat-file CMS           | Laravel-native data, normal Eloquent relationships, queues, and database-backed workflows                      |
-| Custom-building page blocks     | Package-discovered widgets, [ContentSections](../packages/catalog.md#capell-foundation) surfaces, reusable content, and theme-aware layout areas           |
-| Making public pages interactive | Safe trigger markup, encrypted lazy widget/fragment targets, and reusable package-owned interactions           |
-| Shipping a multilingual site    | Site-aware languages, translated URLs and fields, media metadata, canonical URL foundations, and package hooks |
-| Making pages fast               | Cache-aware rendering, model dependency tracking, ETags, and optional generated HTML/optimizer packages        |
-| Letting editors publish safely  | Host publish dates and role access; Publishing Studio adds workspaces, [approvals](../../packages/admin/docs/permissions-and-approval.md), scheduling, and revisions    |
+## What Laravel keeps and Capell adds
 
-For a non-technical stakeholder, the useful summary is this: Capell gives the team a Laravel-owned place to manage pages, content, media, publishing, and site structure without asking developers to rebuild the same CMS foundations on every project.
+| Laravel remains responsible for | Capell adds |
+| --- | --- |
+| Application domain models and services | Sites, languages, page trees, URLs, layouts, themes, media contracts, translations, and settings |
+| Authentication and infrastructure | Filament editor workspace, roles, page publishing, preview, and page recovery UI |
+| Queues, cache, scheduler, filesystem, and deployment | Package health, lifecycle, upgrade planning, and CMS-specific diagnostics |
+| Public controllers and presentation choices | Site context, public page resolution, render hooks, theme assets, and cache-safe delivery contracts |
+| Database and media disaster recovery | Page revision history and page-only rollback |
+
+That final boundary matters: Capell can restore a page revision, but the host application must still back up and restore its database and media.
 
 ## Compared with custom Filament
 
-Filament is a brilliant admin framework. Capell uses it because it is the right foundation. The difference is that Capell solves the CMS product, not just the UI shell.
+Filament is an excellent admin framework. A custom Filament resource is often the right answer for small, stable CRUD. Capell earns its place when the team is repeatedly building the surrounding CMS system.
 
-| Problem            | Custom Filament build                                                                   | Capell approach                                                                            |
-| ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Page tree and URLs | Build nested pages, slug generation, redirects, breadcrumbs, and move handling          | Host pages, Page URLs, URL history, redirect records, and move-aware behaviour             |
-| Publishing         | Decide publish states, previews, scheduling, queues, and cache invalidation             | Host publish dates and cache hooks; Publishing Studio adds workflow depth                  |
-| Multi-site         | Add site scoping to every query, setting, permission, URL, sitemap, and cache key       | Host site/domain/language model plus package hooks for discovery and operations            |
-| Multi-language     | Translate fields, slugs, media metadata, navigation, SEO, canonical and alternate links | Host translated records and URLs; packages add sitemap, SEO, and navigation UI             |
-| Media              | Pick backend, wire fields, metadata, ownership, and editor UI                           | Host media contracts with a default Spatie backend; Media Library can swap in Curator      |
-| SEO                | Add sitemap, Open Graph, Twitter cards, JSON-LD, redirects, robots, and checks          | Host URL/canonical foundations; Site Discovery, URL Manager, and SEO Suite add product SEO |
-| Upgrade path       | Every project invents conventions                                                       | Stable Capell extension points and first-party packages                                    |
+| Problem | Custom Filament build | Capell foundation |
+| --- | --- | --- |
+| Page structure | Design nested pages, moves, slugs, canonical URLs, redirects, and breadcrumbs | Shared page, URL-history, redirect, and move contracts |
+| Content recovery | Decide what a revision owns, how to diff it, and how rollback avoids conflicts | Page-owned state history, rollback preview, validation, roll back, and roll forward |
+| Multi-site/language | Scope queries, permissions, URLs, settings, cache keys, and translations | Site, domain, language, translation, and URL foundations |
+| Editor safety | Build preview, publish state, permissions, cache invalidation, and public-output boundaries | Filament workspace and package extension points over shared CMS rules |
+| Upgrades | Every project invents migrations and evidence | Planned upgrade steps, durable logs, diagnostics, and explicit rollback support |
+| Extension model | Add project-specific resources and services | Normal Composer packages plus Capell manifests and registries |
 
-The senior-developer win is not that Capell hides Laravel. It is that Capell keeps the repeated CMS parts consistent, testable, and replaceable.
+Use custom Filament when CRUD will stay small. Use Capell when these page concerns have become a maintained product inside the Laravel application.
 
 ## Compared with Statamic
 
-Statamic is a strong CMS, especially when flat-file content is the right model. Capell is a better fit when the site is already a Laravel product or needs application-style workflows.
+Statamic is a strong CMS when its flat-file model, control panel, and ecosystem match the project. Capell fits more naturally when content must participate directly in an existing Laravel application's relationships, transactions, permissions, queues, and deployment.
 
-| Need                    | Statamic-style approach                    | Capell approach                                             |
-| ----------------------- | ------------------------------------------ | ----------------------------------------------------------- |
-| Laravel app integration | Content often lives beside the app         | Content lives in the app database and uses Laravel services |
-| Complex relationships   | Usually needs custom fieldtypes or add-ons | Normal Eloquent models and package relations                |
-| Queued publishing       | Project-specific                           | Laravel queues plus Capell static generation                |
-| Admin framework         | CMS-specific control panel                 | Filament resources, pages, widgets, and form-builder        |
-| Package customization   | CMS add-on model                           | Composer packages with Capell extension points              |
+| Question | Statamic-shaped fit | Capell-shaped fit |
+| --- | --- | --- |
+| Primary content model | Flat files and Statamic collections are desirable | Database-backed Laravel models and relationships are desirable |
+| Product boundary | The CMS can be the centre of the site | The CMS must live inside a broader Laravel product |
+| Extension model | Statamic add-ons and Antlers/Twig conventions fit the team | Composer packages, Filament, Actions, Blade/Livewire/Inertia fit the team |
+| Operations | The team wants Statamic's established workflow | The team wants Capell's page-history and package-upgrade contracts inside Laravel |
 
-If you mainly need an editorial website with flat files, Statamic can be excellent. If you need a CMS inside a Laravel system with database-backed workflows, Capell fits more naturally.
+Neither choice is automatically better. The cheaper long-term boundary is the one the team can operate, test, upgrade, and exit confidently.
 
-For the same decision against common database-backed alternatives, read
-[Compare Capell with WordPress and Craft CMS](comparing-capell.md).
+## Compared with WordPress and Craft
 
-## Compared with building everything yourself
+WordPress is usually the fastest choice when its mature plugin and theme ecosystem already solves the brief. Craft is a strong choice for bespoke content-led sites that benefit from its established commercial CMS and control panel.
 
-The danger in custom CMS work is not the first page editor. It is everything around it:
+Capell is the stronger fit when sharing Laravel's runtime and domain services removes more integration work than those ecosystems save. Read the detailed [WordPress and Craft comparison](comparing-capell.md) before deciding.
 
-- moving a parent page and rebuilding child URLs;
-- creating [redirects](../../packages/core/docs/page-management.md) when slugs change;
-- previewing drafts without poisoning the public cache;
-- scoping editors to one site inside a multi-site install;
-- generating hreflang and canonical tags across languages;
-- invalidating only affected pages after publishing;
-- giving package authors clean places to add fields, settings, widgets, and [render hooks](../../packages/frontend/docs/extending-render-hooks.md).
+## The editor/developer contract
 
-Capell turns those into defaults or package-owned extension points. A project can serve anonymous traffic from generated static HTML when the [HTML Cache](../architecture/page-cache.md) package is installed, while Capell tracks which pages used each model and clears affected output after edits.
+Editors work with shared page types, layouts, approved widgets, assets, preview, publishing, and history. Developers define the permitted structure and keep ownership of the public output.
 
-Site-level changes get special handling too: when a title, theme, metadata, or media setting changes, cached URLs on that site's domains can be purged automatically, including the homepage.
+![Capell page editor with structured content and publishing context](../images/generated/admin/admin-page-edit-form.png)
 
-## Where Capell is intentionally flexible
+This avoids two common extremes: every content change becoming a developer ticket, or a visual builder allowing every page to become a one-off design. Capell supports custom pages, but repeated content should use a repeatable structure when that makes future change cheaper.
 
-Capell does not force one theme, one media backend, or one content model.
+## Packages without catalogue fiction
 
-| Customization | How you do it                                                                           |
-| ------------- | --------------------------------------------------------------------------------------- |
-| Page templates | Register page subject contracts and reusable blueprints                                  |
-| Editor fields | Add schema extenders                                                                    |
-| Frontend HTML | Use Blade, themes, render hooks, and widgets                                            |
-| Blocks        | Register ContentSections widgets and theme chrome areas                                 |
-| Settings      | Add package settings schemas                                                            |
-| Media backend | Use the default Spatie MediaLibrary backend or [switch to Curator](../frontend/media-rendering.md)                        |
-| Cache rules   | Register dependencies and invalidation patterns                                         |
-| Import/export | Install the premium Migration Assistant package and extend its recovery/import behavior |
+The public foundation consists of Core, Admin, Frontend, Installer, and Marketplace. Optional capabilities may exist as Released, Beta, Labs, private, or source-only packages.
 
-Content Sections is not limited to a single editable page body. Themes can register named layout areas such as `header`, then render those areas from theme chrome while editors keep using ordinary containers and elements. That gives teams editor-managed headers, announcement bars, footers, or campaign strips without custom one-off fields or hidden main-flow containers.
+Do not infer availability from a documentation page or source directory. Before adopting an optional package, verify:
 
-Capell Interactions adds the next layer: editors can attach trigger buttons to widgets or Layout Builder blocks and open lazy widget or fragment targets as modals, slide-overs, inline reveals, or replacement regions. That is useful for video, calculators, form prompts, galleries, pricing comparisons, and optional content that should not weigh down the first page render. Read [Capell Interactions](capell-interactions.md) for the product view.
+- the exact Composer distribution path and access requirement;
+- supported Capell, Laravel, Filament, and PHP versions;
+- maturity and current release evidence;
+- migrations, data access, queue/scheduler needs, and public output;
+- support, update, licence, expiry, removal, and export terms.
 
-## Package Groups
+The [package catalogue](../packages/catalog.md) documents contracts, but the live marketplace/account is the authority for what a customer can currently install.
 
-Capell Foundation packages stay free for normal CMS needs such as visual building, blog content, navigation, tags, redirects, address fields, media backend swaps, and the default theme.
+## Operational fit
 
-Premium packages are grouped by the value they unlock: FormBuilder, Publishing Pro, Operations, Growth, Search & SEO, and Themes. See [Package product groups](../packages/product-groups.md) for the current map.
+Capell helps when a team wants explicit answers to these questions:
 
-## When not to choose Capell
+- What will this upgrade change before we apply it?
+- Which upgrade steps are actually reversible?
+- Can an editor see and restore a prior page state without deleting history?
+- Which health check is red, and what exact command repairs it?
+- How do we back up and scratch-restore the database and media?
+- How do we export content and leave?
 
-Capell is probably not the best first choice if:
+Read [Upgrading](../operations/upgrading.md), [Backups](../operations/backups.md), [Site Health](../operations/site-health.md), and [Export and exit](../operations/export-and-exit.md). A buyer should evaluate these alongside the page editor, not after launch.
 
-- you need a tiny brochure site with no editing workflow;
-- you do not use Laravel;
-- flat-file authoring is a hard requirement;
-- you want a fully hosted no-code CMS.
+## Next step
 
-For Laravel teams shipping content-heavy sites, portals, campaign hubs, multi-brand sites, or editor-managed products, Capell gives you a faster start and a cleaner long-term shape.
+- [Run the verified quickstart](quickstart.md)
+- [Compare WordPress and Craft](comparing-capell.md)
+- [Create the first page](create-your-first-page.md)
+- [Inspect the package maturity catalogue](../packages/catalog.md)

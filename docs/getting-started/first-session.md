@@ -28,7 +28,7 @@ The **top bar** on the right side has a **Clear Cache** button, a global search 
 
 Use **Clear Cache** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
 
-![Capell admin dashboard](../images/admin-dashboard.png)
+![Capell Pages workspace with page status, type, and actions](../images/admin-pages-list.png)
 
 If you installed with `--demo`, the widgets will already show sample content. If not, most widgets will show empty states — that's expected.
 

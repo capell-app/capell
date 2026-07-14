@@ -1,6 +1,5 @@
 # Local Development & Testing
 
-![Capell Local Development & Testing screenshot](../images/admin-dashboard.png)
 
 This guide explains how to set up local path repositories for Capell and related packages, enabling rapid development and testing with symlinked sources.
 

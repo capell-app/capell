@@ -1,6 +1,5 @@
 # Docs Ownership Rules
 
-![Capell Docs Ownership Rules screenshot](../images/admin-dashboard.png)
 
 Use this checklist before adding or moving documentation.
 

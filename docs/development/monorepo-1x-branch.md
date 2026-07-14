@@ -1,6 +1,5 @@
 # Creating the Capell 1.x Monorepo Branches
 
-![Capell Creating the Capell 1.x Monorepo Branches screenshot](../images/admin-dashboard.png)
 
 Use this guide when setting up a fresh Capell development workspace where the host repository and the first-party package repository need to work together on the `1.x` branch.
 

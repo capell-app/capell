@@ -1,6 +1,5 @@
 # Artisan Commands Reference
 
-![Capell Artisan Commands Reference screenshot](../images/admin-dashboard.png)
 
 This reference covers commands shipped by the host packages in this repository: Core, Admin, and Frontend. Optional packages add their own commands; check their README or run `php artisan list capell` in the target app.
 

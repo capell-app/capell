@@ -4,7 +4,7 @@
 
 Capell ships with a single upgrade entry point: `php artisan capell:upgrade`. Every operation is idempotent — re-running it is always safe.
 
-Capell 4 treats upgrades as durable operations. The CLI command remains the stable contract, but admin-triggered upgrades are tracked in the database, run through the queue when safe, and fall back to exact manual server commands when background work is not available.
+Capell 1.x treats upgrades as durable operations. The CLI command remains the stable contract, but admin-triggered upgrades are tracked in the database, run through the queue when safe, and fall back to exact manual server commands when background work is not available.
 
 ## Admin Upgrades
 

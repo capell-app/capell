@@ -1,6 +1,5 @@
 # Development
 
-![Capell Development screenshot](../images/admin-dashboard.png)
 
 Use this page when working in the Capell 1.x host repo or wiring Capell into a Laravel app. Product concepts live in [How Capell works](../getting-started/how-capell-works.md); package-authoring rules live in [Packages](../packages/README.md).
 

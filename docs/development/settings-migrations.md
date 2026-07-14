@@ -1,6 +1,5 @@
 # Settings Migrations
 
-![Capell Settings Migrations screenshot](../images/admin-dashboard.png)
 
 Capell uses [Spatie Laravel Settings](https://github.com/spatie/laravel-settings) for managing application settings. Settings migrations are different from regular database migrations.
 

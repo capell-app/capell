@@ -1,166 +1,148 @@
 # Capell CMS
 
-![Capell CMS banner showing the Pages admin surface](docs/images/capell-readme-banner.jpg)
+![Capell CMS page administration in a Laravel application](docs/images/capell-readme-banner.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![PHPStan Level](https://img.shields.io/badge/PHPStan-level%208-4F5B93?style=flat-square&logo=php)](phpstan/common.neon)
 [![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg)](https://app.codecov.io/gh/capell-app/capell)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-**Capell is a CMS layer for Laravel, built on Filament.** It adds pages, multi-site and multi-language URLs, media, redirects, roles, settings, and an editor workspace to your application. Your team still owns the public frontend and renders it with Blade, Livewire, Inertia, Vue, static HTML, or another Laravel-compatible stack.
+**Capell is a Laravel CMS built on Filament for teams whose application needs more than a few editable pages.** It gives editors a structured page workspace while developers keep the public frontend, deployment, and application architecture inside Laravel.
 
-## Start Here
+Choose Capell when repeated page types, layouts, URLs, publishing rules, and editor workflows should be defined once and improved in one place. Choose WordPress, Statamic, Craft, or a dedicated headless CMS when its ecosystem, file model, hosted workflow, or delivery API is the better fit. Capell is not a hosted CMS and does not ship a public content-delivery API.
 
-| Task                                      | Start with                                                                                                                                                                                   |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Evaluate Capell for a project             | [Why Capell](docs/getting-started/why-capell.md)                                                                                                                                             |
-| Try Capell in a fresh Laravel application | [Quickstart](docs/getting-started/quickstart.md)                                                                                                                                             |
-| Install it in an existing application     | [Install guide](docs/getting-started/install.md)                                                                                                                                             |
-| Learn the concepts and architecture       | [Capell Learn](docs/getting-started/capell-learn.md), then [How Capell works](docs/getting-started/how-capell-works.md)                                                                      |
-| Build or extend a package                 | [Package authoring](docs/packages/README.md)                                                                                                                                                 |
-| Onboard an editor                         | [First editor session](docs/getting-started/first-session.md)                                                                                                                                |
-| Build the public frontend                 | [Build a page](docs/getting-started/building-pages.md), [use Inertia and Vue](docs/getting-started/inertia-runtime.md), or [add live fragments](docs/getting-started/capell-interactions.md) |
-| Contribute to this repository             | [Contribution guide](CONTRIBUTING.md)                                                                                                                                                        |
+[Try the guided demo](https://capell.app/demo) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Read the fit guide](docs/getting-started/why-capell.md)
 
-## See Capell In Practice
+## Why teams choose Capell
 
-Capell's Filament workspace keeps page trees, media, settings, theme workflows, diagnostics, and package-backed tools inside the Laravel application you deploy.
+| Outcome | What ships | Important boundary |
+| --- | --- | --- |
+| Recover page content confidently | Append-only page revision history, readable diffs, rollback preview, validated roll back, and roll forward | Standard recovery is page-scoped; it is not a database or media backup |
+| Upgrade visibly | Dry-run planning, recorded upgrade steps, diagnostics, and step rollback where the step declares it safe | Infrastructure and database rollback still belong to the deployed application |
+| Keep the frontend yours | Laravel routing and render integration for Blade, Livewire, Inertia, Vue, or a custom stack | Capell renders through the Laravel application; there is no delivery API |
+| Extend without patching Core | Composer packages, manifests, registries, health checks, install and uninstall lifecycles | Package maturity and removal impact must be reviewed before adoption |
 
-![Capell admin dashboard](docs/images/admin-dashboard.png)
+![A readable Capell activity diff showing old and new page values](docs/images/generated/admin/admin-activity-log-details.png)
 
-See the [admin interface](docs/admin/interface.md), follow the [first-page walkthrough](docs/getting-started/create-your-first-page.md), or inspect the [music store CMS example](docs/examples/music-store-cms.md).
+The standard Admin history surface records page changes and supports page-only recovery. The optional Publishing Studio package adds broader editorial workspaces, assignments, approvals, and release workflows; those are not presented as foundation features.
 
-## Quick Local Demo
+## See the product before installing
 
-The foundation packages are public on Packagist, so this disposable demo does not need private Composer credentials:
+The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. For a source-level evaluation, these current captures show the foundation workflow:
+
+| Organise and publish pages | Edit structured page content |
+| --- | --- |
+| ![Capell Pages list with publish states and page types](docs/images/admin-pages-list.png) | ![Capell page editor with content, publishing, and page context](docs/images/generated/admin/admin-page-edit-form.png) |
+
+Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
+
+## Verified quickstart
+
+Start from a fresh supported Laravel application. The installer adds the selected foundation packages, runs each package lifecycle, creates the first site and administrator, generates frontend assets, synchronises permissions, and finishes only when its required health summary passes.
 
 ```bash
-composer create-project laravel/laravel music-store
-cd music-store
+composer create-project laravel/laravel capell-site
+cd capell-site
+
+# Configure APP_URL and a supported database in .env first.
 composer require capell-app/installer
-php artisan filament:install --panels
-php artisan capell:install --demo --url=http://localhost:8000
-php -S 127.0.0.1:8000 -t public public/index.php
+php artisan capell:install --demo
 ```
 
-Open `http://localhost:8000/admin` for the admin panel and `http://localhost:8000` for the frontend.
+The guided command asks for the site URL and first administrator. A successful run ends with `All checks passed` followed by `Installation complete`. If a required step fails, the command exits non-zero and does not print the success message.
 
-## What This Repository Contains
+Then run the application using your normal Laravel development workflow and open:
 
-This 4.x host monorepo contains the five foundation packages. First-party features such as themes, SEO, and Publishing Studio live in separate Composer packages listed in the [package catalogue](docs/packages/catalog.md).
+- `/admin` to sign in with the administrator created during installation;
+- `/` to inspect the seeded public page;
+- **Pages** in Admin to make and publish the first change.
 
-| Package     | Composer name            | What it owns                                                                                                 | Docs                                              |
-| ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Core        | `capell-app/core`        | The content model: sites, languages, pages, URLs, layouts, themes, media, translations, settings, registries | [Overview](packages/core/docs/overview.md)        |
-| Admin       | `capell-app/admin`       | The Filament editor workspace: resources, dashboards, settings, media, users, admin extension points         | [Overview](packages/admin/docs/overview.md)       |
-| Frontend    | `capell-app/frontend`    | Public routing, site context, themes, assets, render hooks, response delivery, optional cache/static output  | [Overview](packages/frontend/docs/overview.md)    |
-| Installer   | `capell-app/installer`   | The browser installer and installer cleanup flow                                                             | [Overview](packages/installer/docs/overview.md)   |
-| Marketplace | `capell-app/marketplace` | Extension discovery, install authorization, and package acquisition                                          | [Overview](packages/marketplace/docs/overview.md) |
+Do not run `filament:install --panels` before requiring Capell: the installer brings in and configures the selected Admin package. See the [Quickstart](docs/getting-started/quickstart.md) for SQLite and queue setup, expected prompts, health checks, and first-run recovery.
 
-## Installing
+## Theme it
 
-Foundation packages install from public Packagist repositories. Paid marketplace packages require authenticated Composer access and an active entitlement. Current releases require PHP 8.4, Laravel 12.41.1+ or 13.x, and Filament `~5.6.8`.
+Installed themes use one Admin path: **Theme Library → Customize → Preview → Apply**. Preview a change against real content before making it active, and keep theme presentation in the Laravel application rather than in page records.
 
-### Recommended — the installer
+Read [Theme Library](docs/admin/theme-library.md) to operate installed themes or [Creating custom themes](docs/packages/creating-custom-themes.md) to own the Blade, assets, settings, and compatibility contract yourself. Marketplace themes are only installable when their listing states a released distribution path and compatible Capell line.
 
-Require the installer and run the guided flow. It adds `capell-app/core`, then `capell:install` requires the selected admin and frontend packages and writes them to the application's `composer.json`. The installer can be removed after setup.
+## Extend it deliberately
+
+The public foundation is split into five packages:
+
+| Package | Composer name | Responsibility |
+| --- | --- | --- |
+| Core | `capell-app/core` | Sites, languages, pages, URLs, layouts, themes, media, translations, settings, revision history, upgrade foundations, and registries |
+| Admin | `capell-app/admin` | Filament resources, editor workflows, page recovery UI, settings, users, diagnostics, and admin extension points |
+| Frontend | `capell-app/frontend` | Public routing, site context, themes, assets, render hooks, and response delivery |
+| Installer | `capell-app/installer` | Guided browser and CLI installation, health review, and installer cleanup |
+| Marketplace | `capell-app/marketplace` | Extension discovery, install authorisation, and package acquisition contracts |
+
+Optional features arrive as Laravel packages. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path. The [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation; a source-only or Labs entry is not a promise that a public Composer package is available.
+
+Package authors should start with the [extension-point chooser](docs/packages/extension-point-chooser.md) and [package authoring guide](docs/packages/README.md). Capell packages extend registries and lifecycle contracts instead of patching host classes.
+
+## Operate it
+
+Preview upgrades before applying them:
 
 ```bash
-composer require capell-app/installer
-php artisan capell:install
+php artisan capell:upgrade --dry-run
+php artisan capell:upgrade
+php artisan capell:doctor
 ```
 
-### Manual — require packages directly
-
-Skip the installer to choose packages directly. `capell-app/core` is the only hard dependency; `admin` and `frontend` are optional and each depend on core.
+Rollback is available only for recorded upgrade steps that implement a safe rollback:
 
 ```bash
-# Full stack, no installer
-composer require capell-app/core capell-app/admin capell-app/frontend -W
-
-# Core only, without Admin or Frontend
-composer require capell-app/core -W
-
-# Core + admin, no public frontend
-composer require capell-app/core capell-app/admin -W
+php artisan capell:rollback --step=<step-id> --dry-run
+php artisan capell:rollback --step=<step-id> --force
 ```
 
-Then run `php artisan capell:install` to apply migrations and setup; pass `--packages=` to scope it (for example `--packages=capell-app/admin`). `capell-app/capell` is the host monorepo repository, not an install target.
+Backups are a separate operational contract. Configure database and media backups, offsite retention, monitoring, and scratch restores in the host application; then use Capell's backup health and restore tooling to verify that configuration. Page history does not recover a lost database or media store.
 
-## How Capell Works
+Read these before production:
 
-Capell keeps content, editing, and public delivery in separate packages:
-
-- **Core** owns the reusable content model and registries that packages extend.
-- **Admin** gives editors a Filament workspace over that model.
-- **Frontend** connects the model to the public site through routing, site context, themes, assets, render hooks, and response delivery, then hands the final HTML to your application.
-- **Packages** add fields, widgets, integrations, themes, workflows, and tools as normal Laravel packages.
-
-Domain writes go through **Actions**, and structured boundary state uses **Data** objects. Business rules stay out of Filament resources, Livewire components, controllers, and templates.
-
-Anonymous and non-admin HTML must never leak authoring markup, model IDs, selectors, signed editor URLs, or package internals. See the [public HTML safety contract](docs/frontend/public-html-safety.md).
-
-## Extension Points
-
-Packages and apps add behaviour through registries instead of patching host classes:
-
-| Surface                  | Entry point                                                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Page types               | `CapellCore::registerPageType(...)`                                                                         |
-| Admin surfaces & widgets | `CapellAdmin::contributeToAdminSurface(...)`, `registerDashboardFilamentWidget(...)`, `registerWidget(...)` |
-| Form field schemas       | tagged extenders such as `PageSchemaExtender::TAG`                                                          |
-| Settings                 | `SettingsSchemaRegistry::register(...)`                                                                     |
-| Frontend render hooks    | `RenderHookRegistry::register(...)`                                                                         |
-| Cache dependencies       | `CacheInvalidationRegistry::registerDependency(...)`                                                        |
-
-Use the [extension point chooser](docs/packages/extension-point-chooser.md) or [API reference](docs/packages/extension-point-api-reference.md) for the complete contracts.
+- [Upgrading and rollback](docs/operations/upgrading.md)
+- [Database and media backups](docs/operations/backups.md)
+- [Site health](docs/operations/site-health.md)
+- [Lockdown and break-glass access](docs/operations/lockdown.md)
+- [Export and exit](docs/operations/export-and-exit.md)
 
 ## Requirements
 
-| Tool     | Supported versions                                                   |
-| -------- | -------------------------------------------------------------------- |
-| PHP      | 8.4+                                                                 |
-| Laravel  | 12.41.1+ or 13.x                                                     |
-| Filament | 5.6.8+ (`~5.6.8`)                                                    |
-| Database | MySQL 8+, MariaDB 10.3+, SQLite, or your configured Laravel database |
-| Node.js  | 20+                                                                  |
-| Composer | 2.7+                                                                 |
-| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, FrankenPHP)           |
+| Tool | Supported versions |
+| --- | --- |
+| PHP | 8.4+ |
+| Laravel | 12.41.1+ in the 12.x line or Laravel 13.x |
+| Filament | 5.6.8+ (`~5.6.8`) |
+| Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
+| Node.js | 20+ |
+| Composer | 2.7+ |
+| Runtime | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP) |
 
-See the [install guide](docs/getting-started/install.md) for required PHP extensions, permissions, and install paths.
+Required PHP extensions and writable paths are listed in the [Install guide](docs/getting-started/install.md). The shipped product line is 1.x; use the latest compatible tag rather than a branch name in customer applications.
 
-For the shipped 1.x line, each minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. See the [security policy](SECURITY.md) for vulnerability reporting and the [Core support policy](packages/core/README.md#requirements-and-support-policy) for exact package requirements.
+## Pricing, support, security, and licence
 
-## Contributing To This Repository
+- [Current pricing and commercial availability](https://capell.app/pricing)
+- [Support boundaries](https://capell.app/support)
+- [Security policy](SECURITY.md)
+- [Capell licence](LICENSE.md)
 
-These commands are for work inside this monorepo:
+Commercial facts live on the Capell website so this README does not preserve stale prices, package counts, discounts, or checkout claims. Public source and Packagist availability do not change the Capell licence.
 
-Common Composer scripts:
+## Contributing to this repository
 
-| Command                  | Purpose                                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------------------- |
-| `composer test`          | Run the Pest test suite                                                                  |
-| `composer test:fast`     | Run the sharded fast Pest command                                                        |
-| `composer lint`          | Run changed-file Pint formatting                                                         |
-| `composer analyze`       | Run the fast PHPStan configuration                                                       |
-| `composer preflight`     | Run the fast quality and test gate (PHPStan, Rector, formatting, ESLint, preflight Pest) |
-| `composer preflight:all` | Full non-mutating quality gate (checks, PHPStan, audit, Pest)                            |
-| `composer serve`         | Build and serve the Testbench workbench at localhost                                     |
+This source monorepo contains the five foundation packages and their release-contract tests. It is not the package name installed into customer applications.
 
-A Docker harness is available when you need a clean shell for agent, CI, or local verification (`docker compose up -d`, then `docker compose exec app composer test`). It is a CLI package-development harness, not an application runtime, and provides MariaDB, Redis, Mailpit, Node, and the required PHP extensions.
+```bash
+composer test
+composer lint
+composer analyze
+composer preflight
+```
 
-For local path-repository setup, branch guidance, and the contribution workflow, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Development docs](docs/development/index.md).
-
-## License, Pricing & Support
-
-Capell is commercial software (`"license": "proprietary"`) with public foundation source and Composer distribution. Public visibility does not change the Capell licence. Each licensed copy may run in one production environment at a time, and the licence does not include updates or support unless those are part of the commercial agreement. See [LICENSE.md](LICENSE.md) for the full terms.
-
-Foundation packages install from public Packagist repositories. Capell All Access — Complete Collection is £199 GBP for twelve months of approved first-party extensions, themes, updates and support; protected packages require an active entitlement. See [Capell pricing](https://capell.app/pricing) for the current scope, renewal and refund terms.
-
-- **Questions and discussion:** use the customer contact path or the relevant public repository issue tracker. Customer-specific entitlement and support questions belong in the Capell account support flow.
-- **Documentation:** [docs.capell.app](https://docs.capell.app)
-- **Security:** report privately via [SECURITY.md](SECURITY.md) — do not open a public issue for an undisclosed vulnerability.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for repository setup, Docker harness use, path repositories, release checks, and pull-request expectations.
