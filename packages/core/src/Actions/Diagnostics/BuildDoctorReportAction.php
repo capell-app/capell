@@ -462,35 +462,7 @@ final class BuildDoctorReportAction
 
     private function checkAdminUserAccess(): DoctorCheckResultData
     {
-        if (! Schema::hasTable('users')) {
-            return new DoctorCheckResultData(
-                label: 'Admin user access',
-                passed: false,
-                message: 'The users table does not exist.',
-                remediation: 'Run php artisan migrate and rerun the installer user step.',
-            );
-        }
-
-        $userCount = resolve(ConnectionResolverInterface::class)->table('users')->count();
-        if ($userCount === 0) {
-            return new DoctorCheckResultData(
-                label: 'Admin user access',
-                passed: false,
-                message: 'No users exist.',
-                remediation: 'Create an admin user or rerun php artisan capell:install.',
-            );
-        }
-
-        if (Schema::hasTable('model_has_roles') && resolve(ConnectionResolverInterface::class)->table('model_has_roles')->count() === 0) {
-            return new DoctorCheckResultData(
-                label: 'Admin user access',
-                passed: false,
-                message: 'Users exist but no role assignments were found.',
-                remediation: 'Grant the install user admin access.',
-            );
-        }
-
-        return new DoctorCheckResultData('Admin user access', true, sprintf('%d user(s) exist and admin role assignments are present.', $userCount));
+        return CheckAdminPanelAccessAction::run();
     }
 
     private function checkHomepageRouteResolves(): DoctorCheckResultData
