@@ -83,7 +83,7 @@ The delete-installer route delegates to `RemoveSetupPackageAction`, which remove
 
 Install guide patches are explicit, reviewable changes for common host-app setup tasks. They are the Installer package's main extension point and should be small, idempotent, and safe to re-run.
 
-Patch classes implement `Capell\Installer\Support\InstallGuide\Patch`, live under `Capell\Installer\Support\InstallGuide\Patches`, and are registered through `PatchRegistry`. Keep patch behavior covered by focused tests so a failed patch explains what went wrong instead of leaving a half-edited host file.
+Patch classes implement the Core-owned `Capell\Core\Support\Patching\Patch` contract, live under `Capell\Installer\Support\InstallGuide\Patches`, and are registered through `PatchRegistry`. Patches that should also run during `capell:install` are contributed to Core's `Capell\Core\Support\Install\InstallPatchRegistry` from the installer service provider. Keep patch behavior covered by focused tests so a failed patch explains what went wrong instead of leaving a half-edited host file.
 
 The browser installer discovers package and theme choices from Capell package metadata. A package that should appear during setup must be installable by the web PHP process, present in Composer repositories, and described by `capell.json` metadata that the package registry can read. Install-time package selections are checked with Composer before the installer starts mutating the application.
 

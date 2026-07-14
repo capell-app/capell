@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Actions\InstallGuide\ApplyInstallGuidePatchesAction;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesInputData;
-use Capell\Installer\Support\InstallGuide\Patch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {

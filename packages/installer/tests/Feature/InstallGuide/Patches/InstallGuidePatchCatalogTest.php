@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use Capell\Installer\Support\InstallGuide\Patch;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelColorsPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelDashboardPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelNavigationPatch;
@@ -19,7 +20,6 @@ use Capell\Installer\Support\InstallGuide\Patches\LoggingCapellChannelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\RemoveWelcomeRoutePatch;
 use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {

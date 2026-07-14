@@ -67,14 +67,14 @@ Admin `InteractionSettingsSchema::targetOptions()` never offers Fragment.
 
 **Problem.** `InstallCommand.php:36-37` `use`-imports `Capell\Installer\Support\InstallGuide\Patches\{AdminPanelThemePatch,UserModelPatch}` (class_exists-guarded at 450/457 but a hard namespace dependency), bypassing installer's own `PatchRegistry`. `{EnvFileEditor,ConfigArrayEditor,PhpFileEditor}` are triplicated: Core `Support/Patching` (canonical), installer `Support/Patching` (diverged: non-null `$className`, missing `findNamespace/originalContent/print`, widened `insertKey(Node)`), and Admin `Support/AdminPanelIntegration/PhpFileEditor`. `CorePackageTest` arch test doesn't forbid `Capell\Installer`.
 
-- [ ] Reconcile editors into Core `Support/Patching` (superset: nullable `$className` +
+- [x] Reconcile editors into Core `Support/Patching` (superset: nullable `$className` +
   `class_basename` match, alias fallback, `findNamespace/originalContent/print`,
   `insertKey(Node)`); delete installer + admin copies, repoint imports.
-- [ ] Core-owned patch seam (modeled on `ThemeInstallDefaultsRegistry`): installer's
+- [x] Core-owned patch seam (modeled on `ThemeInstallDefaultsRegistry`): installer's
   provider registers `UserModelPatch`/`AdminPanelThemePatch`; `InstallCommand::prepareApplication()`
   consumes the registry — drop the `Capell\Installer` imports.
-- [ ] Arch test: add `Capell\Installer` to `CorePackageTest` forbidden namespaces.
-- [ ] Update `docs/development/package-boundaries.md`; run installer InstallGuide +
+- [x] Arch test: add `Capell\Installer` to `CorePackageTest` forbidden namespaces.
+- [x] Update `docs/development/package-boundaries.md`; run installer InstallGuide +
   core InstallCommand suites for parity.
 
 ## Phase D — Demo / Install Health report

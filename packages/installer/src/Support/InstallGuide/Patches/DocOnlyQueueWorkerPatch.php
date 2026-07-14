@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
-use Capell\Installer\Support\InstallGuide\Patch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 use RuntimeException;
 
 class DocOnlyQueueWorkerPatch implements Patch

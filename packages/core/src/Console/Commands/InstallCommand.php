@@ -27,14 +27,16 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Core\Support\Install\InstallPatchConfirmation;
+use Capell\Core\Support\Install\InstallPatchContext;
+use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
-use Capell\Installer\Support\InstallGuide\Patches\AdminPanelThemePatch;
-use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
+use Capell\Core\Support\Patching\PatchStatus;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User;
@@ -290,8 +292,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 generateStaticSite: false,
                 demoSites: $demo ? $siteOptions : null,
                 demoLanguages: $demo ? $languages : null,
-                assets: null,
-                userId: null,
                 newUser: $newUser,
                 seedDefaultData: $seedDefaultData,
                 seedDatabase: $seedDatabase,
@@ -360,7 +360,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             generateStaticSite: false,
             demoSites: $demo ? $siteOptions : null,
             demoLanguages: $demo ? $languages : null,
-            assets: null,
             userId: $userId,
             newUser: $resolvedNewUser,
             seedDefaultData: $seedDefaultData,
@@ -441,40 +440,29 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     public function prepareApplication(InstallInputData $inputData, ProgressReporter $reporter): void
     {
-        $patches = [];
-        $userModelPatchClass = UserModelPatch::class;
-        $adminPanelThemePatchClass = AdminPanelThemePatch::class;
         $selectedPackageNames = array_values(array_unique([
             ...$inputData->packages,
             ...$inputData->extraPackages,
         ]));
 
-        if (in_array('capell-app/admin', $selectedPackageNames, true)
-            && class_exists($userModelPatchClass)
-        ) {
-            $patches[] = new $userModelPatchClass;
-        }
+        $patchContext = new InstallPatchContext(
+            packageNames: $selectedPackageNames,
+            hasFilamentAdminPanelProvider: $this->hasFilamentAdminPanelProvider(),
+        );
 
-        if (in_array('capell-app/admin', $selectedPackageNames, true)
-            && $this->hasFilamentAdminPanelProvider()
-            && class_exists($adminPanelThemePatchClass)
-        ) {
-            $patches[] = new $adminPanelThemePatchClass;
-        }
-
-        foreach ($patches as $patch) {
+        foreach (resolve(InstallPatchRegistry::class)->patchesFor($patchContext) as $registeredPatch) {
+            $patch = $registeredPatch->patch;
             $status = $patch->probe();
-            $statusValue = $status->value;
 
-            if ($statusValue === 'already_applied') {
+            if ($status === PatchStatus::AlreadyApplied) {
                 continue;
             }
 
-            if ($statusValue !== 'applicable') {
+            if ($status !== PatchStatus::Applicable) {
                 $this->recordManualInstallChange(sprintf(
                     '%s: patch status is "%s".',
                     $patch->label(),
-                    $statusValue,
+                    $status->value,
                 ));
 
                 $reporter->error(sprintf(
@@ -485,16 +473,20 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 continue;
             }
 
-            if ($patch instanceof $adminPanelThemePatchClass
+            $confirmation = $registeredPatch->confirmation;
+
+            if ($confirmation instanceof InstallPatchConfirmation
                 && $this->input->isInteractive()
                 && ! $this->shouldUseFreshDemoDefaults()
                 && ! confirm(
-                    label: 'Add the Capell Filament Vite theme to AdminPanelProvider?',
-                    default: true,
-                    hint: 'Skipped automatically when a custom Filament theme is already configured.',
+                    label: $confirmation->label,
+                    default: $confirmation->default,
+                    hint: $confirmation->hint ?? '',
                 )
             ) {
-                $reporter->report('→ Skipped Filament Vite theme registration.');
+                if ($confirmation->skippedMessage !== null) {
+                    $reporter->report($confirmation->skippedMessage);
+                }
 
                 continue;
             }

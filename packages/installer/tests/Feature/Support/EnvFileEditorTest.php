@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Capell\Installer\Support\Patching\EnvFileEditor;
+use Capell\Core\Support\Patching\EnvFileEditor;
 
 test('sets_new_env_variable', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');

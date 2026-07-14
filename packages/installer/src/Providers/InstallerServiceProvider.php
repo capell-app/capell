@@ -10,7 +10,11 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\InstallPatchConfirmation;
+use Capell\Core\Support\Install\InstallPatchContext;
+use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Patching\Patch;
 use Capell\Installer\Filament\Pages\InstallCapellPage;
 use Capell\Installer\Filament\Pages\InstallGuidePage;
 use Capell\Installer\Filament\Pages\InstallProgressPage;
@@ -76,6 +80,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
 
         $this->booted(function (): void {
             $this->registerPatches();
+            $this->registerInstallPatches();
             $this->registerFilamentIntegration();
         });
     }
@@ -166,6 +171,34 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $registry->register(new DocOnlyQueueWorkerPatch);
         $registry->register(new DocOnlyWebServerPatch);
         $registry->register(new DocOnlyMediaLibraryPatch);
+    }
+
+    /**
+     * Contribute install-time patches to Core's install patch registry so
+     * `capell:install` can prepare the application without depending on
+     * installer classes.
+     */
+    private function registerInstallPatches(): void
+    {
+        /** @var InstallPatchRegistry $installPatchRegistry */
+        $installPatchRegistry = $this->app->make(InstallPatchRegistry::class);
+
+        $installPatchRegistry->register(
+            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
+                ? new UserModelPatch
+                : null,
+        );
+
+        $installPatchRegistry->register(
+            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin') && $context->hasFilamentAdminPanelProvider
+                ? new AdminPanelThemePatch
+                : null,
+            new InstallPatchConfirmation(
+                label: __('capell-installer::install-guide.admin_panel_theme_confirm_label'),
+                hint: __('capell-installer::install-guide.admin_panel_theme_confirm_hint'),
+                skippedMessage: __('capell-installer::install-guide.admin_panel_theme_skipped'),
+            ),
+        );
     }
 
     private function registerPackageMetadata(): void

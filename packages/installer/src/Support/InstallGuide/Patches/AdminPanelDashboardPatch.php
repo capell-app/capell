@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Admin\Filament\Pages\CapellDashboard;
-use Capell\Installer\Support\InstallGuide\Patch;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\Concerns\PatchesAdminPanelProvider;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 use Filament\Pages\Dashboard;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Array_;

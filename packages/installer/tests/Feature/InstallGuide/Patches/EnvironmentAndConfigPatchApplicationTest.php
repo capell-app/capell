@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\EnvQueueConnectionPatch;
 use Capell\Installer\Support\InstallGuide\Patches\EnvSettingsCachePatch;
 use Capell\Installer\Support\InstallGuide\Patches\FilesystemsPageCacheDiskPatch;
 use Capell\Installer\Support\InstallGuide\Patches\LoggingCapellChannelPatch;
-use Capell\Installer\Support\InstallGuide\PatchStatus;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {

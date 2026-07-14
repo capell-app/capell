@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide;
 
+use Capell\Core\Support\Patching\PatchStatus;
+
 class PatchResult
 {
     public function __construct(

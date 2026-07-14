@@ -499,12 +499,6 @@ parameters:
             path: ../packages/core/src/Support/Patching/PhpFileEditor.php
 
         -
-            message: '#^Property PhpParser\\Node\\Stmt\\Namespace_\:\:\$stmts \(array\<PhpParser\\Node\\Stmt\>\) does not accept array\<PhpParser\\Node\>\.$#'
-            identifier: assign.propertyType
-            count: 1
-            path: ../packages/installer/src/Support/Patching/PhpFileEditor.php
-
-        -
             message: '#^Property Capell\\Marketplace\\Models\\MarketplaceInstallIntent\:\:\$resolved_at \(Carbon\\CarbonImmutable\|null\) does not accept Illuminate\\Support\\Carbon\.$#'
             identifier: assign.propertyType
             count: 1

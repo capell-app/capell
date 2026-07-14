@@ -101,6 +101,7 @@ use Capell\Core\Support\ContentGraph\Extractors\PageContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageUrlContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\SiteContentGraphExtractor;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Links\PageLinkableContentProvider;
@@ -501,6 +502,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
         $this->app->singleton(ThemeChromeRegistry::class, fn (): ThemeChromeRegistry => new ThemeChromeRegistry);
         $this->app->singleton(ThemeInstallDefaultsRegistry::class, fn (): ThemeInstallDefaultsRegistry => new ThemeInstallDefaultsRegistry);
+        $this->app->singleton(InstallPatchRegistry::class, fn (): InstallPatchRegistry => new InstallPatchRegistry);
         $this->app->singleton(PresentationPresetRegistry::class, fn (): PresentationPresetRegistry => new PresentationPresetRegistry);
         $this->app->singleton(VendorAssetConditionRegistry::class, fn (): VendorAssetConditionRegistry => new VendorAssetConditionRegistry);
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([

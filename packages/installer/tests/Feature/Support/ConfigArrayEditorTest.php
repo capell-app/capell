@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Capell\Installer\Support\Patching\ConfigArrayEditor;
-use Capell\Installer\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\ConfigArrayEditor;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Scalar\String_;

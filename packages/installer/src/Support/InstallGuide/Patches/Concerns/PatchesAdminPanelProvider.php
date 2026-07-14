@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches\Concerns;
 
-use Capell\Installer\Support\InstallGuide\PatchStatus;
-use Capell\Installer\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;

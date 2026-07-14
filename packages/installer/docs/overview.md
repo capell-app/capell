@@ -49,7 +49,7 @@ Screenshot contract:
 - Jobs/queues/schedules: queued install is supported when the host queue is available; browser step mode is the normal flow.
 - Blade views/components: installer pages, progress UI, report UI, and guide patch presentation.
 - Cache behaviour: install input, plan, progress, locks, and report access use `capell.install.{installId}.*` cache keys.
-- Extension hooks: install guide patches implement `Capell\Installer\Support\InstallGuide\Patch` and register with `PatchRegistry`.
+- Extension hooks: install guide patches implement the Core-owned `Capell\Core\Support\Patching\Patch` contract and register with `PatchRegistry`; install-time patches are also contributed to Core's `InstallPatchRegistry`.
 
 ## Data Model
 

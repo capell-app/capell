@@ -81,9 +81,12 @@ class ConfigArrayEditor
      * Insert a key-value pair into the config array.
      *
      * @param  string  $arrayPath  Dot-separated path (e.g., 'disks.page_cache')
+     * @param  Node  $valueNode  The AST expression node to insert as the value
      */
-    public function insertKey(string $arrayPath, Expr $valueNode): self
+    public function insertKey(string $arrayPath, Node $valueNode): self
     {
+        throw_unless($valueNode instanceof Expr, RuntimeException::class, 'Config array values must be expression nodes.');
+
         [$rootKey, $subKey] = array_pad(explode('.', $arrayPath, 2), 2, null);
 
         throw_if($rootKey === null || $subKey === null, RuntimeException::class, 'Invalid array path: ' . $arrayPath);
