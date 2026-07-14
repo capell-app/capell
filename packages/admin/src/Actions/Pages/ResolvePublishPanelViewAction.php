@@ -10,7 +10,6 @@ use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
-use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -19,8 +18,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * Derives the {@see PublishPanelViewData} the publish panel shows for any
  * publishable record. The draft/scheduled split is decided by the Core
- * visibility-state module ({@see PublishVisibilityStateEnum} +
- * {@see PublishSentinel}) so the far-future draft sentinel is never mistaken
+ * visibility-state module ({@see PublishVisibilityStateEnum}) so the far-future draft sentinel is never mistaken
  * for a real future schedule; Active/Inactive status is read from
  * {@see Statusable} when the record implements it, and is `null` otherwise.
  */
@@ -37,18 +35,18 @@ final class ResolvePublishPanelViewAction
         $visibleFrom = $this->toImmutable($record->getAttribute('visible_from'));
         $visibleUntil = $this->toImmutable($record->getAttribute('visible_until'));
 
-        // The panel never renders a "deleted" pill, so trashed is not consulted.
-        $visibilityState = PublishVisibilityStateEnum::fromDates($visibleFrom, $visibleUntil, false);
+        $visibilityState = $record->publishVisibilityState();
 
         $isWorkspaceDraft = (int) ($record->getAttributes()['workspace_id'] ?? 0) !== 0;
-        $isDraft = $isWorkspaceDraft || PublishSentinel::isDraftValue($visibleFrom);
-        $isScheduled = ! $isDraft && $visibleFrom instanceof CarbonImmutable && $visibleFrom->isFuture();
+        $isDraft = $isWorkspaceDraft || $visibilityState === PublishVisibilityStateEnum::draft;
+        $isScheduled = ! $isWorkspaceDraft && $visibilityState === PublishVisibilityStateEnum::scheduled;
 
-        $status = match (true) {
-            $visibilityState === PublishVisibilityStateEnum::expired => PublishPanelStatusEnum::expired,
-            $isDraft => PublishPanelStatusEnum::draft,
-            $isScheduled => PublishPanelStatusEnum::scheduled,
-            default => PublishPanelStatusEnum::published,
+        $status = match ($isWorkspaceDraft ? PublishVisibilityStateEnum::draft : $visibilityState) {
+            PublishVisibilityStateEnum::expired => PublishPanelStatusEnum::expired,
+            PublishVisibilityStateEnum::draft,
+            PublishVisibilityStateEnum::deleted => PublishPanelStatusEnum::draft,
+            PublishVisibilityStateEnum::scheduled => PublishPanelStatusEnum::scheduled,
+            PublishVisibilityStateEnum::published => PublishPanelStatusEnum::published,
         };
 
         return new PublishPanelViewData(

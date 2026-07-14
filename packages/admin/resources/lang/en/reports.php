@@ -69,6 +69,8 @@ return [
     'publishing_readiness_expired_description' => 'This page stopped being public on :date. Update its visibility window before launch.',
     'publishing_readiness_scheduled_title' => 'Publish window is scheduled',
     'publishing_readiness_scheduled_description' => 'This page is scheduled to become public on :date. Check whether that timing matches the launch plan.',
+    'publishing_readiness_draft_title' => 'Page is still a draft',
+    'publishing_readiness_draft_description' => 'This page is not scheduled or public yet. Publish it or set a launch date before release.',
     'publishing_readiness_missing_translation_title' => ':language translation is missing',
     'publishing_readiness_missing_translation_description' => 'This page type requires a :language translation for this site before the page is ready to publish.',
     'publishing_readiness_missing_url_title' => ':language URL is missing',

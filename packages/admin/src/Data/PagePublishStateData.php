@@ -57,7 +57,7 @@ class PagePublishStateData extends Data
     public function isExpired(): bool
     {
         return $this->unpublishAt instanceof CarbonImmutable
-            && $this->unpublishAt->isPast()
+            && $this->unpublishAt->lessThanOrEqualTo(CarbonImmutable::now())
             && ! $this->isDraft;
     }
 

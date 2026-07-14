@@ -50,7 +50,7 @@ final class BuildDefaultSiteStatsAction
     private function publishedWithin(CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): int
     {
         return $this->basePageQuery()
-            ->publishedDate()
+            ->published()
             ->where(fn (Builder $query): Builder => $this->publishedMarkerWithin($query, $rangeStart, $rangeEnd))
             ->count();
     }
