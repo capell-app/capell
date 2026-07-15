@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 return [
     'admin_language_updated' => 'Admin language updated.',
-    'approval_footer' => 'If you did not expect this email, please contact your site administrator.',
-    'approved_cta' => 'Open page',
-    'approved_greeting' => 'Hi :name,',
-    'approved_intro' => ':approver approved ":page" on :site. It is now ready to publish.',
-    'approved_subject' => 'Page approved: :page',
     'clear_cached' => 'Clear Cache',
     'created_successfully' => ':name created successfully.',
     'dashboard_customised' => 'Dashboard Filament widgets updated.',
@@ -18,11 +13,6 @@ return [
     'others_count' => '(:count others)',
     'page_cache_cleared' => 'Page cache has been deleted successfully',
     'page_cache_refreshed' => 'Page Cache Refreshed',
-    'rejected_cta' => 'Review feedback',
-    'rejected_greeting' => 'Hi :name,',
-    'rejected_intro' => ':rejector requested changes to ":page" on :site before it can be approved.',
-    'rejected_notes' => 'Reviewer notes: :notes',
-    'rejected_subject' => 'Page changes requested: :page',
     'theme_colors_updated' => 'Theme changes applied; rebuild may be needed.',
     'updated_successfully' => ':name updated successfully.',
     'upgrade_summary_cta' => 'Review upgrades',

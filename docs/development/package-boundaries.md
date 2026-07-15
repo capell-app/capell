@@ -44,6 +44,24 @@ The host repo should document contracts that packages consume:
 
 The package repo should document the package feature itself.
 
+## Editorial Workflow Ownership
+
+Foundation owns publication invariants and the seams that optional editorial
+products consume: visibility-state classification, typed publication transition
+request/result data, publish-readiness data, workflow-attention contributions,
+publish-panel extenders, and safe public-output rules.
+
+Publishing Studio owns the advanced collaboration implementation. Approval
+records and decisions, reviewer assignments, release workspaces, field comments,
+review notifications, atomic release orchestration, and rollback history belong
+in `capell-app/publishing-studio`. Core and Admin must not add parallel models,
+Actions, resources, migrations, or notifications for those concepts.
+
+Publishing Studio contributes those workflows through manifests, registries, and
+tagged Admin extenders. It may consume foundation publication/readiness contracts,
+but it must not replace the foundation state machine or mutate public visibility
+outside the shared publication and workspace-finalization invariants.
+
 ## Install Patch Ownership
 
 Core owns the install and upgrade primitives: the file editors in
