@@ -53,6 +53,8 @@ return [
     'select_patches_to_apply' => 'Select patches to apply',
     'theme_sources_patch_description' => 'Adds required @source directives to the Filament theme CSS file',
     'theme_sources_patch_label' => 'Theme Sources Patch',
+    'vite_theme_input_patch_description' => 'Registers the Capell Filament theme in the Laravel Vite input array',
+    'vite_theme_input_patch_label' => 'Vite Theme Input Patch',
     'user_model_patch_description' => 'Adds the required Capell traits and interfaces to the User model.',
     'user_model_patch_label' => 'User model patch',
 ];
