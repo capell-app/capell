@@ -123,7 +123,6 @@ class TranslationsRepeater extends RepeaterTabs
                     return null;
                 }
 
-                // return color based on percent
                 $color = $percent >= 75 ? 'success' : ($percent >= 50 ? 'warning' : 'danger');
 
                 return [

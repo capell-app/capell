@@ -178,7 +178,7 @@ final class DashboardSettingsSchema implements HasSchema
                     return $heading;
                 }
             } catch (Exception) {
-                //
+                // Widget headings may require an initialized Filament request; use the class-name fallback below.
             }
         }
 

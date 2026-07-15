@@ -21,28 +21,6 @@ it('returns HTML string as-is for Html structure', function (): void {
     expect($result)->toBe('<p>Hello</p>');
 });
 
-// it('extracts content from blocks for Html structure', function (): void {
-//     $blocks = [
-//         ['type' => 'content', 'data' => ['content' => '<b>Block</b>']],
-//     ];
-//     $mock = \Mockery::mock('alias:Capell\\Admin\\Actions\\ExtractContentFromBlocksAction');
-//     $mock->shouldReceive('run')->with($blocks)->andReturn('Block');
-//     $result = MutateContentPresenterAction::run($blocks, ContentStructure::Html);
-//     expect($result)->toContain('Block');
-// });
-
-// it('decodes JSON and extracts content for Html structure', function (): void {
-//     $blocks = [
-//         ['type' => 'content', 'data' => ['content' => 'From JSON']],
-//     ];
-//     $json = json_encode($blocks);
-//     $mock = \Mockery::mock('alias:Capell\\Admin\\Actions\\ExtractContentFromBlocksAction');
-//     $mock->shouldReceive('run')->with($blocks)->andReturn('From JSON');
-//     $result = MutateContentPresenterAction::run($json, ContentStructure::Html);
-//     expect($result)->toContain('From JSON');
-// });
-// TODO: Refactor MutateContentPresenterAction to allow dependency injection for easier testing.
-
 it('returns null for invalid input for Html structure', function (): void {
     $result = MutateContentPresenterAction::run(123, ContentStructure::Html);
     expect($result)->toBeNull();
