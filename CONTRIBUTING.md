@@ -24,6 +24,7 @@ Thanks for your interest in improving Capell. This guide outlines workflow, codi
 
 ## Coding Standards
 
+- Read the [full coding standard](docs/standards/coding-standards.md) before changing production code or package extension points.
 - PHP: 8.4+. Use strict types.
 - Style: PSR-12 + project rules enforced via Laravel Pint.
     ```bash
