@@ -8,6 +8,8 @@ includes:
 
 parameters:
     treatPhpDocTypesAsCertain: false
+    parallel:
+        maximumNumberOfProcesses: 4
     paths:
         - packages
         - tests
