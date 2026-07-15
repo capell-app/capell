@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -112,7 +113,7 @@ class DemoPackageAction
             return (self::$processFactory)($command, base_path());
         }
 
-        return new Process($command, base_path());
+        return new Process($command, base_path(), ArtisanProcessEnvironment::prepare());
     }
 
     private static function callProcessVoidMethod(object $process, string $method, mixed ...$arguments): void

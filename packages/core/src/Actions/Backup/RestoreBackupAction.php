@@ -10,6 +10,7 @@ use Capell\Core\Data\Backup\BackupRestoreResultData;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\FilesystemManager;
@@ -208,6 +209,7 @@ final class RestoreBackupAction
                     '--database=' . $restoredDatabase,
                 ],
                 base_path(),
+                ArtisanProcessEnvironment::prepare(),
             );
             $process->setTimeout(max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600)));
             $process->mustRun();

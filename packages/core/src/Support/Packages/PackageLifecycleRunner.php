@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Packages;
 use Capell\Core\Contracts\PackageLifecycleAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Support\Facades\Artisan;
 use RuntimeException;
@@ -106,7 +107,7 @@ final class PackageLifecycleRunner
         ?ProgressReporter $reporter,
     ): void {
         $processCommand = $this->freshProcessCommand($command, $arguments);
-        $environment = $this->freshProcessEnvironment();
+        $environment = ArtisanProcessEnvironment::prepare();
         $process = $environment === null
             ? $this->processFactory->make($processCommand, base_path())
             : $this->processFactory->make($processCommand, base_path(), $environment);
@@ -217,22 +218,5 @@ final class PackageLifecycleRunner
         }
 
         throw new RuntimeException('Unable to locate a CLI PHP binary for the package lifecycle command.');
-    }
-
-    /** @return array<string, string>|null */
-    private function freshProcessEnvironment(): ?array
-    {
-        $basePath = str_replace('\\', '/', base_path());
-
-        if (! str_contains($basePath, 'testbench-skeletons')
-            && ! str_contains($basePath, '/vendor/orchestra/testbench-core/laravel')) {
-            return null;
-        }
-
-        $workingPath = function_exists('Orchestra\\Testbench\\package_path')
-            ? \Orchestra\Testbench\package_path()
-            : dirname(__DIR__, 5);
-
-        return ['TESTBENCH_WORKING_PATH' => $workingPath];
     }
 }

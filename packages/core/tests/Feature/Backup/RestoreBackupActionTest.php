@@ -68,7 +68,9 @@ it('restores a verified snapshot only into scratch database and media targets', 
             '--connection=backup_test',
             '--database=' . $result->database,
         )
-        ->and($this->doctorProcesses->environments[0])->toBe([]);
+        ->and($this->doctorProcesses->environments[0])->toBe([
+            'TESTBENCH_WORKING_PATH' => \Orchestra\Testbench\package_path(),
+        ]);
 });
 
 it('rejects unsafe or live restore targets and non-empty media prefixes', function (): void {
