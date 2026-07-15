@@ -68,6 +68,8 @@ $markdown = implode(PHP_EOL, [
     '',
     'Stable entries have a direct contract test ID in the JSON catalogue. Experimental entries may change before the first public release. Internal entries are not extension APIs.',
     '',
+    'Compatibility enforcement is prepared in `stable-extension-api-baseline.json`. Its status remains `pending-first-public-release` until the first public tag; after activation, drift requires an explicit compatibility decision and is never silently reformatted away.',
+    '',
 ]);
 
 if (in_array('--check', $argv, true)) {
