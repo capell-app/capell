@@ -16,3 +16,5 @@ Generated from executable metadata by `scripts/build-extension-surface-catalog.p
 | `core.testing.extension-harness`       | testing        | `Capell\Core\Testing\ExtensionTestHarness`                            | `capell-app/core`  | stable       | Single-package manifest and contribution assertions. |
 
 Stable entries have a direct contract test ID in the JSON catalogue. Experimental entries may change before the first public release. Internal entries are not extension APIs.
+
+Compatibility enforcement is prepared in `stable-extension-api-baseline.json`. Its status remains `pending-first-public-release` until the first public tag; after activation, drift requires an explicit compatibility decision and is never silently reformatted away.

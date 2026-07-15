@@ -29,6 +29,7 @@
         "check:root-docs": "@php scripts/check-root-docs.php",
         "check:docs-screenshots": "npm run docs:screenshots:check",
         "check:extension-surfaces": "@php scripts/build-extension-surface-catalog.php --check",
+        "check:stable-extension-api": "@php scripts/check-stable-extension-api.php --check",
         "check:composer-lock": "composer validate --no-check-publish",
         "post-autoload-dump": [
             "@clear",
@@ -93,6 +94,8 @@
             "@check:docs-screenshots",
             "@php -r \"echo PHP_EOL . 'Checking extension surface catalogue...' . PHP_EOL;\"",
             "@check:extension-surfaces",
+            "@php -r \"echo PHP_EOL . 'Checking stable extension API snapshot...' . PHP_EOL;\"",
+            "@check:stable-extension-api",
             "@php -r \"echo PHP_EOL . 'Checking Composer lock file...' . PHP_EOL;\"",
             "@check:composer-lock",
             "@php -r \"echo PHP_EOL . 'Running Rector...' . PHP_EOL;\"",
