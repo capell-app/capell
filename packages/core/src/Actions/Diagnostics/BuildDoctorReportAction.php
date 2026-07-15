@@ -10,12 +10,15 @@ use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\Diagnostics\CapellInstallationState;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
@@ -35,22 +38,26 @@ final class BuildDoctorReportAction
 {
     use AsObject;
 
+    public function __construct(
+        private readonly CapellRuntimeSchemaContract $runtimeSchema,
+    ) {}
+
     public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
     {
         $checks = collect([
-            $this->checkRequiredTablesExist(),
-            $this->checkMorphMap(),
-            $this->checkStorageDisksWritable(),
-            $this->checkSeeded(),
-            $this->checkConfigFiles(),
-            $this->checkManifestV3Contracts(),
-            $this->checkInstalledPackages(),
-            $this->checkCapellViteInputsIntegration(),
-            $this->checkGeneratedTailwindCss(),
-            $this->checkAdminUserAccess(),
-            $this->checkHomepageRouteResolves(),
-            $this->checkDefaultThemeAndLayoutRecords(),
-            $this->checkPageUrlsHaveSiteDomains(),
+            $this->identified($this->checkRequiredTablesExist(), 'core.schema.required', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkMorphMap(), 'core.morph-map.complete', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkStorageDisksWritable(), 'core.storage.writable', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkSeeded(), 'core.seed-data.present', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkConfigFiles(), 'core.config.published', DoctorCheckSeverity::Info),
+            $this->identified($this->checkManifestV3Contracts(), 'core.manifest-v3.valid', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkInstalledPackages(), 'core.packages.installed', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkCapellViteInputsIntegration(), 'core.assets.vite-inputs', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkGeneratedTailwindCss(), 'core.tailwind.generated', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkAdminUserAccess(), 'core.admin.access', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkHomepageRouteResolves(), 'core.route.homepage', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkDefaultThemeAndLayoutRecords(), 'core.defaults.theme-layout', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkPageUrlsHaveSiteDomains(), 'core.page-urls.site-domains', DoctorCheckSeverity::Critical),
         ]);
 
         if ($installSummary && $includePackageDoctors) {
@@ -60,6 +67,22 @@ final class BuildDoctorReportAction
         return new DoctorReportData(
             status: $checks->every(fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
             checks: $checks->values(),
+        );
+    }
+
+    private function identified(
+        DoctorCheckResultData $check,
+        string $id,
+        DoctorCheckSeverity $severity,
+    ): DoctorCheckResultData {
+        return new DoctorCheckResultData(
+            label: $check->label,
+            passed: $check->passed,
+            message: $check->message,
+            remediation: $check->remediation,
+            id: $id,
+            severity: $severity,
+            evidence: $check->evidence,
         );
     }
 
@@ -97,6 +120,9 @@ final class BuildDoctorReportAction
                     passed: false,
                     message: $throwable->getMessage(),
                     remediation: sprintf('Run php artisan %s directly for package diagnostics.', $command),
+                    id: 'package-doctor.execution-failed',
+                    severity: DoctorCheckSeverity::Critical,
+                    evidence: ['command' => $command],
                 ),
             ];
         }
@@ -108,8 +134,37 @@ final class BuildDoctorReportAction
                     passed: false,
                     message: 'Package doctor did not return a valid JSON check report.',
                     remediation: sprintf('Run php artisan %s --json and inspect the output.', $command),
+                    id: 'package-doctor.invalid-contract',
+                    severity: DoctorCheckSeverity::Critical,
+                    evidence: ['command' => $command],
                 ),
             ];
+        }
+
+        $invalidContract = collect($decoded['checks'])->contains(function (mixed $check): bool {
+            if (! is_array($check)) {
+                return true;
+            }
+
+            $id = $check['id'] ?? null;
+            $severity = $check['severity'] ?? null;
+
+            return ! is_string($id)
+                || preg_match('/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/', $id) !== 1
+                || ! is_string($severity)
+                || DoctorCheckSeverity::tryFrom($severity) === null;
+        });
+
+        if ($invalidContract) {
+            return [new DoctorCheckResultData(
+                label: sprintf('Package doctor: %s', $command),
+                passed: false,
+                message: 'Package doctor checks must provide stable IDs and native severity.',
+                remediation: sprintf('Update php artisan %s --json to the doctor check contract.', $command),
+                id: 'package-doctor.invalid-contract',
+                severity: DoctorCheckSeverity::Critical,
+                evidence: ['command' => $command],
+            )];
         }
 
         return collect($decoded['checks'])
@@ -119,6 +174,9 @@ final class BuildDoctorReportAction
                 passed: (bool) ($check['passed'] ?? false),
                 message: (string) ($check['message'] ?? ''),
                 remediation: isset($check['remediation']) ? (string) $check['remediation'] : null,
+                id: (string) $check['id'],
+                severity: DoctorCheckSeverity::from((string) $check['severity']),
+                evidence: is_array($check['evidence'] ?? null) ? $check['evidence'] : [],
             ))
             ->values()
             ->all();
@@ -126,19 +184,39 @@ final class BuildDoctorReportAction
 
     private function checkRequiredTablesExist(): DoctorCheckResultData
     {
-        $requiredTables = ['sites', 'languages', 'pages'];
-        $missingTables = array_filter($requiredTables, fn (string $table): bool => ! Schema::hasTable($table));
+        $missingTables = $this->runtimeSchema->missingTables();
+        $installationState = ResolveCapellInstallationStateAction::run();
 
-        if ($missingTables !== []) {
+        if ($installationState !== CapellInstallationState::Installed) {
             return new DoctorCheckResultData(
                 label: 'Required tables exist',
                 passed: false,
-                message: sprintf('Missing tables: %s.', implode(', ', $missingTables)),
+                message: $missingTables !== []
+                    ? sprintf('Missing tables: %s.', implode(', ', $missingTables))
+                    : 'Core lifecycle state does not record a complete installation.',
                 remediation: 'Run php artisan migrate.',
+                id: 'core.schema.required',
+                severity: DoctorCheckSeverity::Critical,
+                evidence: [
+                    'installation_state' => $installationState->value,
+                    'missing_tables' => $missingTables,
+                    'required_tables' => $this->runtimeSchema->requiredTables(),
+                ],
             );
         }
 
-        return new DoctorCheckResultData('Required tables exist', true, 'All required tables exist.');
+        return new DoctorCheckResultData(
+            label: 'Required tables exist',
+            passed: true,
+            message: 'All required tables exist.',
+            id: 'core.schema.required',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'installation_state' => $installationState->value,
+                'missing_tables' => [],
+                'required_tables' => $this->runtimeSchema->requiredTables(),
+            ],
+        );
     }
 
     private function checkPageUrlsHaveSiteDomains(): DoctorCheckResultData
@@ -458,35 +536,7 @@ final class BuildDoctorReportAction
 
     private function checkAdminUserAccess(): DoctorCheckResultData
     {
-        if (! Schema::hasTable('users')) {
-            return new DoctorCheckResultData(
-                label: 'Admin user access',
-                passed: false,
-                message: 'The users table does not exist.',
-                remediation: 'Run php artisan migrate and rerun the installer user step.',
-            );
-        }
-
-        $userCount = resolve(ConnectionResolverInterface::class)->table('users')->count();
-        if ($userCount === 0) {
-            return new DoctorCheckResultData(
-                label: 'Admin user access',
-                passed: false,
-                message: 'No users exist.',
-                remediation: 'Create an admin user or rerun php artisan capell:install.',
-            );
-        }
-
-        if (Schema::hasTable('model_has_roles') && resolve(ConnectionResolverInterface::class)->table('model_has_roles')->count() === 0) {
-            return new DoctorCheckResultData(
-                label: 'Admin user access',
-                passed: false,
-                message: 'Users exist but no role assignments were found.',
-                remediation: 'Grant the install user admin access.',
-            );
-        }
-
-        return new DoctorCheckResultData('Admin user access', true, sprintf('%d user(s) exist and admin role assignments are present.', $userCount));
+        return CheckAdminPanelAccessAction::run();
     }
 
     private function checkHomepageRouteResolves(): DoctorCheckResultData

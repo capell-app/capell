@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -25,6 +28,10 @@ final class RecordMarketplaceInstallAttemptAction
         string $composerName,
         string $kind,
         MarketplaceInstallIntentStatus $status,
+        bool $betaAcknowledged,
+        MarketplaceInstallPolicyEvidenceData $policyEvidence,
+        MarketplaceInstallActorData $actor,
+        MarketplaceInstallSource $source,
         ?string $composerCommand = null,
         ?string $versionConstraint = null,
         array $requestedOptions = [],
@@ -37,6 +44,11 @@ final class RecordMarketplaceInstallAttemptAction
     ): MarketplaceInstallAttempt {
         $recordedAt = now();
         $userContext = $this->userContext($user);
+        $context = [
+            ...$context,
+            'install_actor' => $actor->toArray(),
+            'install_source' => $source->value,
+        ];
 
         return MarketplaceInstallAttempt::query()->create([
             'composer_name' => $composerName,
@@ -50,6 +62,8 @@ final class RecordMarketplaceInstallAttemptAction
             'eligibility' => $eligibility !== [] ? $eligibility : null,
             'context' => $context !== [] ? $context : null,
             'deployment' => $deployment !== [] ? $deployment : null,
+            'beta_acknowledged' => $betaAcknowledged,
+            'policy_evidence' => $policyEvidence->toArray(),
             'failure_reason' => $failureReason,
             'telemetry_status' => $telemetryStatus,
             'user_id' => $userContext['id'] ?? null,

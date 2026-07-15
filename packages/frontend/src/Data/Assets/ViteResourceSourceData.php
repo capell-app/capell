@@ -14,14 +14,12 @@ final class ViteResourceSourceData extends Data implements FrontendResourceSourc
         public readonly string $entry,
         public readonly string $buildDirectory = 'build',
     ) {
-        self::assertRelativePath($entry, 'Vite entry');
-        self::assertRelativePath($buildDirectory, 'Vite build directory');
+        $this->assertRelativePath($entry, 'Vite entry');
+        $this->assertRelativePath($buildDirectory, 'Vite build directory');
     }
 
-    private static function assertRelativePath(string $path, string $label): void
+    private function assertRelativePath(string $path, string $label): void
     {
-        if ($path === '' || str_starts_with($path, '/') || str_contains($path, '\\') || preg_match('#(^|/)\.\.(/|$)#', $path) === 1 || filter_var($path, FILTER_VALIDATE_URL) !== false) {
-            throw new InvalidArgumentException($label . ' must be a safe relative path.');
-        }
+        throw_if($path === '' || str_starts_with($path, '/') || str_contains($path, '\\') || preg_match('#(^|/)\.\.(/|$)#', $path) === 1 || filter_var($path, FILTER_VALIDATE_URL) !== false, InvalidArgumentException::class, $label . ' must be a safe relative path.');
     }
 }

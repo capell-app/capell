@@ -14,8 +14,6 @@ final class FrontendResourceActivationData extends Data
         public readonly string $target,
         public readonly PresentationLoadingStrategy $loadingStrategy,
     ) {
-        if ($target === '' || preg_match('/\A[a-zA-Z0-9_-]+\z/', $target) !== 1) {
-            throw new InvalidArgumentException('Frontend resource activation targets must be opaque public tokens.');
-        }
+        throw_if($target === '' || preg_match('/\A[a-zA-Z0-9_-]+\z/', $target) !== 1, InvalidArgumentException::class, 'Frontend resource activation targets must be opaque public tokens.');
     }
 }

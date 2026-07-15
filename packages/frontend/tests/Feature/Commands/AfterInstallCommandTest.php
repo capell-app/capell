@@ -72,6 +72,7 @@ it('applies separate dependency commands generates the input manifest and builds
     $registry = resolve(FrontendPackageDependencyRegistry::class);
     $registry->register(new FrontendPackageDependencyData('swiper', '^12.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/gallery'));
     $registry->register(new FrontendPackageDependencyData('vite-plugin-example', '^2.0.0', FrontendPackageDependencyType::Development, 'capell-app/gallery'));
+
     resolve(FrontendViteInputRegistry::class)->register('vendor/capell-app/gallery/resources/js/gallery.js', 'capell-app/gallery');
     Process::fake(fn () => Process::result(output: 'process output'));
 

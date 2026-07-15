@@ -495,6 +495,7 @@ return [
     'selection' => [
         'beta_acknowledgement_label' => 'I understand this basket includes Beta software',
         'beta_acknowledgement_help' => 'Beta extensions are supported for evaluation and active use, but may require upgrade work before their Released milestone.',
+        'beta_dependency_acknowledgement_help' => 'Beta dependencies requiring acknowledgement: :dependencies.',
         'already_installed' => 'Already installed',
         'blocked' => [
             'activation_required' => 'Activation requires a licence key.',
@@ -509,6 +510,14 @@ return [
         'blocked_dependency' => ':name cannot be included because :reason',
         'clear' => 'Clear',
         'dependency_badge' => 'Dependency',
+        'complete_impact_heading' => 'Complete install impact',
+        'complete_impact_description' => 'Review direct and transitive package maturity, entitlement, operational effects, and Composer changes before installation.',
+        'impact_reason_direct' => 'Selected directly',
+        'impact_reason_dependency' => 'Required transitively',
+        'impact_maturity' => 'Maturity',
+        'impact_entitlement' => 'Entitlement',
+        'impact_package_change' => 'Package change',
+        'impact_none' => 'No migrations, routes, jobs, storage changes, or permissions declared.',
         'dependency_count' => '{1} :count dependency included|[2,*] :count dependencies included',
         'dependencies_description' => 'Capell adds required packages here before anything is installed.',
         'dependencies_empty' => 'No extra packages are required for this selection.',

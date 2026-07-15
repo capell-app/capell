@@ -3,6 +3,7 @@
     use Filament\Support\Icons\Heroicon;
 
     $view = $this->viewData;
+    $readiness = $view->isPublishable() ? $this->readiness : null;
     $status = $view->status;
     $titleFormat = 'l j F Y, H:i';
 @endphp
@@ -42,6 +43,40 @@
         class="space-y-2.5 border-t border-gray-100 px-4 py-3 text-sm dark:border-white/10"
     >
         @include('capell-admin::livewire.partials.publish-status-rows', ['view' => $view])
+
+        @if ($readiness !== null)
+            <dl
+                class="space-y-2 border-t border-gray-100 pt-2.5 dark:border-white/10"
+            >
+                <div class="flex items-start justify-between gap-3">
+                    <dt class="text-gray-500 dark:text-gray-400">
+                        {{ __('capell-admin::reports.publishing_readiness_public_effect') }}
+                    </dt>
+                    <dd
+                        class="text-right font-medium text-gray-950 dark:text-white"
+                    >
+                        {{
+                            $readiness->publicEligible
+                            ? __('capell-admin::reports.publishing_readiness_public_effect_visible')
+                            : __('capell-admin::reports.publishing_readiness_public_effect_not_visible')
+                        }}
+                    </dd>
+                </div>
+
+                @if ($readiness->blockingCheckIds !== [])
+                    <div class="flex items-start justify-between gap-3">
+                        <dt class="text-gray-500 dark:text-gray-400">
+                            {{ __('capell-admin::reports.publishing_readiness_blockers') }}
+                        </dt>
+                        <dd
+                            class="text-danger-600 dark:text-danger-400 text-right font-medium"
+                        >
+                            {{ trans_choice('capell-admin::reports.publishing_readiness_blocker_count', count($readiness->blockingCheckIds), ['count' => count($readiness->blockingCheckIds)]) }}
+                        </dd>
+                    </div>
+                @endif
+            </dl>
+        @endif
     </div>
 
     {{-- Extension slots injected by PublishPanelExtender implementations --}}

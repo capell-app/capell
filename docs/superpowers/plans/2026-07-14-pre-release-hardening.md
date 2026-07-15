@@ -50,9 +50,9 @@ Constraints: no migration, no new dependency, no one-adapter contract, public re
 `ResolveInteractionTriggersAction` parses them; Frontend
 `BuildInteractionRenderDataAction:70-76` warns "not implemented" and strips the trigger;
 Admin `InteractionSettingsSchema::targetOptions()` never offers Fragment.
-`DeferredFragmentReferenceBuilder` has zero implementations/bindings (free to adjust).
+The legacy global fragment-builder contract has zero implementations/bindings (free to adjust).
 
-- [x] `BuildInteractionRenderDataAction`: when `DeferredFragmentReferenceBuilder` is bound,
+- [x] `BuildInteractionRenderDataAction`: when the legacy global fragment-builder contract is bound,
   produce the trigger URL through it (mirror the `WidgetInteractionLocatorResolver`
   `app()->bound()` guard); when unbound, drop trigger with a debug-level log (no warning spam).
 - [x] `InteractionSettingsSchema`: offer Fragment target (+ `fragment_reference` field)

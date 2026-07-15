@@ -106,11 +106,15 @@
                                     </span>
                                 @endif
 
-                                @if (($record['maturity'] ?? null) === 'beta')
+                                @if (is_string($record['maturity_label'] ?? null) && $record['maturity_label'] !== '')
                                     <span
-                                        class="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300"
+                                        @class([
+                                            'rounded-md px-2 py-0.5 text-xs font-medium ring-1',
+                                            'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300' => ($record['maturity'] ?? null) === 'beta',
+                                            'bg-gray-50 text-gray-600 ring-gray-500/20 dark:bg-white/5 dark:text-gray-300' => ($record['maturity'] ?? null) !== 'beta',
+                                        ])
                                     >
-                                        {{ __('capell-marketplace::marketplace.release_status.beta') }}
+                                        {{ $record['maturity_label'] }}
                                     </span>
                                 @endif
                             </div>
@@ -187,6 +191,18 @@
                                         {{ __('capell-marketplace::marketplace.selection.premium_badge') }}
                                     </span>
                                 @endif
+
+                                @if (is_string($record['maturity_label'] ?? null) && $record['maturity_label'] !== '')
+                                    <span
+                                        @class([
+                                            'rounded-md px-2 py-0.5 text-xs font-medium ring-1',
+                                            'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300' => ($record['maturity'] ?? null) === 'beta',
+                                            'bg-gray-50 text-gray-600 ring-gray-500/20 dark:bg-white/5 dark:text-gray-300' => ($record['maturity'] ?? null) !== 'beta',
+                                        ])
+                                    >
+                                        {{ $record['maturity_label'] }}
+                                    </span>
+                                @endif
                             </div>
 
                             @if ($composerName !== '')
@@ -204,6 +220,70 @@
                     </p>
                 @endforelse
             </div>
+        </div>
+    </div>
+
+    <div
+        class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900"
+    >
+        <div class="space-y-1">
+            <h4 class="text-sm font-semibold text-gray-950 dark:text-white">
+                {{ __('capell-marketplace::marketplace.selection.complete_impact_heading') }}
+            </h4>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                {{ __('capell-marketplace::marketplace.selection.complete_impact_description') }}
+            </p>
+        </div>
+
+        <div class="divide-y divide-gray-200 dark:divide-white/10">
+            @foreach ($selection['impact_records'] as $impact)
+                @php
+                    $operations = collect(['migrations', 'routes', 'scheduled_jobs', 'storage', 'permissions'])
+                        ->flatMap(fn (string $key): array => $impact[$key] ?? [])
+                        ->values();
+                @endphp
+
+                <div class="space-y-2 py-3 first:pt-0 last:pb-0">
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <span
+                            class="font-semibold text-gray-950 dark:text-white"
+                        >
+                            {{ $impact['name'] }}
+                        </span>
+                        <span class="text-gray-500 dark:text-gray-400">
+                            {{ $impact['reason'] }}
+                        </span>
+                    </div>
+                    <dl
+                        class="grid gap-2 text-xs text-gray-600 sm:grid-cols-3 dark:text-gray-300"
+                    >
+                        <div>
+                            <dt class="font-medium">
+                                {{ __('capell-marketplace::marketplace.selection.impact_maturity') }}
+                            </dt>
+                            <dd>{{ ucfirst($impact['maturity']) }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-medium">
+                                {{ __('capell-marketplace::marketplace.selection.impact_entitlement') }}
+                            </dt>
+                            <dd>{{ ucfirst($impact['entitlement']) }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-medium">
+                                {{ __('capell-marketplace::marketplace.selection.impact_package_change') }}
+                            </dt>
+                            <dd>
+                                {{ ucfirst($impact['operation']) }}
+                                {{ $impact['target_version'] }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{ $operations->isEmpty() ? __('capell-marketplace::marketplace.selection.impact_none') : $operations->implode(', ') }}
+                    </p>
+                </div>
+            @endforeach
         </div>
     </div>
 
@@ -304,6 +384,15 @@
                 <span class="block text-amber-800 dark:text-amber-200">
                     {{ __('capell-marketplace::marketplace.selection.beta_acknowledgement_help') }}
                 </span>
+                @if ($selection['beta_dependency_composer_names'] !== [])
+                    <span class="block text-amber-800 dark:text-amber-200">
+                        {{
+                            __('capell-marketplace::marketplace.selection.beta_dependency_acknowledgement_help', [
+                                'dependencies' => implode(', ', $selection['beta_dependency_composer_names']),
+                            ])
+                        }}
+                    </span>
+                @endif
             </span>
         </label>
     @endif

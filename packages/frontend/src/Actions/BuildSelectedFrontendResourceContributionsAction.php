@@ -7,6 +7,7 @@ namespace Capell\Frontend\Actions;
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
 use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Support\Assets\ThemeResourceResolver;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -41,7 +42,7 @@ final class BuildSelectedFrontendResourceContributionsAction
                     : (is_string($loading) ? PresentationLoadingStrategy::tryFrom($loading) : null);
 
                 return array_map(
-                    static function ($resource) use ($strategy, $target): FrontendResourceContributionData {
+                    static function (FrontendResourceData $resource) use ($strategy, $target): FrontendResourceContributionData {
                         $resolvedStrategy = $strategy ?? $resource->loadingStrategy;
                         $activations = $resolvedStrategy !== PresentationLoadingStrategy::Eager && is_string($target) && $target !== ''
                             ? [new FrontendResourceActivationData($target, $resolvedStrategy)]

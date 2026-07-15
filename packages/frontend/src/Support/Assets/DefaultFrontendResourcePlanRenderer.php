@@ -11,7 +11,11 @@ use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\FrontendResourceContextData;
+use Capell\Frontend\Enums\CrossOrigin;
+use Capell\Frontend\Enums\FetchPriority;
+use Capell\Frontend\Enums\FrontendResourceHintAs;
 use Capell\Frontend\Enums\FrontendResourceKind;
+use Capell\Frontend\Enums\ReferrerPolicy;
 use Illuminate\Foundation\Vite;
 
 final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanRenderer
@@ -50,18 +54,18 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
     {
         return implode('', array_filter([
             $resource->integrity !== null ? ' integrity="' . e($resource->integrity) . '"' : null,
-            $resource->crossOrigin !== null ? ' crossorigin="' . $resource->crossOrigin->value . '"' : null,
-            $resource->referrerPolicy !== null ? ' referrerpolicy="' . $resource->referrerPolicy->value . '"' : null,
+            $resource->crossOrigin instanceof CrossOrigin ? ' crossorigin="' . $resource->crossOrigin->value . '"' : null,
+            $resource->referrerPolicy instanceof ReferrerPolicy ? ' referrerpolicy="' . $resource->referrerPolicy->value . '"' : null,
         ]));
     }
 
     private function renderHint(FrontendResourceHintData $hint): string
     {
         return '<link rel="' . $hint->kind->value . '" href="' . e($hint->href) . '"'
-            . ($hint->as !== null ? ' as="' . $hint->as->value . '"' : '')
+            . ($hint->as instanceof FrontendResourceHintAs ? ' as="' . $hint->as->value . '"' : '')
             . ($hint->mimeType !== null ? ' type="' . e($hint->mimeType) . '"' : '')
-            . ($hint->crossOrigin !== null ? ' crossorigin="' . $hint->crossOrigin->value . '"' : '')
-            . ($hint->fetchPriority !== null ? ' fetchpriority="' . $hint->fetchPriority->value . '"' : '')
+            . ($hint->crossOrigin instanceof CrossOrigin ? ' crossorigin="' . $hint->crossOrigin->value . '"' : '')
+            . ($hint->fetchPriority instanceof FetchPriority ? ' fetchpriority="' . $hint->fetchPriority->value . '"' : '')
             . '>';
     }
 

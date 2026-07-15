@@ -11,6 +11,8 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
+use Capell\Core\Testing\Contracts\CompanionPackageContractSuite;
+use Capell\Core\Testing\Data\CompanionPackageContractData;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -58,6 +60,11 @@ final class ExtensionTestHarness
         $candidate = rtrim($basePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . basename(str_replace('\\', '/', $extension));
 
         return self::forPath($candidate);
+    }
+
+    public static function assertCompanionPackageContract(CompanionPackageContractData $contract): void
+    {
+        (new CompanionPackageContractSuite)->run($contract);
     }
 
     public function assertManifestValid(): self

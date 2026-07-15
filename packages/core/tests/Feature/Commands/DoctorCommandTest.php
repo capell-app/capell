@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -25,6 +27,10 @@ use Symfony\Component\Console\Command\Command;
 function seedHealthyDoctorInstall(): void
 {
     CapellCore::forcePackageInstalled('capell-app/core');
+    CapellExtension::query()->updateOrCreate(
+        ['composer_name' => 'capell-app/core'],
+        ['status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()],
+    );
 
     $cssPath = resource_path('css/capell/frontend.css');
     File::ensureDirectoryExists(dirname($cssPath));
@@ -274,10 +280,13 @@ it('merges installed package doctor checks into the install summary', function (
             'status' => 'passed',
             'checks' => [
                 [
+                    'id' => 'test-package.health',
+                    'severity' => 'critical',
                     'label' => 'Package-owned doctor check',
                     'passed' => true,
                     'message' => 'Package doctor ran.',
                     'remediation' => null,
+                    'evidence' => [],
                 ],
             ],
         ], JSON_THROW_ON_ERROR));
@@ -352,10 +361,13 @@ it('can skip package doctor checks for installer health gates', function (): voi
             'status' => 'failed',
             'checks' => [
                 [
+                    'id' => 'test-package.failure',
+                    'severity' => 'critical',
                     'label' => 'Failing package-owned doctor check',
                     'passed' => false,
                     'message' => 'Package doctor failed.',
                     'remediation' => null,
+                    'evidence' => [],
                 ],
             ],
         ], JSON_THROW_ON_ERROR));

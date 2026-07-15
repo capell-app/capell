@@ -46,17 +46,17 @@ final class ResolveFrontendResourcePlanAction
     {
         try {
             return $this->resolvePlan($contributions, $declaredHints);
-        } catch (Throwable $exception) {
+        } catch (Throwable $throwable) {
             if (! app()->environment('production')) {
-                throw $exception instanceof FrontendResourcePlanException
-                    ? $exception
-                    : new FrontendResourcePlanException('Unable to resolve the frontend resource plan: ' . $exception->getMessage(), previous: $exception);
+                throw $throwable instanceof FrontendResourcePlanException
+                    ? $throwable
+                    : new FrontendResourcePlanException('Unable to resolve the frontend resource plan: ' . $throwable->getMessage(), previous: $throwable);
             }
 
             $diagnostic = [
                 'code' => 'frontend-resource-plan-invalid',
                 'severity' => 'error',
-                'message' => $exception->getMessage(),
+                'message' => $throwable->getMessage(),
             ];
 
             Log::error('Capell omitted an invalid frontend resource graph.', $diagnostic);
@@ -104,9 +104,7 @@ final class ResolveFrontendResourcePlanAction
                 $signature = $this->compatibilitySignature($resource);
 
                 if (isset($canonicalHandles[$canonicalKey])) {
-                    if ($canonicalSignatures[$canonicalKey] !== $signature) {
-                        throw new FrontendResourcePlanException("Conflicting frontend resource declarations resolve to [{$canonicalKey}].");
-                    }
+                    throw_if($canonicalSignatures[$canonicalKey] !== $signature, FrontendResourcePlanException::class, sprintf('Conflicting frontend resource declarations resolve to [%s].', $canonicalKey));
 
                     $aliases[$resource->handle] = $canonicalHandles[$canonicalKey];
                     $resolvedByHandle[$resource->handle] = $resolvedByHandle[$canonicalHandles[$canonicalKey]];
@@ -127,6 +125,7 @@ final class ResolveFrontendResourcePlanAction
         foreach (array_keys($eagerHandles) as $eagerHandle) {
             $hints = [...$hints, ...($viteHints[$eagerHandle] ?? [])];
         }
+
         $hints = $this->typedHints($hints);
         $eagerCanonicalHandles = array_fill_keys(array_map(static fn (string $handle): string => $aliases[$handle] ?? $handle, array_keys($eagerHandles)), true);
         $head = array_values(array_filter($resolved, static fn (ResolvedFrontendResourceData $resource): bool => isset($eagerCanonicalHandles[$aliases[$expandedParents[$resource->handle]] ?? $expandedParents[$resource->handle]]) && $resource->placement === FrontendResourcePlacement::Head));
@@ -157,14 +156,12 @@ final class ResolveFrontendResourcePlanAction
         $declarations = [];
 
         foreach ($contributions as $contribution) {
-            if (! $contribution instanceof FrontendResourceContributionData) {
-                throw new FrontendResourcePlanException('The frontend resource plan accepts only typed contributions.');
-            }
+            throw_unless($contribution instanceof FrontendResourceContributionData, FrontendResourcePlanException::class, 'The frontend resource plan accepts only typed contributions.');
 
             $resource = $contribution->resource;
 
             if (isset($declarations[$resource->handle]) && $declarations[$resource->handle] !== $resource) {
-                throw new FrontendResourcePlanException("Conflicting frontend resource handle [{$resource->handle}].");
+                throw new FrontendResourcePlanException(sprintf('Conflicting frontend resource handle [%s].', $resource->handle));
             }
 
             $declarations[$resource->handle] = $resource;
@@ -182,9 +179,7 @@ final class ResolveFrontendResourcePlanAction
         $typed = [];
 
         foreach ($hints as $hint) {
-            if (! $hint instanceof FrontendResourceHintData) {
-                throw new FrontendResourcePlanException('The frontend resource plan accepts only typed resource hints.');
-            }
+            throw_unless($hint instanceof FrontendResourceHintData, FrontendResourcePlanException::class, 'The frontend resource plan accepts only typed resource hints.');
 
             $key = implode('|', [$hint->kind->value, $hint->href, $hint->as?->value ?? '', $hint->mimeType ?? '', $hint->crossOrigin?->value ?? '', $hint->fetchPriority?->value ?? '']);
             $typed[$key] = $hint;
@@ -204,12 +199,20 @@ final class ResolveFrontendResourcePlanAction
         $diagnostics = [];
 
         foreach ($declarations as $resource) {
-            if (! $resource->source instanceof ExternalResourceSourceData || $resource->source->integrity !== null || $policy === ExternalResourceIntegrityPolicy::Off) {
+            if (! $resource->source instanceof ExternalResourceSourceData) {
+                continue;
+            }
+
+            if ($resource->source->integrity !== null) {
+                continue;
+            }
+
+            if ($policy === ExternalResourceIntegrityPolicy::Off) {
                 continue;
             }
 
             if ($policy === ExternalResourceIntegrityPolicy::Require) {
-                throw new FrontendResourcePlanException("External frontend resource [{$resource->handle}] requires an integrity hash.");
+                throw new FrontendResourcePlanException(sprintf('External frontend resource [%s] requires an integrity hash.', $resource->handle));
             }
 
             $diagnostics[] = [
@@ -264,7 +267,7 @@ final class ResolveFrontendResourcePlanAction
             }
         };
 
-        foreach ($declarations as $handle => $resource) {
+        foreach (array_keys($declarations) as $handle) {
             $resourceActivations = $activations[$handle] ?? [];
             $isEager = $resourceActivations === [];
 
@@ -369,19 +372,15 @@ final class ResolveFrontendResourcePlanAction
                 return;
             }
 
-            if (isset($visiting[$handle])) {
-                throw new FrontendResourcePlanException("Frontend resource dependency cycle detected at [{$handle}].");
-            }
+            throw_if(isset($visiting[$handle]), FrontendResourcePlanException::class, sprintf('Frontend resource dependency cycle detected at [%s].', $handle));
 
-            $resource = $declarations[$handle] ?? throw new FrontendResourcePlanException("Missing frontend resource dependency [{$handle}].");
+            $resource = $declarations[$handle] ?? throw new FrontendResourcePlanException(sprintf('Missing frontend resource dependency [%s].', $handle));
             $visiting[$handle] = true;
 
             foreach ($resource->dependsOn as $dependency) {
-                $dependencyResource = $declarations[$dependency] ?? throw new FrontendResourcePlanException("Missing frontend resource dependency [{$dependency}] required by [{$handle}].");
+                $dependencyResource = $declarations[$dependency] ?? throw new FrontendResourcePlanException(sprintf('Missing frontend resource dependency [%s] required by [%s].', $dependency, $handle));
 
-                if ($dependencyResource->async) {
-                    throw new FrontendResourcePlanException("Async resources cannot satisfy dependencies: [{$dependency}].");
-                }
+                throw_if($dependencyResource->async, FrontendResourcePlanException::class, sprintf('Async resources cannot satisfy dependencies: [%s].', $dependency));
 
                 $visit($dependency);
             }
@@ -477,13 +476,13 @@ final class ResolveFrontendResourcePlanAction
         $manifestPath = public_path(trim($source->buildDirectory, '/') . '/manifest.json');
 
         if (! is_file($manifestPath)) {
-            throw new FrontendResourcePlanException("Vite manifest not found for frontend resource [{$resource->handle}] at [{$manifestPath}].");
+            throw new FrontendResourcePlanException(sprintf('Vite manifest not found for frontend resource [%s] at [%s].', $resource->handle, $manifestPath));
         }
 
         $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
 
         if (! is_array($manifest) || ! isset($manifest[$source->entry]) || ! is_array($manifest[$source->entry])) {
-            throw new FrontendResourcePlanException("Vite entry [{$source->entry}] is missing for frontend resource [{$resource->handle}].");
+            throw new FrontendResourcePlanException(sprintf('Vite entry [%s] is missing for frontend resource [%s].', $source->entry, $resource->handle));
         }
 
         $entry = $manifest[$source->entry];
@@ -498,7 +497,19 @@ final class ResolveFrontendResourcePlanAction
             }
 
             foreach (($chunk['imports'] ?? []) as $import) {
-                if (! is_string($import) || isset($visited[$import]) || ! isset($manifest[$import]) || ! is_array($manifest[$import])) {
+                if (! is_string($import)) {
+                    continue;
+                }
+
+                if (isset($visited[$import])) {
+                    continue;
+                }
+
+                if (! isset($manifest[$import])) {
+                    continue;
+                }
+
+                if (! is_array($manifest[$import])) {
                     continue;
                 }
 
@@ -528,7 +539,7 @@ final class ResolveFrontendResourcePlanAction
         $entryFile = $entry['file'] ?? null;
 
         if (! is_string($entryFile) || $entryFile === '') {
-            throw new FrontendResourcePlanException("Vite entry [{$source->entry}] has no output file.");
+            throw new FrontendResourcePlanException(sprintf('Vite entry [%s] has no output file.', $source->entry));
         }
 
         $resources[] = $this->resolvedViteResource(
@@ -597,8 +608,11 @@ final class ResolveFrontendResourcePlanAction
             }
 
             $parts = parse_url($resource->url);
+            if (! is_array($parts)) {
+                continue;
+            }
 
-            if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+            if (! isset($parts['scheme'], $parts['host'])) {
                 continue;
             }
 
@@ -612,8 +626,15 @@ final class ResolveFrontendResourcePlanAction
 
         foreach ($hints as $hint) {
             $parts = parse_url($hint->href);
+            if (! is_array($parts)) {
+                continue;
+            }
 
-            if (! is_array($parts) || ($parts['scheme'] ?? null) !== 'https' || ! isset($parts['host'])) {
+            if (($parts['scheme'] ?? null) !== 'https') {
+                continue;
+            }
+
+            if (! isset($parts['host'])) {
                 continue;
             }
 

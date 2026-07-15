@@ -5,13 +5,17 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Marketplace\Actions\BuildMarketplaceInstallPolicyEvidenceAction;
 use Capell\Marketplace\Actions\QueueMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\WarmMarketplaceCatalogueCacheAction;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
@@ -1152,14 +1156,16 @@ it('blocks duplicate queueing while deployment publishing is still running', fun
         state: MarketplaceInstallState::Authorized,
         canInstall: true,
     );
+    $policyEvidence = BuildMarketplaceInstallPolicyEvidenceAction::run($listing);
     $duplicateBlockState = (object) ['wasBlocked' => false];
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new readonly class($listing, $acquisition, $eligibility, $duplicateBlockState)
+    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new readonly class($listing, $acquisition, $eligibility, $policyEvidence, $duplicateBlockState)
     {
         public function __construct(
             private ExtensionListingData $listing,
             private ExtensionAcquisitionData $acquisition,
             private MarketplaceInstallEligibilityData $eligibility,
+            private MarketplaceInstallPolicyEvidenceData $policyEvidence,
             private stdClass $duplicateBlockState,
         ) {}
 
@@ -1170,6 +1176,10 @@ it('blocks duplicate queueing while deployment publishing is still running', fun
                     listing: $this->listing,
                     acquisition: $this->acquisition,
                     eligibility: $this->eligibility,
+                    betaAcknowledged: false,
+                    policyEvidence: $this->policyEvidence,
+                    actor: MarketplaceInstallActorData::system('marketplace-test'),
+                    source: MarketplaceInstallSource::Programmatic,
                 );
             } catch (ValidationException) {
                 $this->duplicateBlockState->wasBlocked = true;
@@ -1186,6 +1196,10 @@ it('blocks duplicate queueing while deployment publishing is still running', fun
         listing: $listing,
         acquisition: $acquisition,
         eligibility: $eligibility,
+        betaAcknowledged: false,
+        policyEvidence: $policyEvidence,
+        actor: MarketplaceInstallActorData::system('marketplace-test'),
+        source: MarketplaceInstallSource::Programmatic,
     );
 
     expect($duplicateBlockState->wasBlocked)->toBeTrue()

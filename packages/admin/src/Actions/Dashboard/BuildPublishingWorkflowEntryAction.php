@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Dashboard;
 
+use Capell\Admin\Actions\Publishing\BuildPublishReadinessAction;
 use Capell\Admin\Data\Dashboard\PublishingWorkflowEntryData;
+use Capell\Admin\Data\Publishing\PublishReadinessData;
 use Capell\Core\Contracts\Extensions\ContributesWorkflowAttention;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Workflow\WorkflowAttentionItemData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Throwable;
@@ -21,10 +25,16 @@ final class BuildPublishingWorkflowEntryAction
 {
     use AsAction;
 
-    public function handle(?Authenticatable $user = null): ?PublishingWorkflowEntryData
-    {
+    public function handle(
+        ?Authenticatable $user = null,
+        (Model&Publishable)|null $record = null,
+    ): ?PublishingWorkflowEntryData {
+        $readiness = $record !== null
+            ? BuildPublishReadinessAction::run($record)
+            : null;
+
         foreach (resolve(CapellPackageRegistry::class)->all() as $manifest) {
-            $entry = $this->entryForManifest($manifest, $user);
+            $entry = $this->entryForManifest($manifest, $user, $readiness);
 
             if ($entry instanceof PublishingWorkflowEntryData) {
                 return $entry;
@@ -34,8 +44,11 @@ final class BuildPublishingWorkflowEntryAction
         return null;
     }
 
-    private function entryForManifest(CapellManifestData $manifest, ?Authenticatable $user): ?PublishingWorkflowEntryData
-    {
+    private function entryForManifest(
+        CapellManifestData $manifest,
+        ?Authenticatable $user,
+        ?PublishReadinessData $readiness,
+    ): ?PublishingWorkflowEntryData {
         if (! CapellCore::isPackageInstalled($manifest->name)) {
             return null;
         }
@@ -79,7 +92,7 @@ final class BuildPublishingWorkflowEntryAction
                     'actionLabel',
                     (string) __('capell-admin::dashboard.publishing_workflow_action'),
                 ),
-                count: $this->attentionCount($attentionItems, $contribution),
+                count: $this->attentionCount($attentionItems, $contribution, $readiness),
             );
         }
 
@@ -114,8 +127,11 @@ final class BuildPublishingWorkflowEntryAction
     /**
      * @param  list<WorkflowAttentionItemData>  $attentionItems
      */
-    private function attentionCount(array $attentionItems, ExtensionContributionData $contribution): int
-    {
+    private function attentionCount(
+        array $attentionItems,
+        ExtensionContributionData $contribution,
+        ?PublishReadinessData $readiness,
+    ): int {
         if ($attentionItems !== []) {
             return array_sum(array_map(
                 static fn (WorkflowAttentionItemData $attentionItem): int => $attentionItem->count ?? 1,
@@ -124,6 +140,10 @@ final class BuildPublishingWorkflowEntryAction
         }
 
         $count = $contribution->metadata['count'] ?? null;
+
+        if (! is_numeric($count) && $readiness instanceof PublishReadinessData) {
+            return count($readiness->blockingCheckIds);
+        }
 
         return is_numeric($count) ? (int) $count : 0;
     }

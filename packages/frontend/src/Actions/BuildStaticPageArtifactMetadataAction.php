@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\PageUrl;
+use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\StaticPageArtifactData;
@@ -87,7 +88,7 @@ class BuildStaticPageArtifactMetadataAction
             ],
             'head' => $this->resourceFingerprint($plan->headResources),
             'body_end' => $this->resourceFingerprint($plan->bodyEndResources),
-            'hints' => $this->fingerprint(array_map(static fn ($hint): array => $hint->toArray(), $plan->hints)),
+            'hints' => $this->fingerprint(array_map(static fn (FrontendResourceHintData $hint): array => $hint->toArray(), $plan->hints)),
         ];
     }
 

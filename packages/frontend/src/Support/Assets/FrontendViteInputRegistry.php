@@ -13,9 +13,7 @@ final class FrontendViteInputRegistry
 
     public function register(string $input, string $package): void
     {
-        if ($input === '' || str_starts_with($input, '/') || str_contains($input, '..')) {
-            throw new InvalidArgumentException('Frontend Vite inputs must be safe application-relative paths.');
-        }
+        throw_if($input === '' || str_starts_with($input, '/') || str_contains($input, '..'), InvalidArgumentException::class, 'Frontend Vite inputs must be safe application-relative paths.');
 
         $this->inputs[$package . '|' . $input] = $input;
     }

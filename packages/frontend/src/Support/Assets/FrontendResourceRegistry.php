@@ -19,12 +19,12 @@ final class FrontendResourceRegistry
     public function register(FrontendResourceGroupData $group): void
     {
         if (isset($this->groups[$group->key])) {
-            throw new InvalidArgumentException("Frontend resource group [{$group->key}] is already registered.");
+            throw new InvalidArgumentException(sprintf('Frontend resource group [%s] is already registered.', $group->key));
         }
 
         foreach ($group->resources as $resource) {
             if (isset($this->resources[$resource->handle])) {
-                throw new InvalidArgumentException("Frontend resource handle is already registered: [{$resource->handle}].");
+                throw new InvalidArgumentException(sprintf('Frontend resource handle is already registered: [%s].', $resource->handle));
             }
         }
 

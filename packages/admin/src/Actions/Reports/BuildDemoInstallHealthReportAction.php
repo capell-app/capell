@@ -10,13 +10,17 @@ use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
+use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\Diagnostics\CapellInstallationState;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
 use Illuminate\Database\ConnectionResolverInterface;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -26,36 +30,46 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private const string REPORT_KEY = 'core.demo_install_health';
 
-    /**
-     * Core doctor checks whose failure blocks a usable demo/install. All other
-     * doctor failures surface as warnings so environment-specific gaps (unbuilt
-     * frontend CSS, marketplace metadata, ...) never mask install blockers.
-     *
-     * @var list<string>
-     */
-    private const array CRITICAL_DOCTOR_CHECK_LABELS = [
-        'Required tables exist',
-        'Seed data is present',
-        'Morph map is complete',
-        'Admin user access',
-        'Homepage route resolves',
-        'Default theme and layout records',
-    ];
-
     private const array EVENT_SOURCING_TABLES = ['stored_events', 'page_revisions'];
 
     public function __construct(
         private readonly BuildDoctorReportAction $buildDoctorReport,
         private readonly RuntimeSchemaState $schemaState,
         private readonly ConnectionResolverInterface $connections,
+        private readonly ResolveCapellInstallationStateAction $resolveInstallationState,
+        private readonly CapellRuntimeSchemaContract $runtimeSchema,
     ) {}
 
     public function handle(): ReportSnapshotData
     {
-        if (! $this->schemaState->hasTable('sites') || ! $this->schemaState->hasTable('languages')) {
+        $installationState = $this->resolveInstallationState->handle();
+
+        if ($installationState === CapellInstallationState::NotInstalled) {
             return new ReportSnapshotData(
                 key: self::REPORT_KEY,
                 emptyState: __('capell-admin::reports.empty_state_demo_install_health'),
+            );
+        }
+
+        if ($installationState === CapellInstallationState::Partial) {
+            $missingTables = $this->runtimeSchema->missingTables();
+
+            return new ReportSnapshotData(
+                key: self::REPORT_KEY,
+                emptyState: __('capell-admin::reports.empty_state_demo_install_health'),
+                findings: [new ReportFindingData(
+                    severity: ReportFindingSeverity::Critical,
+                    title: 'Required tables exist',
+                    description: $missingTables !== []
+                        ? sprintf('Missing tables: %s.', implode(', ', $missingTables))
+                        : 'Core lifecycle state does not record a complete installation.',
+                    id: 'core.schema.required',
+                    remediation: 'Run php artisan migrate, then rerun the Capell installer if the Core lifecycle row is absent.',
+                    evidence: [
+                        'installation_state' => $installationState->value,
+                        'missing_tables' => $missingTables,
+                    ],
+                )],
             );
         }
 
@@ -63,7 +77,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         $doctorChecks = $this->buildDoctorReport->handle(includePackageDoctors: false)->checks;
 
         foreach ($doctorChecks as $doctorCheck) {
-            $finding = $this->findingForFailedCheck($doctorCheck, $this->doctorCheckSeverity($doctorCheck));
+            $finding = $this->findingForFailedCheck($doctorCheck);
 
             if ($finding instanceof ReportFindingData) {
                 $doctorFindings[] = $finding;
@@ -73,13 +87,15 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         $demoFindings = [];
         $demoChecksPassed = 0;
         $demoChecks = [
-            [$this->storageLinkCheck(), ReportFindingSeverity::Warning],
-            [$this->eventSourcingTablesCheck(), ReportFindingSeverity::Critical],
-            [$this->settingsRowsCheck(), ReportFindingSeverity::Warning],
+            $this->queueConnectionCheck(),
+            $this->cacheStoreCheck(),
+            $this->storageLinkCheck(),
+            $this->eventSourcingTablesCheck(),
+            $this->settingsRowsCheck(),
         ];
 
-        foreach ($demoChecks as [$demoCheck, $severity]) {
-            $finding = $this->findingForFailedCheck($demoCheck, $severity);
+        foreach ($demoChecks as $demoCheck) {
+            $finding = $this->findingForFailedCheck($demoCheck);
 
             if ($finding instanceof ReportFindingData) {
                 $demoFindings[] = $finding;
@@ -132,7 +148,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         );
     }
 
-    private function findingForFailedCheck(DoctorCheckResultData $check, ReportFindingSeverity $severity): ?ReportFindingData
+    private function findingForFailedCheck(DoctorCheckResultData $check): ?ReportFindingData
     {
         if ($check->passed) {
             return null;
@@ -147,17 +163,17 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         }
 
         return new ReportFindingData(
-            severity: $severity,
+            severity: match ($check->severity) {
+                DoctorCheckSeverity::Critical => ReportFindingSeverity::Critical,
+                DoctorCheckSeverity::Warning => ReportFindingSeverity::Warning,
+                DoctorCheckSeverity::Info => ReportFindingSeverity::Info,
+            },
             title: $check->label,
             description: $description,
+            id: $check->id,
+            remediation: $check->remediation,
+            evidence: $check->evidence,
         );
-    }
-
-    private function doctorCheckSeverity(DoctorCheckResultData $check): ReportFindingSeverity
-    {
-        return in_array($check->label, self::CRITICAL_DOCTOR_CHECK_LABELS, true)
-            ? ReportFindingSeverity::Critical
-            : ReportFindingSeverity::Warning;
     }
 
     private function storageLinkCheck(): DoctorCheckResultData
@@ -169,6 +185,8 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
                 label: __('capell-admin::reports.demo_install_health_check_storage_link'),
                 passed: true,
                 message: __('capell-admin::reports.demo_install_health_storage_link_present'),
+                id: 'admin.storage-link',
+                severity: DoctorCheckSeverity::Warning,
             );
         }
 
@@ -177,6 +195,52 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             passed: false,
             message: __('capell-admin::reports.demo_install_health_storage_link_missing'),
             remediation: __('capell-admin::reports.demo_install_health_storage_link_remediation'),
+            id: 'admin.storage-link',
+            severity: DoctorCheckSeverity::Warning,
+        );
+    }
+
+    private function queueConnectionCheck(): DoctorCheckResultData
+    {
+        $connection = config('queue.default');
+        $driver = is_string($connection) ? config(sprintf('queue.connections.%s.driver', $connection)) : null;
+        $passed = is_string($connection) && $connection !== '' && is_string($driver) && $driver !== '';
+
+        return new DoctorCheckResultData(
+            label: 'Queue connection is configured',
+            passed: $passed,
+            message: $passed
+                ? sprintf('The [%s] queue connection uses the [%s] driver.', $connection, $driver)
+                : 'The default queue connection does not resolve to a configured driver.',
+            remediation: $passed ? null : 'Set QUEUE_CONNECTION to a configured queue connection, then restart workers.',
+            id: 'core.queue.connection-configured',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'connection' => $connection,
+                'driver' => $driver,
+            ],
+        );
+    }
+
+    private function cacheStoreCheck(): DoctorCheckResultData
+    {
+        $store = config('cache.default');
+        $driver = is_string($store) ? config(sprintf('cache.stores.%s.driver', $store)) : null;
+        $passed = is_string($store) && $store !== '' && is_string($driver) && $driver !== '';
+
+        return new DoctorCheckResultData(
+            label: 'Cache store is configured',
+            passed: $passed,
+            message: $passed
+                ? sprintf('The [%s] cache store uses the [%s] driver.', $store, $driver)
+                : 'The default cache store does not resolve to a configured driver.',
+            remediation: $passed ? null : 'Set CACHE_STORE to a configured cache store, then clear configuration cache.',
+            id: 'core.cache.store-configured',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'store' => $store,
+                'driver' => $driver,
+            ],
         );
     }
 
@@ -195,6 +259,9 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
                     'tables' => implode(', ', $missingTables),
                 ]),
                 remediation: __('capell-admin::reports.demo_install_health_event_sourcing_remediation'),
+                id: 'core.schema.event-sourcing',
+                severity: DoctorCheckSeverity::Critical,
+                evidence: ['missing_tables' => $missingTables],
             );
         }
 
@@ -202,6 +269,8 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             label: __('capell-admin::reports.demo_install_health_check_event_sourcing'),
             passed: true,
             message: __('capell-admin::reports.demo_install_health_event_sourcing_present'),
+            id: 'core.schema.event-sourcing',
+            severity: DoctorCheckSeverity::Critical,
         );
     }
 
@@ -212,6 +281,8 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
                 label: __('capell-admin::reports.demo_install_health_check_settings_rows'),
                 passed: true,
                 message: __('capell-admin::reports.demo_install_health_settings_rows_present'),
+                id: 'admin.settings.rows',
+                severity: DoctorCheckSeverity::Warning,
             );
         }
 
@@ -220,6 +291,8 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             passed: false,
             message: __('capell-admin::reports.demo_install_health_settings_rows_missing'),
             remediation: __('capell-admin::reports.demo_install_health_settings_rows_remediation'),
+            id: 'admin.settings.rows',
+            severity: DoctorCheckSeverity::Warning,
         );
     }
 

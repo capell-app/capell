@@ -50,7 +50,7 @@ final class ResolveFrontendDependencyPlanAction
                 $version = $configuredVersion;
                 $resolution = 'configured';
             } else {
-                throw new FrontendResourcePlanException("Divergent frontend dependency constraints for [{$name}] require an application resolution.");
+                throw new FrontendResourcePlanException(sprintf('Divergent frontend dependency constraints for [%s] require an application resolution.', $name));
             }
 
             $type = collect($dependencies)->contains(static fn (FrontendPackageDependencyData $dependency): bool => $dependency->type === FrontendPackageDependencyType::Runtime)
@@ -62,6 +62,7 @@ final class ResolveFrontendDependencyPlanAction
             } else {
                 $development[] = $specifier;
             }
+
             $resolved[$name] = [
                 'version' => $version,
                 'type' => $type->value,
@@ -124,12 +125,10 @@ final class ResolveFrontendDependencyPlanAction
         $declaredName = is_string($declared) ? explode('@', $declared, 2)[0] : null;
         $declaredManager = is_string($declaredName) ? FrontendPackageManager::tryFrom($declaredName) : null;
 
-        if (is_string($declared) && ! $declaredManager instanceof FrontendPackageManager) {
-            throw new FrontendResourcePlanException("Unsupported packageManager declaration [{$declared}].");
-        }
+        throw_if(is_string($declared) && ! $declaredManager instanceof FrontendPackageManager, FrontendResourcePlanException::class, sprintf('Unsupported packageManager declaration [%s].', $declared));
 
         if ($declaredManager instanceof FrontendPackageManager && $detected !== [] && $detected[0] !== $declaredManager->value) {
-            throw new FrontendResourcePlanException("packageManager [{$declaredManager->value}] conflicts with the detected [{$detected[0]}] lockfile.");
+            throw new FrontendResourcePlanException(sprintf('packageManager [%s] conflicts with the detected [%s] lockfile.', $declaredManager->value, $detected[0]));
         }
 
         return $declaredManager ?? ($detected !== [] ? FrontendPackageManager::from($detected[0]) : FrontendPackageManager::Npm);

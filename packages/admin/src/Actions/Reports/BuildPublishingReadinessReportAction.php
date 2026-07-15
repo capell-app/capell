@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Reports;
 
+use Capell\Admin\Actions\Publishing\BuildPublishReadinessAction;
 use Capell\Admin\Contracts\Reports\BuildsReportSnapshot;
 use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -44,7 +46,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
             $pageCount++;
             $pageFindings = $this->findingsForPage($page);
 
-            if ($page->isPending()) {
+            if ($page->publishVisibilityState() === PublishVisibilityStateEnum::scheduled) {
                 $scheduledPageIds[$page->getKey()] = true;
             }
 
@@ -134,6 +136,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
                 'site_id',
                 'visible_from',
                 'visible_until',
+                'deleted_at',
                 'updated_at',
             ])
             ->lazy(self::PAGE_CHUNK_SIZE);
@@ -174,7 +177,10 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        if ($page->isExpired()) {
+        $readiness = BuildPublishReadinessAction::run($page);
+        $visibilityState = $readiness->currentState;
+
+        if ($visibilityState === PublishVisibilityStateEnum::expired) {
             $findings[] = new ReportFindingData(
                 severity: ReportFindingSeverity::Critical,
                 title: __('capell-admin::reports.publishing_readiness_expired_title'),
@@ -187,13 +193,24 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        if ($page->isPending()) {
+        if ($visibilityState === PublishVisibilityStateEnum::scheduled) {
             $findings[] = new ReportFindingData(
                 severity: ReportFindingSeverity::Warning,
                 title: __('capell-admin::reports.publishing_readiness_scheduled_title'),
                 description: __('capell-admin::reports.publishing_readiness_scheduled_description', [
                     'date' => $this->formatDate($page->visible_from),
                 ]),
+                recordLabel: $recordLabel,
+                actionLabel: __('capell-admin::reports.action_edit_page'),
+                url: $editUrl,
+            );
+        }
+
+        if ($visibilityState === PublishVisibilityStateEnum::draft) {
+            $findings[] = new ReportFindingData(
+                severity: ReportFindingSeverity::Warning,
+                title: __('capell-admin::reports.publishing_readiness_draft_title'),
+                description: __('capell-admin::reports.publishing_readiness_draft_description'),
                 recordLabel: $recordLabel,
                 actionLabel: __('capell-admin::reports.action_edit_page'),
                 url: $editUrl,

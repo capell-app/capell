@@ -120,7 +120,7 @@ function supportContractWriteEnvironmentFiles(
     file_put_contents($root . '/docs/getting-started/install.md', $installDocs);
     file_put_contents($root . '/docs/getting-started/quickstart.md', $installDocs);
     file_put_contents($root . '/.docker/Dockerfile', "RUN apt-get install php{$dockerPhpVersion}\nCOPY php/php.ini /etc/php/{$dockerPhpVersion}/cli/conf.d/99-capell.ini\n");
-    file_put_contents($root . '/.docker/php/php.ini', "memory_limit = {$dockerMemoryLimit}\n");
+    file_put_contents($root . '/.docker/php/php.ini', sprintf('memory_limit = %s%s', $dockerMemoryLimit, PHP_EOL));
     file_put_contents($root . '/.github/workflows/test-fast-pr.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 12.*\n    - php: 8.4\n      laravel: 13.*\n");
     file_put_contents($root . '/.github/workflows/test-full.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 12.*\n    - php: 8.4\n      laravel: 13.*\n");
 }

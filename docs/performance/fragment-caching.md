@@ -67,6 +67,20 @@ final class CategoryObserver
 - **Default TTL is 1 hour** — if you omit the second argument, fragments cache for 3600 seconds.
 - **Surrogate map persists for 30 days** — the internal mapping of surrogate keys to fragment cache keys has its own TTL; old surrogate relationships expire after 30 days.
 
+## Public deferred fragments
+
+Public deferred-fragment responses use a separate owner-aware protocol. Their encrypted envelope carries the page, site, language, layout context, owner, protocol version, and a deterministic content version. The serving endpoint must re-resolve that context from the database on every request.
+
+Authorization and version checks always precede caching:
+
+1. Decode with `PublicFragmentReferenceCodec`.
+2. Require the endpoint's exact `owner`.
+3. Run `ResolvePublicFragmentContextAction` and the owner's additional checks.
+4. Render and run the public HTML safety inspection.
+5. Add public cache headers only to the successful response.
+
+Any malformed, unsupported, unknown-owner, stale, unpublished, deleted, inaccessible, cross-site, cross-language, or mismatched-layout reference returns the same uncached 404. A content or publication change therefore revokes already-issued URLs immediately; a newly rendered page emits a replacement reference.
+
 ## Related
 
 - [Cache invalidation](cache-invalidation.md) — strategies for invalidating caches across your application.

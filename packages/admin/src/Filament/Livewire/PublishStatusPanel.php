@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Livewire;
 
 use Capell\Admin\Actions\Pages\ResolvePagePublishStateAction;
 use Capell\Admin\Actions\Pages\ResolvePublishPanelViewAction;
+use Capell\Admin\Actions\Publishing\BuildPublishReadinessAction;
 use Capell\Admin\Actions\Publishing\CancelScheduledRecordUnpublishAction;
 use Capell\Admin\Actions\Publishing\PublishRecordAction;
 use Capell\Admin\Actions\Publishing\RevertRecordToDraftAction;
@@ -16,6 +17,8 @@ use Capell\Admin\Actions\Publishing\UnpublishRecordAction;
 use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
 use Capell\Admin\Data\Pages\PublishPanelViewData;
 use Capell\Admin\Data\Pages\PublishVisibilityActionResultData;
+use Capell\Admin\Data\Publishing\PublishReadinessData;
+use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Page;
@@ -76,6 +79,16 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
         return ResolvePublishPanelViewAction::run($this->record());
     }
 
+    #[Computed]
+    public function readiness(): PublishReadinessData
+    {
+        $record = $this->record();
+
+        throw_unless($record instanceof Publishable, InvalidArgumentException::class, 'Publish readiness requires a publishable record.');
+
+        return BuildPublishReadinessAction::run($record);
+    }
+
     /**
      * Extender slots — only Page carries the `PagePublishStateData` contract the
      * `PublishPanelExtender` API expects (workspace/preview info from add-ons), so
@@ -112,7 +125,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ->visible(fn (): bool => $this->canEdit() && $this->viewData()->isPublishable() && ! $this->viewData()->isLive())
             ->action(function (): void {
                 $this->perform(
-                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublishVisibilityActionResultData => PublishRecordAction::run($record, $actor),
+                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublicationTransitionResultData => PublishRecordAction::run($record, $actor),
                     'published_notification',
                 );
             });
@@ -140,7 +153,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ])
             ->action(function (array $data): void {
                 $this->perform(
-                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublishVisibilityActionResultData => ScheduleRecordPublishAction::run(
+                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublicationTransitionResultData => ScheduleRecordPublishAction::run(
                         $record,
                         $actor,
                         CarbonImmutable::parse((string) $data['publish_at']),
@@ -171,7 +184,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ])
             ->action(function (array $data): void {
                 $this->perform(
-                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublishVisibilityActionResultData => ScheduleRecordUnpublishAction::run(
+                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublicationTransitionResultData => ScheduleRecordUnpublishAction::run(
                         $record,
                         $actor,
                         CarbonImmutable::parse((string) $data['unpublish_at']),
@@ -194,7 +207,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ->modalDescription(__('capell-admin::publish_panel.switch_to_draft_confirmation'))
             ->action(function (): void {
                 $this->perform(
-                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublishVisibilityActionResultData => RevertRecordToDraftAction::run($record, $actor),
+                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublicationTransitionResultData => RevertRecordToDraftAction::run($record, $actor),
                     'reverted_to_draft_notification',
                 );
             });
@@ -214,7 +227,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ->modalDescription(__('capell-admin::message.unpublish_page_confirmation'))
             ->action(function (): void {
                 $this->perform(
-                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublishVisibilityActionResultData => UnpublishRecordAction::run($record, $actor),
+                    fn (Model&Publishable $record, AuthenticatedUser $actor): PublicationTransitionResultData => UnpublishRecordAction::run($record, $actor),
                     'unpublished_notification',
                 );
             });
@@ -322,7 +335,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
      * Resolve the actor, run the given publish mutation against the record, and —
      * only when it changed — refresh.
      *
-     * @param  callable(Model&Publishable, AuthenticatedUser): PublishVisibilityActionResultData  $runner
+     * @param  callable(Model&Publishable, AuthenticatedUser): (PublicationTransitionResultData|PublishVisibilityActionResultData)  $runner
      */
     private function perform(callable $runner, string $messageKey): void
     {
@@ -341,9 +354,15 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
         $this->afterChange($runner($record, $actor), $messageKey);
     }
 
-    private function afterChange(PublishVisibilityActionResultData $result, string $messageKey): void
-    {
-        if (! $result->changed) {
+    private function afterChange(
+        PublicationTransitionResultData|PublishVisibilityActionResultData $result,
+        string $messageKey,
+    ): void {
+        $changed = $result instanceof PublicationTransitionResultData
+            ? $result->changed()
+            : $result->changed;
+
+        if (! $changed) {
             return;
         }
 

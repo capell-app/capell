@@ -12,8 +12,6 @@ final class InlineResourceSourceData extends Data implements FrontendResourceSou
 {
     public function __construct(public readonly string $content)
     {
-        if ($content === '') {
-            throw new InvalidArgumentException('Inline resource content cannot be empty.');
-        }
+        throw_if($content === '', InvalidArgumentException::class, 'Inline resource content cannot be empty.');
     }
 }

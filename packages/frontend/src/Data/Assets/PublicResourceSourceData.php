@@ -14,15 +14,11 @@ final class PublicResourceSourceData extends Data implements FrontendResourceSou
 
     public function __construct(string $path)
     {
-        if (str_starts_with($path, '//') || preg_match('/\A[a-z][a-z0-9+.-]*:/i', $path) === 1) {
-            throw new InvalidArgumentException('Public resource path must be a safe local path.');
-        }
+        throw_if(str_starts_with($path, '//') || preg_match('/\A[a-z][a-z0-9+.-]*:/i', $path) === 1, InvalidArgumentException::class, 'Public resource path must be a safe local path.');
 
         $path = ltrim($path, '/');
 
-        if ($path === '' || str_contains($path, '\\') || preg_match('#(^|/)\.\.(/|$)#', $path) === 1 || filter_var($path, FILTER_VALIDATE_URL) !== false) {
-            throw new InvalidArgumentException('Public resource path must be a safe local path.');
-        }
+        throw_if($path === '' || str_contains($path, '\\') || preg_match('#(^|/)\.\.(/|$)#', $path) === 1 || filter_var($path, FILTER_VALIDATE_URL) !== false, InvalidArgumentException::class, 'Public resource path must be a safe local path.');
 
         $this->path = $path;
     }

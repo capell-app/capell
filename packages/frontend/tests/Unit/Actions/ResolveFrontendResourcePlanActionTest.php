@@ -6,9 +6,11 @@ use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
 use Capell\Frontend\Data\Assets\ExternalResourceSourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
+use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
 use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
 use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
+use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Enums\CrossOrigin;
 use Capell\Frontend\Enums\FrontendResourceHintKind;
@@ -40,7 +42,7 @@ it('resolves and dependency-orders eager resources across placements', function 
         defer: false,
     );
 
-    $plan = (new ResolveFrontendResourcePlanAction(url(), resolve(Vite::class)))->handle([
+    $plan = new ResolveFrontendResourcePlanAction(url(), resolve(Vite::class))->handle([
         new FrontendResourceContributionData($plugin),
         new FrontendResourceContributionData($library),
     ]);
@@ -122,7 +124,7 @@ it('preserves every independent lazy activation trigger for a shared resource', 
         ->and($plan->bodyEndResources)->toBe([])
         ->and($plan->lazyActivationGraphs)->toHaveCount(3)
         ->and(array_map(
-            static fn ($activation): array => [$activation->target, $activation->loadingStrategy],
+            static fn (FrontendResourceActivationPlanData $activation): array => [$activation->target, $activation->loadingStrategy],
             $plan->lazyActivationGraphs,
         ))->toBe([
             ['widget_a', PresentationLoadingStrategy::Visible],
@@ -145,7 +147,7 @@ it('promotes a shared resource and its dependencies when any contribution is eag
         ]),
     ]);
 
-    expect(array_map(static fn ($resource): string => $resource->handle, $plan->headResources))
+    expect(array_map(static fn (ResolvedFrontendResourceData $resource): string => $resource->handle, $plan->headResources))
         ->toBe([$library->handle, $plugin->handle])
         ->and($plan->lazyActivationGraphs)->toBe([]);
 });
@@ -176,7 +178,7 @@ it('expands production vite entries with imported css and module preloads', func
             new FrontendResourceContributionData($resource),
         ]);
 
-        expect(array_map(static fn ($resolved): string => (string) $resolved->url, $plan->headResources))
+        expect(array_map(static fn (ResolvedFrontendResourceData $resolved): string => (string) $resolved->url, $plan->headResources))
             ->toBe([
                 'http://localhost/' . $buildDirectory . '/assets/app-123.css',
                 'http://localhost/' . $buildDirectory . '/assets/vendor-456.css',

@@ -317,10 +317,10 @@ class PagesTable implements TableConfigurator
         }
 
         return match (PublishVisibilityStateEnum::tryFrom($value)) {
-            PublishVisibilityStateEnum::draft => $query->draftSentinel(),
+            PublishVisibilityStateEnum::draft => $query->draft(),
             PublishVisibilityStateEnum::scheduled => $query->scheduled(),
             PublishVisibilityStateEnum::expired => $query->expired(),
-            PublishVisibilityStateEnum::published => $query->publishedDate(),
+            PublishVisibilityStateEnum::published => $query->published(),
             default => $query,
         };
     }

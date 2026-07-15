@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Frontend\Actions\ResolveFrontendDependencyPlanAction;
+use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Enums\FrontendPackageManager;
@@ -22,7 +23,7 @@ it('selects each supported manager and separates deterministic runtime and devel
     $registry->register(new FrontendPackageDependencyData('swiper', '^12.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/gallery'));
     $registry->register(new FrontendPackageDependencyData('vite-plugin-example', '^2.0.0', FrontendPackageDependencyType::Development, 'capell-app/gallery'));
 
-    $plan = (new ResolveFrontendDependencyPlanAction($registry))->handle($path);
+    $plan = new ResolveFrontendDependencyPlanAction($registry)->handle($path);
 
     expect($plan->manager)->toBe($manager)
         ->and($plan->runtimeCommand)->toBe([...$runtimePrefix, 'swiper@^12.0.0'])
@@ -39,12 +40,12 @@ it('rejects conflicting lockfiles and package manager disagreement', function ()
     File::put($path . '/package.json', json_encode(['packageManager' => 'pnpm@9.0.0'], JSON_THROW_ON_ERROR));
     File::put($path . '/package-lock.json', '{}');
 
-    expect(fn () => (new ResolveFrontendDependencyPlanAction(new FrontendPackageDependencyRegistry))->handle($path))
+    expect(fn (): FrontendDependencyPlanData => new ResolveFrontendDependencyPlanAction(new FrontendPackageDependencyRegistry)->handle($path))
         ->toThrow(FrontendResourcePlanException::class, 'conflicts');
 
     File::put($path . '/pnpm-lock.yaml', 'lock');
 
-    expect(fn () => (new ResolveFrontendDependencyPlanAction(new FrontendPackageDependencyRegistry))->handle($path))
+    expect(fn (): FrontendDependencyPlanData => new ResolveFrontendDependencyPlanAction(new FrontendPackageDependencyRegistry)->handle($path))
         ->toThrow(FrontendResourcePlanException::class, 'Conflicting');
 });
 
@@ -55,13 +56,13 @@ it('merges identical requirements and requires resolution for divergent package 
     $registry->register(new FrontendPackageDependencyData('swiper', '^12.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/gallery'));
     $registry->register(new FrontendPackageDependencyData('swiper', '^12.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/slideshow'));
 
-    $plan = (new ResolveFrontendDependencyPlanAction($registry))->handle($path);
+    $plan = new ResolveFrontendDependencyPlanAction($registry)->handle($path);
     expect($plan->runtimeCommand)->toBe(['npm', 'install', 'swiper@^12.0.0'])
         ->and($plan->requirements['swiper']['constraints'])->toHaveCount(2);
 
     $registry->register(new FrontendPackageDependencyData('swiper', '^11.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/legacy-gallery'));
 
-    expect(fn () => (new ResolveFrontendDependencyPlanAction($registry))->handle($path))
+    expect(fn (): FrontendDependencyPlanData => new ResolveFrontendDependencyPlanAction($registry)->handle($path))
         ->toThrow(FrontendResourcePlanException::class, 'require an application resolution');
 });
 
@@ -72,7 +73,7 @@ it('uses an existing direct application dependency as the explicit resolution', 
     $registry->register(new FrontendPackageDependencyData('swiper', '^12.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/gallery'));
     $registry->register(new FrontendPackageDependencyData('swiper', '^11.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/slideshow'));
 
-    $plan = (new ResolveFrontendDependencyPlanAction($registry))->handle($path);
+    $plan = new ResolveFrontendDependencyPlanAction($registry)->handle($path);
 
     expect($plan->runtimeCommand)->toBe(['npm', 'install', 'swiper@^13.0.0'])
         ->and($plan->requirements['swiper']['resolution'])->toBe('application')

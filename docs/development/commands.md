@@ -101,7 +101,8 @@ These commands are defined in the root `composer.json` or `package.json`:
 | `composer lint`                    | Run changed-file Pint formatting                                            |
 | `composer analyze`                 | Run the fast PHPStan configuration                                          |
 | `composer preflight`               | Run fast PHPStan and changed-file formatting                                |
-| `composer preflight:all`           | Run Composer path checks, Rector, Pint, Prettier, ESLint, PHPStan, and Pest |
+| `composer preflight:all`           | Run all CI-safe checks without changing source files                        |
+| `composer preflight:fix`           | Apply Rector, Pint, and Prettier changes, then run `preflight:all`          |
 | `composer check:root-docs`         | Ensure no unexpected Markdown files are added to the repository root        |
 | `composer check:docs-links`        | Ensure all relative documentation links resolve                             |
 | `composer check:docs-orphans`      | Ensure every docs page is reachable from the docs entry points              |

@@ -7,6 +7,7 @@ use Composer\Semver\Semver;
 
 it('defines the public v1 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
+    /** @var list<array{name: string, path: string}> $splitPackages */
     $splitPackages = json_decode(
         file_get_contents($root . '/config/release-packages.json'),
         true,

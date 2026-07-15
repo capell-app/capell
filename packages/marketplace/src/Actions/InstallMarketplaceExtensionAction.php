@@ -6,9 +6,13 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
+use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Exceptions\PurchaseRequiredException;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
@@ -22,6 +26,7 @@ use Filament\Actions\Action as FilamentAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Throwable;
@@ -30,18 +35,27 @@ final class InstallMarketplaceExtensionAction
 {
     use AsAction;
 
+    private ?MarketplaceInstallPolicyEvidenceData $activePolicyEvidence = null;
+
+    private ?MarketplaceInstallRequestData $activeRequest = null;
+
     public function __construct(
         private readonly MarketplaceClient $marketplace,
         private readonly MarketplaceConnectionFormModel $connection,
         private readonly MarketplaceInstallActionPresenter $presenter,
     ) {}
 
-    /**
-     * @param  array<string, mixed>  $arguments
-     * @param  array<string, mixed>  $data
-     */
-    public function handle(array $arguments, array $data = [], bool $redirectAccountActions = false): ?string
+    public function handle(MarketplaceInstallRequestData $request): ?string
     {
+        $this->activeRequest = $request;
+        $arguments = [
+            'slug' => $request->extensionSlug,
+            'composer_name' => $request->options['composer_name'] ?? null,
+            'install_eligibility_policy' => $request->options['install_eligibility_policy'] ?? null,
+        ];
+        $data = $request->options;
+        $redirectAccountActions = ($request->options['_redirect_account_actions'] ?? false) === true;
+        $this->activePolicyEvidence = null;
         $listing = $this->freshListingForInstall($arguments);
 
         if (! $listing instanceof ExtensionListingData) {
@@ -54,6 +68,46 @@ final class InstallMarketplaceExtensionAction
         }
 
         $selectedInstallOptions = $this->selectedInstallOptionsFromData($listing, $data);
+        $betaAcknowledged = $request->betaAcknowledged;
+
+        if ($betaAcknowledged) {
+            $selectedInstallOptions['beta_acknowledged'] = true;
+        }
+
+        $dependencyMaturity = ResolveMarketplaceDependencyMaturityAction::run($listing);
+        $policyReason = $this->maturityPolicyReason($listing, $dependencyMaturity, $betaAcknowledged);
+        $blockingDependency = match ($policyReason) {
+            'beta_dependency_acknowledgement_required' => array_search('beta', $dependencyMaturity, true),
+            'incompatible' => array_search('missing', $dependencyMaturity, true),
+            default => null,
+        };
+        $this->activePolicyEvidence = BuildMarketplaceInstallPolicyEvidenceAction::run(
+            listing: $listing,
+            dependencyMaturity: $dependencyMaturity,
+            compatibilityAllowed: $policyReason !== 'incompatible',
+            consentAllowed: $policyReason === null,
+            reason: $policyReason,
+            blockingDependency: is_string($blockingDependency) ? $blockingDependency : null,
+        );
+
+        if (is_string($policyReason)) {
+            $eligibility = new MarketplaceInstallEligibilityData(
+                state: MarketplaceInstallState::Blocked,
+                blockReason: $policyReason,
+                metadata: array_filter([
+                    'reason' => $policyReason,
+                    'dependency' => is_string($blockingDependency) ? $blockingDependency : null,
+                ]),
+            );
+            $this->recordBlockedAttempt($listing, $selectedInstallOptions, $eligibility);
+            $this->presenter->sendBlockedNotification([
+                ...$arguments,
+                'install_eligibility_policy' => $eligibility->toArray(),
+            ]);
+
+            return null;
+        }
+
         $eligibility = $this->installEligibilityData($listing, $arguments);
 
         if ($eligibility->blocksInstall()) {
@@ -141,6 +195,29 @@ final class InstallMarketplaceExtensionAction
         return null;
     }
 
+    /** @param array<string, string> $dependencyMaturity */
+    private function maturityPolicyReason(
+        ExtensionListingData $listing,
+        array $dependencyMaturity,
+        bool $betaAcknowledged,
+    ): ?string {
+        if (in_array('missing', $dependencyMaturity, true)) {
+            return 'incompatible';
+        }
+
+        if ($betaAcknowledged) {
+            return null;
+        }
+
+        if ($listing->maturity === 'beta') {
+            return 'beta_acknowledgement_required';
+        }
+
+        return in_array('beta', $dependencyMaturity, true)
+            ? 'beta_dependency_acknowledgement_required'
+            : null;
+    }
+
     /** @param array<string, mixed> $arguments */
     private function freshListingForInstall(array $arguments): ?ExtensionListingData
     {
@@ -167,6 +244,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $listing->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, $eligibility->blockReason ?? 'blocked'),
+            actor: $this->installActor(),
+            source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             requestedOptions: $selectedInstallOptions,
             eligibility: $eligibility->toArray(),
             context: $this->installAttemptContext(),
@@ -220,6 +301,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $listing->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, 'entitlement_required'),
+            actor: $this->installActor(),
+            source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             requestedOptions: $selectedInstallOptions,
             eligibility: [
                 ...$eligibility->toArray(),
@@ -274,6 +359,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $listing->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::AuthorizationFailed,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, 'authorization_failed'),
+            actor: $this->installActor(),
+            source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             requestedOptions: $selectedInstallOptions,
             eligibility: $eligibility->toArray(),
             context: $this->installAttemptContext(),
@@ -297,6 +386,10 @@ final class InstallMarketplaceExtensionAction
             composerName: $acquisition->composerName,
             kind: $listing->kind,
             status: MarketplaceInstallIntentStatus::Blocked,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions, $authorizationEligibility?->blockReason ?? 'blocked'),
+            actor: $this->installActor(),
+            source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             composerCommand: $acquisition->composerCommand,
             versionConstraint: $acquisition->versionConstraint,
             requestedOptions: $selectedInstallOptions,
@@ -320,6 +413,10 @@ final class InstallMarketplaceExtensionAction
             listing: $listing,
             acquisition: $acquisition,
             eligibility: $eligibility,
+            betaAcknowledged: $this->betaAcknowledged($selectedInstallOptions),
+            policyEvidence: $this->policyEvidence($listing, $selectedInstallOptions),
+            actor: $this->installActor(),
+            source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             requestedOptions: $selectedInstallOptions,
             context: $this->installAttemptContext(),
             deploymentMetadata: [
@@ -330,6 +427,57 @@ final class InstallMarketplaceExtensionAction
             telemetryStatus: $this->requiresMarketplaceAuthorization($listing) ? null : 'pending',
             user: auth()->user(),
         );
+    }
+
+    /** @param array<string, mixed> $selectedInstallOptions */
+    private function betaAcknowledged(array $selectedInstallOptions): bool
+    {
+        return ($selectedInstallOptions['beta_acknowledged'] ?? false) === true;
+    }
+
+    /** @param array<string, mixed> $selectedInstallOptions */
+    private function policyEvidence(
+        ExtensionListingData $listing,
+        array $selectedInstallOptions,
+        ?string $reason = null,
+    ): MarketplaceInstallPolicyEvidenceData {
+        if ($this->activePolicyEvidence instanceof MarketplaceInstallPolicyEvidenceData) {
+            return new MarketplaceInstallPolicyEvidenceData(
+                listingFingerprint: $this->activePolicyEvidence->listingFingerprint,
+                listingFetchedAt: $this->activePolicyEvidence->listingFetchedAt,
+                selectedMaturity: $this->activePolicyEvidence->selectedMaturity,
+                dependencyMaturity: $this->activePolicyEvidence->dependencyMaturity,
+                entitlementAllowed: ! in_array($reason, [
+                    'account_required',
+                    'email_verification_required',
+                    'entitlement_required',
+                    'purchase_required',
+                ], true),
+                compatibilityAllowed: $reason !== 'incompatible'
+                    && $this->activePolicyEvidence->compatibilityAllowed,
+                consentAllowed: $this->activePolicyEvidence->consentAllowed,
+                reason: $reason ?? $this->activePolicyEvidence->reason,
+                blockingDependency: $this->activePolicyEvidence->blockingDependency,
+            );
+        }
+
+        $acknowledged = $this->betaAcknowledged($selectedInstallOptions);
+
+        return BuildMarketplaceInstallPolicyEvidenceAction::run(
+            listing: $listing,
+            consentAllowed: $listing->maturity !== 'beta' || $acknowledged,
+            reason: $reason,
+        );
+    }
+
+    private function installActor(): MarketplaceInstallActorData
+    {
+        $user = auth()->user();
+
+        return $this->activeRequest?->actor
+            ?? ($user instanceof Authenticatable
+                ? MarketplaceInstallActorData::fromAuthenticatable($user)
+                : MarketplaceInstallActorData::system());
     }
 
     private function authorizationBlocksInstall(?MarketplaceInstallEligibilityData $eligibility): bool

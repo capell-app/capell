@@ -132,6 +132,43 @@ it('deduplicates catalogue entries by composer package before running lifecycle 
         ->and($report['extensions'][0]['extension'])->toBe('SEO Suite');
 });
 
+it('rejects prompt-free beta lifecycle installs without explicit acknowledgement', function (): void {
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [[
+                'slug' => 'beta-tool',
+                'name' => 'Beta Tool',
+                'composer_name' => 'capell-app/beta-tool',
+                'kind' => 'tool',
+                'price_cents' => 0,
+                'is_paid' => false,
+                'latest_version' => '1.0.0',
+                'catalogue_role' => 'extension',
+                'maturity' => 'beta',
+                'maturity_label' => 'Beta',
+                'included_with_capell_all' => false,
+            ]],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $exitCode = Artisan::call('marketplace:qa:extensions-lifecycle', [
+        '--json' => true,
+        '--only' => 'capell-app/beta-tool',
+    ]);
+
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+    $evidence = $attempt->policy_evidence;
+    expect($evidence)->toBeArray();
+    assert(is_array($evidence));
+
+    expect($exitCode)->toBe(1)
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
+        ->and($attempt->failure_reason)->toBe('beta_acknowledgement_required')
+        ->and($attempt->beta_acknowledged)->toBeFalse()
+        ->and($evidence['consentAllowed'])->toBeFalse();
+});
+
 it('runs lifecycle qa through the install attempt pipeline and reports composer failures', function (): void {
     Http::fake([
         'https://marketplace.test/api/extensions*' => Http::response([

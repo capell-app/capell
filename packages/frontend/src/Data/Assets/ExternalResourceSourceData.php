@@ -29,17 +29,13 @@ final class ExternalResourceSourceData extends Data implements FrontendResourceS
     {
         $parts = parse_url($this->httpsUrl);
 
-        if (
-            ! is_array($parts)
-            || ($parts['scheme'] ?? null) !== 'https'
-            || ! isset($parts['host'])
-            || isset($parts['user'])
-            || isset($parts['pass'])
-            || isset($parts['fragment'])
-            || filter_var($this->httpsUrl, FILTER_VALIDATE_URL) === false
-        ) {
-            throw new InvalidArgumentException('External resources must use an absolute HTTPS URL without credentials or fragments.');
-        }
+        throw_if(! is_array($parts)
+        || ($parts['scheme'] ?? null) !== 'https'
+        || ! isset($parts['host'])
+        || isset($parts['user'])
+        || isset($parts['pass'])
+        || isset($parts['fragment'])
+        || filter_var($this->httpsUrl, FILTER_VALIDATE_URL) === false, InvalidArgumentException::class, 'External resources must use an absolute HTTPS URL without credentials or fragments.');
     }
 
     private function assertValidIntegrity(): void
@@ -50,14 +46,10 @@ final class ExternalResourceSourceData extends Data implements FrontendResourceS
 
         $values = preg_split('/\s+/', trim($this->integrity));
 
-        if ($values === false || $values === []) {
-            throw new InvalidArgumentException('External resource integrity must contain a valid SRI hash.');
-        }
+        throw_if($values === false || $values === [], InvalidArgumentException::class, 'External resource integrity must contain a valid SRI hash.');
 
         foreach ($values as $value) {
-            if (preg_match('/\Asha(?:256|384|512)-[A-Za-z0-9+\/]+={0,2}\z/', $value) !== 1) {
-                throw new InvalidArgumentException('External resource integrity must contain only sha256, sha384, or sha512 hashes.');
-            }
+            throw_if(preg_match('/\Asha(?:256|384|512)-[A-Za-z0-9+\/]+={0,2}\z/', $value) !== 1, InvalidArgumentException::class, 'External resource integrity must contain only sha256, sha384, or sha512 hashes.');
         }
     }
 }

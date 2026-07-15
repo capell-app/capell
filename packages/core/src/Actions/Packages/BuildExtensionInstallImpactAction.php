@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Packages;
 
 use Capell\Core\Data\ExtensionInstallImpactData;
+use Capell\Core\Data\ExtensionInstallImpactNodeData;
 use Capell\Core\Data\ExtensionSurfaceData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
@@ -16,14 +17,22 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static ExtensionInstallImpactData run(CapellManifestData $manifest, PackageCapabilityGraphData $graph)
+ * @method static ExtensionInstallImpactData run(CapellManifestData $manifest, PackageCapabilityGraphData $graph, array<string, CapellManifestData> $dependencyManifests = [], array<string, array<string, mixed>> $nodeMetadata = [])
  */
 final class BuildExtensionInstallImpactAction
 {
     use AsObject;
 
-    public function handle(CapellManifestData $manifest, PackageCapabilityGraphData $graph): ExtensionInstallImpactData
-    {
+    /**
+     * @param  array<string, CapellManifestData>  $dependencyManifests
+     * @param  array<string, array<string, mixed>>  $nodeMetadata
+     */
+    public function handle(
+        CapellManifestData $manifest,
+        PackageCapabilityGraphData $graph,
+        array $dependencyManifests = [],
+        array $nodeMetadata = [],
+    ): ExtensionInstallImpactData {
         $unknownCapabilities = $graph->unknownFor($manifest->name);
 
         return new ExtensionInstallImpactData(
@@ -56,7 +65,101 @@ final class BuildExtensionInstallImpactAction
             commercialTier: $manifest->commercial->proposedLicense ?? 'unspecified',
             screenshots: $this->screenshots($manifest),
             warnings: $this->warnings($manifest, $unknownCapabilities),
+            dependencyNodes: $this->dependencyNodes($manifest, $dependencyManifests, $nodeMetadata),
         );
+    }
+
+    /**
+     * @param  array<string, CapellManifestData>  $dependencyManifests
+     * @param  array<string, array<string, mixed>>  $nodeMetadata
+     * @return list<ExtensionInstallImpactNodeData>
+     */
+    private function dependencyNodes(
+        CapellManifestData $manifest,
+        array $dependencyManifests,
+        array $nodeMetadata,
+    ): array {
+        $manifests = [$manifest->name => $manifest, ...$dependencyManifests];
+        $queue = [[$manifest->name, true, 'Selected directly']];
+        $visited = [];
+        $nodes = [];
+
+        while ($queue !== []) {
+            [$packageName, $direct, $reason] = array_shift($queue);
+
+            if (isset($visited[$packageName])) {
+                continue;
+            }
+
+            $visited[$packageName] = true;
+            $nodeManifest = $manifests[$packageName] ?? null;
+
+            if (! $nodeManifest instanceof CapellManifestData) {
+                continue;
+            }
+
+            $metadata = $nodeMetadata[$packageName] ?? [];
+            $nodes[] = $this->dependencyNode($nodeManifest, $direct, $reason, $metadata);
+
+            foreach ($nodeManifest->requires as $requiredPackage) {
+                $queue[] = [$requiredPackage, false, sprintf('Required by %s', $nodeManifest->name)];
+            }
+        }
+
+        return $nodes;
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function dependencyNode(
+        CapellManifestData $manifest,
+        bool $direct,
+        string $reason,
+        array $metadata,
+    ): ExtensionInstallImpactNodeData {
+        $routes = [];
+        $storage = [];
+
+        foreach ($manifest->contributes as $contribution) {
+            if ($contribution->type === ExtensionContributionType::Route) {
+                $routes[] = $contribution->class ?? 'declared-route';
+            }
+        }
+
+        foreach ($manifest->capabilities as $capability) {
+            if (str_contains($capability, 'storage') || str_contains($capability, 'filesystem')) {
+                $storage[] = $capability;
+            }
+        }
+
+        $currentVersion = is_string($metadata['current_version'] ?? null)
+            ? $metadata['current_version']
+            : null;
+
+        return new ExtensionInstallImpactNodeData(
+            composerName: $manifest->name,
+            displayName: $manifest->displayName,
+            direct: $direct,
+            reason: $reason,
+            maturity: is_string($metadata['maturity'] ?? null) ? $metadata['maturity'] : $this->maturity($manifest->version),
+            entitlement: is_string($metadata['entitlement'] ?? null) ? $metadata['entitlement'] : ($manifest->tier === 'free' ? 'included' : 'required'),
+            changeOperation: is_string($metadata['operation'] ?? null) ? $metadata['operation'] : ($currentVersion === null ? 'install' : 'update'),
+            currentVersion: $currentVersion,
+            targetVersion: is_string($metadata['target_version'] ?? null) ? $metadata['target_version'] : $manifest->version,
+            migrations: $this->migrationImpact($manifest),
+            routes: array_values(array_unique($routes)),
+            scheduledJobs: $this->scheduledJobs($manifest),
+            storage: array_values(array_unique($storage)),
+            permissions: $manifest->permissions,
+        );
+    }
+
+    private function maturity(string $version): string
+    {
+        return match (true) {
+            str_contains($version, 'alpha') => 'alpha',
+            str_contains($version, 'beta'), str_contains($version, 'dev') => 'beta',
+            default => 'released',
+        };
     }
 
     /** @return list<string> */

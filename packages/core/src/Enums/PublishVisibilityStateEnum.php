@@ -49,7 +49,7 @@ enum PublishVisibilityStateEnum: string implements HasLabel
 
         return match (true) {
             $trashed => self::deleted,
-            $until instanceof CarbonImmutable && $until->lessThan($reference) => self::expired,
+            $until instanceof CarbonImmutable && $until->lessThanOrEqualTo($reference) => self::expired,
             PublishSentinel::isDraftValue($from, $reference) => self::draft,
             $from instanceof CarbonImmutable && $from->greaterThan($reference) => self::scheduled,
             default => self::published,

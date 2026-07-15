@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Pages;
 
 use Capell\Admin\Data\PagePublishStateData;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
-use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -22,7 +22,9 @@ final class ResolvePagePublishStateAction
         ?string $contextName = null,
         ?string $contextStatus = null,
     ): PagePublishStateData {
-        $isDraft = $this->isDraft($page);
+        $state = $page->publishVisibilityState();
+        $isDraft = (int) ($page->getAttributes()['workspace_id'] ?? 0) !== 0
+            || $state === PublishVisibilityStateEnum::draft;
 
         return new PagePublishStateData(
             pageId: (int) $page->getKey(),
@@ -32,19 +34,11 @@ final class ResolvePagePublishStateAction
             contextId: $contextId,
             contextName: $contextName,
             contextStatus: $contextStatus,
-            scheduledPublishAt: $isDraft ? null : $this->scheduledPublishAt($page),
+            scheduledPublishAt: $state === PublishVisibilityStateEnum::scheduled
+                ? $this->dateAttribute($page, 'visible_from')
+                : null,
             unpublishAt: $isDraft ? null : $this->dateAttribute($page, 'visible_until'),
         );
-    }
-
-    private function isDraft(Page $page): bool
-    {
-        if ((int) ($page->getAttributes()['workspace_id'] ?? 0) !== 0) {
-            return true;
-        }
-
-        // The far-future draft sentinel is a draft, not a genuine schedule.
-        return PublishSentinel::isDraftValue($this->dateAttribute($page, 'visible_from'));
     }
 
     private function publishedAt(Page $page): ?CarbonImmutable
@@ -62,17 +56,6 @@ final class ResolvePagePublishStateAction
         }
 
         return null;
-    }
-
-    private function scheduledPublishAt(Page $page): ?CarbonImmutable
-    {
-        $visibleFrom = $this->dateAttribute($page, 'visible_from');
-
-        return $visibleFrom instanceof CarbonImmutable
-            && $visibleFrom->isFuture()
-            && ! PublishSentinel::isDraftValue($visibleFrom)
-            ? $visibleFrom
-            : null;
     }
 
     private function dateAttribute(Page $page, string $attribute): ?CarbonImmutable

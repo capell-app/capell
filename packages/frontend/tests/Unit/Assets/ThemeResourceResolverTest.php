@@ -60,5 +60,5 @@ it('uses registered trusted package groups without reconstructing declarations',
     $registry = new FrontendResourceRegistry;
     $registry->register($group);
 
-    expect((new ThemeResourceResolver($registry))->group(new Theme, 'gallery'))->toBe($group);
+    expect(new ThemeResourceResolver($registry)->group(new Theme, 'gallery'))->toBe($group);
 });

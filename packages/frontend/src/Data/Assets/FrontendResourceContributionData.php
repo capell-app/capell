@@ -15,9 +15,7 @@ final class FrontendResourceContributionData extends Data
         public readonly array $activations = [],
     ) {
         foreach ($activations as $activation) {
-            if (! $activation instanceof FrontendResourceActivationData) {
-                throw new InvalidArgumentException('Frontend resource contributions require typed activations.');
-            }
+            throw_unless($activation instanceof FrontendResourceActivationData, InvalidArgumentException::class, 'Frontend resource contributions require typed activations.');
         }
     }
 }

@@ -668,6 +668,12 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'install_confirmation' => $extension->installConfirmation,
             'install_options' => $extension->installOptions,
             'required_dependencies' => $extension->requiredDependencies,
+            'install_impact' => is_array($extension->metadata['install_impact'] ?? null)
+                ? $extension->metadata['install_impact']
+                : [],
+            'entitlement' => is_string($extension->metadata['entitlement'] ?? null)
+                ? $extension->metadata['entitlement']
+                : null,
             'capell_version_constraint' => $extension->capellVersionConstraint,
             'laravel_version_constraint' => $extension->laravelVersionConstraint,
             'filament_version_constraint' => $extension->filamentVersionConstraint,

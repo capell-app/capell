@@ -6,7 +6,6 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
-use Capell\Frontend\Data\FrontendRenderContextData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildFrontendResourceGraphAction
@@ -14,7 +13,7 @@ final class BuildFrontendResourceGraphAction
     use AsObject;
 
     /** @return array<string, mixed> */
-    public function handle(FrontendResourcePlanData $plan, ?FrontendRenderContextData $context = null): array
+    public function handle(FrontendResourcePlanData $plan): array
     {
         return [
             'fingerprint' => $plan->fingerprint,

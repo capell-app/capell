@@ -126,10 +126,10 @@ function fakeInstallStepExecutorDemoProcess(): void
 /** @param array<string, mixed> $additionalCommands */
 function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): void
 {
-    app()->instance(ConsoleKernel::class, new class($additionalCommands) implements ConsoleKernel
+    app()->instance(ConsoleKernel::class, new readonly class($additionalCommands) implements ConsoleKernel
     {
         /** @param array<string, mixed> $additionalCommands */
-        public function __construct(private readonly array $additionalCommands) {}
+        public function __construct(private array $additionalCommands) {}
 
         public function bootstrap(): void {}
 
@@ -239,7 +239,7 @@ it('fails the install step when npm cannot build frontend resources', function (
     expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(
         InstallPlan::STEP_REBUILD_RESOURCES,
         $state,
-    ))->toThrow(RuntimeException::class, "npm build failed: {$errorMessage}");
+    ))->toThrow(RuntimeException::class, 'npm build failed: ' . $errorMessage);
 
     expect($lines)
         ->toContain(['type' => 'error', 'line' => '⚠ Frontend resources were not rebuilt.'])

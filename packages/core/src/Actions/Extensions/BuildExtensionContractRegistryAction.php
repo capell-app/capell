@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Extensions;
 
+use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>} run(array<string, CapellManifestData> $manifests)
+ * @method static array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>} run(array<string, CapellManifestData> $manifests)
  */
 final class BuildExtensionContractRegistryAction
 {
@@ -18,7 +19,7 @@ final class BuildExtensionContractRegistryAction
 
     /**
      * @param  array<string, CapellManifestData>  $manifests
-     * @return array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>}
+     * @return array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>}
      */
     public function handle(array $manifests): array
     {
@@ -27,7 +28,12 @@ final class BuildExtensionContractRegistryAction
             'byPackage' => [],
             'bySurface' => [],
             'byClass' => [],
+            'surfaceCatalog' => [],
         ];
+
+        foreach (BuildExtensionSurfaceCatalogAction::run() as $entry) {
+            $registry['surfaceCatalog'][$entry->id] = $entry;
+        }
 
         foreach ($manifests as $packageName => $manifest) {
             foreach ($manifest->contributes as $contribution) {

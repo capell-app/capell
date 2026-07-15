@@ -123,6 +123,19 @@ it('keeps publishedDate excluding drafts, schedules and expired pages', function
         ->and($publishedIds)->not->toContain($scheduledPage->id, $draftPage->id, $expiredPage->id);
 });
 
+it('treats an expiry exactly at now as expired in both enum and scope', function (): void {
+    $now = CarbonImmutable::parse('2026-07-14 12:00:00');
+    CarbonImmutable::setTestNow($now);
+    $page = Page::factory()->createOne([
+        'visible_from' => $now->subDay(),
+        'visible_until' => $now,
+    ]);
+
+    expect($page->publishVisibilityState($now))->toBe(PublishVisibilityStateEnum::expired)
+        ->and(Page::query()->expired()->whereKey($page)->exists())->toBeTrue()
+        ->and(Page::query()->published()->whereKey($page)->exists())->toBeFalse();
+});
+
 it('keeps the publish status attribute collapsing drafts and schedules to pending', function (): void {
     $scheduledPage = Page::factory()->createOne([
         'visible_from' => CarbonImmutable::now()->addWeek(),

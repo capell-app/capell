@@ -94,28 +94,16 @@ final class FrontendResourceData extends Data
 
     private function validateDeclaration(): void
     {
-        if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/-]*:[A-Za-z0-9][A-Za-z0-9._\/-]*\z/', $this->handle) !== 1) {
-            throw new InvalidArgumentException('Frontend resource handle must be globally stable and package-qualified.');
-        }
+        throw_if(preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/-]*:[A-Za-z0-9][A-Za-z0-9._\/-]*\z/', $this->handle) !== 1, InvalidArgumentException::class, 'Frontend resource handle must be globally stable and package-qualified.');
 
-        if (preg_match('/\A[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\z/', $this->package) !== 1) {
-            throw new InvalidArgumentException('Frontend resource package must be a valid Composer package name.');
-        }
+        throw_if(preg_match('/\A[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\z/', $this->package) !== 1, InvalidArgumentException::class, 'Frontend resource package must be a valid Composer package name.');
 
-        if ($this->kind->isInline() !== $this->source instanceof InlineResourceSourceData) {
-            throw new InvalidArgumentException('Inline resource kinds require inline sources and non-inline kinds require URL-backed sources.');
-        }
+        throw_if($this->kind->isInline() !== $this->source instanceof InlineResourceSourceData, InvalidArgumentException::class, 'Inline resource kinds require inline sources and non-inline kinds require URL-backed sources.');
 
-        if (! $this->kind->isScript() && ($this->executionMode !== null || $this->defer || $this->async)) {
-            throw new InvalidArgumentException('Script attributes may only be declared for script resources.');
-        }
+        throw_if(! $this->kind->isScript() && ($this->executionMode instanceof ScriptExecutionMode || $this->defer || $this->async), InvalidArgumentException::class, 'Script attributes may only be declared for script resources.');
 
-        if ($this->async && $this->dependsOn !== []) {
-            throw new InvalidArgumentException('Async resources cannot declare dependencies.');
-        }
+        throw_if($this->async && $this->dependsOn !== [], InvalidArgumentException::class, 'Async resources cannot declare dependencies.');
 
-        if (count($this->dependsOn) !== count(array_unique($this->dependsOn))) {
-            throw new InvalidArgumentException('Frontend resource dependencies must be unique.');
-        }
+        throw_if(count($this->dependsOn) !== count(array_unique($this->dependsOn)), InvalidArgumentException::class, 'Frontend resource dependencies must be unique.');
     }
 }

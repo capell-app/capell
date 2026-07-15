@@ -256,6 +256,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         if ($packages->isEmpty() && $installTimePackageNames === [] && $themeExtraPackages === []) {
             $this->warn('No packages selected.');
         }
+
         $this->logInstallDebug('resolved theme selection', [
             'selected_theme_key' => $selectedThemeKey,
             'extra_packages' => array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),

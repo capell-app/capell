@@ -9,10 +9,13 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceCatalogueQueryData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceExtensionCapability;
 use Capell\Marketplace\Enums\MarketplaceExtensionCategory;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Enums\MarketplaceSort;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -31,6 +34,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -275,7 +279,22 @@ final class MarketplaceCatalogueTable
      */
     public function installExtension(array $arguments, array $data = [], bool $redirectAccountActions = false): ?string
     {
-        return InstallMarketplaceExtensionAction::run($arguments, $data, $redirectAccountActions);
+        $user = auth()->user();
+
+        return InstallMarketplaceExtensionAction::run(MarketplaceInstallRequestData::make(
+            extensionSlug: (string) ($arguments['slug'] ?? ''),
+            options: [
+                ...$data,
+                'composer_name' => $arguments['composer_name'] ?? null,
+                'install_eligibility_policy' => $arguments['install_eligibility_policy'] ?? null,
+                '_redirect_account_actions' => $redirectAccountActions,
+            ],
+            actor: $user instanceof Authenticatable
+                ? MarketplaceInstallActorData::fromAuthenticatable($user)
+                : MarketplaceInstallActorData::system('marketplace-catalogue-table'),
+            betaAcknowledged: data_get($data, 'install_options.beta_acknowledged') === true,
+            source: MarketplaceInstallSource::TableHelper,
+        ));
     }
 
     /** @param array<string, mixed> $record */

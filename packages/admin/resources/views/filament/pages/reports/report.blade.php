@@ -3,6 +3,24 @@
         $snapshot = $this->reportSnapshot();
     @endphp
 
+    <div class="mb-4 flex items-center justify-between gap-3">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{ __('capell-admin::reports.generated_at', ['time' => $snapshot->generatedAt->toDayDateTimeString()]) }}
+        </p>
+
+        @if (method_exists($this, 'rerun'))
+            <button
+                type="button"
+                wire:click="rerun"
+                wire:loading.attr="disabled"
+                wire:target="rerun"
+                class="text-primary-600 hover:text-primary-500 dark:text-primary-400 inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-50"
+            >
+                {{ __('capell-admin::reports.demo_install_health_rerun') }}
+            </button>
+        @endif
+    </div>
+
     @if ($snapshot->metrics !== [] || $snapshot->findings !== [])
         @if ($snapshot->metrics !== [])
             <div class="grid gap-4 md:grid-cols-3">
@@ -87,6 +105,31 @@
                                     >
                                         {{ $finding->description }}
                                     </p>
+
+                                    @if ($finding->remediation !== null)
+                                        <p
+                                            class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200"
+                                        >
+                                            {{ $finding->remediation }}
+                                        </p>
+                                    @endif
+
+                                    @if ($finding->evidence !== [])
+                                        <dl
+                                            class="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400"
+                                        >
+                                            @foreach ($finding->evidence as $key => $value)
+                                                <div class="flex gap-2">
+                                                    <dt class="font-medium">
+                                                        {{ str($key)->replace('_', ' ')->headline() }}:
+                                                    </dt>
+                                                    <dd>
+                                                        {{ is_scalar($value) || $value === null ? (string) ($value ?? '—') : json_encode($value, JSON_UNESCAPED_SLASHES) }}
+                                                    </dd>
+                                                </div>
+                                            @endforeach
+                                        </dl>
+                                    @endif
                                 </div>
 
                                 @if ($finding->url !== null && $finding->actionLabel !== null)

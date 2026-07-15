@@ -1303,7 +1303,11 @@ it('detects transitive beta dependencies in install review', function (): void {
         ->call('toggleMarketplaceSelection', 'capell-app/publishing-studio')
         ->call('showMarketplaceInstallReview')
         ->assertSee('Migration Assistant')
+        ->assertSee('capell-app/migration-assistant')
         ->assertSee(__('capell-marketplace::marketplace.release_status.beta'))
+        ->assertSee(__('capell-marketplace::marketplace.selection.beta_dependency_acknowledgement_help', [
+            'dependencies' => 'capell-app/migration-assistant',
+        ]))
         ->assertSee(__('capell-marketplace::marketplace.selection.beta_acknowledgement_label'));
 });
 

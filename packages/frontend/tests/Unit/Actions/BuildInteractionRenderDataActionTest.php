@@ -8,9 +8,10 @@ use Capell\Core\Enums\InteractionBehavior;
 use Capell\Core\Enums\InteractionTargetType;
 use Capell\Core\Enums\InteractionTriggerEvent;
 use Capell\Frontend\Actions\BuildInteractionRenderDataAction;
-use Capell\Frontend\Contracts\DeferredFragmentReferenceBuilder;
+use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
+use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
 use Capell\Frontend\Contracts\WidgetInteractionLocatorResolver;
-use Illuminate\Database\Eloquent\Model;
+use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
 use Illuminate\Support\Facades\Log;
 
 function interactionTrigger(): InteractionTriggerData
@@ -30,7 +31,7 @@ function interactionTrigger(): InteractionTriggerData
     );
 }
 
-function fragmentInteractionTrigger(): InteractionTriggerData
+function fragmentInteractionTrigger(string $fragmentReference = 'not-an-encrypted-reference'): InteractionTriggerData
 {
     return new InteractionTriggerData(
         key: 'open-fragment',
@@ -41,58 +42,79 @@ function fragmentInteractionTrigger(): InteractionTriggerData
         behavior: InteractionBehavior::Modal,
         target: new InteractionTargetData(
             type: InteractionTargetType::Fragment,
-            fragmentReference: 'raw-editor-reference-never-public',
+            fragmentReference: $fragmentReference,
         ),
     );
 }
 
-it('delegates fragment interaction URLs to the optional deferred fragment reference builder', function (): void {
-    app()->bind(DeferredFragmentReferenceBuilder::class, fn (): DeferredFragmentReferenceBuilder => new class implements DeferredFragmentReferenceBuilder
+function publicFragmentInteractionToken(string $owner = 'layout-builder'): string
+{
+    return resolve(PublicFragmentReferenceCodec::class)->encode(new PublicFragmentReferenceData(
+        owner: $owner,
+        formatVersion: 1,
+        pageableType: 'page',
+        pageableId: 41,
+        siteId: 7,
+        languageId: 3,
+        contentVersion: 'version-1',
+        ownerContext: ['widgetKey' => 'hero'],
+    ));
+}
+
+function bindPublicFragmentInteractionResolver(string $owner, string $url): void
+{
+    app()->bind('test.public-fragment-url-resolver', fn (): PublicFragmentUrlResolver => new readonly class($owner, $url) implements PublicFragmentUrlResolver
     {
-        public function reference(Model $asset, array $meta): string
+        public function __construct(private string $registeredOwner, private string $resolvedUrl) {}
+
+        public function owner(): string
         {
-            return 'unused-in-this-test';
+            return $this->registeredOwner;
         }
 
-        public function url(string $fragmentReference): ?string
+        public function url(PublicFragmentReferenceData $reference): string
         {
-            return $fragmentReference === 'raw-editor-reference-never-public'
-                ? 'https://example.test/_capell/fragments/opaque-locator'
-                : null;
+            return $this->resolvedUrl . '/' . $reference->contentVersion;
         }
     });
 
-    $rendered = BuildInteractionRenderDataAction::run([fragmentInteractionTrigger()]);
+    app()->tag('test.public-fragment-url-resolver', PublicFragmentUrlResolver::TAG);
+}
+
+it('delegates encrypted fragment interaction URLs to the registered owner', function (): void {
+    bindPublicFragmentInteractionResolver('layout-builder', 'https://example.test/_fragments/layout');
+    $token = publicFragmentInteractionToken();
+
+    $rendered = BuildInteractionRenderDataAction::run([fragmentInteractionTrigger($token)]);
 
     expect($rendered)->toHaveCount(1)
-        ->and($rendered[0]['target_url'])->toBe('https://example.test/_capell/fragments/opaque-locator')
+        ->and($rendered[0]['target_url'])->toBe('https://example.test/_fragments/layout/version-1')
         ->and(json_encode($rendered[0], JSON_THROW_ON_ERROR))
-        ->not->toContain('raw-editor-reference-never-public')
+        ->not->toContain($token)
         ->not->toContain('Capell\\');
 });
 
-it('drops fragment interactions when the builder rejects the reference', function (): void {
-    app()->bind(DeferredFragmentReferenceBuilder::class, fn (): DeferredFragmentReferenceBuilder => new class implements DeferredFragmentReferenceBuilder
-    {
-        public function reference(Model $asset, array $meta): string
-        {
-            return 'unused-in-this-test';
-        }
+it('drops fragment interactions when no resolver owns the reference', function (): void {
+    bindPublicFragmentInteractionResolver('marketing', 'https://example.test/_capell/fragments/marketing');
 
-        public function url(string $fragmentReference): ?string
-        {
-            return null;
-        }
-    });
+    expect(BuildInteractionRenderDataAction::run([
+        fragmentInteractionTrigger(publicFragmentInteractionToken('layout-builder')),
+    ]))->toBe([]);
+});
+
+it('drops malformed fragment interaction references', function (): void {
+    bindPublicFragmentInteractionResolver('layout-builder', 'https://example.test/_fragments/layout');
 
     expect(BuildInteractionRenderDataAction::run([fragmentInteractionTrigger()]))->toBe([]);
 });
 
-it('filters fragment interactions without warning-level noise when no builder is installed', function (): void {
+it('filters fragment interactions without warning-level noise when no owner is installed', function (): void {
     Log::shouldReceive('debug')->once();
     Log::shouldReceive('warning')->never();
 
-    expect(BuildInteractionRenderDataAction::run([fragmentInteractionTrigger()]))->toBe([]);
+    expect(BuildInteractionRenderDataAction::run([
+        fragmentInteractionTrigger(publicFragmentInteractionToken()),
+    ]))->toBe([]);
 });
 
 it('delegates widget interaction URLs to the optional host-neutral locator resolver', function (): void {

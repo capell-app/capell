@@ -105,10 +105,11 @@ final class PackageLifecycleRunner
         array $arguments,
         ?ProgressReporter $reporter,
     ): void {
-        $process = $this->processFactory->make(
-            $this->freshProcessCommand($command, $arguments),
-            base_path(),
-        );
+        $processCommand = $this->freshProcessCommand($command, $arguments);
+        $environment = $this->freshProcessEnvironment();
+        $process = $environment === null
+            ? $this->processFactory->make($processCommand, base_path())
+            : $this->processFactory->make($processCommand, base_path(), $environment);
         $process->setTimeout(null);
 
         $output = '';
@@ -123,7 +124,7 @@ final class PackageLifecycleRunner
 
             $lineBuffer .= str_replace("\r", "\n", $buffer);
             $lines = explode("\n", $lineBuffer);
-            $lineBuffer = (string) array_pop($lines);
+            $lineBuffer = array_pop($lines);
 
             foreach ($lines as $line) {
                 $line = trim($line);
@@ -138,6 +139,14 @@ final class PackageLifecycleRunner
             $reporter->report(trim($lineBuffer));
         }
 
+        if (str_contains($output, sprintf('Command "%s" is not defined.', $command))) {
+            throw new RuntimeException(sprintf(
+                "%s command '%s' does not exist.",
+                str($phase)->replace('-', ' ')->headline(),
+                $command,
+            ));
+        }
+
         if ($process->isSuccessful()) {
             return;
         }
@@ -149,7 +158,7 @@ final class PackageLifecycleRunner
             "%s command '%s' failed in a fresh process with exit code %d.%s",
             str($phase)->replace('-', ' ')->headline(),
             $command,
-            (int) ($process->getExitCode() ?? 1),
+            $process->getExitCode() ?? 1,
             $output !== '' ? ' ' . $output : '',
         ));
     }
@@ -163,7 +172,11 @@ final class PackageLifecycleRunner
         $processCommand = [$this->phpCliBinary(), base_path('artisan'), $command, '--no-interaction'];
 
         foreach ($arguments as $option => $value) {
-            if ($value === null || $value === false) {
+            if ($value === null) {
+                continue;
+            }
+
+            if ($value === false) {
                 continue;
             }
 
@@ -204,5 +217,15 @@ final class PackageLifecycleRunner
         }
 
         throw new RuntimeException('Unable to locate a CLI PHP binary for the package lifecycle command.');
+    }
+
+    /** @return array<string, string>|null */
+    private function freshProcessEnvironment(): ?array
+    {
+        if (! str_contains(base_path(), 'testbench-skeletons')) {
+            return null;
+        }
+
+        return ['TESTBENCH_WORKING_PATH' => dirname(__DIR__, 5)];
     }
 }

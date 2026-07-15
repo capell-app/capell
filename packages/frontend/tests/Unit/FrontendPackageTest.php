@@ -7,10 +7,12 @@ use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\VendorAssetEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
+use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCacheDirective;
+use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 
 it('frontend package has frontend scope', function (): void {
@@ -25,6 +27,11 @@ it('registers core-safe extension services', function (): void {
         ->and(app()->bound('capell.frontend.retrieved-model-store'))->toBeTrue()
         ->and(app()->bound('capell.frontend.layout-container-width-resolver'))->toBeTrue()
         ->and(resolve('capell.frontend.layout-container-width-resolver'))->toBeCallable();
+});
+
+it('registers the owner-aware public fragment services', function (): void {
+    expect(app()->bound(PublicFragmentReferenceCodec::class))->toBeTrue()
+        ->and(app()->bound(PublicFragmentUrlResolverRegistry::class))->toBeTrue();
 });
 
 it('tags frontend request state services for octane resets', function (): void {
