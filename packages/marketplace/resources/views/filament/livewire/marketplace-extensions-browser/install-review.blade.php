@@ -223,6 +223,70 @@
         </div>
     </div>
 
+    <div
+        class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900"
+    >
+        <div class="space-y-1">
+            <h4 class="text-sm font-semibold text-gray-950 dark:text-white">
+                {{ __('capell-marketplace::marketplace.selection.complete_impact_heading') }}
+            </h4>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                {{ __('capell-marketplace::marketplace.selection.complete_impact_description') }}
+            </p>
+        </div>
+
+        <div class="divide-y divide-gray-200 dark:divide-white/10">
+            @foreach ($selection['impact_records'] as $impact)
+                @php
+                    $operations = collect(['migrations', 'routes', 'scheduled_jobs', 'storage', 'permissions'])
+                        ->flatMap(fn (string $key): array => $impact[$key] ?? [])
+                        ->values();
+                @endphp
+
+                <div class="space-y-2 py-3 first:pt-0 last:pb-0">
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <span
+                            class="font-semibold text-gray-950 dark:text-white"
+                        >
+                            {{ $impact['name'] }}
+                        </span>
+                        <span class="text-gray-500 dark:text-gray-400">
+                            {{ $impact['reason'] }}
+                        </span>
+                    </div>
+                    <dl
+                        class="grid gap-2 text-xs text-gray-600 sm:grid-cols-3 dark:text-gray-300"
+                    >
+                        <div>
+                            <dt class="font-medium">
+                                {{ __('capell-marketplace::marketplace.selection.impact_maturity') }}
+                            </dt>
+                            <dd>{{ ucfirst($impact['maturity']) }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-medium">
+                                {{ __('capell-marketplace::marketplace.selection.impact_entitlement') }}
+                            </dt>
+                            <dd>{{ ucfirst($impact['entitlement']) }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-medium">
+                                {{ __('capell-marketplace::marketplace.selection.impact_package_change') }}
+                            </dt>
+                            <dd>
+                                {{ ucfirst($impact['operation']) }}
+                                {{ $impact['target_version'] }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{ $operations->isEmpty() ? __('capell-marketplace::marketplace.selection.impact_none') : $operations->implode(', ') }}
+                    </p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
     @php
         $installOptions = collect($selection['install_records'])
             ->flatMap(fn (array $record): array => is_array($record['install_options'] ?? null) ? $record['install_options'] : [])
@@ -322,9 +386,11 @@
                 </span>
                 @if ($selection['beta_dependency_composer_names'] !== [])
                     <span class="block text-amber-800 dark:text-amber-200">
-                        {{ __('capell-marketplace::marketplace.selection.beta_dependency_acknowledgement_help', [
-                            'dependencies' => implode(', ', $selection['beta_dependency_composer_names']),
-                        ]) }}
+                        {{
+                            __('capell-marketplace::marketplace.selection.beta_dependency_acknowledgement_help', [
+                                'dependencies' => implode(', ', $selection['beta_dependency_composer_names']),
+                            ])
+                        }}
                     </span>
                 @endif
             </span>

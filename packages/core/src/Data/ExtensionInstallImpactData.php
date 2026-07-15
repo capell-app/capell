@@ -29,6 +29,7 @@ final class ExtensionInstallImpactData extends Data
      * @param  list<string>  $scheduledJobs
      * @param  list<string>  $screenshots
      * @param  list<string>  $warnings
+     * @param  list<ExtensionInstallImpactNodeData>  $dependencyNodes
      */
     public function __construct(
         public readonly string $packageName,
@@ -60,6 +61,7 @@ final class ExtensionInstallImpactData extends Data
         public readonly string $commercialTier,
         public readonly array $screenshots,
         public readonly array $warnings,
+        public readonly array $dependencyNodes = [],
     ) {}
 
     /** @return array<string, mixed> */
@@ -99,6 +101,10 @@ final class ExtensionInstallImpactData extends Data
             'commercialTier' => $this->commercialTier,
             'screenshots' => $this->screenshots,
             'warnings' => $this->warnings,
+            'dependencyNodes' => array_map(
+                static fn (ExtensionInstallImpactNodeData $node): array => $node->toArray(),
+                $this->dependencyNodes,
+            ),
         ];
     }
 }

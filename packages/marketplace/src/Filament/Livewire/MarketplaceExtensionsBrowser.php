@@ -398,6 +398,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      *     has_premium_records: bool,
      *     contains_beta: bool,
      *     beta_dependency_composer_names: array<int, string>,
+     *     impact_records: array<int, array<string, mixed>>,
      *     can_install: bool
      * }
      */
@@ -420,6 +421,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
              *     has_premium_records: bool,
              *     contains_beta: bool,
              *     beta_dependency_composer_names: array<int, string>,
+             *     impact_records: array<int, array<string, mixed>>,
              *     can_install: bool
              * } $review */
             $review = $this->resolvedMarketplaceSelectionReview;
@@ -556,6 +558,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             'has_premium_records' => $premiumRecords !== [],
             'contains_beta' => $containsBeta,
             'beta_dependency_composer_names' => $betaDependencyComposerNames,
+            'impact_records' => array_values(array_map(
+                fn (array $record): array => $this->installImpactRecord($record, $explicitRecords),
+                $installRecords,
+            )),
             'can_install' => $installRecords !== [] && $missingDependencies === [] && $blockedDependencies === [],
         ];
 
@@ -813,6 +819,51 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             array_map(fn (mixed $dependency): ?string => is_string($dependency) && $dependency !== '' ? $dependency : null, $dependencies),
             is_string(...),
         ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @param  array<string, array<string, mixed>>  $explicitRecords
+     * @return array<string, mixed>
+     */
+    private function installImpactRecord(array $record, array $explicitRecords): array
+    {
+        $composerName = $this->recordComposerName($record) ?? '';
+        $impact = is_array($record['install_impact'] ?? null) ? $record['install_impact'] : [];
+        $currentVersion = is_string($record['installed_version'] ?? null) ? $record['installed_version'] : null;
+        $targetVersion = is_string($record['latest_version'] ?? null) ? $record['latest_version'] : null;
+        $isDirect = array_key_exists($composerName, $explicitRecords);
+
+        return [
+            'composer_name' => $composerName,
+            'name' => $this->recordName($record),
+            'direct' => $isDirect,
+            'reason' => $isDirect
+                ? __('capell-marketplace::marketplace.selection.impact_reason_direct')
+                : __('capell-marketplace::marketplace.selection.impact_reason_dependency'),
+            'maturity' => is_string($record['maturity'] ?? null) ? $record['maturity'] : 'released',
+            'entitlement' => is_string($record['entitlement'] ?? null)
+                ? $record['entitlement']
+                : ($this->marketplaceRecordRequiresPremiumFlow($record) ? 'required' : 'included'),
+            'operation' => $currentVersion === null ? 'install' : 'update',
+            'current_version' => $currentVersion,
+            'target_version' => $targetVersion,
+            'migrations' => $this->impactList($impact, 'migrations'),
+            'routes' => $this->impactList($impact, 'routes'),
+            'scheduled_jobs' => $this->impactList($impact, 'scheduled_jobs'),
+            'storage' => $this->impactList($impact, 'storage'),
+            'permissions' => $this->impactList($impact, 'permissions'),
+        ];
+    }
+
+    /** @param array<string, mixed> $impact */
+    private function impactList(array $impact, string $key): array
+    {
+        $values = $impact[$key] ?? [];
+
+        return is_array($values)
+            ? array_values(array_filter($values, static fn (mixed $value): bool => is_string($value) && $value !== ''))
+            : [];
     }
 
     private function marketplaceSelectionTotalLabel(int $totalCents): string
