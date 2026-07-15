@@ -118,8 +118,11 @@ it('runs a dynamically installed package command in a fresh process when the cur
     $factory->shouldReceive('make')
         ->once()
         ->withArgs(function (array $command, string $workingDirectory, ?array $environment = null): bool {
-            $expectedEnvironment = str_contains(base_path(), 'testbench-skeletons')
-                ? ['TESTBENCH_WORKING_PATH' => dirname(base_path(), 4)]
+            $basePath = str_replace('\\', '/', base_path());
+            $isTestbenchApplication = str_contains($basePath, 'testbench-skeletons')
+                || str_contains($basePath, '/vendor/orchestra/testbench-core/laravel');
+            $expectedEnvironment = $isTestbenchApplication
+                ? ['TESTBENCH_WORKING_PATH' => \Orchestra\Testbench\package_path()]
                 : null;
 
             return $command === [
