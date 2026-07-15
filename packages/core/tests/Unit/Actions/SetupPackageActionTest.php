@@ -124,7 +124,7 @@ it('uses a cli php executable when the configured binary points at php fpm', fun
 
         expect(File::get($commandLogPath))
             ->toContain($fakePhpPath)
-            ->toContain('artisan capell:admin-setup')
+            ->toContain('-d memory_limit=512M artisan capell:admin-setup')
             ->toContain('--no-interaction')
             ->toContain('--assets=resources/css/app.css')
             ->toContain('--assets=resources/js/app.js');
