@@ -14,6 +14,7 @@ use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Tests\Fixtures\Models\User;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
+use Symfony\Component\Process\Process as SymfonyProcess;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
@@ -81,6 +83,17 @@ function bindRunInstallTestConsoleKernel(array $commands = ['capell:doctor' => t
     $kernel->shouldReceive('registerCommand')->zeroOrMoreTimes()->byDefault();
     app()->instance(ConsoleKernel::class, $kernel);
     Artisan::clearResolvedInstances();
+
+    $process = Mockery::mock(SymfonyProcess::class);
+    $process->shouldReceive('setTimeout')->with(120)->andReturnSelf();
+    $process->shouldReceive('run')->andReturn(0);
+    $process->shouldReceive('getExitCode')->andReturn(0);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
 
     return $kernel;
 }
