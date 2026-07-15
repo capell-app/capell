@@ -45,7 +45,7 @@ final class BuildDoctorReportAction
     public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
     {
         $checks = collect([
-            $this->identified($this->checkRequiredTablesExist(), 'core.schema.required', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkRequiredTablesExist($installSummary), 'core.schema.required', DoctorCheckSeverity::Critical),
             $this->identified($this->checkMorphMap(), 'core.morph-map.complete', DoctorCheckSeverity::Critical),
             $this->identified($this->checkStorageDisksWritable(), 'core.storage.writable', DoctorCheckSeverity::Warning),
             $this->identified($this->checkSeeded(), 'core.seed-data.present', DoctorCheckSeverity::Critical),
@@ -182,12 +182,14 @@ final class BuildDoctorReportAction
             ->all();
     }
 
-    private function checkRequiredTablesExist(): DoctorCheckResultData
+    private function checkRequiredTablesExist(bool $installSummary): DoctorCheckResultData
     {
         $missingTables = $this->runtimeSchema->missingTables();
         $installationState = ResolveCapellInstallationStateAction::run();
+        $installationIsComplete = $installationState === CapellInstallationState::Installed
+            || ($installSummary && $missingTables === []);
 
-        if ($installationState !== CapellInstallationState::Installed) {
+        if (! $installationIsComplete) {
             return new DoctorCheckResultData(
                 label: 'Required tables exist',
                 passed: false,
