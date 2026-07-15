@@ -6,6 +6,7 @@ on:
       - main
   pull_request:
     branches:
+      - main
       - 1.x
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -28,7 +29,10 @@ on:
       - 'scripts/check-docs-orphans.php'
       - 'scripts/check-docs-requirements.php'
       - 'scripts/check-root-docs.php'
+      - 'scripts/check-readme-engineering-standards.php'
       - 'scripts/check-phpstan-baseline-growth.sh'
+      - '.github/workflows/test-full.yml'
+      - '.github/workflows/coverage-release.yml'
       - 'scripts/php-modernization-skill.sh'
       - '.github/workflows/code-quality-and-styling.yml'
 
@@ -65,6 +69,9 @@ jobs:
 
       - name: Check root documentation
         run: composer run check:root-docs
+
+      - name: Check README engineering standards
+        run: composer run check:readme-engineering-standards
 
       - name: Check documentation links
         run: composer run check:docs-links

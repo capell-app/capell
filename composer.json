@@ -27,6 +27,7 @@
         "check:docs-requirements": "@php scripts/check-docs-requirements.php",
         "check:docs-env": "@php scripts/check-docs-env-vars.php",
         "check:root-docs": "@php scripts/check-root-docs.php",
+        "check:readme-engineering-standards": "@php scripts/check-readme-engineering-standards.php",
         "check:docs-screenshots": "npm run docs:screenshots:check",
         "check:extension-surfaces": "@php scripts/build-extension-surface-catalog.php --check",
         "check:stable-extension-api": "@php scripts/check-stable-extension-api.php --check",
