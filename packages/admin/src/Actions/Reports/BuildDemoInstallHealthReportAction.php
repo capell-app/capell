@@ -86,7 +86,13 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
         $demoFindings = [];
         $demoChecksPassed = 0;
-        $demoChecks = [$this->storageLinkCheck(), $this->eventSourcingTablesCheck(), $this->settingsRowsCheck()];
+        $demoChecks = [
+            $this->queueConnectionCheck(),
+            $this->cacheStoreCheck(),
+            $this->storageLinkCheck(),
+            $this->eventSourcingTablesCheck(),
+            $this->settingsRowsCheck(),
+        ];
 
         foreach ($demoChecks as $demoCheck) {
             $finding = $this->findingForFailedCheck($demoCheck);
@@ -191,6 +197,50 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             remediation: __('capell-admin::reports.demo_install_health_storage_link_remediation'),
             id: 'admin.storage-link',
             severity: DoctorCheckSeverity::Warning,
+        );
+    }
+
+    private function queueConnectionCheck(): DoctorCheckResultData
+    {
+        $connection = config('queue.default');
+        $driver = is_string($connection) ? config("queue.connections.{$connection}.driver") : null;
+        $passed = is_string($connection) && $connection !== '' && is_string($driver) && $driver !== '';
+
+        return new DoctorCheckResultData(
+            label: 'Queue connection is configured',
+            passed: $passed,
+            message: $passed
+                ? sprintf('The [%s] queue connection uses the [%s] driver.', $connection, $driver)
+                : 'The default queue connection does not resolve to a configured driver.',
+            remediation: $passed ? null : 'Set QUEUE_CONNECTION to a configured queue connection, then restart workers.',
+            id: 'core.queue.connection-configured',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'connection' => $connection,
+                'driver' => $driver,
+            ],
+        );
+    }
+
+    private function cacheStoreCheck(): DoctorCheckResultData
+    {
+        $store = config('cache.default');
+        $driver = is_string($store) ? config("cache.stores.{$store}.driver") : null;
+        $passed = is_string($store) && $store !== '' && is_string($driver) && $driver !== '';
+
+        return new DoctorCheckResultData(
+            label: 'Cache store is configured',
+            passed: $passed,
+            message: $passed
+                ? sprintf('The [%s] cache store uses the [%s] driver.', $store, $driver)
+                : 'The default cache store does not resolve to a configured driver.',
+            remediation: $passed ? null : 'Set CACHE_STORE to a configured cache store, then clear configuration cache.',
+            id: 'core.cache.store-configured',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'store' => $store,
+                'driver' => $driver,
+            ],
         );
     }
 
