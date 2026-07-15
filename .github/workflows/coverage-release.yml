@@ -47,7 +47,7 @@ jobs:
       - name: Run release coverage (Clover)
         run: |
           mkdir -p coverage
-          php -d memory_limit=-1 -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --coverage-clover=coverage/clover.xml --colors=always --stop-on-error --stop-on-failure --configuration=phpunit.xml
+          php -d memory_limit=-1 -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --min=90 --coverage-clover=coverage/clover.xml --colors=always --stop-on-error --stop-on-failure --configuration=phpunit.xml
 
       - name: Upload Clover XML for codecov
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
