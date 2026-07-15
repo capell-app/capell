@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Reports;
 
+use Capell\Admin\Actions\Publishing\BuildPublishReadinessAction;
 use Capell\Admin\Contracts\Reports\BuildsReportSnapshot;
 use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
@@ -176,7 +177,8 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        $visibilityState = $page->publishVisibilityState();
+        $readiness = BuildPublishReadinessAction::run($page);
+        $visibilityState = $readiness->currentState;
 
         if ($visibilityState === PublishVisibilityStateEnum::expired) {
             $findings[] = new ReportFindingData(

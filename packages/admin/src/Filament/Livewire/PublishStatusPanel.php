@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Livewire;
 
 use Capell\Admin\Actions\Pages\ResolvePagePublishStateAction;
 use Capell\Admin\Actions\Pages\ResolvePublishPanelViewAction;
+use Capell\Admin\Actions\Publishing\BuildPublishReadinessAction;
 use Capell\Admin\Actions\Publishing\CancelScheduledRecordUnpublishAction;
 use Capell\Admin\Actions\Publishing\PublishRecordAction;
 use Capell\Admin\Actions\Publishing\RevertRecordToDraftAction;
@@ -16,6 +17,7 @@ use Capell\Admin\Actions\Publishing\UnpublishRecordAction;
 use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
 use Capell\Admin\Data\Pages\PublishPanelViewData;
 use Capell\Admin\Data\Pages\PublishVisibilityActionResultData;
+use Capell\Admin\Data\Publishing\PublishReadinessData;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
@@ -75,6 +77,18 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
     public function viewData(): PublishPanelViewData
     {
         return ResolvePublishPanelViewAction::run($this->record());
+    }
+
+    #[Computed]
+    public function readiness(): PublishReadinessData
+    {
+        $record = $this->record();
+
+        if (! $record instanceof Publishable) {
+            throw new InvalidArgumentException('Publish readiness requires a publishable record.');
+        }
+
+        return BuildPublishReadinessAction::run($record);
     }
 
     /**

@@ -42,6 +42,13 @@ return [
 
     'publishing_readiness_label' => 'Publishing Readiness',
     'publishing_readiness_description' => 'List content that is close to launch but still blocked by schedules, missing translations, disabled URLs, workflow state, or required fields.',
+    'publishing_readiness_current_state' => 'Current state',
+    'publishing_readiness_public_effect' => 'Public effect',
+    'publishing_readiness_public_effect_visible' => 'Visible now',
+    'publishing_readiness_public_effect_not_visible' => 'Not visible now',
+    'publishing_readiness_blockers' => 'Publishing blockers',
+    'publishing_readiness_blocker_count' => ':count blocker|:count blockers',
+    'publishing_readiness_scheduled_transition' => 'Scheduled transition',
     'empty_state_publishing_readiness' => 'No publishing blockers have been reported.',
     'findings_heading' => 'Findings',
     'generated_at' => 'Generated :time',
