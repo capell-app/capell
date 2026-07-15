@@ -164,6 +164,23 @@ function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): voi
         public function terminate($input, $status): void {}
     });
     Facade::clearResolvedInstance(ConsoleKernel::class);
+
+    $process = Mockery::mock(SymfonyProcess::class);
+    $process->shouldReceive('setTimeout')->with(120)->andReturnSelf();
+    $process->shouldReceive('run')->andReturnUsing(function (?callable $callback = null): int {
+        if ($callback !== null) {
+            $callback('out', "Doctor OK\n");
+        }
+
+        return 0;
+    });
+    $process->shouldReceive('getExitCode')->andReturn(0);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
 }
 
 function installStepExecutorInputData(): InstallInputData
@@ -285,7 +302,7 @@ it('fails the install step when the doctor summary finds release-blocking issues
         ->toContain(['type' => 'error', 'line' => 'Installation stopped because the required health checks did not pass.']);
 });
 
-it('runs doctor summary in a fresh process when the command is unavailable in the current request', function (): void {
+it('runs the final doctor summary in a fresh process even when the command is visible in the stale installer process', function (): void {
     $lines = [];
     $state = new InstallRunState(
         installStepExecutorInputData(),
@@ -313,7 +330,7 @@ it('runs doctor summary in a fresh process when the command is unavailable in th
 
         public function all(): array
         {
-            return [];
+            return ['capell:doctor' => new stdClass];
         }
 
         public function output(): string
@@ -463,6 +480,17 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     });
     $process->shouldReceive('getExitCode')->andReturn(0);
 
+    $doctorProcess = Mockery::mock(SymfonyProcess::class);
+    $doctorProcess->shouldReceive('setTimeout')->with(120)->andReturnSelf();
+    $doctorProcess->shouldReceive('run')->once()->andReturnUsing(function (?callable $callback = null): int {
+        if ($callback !== null) {
+            $callback('out', 'Doctor OK');
+        }
+
+        return 0;
+    });
+    $doctorProcess->shouldReceive('getExitCode')->andReturn(0);
+
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
         ->once()
@@ -478,6 +506,10 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
             Mockery::type('array'),
         )
         ->andReturn($process);
+    $factory->shouldReceive('make')
+        ->once()
+        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->andReturn($doctorProcess);
 
     app()->instance(ProcessFactoryInterface::class, $factory);
 
