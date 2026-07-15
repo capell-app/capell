@@ -31,7 +31,7 @@ beforeEach(function (): void {
     test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
 });
 
-test('displays registered first-party settings groups as tabs', function (): void {
+it('displays registered first-party settings groups as tabs', function (): void {
     Livewire::test(SettingsPage::class)
         ->assertSuccessful()
         ->assertSee(__('capell-admin::form.theme_studio_brand_colours'))
@@ -45,14 +45,14 @@ test('displays registered first-party settings groups as tabs', function (): voi
         ->assertFormFieldExists('theme_studio.brandProfile.radius');
 });
 
-test('loads settings form data from registered first-party groups', function (): void {
+it('loads settings form data from registered first-party groups', function (): void {
     Livewire::test(SettingsPage::class)
         ->assertSuccessful()
         ->assertSet('data.core.default_locale', 'en')
         ->assertSet('data.admin.html_editor', EditorEnum::RichEditor->value);
 });
 
-test('saves settings to their respective group settings classes', function (): void {
+it('saves settings to their respective group settings classes', function (): void {
     Livewire::test(SettingsPage::class)
         ->assertSuccessful()
         ->fillForm([
@@ -81,7 +81,7 @@ test('saves settings to their respective group settings classes', function (): v
     );
 });
 
-test('registry contains core group after boot', function (): void {
+it('registry contains core group after boot', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     expect($registry->hasGroup('core'))->toBeTrue()
@@ -89,7 +89,7 @@ test('registry contains core group after boot', function (): void {
         ->and($registry->getSchemas('core'))->not->toBeEmpty();
 });
 
-test('registry exposes theme studio as first-party settings', function (): void {
+it('registry exposes theme studio as first-party settings', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     expect($registry->getFirstPartyGroups())->toContain('theme_studio')
@@ -97,7 +97,7 @@ test('registry exposes theme studio as first-party settings', function (): void 
         ->and($registry->getSchemas('theme_studio'))->toContain(ThemeStudioSettingsSchema::class);
 });
 
-test('blocks theme studio tokens that would require public fallback tokens', function (): void {
+it('blocks theme studio tokens that would require public fallback tokens', function (): void {
     $settings = resolve(ThemeStudioSettings::class);
     $existingBrandProfile = $settings->brandProfile;
     $existingBrandProfile['headingFont'] = 'playfair';
@@ -144,7 +144,7 @@ test('blocks theme studio tokens that would require public fallback tokens', fun
     );
 });
 
-test('saves partial theme studio tokens without dropping existing profile keys', function (): void {
+it('saves partial theme studio tokens without dropping existing profile keys', function (): void {
     $settings = resolve(ThemeStudioSettings::class);
     $existingBrandProfile = $settings->brandProfile;
     $existingBrandProfile['headingFont'] = 'playfair';
@@ -192,7 +192,7 @@ test('saves partial theme studio tokens without dropping existing profile keys',
     );
 });
 
-test('allows adding custom schemas to existing group', function (): void {
+it('allows adding custom schemas to existing group', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     $customSchema = new class implements HasSchema
@@ -211,7 +211,7 @@ test('allows adding custom schemas to existing group', function (): void {
         ->toHaveCount($beforeCount + 1);
 });
 
-test('allows replacing existing schema', function (): void {
+it('allows replacing existing schema', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     $replacementSchema = new class implements HasSchema
@@ -237,7 +237,7 @@ test('allows replacing existing schema', function (): void {
         ->not->toBe($originalClass);
 });
 
-test('allows removing schema from group', function (): void {
+it('allows removing schema from group', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     $mockSchema = new class implements HasSchema

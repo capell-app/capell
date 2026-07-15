@@ -30,7 +30,7 @@ beforeEach(function (): void {
     Blueprint::factory()->site()->default()->create();
 });
 
-test('can list sites', function (): void {
+it('can list sites', function (): void {
     $sites = Site::factory()->count(5)->create();
 
     Livewire::test(ListSites::class)
@@ -40,7 +40,7 @@ test('can list sites', function (): void {
         ->assertCanSeeTableRecords($sites);
 });
 
-test('can list a site when its theme has been deleted', function (): void {
+it('can list a site when its theme has been deleted', function (): void {
     $site = Site::factory()->createOne();
     $site->theme->delete();
 
@@ -50,7 +50,7 @@ test('can list a site when its theme has been deleted', function (): void {
         ->assertCanSeeTableRecords([$site]);
 });
 
-test('escapes site translation previews before rendering content column', function (): void {
+it('escapes site translation previews before rendering content column', function (): void {
     Site::factory()
         ->withTranslations(data: [
             'title' => 'Title <script>alert(1)</script>',
@@ -65,7 +65,7 @@ test('escapes site translation previews before rendering content column', functi
         ->assertDontSeeHtml('<script>alert(2)</script>');
 });
 
-test('can search sites', function (): void {
+it('can search sites', function (): void {
     $sites = Site::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Language(%d)', $sequence->index)])
         ->count(3)
@@ -82,7 +82,7 @@ test('can search sites', function (): void {
         ->assertCanNotSeeTableRecords($sites->where('name', '!=', $name));
 });
 
-test('can sort sites', function (): void {
+it('can sort sites', function (): void {
     $sites = Site::factory()->count(5)->create();
 
     Livewire::test(ListSites::class)
@@ -92,7 +92,7 @@ test('can sort sites', function (): void {
         ->assertCanSeeTableRecords($sites->sortBy('name'), inOrder: true);
 });
 
-test('can replicate site', function (): void {
+it('can replicate site', function (): void {
     $site = Site::factory()->createOne();
 
     $language = Language::factory()->createOne();
@@ -135,7 +135,7 @@ test('can replicate site', function (): void {
         ->language_id->toBe($site->language_id);
 });
 
-test('groups related theme and blueprint editing actions for sites', function (): void {
+it('groups related theme and blueprint editing actions for sites', function (): void {
     $theme = Theme::factory()->createOne(['name' => 'Site theme']);
     $blueprint = Blueprint::factory()->site()->createOne(['name' => 'Site blueprint']);
     $site = Site::factory()->theme($theme)->type($blueprint)->createOne();
@@ -161,7 +161,7 @@ test('groups related theme and blueprint editing actions for sites', function ()
         ->toContain('edit-theme', 'edit-blueprint');
 });
 
-test('can delete site', function (): void {
+it('can delete site', function (): void {
     $site = Site::factory()->createOne();
 
     Livewire::test(ListSites::class)
@@ -174,7 +174,7 @@ test('can delete site', function (): void {
     assertSoftDeleted($site, ['id' => $site->id]);
 });
 
-test('site delete modal warns about affected pages', function (): void {
+it('site delete modal warns about affected pages', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $layout = Layout::factory()->createOne(['site_id' => $site->getKey()]);
     Page::factory()->site($site)->layout($layout)->withTranslations()->create();
@@ -185,7 +185,7 @@ test('site delete modal warns about affected pages', function (): void {
         ->assertMountedActionModalSee('1 page');
 });
 
-test('bulk site delete modal warns about aggregate affected pages', function (): void {
+it('bulk site delete modal warns about aggregate affected pages', function (): void {
     $sites = Site::factory()->count(2)->withTranslations()->create();
 
     $sites->each(function (Site $site): void {
@@ -201,7 +201,7 @@ test('bulk site delete modal warns about aggregate affected pages', function ():
         ->assertMountedActionModalSee('2 pages');
 });
 
-test('site table delete action cascades through site-owned records', function (): void {
+it('site table delete action cascades through site-owned records', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $layout = Layout::factory()->createOne(['site_id' => $site->getKey()]);
     $page = Page::factory()->site($site)->layout($layout)->withTranslations()->create();
@@ -222,7 +222,7 @@ test('site table delete action cascades through site-owned records', function ()
     assertSoftDeleted($pageUrl);
 });
 
-test('can group delete sites', function (): void {
+it('can group delete sites', function (): void {
     $site = Site::factory()->default()->create();
     $sites = Site::factory()->count(5)->create();
 

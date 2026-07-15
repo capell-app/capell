@@ -13,34 +13,34 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('site');
 
-test('admin can see sites', function (): void {
+it('admin can see sites', function (): void {
     test()->actingAsAdmin();
 
     get(SiteResource::getUrl())
         ->assertOk();
 });
 
-test('cannot see sites', function (): void {
+it('cannot see sites', function (): void {
     test()->actingAsUser();
 
     get(SiteResource::getUrl())
         ->assertForbidden();
 });
 
-test('admin can see create site', function (): void {
+it('admin can see create site', function (): void {
     test()->actingAsAdmin();
     Blueprint::factory()->site()->default()->create();
 
     get(SiteResource::getUrl('create'))->assertOk();
 });
 
-test('admin can see edit site', function (): void {
+it('admin can see edit site', function (): void {
     test()->actingAsAdmin();
 
     get(SiteResource::getUrl('edit', ['record' => Site::factory()->createOne()]))->assertOk();
 });
 
-test('sites appear before languages in website navigation group', function (): void {
+it('sites appear before languages in website navigation group', function (): void {
     expect(SiteResource::getNavigationItems()[0]->getSort())
         ->toBeLessThan(LanguageResource::getNavigationItems()[0]->getSort());
 });

@@ -25,12 +25,12 @@ beforeEach(function (): void {
     test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
 });
 
-test('visit settings page', function (): void {
+it('visit settings page', function (): void {
     get(SettingsPage::getUrl())
         ->assertSuccessful();
 });
 
-test('visit settings page when frontend cache setting is missing', function (): void {
+it('visit settings page when frontend cache setting is missing', function (): void {
     DB::table('settings')
         ->where('group', 'frontend')
         ->where('name', 'cache_enabled')
@@ -40,7 +40,7 @@ test('visit settings page when frontend cache setting is missing', function (): 
         ->assertSuccessful();
 });
 
-test('first-party settings schemas appear on the main settings page', function (): void {
+it('first-party settings schemas appear on the main settings page', function (): void {
     expect(CapellAdmin::settings()->html_editor)->toBe(EditorEnum::RichEditor)
         ->and(CapellCore::settings()->default_locale)->toBe('en')
         ->and(Frontend::settings()->cache_enabled)->toBeTrue();
@@ -52,7 +52,7 @@ test('first-party settings schemas appear on the main settings page', function (
         ->assertFormFieldExists('frontend.cache_enabled');
 });
 
-test('saves frontend settings through the main settings page', function (): void {
+it('saves frontend settings through the main settings page', function (): void {
     Livewire::test(SettingsPage::class)
         ->assertSuccessful()
         ->assertSchemaComponentStateSet('frontend.cache_ttl', 3600)

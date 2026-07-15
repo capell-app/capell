@@ -18,7 +18,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('ranks page name matches before translated and related matches', function (): void {
+it('ranks page name matches before translated and related matches', function (): void {
     $search = 'capell-page-table-relevance';
 
     $nameMatch = Page::factory()->withTranslations()->createOne([
@@ -47,7 +47,7 @@ test('ranks page name matches before translated and related matches', function (
         ->assertCanSeeTableRecords([$nameMatch, $urlMatch, $translationMatch], inOrder: true);
 });
 
-test('ranks site name matches before translated and related matches', function (): void {
+it('ranks site name matches before translated and related matches', function (): void {
     $search = 'capell-site-table-relevance';
 
     $nameMatch = Site::factory()->withTranslations()->createOne([
@@ -75,7 +75,7 @@ test('ranks site name matches before translated and related matches', function (
         ->assertCanSeeTableRecords([$nameMatch, $domainMatch, $translationMatch], inOrder: true);
 });
 
-test('keeps explicit table sorting ahead of site search relevance', function (): void {
+it('keeps explicit table sorting ahead of site search relevance', function (): void {
     $search = 'capell-site-table-explicit-sort';
 
     $nameMatch = Site::factory()->withTranslations()->createOne([

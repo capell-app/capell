@@ -55,7 +55,7 @@ afterEach(function (): void {
     }
 });
 
-test('export pages bulk action form renders with defaults', function (): void {
+it('export pages bulk action form renders with defaults', function (): void {
     $pages = Page::factory()->count(2)->create();
 
     Livewire::test(ListPages::class)
@@ -76,7 +76,7 @@ test('export pages bulk action form renders with defaults', function (): void {
         ]);
 });
 
-test('export pages bulk action requires the page export permission', function (): void {
+it('export pages bulk action requires the page export permission', function (): void {
     Permission::findOrCreate('page.export');
     Gate::policy(Page::class, PagePolicy::class);
 
@@ -85,7 +85,7 @@ test('export pages bulk action requires the page export permission', function ()
     expect(ExportPagesBulkAction::make()->model(Page::class)->isAuthorized())->toBeFalse();
 });
 
-test('export pages bulk action completes without errors using default form values', function (): void {
+it('export pages bulk action completes without errors using default form values', function (): void {
     $pages = Page::factory()->count(2)->create();
 
     Livewire::test(ListPages::class)
@@ -98,7 +98,7 @@ test('export pages bulk action completes without errors using default form value
         ->assertNotified();
 });
 
-test('export pages bulk action completes with shared relations disabled', function (): void {
+it('export pages bulk action completes with shared relations disabled', function (): void {
     $pages = Page::factory()->count(2)->create();
 
     Livewire::test(ListPages::class)
@@ -117,7 +117,7 @@ test('export pages bulk action completes with shared relations disabled', functi
         ->assertNotified();
 });
 
-test('export pages bulk action writes a zip archive to the configured export path', function (): void {
+it('export pages bulk action writes a zip archive to the configured export path', function (): void {
     $pages = Page::factory()->count(2)->create();
 
     Livewire::test(ListPages::class)

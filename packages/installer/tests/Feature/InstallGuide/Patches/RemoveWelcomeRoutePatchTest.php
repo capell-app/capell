@@ -17,7 +17,7 @@ afterEach(function (): void {
     }
 });
 
-test('probe_returns_unsupported_when_routes_web_does_not_exist', function (): void {
+it('probe_returns_unsupported_when_routes_web_does_not_exist', function (): void {
     $this->app->setBasePath($this->testDir);
 
     $patch = new RemoveWelcomeRoutePatch;
@@ -26,7 +26,7 @@ test('probe_returns_unsupported_when_routes_web_does_not_exist', function (): vo
     expect($status)->toBe(PatchStatus::Unsupported);
 });
 
-test('probe_returns_applicable_when_stock_welcome_block_present', function (): void {
+it('probe_returns_applicable_when_stock_welcome_block_present', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -53,7 +53,7 @@ PHP;
     expect($status)->toBe(PatchStatus::Applicable);
 });
 
-test('probe_returns_applicable_with_extra_whitespace_in_welcome_block', function (): void {
+it('probe_returns_applicable_with_extra_whitespace_in_welcome_block', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -80,7 +80,7 @@ PHP;
     expect($status)->toBe(PatchStatus::Applicable);
 });
 
-test('probe_returns_customised_when_named_welcome_route_present', function (): void {
+it('probe_returns_customised_when_named_welcome_route_present', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -105,7 +105,7 @@ PHP;
     expect($patch->probe())->toBe(PatchStatus::Customised);
 });
 
-test('probe_returns_applicable_when_unnamed_view_welcome_route_present', function (): void {
+it('probe_returns_applicable_when_unnamed_view_welcome_route_present', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -136,7 +136,7 @@ PHP;
         ->and($modifiedContent)->toContain("Route::view('dashboard', 'dashboard')");
 });
 
-test('probe_returns_already_applied_when_stock_block_absent_and_no_root_route', function (): void {
+it('probe_returns_already_applied_when_stock_block_absent_and_no_root_route', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -163,7 +163,7 @@ PHP;
     expect($status)->toBe(PatchStatus::AlreadyApplied);
 });
 
-test('probe_returns_customised_when_custom_root_route_present', function (): void {
+it('probe_returns_customised_when_custom_root_route_present', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -190,7 +190,7 @@ PHP;
     expect($status)->toBe(PatchStatus::Customised);
 });
 
-test('probe_returns_customised_when_root_route_with_different_handler_type', function (): void {
+it('probe_returns_customised_when_root_route_with_different_handler_type', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -216,7 +216,7 @@ PHP;
     expect($status)->toBe(PatchStatus::Customised);
 });
 
-test('apply_successfully_removes_stock_welcome_block', function (): void {
+it('apply_successfully_removes_stock_welcome_block', function (): void {
     // Test the regex removal logic directly without invoking the full apply() method
     $originalContent = <<<'PHP'
 <?php
@@ -242,7 +242,7 @@ PHP;
     expect($modifiedContent)->toContain("Route::get('/api/health'");
 });
 
-test('apply_cleans_up_excessive_newlines', function (): void {
+it('apply_cleans_up_excessive_newlines', function (): void {
     // Test the newline cleanup logic
     $originalContent = <<<'PHP'
 <?php
@@ -269,7 +269,7 @@ PHP;
     expect($modifiedContent)->not->toContain("\n\n\n");
 });
 
-test('apply_preserves_other_routes', function (): void {
+it('apply_preserves_other_routes', function (): void {
     // Test that removing the welcome route preserves other routes
     $originalContent = <<<'PHP'
 <?php
@@ -300,7 +300,7 @@ PHP;
     expect($modifiedContent)->toContain('data');
 });
 
-test('apply_removes_the_real_stock_welcome_route_file_and_collapses_blank_lines', function (): void {
+it('apply_removes_the_real_stock_welcome_route_file_and_collapses_blank_lines', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -334,7 +334,7 @@ PHP);
         ->toContain("Route::get('/dashboard'");
 });
 
-test('apply_rejects_custom_root_routes_without_mutating_application_routes', function (): void {
+it('apply_rejects_custom_root_routes_without_mutating_application_routes', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -354,7 +354,7 @@ PHP;
         ->and(file_get_contents($routesPath))->toBe($content);
 });
 
-test('apply_is_idempotent', function (): void {
+it('apply_is_idempotent', function (): void {
     // Test that applying the regex twice doesn't change the content further
     $originalContent = <<<'PHP'
 <?php
@@ -383,7 +383,7 @@ PHP;
     expect($secondApply)->toBe($firstApply);
 });
 
-test('patch_has_correct_metadata', function (): void {
+it('patch_has_correct_metadata', function (): void {
     $patch = new RemoveWelcomeRoutePatch;
 
     expect($patch->id())->toBe('remove-welcome-route-patch');

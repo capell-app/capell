@@ -21,14 +21,14 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('see livewire component', function (): void {
+it('see livewire component', function (): void {
     $site = Site::factory()->createOne();
 
     get(SiteResource::getUrl('edit', ['record' => $site->id]))
         ->assertSeeLivewire(SiteAlertsWidget::class);
 });
 
-test('no alerts when all site languages have domains', function (): void {
+it('no alerts when all site languages have domains', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->withTranslations()->create();
 
@@ -41,7 +41,7 @@ test('no alerts when all site languages have domains', function (): void {
         ->assertSet('alerts', fn (Collection $alerts): bool => $alerts->isEmpty());
 });
 
-test('alerts when site languages are missing domains', function (): void {
+it('alerts when site languages are missing domains', function (): void {
     $site = Site::factory()->createOne();
     $language = Language::factory()->createOne(['name' => 'French']);
     Translation::factory()->language($language)->translatable($site)->create();

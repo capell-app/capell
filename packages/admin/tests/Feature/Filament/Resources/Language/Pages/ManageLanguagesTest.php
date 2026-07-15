@@ -79,7 +79,7 @@ function createScopedUserForManageLanguagesTest(SupportCollection $assignedSiteI
     return $user;
 }
 
-test('can list languages', function (): void {
+it('can list languages', function (): void {
     $languages = Language::factory()->count(5)->create();
 
     Livewire::test(ManageLanguages::class)
@@ -88,7 +88,7 @@ test('can list languages', function (): void {
         ->assertCanSeeTableRecords($languages);
 });
 
-test('has documentation-aligned subheading', function (): void {
+it('has documentation-aligned subheading', function (): void {
     Livewire::test(ManageLanguages::class)
         ->assertSuccessful();
 
@@ -96,7 +96,7 @@ test('has documentation-aligned subheading', function (): void {
         ->toBe(__('capell-admin::generic.language_info'));
 });
 
-test('create language form exposes ordering guidance', function (): void {
+it('create language form exposes ordering guidance', function (): void {
     Livewire::test(ManageLanguages::class)
         ->assertSuccessful()
         ->mountAction('create')
@@ -106,7 +106,7 @@ test('create language form exposes ordering guidance', function (): void {
         ->not->toBe('capell-admin::generic.language_order_info');
 });
 
-test('can search languages', function (): void {
+it('can search languages', function (): void {
     $languages = Language::factory()
         ->count(3)
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Language(%d)', $sequence->index)])
@@ -122,7 +122,7 @@ test('can search languages', function (): void {
         ->assertCanNotSeeTableRecords($languages->where('name', '!=', $name));
 });
 
-test('can sort languages', function (): void {
+it('can sort languages', function (): void {
     $languages = Language::factory()->count(10)->create();
 
     $sorted = Language::query()->orderBy('name')->pluck('id');
@@ -134,7 +134,7 @@ test('can sort languages', function (): void {
         ->assertCanSeeTableRecords($sorted, inOrder: true);
 });
 
-test('can replicate language', function (): void {
+it('can replicate language', function (): void {
     $language = Language::factory()->createOne();
 
     Livewire::test(ManageLanguages::class)
@@ -160,7 +160,7 @@ test('can replicate language', function (): void {
     ]);
 });
 
-test('can create language', function (): void {
+it('can create language', function (): void {
     $language = Language::factory()->make();
 
     Livewire::test(ManageLanguages::class)
@@ -187,7 +187,7 @@ test('can create language', function (): void {
     ]);
 });
 
-test('can create language and setup for site', function (): void {
+it('can create language and setup for site', function (): void {
     $language = Language::factory()->createOne();
 
     $site = Site::factory()
@@ -242,7 +242,7 @@ test('can create language and setup for site', function (): void {
     ]);
 });
 
-test('rejects language setup sites outside the current actor scope', function (): void {
+it('rejects language setup sites outside the current actor scope', function (): void {
     $baseLanguage = Language::factory()->createOne();
     $assignedSite = Site::factory()
         ->state(['language_id' => $baseLanguage->id])
@@ -282,7 +282,7 @@ test('rejects language setup sites outside the current actor scope', function ()
     ]);
 });
 
-test('scopes language site counts for non-global users', function (): void {
+it('scopes language site counts for non-global users', function (): void {
     $language = Language::factory()->createOne();
     $assignedSite = Site::factory()
         ->state(['language_id' => $language->id])
@@ -300,7 +300,7 @@ test('scopes language site counts for non-global users', function (): void {
     expect($languageWithCount?->getAttribute('sites_count'))->toBe(1);
 });
 
-test('can not create language', function (): void {
+it('can not create language', function (): void {
     Livewire::test(ManageLanguages::class)
         ->assertSuccessful()
         ->callAction(
@@ -323,7 +323,7 @@ test('can not create language', function (): void {
         ->assertCountTableRecords(0);
 });
 
-test('can update language', function (): void {
+it('can update language', function (): void {
     $language = Language::factory()->createOne();
 
     $newLanguage = Language::factory()->make();
@@ -358,7 +358,7 @@ test('can update language', function (): void {
         ->status->toBeFalse();
 });
 
-test('can not update language', function (): void {
+it('can not update language', function (): void {
     $language = Language::factory()->createOne();
 
     Livewire::test(ManageLanguages::class)
@@ -382,7 +382,7 @@ test('can not update language', function (): void {
         ]);
 });
 
-test('can delete language', function (): void {
+it('can delete language', function (): void {
     $language = Language::factory()->createOne();
 
     Livewire::test(ManageLanguages::class)
@@ -394,7 +394,7 @@ test('can delete language', function (): void {
     assertSoftDeleted($language, ['id' => $language->id]);
 });
 
-test('can not delete language if it is used', function (): void {
+it('can not delete language if it is used', function (): void {
     $language = Language::factory()->createOne();
     Site::factory()->language($language)->create();
 
@@ -411,7 +411,7 @@ test('can not delete language if it is used', function (): void {
     assertDatabaseHas($language, ['id' => $language->id]);
 });
 
-test('can group delete languages', function (): void {
+it('can group delete languages', function (): void {
     $languages = Language::factory()
         ->sequence(fn (Sequence $sequence): array => ['code' => 'test-' . $sequence->index])
         ->count(5)->create();

@@ -14,7 +14,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('ranks layout name matches before key matches', function (): void {
+it('ranks layout name matches before key matches', function (): void {
     $search = 'capell-layout-table-relevance';
 
     $nameMatch = Layout::factory()->createOne([

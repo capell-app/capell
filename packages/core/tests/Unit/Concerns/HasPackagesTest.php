@@ -13,7 +13,7 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Illuminate\Support\Facades\DB;
 
-test('registerPackage does not accept manifest-backed params', function (): void {
+it('registerPackage does not accept manifest-backed params', function (): void {
     $reflection = new ReflectionMethod(CapellCore::getFacadeRoot(), 'registerPackage');
     $paramNames = array_map(fn (ReflectionParameter $param): string => $param->getName(), $reflection->getParameters());
 
@@ -30,7 +30,7 @@ test('registerPackage does not accept manifest-backed params', function (): void
         ->and($paramNames)->not->toContain('demoParams');
 });
 
-test('registerPackage resolves closure description lazily', function (): void {
+it('registerPackage resolves closure description lazily', function (): void {
     CapellCore::registerPackage('vendor/lazy-desc', description: fn (): string => 'translated description');
 
     expect(CapellCore::getPackage('vendor/lazy-desc')->getDescription())->toBe('translated description');
@@ -185,13 +185,13 @@ it('does not trust core declarations passed directly into package data', functio
     expect($package->isCore())->toBeFalse();
 });
 
-test('registerPackage accepts plain string description', function (): void {
+it('registerPackage accepts plain string description', function (): void {
     CapellCore::registerPackage('vendor/static-desc', description: 'plain description');
 
     expect(CapellCore::getPackage('vendor/static-desc')->getDescription())->toBe('plain description');
 });
 
-test('registerPackage accepts the expected params', function (): void {
+it('registerPackage accepts the expected params', function (): void {
     $reflection = new ReflectionMethod(CapellCore::getFacadeRoot(), 'registerPackage');
     $paramNames = array_map(fn (ReflectionParameter $param): string => $param->getName(), $reflection->getParameters());
 
@@ -210,14 +210,14 @@ test('registerPackage accepts the expected params', function (): void {
         ->and($paramNames)->toContain('defaultSelected');
 });
 
-test('registerPackage can mark optional packages as default selected', function (): void {
+it('registerPackage can mark optional packages as default selected', function (): void {
     CapellCore::registerPackage('capell-app/filamentors', defaultSelected: true);
 
     expect(CapellCore::getPackage('capell-app/filamentors')->defaultSelected)->toBeTrue()
         ->and(CapellCore::getPackage('capell-app/filamentors')->isCore())->toBeFalse();
 });
 
-test('registerManifestPackage registers provider-only packages for installer selection', function (): void {
+it('registerManifestPackage registers provider-only packages for installer selection', function (): void {
     CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/provider-only-theme',
         surfaces: ['frontend'],
@@ -252,7 +252,7 @@ test('registerManifestPackage registers provider-only packages for installer sel
         ->and($package->defaultSelected)->toBeTrue();
 });
 
-test('registerManifestPackage exposes demo package metadata', function (): void {
+it('registerManifestPackage exposes demo package metadata', function (): void {
     CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/demo-package',
         overrides: [
@@ -263,7 +263,7 @@ test('registerManifestPackage exposes demo package metadata', function (): void 
     expect(CapellCore::getPackage('vendor/demo-package')->isDemo())->toBeTrue();
 });
 
-test('packages with demo commands are demo packages', function (): void {
+it('packages with demo commands are demo packages', function (): void {
     CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/demo-command-package',
         overrides: [
@@ -279,7 +279,7 @@ test('packages with demo commands are demo packages', function (): void {
     expect(CapellCore::getPackage('vendor/demo-command-package')->isDemo())->toBeTrue();
 });
 
-test('registerManifestPackage exposes package lifecycle commands from capell manifests', function (): void {
+it('registerManifestPackage exposes package lifecycle commands from capell manifests', function (): void {
     CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/lifecycle-theme',
         surfaces: ['frontend'],
@@ -318,7 +318,7 @@ test('registerManifestPackage exposes package lifecycle commands from capell man
         ->and($package->getAfterInstallAction())->toBe(LifecycleRecorderAction::class);
 });
 
-test('packages expose product grouping metadata from capell manifests', function (): void {
+it('packages expose product grouping metadata from capell manifests', function (): void {
     CapellCore::clearPackages();
 
     $formBuilderPackagePath = makePackageManifestFixture([

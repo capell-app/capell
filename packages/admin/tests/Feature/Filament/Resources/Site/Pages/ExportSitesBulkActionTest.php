@@ -12,7 +12,7 @@ use Spatie\Permission\Models\Permission;
 uses(CreatesAdminUser::class)
     ->group('site');
 
-test('export sites bulk action requires the site export permission', function (): void {
+it('export sites bulk action requires the site export permission', function (): void {
     Permission::findOrCreate('site.export');
     Gate::policy(Site::class, SitePolicy::class);
 

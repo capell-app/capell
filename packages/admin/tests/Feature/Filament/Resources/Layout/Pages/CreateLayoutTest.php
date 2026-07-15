@@ -19,7 +19,7 @@ beforeEach(function (): void {
 });
 
 describe('from edit page', function (): void {
-    test('can create new layout', function (): void {
+    it('can create new layout', function (): void {
         $layout = Layout::factory()->createOne();
 
         $newData = Layout::factory()->make();
@@ -37,7 +37,7 @@ describe('from edit page', function (): void {
         ]);
     });
 
-    test('required fields are required', function (): void {
+    it('required fields are required', function (): void {
         $layout = Layout::factory()->createOne();
 
         Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()])
@@ -54,7 +54,7 @@ describe('from edit page', function (): void {
 });
 
 describe('from list page', function (): void {
-    test('can create new layout', function (): void {
+    it('can create new layout', function (): void {
         $newData = Layout::factory()->make();
 
         Livewire::test(ListLayouts::class)
@@ -71,7 +71,7 @@ describe('from list page', function (): void {
         ]);
     });
 
-    test('required fields are required', function (): void {
+    it('required fields are required', function (): void {
         Livewire::test(ListLayouts::class)
             ->assertSuccessful()
             ->callAction(CreateAction::class, [

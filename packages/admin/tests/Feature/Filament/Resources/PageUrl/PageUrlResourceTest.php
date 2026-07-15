@@ -16,14 +16,14 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('page', 'page-url');
 
-test('admin can see page urls', function (): void {
+it('admin can see page urls', function (): void {
     test()->actingAsAdmin();
 
     get(PageUrlResource::getUrl())
         ->assertOk();
 });
 
-test('admin render page urls page with redirect filter', function (): void {
+it('admin render page urls page with redirect filter', function (): void {
     test()->actingAsAdmin();
 
     $language = Language::factory()->createOne();
@@ -38,7 +38,7 @@ test('admin render page urls page with redirect filter', function (): void {
         ->assertSeeText('Showing 1 result');
 });
 
-test('cannot see page urls', function (): void {
+it('cannot see page urls', function (): void {
     test()->actingAsUser();
 
     get(PageUrlResource::getUrl())

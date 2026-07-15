@@ -22,7 +22,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('required fields', function (): void {
+it('required fields', function (): void {
     $type = Blueprint::factory()->site()->default()->create();
 
     $newData = Site::factory()
@@ -54,7 +54,7 @@ test('required fields', function (): void {
         ->assertHasNoFormErrors();
 });
 
-test('domain is required', function (): void {
+it('domain is required', function (): void {
     $newData = Site::factory()
         ->for(Blueprint::factory()->site()->default())
         ->make();
@@ -78,7 +78,7 @@ test('domain is required', function (): void {
         ]);
 });
 
-test('duplicate domain validation names the site using the domain', function (): void {
+it('duplicate domain validation names the site using the domain', function (): void {
     Blueprint::factory()->site()->default()->create();
     $language = Language::factory()->default()->create();
     $existingSite = Site::factory()
@@ -125,7 +125,7 @@ test('duplicate domain validation names the site using the domain', function ():
         ]));
 });
 
-test('create site', function (): void {
+it('create site', function (): void {
     Blueprint::factory()->site()->default()->create();
     $language = Language::factory()->default()->create();
 
@@ -193,7 +193,7 @@ test('create site', function (): void {
         ->language_id->toBe($newData->language->getKey());
 });
 
-test('create site with variations', function (string $operation): void {
+it('create site with variations', function (string $operation): void {
     $siteType = Blueprint::factory()->site()->default()->create();
 
     [$language, $additionalLanguage] = Language::factory(2)->create();
@@ -312,7 +312,7 @@ test('create site with variations', function (string $operation): void {
         'with delete site domain',
     ]);
 
-test('auto creates pages', function (): void {
+it('auto creates pages', function (): void {
     $languages = Language::factory()
         ->count(3)
         ->sequence(['default' => true])

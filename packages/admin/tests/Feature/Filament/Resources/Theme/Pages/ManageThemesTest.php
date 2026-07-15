@@ -233,7 +233,7 @@ function registerAvailableManageThemesDefinition(string $themeKey = 'agency', ?s
     app()->instance(ThemeRegistry::class, $registry);
 }
 
-test('can list themes', function (): void {
+it('can list themes', function (): void {
     $themes = Theme::factory()->count(5)->create();
 
     Livewire::test(ManageThemes::class)
@@ -242,7 +242,7 @@ test('can list themes', function (): void {
         ->assertCanSeeTableRecords($themes);
 });
 
-test('theme table renders standard theme summary columns', function (): void {
+it('theme table renders standard theme summary columns', function (): void {
     $theme = Theme::factory()->createOne([
         'key' => 'ruby',
         'name' => 'Ruby Theme',
@@ -275,7 +275,7 @@ test('theme table renders standard theme summary columns', function (): void {
         ->assertTableActionDoesNotExist('viewThemeDetails', record: $theme);
 });
 
-test('theme page groups header actions for creating and installing themes', function (): void {
+it('theme page groups header actions for creating and installing themes', function (): void {
     $actionGroup = themeHeaderActionGroup(new ManageThemes);
     $groupedActions = $actionGroup->getFlatActions();
 
@@ -297,7 +297,7 @@ test('theme page groups header actions for creating and installing themes', func
         ->assertActionDoesNotExist('create_default');
 });
 
-test('available theme definitions render with preset counts in the add theme action', function (): void {
+it('available theme definitions render with preset counts in the add theme action', function (): void {
     registerAvailableManageThemesDefinition();
 
     $available = ResolveThemeLibraryAction::run()['available'];
@@ -312,7 +312,7 @@ test('available theme definitions render with preset counts in the add theme act
         ->assertDontSee(__('capell-admin::theme-library.actions.create_available'));
 });
 
-test('available theme definitions are not capped in the add theme action', function (): void {
+it('available theme definitions are not capped in the add theme action', function (): void {
     foreach (range(1, 6) as $index) {
         registerAvailableManageThemesDefinition('available-theme-' . $index);
     }
@@ -328,7 +328,7 @@ test('available theme definitions are not capped in the add theme action', funct
         ->assertActionExists('installTheme');
 });
 
-test('can create an available theme definition with its first preset active', function (): void {
+it('can create an available theme definition with its first preset active', function (): void {
     registerAvailableManageThemesDefinition();
 
     Livewire::test(ManageThemes::class)
@@ -347,7 +347,7 @@ test('can create an available theme definition with its first preset active', fu
         ->meta->editor->assets->paths->toBe(['/themes/agency.css']);
 });
 
-test('creating an available default-key theme does not make it default', function (): void {
+it('creating an available default-key theme does not make it default', function (): void {
     registerAvailableManageThemesDefinition('default');
 
     Livewire::test(ManageThemes::class)
@@ -364,7 +364,7 @@ test('creating an available default-key theme does not make it default', functio
         ->meta->editor->preset->active->toBe('launch');
 });
 
-test('cannot create an available theme without theme create permission', function (): void {
+it('cannot create an available theme without theme create permission', function (): void {
     registerAvailableManageThemesDefinition();
 
     test()->actingAs(createThemePageScopedUser(collect()));
@@ -379,7 +379,7 @@ test('cannot create an available theme without theme create permission', functio
     expect(Theme::query()->where('key', 'agency')->exists())->toBeFalse();
 });
 
-test('installed theme details render the active preset label', function (): void {
+it('installed theme details render the active preset label', function (): void {
     $theme = Theme::factory()->createOne([
         'key' => 'agency',
         'name' => 'Agency',
@@ -397,7 +397,7 @@ test('installed theme details render the active preset label', function (): void
         ->assertDontSee('meta.active_preset');
 });
 
-test('installed theme details resolve local app definition preset labels', function (): void {
+it('installed theme details resolve local app definition preset labels', function (): void {
     Theme::factory()->createOne([
         'key' => 'local-agency',
         'name' => 'Local Agency',
@@ -445,7 +445,7 @@ test('installed theme details resolve local app definition preset labels', funct
         ->assertSee('Local Launch');
 });
 
-test('cannot create the same available theme twice', function (): void {
+it('cannot create the same available theme twice', function (): void {
     registerAvailableManageThemesDefinition();
     Theme::factory()->createOne(['key' => 'agency']);
 
@@ -457,7 +457,7 @@ test('cannot create the same available theme twice', function (): void {
     expect(Theme::query()->where('key', 'agency')->count())->toBe(1);
 });
 
-test('available theme definitions with diagnostics errors are not created', function (): void {
+it('available theme definitions with diagnostics errors are not created', function (): void {
     registerAvailableManageThemesDefinition(extends: 'missing-parent');
 
     Livewire::test(ManageThemes::class)
@@ -470,7 +470,7 @@ test('available theme definitions with diagnostics errors are not created', func
     expect(Theme::query()->where('key', 'agency')->exists())->toBeFalse();
 });
 
-test('theme page resolves registered header actions from optional packages', function (): void {
+it('theme page resolves registered header actions from optional packages', function (): void {
     app()->bind('test.theme.header.extender', fn (): ResourceHeaderActionExtender => new class implements ResourceHeaderActionExtender
     {
         public function supports(string $pageClass): bool
@@ -501,7 +501,7 @@ test('theme page resolves registered header actions from optional packages', fun
         ->toHaveKeys(['createTheme', 'installTheme']);
 });
 
-test('theme page groups marketplace install action when it is registered', function (): void {
+it('theme page groups marketplace install action when it is registered', function (): void {
     app()->bind('test.theme.marketplace.header.extender', fn (): ResourceHeaderActionExtender => new class implements ResourceHeaderActionExtender
     {
         public function supports(string $pageClass): bool
@@ -539,7 +539,7 @@ test('theme page groups marketplace install action when it is registered', funct
         ->and($groupedActions)->not->toHaveKey('installMarketplaceTheme');
 });
 
-test('site scoped admins can open the theme page with preview action available', function (): void {
+it('site scoped admins can open the theme page with preview action available', function (): void {
     $site = Site::factory()->withTranslations()->create();
     Page::factory()->site($site)->home()->withTranslations(slug: '/')->create();
     $theme = Theme::factory()->createOne();
@@ -551,7 +551,7 @@ test('site scoped admins can open the theme page with preview action available',
         ->assertTableActionVisible('previewTheme', $theme);
 });
 
-test('can filter type', function (): void {
+it('can filter type', function (): void {
     $type = Blueprint::factory()->theme()->create();
 
     Theme::factory()->state(['blueprint_id' => $type->getKey()])->create();
@@ -566,7 +566,7 @@ test('can filter type', function (): void {
         ->assertCountTableRecords(1);
 });
 
-test('can search themes', function (): void {
+it('can search themes', function (): void {
     $themes = Theme::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Language(%d)', $sequence->index)])
         ->count(3)
@@ -583,7 +583,7 @@ test('can search themes', function (): void {
         ->assertCanNotSeeTableRecords($themes->where('name', '!=', $name));
 });
 
-test('can sort themes', function (): void {
+it('can sort themes', function (): void {
     $themes = Theme::factory()->count(10)->create();
 
     $sorted = Theme::query()->orderBy('name')->pluck('id');
@@ -596,7 +596,7 @@ test('can sort themes', function (): void {
         ->assertCanSeeTableRecords($sorted, inOrder: true);
 });
 
-test('can replicate theme', function (): void {
+it('can replicate theme', function (): void {
     $theme = Theme::factory()->createOne();
 
     Livewire::test(ManageThemes::class)
@@ -618,7 +618,7 @@ test('can replicate theme', function (): void {
     ]);
 });
 
-test('can create theme', function (): void {
+it('can create theme', function (): void {
     $type = Blueprint::factory()->theme()->create();
     $theme = Theme::factory()->recycle($type)->make();
 
@@ -653,7 +653,7 @@ test('can create theme', function (): void {
         ->admin->editor->description->toBe('Custom theme description.');
 });
 
-test('theme colors repeater tolerates null form state during action hydration', function (): void {
+it('theme colors repeater tolerates null form state during action hydration', function (): void {
     $theme = Theme::factory()->make();
 
     Livewire::test(ManageThemes::class)
@@ -671,7 +671,7 @@ test('theme colors repeater tolerates null form state during action hydration', 
         ->and(data_get($createdTheme->meta, 'editor.brand.primaryColor'))->toBe('#0f766e');
 });
 
-test('can not create theme without required data', function (): void {
+it('can not create theme without required data', function (): void {
     Livewire::test(ManageThemes::class)
         ->assertSuccessful()
         ->callAction('createTheme', [
@@ -685,7 +685,7 @@ test('can not create theme without required data', function (): void {
         ->assertCountTableRecords(0);
 });
 
-test('can save an admin theme description', function (): void {
+it('can save an admin theme description', function (): void {
     $theme = Theme::factory()->make();
 
     Livewire::test(ManageThemes::class)
@@ -703,7 +703,7 @@ test('can save an admin theme description', function (): void {
         ->toBe('A bright editorial theme for campaign landing pages.');
 });
 
-test('can save all theme chrome customisations', function (): void {
+it('can save all theme chrome customisations', function (): void {
     $theme = Theme::factory()->make();
 
     Livewire::test(ManageThemes::class)
@@ -722,7 +722,7 @@ test('can save all theme chrome customisations', function (): void {
         ->and(data_get($createdTheme->meta, 'editor.footer.enabled'))->toBeTrue();
 });
 
-test('creating a custom default theme clears the previous default', function (): void {
+it('creating a custom default theme clears the previous default', function (): void {
     $existingDefault = Theme::factory()->createOne(['default' => true]);
     $theme = Theme::factory()->make();
 
@@ -744,7 +744,7 @@ test('creating a custom default theme clears the previous default', function ():
         ->and(Theme::query()->default()->count())->toBe(1);
 });
 
-test('can edit database-backed theme fields from the admin form', function (): void {
+it('can edit database-backed theme fields from the admin form', function (): void {
     registerAvailableManageThemesDefinition('foundation');
 
     $theme = Theme::factory()->createOne([
@@ -843,7 +843,7 @@ test('can edit database-backed theme fields from the admin form', function (): v
         ->admin->editor->description->toBe('Updated admin card description.');
 });
 
-test('theme editor preview view passes theme context to package extensions', function (): void {
+it('theme editor preview view passes theme context to package extensions', function (): void {
     registerManageThemesDefinition(Theme::factory()->make([
         'key' => 'package-preview',
         'name' => 'Package Preview',
@@ -903,7 +903,7 @@ test('theme editor preview view passes theme context to package extensions', fun
         ->and($html)->toContain('--package-preview-token:#123456;');
 });
 
-test('theme table shows title and description', function (): void {
+it('theme table shows title and description', function (): void {
     $theme = Theme::factory()->createOne([
         'name' => 'Campaign Studio',
         'key' => 'campaign-studio',
@@ -922,14 +922,14 @@ test('theme table shows title and description', function (): void {
         ->assertSee('A bold theme for launch campaigns and editorial pages.');
 });
 
-test('shows a marketplace install empty state when no themes exist', function (): void {
+it('shows a marketplace install empty state when no themes exist', function (): void {
     Livewire::test(ManageThemes::class)
         ->assertSuccessful()
         ->assertSeeText(__('capell-admin::table.theme_empty_heading'))
         ->assertSeeText(__('capell-admin::table.theme_empty_description'));
 });
 
-test('can apply a theme globally from the theme table actions', function (): void {
+it('can apply a theme globally from the theme table actions', function (): void {
     $activeTheme = Theme::factory()->createOne(['default' => true]);
     $selectedTheme = Theme::factory()->createOne(['default' => false]);
     registerManageThemesDefinition($selectedTheme);
@@ -949,7 +949,7 @@ test('can apply a theme globally from the theme table actions', function (): voi
         ->and($activeTheme->refresh()->default)->toBeFalse();
 });
 
-test('cannot apply a theme with diagnostics errors', function (): void {
+it('cannot apply a theme with diagnostics errors', function (): void {
     $theme = Theme::factory()->createOne([
         'key' => 'missing-diagnostics-theme',
         'default' => false,
@@ -961,7 +961,7 @@ test('cannot apply a theme with diagnostics errors', function (): void {
         ->assertTableActionDisabled('applyTheme', $theme);
 });
 
-test('diagnostics badge opens the diagnostics modal', function (): void {
+it('diagnostics badge opens the diagnostics modal', function (): void {
     $theme = Theme::factory()->createOne([
         'key' => 'missing-diagnostics-theme',
         'name' => 'Missing Diagnostics Theme',
@@ -975,7 +975,7 @@ test('diagnostics badge opens the diagnostics modal', function (): void {
         ->assertMountedActionModalSee(__('capell-admin::theme-library.diagnostics.missing_definition'));
 });
 
-test('can apply a theme to selected sites from the theme table actions', function (): void {
+it('can apply a theme to selected sites from the theme table actions', function (): void {
     $globalTheme = Theme::factory()->createOne(['default' => true]);
     $selectedTheme = Theme::factory()->createOne(['default' => false]);
     $unchangedTheme = Theme::factory()->createOne(['default' => false]);
@@ -1006,7 +1006,7 @@ test('can apply a theme to selected sites from the theme table actions', functio
         ->and($unselectedSite->refresh()->theme_id)->toBe($unchangedTheme->getKey());
 });
 
-test('site scoped admins cannot tamper theme apply scope or site ids', function (): void {
+it('site scoped admins cannot tamper theme apply scope or site ids', function (): void {
     $globalTheme = Theme::factory()->createOne(['default' => true]);
     $selectedTheme = Theme::factory()->createOne(['default' => false]);
     registerManageThemesDefinition($selectedTheme);
@@ -1041,7 +1041,7 @@ test('site scoped admins cannot tamper theme apply scope or site ids', function 
         ->and($unassignedSite->refresh()->theme_id)->toBe($globalTheme->getKey());
 });
 
-test('selected site theme apply requires at least one site', function (): void {
+it('selected site theme apply requires at least one site', function (): void {
     $selectedTheme = Theme::factory()->createOne(['default' => false]);
     registerManageThemesDefinition($selectedTheme);
 
@@ -1057,7 +1057,7 @@ test('selected site theme apply requires at least one site', function (): void {
         ->assertHasFormErrors(['site_ids']);
 });
 
-test('can save default theme without loosing data', function (): void {
+it('can save default theme without loosing data', function (): void {
     $defaultTheme = CreateThemeAction::run();
     assert($defaultTheme->blueprint instanceof Blueprint);
 
@@ -1089,7 +1089,7 @@ test('can save default theme without loosing data', function (): void {
         );
 });
 
-test('can delete theme', function (): void {
+it('can delete theme', function (): void {
     $theme = Theme::factory()->createOne();
 
     Livewire::test(ManageThemes::class)
@@ -1102,7 +1102,7 @@ test('can delete theme', function (): void {
     assertSoftDeleted($theme, ['id' => $theme->id]);
 });
 
-test('can group delete themes', function (): void {
+it('can group delete themes', function (): void {
     $themes = Theme::factory()->count(5)->create();
 
     Livewire::test(ManageThemes::class)
@@ -1116,7 +1116,7 @@ test('can group delete themes', function (): void {
     }
 });
 
-test('can not delete theme if it is used', function (): void {
+it('can not delete theme if it is used', function (): void {
     $theme = Theme::factory()->createOne();
     Site::factory()->theme($theme)->create();
 
