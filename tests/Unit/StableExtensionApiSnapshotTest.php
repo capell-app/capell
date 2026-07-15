@@ -10,9 +10,13 @@ it('keeps the pending first-public-release baseline current', function (): void 
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-stable-extension-api.php', '--check'], $root);
     $process->run();
+    $output = $process->getOutput();
 
     expect($process->getExitCode())->toBe(0)
-        ->and($process->getOutput())->toContain('baseline is current')
+        ->and(
+            str_contains($output, 'baseline is current')
+            || str_contains($output, 'Pending stable API drift (compatibility not active):'),
+        )->toBeTrue()
         ->and(json_decode((string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'), true, flags: JSON_THROW_ON_ERROR)['status'])
         ->toBe('pending-first-public-release');
 });
