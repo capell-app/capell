@@ -45,7 +45,7 @@ final class BuildDoctorReportAction
     public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
     {
         $checks = collect([
-            $this->identified($this->checkRequiredTablesExist(), 'core.schema.required', DoctorCheckSeverity::Critical),
+            $this->identified($this->checkRequiredTablesExist($installSummary), 'core.schema.required', DoctorCheckSeverity::Critical),
             $this->identified($this->checkMorphMap(), 'core.morph-map.complete', DoctorCheckSeverity::Critical),
             $this->identified($this->checkStorageDisksWritable(), 'core.storage.writable', DoctorCheckSeverity::Warning),
             $this->identified($this->checkSeeded(), 'core.seed-data.present', DoctorCheckSeverity::Critical),
@@ -182,12 +182,12 @@ final class BuildDoctorReportAction
             ->all();
     }
 
-    private function checkRequiredTablesExist(): DoctorCheckResultData
+    private function checkRequiredTablesExist(bool $installSummary): DoctorCheckResultData
     {
         $missingTables = $this->runtimeSchema->missingTables();
         $installationState = ResolveCapellInstallationStateAction::run();
 
-        if ($installationState !== CapellInstallationState::Installed) {
+        if ($missingTables !== [] || (! $installSummary && $installationState !== CapellInstallationState::Installed)) {
             return new DoctorCheckResultData(
                 label: 'Required tables exist',
                 passed: false,
@@ -208,7 +208,9 @@ final class BuildDoctorReportAction
         return new DoctorCheckResultData(
             label: 'Required tables exist',
             passed: true,
-            message: 'All required tables exist.',
+            message: $installationState === CapellInstallationState::Installed
+                ? 'All required tables exist.'
+                : 'All required tables exist; core lifecycle completion is pending the final installer step.',
             id: 'core.schema.required',
             severity: DoctorCheckSeverity::Critical,
             evidence: [
