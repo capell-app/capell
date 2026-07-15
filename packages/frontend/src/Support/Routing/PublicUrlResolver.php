@@ -12,19 +12,13 @@ final class PublicUrlResolver
     public function origin(): string
     {
         $configuredOrigin = rtrim((string) config('app.url'), '/');
-        $origin = $this->forcedRoot() ?? rtrim((string) url('/'), '/');
+        $forcedRoot = $this->forcedRoot();
 
-        if ($configuredOrigin !== '' && $origin !== '') {
-            $configuredHost = parse_url($configuredOrigin, PHP_URL_HOST);
-            $originHost = parse_url($origin, PHP_URL_HOST);
-            $originScheme = parse_url($origin, PHP_URL_SCHEME);
-
-            if ($configuredHost !== null && $configuredHost === $originHost && $originScheme === 'https') {
-                return $origin;
-            }
-
-            return $configuredOrigin;
+        if ($forcedRoot !== null) {
+            return $forcedRoot;
         }
+
+        $origin = rtrim((string) url('/'), '/');
 
         if ($origin !== '') {
             return $origin;

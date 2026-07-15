@@ -178,3 +178,13 @@ it('maintains separate media collections for image and background image', functi
         ->and($translation->getMedia(MediaCollectionEnum::Image->value))->toHaveCount(1)
         ->and($translation->getMedia(MediaCollectionEnum::BackgroundImage->value))->toHaveCount(0);
 });
+
+it('does not expose structured metadata as a string label', function (): void {
+    $translation = new Translation;
+    $translation->forceFill([
+        'title' => ['en' => 'Structured title'],
+        'meta' => ['label' => ['en' => 'Structured label']],
+    ]);
+
+    expect($translation->label)->toBeNull();
+});

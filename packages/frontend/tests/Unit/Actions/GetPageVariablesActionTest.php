@@ -179,7 +179,7 @@ it('adds archive date variables and parent labels from public route params', fun
     app()->forgetInstance(CapellFrontendContext::class);
 
     $variables = GetPageVariablesAction::run($page, $site, [
-        'title' => 'Manual Override',
+        'title' => ['en' => 'Manual Override', 'fr' => 'Remplacement manuel'],
     ]);
 
     expect($variables['site'])->toBe('Journal')
