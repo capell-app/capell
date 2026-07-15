@@ -160,6 +160,8 @@ final class InstallPackagesAction
             package: $package,
             arguments: $this->filterParams($package->getInstallParams(), $this->buildParams($inputData, $user)),
             reporter: $reporter,
+            freshLifecycleProcess: TrustedCorePackages::isAdminPackage($package->name)
+                && $package->getInstallCommand() === 'capell:admin-install',
         );
     }
 

@@ -26,8 +26,6 @@ class AdminPanelThemePatch implements Patch
 
     private const string THEME_PATH = 'resources/css/filament/admin/theme.css';
 
-    private const string THEME_BUILD_DIRECTORY = 'build/filament';
-
     public function id(): string
     {
         return 'admin-panel-theme-patch';
@@ -109,7 +107,6 @@ class AdminPanelThemePatch implements Patch
             'viteTheme',
             [
                 new Arg(new String_(self::THEME_PATH)),
-                new Arg(new String_(self::THEME_BUILD_DIRECTORY)),
             ],
         );
     }

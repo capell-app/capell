@@ -97,6 +97,22 @@ it('reports required tables as present', function (): void {
         ->assertExitCode(Command::SUCCESS);
 });
 
+it('allows the install summary to validate required tables before the final core lifecycle marker is written', function (): void {
+    seedHealthyDoctorInstall();
+    CapellExtension::query()->where('composer_name', 'capell-app/core')->delete();
+    CapellCore::clearExtensionCache();
+
+    artisanCommand('capell:doctor', [
+        '--install-summary' => true,
+        '--skip-package-doctors' => true,
+    ])
+        ->expectsOutputToContain('Required tables exist')
+        ->assertExitCode(Command::SUCCESS);
+
+    artisanCommand('capell:doctor')
+        ->assertExitCode(Command::FAILURE);
+});
+
 it('fails when required table is missing', function (): void {
     Schema::drop('sites');
 

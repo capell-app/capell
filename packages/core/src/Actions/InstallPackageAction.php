@@ -20,7 +20,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
 
 /**
- * @method static void run(PackageData $package, array<string, mixed> $arguments = [], ?ProgressReporter $reporter = null, bool $allowLegacyCommand = true)
+ * @method static void run(PackageData $package, array<string, mixed> $arguments = [], ?ProgressReporter $reporter = null, bool $allowLegacyCommand = true, bool $freshLifecycleProcess = false)
  */
 class InstallPackageAction
 {
@@ -34,12 +34,13 @@ class InstallPackageAction
         array $arguments = [],
         ?ProgressReporter $reporter = null,
         bool $allowLegacyCommand = true,
+        bool $freshLifecycleProcess = false,
     ): void {
         $name = $package->name;
         $reporter ??= new NullProgressReporter;
 
         if ($package->getKind() === 'bundle') {
-            self::installBundleMembers($package, $arguments, $reporter, $allowLegacyCommand);
+            self::installBundleMembers($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
         }
 
         if (! CapellCore::canInstallPackage($name)) {
@@ -73,6 +74,7 @@ class InstallPackageAction
                     arguments: $arguments,
                     reporter: $reporter,
                     allowLegacyCommand: $allowLegacyCommand,
+                    freshProcess: $freshLifecycleProcess,
                 );
             }
 
@@ -130,6 +132,7 @@ class InstallPackageAction
         array $arguments,
         ?ProgressReporter $reporter,
         bool $allowLegacyCommand,
+        bool $freshLifecycleProcess,
     ): void {
         $newlyInstalled = [];
 
@@ -140,7 +143,7 @@ class InstallPackageAction
                     continue;
                 }
 
-                self::handle($member, $arguments, $reporter, $allowLegacyCommand);
+                self::handle($member, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
                 $newlyInstalled[] = $member;
             }
         } catch (Throwable $throwable) {

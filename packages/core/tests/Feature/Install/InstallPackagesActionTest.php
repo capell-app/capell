@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\InstallPackagesAction;
+use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -136,6 +139,31 @@ it('installs a registered package and marks it installed', function (): void {
     InstallPackagesAction::run($inputData, $user, new NullProgressReporter);
 
     expect(CapellCore::isPackageInstalled('test'))->toBeTrue();
+});
+
+it('boots the admin install lifecycle in a fresh process without requiring the fresh database option', function (): void {
+    CapellCore::registerPackage(name: 'capell-app/admin', installCommand: 'capell:admin-install');
+
+    $installPackage = Mockery::mock(InstallPackageAction::class);
+    $installPackage->shouldReceive('handle')
+        ->once()
+        ->withArgs(fn (
+            PackageData $package,
+            array $arguments,
+            ProgressReporter $reporter,
+            bool $allowLegacyCommand,
+            bool $freshLifecycleProcess,
+        ): bool => $package->name === 'capell-app/admin'
+            && $arguments === []
+            && $allowLegacyCommand
+            && $freshLifecycleProcess);
+    app()->instance(InstallPackageAction::class, $installPackage);
+
+    InstallPackagesAction::run(
+        makeInstallInputData(packages: ['capell-app/admin'], seedDefaultData: false),
+        null,
+        new NullProgressReporter,
+    );
 });
 
 it('skips packages that are not registered', function (): void {

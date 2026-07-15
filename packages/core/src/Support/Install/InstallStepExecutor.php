@@ -374,21 +374,7 @@ final class InstallStepExecutor
 
     private function runDoctorSummaryCommand(InstallRunState $state): int
     {
-        if (! array_key_exists('capell:doctor', Artisan::all())) {
-            return $this->runDoctorSummaryInFreshProcess($state);
-        }
-
-        $exitCode = Artisan::call('capell:doctor', [
-            '--install-summary' => true,
-            '--skip-package-doctors' => true,
-        ]);
-
-        $output = trim(Artisan::output());
-        if ($output !== '') {
-            $state->reporter->report($output);
-        }
-
-        return $exitCode;
+        return $this->runDoctorSummaryInFreshProcess($state);
     }
 
     private function runDoctorSummaryInFreshProcess(InstallRunState $state): int

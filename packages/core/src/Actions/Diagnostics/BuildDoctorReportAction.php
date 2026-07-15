@@ -210,7 +210,9 @@ final class BuildDoctorReportAction
         return new DoctorCheckResultData(
             label: 'Required tables exist',
             passed: true,
-            message: 'All required tables exist.',
+            message: $installationState === CapellInstallationState::Installed
+                ? 'All required tables exist.'
+                : 'All required tables exist; core lifecycle completion is pending the final installer step.',
             id: 'core.schema.required',
             severity: DoctorCheckSeverity::Critical,
             evidence: [
