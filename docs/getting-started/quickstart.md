@@ -2,20 +2,22 @@
 
 Use this path to evaluate the current 1.x foundation in a fresh Laravel application. It installs Core, Admin, Frontend, Installer, and Marketplace, creates a site and administrator, seeds demo content, generates frontend assets, and runs the install health summary.
 
+The current 1.x foundation release is available through public Packagist packages. Marketplace access may be required separately for paid extensions or customer services.
+
 For an existing application, use the [Install guide](install.md#path-b-existing-laravel-app) and take a database and media backup before running migrations.
 
 ## Before you start
 
 Allow about ten minutes for the first Composer install.
 
-| Requirement | Supported value |
-| --- | --- |
-| PHP | 8.4+ |
-| Laravel | 12.41.1+ or 13.x |
-| Filament | Installed by the selected Capell Admin package; supported line `~5.6.8` |
-| Node.js | 20+ |
-| Composer | 2.7+ |
-| Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
+| Requirement | Supported value                                                         |
+| ----------- | ----------------------------------------------------------------------- |
+| PHP         | 8.4+                                                                    |
+| Laravel     | 12.41.1+ or 13.x                                                        |
+| Filament    | Installed by the selected Capell Admin package; supported line `~5.6.8` |
+| Node.js     | 20+                                                                     |
+| Composer    | 2.7+                                                                    |
+| Database    | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database     |
 
 Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
 
@@ -53,15 +55,15 @@ php artisan capell:install --demo --url=http://localhost:8000
 
 For a normal evaluation, accept the full foundation selection and the default theme. The installer asks for:
 
-| Prompt | Local evaluation answer |
-| --- | --- |
-| Package selection | All foundation packages |
-| Theme | Default |
-| Site URL | `http://localhost:8000` |
-| Site name | Any recognisable local name |
-| Administrator | Create one with an email and strong local password |
-| Clear caches | Yes |
-| Welcome route | Yes for a fresh demo application |
+| Prompt            | Local evaluation answer                            |
+| ----------------- | -------------------------------------------------- |
+| Package selection | All foundation packages                            |
+| Theme             | Default                                            |
+| Site URL          | `http://localhost:8000`                            |
+| Site name         | Any recognisable local name                        |
+| Administrator     | Create one with an email and strong local password |
+| Clear caches      | Yes                                                |
+| Welcome route     | Yes for a fresh demo application                   |
 
 The final output is part of the install contract. A healthy run ends in this order:
 
@@ -136,14 +138,14 @@ Before production, also configure and prove the separate [database and media bac
 
 ## First-run fixes
 
-| Symptom | Action | Read next |
-| --- | --- | --- |
-| `php artisan` is not executable or writable paths fail | `chmod +x artisan && chmod -R u+rwX storage bootstrap/cache` | [Permissions troubleshooting](../operations/troubleshooting.md#php-artisan-says-permission-denied) |
-| A queued publish never finishes | Start `php artisan queue:work` | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) |
-| The public page remains stale | Use Admin **Clear Cache**, then inspect the response/cache path | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
-| A package class is missing after Composer | `composer dump-autoload && php artisan optimize:clear` | [Package discovery](../packages/debugging-package-discovery.md) |
-| Frontend CSS is missing | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Theme compilation](install.md#7-theme-compilation) |
-| The installer stops at health review | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor` | [Site Health](../operations/site-health.md) |
+| Symptom                                                | Action                                                                                                          | Read next                                                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `php artisan` is not executable or writable paths fail | `chmod +x artisan && chmod -R u+rwX storage bootstrap/cache`                                                    | [Permissions troubleshooting](../operations/troubleshooting.md#php-artisan-says-permission-denied)                |
+| A queued publish never finishes                        | Start `php artisan queue:work`                                                                                  | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate)                 |
+| The public page remains stale                          | Use Admin **Clear Cache**, then inspect the response/cache path                                                 | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
+| A package class is missing after Composer              | `composer dump-autoload && php artisan optimize:clear`                                                          | [Package discovery](../packages/debugging-package-discovery.md)                                                   |
+| Frontend CSS is missing                                | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Theme compilation](install.md#7-theme-compilation)                                                               |
+| The installer stops at health review                   | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor`                                      | [Site Health](../operations/site-health.md)                                                                       |
 
 ## Next
 

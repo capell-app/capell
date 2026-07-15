@@ -13,6 +13,7 @@
     use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
     use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
     use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
+    use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Data\ColorData;
     use Capell\Frontend\Data\FrontendResourceContextData;
     use Capell\Frontend\Data\FrontendRuntimeManifestData;

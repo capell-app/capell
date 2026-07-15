@@ -52,7 +52,7 @@ it('ignores non string translation meta values in the public head', function ():
     $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $resourcePlan = new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty'));
 
-    app()->instance(CapellFrontendContext::class, new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new CapellFrontendContext(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -64,9 +64,11 @@ it('ignores non string translation meta values in the public head', function ():
         ],
         slug: null,
     )));
-    Frontend::clearResolvedInstance(CapellFrontendContext::class);
 
-    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+    $html = Blade::render(
+        '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
+        ['resourcePlan' => $resourcePlan],
+    );
 
     expect($html)->toContain('<title>')
         ->and($html)->toContain('Example Page')
@@ -103,7 +105,7 @@ it('renders static theme css assets without requiring a vite manifest entry', fu
         )),
     ]);
 
-    app()->instance(CapellFrontendContext::class, new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new CapellFrontendContext(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -115,9 +117,11 @@ it('renders static theme css assets without requiring a vite manifest entry', fu
         ],
         slug: null,
     )));
-    Frontend::clearResolvedInstance(CapellFrontendContext::class);
 
-    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+    $html = Blade::render(
+        '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
+        ['resourcePlan' => $resourcePlan],
+    );
 
     expect($html)->toContain('href="http://localhost/vendor/capell/themes/saas.css"')
         ->and($html)->not->toContain('@vite');
@@ -162,7 +166,7 @@ it('delegates public resource rendering through the resource plan renderer contr
         }
     });
 
-    app()->instance(CapellFrontendContext::class, new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new CapellFrontendContext(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -174,9 +178,11 @@ it('delegates public resource rendering through the resource plan renderer contr
         ],
         slug: null,
     )));
-    Frontend::clearResolvedInstance(CapellFrontendContext::class);
 
-    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+    $html = Blade::render(
+        '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
+        ['resourcePlan' => $resourcePlan],
+    );
 
     expect($html)
         ->toContain('<meta name="asset-renderer-contract" content="used">')
@@ -249,7 +255,7 @@ function bindAppHeadTestContext(array $params = [], ?Theme $theme = null): void
     $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $resourcePlan = new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty'));
 
-    app()->instance(CapellFrontendContext::class, new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new CapellFrontendContext(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -262,5 +268,4 @@ function bindAppHeadTestContext(array $params = [], ?Theme $theme = null): void
         ],
         slug: null,
     )));
-    Frontend::clearResolvedInstance(CapellFrontendContext::class);
 }

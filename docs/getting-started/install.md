@@ -8,14 +8,14 @@ Use the [Quickstart](quickstart.md) for a disposable demo. For an existing appli
 
 ## Requirements
 
-| Requirement | Supported value |
-| --- | --- |
-| PHP | 8.4+ |
-| Laravel | 12.41.1+ or 13.x |
-| Filament | `~5.6.8`, installed by the selected Admin package |
-| Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
-| Node.js | 20+ |
-| Composer | 2.7+ |
+| Requirement | Supported value                                                     |
+| ----------- | ------------------------------------------------------------------- |
+| PHP         | 8.4+                                                                |
+| Laravel     | 12.41.1+ or 13.x                                                    |
+| Filament    | `~5.6.8`, installed by the selected Admin package                   |
+| Database    | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
+| Node.js     | 20+                                                                 |
+| Composer    | 2.7+                                                                |
 
 Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
 
@@ -39,9 +39,11 @@ php artisan about
 php artisan migrate:status
 ```
 
-### 2. Require the Installer
+### 2. Install the public foundation
 
 Core, Admin, Frontend, Installer, and Marketplace are public Composer packages under the Capell licence. They do not require marketplace credentials.
+
+Paid marketplace packages use authenticated Composer access. The credentials supplied for an entitled customer organisation are scoped to protected packages and are not needed for the public foundation.
 
 ```bash
 composer require capell-app/installer
@@ -185,24 +187,24 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 
 ## Useful installer options
 
-| Option | Purpose |
-| --- | --- |
-| `--plan` | Print the resolved install plan without changing the application |
-| `--demo` | Seed the verified evaluation content |
-| `--package-mode=core\|all\|custom` | Select the distribution scope |
-| `--packages=...` | Select installed Capell package names explicitly |
-| `--all-packages` | Run lifecycle setup for every Composer-installed Capell package |
-| `--theme=default` | Use the verified default theme |
-| `--theme=none` | Install without activating a theme |
-| `--url=https://...` | Set the site URL without a prompt |
-| `--name= --email= --password=` | Create the first administrator; pass all three |
-| `--user=email-or-id` | Select an existing default author |
-| `--seed` | Run the host application's database seeder |
-| `--clear-cache` | Clear Laravel and Capell caches after installation |
-| `--install-welcome-route` | Remove Laravel's stock welcome route so Capell can own `/` |
-| `--remove-installer` | Remove the temporary Installer only after success |
-| `--fresh` / `--fresh=force` | Rebuild the database; destructive |
-| `--production` | Force unattended production-safe mode and refuse `--fresh` |
+| Option                             | Purpose                                                          |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `--plan`                           | Print the resolved install plan without changing the application |
+| `--demo`                           | Seed the verified evaluation content                             |
+| `--package-mode=core\|all\|custom` | Select the distribution scope                                    |
+| `--packages=...`                   | Select installed Capell package names explicitly                 |
+| `--all-packages`                   | Run lifecycle setup for every Composer-installed Capell package  |
+| `--theme=default`                  | Use the verified default theme                                   |
+| `--theme=none`                     | Install without activating a theme                               |
+| `--url=https://...`                | Set the site URL without a prompt                                |
+| `--name= --email= --password=`     | Create the first administrator; pass all three                   |
+| `--user=email-or-id`               | Select an existing default author                                |
+| `--seed`                           | Run the host application's database seeder                       |
+| `--clear-cache`                    | Clear Laravel and Capell caches after installation               |
+| `--install-welcome-route`          | Remove Laravel's stock welcome route so Capell can own `/`       |
+| `--remove-installer`               | Remove the temporary Installer only after success                |
+| `--fresh` / `--fresh=force`        | Rebuild the database; destructive                                |
+| `--production`                     | Force unattended production-safe mode and refuse `--fresh`       |
 
 Use `php artisan capell:install --help` for the authoritative option list in the installed release.
 
@@ -261,13 +263,13 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 
 ## Troubleshooting
 
-| Symptom | First action |
-| --- | --- |
-| Installer cannot write a file | Correct ownership for the specific path, then rerun the installer |
-| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear` |
-| Frontend CSS is missing | `php artisan capell:frontend-install`, then the host npm build |
-| Public content is stale | Use Admin **Clear Cache**, then inspect the installed cache package |
-| A queued task never finishes | Start the queue worker and inspect failed jobs |
-| Install health remains red | Run the printed `Fix:` command and `php artisan capell:doctor` |
+| Symptom                                         | First action                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------- |
+| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer   |
+| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`              |
+| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build      |
+| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package |
+| A queued task never finishes                    | Start the queue worker and inspect failed jobs                      |
+| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`      |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.

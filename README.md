@@ -14,7 +14,7 @@
 
 Choose Capell when repeated page types, layouts, URLs, publishing rules, and editor workflows should be defined once and improved in one place. Choose WordPress, Statamic, Craft, or a dedicated headless CMS when its ecosystem, file model, hosted workflow, or delivery API is the better fit. Capell is not a hosted CMS and does not ship a public content-delivery API.
 
-[Try the guided demo](https://capell.app/demo) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Read the fit guide](docs/getting-started/why-capell.md)
+[Try the guided demo](https://capell.app/demo) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Build a page](docs/getting-started/building-pages.md) · [Read the fit guide](docs/getting-started/why-capell.md)
 
 ## Why teams choose Capell
 
@@ -72,6 +72,8 @@ Read [Theme Library](docs/admin/theme-library.md) to operate installed themes or
 
 The public foundation is split into five packages:
 
+Foundation packages install from public Packagist repositories. Paid marketplace packages require authenticated Composer access and an active entitlement.
+
 | Package     | Composer name            | Responsibility                                                                                                                             |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Core        | `capell-app/core`        | Sites, languages, pages, URLs, layouts, themes, media, translations, settings, revision history, upgrade foundations, and registries       |
@@ -125,6 +127,8 @@ Read these before production:
 
 Required PHP extensions and writable paths are listed in the [Install guide](docs/getting-started/install.md). The shipped product line is 1.x; use the latest compatible tag rather than a branch name in customer applications.
 
+For the shipped 1.x line, each minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. See the [security policy](SECURITY.md) and [Core support policy](packages/core/README.md#requirements-and-support-policy) for the exact contract.
+
 ## Pricing, support, security, and licence
 
 - [Current pricing and commercial availability](https://capell.app/pricing)
@@ -133,6 +137,8 @@ Required PHP extensions and writable paths are listed in the [Install guide](doc
 - [Capell licence](LICENSE.md)
 
 Commercial facts live on the Capell website so this README does not preserve stale prices, package counts, discounts, or checkout claims. Public source and Packagist availability do not change the Capell licence.
+
+Capell is commercial software (`"license": "proprietary"`) with public foundation source and Composer distribution. Public visibility does not change the Capell licence. See [LICENSE.md](LICENSE.md) for the full terms.
 
 ## Contributing to this repository
 
