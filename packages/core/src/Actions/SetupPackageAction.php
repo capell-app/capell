@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
+use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Exception;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Process\ExecutableFinder;
@@ -90,7 +91,7 @@ class SetupPackageAction
             $command[] = $normalizedOption . '=' . $value;
         }
 
-        $process = new Process($command, base_path());
+        $process = new Process($command, base_path(), ArtisanProcessEnvironment::prepare());
         $process->setTimeout(null);
 
         $output = '';

@@ -27,6 +27,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
@@ -402,7 +403,7 @@ final class InstallStepExecutor
                 '--no-interaction',
             ],
             base_path(),
-            ComposerProcessEnvironment::forInstall($_SERVER),
+            ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
         );
         $process->setTimeout(120);
         $process->run(function (string $type, string $buffer) use ($state): void {
@@ -462,7 +463,7 @@ final class InstallStepExecutor
                 '--no-interaction',
             ],
             base_path(),
-            ComposerProcessEnvironment::forInstall($_SERVER),
+            ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
         );
         $process->setTimeout(null);
         $process->run(function (string $type, string $buffer) use ($state): void {
