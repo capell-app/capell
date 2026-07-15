@@ -1,6 +1,5 @@
 # Install Matrix
 
-![Capell Install Matrix screenshot](../images/admin-dashboard.png)
 
 Use this page to choose the right install path. For the full walkthrough, use the [install guide](install.md).
 

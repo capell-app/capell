@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\VendorAssetEnum;
@@ -52,20 +51,6 @@ it('registers frontend css for generated tailwind assets', function (): void {
 
     expect($tailwindImports->pluck('value')->all())
         ->toContain('resources/css/capell-frontend.css');
-});
-
-it('registers the shared frontend alpine runtime as a package-owned build asset', function (): void {
-    $buildAssets = CapellCore::getVendorAssetsForType(VendorAssetEnum::BuildAsset);
-
-    expect($buildAssets->map(fn (VendorAssetData $asset): array => [
-        'path' => $asset->path(),
-        'file' => $asset->file(),
-        'package' => $asset->packageName,
-    ])->all())->toContain([
-        'path' => 'vendor/capell-frontend',
-        'file' => 'resources/js/capell-frontend.js',
-        'package' => FrontendServiceProvider::$packageName,
-    ]);
 });
 
 it('resolves core asset component keys for frontend rendering', function (): void {

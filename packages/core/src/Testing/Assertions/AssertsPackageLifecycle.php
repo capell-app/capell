@@ -13,18 +13,12 @@ final class AssertsPackageLifecycle
     /** @param list<string> $migrations */
     public static function run(string $packageRoot, ?string $providerClass, array $migrations, ?Closure $assertion): void
     {
-        if ($providerClass !== null && (! class_exists($providerClass) || ! is_subclass_of($providerClass, ServiceProvider::class))) {
-            throw new AssertionError("[provider.boot] {$packageRoot}: provider [{$providerClass}] is unavailable or invalid.");
-        }
+        throw_if($providerClass !== null && (! class_exists($providerClass) || ! is_subclass_of($providerClass, ServiceProvider::class)), AssertionError::class, sprintf('[provider.boot] %s: provider [%s] is unavailable or invalid.', $packageRoot, $providerClass));
 
         foreach ($migrations as $migration) {
-            if (! is_file($packageRoot . '/' . ltrim($migration, '/'))) {
-                throw new AssertionError("[migration.discovery] {$packageRoot}: migration [{$migration}] is missing.");
-            }
+            throw_unless(is_file($packageRoot . '/' . ltrim($migration, '/')), AssertionError::class, sprintf('[migration.discovery] %s: migration [%s] is missing.', $packageRoot, $migration));
         }
 
-        if ($assertion !== null && $assertion() !== true) {
-            throw new AssertionError("[lifecycle.install-upgrade] {$packageRoot}: lifecycle assertion failed.");
-        }
+        throw_if($assertion instanceof Closure && $assertion() !== true, AssertionError::class, sprintf('[lifecycle.install-upgrade] %s: lifecycle assertion failed.', $packageRoot));
     }
 }

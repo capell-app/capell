@@ -3,48 +3,33 @@
 declare(strict_types=1);
 
 use Capell\Frontend\Actions\BuildPublicRenderPerformanceReportAction;
-use Capell\Frontend\Data\FrontendAssetManifestData;
-use Capell\Frontend\Data\FrontendAssetRequirementData;
+use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
+use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 
-it('summarises runtime modules asset counts byte counts and asset inclusion reasons', function (): void {
+it('summarises the resolved resource plan without fetching remote resources', function (): void {
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $runtime->usesInertia = true;
 
-    $renderData = new PublicPageRenderData(
-        page: null,
-        site: null,
-        language: null,
-        layout: null,
-        theme: null,
-        layoutGraph: null,
-        runtimeManifest: $runtime,
-        assetManifest: new FrontendAssetManifestData(
-            css: [
-                new FrontendAssetRequirementData('theme', FrontendAssetRequirementData::KIND_CSS, 'resources/css/theme.css', 'build'),
-            ],
-            js: [],
-            inline: [
-                new FrontendAssetRequirementData('critical-inline', FrontendAssetRequirementData::KIND_INLINE, '<style>.hero{display:block}</style>'),
-            ],
-            preloads: [],
-            runtime: $runtime,
-        ),
-        surrogateKeys: ['page-1'],
-    );
+    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+        new FrontendResourceContributionData(FrontendResourceData::style('capell-app/theme:style', 'capell-app/theme', new PublicResourceSourceData('theme.css'))),
+        new FrontendResourceContributionData(FrontendResourceData::inlineStyle('capell-app/theme:critical', 'capell-app/theme', '.hero{display:block}', criticalCssEligible: true)),
+    ]);
+    $renderData = new PublicPageRenderData(null, null, null, null, null, null, $runtime, $plan, ['page-1']);
 
     $report = BuildPublicRenderPerformanceReportAction::run($renderData);
 
     expect($report->renderingStrategy)->toBe('blade')
         ->and($report->runtimeModules['livewire'])->toBeFalse()
         ->and($report->runtimeModules['inertia'])->toBeTrue()
-        ->and($report->assetCounts['css'])->toBe(1)
+        ->and($report->assetCounts['css'])->toBe(2)
         ->and($report->assetCounts['js'])->toBe(0)
-        ->and($report->byteCounts['inline'])->toBe(strlen('<style>.hero{display:block}</style>'))
-        ->and($report->byteCounts['criticalCss'])->toBe(strlen('<style>.hero{display:block}</style>'))
-        ->and($report->byteCounts['css'])->toBe(strlen('resources/css/theme.css'))
-        ->and($report->assetReasons[0]['handle'])->toBe('theme')
+        ->and($report->byteCounts['inline'])->toBe(strlen('.hero{display:block}'))
+        ->and($report->byteCounts['criticalCss'])->toBe(strlen('.hero{display:block}'))
+        ->and($report->assetReasons[0]['handle'])->toBe('capell-app/theme:style')
         ->and($report->surrogateKeys)->toBe(['page-1']);
 });

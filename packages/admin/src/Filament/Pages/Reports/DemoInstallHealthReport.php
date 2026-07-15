@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Diagnostics\BuildOperationsCenterAction;
 use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
 use Capell\Admin\Data\Diagnostics\OperationsCenterData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
+use Override;
 
 final class DemoInstallHealthReport extends AbstractCoreReportPage
 {
@@ -29,6 +30,7 @@ final class DemoInstallHealthReport extends AbstractCoreReportPage
         return BuildOperationsCenterAction::run();
     }
 
+    #[Override]
     public function reportSnapshot(): ReportSnapshotData
     {
         return $this->operationsCenter()->snapshot;

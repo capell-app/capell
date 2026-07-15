@@ -10,6 +10,7 @@ use Capell\Core\Testing\Assertions\AssertsExtensionManifest;
 use Capell\Core\Testing\Assertions\AssertsPackageLifecycle;
 use Capell\Core\Testing\Assertions\AssertsPublicOutputSafety;
 use Capell\Core\Testing\Data\CompanionPackageContractData;
+use Closure;
 
 final class CompanionPackageContractSuite
 {
@@ -23,8 +24,8 @@ final class CompanionPackageContractSuite
             $contract->lifecycleAssertion,
         );
 
-        if ($contract->authorizationAssertion !== null && ($contract->authorizationAssertion)() !== true) {
-            throw new AssertionError("[authorization.protected-resource] {$contract->packageRoot}: authorization assertion failed.");
+        if ($contract->authorizationAssertion instanceof Closure && ($contract->authorizationAssertion)() !== true) {
+            throw new AssertionError(sprintf('[authorization.protected-resource] %s: authorization assertion failed.', $contract->packageRoot));
         }
 
         AssertsCacheInvalidation::run($contract->packageRoot, $contract->cacheInvalidationAssertion);

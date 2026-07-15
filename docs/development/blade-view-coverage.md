@@ -1,6 +1,5 @@
 # Blade View Coverage
 
-![Capell Blade View Coverage screenshot](../images/admin-dashboard.png)
 
 Capell uses [`capell-app/pest-plugin-blade-coverage`](https://github.com/capell-app/pest-plugin-blade-coverage) to check package Blade views separately from PHP line coverage. PHP coverage intentionally ignores `resources/views`, so this plugin records views that Laravel actually renders during Pest runs.
 

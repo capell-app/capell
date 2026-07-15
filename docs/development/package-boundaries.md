@@ -1,6 +1,5 @@
 # Host, Package, Or App Code
 
-![Capell Host, Package, Or App Code screenshot](../images/admin-dashboard.png)
 
 Use this page before adding a feature, guide, command, or extension point. Capell stays maintainable when each change lands where it is owned.
 

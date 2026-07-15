@@ -38,7 +38,10 @@ it('records a fail-closed beta policy decision through the real install entry po
     ));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
+    $evidence = $attempt->policy_evidence;
+    expect($evidence)->toBeArray();
+    assert(is_array($evidence));
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
         ->and($attempt->failure_reason)->toBe('beta_acknowledgement_required')
-        ->and($attempt->policy_evidence['selectedMaturity'])->toBe('beta');
+        ->and($evidence['selectedMaturity'])->toBe('beta');
 });

@@ -13,11 +13,6 @@ final class DoctorCheckResultData extends Data
 {
     public readonly string $id;
 
-    public readonly DoctorCheckSeverity $severity;
-
-    /** @var array<string, mixed> */
-    public readonly array $evidence;
-
     /**
      * @param  array<string, mixed>  $evidence
      */
@@ -27,15 +22,13 @@ final class DoctorCheckResultData extends Data
         public readonly string $message,
         public readonly ?string $remediation = null,
         ?string $id = null,
-        DoctorCheckSeverity $severity = DoctorCheckSeverity::Critical,
-        array $evidence = [],
+        public readonly DoctorCheckSeverity $severity = DoctorCheckSeverity::Critical,
+        public readonly array $evidence = [],
     ) {
         $normalizedId = is_string($id) ? trim($id) : '';
         $this->id = $normalizedId !== ''
             ? $normalizedId
             : 'legacy.' . Str::of($label)->lower()->slug('.')->toString();
-        $this->severity = $severity;
-        $this->evidence = $evidence;
     }
 
     public function isCriticalFailure(): bool

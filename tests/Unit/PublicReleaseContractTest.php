@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Composer\Semver\Semver;
+
 it('defines the public v1 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
+    /** @var list<array{name: string, path: string}> $splitPackages */
     $splitPackages = json_decode(
         file_get_contents($root . '/config/release-packages.json'),
         true,
@@ -26,6 +30,22 @@ it('defines the public v1 split package release contract', function (): void {
 
         expect($manifest['name'])->toBe('capell-app/' . $splitPackage)
             ->and($manifest['extra']['branch-alias']['dev-main'] ?? null)->toBe('1.x-dev');
+
+        $capellManifest = json_decode(
+            file_get_contents($root . '/packages/' . $splitPackage . '/capell.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        expect(Semver::satisfies(
+            CapellExtensionApi::CURRENT_VERSION,
+            (string) ($capellManifest['capellApiVersion'] ?? ''),
+        ))->toBeTrue(sprintf(
+            '%s must support Capell extension API %s before its split artifact can be published.',
+            $manifest['name'],
+            CapellExtensionApi::CURRENT_VERSION,
+        ));
     }
 
     $marketplaceManifest = json_decode(
@@ -45,6 +65,33 @@ it('defines the public v1 split package release contract', function (): void {
     expect($coreManifest['require']['spatie/laravel-settings'])->toBe('^3.0')
         ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('^1.0')
         ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^1.0');
+
+    $descriptions = collect($splitPackages)
+        ->mapWithKeys(function (array $definition) use ($root): array {
+            $splitPackage = basename((string) $definition['path']);
+            $composer = json_decode(
+                file_get_contents($root . '/packages/' . $splitPackage . '/composer.json'),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            );
+
+            return [$composer['name'] => $composer['description'] ?? null];
+        });
+
+    expect($descriptions->get('capell-app/core'))->toBe('Laravel CMS content, publishing, extension, install, and upgrade foundations for Capell.')
+        ->and($descriptions->get('capell-app/admin'))->toBe('Filament administration, page editing, recovery, settings, and operations for Capell CMS.')
+        ->and($descriptions->get('capell-app/frontend'))->toBe('Public routing, rendering, themes, assets, and cache-safe delivery for Capell CMS.')
+        ->and($descriptions->get('capell-app/installer'))->toBe('Guided browser and CLI installation for Capell CMS on Laravel.');
+
+    $frontendCapellManifest = json_decode(
+        file_get_contents($root . '/packages/frontend/capell.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($frontendCapellManifest['commands']['install'] ?? null)->toBe('capell:frontend-install');
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');

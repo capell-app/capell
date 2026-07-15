@@ -9,7 +9,6 @@ use Capell\Core\Actions\FindPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
-use Capell\Core\Data\Diagnostics\FrontendBuildAssetVerificationResultData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\Diagnostics\CapellInstallationState;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
@@ -53,7 +52,7 @@ final class BuildDoctorReportAction
             $this->identified($this->checkConfigFiles(), 'core.config.published', DoctorCheckSeverity::Info),
             $this->identified($this->checkManifestV3Contracts(), 'core.manifest-v3.valid', DoctorCheckSeverity::Warning),
             $this->identified($this->checkInstalledPackages(), 'core.packages.installed', DoctorCheckSeverity::Critical),
-            $this->identified($this->checkPublishedBuildAssets(), 'core.assets.published', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkCapellViteInputsIntegration(), 'core.assets.vite-inputs', DoctorCheckSeverity::Warning),
             $this->identified($this->checkGeneratedTailwindCss(), 'core.tailwind.generated', DoctorCheckSeverity::Warning),
             $this->identified($this->checkAdminUserAccess(), 'core.admin.access', DoctorCheckSeverity::Critical),
             $this->identified($this->checkHomepageRouteResolves(), 'core.route.homepage', DoctorCheckSeverity::Critical),
@@ -447,34 +446,58 @@ final class BuildDoctorReportAction
         );
     }
 
-    private function checkPublishedBuildAssets(): DoctorCheckResultData
+    private function checkCapellViteInputsIntegration(): DoctorCheckResultData
     {
-        $results = VerifyFrontendBuildAssetsAction::run();
+        $manifestPath = base_path('bootstrap/cache/capell-vite-inputs.json');
 
-        if ($results->isEmpty()) {
+        if (! is_file($manifestPath)) {
             return new DoctorCheckResultData(
-                label: 'Published frontend build assets',
+                label: 'Capell Vite inputs are integrated',
                 passed: true,
-                message: 'No package runtime build assets are registered.',
+                message: 'No generated Capell Vite inputs require integration.',
             );
         }
 
-        $failures = $results->reject(fn (FrontendBuildAssetVerificationResultData $result): bool => $result->passed);
-        if ($failures->isNotEmpty()) {
-            $firstFailure = $failures->first();
+        try {
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            $manifest = null;
+        }
 
+        if (! is_array($manifest) || ! is_array($manifest['inputs'] ?? null)) {
             return new DoctorCheckResultData(
-                label: 'Published frontend build assets',
+                label: 'Capell Vite inputs are integrated',
                 passed: false,
-                message: $firstFailure->message,
-                remediation: $firstFailure->remediation,
+                message: 'The generated Capell Vite input manifest is invalid.',
+                remediation: 'Run php artisan capell:frontend-after-install --apply to regenerate it.',
+            );
+        }
+
+        if ($manifest['inputs'] === []) {
+            return new DoctorCheckResultData(
+                label: 'Capell Vite inputs are integrated',
+                passed: true,
+                message: 'The generated Capell Vite input manifest has no application entries.',
+            );
+        }
+
+        $viteConfigPath = collect(['vite.config.js', 'vite.config.mjs', 'vite.config.ts'])
+            ->map(static fn (string $file): string => base_path($file))
+            ->first(static fn (string $file): bool => is_file($file));
+
+        if (! is_string($viteConfigPath) || ! str_contains((string) file_get_contents($viteConfigPath), 'capellViteInputs')) {
+            return new DoctorCheckResultData(
+                label: 'Capell Vite inputs are integrated',
+                passed: false,
+                message: 'Generated Capell Vite entries are not included in the application Vite configuration.',
+                remediation: "Import capellViteInputs from '@capell/frontend/capell-vite-inputs' and spread ...capellViteInputs() into the Laravel Vite input array.",
             );
         }
 
         return new DoctorCheckResultData(
-            label: 'Published frontend build assets',
+            label: 'Capell Vite inputs are integrated',
             passed: true,
-            message: sprintf('%d registered build asset(s) are published.', $results->count()),
+            message: sprintf('%d generated Capell Vite input(s) are integrated.', count($manifest['inputs'])),
         );
     }
 
@@ -507,7 +530,7 @@ final class BuildDoctorReportAction
             label: 'Generated frontend Tailwind CSS',
             passed: false,
             message: 'No generated Capell frontend CSS file was found.',
-            remediation: 'Run php artisan capell:frontend:setup or npm run build after installing frontend packages.',
+            remediation: 'Run php artisan capell:frontend-install, then npm run build if the application Vite bundle is not current.',
         );
     }
 

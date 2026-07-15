@@ -1,5 +1,7 @@
 # Creating Custom Themes
 
+Theme CSS and JavaScript use the typed [Frontend resource graph](../../packages/frontend/docs/frontend-resources.md). Editor metadata may select trusted groups or local paths, but cannot introduce remote or inline executable code.
+
 Create a custom theme as a Capell package when it should be installable, testable, and reusable across apps. Keep one-off project styling in the app only when it depends on private app code.
 
 ## Package Shape

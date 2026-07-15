@@ -38,6 +38,7 @@ it('attaches the normalized transition preview without mutating the record', fun
     $now = CarbonImmutable::parse('2026-07-14 12:00:00');
     $page = new Page;
     $page->visible_from = PublishSentinel::draftValue($now);
+
     $request = new PublicationTransitionRequestData(
         record: $page,
         transition: PublicationTransition::PublishNow,
@@ -48,14 +49,15 @@ it('attaches the normalized transition preview without mutating the record', fun
     $readiness = BuildPublishReadinessAction::run($page, $request);
 
     expect($readiness->preview?->outcome)->toBe(PublicationTransitionOutcome::Changed)
-        ->and($readiness->preview?->visibleFrom?->equalTo($now))->toBeTrue()
-        ->and($page->visible_from?->equalTo(PublishSentinel::draftValue($now)))->toBeTrue();
+        ->and($readiness->preview?->visibleFrom->equalTo($now))->toBeTrue()
+        ->and($page->visible_from->equalTo(PublishSentinel::draftValue($now)))->toBeTrue();
 });
 
 it('builds mixed bulk readiness from the same action', function (): void {
     $now = CarbonImmutable::parse('2026-07-14 12:00:00');
     $draft = new Page;
     $draft->visible_from = PublishSentinel::draftValue($now);
+
     $published = new Page;
     $published->visible_from = $now->subDay();
 

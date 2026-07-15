@@ -251,7 +251,7 @@ it('installs registered package requirements before selected packages', function
     ]);
 });
 
-it('sets up composer-available core packages without creating lifecycle records during fresh install selection', function (): void {
+it('runs declared lifecycles for composer-available distribution packages without creating extension records', function (): void {
     Storage::fake();
     app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem);
     TestInstallCommand::reset();
@@ -286,7 +286,7 @@ it('sets up composer-available core packages without creating lifecycle records 
         ->and(CapellCore::isPackageInstalled('vendor/fresh-install-addon'))->toBeTrue()
         ->and(CapellExtension::query()->where('composer_name', 'capell-app/admin')->exists())->toBeFalse()
         ->and(CapellExtension::query()->where('composer_name', 'vendor/fresh-install-addon')->exists())->toBeTrue()
-        ->and(TestInstallCommand::$executionOrder)->not->toContain('capell-admin:install-test')
+        ->and(TestInstallCommand::$executionOrder)->toContain('capell-admin:install-test')
         ->and(TrackingSetupCommand::$executionOrder)->toContain('capell-admin:setup-test');
 });
 

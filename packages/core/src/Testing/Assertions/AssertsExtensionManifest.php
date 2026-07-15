@@ -15,7 +15,7 @@ final class AssertsExtensionManifest
         try {
             ExtensionTestHarness::forPath($manifestPath)->assertManifestValid();
         } catch (Throwable $throwable) {
-            throw new AssertionError("[manifest.valid] {$manifestPath}: {$throwable->getMessage()}", previous: $throwable);
+            throw new AssertionError(sprintf('[manifest.valid] %s: %s', $manifestPath, $throwable->getMessage()), $throwable->getCode(), previous: $throwable);
         }
     }
 }

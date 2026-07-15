@@ -53,6 +53,7 @@ it('resolves site translations to registered site cache dependencies', function 
 it('keeps conservative registered translation behavior for unsupported owners', function (): void {
     $registry = resolve(CacheInvalidationRegistry::class);
     $registry->registerDependency(Translation::class, 'translation-index');
+
     $layout = Layout::factory()->create();
     $translation = Translation::factory()->translatable($layout)->create();
     $translation->unsetRelation('translatable');

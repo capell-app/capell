@@ -1,6 +1,5 @@
 # Public Page API Internals
 
-![Capell Public Page API Internals screenshot](../images/admin-dashboard.png)
 
 Capell public page data is resolved in Core so frontend rendering and API delivery do not drift.
 

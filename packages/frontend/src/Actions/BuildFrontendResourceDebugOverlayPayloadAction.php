@@ -49,7 +49,7 @@ class BuildFrontendResourceDebugOverlayPayloadAction
                 ->map(fn (array $asset): array => [
                     'source' => $asset['source'] ?? null,
                     'kind' => $asset['kind'] ?? null,
-                    'loadingStrategy' => $asset['loadingStrategy'] ?? null,
+                    'placement' => $asset['placement'] ?? null,
                     'reasons' => $asset['reasons'] ?? [],
                 ])
                 ->values()

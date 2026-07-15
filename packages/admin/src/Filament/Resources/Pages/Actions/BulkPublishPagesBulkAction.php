@@ -14,6 +14,8 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
@@ -32,7 +34,7 @@ class BulkPublishPagesBulkAction extends BulkAction
             ->requiresConfirmation()
             ->modalHeading(__('capell-admin::bulk_actions.publish_pages_heading'))
             ->modalDescription(__('capell-admin::bulk_actions.publish_pages_description'))
-            ->modalContent(function (Collection $records) {
+            ->modalContent(function (Collection $records): Factory|View {
                 /** @var User $actor */
                 $actor = auth()->user();
 

@@ -57,9 +57,7 @@ final class EncryptedPublicFragmentReferenceCodec implements PublicFragmentRefer
                 JSON_THROW_ON_ERROR,
             );
 
-            if (! is_array($payload)) {
-                throw new PublicFragmentReferenceInvalid;
-            }
+            throw_unless(is_array($payload), PublicFragmentReferenceInvalid::class);
 
             $this->assertValidPayload($payload);
 
@@ -86,13 +84,11 @@ final class EncryptedPublicFragmentReferenceCodec implements PublicFragmentRefer
      */
     private function assertValidPayload(array $payload): void
     {
-        if (count($payload) !== count(self::REQUIRED_KEYS)
+        throw_if(count($payload) !== count(self::REQUIRED_KEYS)
             || array_diff(self::REQUIRED_KEYS, array_keys($payload)) !== []
-            || array_diff(array_keys($payload), self::REQUIRED_KEYS) !== []) {
-            throw new PublicFragmentReferenceInvalid;
-        }
+            || array_diff(array_keys($payload), self::REQUIRED_KEYS) !== [], PublicFragmentReferenceInvalid::class);
 
-        if (! is_string($payload['owner'])
+        throw_if(! is_string($payload['owner'])
             || preg_match('/^[a-z0-9][a-z0-9._-]*$/', $payload['owner']) !== 1
             || $payload['formatVersion'] !== self::CURRENT_FORMAT_VERSION
             || ! is_string($payload['pageableType'])
@@ -102,16 +98,12 @@ final class EncryptedPublicFragmentReferenceCodec implements PublicFragmentRefer
             || ! $this->isValidIdentifier($payload['languageId'])
             || ! is_string($payload['contentVersion'])
             || trim($payload['contentVersion']) === ''
-            || ! is_array($payload['ownerContext'])) {
-            throw new PublicFragmentReferenceInvalid;
-        }
+            || ! is_array($payload['ownerContext']), PublicFragmentReferenceInvalid::class);
 
         foreach ($payload['ownerContext'] as $key => $value) {
-            if (! is_string($key)
+            throw_if(! is_string($key)
                 || trim($key) === ''
-                || (! is_int($value) && ! is_string($value))) {
-                throw new PublicFragmentReferenceInvalid;
-            }
+                || (! is_int($value) && ! is_string($value)), PublicFragmentReferenceInvalid::class);
         }
     }
 
@@ -128,9 +120,7 @@ final class EncryptedPublicFragmentReferenceCodec implements PublicFragmentRefer
 
     private function fromUrlSafeToken(string $token): string
     {
-        if ($token === '') {
-            throw new PublicFragmentReferenceInvalid;
-        }
+        throw_if($token === '', PublicFragmentReferenceInvalid::class);
 
         $encryptedReference = strtr($token, '-_', '+/');
 

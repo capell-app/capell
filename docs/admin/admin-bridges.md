@@ -1,6 +1,5 @@
 # Admin Bridges
 
-![Capell Admin Bridges screenshot](../images/admin-dashboard.png)
 
 Admin bridges are package-level integration classes for registering admin surface contributions in one place.
 

@@ -22,8 +22,11 @@ final class ResolveMarketplaceDependencyMaturityAction
 
         while ($pending !== []) {
             $composerName = array_shift($pending);
+            if (! is_string($composerName)) {
+                continue;
+            }
 
-            if (! is_string($composerName) || isset($maturity[$composerName])) {
+            if (isset($maturity[$composerName])) {
                 continue;
             }
 

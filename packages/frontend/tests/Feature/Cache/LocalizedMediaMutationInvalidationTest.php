@@ -12,7 +12,7 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
-use Capell\Frontend\Data\FrontendAssetManifestData;
+use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
@@ -29,6 +29,7 @@ it('invalidates only pages that depend on mutated localized media metadata', fun
     $language = Language::factory()->createOne();
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $site->load('siteDomains');
+
     $blueprint = Blueprint::factory()->page()->create();
     $dependentPage = Page::factory()
         ->site($site)
@@ -67,6 +68,7 @@ it('invalidates only pages that depend on mutated localized media metadata', fun
     $dependentRenderKey = warmLocalizedMediaRenderCache($renderCache, $dependentPage, $site, $language);
     $unrelatedRenderKey = warmLocalizedMediaRenderCache($renderCache, $unrelatedPage, $site, $language);
 
+    /** @var Translation $coldTranslation */
     $coldTranslation = Translation::query()->findOrFail($translation->id);
     expect($coldTranslation->relationLoaded('translatable'))->toBeFalse();
 
@@ -119,9 +121,9 @@ function warmLocalizedMediaRenderCache(
         theme: $context->theme,
         layoutGraph: null,
         runtimeManifest: $runtime,
-        assetManifest: new FrontendAssetManifestData([], [], [], [], $runtime),
+        resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], 'test'),
         surrogateKeys: [],
     ));
 
-    return $key;
+    return (string) $key;
 }

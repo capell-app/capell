@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Reports;
 
 use Capell\Admin\Contracts\Reports\BuildsReportSnapshot;
 use Capell\Admin\Data\Reports\AccessibilityReadinessFindingData;
+use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
@@ -28,8 +29,9 @@ final class BuildAccessibilityReadinessReportAction implements BuildsReportSnaps
 
     public function handle(?Site $site = null): ReportSnapshotData
     {
+        $siteId = $site?->getKey();
         $sites = Site::query()
-            ->when($site instanceof Site, fn ($query) => $query->whereKey($site->getKey()))
+            ->when($siteId !== null, fn ($query) => $query->whereKey($siteId))
             ->with('language')
             ->get();
         $siteIds = $sites->modelKeys();
@@ -87,7 +89,7 @@ final class BuildAccessibilityReadinessReportAction implements BuildsReportSnaps
         }
 
         $reportFindings = array_map(
-            static fn (AccessibilityReadinessFindingData $finding) => $finding->toReportFinding(),
+            static fn (AccessibilityReadinessFindingData $finding): ReportFindingData => $finding->toReportFinding(),
             $findings,
         );
 

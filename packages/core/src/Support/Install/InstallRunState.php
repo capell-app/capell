@@ -8,6 +8,7 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -40,7 +41,7 @@ final class InstallRunState
                 ...$this->inputData->extraPackages,
             ])),
             $this->inputData->freshInstall,
-        )->reject(fn (PackageData $package): bool => $package->isCore());
+        )->reject(fn (PackageData $package): bool => TrustedCorePackages::isCoreRuntimePackage($package->name));
 
         return $this->selectedPackages;
     }

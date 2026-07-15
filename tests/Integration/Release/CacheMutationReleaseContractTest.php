@@ -42,6 +42,7 @@ it('invalidates only the persisted page dependency of localized media metadata',
     $cache = resolve(PageModelCache::class);
     $cache->get(Page::class, $dependent->id, $site, $language);
     $cache->get(Page::class, $unrelated->id, $site, $language);
+
     $dependentKey = CacheEnum::pageModel(Page::class, $dependent->id, $site->id, $language->id);
     $unrelatedKey = CacheEnum::pageModel(Page::class, $unrelated->id, $site->id, $language->id);
 

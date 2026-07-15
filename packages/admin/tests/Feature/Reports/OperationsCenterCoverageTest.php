@@ -26,9 +26,9 @@ it('groups every operations category behind stable finding contracts', function 
         findings: $findings,
         generatedAt: CarbonImmutable::parse('2026-07-14 12:00:00'),
     );
-    $report = new class($snapshot) implements BuildsReportSnapshot
+    $report = new readonly class($snapshot) implements BuildsReportSnapshot
     {
-        public function __construct(private readonly ReportSnapshotData $snapshot) {}
+        public function __construct(private ReportSnapshotData $snapshot) {}
 
         public function handle(): ReportSnapshotData
         {
@@ -53,9 +53,9 @@ it('groups every operations category behind stable finding contracts', function 
 });
 
 it('lets the report page rerun the composed operations snapshot', function (): void {
-    $first = app(DemoInstallHealthReport::class)->operationsCenter();
+    $first = resolve(DemoInstallHealthReport::class)->operationsCenter();
     CarbonImmutable::setTestNow(now()->addMinute());
-    $second = app(DemoInstallHealthReport::class)->operationsCenter();
+    $second = resolve(DemoInstallHealthReport::class)->operationsCenter();
     CarbonImmutable::setTestNow();
 
     expect($first->generatedAt->lessThan($second->generatedAt))->toBeTrue();

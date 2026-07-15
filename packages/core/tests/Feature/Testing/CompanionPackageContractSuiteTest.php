@@ -32,7 +32,7 @@ it('reports actionable contract IDs and package paths', function (array $overrid
     $contract = validCompanionContract($overrides);
 
     expect(fn () => (new CompanionPackageContractSuite)->run($contract))
-        ->toThrow(AssertionError::class, "[{$contractId}] {$contract->packageRoot}");
+        ->toThrow(AssertionError::class, sprintf('[%s] %s', $contractId, $contract->packageRoot));
 })->with([
     'provider boot' => [['providerClass' => 'Missing\\Provider'], 'provider.boot'],
     'migration discovery' => [['migrations' => ['database/migrations/missing.php']], 'migration.discovery'],

@@ -44,6 +44,7 @@ it('evaluates the complete normalized transition matrix without persistence', fu
     $page = new Page;
     $page->setAttribute('visible_from', $from);
     $page->setAttribute('visible_until', $until);
+
     $request = new PublicationTransitionRequestData(
         record: $page,
         transition: $transition,
@@ -55,11 +56,11 @@ it('evaluates the complete normalized transition matrix without persistence', fu
     $result = EvaluatePublicationTransitionAction::run($request);
 
     expect($result->outcome)->toBe($outcome)
-        ->and($result->visibleFrom?->equalTo($expectedFrom) ?? $expectedFrom === null)->toBeTrue()
-        ->and($result->visibleUntil?->equalTo($expectedUntil) ?? $expectedUntil === null)->toBeTrue()
+        ->and($result->visibleFrom?->equalTo($expectedFrom) ?? ! $expectedFrom instanceof CarbonImmutable)->toBeTrue()
+        ->and($result->visibleUntil?->equalTo($expectedUntil) ?? ! $expectedUntil instanceof CarbonImmutable)->toBeTrue()
         ->and($result->afterState)->toBe($expectedState)
-        ->and(publicationTestDate($page->getAttribute('visible_from'))?->equalTo($from) ?? $from === null)->toBeTrue()
-        ->and(publicationTestDate($page->getAttribute('visible_until'))?->equalTo($until) ?? $until === null)->toBeTrue();
+        ->and(publicationTestDate($page->getAttribute('visible_from'))?->equalTo($from) ?? ! $from instanceof CarbonImmutable)->toBeTrue()
+        ->and(publicationTestDate($page->getAttribute('visible_until'))?->equalTo($until) ?? ! $until instanceof CarbonImmutable)->toBeTrue();
 })->with(function (): array {
     $now = CarbonImmutable::parse('2026-07-14 12:00:00');
     $draft = PublishSentinel::draftValue($now);
@@ -96,8 +97,9 @@ it('persists exactly one evaluated change', function (): void {
 });
 
 it('does not evaluate or persist an unauthorized transition', function (): void {
-    $authorizer = app(AuthorizesPublicationTransition::class);
+    $authorizer = resolve(AuthorizesPublicationTransition::class);
     $authorizer->allowed = false;
+
     $page = Page::factory()->createOne(['visible_from' => PublishSentinel::draftValue($this->now)]);
 
     $result = TransitionPublicationAction::run(new PublicationTransitionRequestData(
@@ -114,9 +116,7 @@ it('does not evaluate or persist an unauthorized transition', function (): void 
 it('returns a safe failed result and rolls back persistence failures', function (): void {
     $page = Page::factory()->createOne(['visible_from' => PublishSentinel::draftValue($this->now)]);
     Page::saving(static function (Page $saving) use ($page): void {
-        if ($saving->is($page)) {
-            throw new RuntimeException('Sensitive database failure');
-        }
+        throw_if($saving->is($page), RuntimeException::class, 'Sensitive database failure');
     });
 
     $result = TransitionPublicationAction::run(new PublicationTransitionRequestData(

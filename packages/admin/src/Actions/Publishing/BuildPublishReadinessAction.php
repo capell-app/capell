@@ -98,8 +98,7 @@ final class BuildPublishReadinessAction
                 PublishVisibilityStateEnum::draft => [PublicationTransition::PublishNow, PublicationTransition::SchedulePublish],
                 PublishVisibilityStateEnum::scheduled => [PublicationTransition::PublishNow, PublicationTransition::SchedulePublish, PublicationTransition::ScheduleUnpublish, PublicationTransition::RevertToDraft],
                 PublishVisibilityStateEnum::published => [PublicationTransition::ScheduleUnpublish, PublicationTransition::Unpublish, PublicationTransition::RevertToDraft],
-                PublishVisibilityStateEnum::expired => [PublicationTransition::PublishNow, PublicationTransition::SchedulePublish, PublicationTransition::RevertToDraft],
-                PublishVisibilityStateEnum::deleted => [],
+                default => [PublicationTransition::PublishNow, PublicationTransition::SchedulePublish, PublicationTransition::RevertToDraft],
             },
         ));
     }

@@ -33,7 +33,7 @@
         "requiredTables": []
     },
     "commands": {
-        "install": null,
+        "install": "capell:frontend-install",
         "setup": null,
         "demo": null,
         "upgrade": "capell:frontend-upgrade",

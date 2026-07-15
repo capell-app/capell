@@ -52,6 +52,25 @@ it('reports support contract drift', function (): void {
     }
 });
 
+it('requires enough Docker CLI memory for Pest child processes', function (): void {
+    $fixture = supportContractFixture();
+
+    try {
+        supportContractWriteComposer($fixture['root'] . '/composer.json', 'capell-app/capell', [
+            'php' => '^8.4',
+            'laravel/framework' => '^12.41.1|^13.0',
+        ]);
+        supportContractWriteEnvironmentFiles($fixture['root'], dockerMemoryLimit: '512M');
+
+        [$exitCode, $output] = supportContractRun($fixture['root']);
+
+        expect($exitCode)->toBe(1)
+            ->and($output)->toContain('.docker/php/php.ini must set memory_limit to at least 1G');
+    } finally {
+        supportContractDeleteDirectory($fixture['root']);
+    }
+});
+
 /**
  * @return array{root: string}
  */
@@ -82,10 +101,13 @@ function supportContractWriteComposer(string $path, string $name, array $require
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 }
 
-function supportContractWriteEnvironmentFiles(string $root, string $dockerPhpVersion = '8.4'): void
-{
+function supportContractWriteEnvironmentFiles(
+    string $root,
+    string $dockerPhpVersion = '8.4',
+    string $dockerMemoryLimit = '1G',
+): void {
     mkdir($root . '/docs/getting-started', 0777, true);
-    mkdir($root . '/.docker', 0777, true);
+    mkdir($root . '/.docker/php', 0777, true);
     mkdir($root . '/.github/workflows', 0777, true);
 
     $installDocs = implode("\n", [
@@ -98,6 +120,7 @@ function supportContractWriteEnvironmentFiles(string $root, string $dockerPhpVer
     file_put_contents($root . '/docs/getting-started/install.md', $installDocs);
     file_put_contents($root . '/docs/getting-started/quickstart.md', $installDocs);
     file_put_contents($root . '/.docker/Dockerfile', "RUN apt-get install php{$dockerPhpVersion}\nCOPY php/php.ini /etc/php/{$dockerPhpVersion}/cli/conf.d/99-capell.ini\n");
+    file_put_contents($root . '/.docker/php/php.ini', sprintf('memory_limit = %s%s', $dockerMemoryLimit, PHP_EOL));
     file_put_contents($root . '/.github/workflows/test-fast-pr.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 12.*\n    - php: 8.4\n      laravel: 13.*\n");
     file_put_contents($root . '/.github/workflows/test-full.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 12.*\n    - php: 8.4\n      laravel: 13.*\n");
 }

@@ -1,6 +1,5 @@
 # Register a dashboard Filament widget
 
-![Capell Register a dashboard Filament widget screenshot](../images/admin-dashboard.png)
 
 Capell Admin uses Filament dashboard Filament widgets for product status, content activity, editor work queues, extension health, and marketing operations. This page is reference material for **package developers** registering new widgets. For the admin-facing task of choosing which widgets appear, see [Customize your dashboard](dashboard-customize.md).
 

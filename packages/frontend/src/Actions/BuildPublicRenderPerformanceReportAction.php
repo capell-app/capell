@@ -4,25 +4,30 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
-use Capell\Frontend\Data\FrontendAssetRequirementData;
+use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderPerformanceReportData;
+use Capell\Frontend\Enums\FrontendResourceKind;
+use Capell\Frontend\Enums\FrontendResourceSourceKind;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class BuildPublicRenderPerformanceReportAction
+final class BuildPublicRenderPerformanceReportAction
 {
     use AsObject;
 
-    public function handle(
-        PublicPageRenderData $renderData,
-        ?FrontendRenderContextData $context = null,
-        ?int $lastRenderMilliseconds = null,
-    ): PublicRenderPerformanceReportData {
-        $assetManifest = $renderData->assetManifest;
+    public function handle(PublicPageRenderData $renderData, ?FrontendRenderContextData $context = null, ?int $lastRenderMilliseconds = null): PublicRenderPerformanceReportData
+    {
+        $plan = $renderData->resourcePlan;
         $runtime = $renderData->runtimeManifest;
-        $sizes = MeasureFrontendAssetSizesAction::run($assetManifest);
+        $resources = [...$plan->headResources, ...$plan->bodyEndResources];
+        $styles = array_filter($resources, static fn (ResolvedFrontendResourceData $resource): bool => in_array($resource->kind, [FrontendResourceKind::Style, FrontendResourceKind::InlineStyle], true));
+        $scripts = array_filter($resources, static fn (ResolvedFrontendResourceData $resource): bool => $resource->kind->isScript());
+        $inline = array_filter($resources, static fn (ResolvedFrontendResourceData $resource): bool => $resource->kind->isInline());
+        $remote = array_filter($resources, static fn (ResolvedFrontendResourceData $resource): bool => $resource->sourceKind === FrontendResourceSourceKind::External);
+        $localStyles = array_filter($styles, static fn (ResolvedFrontendResourceData $resource): bool => is_string($resource->localPath) && is_file($resource->localPath));
+        $localScripts = array_filter($scripts, static fn (ResolvedFrontendResourceData $resource): bool => is_string($resource->localPath) && is_file($resource->localPath));
 
         return new PublicRenderPerformanceReportData(
             renderingStrategy: $runtime->renderingStrategy->value,
@@ -35,80 +40,60 @@ class BuildPublicRenderPerformanceReportAction
                 'inertia' => $runtime->usesInertia,
             ],
             assetCounts: [
-                'css' => count($assetManifest->css),
-                'js' => count($assetManifest->js),
-                'inline' => count($assetManifest->inline),
-                'preloads' => count($assetManifest->preloads),
+                'css' => count($styles),
+                'js' => count($scripts),
+                'inline' => count($inline),
+                'preloads' => count($plan->hints),
+                'lazyActivations' => count($plan->lazyActivationGraphs),
+                'remoteUnmeasurable' => count($remote),
                 'mediaPreloads' => count($renderData->mediaHints),
             ],
             byteCounts: [
-                'inline' => $this->inlineBytes($assetManifest->inline),
-                'js' => $this->assetBytes($assetManifest->js),
-                'jsRaw' => $sizes->rawJsBytes,
-                'jsGzip' => $sizes->gzipJsBytes,
-                'css' => $this->assetBytes($assetManifest->css),
-                'cssRaw' => $sizes->rawCssBytes,
-                'cssGzip' => $sizes->gzipCssBytes,
-                'criticalCss' => $this->criticalCssBytes($assetManifest->inline),
+                'inline' => array_sum(array_map(static fn (ResolvedFrontendResourceData $resource): int => strlen((string) $resource->content), $inline)),
+                'js' => $this->rawBytes($localScripts),
+                'jsRaw' => $this->rawBytes($localScripts),
+                'jsGzip' => $this->gzipBytes($localScripts),
+                'css' => $this->rawBytes($localStyles),
+                'cssRaw' => $this->rawBytes($localStyles),
+                'cssGzip' => $this->gzipBytes($localStyles),
+                'criticalCss' => array_sum(array_map(static fn (ResolvedFrontendResourceData $resource): int => $resource->criticalCssEligible ? strlen((string) $resource->content) : 0, $styles)),
             ],
             surrogateKeys: $renderData->surrogateKeys,
-            assetReasons: $this->assetReasons([
-                ...$assetManifest->css,
-                ...$assetManifest->js,
-                ...$assetManifest->inline,
-                ...$assetManifest->preloads,
-            ]),
-            renderDataCacheKey: $context instanceof FrontendRenderContextData
-                ? resolve(PublicPageRenderDataCache::class)->keyForContext($context)
-                : null,
+            assetReasons: array_map(static fn (ResolvedFrontendResourceData $resource): array => [
+                'handle' => $resource->handle,
+                'package' => $resource->package,
+                'kind' => $resource->kind->value,
+                'url' => $resource->url,
+                'placement' => $resource->placement->value,
+                'dependencies' => $resource->dependsOn,
+            ], $resources),
+            renderDataCacheKey: $context instanceof FrontendRenderContextData ? resolve(PublicPageRenderDataCache::class)->keyForContext($context) : null,
             layoutGraphKey: $renderData->layoutGraphKey(),
             lastRenderMilliseconds: $lastRenderMilliseconds,
         );
     }
 
-    /**
-     * @param  array<int, FrontendAssetRequirementData>  $inlineAssets
-     */
-    private function inlineBytes(array $inlineAssets): int
+    /** @param array<int, ResolvedFrontendResourceData> $resources */
+    private function rawBytes(array $resources): int
     {
-        return collect($inlineAssets)
-            ->sum(fn (FrontendAssetRequirementData $asset): int => strlen($asset->source));
+        return array_sum(array_map(
+            static fn (ResolvedFrontendResourceData $resource): int => is_string($resource->localPath) ? (int) filesize($resource->localPath) : 0,
+            $resources,
+        ));
     }
 
-    /**
-     * @param  array<int, FrontendAssetRequirementData>  $assets
-     */
-    private function assetBytes(array $assets): int
+    /** @param array<int, ResolvedFrontendResourceData> $resources */
+    private function gzipBytes(array $resources): int
     {
-        return collect($assets)
-            ->sum(fn (FrontendAssetRequirementData $asset): int => strlen($asset->source));
-    }
+        return array_sum(array_map(static function (ResolvedFrontendResourceData $resource): int {
+            if (! is_string($resource->localPath)) {
+                return 0;
+            }
 
-    /**
-     * @param  array<int, FrontendAssetRequirementData>  $inlineAssets
-     */
-    private function criticalCssBytes(array $inlineAssets): int
-    {
-        return collect($inlineAssets)
-            ->filter(fn (FrontendAssetRequirementData $asset): bool => str_contains($asset->handle, 'critical') || str_contains($asset->source, '<style'))
-            ->sum(fn (FrontendAssetRequirementData $asset): int => strlen($asset->source));
-    }
+            $contents = file_get_contents($resource->localPath);
+            $compressed = is_string($contents) ? gzencode($contents, 9) : false;
 
-    /**
-     * @param  array<int, FrontendAssetRequirementData>  $assets
-     * @return array<int, array<string, mixed>>
-     */
-    private function assetReasons(array $assets): array
-    {
-        return collect($assets)
-            ->map(fn (FrontendAssetRequirementData $asset): array => [
-                'handle' => $asset->handle,
-                'kind' => $asset->kind,
-                'source' => $asset->source,
-                'buildPath' => $asset->buildPath,
-                'condition' => $asset->condition,
-            ])
-            ->values()
-            ->all();
+            return is_string($compressed) ? strlen($compressed) : 0;
+        }, $resources));
     }
 }

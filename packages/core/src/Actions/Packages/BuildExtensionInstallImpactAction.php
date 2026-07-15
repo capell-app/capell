@@ -17,7 +17,7 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static ExtensionInstallImpactData run(CapellManifestData $manifest, PackageCapabilityGraphData $graph, array $dependencyManifests = [], array $nodeMetadata = [])
+ * @method static ExtensionInstallImpactData run(CapellManifestData $manifest, PackageCapabilityGraphData $graph, array<string, CapellManifestData> $dependencyManifests = [], array<string, array<string, mixed>> $nodeMetadata = [])
  */
 final class BuildExtensionInstallImpactAction
 {

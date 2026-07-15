@@ -80,7 +80,6 @@ final class CheckAdminPanelAccessAction
         }
 
         if (is_string($roleModel) && is_a($roleModel, Model::class, true)) {
-            /** @var Model $rolePrototype */
             $rolePrototype = new $roleModel;
             $roleTable = $rolePrototype->getTable();
             $pivotTable = (string) config('permission.table_names.model_has_roles', 'model_has_roles');

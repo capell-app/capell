@@ -33,9 +33,7 @@ final class ResolvePublicFragmentContentVersionAction
         $freshLanguage = Language::query()->withTrashed()->whereKey($language->getKey())->firstOrFail();
         $freshLayout = Layout::query()->withTrashed()->whereKey($layout->getKey())->firstOrFail();
 
-        if (! $freshPage instanceof Pageable) {
-            throw new LogicException('Public fragment pages must implement the Pageable contract.');
-        }
+        throw_unless($freshPage instanceof Pageable, LogicException::class, 'Public fragment pages must implement the Pageable contract.');
 
         $translation = Translation::query()
             ->where('translatable_type', $freshPage->getMorphClass())

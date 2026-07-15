@@ -1,6 +1,5 @@
 # Admin Dashboard Widgets
 
-![Capell Admin Dashboard Widgets screenshot](../images/admin-dashboard.png)
 
 The admin dashboard shows role-aware widgets for product status, content activity, editor work queues, extension health, and marketing operations. Different teammates can see a different set, because some widgets only appear for a matching role or permission.
 

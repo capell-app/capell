@@ -34,10 +34,13 @@ it('blocks and records a fresh direct beta without explicit acknowledgement', fu
     InstallMarketplaceExtensionAction::run(marketplaceMaturityRequest('beta-suite'));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
+    $evidence = $attempt->policy_evidence;
+    expect($evidence)->toBeArray();
+    assert(is_array($evidence));
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
         ->and($attempt->failure_reason)->toBe('beta_acknowledgement_required')
         ->and($attempt->beta_acknowledged)->toBeFalse()
-        ->and($attempt->policy_evidence['selectedMaturity'])->toBe('beta');
+        ->and($evidence['selectedMaturity'])->toBe('beta');
 });
 
 it('identifies and blocks the exact transitive beta dependency', function (): void {
@@ -58,9 +61,12 @@ it('identifies and blocks the exact transitive beta dependency', function (): vo
     InstallMarketplaceExtensionAction::run(marketplaceMaturityRequest('stable-suite'));
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
+    $evidence = $attempt->policy_evidence;
+    expect($evidence)->toBeArray();
+    assert(is_array($evidence));
     expect($attempt->failure_reason)->toBe('beta_dependency_acknowledgement_required')
-        ->and($attempt->policy_evidence['blockingDependency'])->toBe('capell-app/beta-dependency')
-        ->and($attempt->policy_evidence['dependencyMaturity']['capell-app/beta-dependency'])->toBe('beta');
+        ->and($evidence['blockingDependency'])->toBe('capell-app/beta-dependency')
+        ->and($evidence['dependencyMaturity']['capell-app/beta-dependency'])->toBe('beta');
 });
 
 it('allows an explicitly acknowledged fresh beta listing', function (): void {
@@ -76,9 +82,12 @@ it('allows an explicitly acknowledged fresh beta listing', function (): void {
     );
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
+    $evidence = $attempt->policy_evidence;
+    expect($evidence)->toBeArray();
+    assert(is_array($evidence));
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
         ->and($attempt->beta_acknowledged)->toBeTrue()
-        ->and($attempt->policy_evidence['consentAllowed'])->toBeTrue();
+        ->and($evidence['consentAllowed'])->toBeTrue();
 });
 
 /** @param list<string> $dependencies */

@@ -45,7 +45,7 @@ function publicFragmentContextFixture(): array
             ->site($site)
             ->create(['url' => '/fragment-page', 'status' => true]);
 
-    return compact('language', 'site', 'layout', 'page', 'pageUrl');
+    return ['language' => $language, 'site' => $site, 'layout' => $layout, 'page' => $page, 'pageUrl' => $pageUrl];
 }
 
 /**
@@ -109,7 +109,7 @@ it('rejects every non-public publication state', function (Closure $mutate): voi
 
     $mutate($fixture['page']);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run($reference))
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run($reference))
         ->toThrow(ModelNotFoundException::class);
 })->with([
     'draft' => fn (Page $page) => $page->forceFill([
@@ -130,7 +130,7 @@ it('rejects every non-public publication state', function (Closure $mutate): voi
 it('rejects a missing page identity', function (): void {
     $fixture = publicFragmentContextFixture();
 
-    expect(fn () => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
         'pageableId' => 999999,
     ])))->toThrow(ModelNotFoundException::class);
 });
@@ -139,7 +139,7 @@ it('rejects a cross-site reference', function (): void {
     $fixture = publicFragmentContextFixture();
     $otherSite = Site::factory()->withTranslations()->create();
 
-    expect(fn () => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
         'siteId' => $otherSite->getKey(),
     ])))->toThrow(ModelNotFoundException::class);
 });
@@ -148,13 +148,13 @@ it('rejects cross-language and disabled-language references', function (): void 
     $fixture = publicFragmentContextFixture();
     $otherLanguage = Language::factory()->french()->create();
 
-    expect(fn () => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
         'languageId' => $otherLanguage->getKey(),
     ])))->toThrow(ModelNotFoundException::class);
 
     $fixture['language']->update(['status' => false]);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture)))
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture)))
         ->toThrow(ModelNotFoundException::class);
 });
 
@@ -163,7 +163,7 @@ it('rejects pages without an eligible public URL', function (): void {
     $reference = publicFragmentContextReference($fixture);
     $fixture['pageUrl']->update(['status' => false]);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run($reference))
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run($reference))
         ->toThrow(ModelNotFoundException::class);
 });
 
@@ -172,7 +172,7 @@ it('rejects pages whose blueprint is disabled or inaccessible', function (array 
     $reference = publicFragmentContextReference($fixture);
     $fixture['page']->blueprint()->update($attributes);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run($reference))
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run($reference))
         ->toThrow(ModelNotFoundException::class);
 })->with([
     'disabled' => [['status' => false]],
@@ -183,13 +183,13 @@ it('rejects layouts not owned by the page and site', function (): void {
     $fixture = publicFragmentContextFixture();
     $otherLayout = Layout::factory()->create(['status' => true]);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture, [
         'ownerContext' => ['layoutId' => $otherLayout->getKey(), 'widgetKey' => 'hero'],
     ])))->toThrow(ModelNotFoundException::class);
 
     $fixture['layout']->update(['site_id' => Site::factory()->withTranslations()->create()->getKey()]);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture)))
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run(publicFragmentContextReference($fixture)))
         ->toThrow(ModelNotFoundException::class);
 });
 
@@ -200,7 +200,7 @@ it('revokes a stale content version after public content changes', function (): 
         'title' => 'Changed public fragment page',
     ]);
 
-    expect(fn () => ResolvePublicFragmentContextAction::run($reference))
+    expect(fn (): mixed => ResolvePublicFragmentContextAction::run($reference))
         ->toThrow(ModelNotFoundException::class);
 
     $freshReference = publicFragmentContextReference($fixture);

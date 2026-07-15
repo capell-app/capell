@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\PackageRegistry;
 
 use Capell\Core\Actions\Extensions\BuildExtensionContractRegistryAction;
+use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Manifest\CapellManifestData;
@@ -15,7 +16,7 @@ final class CapellPackageRegistry
     /** @var array<string, CapellManifestData> */
     private array $packages = [];
 
-    /** @var array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>}|null */
+    /** @var array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>}|null */
     private ?array $contractRegistry = null;
 
     /** @param array<string, CapellManifestData> $manifests */
@@ -100,7 +101,7 @@ final class CapellPackageRegistry
         return $this->contractRegistry()['byClass'][$class] ?? null;
     }
 
-    /** @return array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>} */
+    /** @return array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>} */
     private function contractRegistry(): array
     {
         if ($this->contractRegistry === null) {

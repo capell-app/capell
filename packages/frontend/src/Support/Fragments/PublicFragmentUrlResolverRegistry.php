@@ -23,13 +23,9 @@ final class PublicFragmentUrlResolverRegistry
         foreach ($resolvers as $resolver) {
             $owner = $resolver->owner();
 
-            if (preg_match('/^[a-z0-9][a-z0-9._-]*$/', $owner) !== 1) {
-                throw new InvalidArgumentException('Public fragment resolver owners must use lowercase stable identifiers.');
-            }
+            throw_if(preg_match('/^[a-z0-9][a-z0-9._-]*$/', $owner) !== 1, InvalidArgumentException::class, 'Public fragment resolver owners must use lowercase stable identifiers.');
 
-            if (array_key_exists($owner, $this->resolvers)) {
-                throw new DuplicatePublicFragmentOwner($owner);
-            }
+            throw_if(array_key_exists($owner, $this->resolvers), DuplicatePublicFragmentOwner::class, $owner);
 
             $this->resolvers[$owner] = $resolver;
         }
@@ -55,15 +51,11 @@ final class PublicFragmentUrlResolverRegistry
     {
         $resolver = $this->resolvers[$reference->owner] ?? null;
 
-        if (! $resolver instanceof PublicFragmentUrlResolver) {
-            throw new PublicFragmentReferenceInvalid;
-        }
+        throw_unless($resolver instanceof PublicFragmentUrlResolver, PublicFragmentReferenceInvalid::class);
 
         $url = $resolver->url($reference);
 
-        if ($url === '') {
-            throw new PublicFragmentReferenceInvalid;
-        }
+        throw_if($url === '', PublicFragmentReferenceInvalid::class);
 
         return $url;
     }

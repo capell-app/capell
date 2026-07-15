@@ -1,6 +1,6 @@
 {
     "name": "capell-app/installer",
-    "description": "Installer ai-orchestrator for the Capell CMS.",
+    "description": "Guided browser and CLI installation for Capell CMS on Laravel.",
     "type": "library",
     "keywords": [
         "capell",

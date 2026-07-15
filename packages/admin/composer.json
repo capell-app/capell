@@ -1,6 +1,6 @@
 {
     "name": "capell-app/admin",
-    "description": "CMS Laravel Website using Filament Admin.",
+    "description": "Filament administration, page editing, recovery, settings, and operations for Capell CMS.",
     "type": "library",
     "keywords": [
         "capell",

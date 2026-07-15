@@ -198,7 +198,7 @@ final class EvaluatePublicationTransitionAction
     private function same(?CarbonImmutable $first, ?CarbonImmutable $second): bool
     {
         if (! $first instanceof CarbonImmutable || ! $second instanceof CarbonImmutable) {
-            return $first === null && $second === null;
+            return ! $first instanceof CarbonImmutable && ! $second instanceof CarbonImmutable;
         }
 
         return $first->equalTo($second);

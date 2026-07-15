@@ -7,7 +7,7 @@ use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
 use Carbon\CarbonImmutable;
 
 it('exposes a translated rerun action and timestamps each fresh snapshot', function (): void {
-    $page = app(DemoInstallHealthReport::class);
+    $page = resolve(DemoInstallHealthReport::class);
 
     expect($page->reportRun)->toBe(0)
         ->and(__('capell-admin::reports.demo_install_health_rerun'))->toBe('Re-run checks');

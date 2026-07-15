@@ -124,13 +124,13 @@ function documentationSupportContractErrors(string $repositoryRoot): array
  */
 function dockerSupportContractErrors(string $repositoryRoot): array
 {
-    $path = $repositoryRoot . '/.docker/Dockerfile';
+    $dockerfilePath = $repositoryRoot . '/.docker/Dockerfile';
 
-    if (! is_file($path)) {
+    if (! is_file($dockerfilePath)) {
         return ['.docker/Dockerfile is missing.'];
     }
 
-    $contents = (string) file_get_contents($path);
+    $contents = (string) file_get_contents($dockerfilePath);
     $errors = [];
 
     if (! str_contains($contents, 'php8.4')) {
@@ -139,6 +139,24 @@ function dockerSupportContractErrors(string $repositoryRoot): array
 
     if (! str_contains($contents, '/etc/php/8.4')) {
         $errors[] = '.docker/Dockerfile must configure PHP 8.4.';
+    }
+
+    $phpConfigurationPath = $repositoryRoot . '/.docker/php/php.ini';
+
+    if (! is_file($phpConfigurationPath)) {
+        $errors[] = '.docker/php/php.ini is missing.';
+
+        return $errors;
+    }
+
+    $phpConfiguration = parse_ini_file($phpConfigurationPath, scanner_mode: INI_SCANNER_RAW);
+    $memoryLimit = is_array($phpConfiguration) ? $phpConfiguration['memory_limit'] ?? null : null;
+
+    if (! is_string($memoryLimit)
+        || preg_match('/^(?:-1|\d+[KMGT]?)$/i', $memoryLimit) !== 1
+        || (ini_parse_quantity($memoryLimit) !== -1 && ini_parse_quantity($memoryLimit) < 1024 ** 3)
+    ) {
+        $errors[] = '.docker/php/php.ini must set memory_limit to at least 1G so Pest child processes inherit enough memory.';
     }
 
     return $errors;

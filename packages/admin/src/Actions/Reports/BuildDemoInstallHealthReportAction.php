@@ -203,7 +203,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
     private function queueConnectionCheck(): DoctorCheckResultData
     {
         $connection = config('queue.default');
-        $driver = is_string($connection) ? config("queue.connections.{$connection}.driver") : null;
+        $driver = is_string($connection) ? config(sprintf('queue.connections.%s.driver', $connection)) : null;
         $passed = is_string($connection) && $connection !== '' && is_string($driver) && $driver !== '';
 
         return new DoctorCheckResultData(
@@ -225,7 +225,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
     private function cacheStoreCheck(): DoctorCheckResultData
     {
         $store = config('cache.default');
-        $driver = is_string($store) ? config("cache.stores.{$store}.driver") : null;
+        $driver = is_string($store) ? config(sprintf('cache.stores.%s.driver', $store)) : null;
         $passed = is_string($store) && $store !== '' && is_string($driver) && $driver !== '';
 
         return new DoctorCheckResultData(

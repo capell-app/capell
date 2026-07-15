@@ -29,16 +29,14 @@ final class BuildExtensionSurfaceCatalogAction
         $indexed = [];
 
         foreach ($entries as $entry) {
-            if ($entry->id === '' || $entry->ownerPackage === '' || $entry->summary === '') {
-                throw new InvalidArgumentException('Extension surface entries require an ID, owner, and summary.');
-            }
+            throw_if($entry->id === '' || $entry->ownerPackage === '' || $entry->summary === '', InvalidArgumentException::class, 'Extension surface entries require an ID, owner, and summary.');
 
             if (isset($indexed[$entry->id])) {
-                throw new InvalidArgumentException("Duplicate extension surface ID [{$entry->id}].");
+                throw new InvalidArgumentException(sprintf('Duplicate extension surface ID [%s].', $entry->id));
             }
 
             if ($entry->stability === ExtensionSurfaceStability::Stable && $entry->contractTestId === null) {
-                throw new InvalidArgumentException("Stable extension surface [{$entry->id}] requires a contract test ID.");
+                throw new InvalidArgumentException(sprintf('Stable extension surface [%s] requires a contract test ID.', $entry->id));
             }
 
             $indexed[$entry->id] = $entry;

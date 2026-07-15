@@ -26,7 +26,7 @@ final class TranslationCacheDependencyRegistry
             }
 
             foreach ($resolver->roots($translation) as $root) {
-                $roots[$root::class . ':' . (string) $root->getKey()] = $root;
+                $roots[$root::class . ':' . $root->getKey()] = $root;
             }
         }
 

@@ -1,6 +1,5 @@
 # Debugging Admin Extensions
 
-![Capell Debugging Admin Extensions screenshot](../images/admin-dashboard.png)
 
 Use this when an admin resource, page, widget, field, action, setting, or Extensions page contribution does not appear.
 

@@ -11,8 +11,8 @@ use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Contracts\PublicLayoutGraphBuilder;
 use Capell\Frontend\Contracts\PublicWidgetInteractionLocatorBuilder;
-use Capell\Frontend\Data\FrontendAssetContextData;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
@@ -27,15 +27,19 @@ class BuildPublicPageRenderDataAction
         $runtimeManifest = $context->runtimeManifest
             ?? FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
 
-        $assetManifest = BuildFrontendAssetManifestAction::run(new FrontendAssetContextData(
+        $resourceContext = new FrontendResourceContextData(
             page: $context->page,
             site: $context->site,
             language: $context->language,
             layout: $context->layout,
             theme: $context->theme,
             runtime: $runtimeManifest,
-            widgetResourceUsages: BuildFrontendWidgetResourceUsagesAction::run($context),
-        ));
+        );
+        $widgetResourceUsages = BuildFrontendWidgetResourceUsagesAction::run($context);
+        $resourcePlan = ResolveFrontendResourcePlanAction::run(
+            CollectFrontendResourceContributionsAction::run($resourceContext, $widgetResourceUsages),
+            CollectSelectedFrontendResourceHintsAction::run($resourceContext, $widgetResourceUsages),
+        );
 
         return new PublicPageRenderData(
             page: $context->page,
@@ -45,7 +49,7 @@ class BuildPublicPageRenderDataAction
             theme: $context->theme,
             layoutGraph: $this->layoutGraph($context),
             runtimeManifest: $runtimeManifest,
-            assetManifest: $assetManifest,
+            resourcePlan: $resourcePlan,
             surrogateKeys: $this->surrogateKeys($context),
             mediaHints: BuildFrontendMediaHintsAction::run($context),
             contentWidgetPayloads: $this->contentWidgetPayloads($context),

@@ -6,7 +6,6 @@ Capell Admin is the working surface for editors, administrators, and developers 
 
 The dashboard is the first screen after sign-in. It can show setup health, content activity, cache state, work queues, package state, and diagnostics depending on role and installed packages.
 
-![Capell admin dashboard](../images/admin-dashboard.png)
 
 Use the site switcher to change the active site context. Many resources, settings, and widgets are site-aware.
 

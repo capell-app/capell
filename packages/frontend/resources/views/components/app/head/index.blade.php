@@ -2,19 +2,20 @@
     'title' => '',
     'livewireEnabled' => true,
     'runtimeManifest' => null,
-    'assetManifest' => null,
+    'resourcePlan' => null,
 ])
 
 {{-- format-ignore-start --}}
 @php
     use Capell\Core\Enums\MediaConversionEnum;
-    use Capell\Frontend\Actions\BuildFrontendAssetManifestAction;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
     use Capell\Frontend\Actions\ResolvePageRobotsDirectivesAction;
     use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
-    use Capell\Frontend\Contracts\FrontendAssetManifestRenderer;
+    use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
+    use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
+    use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Data\ColorData;
-    use Capell\Frontend\Data\FrontendAssetContextData;
+    use Capell\Frontend\Data\FrontendResourceContextData;
     use Capell\Frontend\Data\FrontendRuntimeManifestData;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Actions\GetCriticalCssContentAction;
@@ -26,7 +27,6 @@
     use Capell\Frontend\Support\Render\RenderHookRegistry;
     use Capell\Frontend\Support\Security\HeadContentSanitizer;
     use Capell\Frontend\Support\View\PublicModelMeta;
-    use Illuminate\Contracts\Support\Htmlable;
 
     $theme = Frontend::theme();
     $site = Frontend::site();
@@ -93,9 +93,11 @@
     $runtimeManifest = $runtimeManifest
         ?? Frontend::getFrontendData('runtimeManifest')
         ?? FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
-    $assetManifest = $assetManifest
-        ?? Frontend::getFrontendData('assetManifest')
-        ?? BuildFrontendAssetManifestAction::run(new FrontendAssetContextData(
+    $resourcePlan = $resourcePlan ?? Frontend::getFrontendData('resourcePlan');
+    $renderedFrontendResources = Frontend::getFrontendData('renderedFrontendResources');
+
+    if (! $renderedFrontendResources instanceof \Capell\Frontend\Data\Assets\RenderedFrontendResourcesData && $resourcePlan instanceof FrontendResourcePlanData) {
+        $renderedFrontendResources = app(FrontendResourcePlanRenderer::class)->render($resourcePlan, new FrontendResourceContextData(
             page: $page,
             site: $site,
             language: $language,
@@ -103,7 +105,7 @@
             theme: $theme,
             runtime: $runtimeManifest,
         ));
-    $assetManifestHtml = Frontend::getFrontendData('assetManifestHtml');
+    }
     $mediaHints = Frontend::getFrontendData('mediaHints') ?? [];
 
     $icon = data_get($siteMeta, 'icon');
@@ -191,19 +193,8 @@
     @endif
     {{-- format-ignore-end --}}
 
-    @if ($assetManifestHtml instanceof Htmlable)
-        {!! $assetManifestHtml->toHtml() !!}
-    @else
-        {!!
-            app(FrontendAssetManifestRenderer::class)->render($assetManifest, new FrontendAssetContextData(
-                page: $page,
-                site: $site,
-                language: $language,
-                layout: $layout,
-                theme: $theme,
-                runtime: $runtimeManifest,
-            ))
-        !!}
+    @if ($renderedFrontendResources instanceof RenderedFrontendResourcesData)
+        {!! $renderedFrontendResources->headHtml !!}
     @endif
 
     @foreach ($mediaHints as $mediaHint)
@@ -415,15 +406,6 @@
     {!! HeadContentSanitizer::headSnippet(PublicModelMeta::get($theme, 'meta_tags')) !!}
 
     {!! HeadContentSanitizer::headSnippet(data_get($pageMeta, 'meta_tags')) !!}
-
-    @if ($assetManifest->lazyAssetsByPublicId() !== [])
-        <script
-            type="application/json"
-            data-capell-widget-assets
-        >
-            {!! json_encode($assetManifest->lazyAssetsByPublicId(), JSON_THROW_ON_ERROR) !!}
-        </script>
-    @endif
 
     <x-capell::app.head.custom
         :title="$title"

@@ -18,9 +18,7 @@ final class MarketplaceInstallRequestData extends Data
         public readonly bool $betaAcknowledged,
         public readonly MarketplaceInstallSource $source,
     ) {
-        if (trim($extensionSlug) === '') {
-            throw new InvalidArgumentException('A Marketplace extension slug is required.');
-        }
+        throw_if(trim($extensionSlug) === '', InvalidArgumentException::class, 'A Marketplace extension slug is required.');
     }
 
     /** @param array<string, mixed> $options */

@@ -84,9 +84,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
     {
         $record = $this->record();
 
-        if (! $record instanceof Publishable) {
-            throw new InvalidArgumentException('Publish readiness requires a publishable record.');
-        }
+        throw_unless($record instanceof Publishable, InvalidArgumentException::class, 'Publish readiness requires a publishable record.');
 
         return BuildPublishReadinessAction::run($record);
     }

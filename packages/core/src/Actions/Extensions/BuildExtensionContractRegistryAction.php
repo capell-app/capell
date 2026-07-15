@@ -11,7 +11,7 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, \Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData>} run(array<string, CapellManifestData> $manifests)
+ * @method static array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>} run(array<string, CapellManifestData> $manifests)
  */
 final class BuildExtensionContractRegistryAction
 {

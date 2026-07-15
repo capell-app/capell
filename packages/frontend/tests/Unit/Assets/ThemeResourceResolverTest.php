@@ -3,26 +3,27 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\PresentationLoadingStrategy;
-use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Theme;
-use Capell\Frontend\Data\FrontendAssetRequirementData;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
+use Capell\Frontend\Data\Assets\PublicResourceSourceData;
+use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\ThemeResourceResolver;
 
-it('resolves named editor theme resources into frontend resource groups', function (): void {
+it('parses only local editor theme resources into typed groups', function (): void {
     $theme = new Theme;
     $theme->meta = [
-        'assets_path' => 'build',
         'editor' => [
             'resources' => [
                 'theme.carousel' => [
+                    'label' => 'Carousel',
                     'assets' => [
-                        'resources/css/widgets/carousel.css',
-                        [
-                            'source' => 'resources/js/widgets/carousel.js',
-                            'loading' => PresentationLoadingStrategy::Visible->value,
-                            'defer' => true,
-                        ],
+                        'vendor/theme/carousel.css',
+                        ['path' => 'vendor/theme/carousel.js', 'loading' => 'visible'],
+                        'https://cdn.example.com/editor-controlled.js',
+                        '//cdn.example.com/protocol-relative.js',
+                        'javascript:alert(1)',
                     ],
                 ],
             ],
@@ -31,109 +32,33 @@ it('resolves named editor theme resources into frontend resource groups', functi
 
     $group = (new ThemeResourceResolver)->group($theme, 'theme.carousel');
 
-    expect($group?->key)->toBe('theme.carousel')
+    expect($group)->toBeInstanceOf(FrontendResourceGroupData::class)
+        ->and($group?->label)->toBe('Carousel')
+        ->and($group?->package)->toBe('capell-app/theme-metadata')
         ->and($group?->resources)->toHaveCount(2)
-        ->and($group?->resources[0]->kind)->toBe(FrontendAssetRequirementData::KIND_CSS)
-        ->and($group?->resources[0]->source)->toBe('resources/css/widgets/carousel.css')
-        ->and($group?->resources[0]->buildPath)->toBe('build')
-        ->and($group?->resources[1]->kind)->toBe(FrontendAssetRequirementData::KIND_JS)
-        ->and($group?->resources[1]->loadingStrategy)->toBe(PresentationLoadingStrategy::Visible)
-        ->and($group?->resources[1]->defer)->toBeTrue();
+        ->and($group?->resources[0]->kind)->toBe(FrontendResourceKind::Style)
+        ->and($group?->resources[0]->source)->toBeInstanceOf(PublicResourceSourceData::class)
+        ->and($group?->resources[1]->loadingStrategy)->toBe(PresentationLoadingStrategy::Visible);
 });
 
-it('uses loaded theme blueprint resources as the resource group fallback', function (): void {
-    $type = new Blueprint;
-    $type->meta = [
-        'assets_path' => 'theme-build',
-        'editor' => [
-            'resources' => [
-                'theme.lightbox' => [
-                    'assets' => [
-                        [
-                            'source' => 'resources/js/widgets/lightbox.js',
-                            'loading_strategy' => PresentationLoadingStrategy::Interaction->value,
-                        ],
-                    ],
-                ],
-            ],
-        ],
-    ];
+it('deduplicates repeated local resources', function (): void {
     $theme = new Theme;
-    $theme->meta = [];
-    $theme->setRelation('blueprint', $type);
+    $theme->meta = ['editor' => ['resources' => ['gallery' => [
+        'assets' => ['vendor/gallery.js', 'vendor/gallery.js'],
+    ]]]];
 
-    $group = (new ThemeResourceResolver)->group($theme, 'theme.lightbox');
-
-    expect($group?->resources)->toHaveCount(1)
-        ->and($group?->resources[0]->source)->toBe('resources/js/widgets/lightbox.js')
-        ->and($group?->resources[0]->buildPath)->toBe('theme-build')
-        ->and($group?->resources[0]->loadingStrategy)->toBe(PresentationLoadingStrategy::Interaction);
+    expect((new ThemeResourceResolver)->group($theme, 'gallery')?->resources)->toHaveCount(1);
 });
 
-it('deduplicates repeated assets inside a theme resource group', function (): void {
-    $theme = new Theme;
-    $theme->meta = [
-        'editor' => [
-            'resources' => [
-                'theme.carousel' => [
-                    'assets' => [
-                        'resources/js/widgets/carousel.js',
-                        'resources/js/widgets/carousel.js',
-                    ],
-                ],
-            ],
-        ],
-    ];
-
-    $group = (new ThemeResourceResolver)->group($theme, 'theme.carousel');
-
-    expect($group?->resources)->toHaveCount(1);
-});
-
-it('falls back to registered package defaults when a theme does not define a group', function (): void {
-    $registry = new FrontendResourceRegistry;
-    $registry->register(
-        key: 'package.carousel',
-        label: 'Carousel',
-        assets: ['resources/css/package-carousel.css'],
-        package: 'capell-app/carousel',
-        defaultBuildPath: 'vendor/carousel',
+it('uses registered trusted package groups without reconstructing declarations', function (): void {
+    $resource = FrontendResourceData::style(
+        'capell-app/gallery:styles',
+        'capell-app/gallery',
+        new PublicResourceSourceData('vendor/gallery/gallery.css'),
     );
-
-    $theme = new Theme;
-    $theme->meta = [];
-
-    $group = new ThemeResourceResolver($registry)->group($theme, 'package.carousel');
-
-    expect($group?->label)->toBe('Carousel')
-        ->and($group?->origin)->toBe('package')
-        ->and($group?->resources[0]->source)->toBe('resources/css/package-carousel.css');
-});
-
-it('prefers theme resource metadata over package defaults', function (): void {
+    $group = new FrontendResourceGroupData('gallery', 'Gallery', 'capell-app/gallery', [$resource]);
     $registry = new FrontendResourceRegistry;
-    $registry->register(
-        key: 'shared.gallery',
-        label: 'Package Gallery',
-        assets: ['resources/css/package-gallery.css'],
-        defaultBuildPath: 'vendor/gallery',
-    );
+    $registry->register($group);
 
-    $theme = new Theme;
-    $theme->meta = [
-        'editor' => [
-            'resources' => [
-                'shared.gallery' => [
-                    'label' => 'Theme Gallery',
-                    'assets' => ['resources/css/theme-gallery.css'],
-                ],
-            ],
-        ],
-    ];
-
-    $group = new ThemeResourceResolver($registry)->group($theme, 'shared.gallery');
-
-    expect($group?->label)->toBe('Theme Gallery')
-        ->and($group?->origin)->toBe('theme')
-        ->and($group?->resources[0]->source)->toBe('resources/css/theme-gallery.css');
+    expect(new ThemeResourceResolver($registry)->group(new Theme, 'gallery'))->toBe($group);
 });

@@ -49,11 +49,11 @@ use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
-use Capell\Frontend\Contracts\FrontendAssetContributor;
-use Capell\Frontend\Contracts\FrontendAssetManifestRenderer;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
+use Capell\Frontend\Contracts\FrontendResourceContributor;
+use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\HtmlMinifier;
 use Capell\Frontend\Contracts\NullCacheBypassResolver;
@@ -81,12 +81,14 @@ use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
-use Capell\Frontend\Support\Assets\DefaultFrontendAssetManifestRenderer;
+use Capell\Frontend\Support\Assets\CoreFrontendRuntimeContributor;
+use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
 use Capell\Frontend\Support\Assets\FrontendAssetsService;
+use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
+use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Capell\Frontend\Support\Assets\PublicFrontendAssetUrl;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
-use Capell\Frontend\Support\Assets\VendorBuildAssetContributor;
 use Capell\Frontend\Support\Blade\BuildAssetDirective;
 use Capell\Frontend\Support\Blade\FrontendAssetDirective;
 use Capell\Frontend\Support\Blade\WireNavigateDirective;
@@ -260,7 +262,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 $application->tagged(PublicFragmentUrlResolver::TAG),
             ),
         );
-        $this->app->singletonIf(FrontendAssetManifestRenderer::class, DefaultFrontendAssetManifestRenderer::class);
+        $this->app->singletonIf(FrontendResourcePlanRenderer::class, DefaultFrontendResourcePlanRenderer::class);
         $this->app->singletonIf(RedirectResolver::class, NullRedirectResolver::class);
         $this->app->bind(DefaultSystemPageResolver::class);
         $this->app->tag(DefaultSystemPageResolver::class, SystemPageResolver::TAG);
@@ -288,19 +290,17 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
         // Asset optimization
         $this->app->singleton(FrontendResourceRegistry::class);
+        $this->app->singleton(FrontendPackageDependencyRegistry::class);
+        $this->app->singleton(FrontendViteInputRegistry::class);
         $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
             ->mapWithKeys(fn (FrontendResourceGroupData $group, string $key): array => [
-                $key => $group->label ?? $key,
+                $key => $group->label,
             ])
             ->all());
         $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
         $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
         $this->app->scoped(ThemeMetaAssetContributor::class);
-        $this->app->scoped(VendorBuildAssetContributor::class);
-        $this->app->tag(
-            [ThemeMetaAssetContributor::class, VendorBuildAssetContributor::class],
-            FrontendAssetContributor::TAG,
-        );
+        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
 
         // Cache invalidation
         $this->app->scoped(CacheInvalidationExecutor::class);
@@ -707,14 +707,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerTailwindAssets(): self
     {
-        CapellCore::registerVendorAsset(
-            VendorAssetData::buildAsset(
-                path: 'vendor/capell-frontend',
-                file: 'resources/js/capell-frontend.js',
-                packageName: self::$packageName,
-            ),
-        );
-
         CapellCore::registerVendorAsset(
             VendorAssetData::tailwindImport('resources/css/capell-frontend.css', self::$packageName),
         );

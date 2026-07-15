@@ -6,6 +6,7 @@ use Capell\Core\Actions\Diagnostics\CheckAdminPanelAccessAction;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
@@ -82,6 +83,8 @@ it('rejects users whose real panel access contract denies access', function (): 
 
 final class DiagnosticsDeniedUser extends Authenticatable implements FilamentUser
 {
+    use HasFactory;
+
     protected $table = 'users';
 
     protected $guarded = [];

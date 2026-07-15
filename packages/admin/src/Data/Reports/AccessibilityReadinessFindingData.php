@@ -28,7 +28,7 @@ final class AccessibilityReadinessFindingData extends Data
             title: $this->title,
             description: $this->description,
             recordLabel: $this->recordLabel,
-            actionLabel: $this->url !== null ? __('capell-admin::reports.accessibility_action_edit') : null,
+            actionLabel: $this->url !== null ? (string) __('capell-admin::reports.accessibility_action_edit') : null,
             url: $this->url,
             id: $this->id,
             remediation: $this->remediation,

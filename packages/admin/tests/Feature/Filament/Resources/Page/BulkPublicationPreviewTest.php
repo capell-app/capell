@@ -31,7 +31,7 @@ it('renders accurate changed unchanged and blocked preview totals', function ():
         ],
     );
 
-    expect(view('capell-admin::filament.actions.bulk-publication-preview', compact('preview'))->render())
+    expect(view('capell-admin::filament.actions.bulk-publication-preview', ['preview' => $preview])->render())
         ->toContain('Will change')
         ->toContain('Unchanged')
         ->toContain('Blocked')

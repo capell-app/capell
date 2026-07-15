@@ -161,7 +161,7 @@ class ResolvePublicPageByUrlAction
             ->whereKey($pageableId)
             ->with([
                 'layout',
-                'pageUrls.siteDomain',
+                'pageUrls',
                 'blueprint',
                 'translation' => fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language->getKey()),
             ])
@@ -185,13 +185,15 @@ class ResolvePublicPageByUrlAction
     {
         $site->loadMissing('siteDomains');
 
+        foreach ($page->getRelation('pageUrls') as $relatedPageUrl) {
+            $siteDomain = $site->siteDomains->firstWhere('language_id', $relatedPageUrl->language_id);
+
+            $relatedPageUrl->setRelation('siteDomain', $siteDomain);
+        }
+
         $siteDomain = $site->siteDomains->firstWhere('language_id', $pageUrl->language_id);
 
-        if ($siteDomain !== null) {
-            $pageUrl->setRelation('siteDomain', $siteDomain);
-        } else {
-            $pageUrl->loadMissing('siteDomain');
-        }
+        $pageUrl->setRelation('siteDomain', $siteDomain);
 
         $page->setRelation('pageUrl', $pageUrl);
     }

@@ -12,8 +12,6 @@ final class AssertsCacheInvalidation
     /** @param Closure(): bool|null $assertion */
     public static function run(string $packageRoot, ?Closure $assertion): void
     {
-        if ($assertion !== null && $assertion() !== true) {
-            throw new AssertionError("[cache.invalidation] {$packageRoot}: cache invalidation assertion failed.");
-        }
+        throw_if($assertion instanceof Closure && $assertion() !== true, AssertionError::class, sprintf('[cache.invalidation] %s: cache invalidation assertion failed.', $packageRoot));
     }
 }

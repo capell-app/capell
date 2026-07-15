@@ -65,8 +65,8 @@ it('rejects malformed ciphertext without exposing the supplied token', function 
 
     try {
         resolve(EncryptedPublicFragmentReferenceCodec::class)->decode($token);
-    } catch (PublicFragmentReferenceInvalid $exception) {
-        expect($exception->getMessage())
+    } catch (PublicFragmentReferenceInvalid $publicFragmentReferenceInvalid) {
+        expect($publicFragmentReferenceInvalid->getMessage())
             ->toBe('Public fragment reference is invalid.')
             ->not->toContain($token);
 

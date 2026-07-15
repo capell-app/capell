@@ -158,12 +158,15 @@ it('rejects prompt-free beta lifecycle installs without explicit acknowledgement
     ]);
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
+    $evidence = $attempt->policy_evidence;
+    expect($evidence)->toBeArray();
+    assert(is_array($evidence));
 
     expect($exitCode)->toBe(1)
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
         ->and($attempt->failure_reason)->toBe('beta_acknowledgement_required')
         ->and($attempt->beta_acknowledged)->toBeFalse()
-        ->and($attempt->policy_evidence['consentAllowed'])->toBeFalse();
+        ->and($evidence['consentAllowed'])->toBeFalse();
 });
 
 it('runs lifecycle qa through the install attempt pipeline and reports composer failures', function (): void {

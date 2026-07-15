@@ -130,20 +130,18 @@ class DoctorCommand extends Command
                 DoctorCheckSeverity::Warning => '<fg=yellow>!</>',
                 DoctorCheckSeverity::Critical => '<fg=red>✗</>',
             };
-        $message = $check->message;
-
-        if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
-            $message .= ' ' . $check->remediation;
-        }
-
         $this->components->twoColumnDetail(
             sprintf('%s %s', $icon, $check->label),
             match (true) {
-                $check->passed => '<fg=green>' . $message . '</>',
-                $check->severity === DoctorCheckSeverity::Info => '<fg=blue>' . $message . '</>',
-                $check->severity === DoctorCheckSeverity::Warning => '<fg=yellow>' . $message . '</>',
-                default => '<fg=red>' . $message . '</>',
+                $check->passed => '<fg=green>' . $check->message . '</>',
+                $check->severity === DoctorCheckSeverity::Info => '<fg=blue>' . $check->message . '</>',
+                $check->severity === DoctorCheckSeverity::Warning => '<fg=yellow>' . $check->message . '</>',
+                default => '<fg=red>' . $check->message . '</>',
             },
         );
+
+        if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
+            $this->line(sprintf('  <fg=yellow>Fix:</> %s', $check->remediation));
+        }
     }
 }

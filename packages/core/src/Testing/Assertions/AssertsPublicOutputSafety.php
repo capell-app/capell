@@ -12,16 +12,14 @@ final class AssertsPublicOutputSafety
     /** @param Closure(): string|null $render */
     public static function run(string $packageRoot, ?Closure $render): void
     {
-        if ($render === null) {
+        if (! $render instanceof Closure) {
             return;
         }
 
         $html = mb_strtolower($render());
 
         foreach (['wire:', 'filament', 'data-record-id', '/admin'] as $forbidden) {
-            if (str_contains($html, $forbidden)) {
-                throw new AssertionError("[public-output.safety] {$packageRoot}: public output contains [{$forbidden}].");
-            }
+            throw_if(str_contains($html, $forbidden), AssertionError::class, sprintf('[public-output.safety] %s: public output contains [%s].', $packageRoot, $forbidden));
         }
     }
 }
