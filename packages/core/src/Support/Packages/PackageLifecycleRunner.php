@@ -105,10 +105,11 @@ final class PackageLifecycleRunner
         array $arguments,
         ?ProgressReporter $reporter,
     ): void {
-        $process = $this->processFactory->make(
-            $this->freshProcessCommand($command, $arguments),
-            base_path(),
-        );
+        $processCommand = $this->freshProcessCommand($command, $arguments);
+        $environment = $this->freshProcessEnvironment();
+        $process = $environment === null
+            ? $this->processFactory->make($processCommand, base_path())
+            : $this->processFactory->make($processCommand, base_path(), $environment);
         $process->setTimeout(null);
 
         $output = '';
@@ -136,6 +137,14 @@ final class PackageLifecycleRunner
 
         if ($reporter instanceof ProgressReporter && trim($lineBuffer) !== '') {
             $reporter->report(trim($lineBuffer));
+        }
+
+        if (str_contains($output, sprintf('Command "%s" is not defined.', $command))) {
+            throw new RuntimeException(sprintf(
+                "%s command '%s' does not exist.",
+                str($phase)->replace('-', ' ')->headline(),
+                $command,
+            ));
         }
 
         if ($process->isSuccessful()) {
@@ -208,5 +217,15 @@ final class PackageLifecycleRunner
         }
 
         throw new RuntimeException('Unable to locate a CLI PHP binary for the package lifecycle command.');
+    }
+
+    /** @return array<string, string>|null */
+    private function freshProcessEnvironment(): ?array
+    {
+        if (! str_contains(base_path(), 'testbench-skeletons')) {
+            return null;
+        }
+
+        return ['TESTBENCH_WORKING_PATH' => dirname(__DIR__, 5)];
     }
 }
