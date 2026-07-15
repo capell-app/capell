@@ -125,6 +125,7 @@
             "@test:mutate:ci"
         ],
         "test:unit": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
+        "release-contracts": "@php -d memory_limit=1G -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest tests/Integration/Release --colors=always --compact --configuration=phpunit.xml",
         "test:fast": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
         "test:fast:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --configuration=phpunit.xml",
         "test:preflight": "@php scripts/run-pest-shards.php",
