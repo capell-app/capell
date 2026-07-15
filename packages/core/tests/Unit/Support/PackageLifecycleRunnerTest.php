@@ -117,16 +117,21 @@ it('runs a dynamically installed package command in a fresh process when the cur
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
         ->once()
-        ->with(
-            Mockery::on(fn (array $command): bool => $command === [
+        ->withArgs(function (array $command, string $workingDirectory, ?array $environment = null): bool {
+            $expectedEnvironment = str_contains(base_path(), 'testbench-skeletons')
+                ? ['TESTBENCH_WORKING_PATH' => dirname(base_path(), 4)]
+                : null;
+
+            return $command === [
                 PHP_BINARY,
                 base_path('artisan'),
                 'vendor:dynamic-install',
                 '--no-interaction',
                 '--force',
-            ]),
-            base_path(),
-        )
+            ]
+                && $workingDirectory === base_path()
+                && $environment === $expectedEnvironment;
+        })
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
     config(['capell-installer.php_binary' => PHP_BINARY]);
