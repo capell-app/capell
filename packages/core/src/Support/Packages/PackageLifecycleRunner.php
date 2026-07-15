@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 namespace Capell\Core\Support\Packages;
 
 use Capell\Core\Contracts\PackageLifecycleAction;
@@ -29,6 +30,7 @@ final class PackageLifecycleRunner
         array $arguments = [],
         ?ProgressReporter $reporter = null,
         bool $allowLegacyCommand = true,
+        bool $freshProcess = false,
     ): void {
         if ($actionClass !== null && $actionClass !== '') {
             $this->runAction($package, $phase, $actionClass, $arguments, $reporter);
@@ -51,7 +53,7 @@ final class PackageLifecycleRunner
             ));
         }
 
-        if (! array_key_exists($command, Artisan::all())) {
+        if ($freshProcess || ! array_key_exists($command, Artisan::all())) {
             $this->runCommandInFreshProcess($phase, $command, $arguments, $reporter);
 
             return;

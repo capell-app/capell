@@ -41,6 +41,11 @@ final class TrustedCorePackages
         return in_array($packageName, self::CORE_RUNTIME_PACKAGE_NAMES, true);
     }
 
+    public static function isAdminPackage(string $packageName): bool
+    {
+        return $packageName === 'capell-app/admin';
+    }
+
     /**
      * @return list<string>
      */
