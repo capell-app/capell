@@ -3,6 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Console\Commands\InstallCommand;
+
+it('normalizes php memory limit units for the installer floor', function (): void {
+    $command = installCommandForOptions([]);
+
+    expect(callInstallCommandMethod($command, 'memoryLimitInBytes', '128M'))->toBe(134_217_728)
+        ->and(callInstallCommandMethod($command, 'memoryLimitInBytes', '1G'))->toBe(1_073_741_824)
+        ->and(callInstallCommandMethod($command, 'memoryLimitInBytes', '524288K'))->toBe(536_870_912)
+        ->and(callInstallCommandMethod($command, 'memoryLimitInBytes', '536870912'))->toBe(536_870_912);
+});
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
