@@ -283,10 +283,10 @@ function twoPackageReleasePlan(string $sha, array $trees): array
     return $plan;
 }
 
-it('persists full history across incremental subsets and recursively releases dependants', function (): void {
+it('persists full history and releases every foundation package at one lockstep version', function (): void {
     $root = sys_get_temp_dir() . '/capell-release-' . bin2hex(random_bytes(5));
     mkdir($root . '/config', 0777, true);
-    foreach (['core' => [], 'admin' => ['capell-app/core' => '^1.0'], 'marketplace' => ['capell-app/admin' => '^1.0']] as $path => $requires) {
+    foreach (['core' => [], 'admin' => ['capell-app/core' => 'self.version'], 'marketplace' => ['capell-app/admin' => 'self.version']] as $path => $requires) {
         mkdir($root . '/packages/' . $path, 0777, true);
         file_put_contents($root . '/packages/' . $path . '/composer.json', json_encode(['name' => 'capell-app/' . $path, 'require' => $requires], JSON_THROW_ON_ERROR));
     }
@@ -326,22 +326,20 @@ it('persists full history across incremental subsets and recursively releases de
     $runner->trees['core'] = str_repeat('d', 40);
     $increment = $engine->plan('incremental', $baseline, ['capell-app/core' => 'minor']);
     expect(array_column($increment['packages'], 'name'))->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/marketplace'])
-        ->and($increment['packages'][0]['proposed_version'])->toBe('1.1.0')
-        ->and($increment['packages'][0]['release_type'])->toBe('minor')
-        ->and($increment['packages'][0]['reason'])->toBe('Manual minor bump.')
-        ->and($increment['packages'][1]['release_type'])->toBe('patch')
-        ->and($increment['packages'][1]['reason'])->toBe('Dependency minimum requirement changed.')
+        ->and(array_values(array_unique(array_column($increment['packages'], 'proposed_version'))))->toBe(['1.1.0'])
+        ->and(array_values(array_unique(array_column($increment['packages'], 'release_type'))))->toBe(['minor'])
+        ->and(array_values(array_unique(array_column($increment['packages'], 'reason'))))->toBe(['Lockstep minor foundation release.'])
         ->and($increment['ledger'])->toHaveCount(3);
 
     $runner->commit = str_repeat('3', 40);
     $runner->trees['marketplace'] = str_repeat('e', 40);
     $next = $engine->plan('incremental', $increment, ['capell-app/marketplace' => 'major']);
-    expect(array_column($next['packages'], 'name'))->toBe(['capell-app/marketplace'])
-        ->and($next['packages'][0]['proposed_version'])->toBe('2.0.0')
-        ->and($next['packages'][0]['release_type'])->toBe('major')
-        ->and($next['packages'][0]['reason'])->toBe('Manual major bump.')
+    expect(array_column($next['packages'], 'name'))->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/marketplace'])
+        ->and(array_values(array_unique(array_column($next['packages'], 'proposed_version'))))->toBe(['2.0.0'])
+        ->and(array_values(array_unique(array_column($next['packages'], 'release_type'))))->toBe(['major'])
+        ->and(array_values(array_unique(array_column($next['packages'], 'reason'))))->toBe(['Lockstep major foundation release.'])
         ->and($next['ledger'])->toHaveCount(3)
-        ->and(array_column($next['ledger'], 'version', 'name')['capell-app/core'])->toBe('1.1.0');
+        ->and(array_values(array_unique(array_column($next['ledger'], 'version'))))->toBe(['2.0.0']);
 });
 
 it('rejects invalid ledger dependency semantics', function (Closure $mutate, string $message): void {
@@ -381,6 +379,20 @@ it('rejects non-canonical versions in ledger and selected packages', function ()
     $plan = releaseEnginePlan(str_repeat('a', 40), str_repeat('b', 40));
     $plan['packages'][0]['proposed_version'] = '1.01.00';
     expect(fn () => (new PlanValidator)->validate($plan))->toThrow(ReleaseException::class, 'Invalid proposed version');
+});
+
+it('rejects a foundation plan with mixed package versions', function (): void {
+    $plan = twoPackageReleasePlan(str_repeat('a', 40), [
+        'capell-app/core' => str_repeat('b', 40),
+        'capell-app/admin' => str_repeat('c', 40),
+    ]);
+    $plan['packages'][1]['proposed_version'] = '1.0.1';
+    $plan['packages'][1]['source_tag'] = 'admin/v1.0.1';
+    $plan['ledger'][1]['version'] = '1.0.1';
+    $plan['inventory'][1]['version'] = '1.0.1';
+
+    expect(fn () => (new PlanValidator)->validate($plan))
+        ->toThrow(ReleaseException::class, 'one lockstep version');
 });
 
 it('rejects cross-representation disagreements', function (Closure $mutate, string $message): void {

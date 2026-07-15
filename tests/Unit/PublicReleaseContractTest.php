@@ -63,8 +63,19 @@ it('defines the public v1 split package release contract', function (): void {
     );
 
     expect($coreManifest['require']['spatie/laravel-settings'])->toBe('^3.0')
-        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('^1.0')
-        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('^1.0');
+        ->and($marketplaceManifest['require']['capell-app/admin'])->toBe('self.version')
+        ->and($marketplaceManifest['require']['capell-app/core'])->toBe('self.version');
+
+    foreach (['admin', 'frontend', 'installer'] as $foundationPackage) {
+        $manifest = json_decode(
+            file_get_contents($root . '/packages/' . $foundationPackage . '/composer.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        expect($manifest['require']['capell-app/core'])->toBe('self.version');
+    }
 
     $descriptions = collect($splitPackages)
         ->mapWithKeys(function (array $definition) use ($root): array {
