@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -83,7 +84,7 @@ class InstallFilamentPanelAction
                 '--no-interaction',
             ],
             base_path(),
-            ComposerProcessEnvironment::forInstall($_SERVER),
+            ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
         );
         $process->setTimeout(300);
         $process->run(function (string $type, string $buffer) use ($reporter): void {
