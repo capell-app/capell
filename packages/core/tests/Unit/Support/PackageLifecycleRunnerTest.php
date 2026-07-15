@@ -149,6 +149,43 @@ it('runs a dynamically installed package command in a fresh process when the cur
     );
 });
 
+it('runs a visible lifecycle command in a fresh process when the caller requires a clean application boot', function (): void {
+    Artisan::command('vendor:visible-install', fn (): int => 0);
+
+    $package = new PackageData(
+        name: 'vendor/application-mutating-package',
+        type: PackageTypeEnum::Plugin,
+    );
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $process->shouldReceive('run')->once()->with(Mockery::type('callable'))->andReturn(0);
+    $process->shouldReceive('isSuccessful')->once()->andReturnTrue();
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->once()
+        ->withArgs(fn (array $command, string $workingDirectory): bool => $command === [
+            PHP_BINARY,
+            base_path('artisan'),
+            'vendor:visible-install',
+            '--no-interaction',
+            '--force',
+        ] && $workingDirectory === base_path())
+        ->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    config(['capell-installer.php_binary' => PHP_BINARY]);
+
+    resolve(PackageLifecycleRunner::class)->run(
+        package: $package,
+        phase: 'install',
+        command: 'vendor:visible-install',
+        actionClass: null,
+        arguments: ['--force' => true],
+        allowLegacyCommand: true,
+        freshProcess: true,
+    );
+});
+
 it('rejects lifecycle classes that do not implement the package lifecycle contract', function (): void {
     $package = new PackageData(
         name: 'vendor/invalid-action-package',
