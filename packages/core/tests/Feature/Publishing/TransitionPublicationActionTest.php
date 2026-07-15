@@ -15,7 +15,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Auth\User;
 
 beforeEach(function (): void {
-    $this->now = CarbonImmutable::parse('2026-07-14 12:00:00');
+    $this->now = CarbonImmutable::parse('2026-07-14 12:00:00', 'UTC');
     CarbonImmutable::setTestNow($this->now);
     $this->actor = new User;
     app()->instance(AuthorizesPublicationTransition::class, new class implements AuthorizesPublicationTransition
@@ -62,7 +62,7 @@ it('evaluates the complete normalized transition matrix without persistence', fu
         ->and(publicationTestDate($page->getAttribute('visible_from'))?->equalTo($from) ?? ! $from instanceof CarbonImmutable)->toBeTrue()
         ->and(publicationTestDate($page->getAttribute('visible_until'))?->equalTo($until) ?? ! $until instanceof CarbonImmutable)->toBeTrue();
 })->with(function (): array {
-    $now = CarbonImmutable::parse('2026-07-14 12:00:00');
+    $now = CarbonImmutable::parse('2026-07-14 12:00:00', 'UTC');
     $draft = PublishSentinel::draftValue($now);
 
     return [
