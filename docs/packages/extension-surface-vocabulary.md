@@ -43,6 +43,8 @@ Use the closest surface that explains the user-visible or operational impact. A 
 
 The manifest describes intent. Providers and registries execute behavior. Tests prove both agree.
 
+Every deliberate API, DTO, event, tag, config key, render hook, and testing surface is classified in the [extension surface catalogue](extension-surface-catalog.md) as `stable`, `experimental`, or `internal`. Stability is explicit executable metadata; it is never inferred from a namespace.
+
 ## Naming guidance
 
 Use **package** for the installable unit, **surface** for the area affected, **contribution** for a concrete registered thing, **capability** for typed behavior, and **install impact** for what changes after install. Avoid mixing these terms with generic plugin or hook language unless you are talking about a specific API such as a render hook.

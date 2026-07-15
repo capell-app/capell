@@ -1,0 +1,106 @@
+{
+    "schemaVersion": 1,
+    "generatedFrom": "Capell\\Core\\Actions\\Extensions\\BuildExtensionSurfaceCatalogAction",
+    "surfaces": [
+        {
+            "id": "admin.render-hook.navigation-after",
+            "kind": "render-hook",
+            "identifier": "panels::sidebar.nav.end",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Admin navigation contribution hook.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.config.roles-admin",
+            "kind": "config",
+            "identifier": "capell.roles.admin",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Configured administrator role name.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.extension-contribution",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Core contribution boundary.",
+            "contractTestId": "core.extension-contribution"
+        },
+        {
+            "id": "core.contract.health-check",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\ChecksExtensionHealth",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed extension health checks.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.extension-contribution",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed manifest contribution data.",
+            "contractTestId": "core.extension-contribution-data"
+        },
+        {
+            "id": "core.event.package-installed",
+            "kind": "event",
+            "identifier": "Capell\\Core\\Events\\PackageInstalled",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Package lifecycle completion event.",
+            "contractTestId": "core.package-installed-event"
+        },
+        {
+            "id": "core.facade.capell-core",
+            "kind": "facade",
+            "identifier": "Capell\\Core\\Facades\\CapellCore",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Runtime package and model registry facade.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.internal.registry-builder",
+            "kind": "internal",
+            "identifier": "Capell\\Core\\Actions\\Extensions\\BuildExtensionContractRegistryAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "internal",
+            "introducedVersion": "1.0.0",
+            "summary": "Internal executable contribution index.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.extension-health",
+            "kind": "tagged-service",
+            "identifier": "capell.extension-health-checks",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for extension health checks.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.testing.extension-harness",
+            "kind": "testing",
+            "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Single-package manifest and contribution assertions.",
+            "contractTestId": "core.extension-test-harness"
+        }
+    ]
+}
