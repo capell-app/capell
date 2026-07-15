@@ -123,15 +123,14 @@ class DoctorCommand extends Command
     private function outputCheckResult(DoctorCheckResultData $check): void
     {
         $icon = $check->passed ? '<fg=green>✓</>' : '<fg=red>✗</>';
-        $message = $check->message;
-
-        if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
-            $message .= ' ' . $check->remediation;
-        }
 
         $this->components->twoColumnDetail(
             sprintf('%s %s', $icon, $check->label),
-            $check->passed ? '<fg=green>' . $message . '</>' : '<fg=red>' . $message . '</>',
+            $check->passed ? '<fg=green>' . $check->message . '</>' : '<fg=red>' . $check->message . '</>',
         );
+
+        if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
+            $this->line(sprintf('  <fg=yellow>Fix:</> %s', $check->remediation));
+        }
     }
 }

@@ -1,6 +1,5 @@
 # Configuration Reference
 
-![Capell Configuration Reference screenshot](../images/admin-dashboard.png)
 
 This page covers the host package configuration that a Laravel app may need to set directly. Install-facing setup lives in the [install guide](../getting-started/install.md); this page is for maintainers checking env vars, published config, disks, logs, and panel wiring.
 

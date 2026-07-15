@@ -6,6 +6,7 @@ namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Illuminate\Console\Command;
 
@@ -47,6 +48,10 @@ class InstallCommand extends Command
         $this->call('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true]);
 
         $this->call('vendor:publish', ['--tag' => 'capell-frontend-publish', '--force' => true]);
+
+        foreach (GenerateTailwindAssetsAction::run() as $result) {
+            $this->line(sprintf('Generated Tailwind assets at: %s', $result['path']));
+        }
 
         $this->newLine();
         $this->info('Capell Frontend installed successfully.');

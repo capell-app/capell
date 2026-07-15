@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -6,6 +7,29 @@ const runtimePath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../resources/js/widget-runtime.js',
 )
+
+const tokenFor = (value) =>
+    createHash('sha256').update(value).digest('hex').slice(0, 24)
+
+const resourcePlan = (assets) =>
+    Object.entries(assets).map(([target, resources]) => ({
+        target,
+        loading: 'interaction',
+        layers: [
+            resources.map((resource) => ({
+                token: tokenFor(resource.url || `${target}:${resource.kind}`),
+                kind:
+                    resource.kind === 'css'
+                        ? 'style'
+                        : resource.module === false
+                          ? 'classic-script'
+                          : 'module-script',
+                url: resource.url,
+                defer: Boolean(resource.defer),
+                async: Boolean(resource.async),
+            })),
+        ],
+    }))
 
 const interaction = ({
     id,
@@ -44,7 +68,7 @@ async function boot(page, html, assets = {}) {
         <!doctype html>
         <html>
             <head>
-                <script type="application/json" data-capell-widget-assets>${JSON.stringify(assets)}</script>
+                <script type="application/json" data-capell-widget-assets>${JSON.stringify(Array.isArray(assets) ? assets : resourcePlan(assets))}</script>
             </head>
             <body>${html}</body>
         </html>
@@ -108,12 +132,11 @@ test('loads a shared resource once, shares promise state, and does not activate 
         .poll(() => page.evaluate(() => window.sharedWidgetReady))
         .toBe(true)
 
+    const sharedToken = tokenFor('https://capell.test/assets/shared.js')
     expect(
         await page.evaluate(
-            () =>
-                window.__capellWidgetResourceStates.get(
-                    'js:https://capell.test/assets/shared.js',
-                )?.status,
+            (token) => window.__capellWidgetResourceStates.get(token)?.status,
+            sharedToken,
         ),
     ).toBe('ready')
     await expect(page.locator('script[src$="/assets/shared.js"]')).toHaveCount(
@@ -143,7 +166,7 @@ test('recognizes an eager shared URL as ready without inserting a lazy duplicate
             <head>
                 <script src="https://capell.test/assets/eager.js"></script>
                 <script type="application/json" data-capell-widget-assets>
-                    {"shared":[{"kind":"js","url":"https://capell.test/assets/eager.js","module":false}]}
+                    ${JSON.stringify(resourcePlan({ shared: [{ kind: 'js', url: 'https://capell.test/assets/eager.js', module: false }] }))}
                 </script>
             </head>
             <body>
@@ -188,13 +211,13 @@ test('records failed resources and retries them only when requested', async ({
 
     await page.locator('#resource-retry').click()
     await expect.poll(() => requests).toBe(1)
+    const retryToken = tokenFor('https://capell.test/assets/retry.js')
     await expect
         .poll(() =>
             page.evaluate(
-                () =>
-                    window.__capellWidgetResourceStates.get(
-                        'js:https://capell.test/assets/retry.js',
-                    )?.status,
+                (token) =>
+                    window.__capellWidgetResourceStates.get(token)?.status,
+                retryToken,
             ),
         )
         .toBe('failed')
@@ -208,6 +231,114 @@ test('records failed resources and retries them only when requested', async ({
     await expect
         .poll(() => page.evaluate(() => window.retriedWidgetReady))
         .toBe(true)
+})
+
+test('loads cross-origin dependency layers sequentially and independent peers concurrently with security attributes', async ({
+    page,
+}) => {
+    const requests = []
+    const libraryBody = 'window.layerSequence = ["library"]'
+    const integrity = `sha384-${createHash('sha384').update(libraryBody).digest('base64')}`
+
+    await page.route('https://cdn.example.test/library.js', async (route) => {
+        requests.push('library')
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        await route.fulfill({
+            status: 200,
+            headers: {
+                'content-type': 'application/javascript; charset=utf-8',
+                'access-control-allow-origin': '*',
+            },
+            body: libraryBody,
+        })
+    })
+    await page.route('https://cdn.example.test/plugin-a.js', (route) => {
+        requests.push('plugin-a')
+        return route.fulfill({
+            status: 200,
+            headers: {
+                'content-type': 'application/javascript; charset=utf-8',
+                'access-control-allow-origin': '*',
+            },
+            body: 'window.layerSequence.push("plugin-a")',
+        })
+    })
+    await page.route('https://cdn.example.test/plugin-b.js', (route) => {
+        requests.push('plugin-b')
+        return route.fulfill({
+            status: 200,
+            headers: {
+                'content-type': 'application/javascript; charset=utf-8',
+                'access-control-allow-origin': '*',
+            },
+            body: 'window.layerSequence.push("plugin-b")',
+        })
+    })
+
+    await boot(
+        page,
+        `<button id="layered" data-capell-widget-runtime data-capell-widget-resources='["layered"]' data-capell-widget-settings='{"loading_strategy":"interaction"}'>Load</button>`,
+        [
+            {
+                target: 'layered',
+                loading: 'interaction',
+                layers: [
+                    [
+                        {
+                            token: tokenFor('library'),
+                            kind: 'classic-script',
+                            url: 'https://cdn.example.test/library.js',
+                            integrity,
+                            crossorigin: 'anonymous',
+                            referrerPolicy: 'no-referrer',
+                            defer: true,
+                            async: false,
+                        },
+                    ],
+                    [
+                        {
+                            token: tokenFor('plugin-a'),
+                            kind: 'classic-script',
+                            url: 'https://cdn.example.test/plugin-a.js',
+                        },
+                        {
+                            token: tokenFor('plugin-b'),
+                            kind: 'classic-script',
+                            url: 'https://cdn.example.test/plugin-b.js',
+                        },
+                    ],
+                ],
+            },
+        ],
+    )
+
+    await page.locator('#layered').click()
+    await expect(
+        page.locator('script[src="https://cdn.example.test/library.js"]'),
+    ).toHaveAttribute('crossorigin', 'anonymous')
+    await expect.poll(() => requests.length).toBe(3)
+    expect(requests[0]).toBe('library')
+    expect(new Set(requests.slice(1))).toEqual(
+        new Set(['plugin-a', 'plugin-b']),
+    )
+    await expect
+        .poll(() => page.evaluate(() => window.layerSequence?.length))
+        .toBe(3)
+
+    const attributes = await page
+        .locator('script[src="https://cdn.example.test/library.js"]')
+        .evaluate((element) => ({
+            integrity: element.integrity,
+            crossOrigin: element.crossOrigin,
+            referrerPolicy: element.referrerPolicy,
+            defer: element.defer,
+        }))
+    expect(attributes).toEqual({
+        integrity,
+        crossOrigin: 'anonymous',
+        referrerPolicy: 'no-referrer',
+        defer: true,
+    })
 })
 
 test('initialises later interaction content when its shared script is already ready', async ({

@@ -20,7 +20,7 @@
     <x-capell::app.head
         :livewire-enabled="$usesLivewire"
         :runtime-manifest="$runtimeManifest"
-        :asset-manifest="$assetManifest ?? null"
+        :resource-plan="$resourcePlan ?? null"
     />
 
     <x-capell::app.body
@@ -31,6 +31,20 @@
         :theme="$theme"
     >
         {{ $slot }}
+
+        @php($renderedFrontendResources = Frontend::getFrontendData('renderedFrontendResources'))
+        @if ($renderedFrontendResources instanceof RenderedFrontendResourcesData)
+            {!! $renderedFrontendResources->bodyEndHtml !!}
+
+            @if ($renderedFrontendResources->lazyRuntimePayload !== [])
+                <script
+                    type="application/json"
+                    data-capell-widget-assets
+                >
+                    {!! json_encode($renderedFrontendResources->lazyRuntimePayload, JSON_THROW_ON_ERROR) !!}
+                </script>
+            @endif
+        @endif
 
         {!! app(RenderHookRegistry::class)->renderAll(RenderHookLocation::BodyEnd) !!}
 

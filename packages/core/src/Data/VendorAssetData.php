@@ -17,21 +17,6 @@ class VendorAssetData extends Data
         public ?string $condition = null,
     ) {}
 
-    public static function buildAsset(
-        string $path,
-        string $file,
-        ?string $packageName = null,
-        ?string $condition = null,
-    ): self {
-        return new self(
-            type: VendorAssetEnum::BuildAsset,
-            value: $path,
-            secondaryValue: $file,
-            packageName: $packageName,
-            condition: $condition,
-        );
-    }
-
     public static function tailwindImport(string $import, ?string $packageName = null): self
     {
         return new self(type: VendorAssetEnum::TailwindImport, value: $import, packageName: $packageName);
@@ -57,16 +42,6 @@ class VendorAssetData extends Data
         );
     }
 
-    public static function npmDependency(string $package, string $version, ?string $packageName = null): self
-    {
-        return new self(
-            type: VendorAssetEnum::NpmDependency,
-            value: $package,
-            secondaryValue: $version,
-            packageName: $packageName,
-        );
-    }
-
     public function path(): string
     {
         return $this->value;
@@ -88,16 +63,6 @@ class VendorAssetData extends Data
     }
 
     public function colorValue(): ?string
-    {
-        return $this->secondaryValue;
-    }
-
-    public function dependencyName(): string
-    {
-        return $this->value;
-    }
-
-    public function dependencyVersion(): ?string
     {
         return $this->secondaryValue;
     }

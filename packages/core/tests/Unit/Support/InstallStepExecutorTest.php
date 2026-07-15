@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use BezhanSalleh\FilamentShield\FilamentShieldServiceProvider;
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
-use Capell\Admin\Console\Commands\SyncPermissionsCommand;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
@@ -124,6 +123,49 @@ function fakeInstallStepExecutorDemoProcess(): void
     });
 }
 
+/** @param array<string, mixed> $additionalCommands */
+function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): void
+{
+    app()->instance(ConsoleKernel::class, new class($additionalCommands) implements ConsoleKernel
+    {
+        /** @param array<string, mixed> $additionalCommands */
+        public function __construct(private readonly array $additionalCommands) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($input, $output = null): int
+        {
+            return 0;
+        }
+
+        public function call($command, array $parameters = [], $outputBuffer = null): int
+        {
+            return 0;
+        }
+
+        public function queue($command, array $parameters = []): PendingDispatch
+        {
+            throw new RuntimeException('The install flow should not queue commands.');
+        }
+
+        public function all(): array
+        {
+            return [
+                'capell:doctor' => ['description' => 'Test doctor'],
+                ...$this->additionalCommands,
+            ];
+        }
+
+        public function output(): string
+        {
+            return 'Doctor OK';
+        }
+
+        public function terminate($input, $status): void {}
+    });
+    Facade::clearResolvedInstance(ConsoleKernel::class);
+}
+
 function installStepExecutorInputData(): InstallInputData
 {
     return new InstallInputData(
@@ -176,7 +218,7 @@ afterEach(function (): void {
     Facade::clearResolvedInstance(Factory::class);
 });
 
-it('reports npm build failures without failing the install step', function (): void {
+it('fails the install step when npm cannot build frontend resources', function (): void {
     $errorMessage = "Cannot find module '@rollup/rollup-linux-arm64-gnu'.";
 
     expectInstallStepExecutorNpmProcessCommand(
@@ -197,7 +239,7 @@ it('reports npm build failures without failing the install step', function (): v
     expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(
         InstallPlan::STEP_REBUILD_RESOURCES,
         $state,
-    ))->not()->toThrow(RuntimeException::class);
+    ))->toThrow(RuntimeException::class, "npm build failed: {$errorMessage}");
 
     expect($lines)
         ->toContain(['type' => 'error', 'line' => '⚠ Frontend resources were not rebuilt.'])
@@ -226,7 +268,7 @@ it('reports successful npm rebuilds through the install step reporter', function
         ->toContain(['type' => 'info', 'line' => '✓ Frontend resources rebuilt']);
 });
 
-it('reports doctor summary failures without failing the install step', function (): void {
+it('fails the install step when the doctor summary finds release-blocking issues', function (): void {
     $lines = [];
     $state = new InstallRunState(
         installStepExecutorInputData(),
@@ -236,11 +278,11 @@ it('reports doctor summary failures without failing the install step', function 
     expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(
         InstallPlan::STEP_RUN_DOCTOR_SUMMARY,
         $state,
-    ))->not()->toThrow(RuntimeException::class);
+    ))->toThrow(RuntimeException::class, 'Capell health summary failed.');
 
     expect($lines)
         ->toContain(['type' => 'error', 'line' => '⚠ Capell health summary found issues.'])
-        ->toContain(['type' => 'error', 'line' => 'Installation completed, but review the failed checks above before releasing this install.']);
+        ->toContain(['type' => 'error', 'line' => 'Installation stopped because the required health checks did not pass.']);
 });
 
 it('runs doctor summary in a fresh process when the command is unavailable in the current request', function (): void {
@@ -327,6 +369,8 @@ it('runs doctor summary in a fresh process when the command is unavailable in th
 it('reloads package runtime providers before final install permission sync', function (): void {
     $events = [];
 
+    bindSuccessfulInstallDoctorCommand();
+
     app()->register(FilamentServiceProvider::class);
     app()->register(FilamentShieldServiceProvider::class);
 
@@ -404,11 +448,9 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     // disk during this process and never booted, so Filament has no default panel.
     resolve(PanelRegistry::class)->defaultPanel = null;
 
-    // The command is registered by AdminServiceProvider in a real console run;
-    // register it here so the executor's fresh-process branch is exercised.
-    Artisan::registerCommand(new SyncPermissionsCommand);
-
-    expect(array_key_exists('capell:admin-sync-permissions', Artisan::all()))->toBeTrue();
+    // Composer installed Admin after this Artisan application started, so the
+    // command is intentionally absent here and only visible to a fresh process.
+    bindSuccessfulInstallDoctorCommand();
 
     $process = Mockery::mock(SymfonyProcess::class);
     $process->shouldReceive('setTimeout')->with(null)->andReturnSelf();

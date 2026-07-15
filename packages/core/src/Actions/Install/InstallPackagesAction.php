@@ -14,6 +14,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageDemoLifecycle;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -84,7 +85,7 @@ final class InstallPackagesAction
             return;
         }
 
-        if ($package->isCore()) {
+        if (TrustedCorePackages::isCoreRuntimePackage($package->name)) {
             return;
         }
 
@@ -150,7 +151,7 @@ final class InstallPackagesAction
         PackageData $package,
         ProgressReporter $reporter,
     ): void {
-        if ($package->isCore()) {
+        if (TrustedCorePackages::isCoreRuntimePackage($package->name)) {
             return;
         }
 

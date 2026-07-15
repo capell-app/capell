@@ -328,6 +328,8 @@ final class InstallStepExecutor
             $state->reporter->error('⚠ Frontend resources were not rebuilt.');
             $state->reporter->error('The installer tried to run npm but the build failed. Log in to the server and run npm install, then npm run build.');
             $state->reporter->error($runtimeException->getMessage());
+
+            throw $runtimeException;
         }
     }
 
@@ -361,7 +363,9 @@ final class InstallStepExecutor
 
         if ($exitCode !== 0) {
             $state->reporter->error('⚠ Capell health summary found issues.');
-            $state->reporter->error('Installation completed, but review the failed checks above before releasing this install.');
+            $state->reporter->error('Installation stopped because the required health checks did not pass.');
+
+            throw new RuntimeException('Capell health summary failed.');
         }
     }
 
@@ -447,10 +451,6 @@ final class InstallStepExecutor
 
     private function runAdminPermissionSyncInFreshProcess(InstallRunState $state): bool
     {
-        if (! array_key_exists('capell:admin-sync-permissions', Artisan::all())) {
-            return false;
-        }
-
         $process = resolve(ProcessFactoryInterface::class)->make(
             [
                 PHP_BINARY,

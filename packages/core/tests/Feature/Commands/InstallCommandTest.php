@@ -1828,6 +1828,41 @@ it('can run an npm build after installing a frontend package', function (): void
     expect($fake->callCount)->toBe(1);
 });
 
+it('fails instead of reporting a completed install when the requested npm build fails', function (): void {
+    setupInstallTest(['capell-app/frontend']);
+    markInstallTestPackageAsFrontend('capell-app/frontend');
+    $fake = bindFakeRunInstallAction();
+
+    $pendingProcess = Mockery::mock();
+
+    Process::shouldReceive('timeout')
+        ->with(300)
+        ->once()
+        ->andReturn($pendingProcess);
+
+    $pendingProcess->shouldReceive('run')
+        ->with('npm run build')
+        ->once()
+        ->andReturn(installCommandFakeProcessResult(false, '', 'Vite build failed.'));
+
+    artisanCommand('capell:install', [
+        '--packages' => 'capell-app/frontend',
+        '--url' => 'https://example.test',
+        '--name' => 'CI Admin',
+        '--email' => 'ci-build-failure@example.test',
+        '--password' => 'password123',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsConfirmation('Remove existing home route?', 'yes')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'yes')
+        ->expectsOutput('npm build failed.')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($fake->callCount)->toBe(1);
+});
+
 it('asks which caches to clear after the install has run', function (): void {
     setupInstallTest();
     dropUsersTableForInstallTest();

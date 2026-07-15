@@ -8,8 +8,10 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\BuildStaticPageArtifactMetadataAction;
-use Capell\Frontend\Data\FrontendAssetManifestData;
-use Capell\Frontend\Data\FrontendAssetRequirementData;
+use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
+use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
@@ -27,20 +29,13 @@ it('builds deterministic static page artifact metadata from render data and resp
         'url' => '/',
     ]);
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
-    $assetManifest = new FrontendAssetManifestData(
-        css: [
-            new FrontendAssetRequirementData(
-                handle: 'theme',
-                kind: FrontendAssetRequirementData::KIND_CSS,
-                source: 'resources/css/theme.css',
-                buildPath: 'build',
-            ),
-        ],
-        js: [],
-        inline: [],
-        preloads: [],
-        runtime: $runtime,
-    );
+    $resourcePlan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+        new FrontendResourceContributionData(FrontendResourceData::style(
+            'capell-app/theme:style',
+            'capell-app/theme',
+            new PublicResourceSourceData('resources/css/theme.css'),
+        )),
+    ]);
     $response = new Response('<html></html>', Response::HTTP_OK, [
         'content-type' => 'text/html; charset=UTF-8',
         'cache-control' => 'public, max-age=3600',
@@ -57,7 +52,7 @@ it('builds deterministic static page artifact metadata from render data and resp
             theme: Theme::query()->find($page->site()->value('theme_id')),
             layoutGraph: null,
             runtimeManifest: $runtime,
-            assetManifest: $assetManifest,
+            resourcePlan: $resourcePlan,
             surrogateKeys: ['page-' . $page->id],
         ),
         response: $response,
@@ -71,7 +66,8 @@ it('builds deterministic static page artifact metadata from render data and resp
         ->and($metadata->headers['cache-control'])->toBe('max-age=3600, public')
         ->and($metadata->headers)->not->toHaveKey('surrogate-key')
         ->and($metadata->dependencies)->toHaveKey('fingerprint')
-        ->and($metadata->assets['css'])->toHaveKey('fingerprint')
+        ->and($metadata->assets['plan']['fingerprint'])->toBe($resourcePlan->fingerprint)
+        ->and($metadata->assets['head'])->toHaveKey('fingerprint')
         ->and($metadata->surrogateKeys)->toBe([])
         ->and($metadataPayload)->not->toContain(Page::class)
         ->and($metadataPayload)->not->toContain('"id":' . $page->id)

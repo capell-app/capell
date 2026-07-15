@@ -55,20 +55,14 @@ it('groups registered vendor assets by type', function (): void {
         use HasVendorAssets;
     };
 
-    $buildAsset = VendorAssetData::buildAsset('resources/js', 'app.js', 'capell/example');
     $tailwindSource = VendorAssetData::tailwindSource('./vendor/capell/example/**/*.blade.php');
 
     $registry
-        ->registerVendorAsset($buildAsset)
         ->registerVendorAsset($tailwindSource);
 
-    expect($registry->hasVendorAssets(VendorAssetEnum::BuildAsset))->toBeTrue()
-        ->and($registry->hasVendorAssets(VendorAssetEnum::NpmDependency))->toBeFalse()
-        ->and($registry->getVendorAssetsForType(VendorAssetEnum::BuildAsset)->all())->toBe([$buildAsset])
-        ->and($registry->getAllVendorAssets()->keys()->all())->toBe([
-            VendorAssetEnum::BuildAsset->value,
-            VendorAssetEnum::TailwindSource->value,
-        ]);
+    expect($registry->hasVendorAssets(VendorAssetEnum::TailwindSource))->toBeTrue()
+        ->and($registry->getVendorAssetsForType(VendorAssetEnum::TailwindSource)->all())->toBe([$tailwindSource])
+        ->and($registry->getAllVendorAssets()->keys()->all())->toBe([VendorAssetEnum::TailwindSource->value]);
 });
 
 it('includes suggestions when a URL site domain cannot be located', function (): void {

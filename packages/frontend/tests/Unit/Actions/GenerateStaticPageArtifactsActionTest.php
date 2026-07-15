@@ -10,7 +10,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Data\FrontendAssetManifestData;
+use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
@@ -399,7 +399,7 @@ function staticPageArtifactsRenderData(string $url): array
         theme: $site->theme,
         layoutGraph: null,
         runtimeManifest: $runtime,
-        assetManifest: new FrontendAssetManifestData([], [], [], [], $runtime),
+        resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
         surrogateKeys: ['page-' . $page->id],
     );
 

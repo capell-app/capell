@@ -1,6 +1,5 @@
 # Seeding content programmatically
 
-![Capell Seeding content programmatically screenshot](../images/admin-dashboard.png)
 
 > **Status:** Skeleton — sections below are outlines. Contributions welcome.
 

@@ -1,6 +1,6 @@
 {
     "name": "capell-app/core",
-    "description": "Core for Capell.",
+    "description": "Laravel CMS content, publishing, extension, install, and upgrade foundations for Capell.",
     "type": "library",
     "keywords": [
         "capell",

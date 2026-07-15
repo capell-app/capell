@@ -11,13 +11,13 @@ use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Frontend\Actions\AssertPublicRenderContractAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
-use Capell\Frontend\Contracts\FrontendAssetManifestRenderer;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
-use Capell\Frontend\Data\FrontendAssetContextData;
-use Capell\Frontend\Data\FrontendAssetManifestData;
+use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Illuminate\Contracts\Support\Responsable;
@@ -80,7 +80,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
                     'livewireEnabled' => $runtimeManifest->usesLivewire,
                     'params' => [],
                     'pageRecord' => $page,
-                    'assetManifest' => $context->publicRenderData?->assetManifest,
+                    'resourcePlan' => $context->publicRenderData?->resourcePlan,
                     'publicRenderData' => $context->publicRenderData,
                     'runtimeManifest' => $runtimeManifest,
                     'site' => $context->site,
@@ -154,7 +154,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
         resolve(ImageUrlPolicy::class)->allowsRelativeUrls();
 
         if (! App::bound(ThemeRuntimeSettings::class)) {
-            $this->primeAssetManifestHtml($context, $runtimeManifest);
+            $this->primeRenderedFrontendResources($context, $runtimeManifest);
 
             return;
         }
@@ -166,24 +166,24 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
         $settings->brandProfile();
         $settings->themeOverrides();
 
-        $this->primeAssetManifestHtml($context, $runtimeManifest);
+        $this->primeRenderedFrontendResources($context, $runtimeManifest);
     }
 
-    private function primeAssetManifestHtml(FrontendRenderContextData $context, FrontendRuntimeManifestData $runtimeManifest): void
+    private function primeRenderedFrontendResources(FrontendRenderContextData $context, FrontendRuntimeManifestData $runtimeManifest): void
     {
-        if (! App::bound(FrontendContextReader::class) || ! App::bound(FrontendAssetManifestRenderer::class)) {
+        if (! App::bound(FrontendContextReader::class) || ! App::bound(FrontendResourcePlanRenderer::class)) {
             return;
         }
 
-        $assetManifest = $context->publicRenderData?->assetManifest;
+        $resourcePlan = $context->publicRenderData?->resourcePlan;
 
-        if (! $assetManifest instanceof FrontendAssetManifestData) {
+        if (! $resourcePlan instanceof FrontendResourcePlanData) {
             return;
         }
 
         App::make(FrontendContextReader::class)->setFrontendData(
-            'assetManifestHtml',
-            App::make(FrontendAssetManifestRenderer::class)->render($assetManifest, new FrontendAssetContextData(
+            'renderedFrontendResources',
+            App::make(FrontendResourcePlanRenderer::class)->render($resourcePlan, new FrontendResourceContextData(
                 page: $context->page,
                 site: $context->site,
                 language: $context->language,

@@ -34,7 +34,7 @@ final class PrepareFrontendRenderAction
 
         $context->setFrontendData('runtimeManifest', $runtimeResolution->runtimeManifest);
         $context->setFrontendData('publicPageRenderData', $renderContext->publicRenderData);
-        $context->setFrontendData('assetManifest', $renderContext->publicRenderData->assetManifest);
+        $context->setFrontendData('resourcePlan', $renderContext->publicRenderData->resourcePlan);
         $context->setFrontendData('mediaHints', $renderContext->publicRenderData->mediaHints);
         $context->setFrontendData(
             'lcpMediaUrl',

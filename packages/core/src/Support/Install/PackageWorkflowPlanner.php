@@ -6,7 +6,6 @@ namespace Capell\Core\Support\Install;
 
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Exception;
 use Illuminate\Support\Collection;
@@ -254,9 +253,6 @@ final class PackageWorkflowPlanner
 
     private function isComposerOnlyCorePackageName(string $packageName): bool
     {
-        return in_array($packageName, [
-            CapellServiceProvider::$packageName,
-            'capell-app/core',
-        ], true);
+        return TrustedCorePackages::isCoreRuntimePackage($packageName);
     }
 }

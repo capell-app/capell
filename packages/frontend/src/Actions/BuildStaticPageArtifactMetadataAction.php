@@ -6,7 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\PageUrl;
-use Capell\Frontend\Data\FrontendAssetRequirementData;
+use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\StaticPageArtifactData;
 use Illuminate\Database\Eloquent\Model;
@@ -78,27 +78,31 @@ class BuildStaticPageArtifactMetadataAction
      */
     private function assets(PublicPageRenderData $renderData): array
     {
+        $plan = $renderData->resourcePlan;
+
         return [
-            'css' => $this->assetRequirements($renderData->assetManifest->css),
-            'js' => $this->assetRequirements($renderData->assetManifest->js),
-            'inline' => $this->assetRequirements($renderData->assetManifest->inline),
-            'preloads' => $this->assetRequirements($renderData->assetManifest->preloads),
+            'plan' => [
+                'count' => count($plan->headResources) + count($plan->bodyEndResources) + count($plan->lazyActivationGraphs),
+                'fingerprint' => $plan->fingerprint,
+            ],
+            'head' => $this->resourceFingerprint($plan->headResources),
+            'body_end' => $this->resourceFingerprint($plan->bodyEndResources),
+            'hints' => $this->fingerprint(array_map(static fn ($hint): array => $hint->toArray(), $plan->hints)),
         ];
     }
 
     /**
-     * @param  array<int, FrontendAssetRequirementData>  $requirements
+     * @param  array<int, ResolvedFrontendResourceData>  $resources
      * @return array{count: int, fingerprint: string}
      */
-    private function assetRequirements(array $requirements): array
+    private function resourceFingerprint(array $resources): array
     {
-        $assets = collect($requirements)
-            ->map(fn (FrontendAssetRequirementData $requirement): array => [
-                'handle' => $requirement->handle,
-                'kind' => $requirement->kind,
-                'source' => $requirement->source,
-                'build_path' => $requirement->buildPath,
-                'condition' => $requirement->condition,
+        $assets = collect($resources)
+            ->map(fn (ResolvedFrontendResourceData $resource): array => [
+                'token' => $resource->token,
+                'kind' => $resource->kind->value,
+                'url' => $resource->url,
+                'placement' => $resource->placement->value,
             ])
             ->values()
             ->all();

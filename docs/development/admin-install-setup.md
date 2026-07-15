@@ -1,6 +1,5 @@
 # Admin Install And Setup
 
-![Capell Admin Install And Setup screenshot](../images/admin-dashboard.png)
 
 Capell Admin has two package lifecycle commands:
 

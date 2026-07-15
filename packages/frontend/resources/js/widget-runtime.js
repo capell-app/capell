@@ -12,9 +12,9 @@ let preservedScrollY = 0
 
 const parseJson = (element) => {
     try {
-        return JSON.parse(element.textContent || '{}')
+        return JSON.parse(element.textContent || '[]')
     } catch {
-        return {}
+        return []
     }
 }
 
@@ -22,11 +22,26 @@ const assetsById = () => {
     const element = document.querySelector(
         'script[type="application/json"][data-capell-widget-assets]',
     )
-    const parsed = element ? parseJson(element) : {}
+    const parsed = element ? parseJson(element) : []
 
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-        ? parsed
-        : {}
+    if (!Array.isArray(parsed)) {
+        return {}
+    }
+
+    return Object.fromEntries(
+        parsed
+            .filter(
+                (activation) =>
+                    activation &&
+                    typeof activation === 'object' &&
+                    typeof activation.target === 'string' &&
+                    ['visible', 'idle', 'interaction'].includes(
+                        activation.loading,
+                    ) &&
+                    Array.isArray(activation.layers),
+            )
+            .map((activation) => [activation.target, activation]),
+    )
 }
 
 const settingsFor = (element) => {
@@ -55,9 +70,11 @@ const canonicalUrl = (url) => {
 
         if (
             !['http:', 'https:'].includes(parsed.protocol) ||
-            parsed.origin !== window.location.origin ||
+            (parsed.protocol === 'http:' &&
+                parsed.origin !== window.location.origin) ||
             parsed.username ||
-            parsed.password
+            parsed.password ||
+            parsed.hash
         ) {
             return null
         }
@@ -73,24 +90,79 @@ const normalizedAsset = (asset) => {
         return null
     }
 
-    if (!['css', 'js'].includes(asset.kind) || typeof asset.url !== 'string') {
+    if (
+        ![
+            'style',
+            'module-script',
+            'classic-script',
+            'inline-style',
+            'inline-script',
+        ].includes(asset.kind) ||
+        typeof asset.token !== 'string' ||
+        !/^[a-f0-9]{24}$/.test(asset.token)
+    ) {
         return null
     }
 
-    const url = canonicalUrl(asset.url)
+    const inline = asset.kind.startsWith('inline-')
+    const url = inline ? null : canonicalUrl(asset.url)
+    const content =
+        inline && typeof asset.content === 'string' ? asset.content : null
+    const integrity =
+        typeof asset.integrity === 'string' &&
+        asset.integrity
+            .trim()
+            .split(/\s+/)
+            .every((value) =>
+                /^sha(?:256|384|512)-[A-Za-z0-9+/]+={0,2}$/.test(value),
+            )
+            ? asset.integrity
+            : asset.integrity == null
+              ? null
+              : false
+    const declaredCrossOrigin = asset.crossorigin ?? asset.crossOrigin
+    const crossOrigin = ['anonymous', 'use-credentials'].includes(
+        declaredCrossOrigin,
+    )
+        ? declaredCrossOrigin
+        : declaredCrossOrigin == null
+          ? null
+          : false
+    const referrerPolicies = [
+        'no-referrer',
+        'no-referrer-when-downgrade',
+        'origin',
+        'origin-when-cross-origin',
+        'same-origin',
+        'strict-origin',
+        'strict-origin-when-cross-origin',
+        'unsafe-url',
+    ]
+    const referrerPolicy = referrerPolicies.includes(asset.referrerPolicy)
+        ? asset.referrerPolicy
+        : asset.referrerPolicy == null
+          ? null
+          : false
 
-    return url
+    return (inline ? content !== null : url) &&
+        integrity !== false &&
+        crossOrigin !== false &&
+        referrerPolicy !== false
         ? {
+              token: asset.token,
               kind: asset.kind,
               url,
+              content,
+              integrity,
+              crossOrigin,
+              referrerPolicy,
               defer: Boolean(asset.defer),
               async: Boolean(asset.async),
-              module: asset.module !== false,
           }
         : null
 }
 
-const resourceKey = (asset) => `${asset.kind}:${asset.url}`
+const resourceKey = (asset) => asset.token
 
 const readyState = () => ({
     status: 'ready',
@@ -113,7 +185,7 @@ const seedDocumentResources = () => {
                 return
             }
 
-            const key = `${isStylesheet ? 'css' : 'js'}:${url}`
+            const key = `${isStylesheet ? 'style' : 'script'}:${url}`
             if (!resourceStates.has(key)) {
                 resourceStates.set(key, readyState())
             }
@@ -121,21 +193,38 @@ const seedDocumentResources = () => {
 }
 
 const createResourceElement = (asset) => {
-    if (asset.kind === 'css') {
+    if (asset.kind === 'style') {
         const link = document.createElement('link')
         link.rel = 'stylesheet'
+        if (asset.integrity) link.integrity = asset.integrity
+        if (asset.crossOrigin)
+            link.setAttribute('crossorigin', asset.crossOrigin)
+        if (asset.referrerPolicy)
+            link.setAttribute('referrerpolicy', asset.referrerPolicy)
         link.href = asset.url
 
         return link
     }
 
+    if (asset.kind === 'inline-style') {
+        const style = document.createElement('style')
+        style.textContent = asset.content
+
+        return style
+    }
+
     const script = document.createElement('script')
-    script.src = asset.url
-    if (asset.module) {
+    if (asset.kind === 'module-script') {
         script.type = 'module'
     }
     script.defer = asset.defer
     script.async = asset.async
+    if (asset.integrity) script.integrity = asset.integrity
+    if (asset.crossOrigin) script.setAttribute('crossorigin', asset.crossOrigin)
+    if (asset.referrerPolicy)
+        script.setAttribute('referrerpolicy', asset.referrerPolicy)
+    if (asset.url) script.src = asset.url
+    else script.textContent = asset.content
 
     return script
 }
@@ -157,8 +246,37 @@ const loadResource = (candidate, retry = false) => {
         return Promise.reject(existing.error)
     }
 
+    if (asset.url) {
+        const selector =
+            asset.kind === 'style'
+                ? 'link[rel="stylesheet"][href]'
+                : 'script[src]'
+        const alreadyRendered = [...document.querySelectorAll(selector)].some(
+            (element) =>
+                canonicalUrl(
+                    element.getAttribute(
+                        asset.kind === 'style' ? 'href' : 'src',
+                    ),
+                ) === asset.url,
+        )
+
+        if (alreadyRendered) {
+            const state = readyState()
+            resourceStates.set(key, state)
+
+            return state.promise
+        }
+    }
+
     const element = createResourceElement(asset)
+    const inline = asset.kind.startsWith('inline-')
     const promise = new Promise((resolve, reject) => {
+        if (inline) {
+            resolve()
+
+            return
+        }
+
         element.addEventListener(
             'load',
             () => {
@@ -170,7 +288,10 @@ const loadResource = (candidate, retry = false) => {
         element.addEventListener(
             'error',
             () => {
-                const error = new Error(`Widget resource failed: ${asset.url}`)
+                const origin = new URL(asset.url).origin
+                const error = new Error(`Widget resource failed from ${origin}`)
+                error.resourceToken = asset.token
+                error.origin = origin
                 element.remove()
                 resourceStates.set(key, {
                     status: 'failed',
@@ -184,7 +305,14 @@ const loadResource = (candidate, retry = false) => {
     })
 
     resourceStates.set(key, { status: 'loading', promise, error: null })
-    ;(asset.kind === 'css' ? document.head : document.body).appendChild(element)
+    ;(asset.kind === 'style' || asset.kind === 'inline-style'
+        ? document.head
+        : document.body
+    ).appendChild(element)
+
+    if (inline) {
+        resourceStates.set(key, readyState())
+    }
 
     return promise
 }
@@ -195,21 +323,28 @@ const knownAssetsForIds = (resourceIds, allAssets = assetsById()) => {
     const seen = new Set()
 
     resourceIds.forEach((resourceId) => {
-        const assets = allAssets[resourceId]
-        if (!Array.isArray(assets)) {
+        const activation = allAssets[resourceId]
+        if (!activation || !Array.isArray(activation.layers)) {
             return
         }
 
         knownIds.push(resourceId)
-        assets.forEach((candidate) => {
-            const asset = normalizedAsset(candidate)
-            if (!asset || seen.has(resourceKey(asset))) {
-                return
-            }
+        resources.push(
+            activation.layers.map((layer) =>
+                Array.isArray(layer)
+                    ? layer
+                          .map(normalizedAsset)
+                          .filter(
+                              (asset) => asset && !seen.has(resourceKey(asset)),
+                          )
+                          .map((asset) => {
+                              seen.add(resourceKey(asset))
 
-            seen.add(resourceKey(asset))
-            resources.push(asset)
-        })
+                              return asset
+                          })
+                    : [],
+            ),
+        )
     })
 
     return { knownIds, resources }
@@ -221,9 +356,10 @@ const dispatchResourceState = (element, status, resourceIds, failures = []) => {
             bubbles: true,
             detail: {
                 resourceIds,
-                failures: failures.map(
-                    (failure) => failure.reason?.message || 'failed',
-                ),
+                failures: failures.map((failure) => ({
+                    token: failure.reason?.resourceToken || null,
+                    origin: failure.reason?.origin || null,
+                })),
             },
         }),
     )
@@ -237,7 +373,20 @@ const loadKnownResourceIds = async (
     seedDocumentResources()
     const { knownIds, resources } = knownAssetsForIds(resourceIds, allAssets)
     const results = await Promise.allSettled(
-        resources.map((asset) => loadResource(asset, retry)),
+        resources.map(async (layers) => {
+            for (const layer of layers) {
+                const layerResults = await Promise.allSettled(
+                    layer.map((asset) => loadResource(asset, retry)),
+                )
+                const failure = layerResults.find(
+                    (result) => result.status === 'rejected',
+                )
+
+                if (failure) {
+                    throw failure.reason
+                }
+            }
+        }),
     )
     const failures = results.filter((result) => result.status === 'rejected')
 

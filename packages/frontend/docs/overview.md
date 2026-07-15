@@ -1,5 +1,7 @@
 # Capell Frontend
 
+Use the canonical [Frontend Resources guide](frontend-resources.md) for CSS, JavaScript, CDN, Vite, dependency, and lazy-loading delivery.
+
 ## What This Package Adds
 
 **Available. Foundation package. No schema impact for package tables.**

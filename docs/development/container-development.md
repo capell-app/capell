@@ -1,6 +1,5 @@
 # Running Capell in a container
 
-![Capell Running Capell in a container screenshot](../images/admin-dashboard.png)
 
 > **Status:** Skeleton — sections below are outlines. Contributions welcome.
 

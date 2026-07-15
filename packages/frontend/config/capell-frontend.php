@@ -15,8 +15,9 @@ return [
     'pagination_limit' => 12,
     'container_width_default' => env('CAPELL_FRONTEND_CONTAINER_WIDTH_DEFAULT'),
 
-    // Asset build tool: 'vite' | 'mix' | 'static'
-    'asset_build_tool' => env('CAPELL_FRONTEND_ASSET_BUILD_TOOL', 'vite'),
+    'external_resources' => [
+        'integrity_policy' => env('CAPELL_FRONTEND_EXTERNAL_INTEGRITY_POLICY', 'warn'),
+    ],
     'public_aggressive_prefetch' => env('CAPELL_FRONTEND_PUBLIC_AGGRESSIVE_PREFETCH', false),
 
     // Caching & Performance
