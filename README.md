@@ -6,7 +6,7 @@
 [![PHPStan Level 8](https://img.shields.io/badge/PHPStan-level%208-777BB4?style=flat-square&logo=php&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Composer Audit](https://img.shields.io/badge/Composer-audit-885630?style=flat-square&logo=composer&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Pint](https://img.shields.io/badge/Pint-checked-4F5B93?style=flat-square&logo=laravel&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Rector](https://img.shields.io/badge/Rector-dry--run-6C5CE7?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Modernization](https://img.shields.io/badge/Modernization-enforced-6C5CE7?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![Coverage](https://codecov.io/gh/capell-app/capell/branch/main/graph/badge.svg)](https://app.codecov.io/gh/capell-app/capell)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)

@@ -34,7 +34,7 @@ With these four badges, placed after the release badge and before the existing T
 [![PHPStan Level 8](https://img.shields.io/badge/PHPStan-level%208-777BB4?style=flat-square&logo=php&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Composer Audit](https://img.shields.io/badge/Composer-audit-885630?style=flat-square&logo=composer&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Pint](https://img.shields.io/badge/Pint-checked-4F5B93?style=flat-square&logo=laravel&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Rector](https://img.shields.io/badge/Rector-dry--run-6C5CE7?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Modernization](https://img.shields.io/badge/Modernization-enforced-6C5CE7?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 ```
 
 The remaining existing badges must retain their current order and targets.
