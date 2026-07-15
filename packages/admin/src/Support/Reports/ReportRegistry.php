@@ -25,6 +25,11 @@ final class ReportRegistry
         return $this->reports[$key] ?? null;
     }
 
+    public function has(string $key): bool
+    {
+        return isset($this->reports[$key]);
+    }
+
     /** @return array<string, ReportDefinitionData> */
     public function all(): array
     {

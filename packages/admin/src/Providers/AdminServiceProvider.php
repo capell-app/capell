@@ -50,6 +50,7 @@ use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
+use Capell\Admin\Filament\Pages\Reports\AccessibilityReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\BlueprintSchemaDriftReport;
 use Capell\Admin\Filament\Pages\Reports\CacheFreshnessReport;
 use Capell\Admin\Filament\Pages\Reports\ContentIntegrityReport;
@@ -556,6 +557,16 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 pageClass: UrlHealthReport::class,
                 navigationSort: 30,
                 capabilityTags: ['urls', 'health'],
+            ),
+            new ReportDefinitionData(
+                key: AccessibilityReadinessReport::REPORT_KEY,
+                label: 'capell-admin::reports.accessibility_readiness_label',
+                description: 'capell-admin::reports.accessibility_readiness_description',
+                package: static::$packageName,
+                category: 'capell-admin::reports.category_content',
+                pageClass: AccessibilityReadinessReport::class,
+                navigationSort: 35,
+                capabilityTags: ['accessibility', 'languages', 'media'],
             ),
             new ReportDefinitionData(
                 key: LayoutWidgetUsageReport::REPORT_KEY,
