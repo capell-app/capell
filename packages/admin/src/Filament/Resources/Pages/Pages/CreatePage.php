@@ -109,7 +109,9 @@ class CreatePage extends CreateRecord implements HasPageResource
         return [
             $this->getCreateFormAction()
                 ->submit(null)
-                ->action(fn (): mixed => $this->create()),
+                ->action(function (): void {
+                    $this->create();
+                }),
             $this->getCreateAsDraftFormAction(),
             $this->getCreateAnotherFormAction(),
             $this->getCancelFormAction(),

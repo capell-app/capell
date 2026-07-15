@@ -108,7 +108,9 @@ class DoctorCommand extends Command
             : '<fg=blue;options=bold>Capell Health Check</>');
         $this->newLine();
 
-        $report->checks->each(fn (DoctorCheckResultData $check): mixed => $this->outputCheckResult($check));
+        $report->checks->each(function (DoctorCheckResultData $check): void {
+            $this->outputCheckResult($check);
+        });
 
         $this->newLine();
 

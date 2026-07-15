@@ -27,12 +27,12 @@ final class ThemeMetaAssetContributor implements FrontendResourceContributor
 
         $assets = Arr::wrap(PublicModelMeta::get($theme, 'assets'));
 
-        return collect($assets)
+        return array_values(collect($assets)
             ->filter(static fn (mixed $asset): bool => is_string($asset) && $asset !== '')
             ->map(fn (string $asset): ?FrontendResourceContributionData => $this->contribution($asset, $context))
             ->filter()
             ->values()
-            ->all();
+            ->all());
     }
 
     private function contribution(string $asset, FrontendResourceContextData $context): ?FrontendResourceContributionData
