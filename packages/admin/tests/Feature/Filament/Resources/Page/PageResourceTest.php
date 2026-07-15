@@ -89,7 +89,7 @@ it('applies page resource defaults and extension widgets for the admin surface',
             return [
                 TestDashboardFilamentWidgetForRegistrar::class,
                 stdClass::class,
-                /** @phpstan-ignore class.notFound */
+                /** @phpstan-ignore class.notFound (A missing widget class is the invalid registration scenario under test.) */
                 Widget::class,
             ];
         }

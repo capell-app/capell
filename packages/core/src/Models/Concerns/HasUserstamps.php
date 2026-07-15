@@ -73,7 +73,7 @@ trait HasUserstamps
                 }
             });
 
-            /** @phpstan-ignore-next-line method.notFound (only invoked when SoftDeletes is in use) */
+            /** @phpstan-ignore-next-line method.notFound (This hook is invoked only when the model uses SoftDeletes.) */
             static::restoring(function (EloquentModel&Userstampable $model): void {
                 if (! $model->isUserstamping()) {
                     return;

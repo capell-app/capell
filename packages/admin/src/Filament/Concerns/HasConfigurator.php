@@ -22,7 +22,7 @@ trait HasConfigurator
 
     public static function configure(Schema $schema, ?ConfiguratorContextData $context = null): Schema
     {
-        /** @phpstan-ignore new.static */
+        /** @phpstan-ignore new.static (Configurator subclasses are deliberately constructed through this static factory.) */
         $configurator = new static;
         $configurator->context = $context;
 
@@ -49,7 +49,7 @@ trait HasConfigurator
 
     public static function getConfiguratorType(): ConfiguratorTypeEnumInterface
     {
-        /** @phpstan-ignore staticProperty.notFound */
+        /** @phpstan-ignore staticProperty.notFound (Each configurator implementation supplies the static type property.) */
         return static::$configuratorType;
     }
 }

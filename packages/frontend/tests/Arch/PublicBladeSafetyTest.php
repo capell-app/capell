@@ -130,6 +130,8 @@ function publicFrontendBladeForbiddenPatterns(): array
 
     return [
         'unregistered buffer directive in public Blade' => '/@(?:end)?capellBuffer\b/',
+        'Livewire mount directive in public Blade' => '/(?:<livewire:|@livewire\s*\()/i',
+        'authored critical CSS partial in public Blade' => '/(?:@include(?:If|When)?\s*\([^)]*critical[-_. ]?css|<x-[^>\s]*critical[-_.]?css)/i',
         'Eloquent query builder in Blade' => '/::query\s*\(/',
         'DB facade in Blade' => '/\bDB::/',
         'auth access in public Blade' => '/\bauth\s*\(/',
