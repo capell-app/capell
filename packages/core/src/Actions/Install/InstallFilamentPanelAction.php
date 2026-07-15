@@ -9,6 +9,7 @@ use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
@@ -45,6 +46,7 @@ class InstallFilamentPanelAction
         if (! array_key_exists('filament:install', Artisan::all())) {
             $this->installPanelInFreshProcess($reporter, null);
             $this->ensurePanelProviderWasCreated();
+            $this->ensureDefaultThemeStylesheetExists();
             $this->reportMissingThemeConfiguration($this->panelProviderPaths(), $reporter);
 
             return;
@@ -68,6 +70,7 @@ class InstallFilamentPanelAction
         }
 
         $this->ensurePanelProviderWasCreated();
+        $this->ensureDefaultThemeStylesheetExists();
         $this->reportMissingThemeConfiguration($this->panelProviderPaths(), $reporter);
     }
 
@@ -118,6 +121,23 @@ class InstallFilamentPanelAction
         throw new RuntimeException(
             'Filament panel installation did not create an AdminPanelProvider. Run `php artisan filament:install --panels` manually, then rerun `php artisan capell:install`.',
         );
+    }
+
+    private function ensureDefaultThemeStylesheetExists(): void
+    {
+        $themePath = resource_path('css/filament/admin/theme.css');
+
+        if (File::exists($themePath)) {
+            return;
+        }
+
+        File::ensureDirectoryExists(dirname($themePath));
+        File::put($themePath, <<<'CSS'
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+CSS);
     }
 
     /**

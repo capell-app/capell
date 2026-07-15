@@ -192,6 +192,12 @@ PHP);
     Artisan::clearResolvedInstances();
 
     InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(resource_path('css/filament/admin/theme.css'))->toBeFile()
+        ->and(File::get(resource_path('css/filament/admin/theme.css')))
+        ->toContain("@import '../../../../vendor/filament/filament/resources/css/theme.css';")
+        ->toContain("@source '../../../../app/Filament/**/*';")
+        ->toContain("@source '../../../../resources/views/filament/**/*';");
 });
 
 it('falls back to a fresh process when filament install is not registered in-process', function (): void {
