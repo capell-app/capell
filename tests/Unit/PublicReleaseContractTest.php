@@ -109,6 +109,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('SPLIT_APP_ID')
         ->toContain('SPLIT_APP_PRIVATE_KEY')
         ->toContain('permission-contents: write')
+        ->toContain('permission-workflows: write')
         ->toContain('persist-credentials: false')
         ->toContain('Configure split repository git credentials')
         ->toContain('url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"')
