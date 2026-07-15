@@ -23,7 +23,9 @@ use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Filament\FilamentServiceProvider;
@@ -478,6 +480,16 @@ final class InstallStepExecutor
 
     private function markCoreInstalled(InstallRunState $state): void
     {
+        CapellExtension::query()->updateOrCreate(
+            ['composer_name' => 'capell-app/core'],
+            [
+                'name' => 'Capell Core',
+                'status' => ExtensionStatusEnum::Enabled,
+                'installed_at' => now(),
+                'is_paid_marketplace_extension' => false,
+            ],
+        );
+
         $state->reporter->report('✓ Installation complete!');
     }
 
