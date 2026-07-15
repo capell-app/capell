@@ -39,7 +39,7 @@ it('adds the default Filament Vite theme when no theme is configured', function 
     $updatedContent = (string) file_get_contents($providerPath);
 
     expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and($updatedContent)->toContain("->viteTheme('resources/css/filament/admin/theme.css', 'build/filament')");
+        ->and($updatedContent)->toContain("->viteTheme('resources/css/filament/admin/theme.css')");
 });
 
 it('does not overwrite an existing custom Filament Vite theme', function (): void {

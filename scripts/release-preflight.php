@@ -13,6 +13,12 @@ $selected = array_column($plan['packages'], null, 'name');
 $temporary = sys_get_temp_dir() . '/capell-preflight-' . bin2hex(random_bytes(8));
 mkdir($temporary, 0700, true);
 register_shutdown_function(static function () use ($temporary): void {
+    if (getenv('CAPELL_RELEASE_PREFLIGHT_KEEP') === '1') {
+        fwrite(STDERR, "Retained release preflight consumer at {$temporary}\n");
+
+        return;
+    }
+
     if (! is_dir($temporary)) {
         return;
     }
@@ -66,5 +72,9 @@ passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover &
 if ($exitCode !== 0) {
     exit($exitCode);
 }
-passthru('cd ' . escapeshellarg($consumer) . ' && php artisan serve --no-reload --host=127.0.0.1 --port=8099 >/tmp/capell-release-preflight.log 2>&1 & server=$!; trap "kill $server" EXIT; for path in / /admin/login; do for attempt in 1 2 3 4 5 6 7 8 9 10; do curl --location --fail --silent http://127.0.0.1:8099$path >/dev/null && break; sleep 1; done; curl --location --fail --silent http://127.0.0.1:8099$path >/dev/null || exit 1; done', $exitCode);
+passthru('cd ' . escapeshellarg($consumer) . ' && npm install --no-audit --no-fund && npm run build', $exitCode);
+if ($exitCode !== 0) {
+    exit($exitCode);
+}
+passthru('cd ' . escapeshellarg($consumer) . ' && php artisan serve --no-reload --host=127.0.0.1 --port=8099 >/tmp/capell-release-preflight.log 2>&1 & server=$!; trap "kill $server" EXIT; for path in / /admin/login; do for attempt in 1 2 3 4 5 6 7 8 9 10; do curl --location --fail-with-body --show-error http://127.0.0.1:8099$path >/tmp/capell-release-preflight-response.txt && break; sleep 1; done; curl --location --fail-with-body --show-error http://127.0.0.1:8099$path >/tmp/capell-release-preflight-response.txt || { cat /tmp/capell-release-preflight-response.txt; exit 1; }; done', $exitCode);
 exit($exitCode);

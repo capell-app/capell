@@ -35,6 +35,7 @@ use Capell\Installer\Support\InstallGuide\Patches\LoggingCapellChannelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\RemoveWelcomeRoutePatch;
 use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
+use Capell\Installer\Support\InstallGuide\Patches\ViteThemeInputPatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
 use Filament\Pages\Page;
 use Filament\Support\Facades\FilamentView;
@@ -163,6 +164,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $registry->register(new AdminPanelThemePatch);
         $registry->register(new AdminPanelWidgetsPatch);
         $registry->register(new ThemeSourcesPatch);
+        $registry->register(new ViteThemeInputPatch);
         $registry->register(new RemoveWelcomeRoutePatch);
         $registry->register(new EnvQueueConnectionPatch);
         $registry->register(new EnvSettingsCachePatch);
@@ -198,6 +200,12 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
                 hint: __('capell-installer::install-guide.admin_panel_theme_confirm_hint'),
                 skippedMessage: __('capell-installer::install-guide.admin_panel_theme_skipped'),
             ),
+        );
+
+        $installPatchRegistry->register(
+            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
+                ? new ViteThemeInputPatch
+                : null,
         );
     }
 

@@ -161,6 +161,8 @@ it('defines the public v1 split package release contract', function (): void {
     expect($releasePreflight)
         ->toContain('[$major, $minor]')
         ->toContain('"dev-main as {$major}.{$minor}.x-dev"')
+        ->toContain('npm install --no-audit --no-fund')
+        ->toContain('npm run build')
         ->toContain('artisan serve --no-reload')
         ->not->toContain("'dev-main as ' . \$package['version']");
 

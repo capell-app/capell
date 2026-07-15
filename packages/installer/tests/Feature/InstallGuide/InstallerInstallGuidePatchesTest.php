@@ -31,6 +31,7 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
     writeInstallerInstallGuideFixture('config/logging.php', installerInstallGuideLoggingConfig());
     writeInstallerInstallGuideFixture('resources/css/filament/admin/theme.css', "@import '../../../../vendor/filament/filament/resources/css/theme.css';\n");
     writeInstallerInstallGuideFixture('routes/web.php', installerInstallGuideRoutes());
+    writeInstallerInstallGuideFixture('vite.config.js', "export default { input: ['resources/css/app.css', 'resources/js/app.js'] };\n");
 
     $patchIds = [
         'user-model-patch',
@@ -41,6 +42,7 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
         'admin-panel-theme-patch',
         'admin-panel-widgets-patch',
         'theme-sources-patch',
+        'vite-theme-input-patch',
         'remove-welcome-route-patch',
         'env-queue-connection-patch',
         'env-settings-cache-patch',
@@ -66,13 +68,14 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
         ->and($adminPanelProvider)->toContain('CapellAdmin::getNavigationItems()')
         ->and($adminPanelProvider)->toContain('CapellAdmin::getNavigationGroups()')
         ->and($adminPanelProvider)->toContain('ListPagesFilamentWidget::class')
-        ->and($adminPanelProvider)->toContain("viteTheme('resources/css/filament/admin/theme.css', 'build/filament')");
+        ->and($adminPanelProvider)->toContain("viteTheme('resources/css/filament/admin/theme.css')");
 
     expect(File::get(base_path('.env')))->toContain('QUEUE_CONNECTION=database')
         ->and(File::get(base_path('.env')))->toContain('SETTINGS_CACHE_ENABLED=true')
         ->and(File::get(base_path('config/filesystems.php')))->toContain("'page_cache'")
         ->and(File::get(base_path('config/logging.php')))->toContain("'capell'")
         ->and(File::get(base_path('resources/css/filament/admin/theme.css')))->toContain('vendor/capell-app/installer/resources/views/**/*.blade.php')
+        ->and(File::get(base_path('vite.config.js')))->toContain("'resources/css/filament/admin/theme.css'")
         ->and(File::get(base_path('routes/web.php')))->not->toContain("Route::get('/', function ()");
 
     $userModel = File::get(base_path('app/Models/User.php'));
