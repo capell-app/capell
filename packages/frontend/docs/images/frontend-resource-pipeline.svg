@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title description">
+  <title id="title">Capell frontend resource pipeline</title>
+  <desc id="description">Typed resource declarations are validated and ordered into a resource plan, activated by rendering conditions, and emitted as safe public HTML.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="300" rx="24" fill="#f8fafc"/>
+  <g font-family="ui-sans-serif, system-ui, sans-serif" text-anchor="middle">
+    <g transform="translate(40 70)">
+      <rect width="230" height="160" rx="16" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+      <text x="115" y="52" font-size="22" font-weight="700" fill="#0c4a6e">Typed declarations</text>
+      <text x="115" y="88" font-size="16" fill="#075985">Vite · package · CDN</text>
+      <text x="115" y="116" font-size="16" fill="#075985">inline · hints · dependencies</text>
+    </g>
+    <path d="M285 150 H350" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+    <g transform="translate(365 70)">
+      <rect width="230" height="160" rx="16" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="115" y="52" font-size="22" font-weight="700" fill="#4c1d95">Resource plan</text>
+      <text x="115" y="88" font-size="16" fill="#5b21b6">validate · order · deduplicate</text>
+      <text x="115" y="116" font-size="16" fill="#5b21b6">SRI · CSP · diagnostics</text>
+    </g>
+    <path d="M610 150 H675" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+    <g transform="translate(690 70)">
+      <rect width="200" height="160" rx="16" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="100" y="52" font-size="22" font-weight="700" fill="#78350f">Activation</text>
+      <text x="100" y="88" font-size="16" fill="#92400e">visible · idle</text>
+      <text x="100" y="116" font-size="16" fill="#92400e">interaction · immediate</text>
+    </g>
+    <path d="M905 150 H970" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+    <g transform="translate(985 70)">
+      <rect width="175" height="160" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+      <text x="87.5" y="52" font-size="22" font-weight="700" fill="#14532d">Public output</text>
+      <text x="87.5" y="88" font-size="16" fill="#166534">safe HTML</text>
+      <text x="87.5" y="116" font-size="16" fill="#166534">ordered resources</text>
+    </g>
+  </g>
+</svg>

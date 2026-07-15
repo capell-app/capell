@@ -11,7 +11,9 @@ use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
@@ -827,7 +829,9 @@ it('reports completion and rejects unknown install steps clearly', function (): 
         $state,
     );
 
-    expect($lines)->toContain(['type' => 'info', 'line' => '✓ Installation complete!']);
+    expect($lines)->toContain(['type' => 'info', 'line' => '✓ Installation complete!'])
+        ->and(CapellExtension::query()->where('composer_name', 'capell-app/core')->value('status'))
+        ->toBe(ExtensionStatusEnum::Enabled);
 
     expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute('unknown-step', $state))
         ->toThrow(RuntimeException::class, 'Unknown install step: unknown-step');

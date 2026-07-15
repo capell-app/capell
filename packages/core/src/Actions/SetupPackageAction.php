@@ -59,7 +59,7 @@ class SetupPackageAction
         ?ProgressReporter $reporter,
     ): void {
         $phpBinary = self::resolvePhpCliBinary();
-        $command = [$phpBinary, 'artisan', $setupCommand, '--no-interaction'];
+        $command = [$phpBinary, '-d', 'memory_limit=512M', 'artisan', $setupCommand, '--no-interaction'];
 
         foreach ($arguments as $option => $value) {
             if ($value === null) {

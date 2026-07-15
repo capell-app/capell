@@ -34,7 +34,7 @@ final class ViteThemeInputPatch implements Patch
         return __('capell-installer::install-guide.vite_theme_input_patch_description');
     }
 
-    public function docUrl(): ?string
+    public function docUrl(): string
     {
         return 'https://filamentphp.com/docs/5.x/styling/overview#creating-a-custom-theme';
     }

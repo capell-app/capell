@@ -193,8 +193,10 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
     {
         $label = $this->meta['label'] ?? null;
 
-        if ($label === null || $label === '') {
-            return $this->attributes['title'];
+        if (! is_string($label) || $label === '') {
+            $title = $this->attributes['title'] ?? null;
+
+            return is_string($title) ? $title : null;
         }
 
         return $label;

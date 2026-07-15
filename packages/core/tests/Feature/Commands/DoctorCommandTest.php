@@ -64,6 +64,20 @@ function seedHealthyDoctorInstall(): void
     $user->assignRole($role);
 }
 
+it('accepts complete schema while the installer has not yet marked core installed', function (): void {
+    seedHealthyDoctorInstall();
+    CapellCore::forcePackageInstalled('capell-app/core', false);
+    CapellExtension::query()
+        ->where('composer_name', 'capell-app/core')
+        ->update(['status' => ExtensionStatusEnum::Installing]);
+
+    $normalReport = BuildDoctorReportAction::run();
+    $installReport = BuildDoctorReportAction::run(installSummary: true, includePackageDoctors: false);
+
+    expect($normalReport->checks->firstWhere('id', 'core.schema.required')?->passed)->toBeFalse()
+        ->and($installReport->checks->firstWhere('id', 'core.schema.required')?->passed)->toBeTrue();
+});
+
 afterEach(function (): void {
     File::delete(resource_path('css/capell/frontend.css'));
 });

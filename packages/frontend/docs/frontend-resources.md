@@ -2,6 +2,8 @@
 
 Capell uses one typed resource graph for application Vite entries, package-published files, trusted CDN resources, inline trusted code, loading strategies, hints, dependency ordering, diagnostics, and optimization. Use this graph for CSS and JavaScript; render hooks are for public markup.
 
+![Frontend resources flow from typed declarations through planning and activation to safe public output.](images/frontend-resource-pipeline.svg)
+
 ## Application Vite entries and dependencies
 
 Register npm requirements with `FrontendPackageDependencyRegistry`:

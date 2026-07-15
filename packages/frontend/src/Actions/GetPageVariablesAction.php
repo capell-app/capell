@@ -24,6 +24,7 @@ class GetPageVariablesAction
      */
     public function handle(?Pageable $page = null, ?Site $site = null, array $variables = []): array
     {
+        $variables = $this->normalizeVariables($variables);
         $page ??= Frontend::page();
         $site ??= Frontend::site();
 
@@ -84,7 +85,7 @@ class GetPageVariablesAction
             ? $site->translation
             : null;
 
-        return $translation->title ?? $site->name ?? '';
+        return $this->text($translation->title ?? $site->name ?? '');
     }
 
     /** @param Pageable<Model>|null $page */
@@ -94,7 +95,7 @@ class GetPageVariablesAction
             ? $page->translation
             : null;
 
-        return $translation->title ?? '';
+        return $this->text($translation->title ?? '');
     }
 
     /** @param Pageable<Model>|null $page */
@@ -104,7 +105,47 @@ class GetPageVariablesAction
             ? $page->translation
             : null;
 
-        return $translation->label ?? $translation->title ?? '';
+        return $this->text($translation->label ?? $translation->title ?? '');
+    }
+
+    private function text(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $candidate) {
+                if (is_string($candidate)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $variables
+     * @return array<string, mixed>
+     */
+    private function normalizeVariables(array $variables): array
+    {
+        foreach (['site', 'title', 'label'] as $key) {
+            if (array_key_exists($key, $variables)) {
+                $variables[$key] = $this->text($variables[$key]);
+            }
+        }
+
+        if (is_array($variables['page'] ?? null)) {
+            foreach (['title', 'label'] as $key) {
+                if (array_key_exists($key, $variables['page'])) {
+                    $variables['page'][$key] = $this->text($variables['page'][$key]);
+                }
+            }
+        }
+
+        return $variables;
     }
 
     /**

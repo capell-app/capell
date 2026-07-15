@@ -186,8 +186,10 @@ final class BuildDoctorReportAction
     {
         $missingTables = $this->runtimeSchema->missingTables();
         $installationState = ResolveCapellInstallationStateAction::run();
+        $installationIsComplete = $installationState === CapellInstallationState::Installed
+            || ($installSummary && $missingTables === []);
 
-        if ($missingTables !== [] || (! $installSummary && $installationState !== CapellInstallationState::Installed)) {
+        if (! $installationIsComplete) {
             return new DoctorCheckResultData(
                 label: 'Required tables exist',
                 passed: false,

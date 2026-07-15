@@ -66,6 +66,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     use HasPackageSelection;
     use PromptsWithOptionFallback;
 
+    private const int MinimumMemoryLimitBytes = 536_870_912;
+
     private const string INSTALL_PERMISSIONS_DOC_URL = 'https://docs.capell.app/getting-started/install/#install-time-write-permissions';
 
     /** @var string */
@@ -112,6 +114,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     public function handle(): int
     {
+        $this->ensureInstallationMemoryLimit();
+
         $this->logInstallDebug('starting command', [
             'interactive' => $this->input->isInteractive(),
         ]);
@@ -577,6 +581,31 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $packages
             ->keys()
             ->all();
+    }
+
+    private function ensureInstallationMemoryLimit(): void
+    {
+        $configuredLimit = ini_get('memory_limit');
+
+        if (! is_string($configuredLimit) || $configuredLimit === '-1') {
+            return;
+        }
+
+        if ($this->memoryLimitInBytes($configuredLimit) < self::MinimumMemoryLimitBytes) {
+            ini_set('memory_limit', '512M');
+        }
+    }
+
+    private function memoryLimitInBytes(string $configuredLimit): int
+    {
+        $multiplier = match (strtolower(substr($configuredLimit, -1))) {
+            'g' => 1024 ** 3,
+            'm' => 1024 ** 2,
+            'k' => 1024,
+            default => 1,
+        };
+
+        return (int) $configuredLimit * $multiplier;
     }
 
     /**
