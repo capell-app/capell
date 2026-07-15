@@ -176,6 +176,8 @@ resolve(FrontendComponentRegistryInterface::class)->register(
 
 Use the registry when content or layout state needs a stable component key. Direct Blade/Livewire registration is enough when the component is only referenced by package-owned views.
 
+When a package replaces an existing renderer, keep the old Blade component names in `aliases` so previously saved content resolves to the new component. Content records should store only the stable key; the Blade namespace stays an implementation detail that can move between packages without a data migration.
+
 ## Routes And Reserved Paths
 
 Register package-owned public routes from the package provider and reserve their paths so the frontend page fallback does not treat them as CMS pages.
@@ -275,7 +277,7 @@ An optional chrome or Layout Builder package can register `header` and render it
 <x-capell::layout.area area="header" />
 ```
 
-A package can register another area through `Capell\ContentSections\Support\LayoutAreas\LayoutAreaRegistry`:
+A package can register another area through `Capell\ContentSections\Support\LayoutAreas\LayoutAreaRegistry`. A package that registers areas must require `capell-app/content-sections` in `capell.json`:
 
 ```php
 use Capell\ContentSections\Support\LayoutAreas\LayoutAreaRegistry;

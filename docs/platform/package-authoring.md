@@ -108,7 +108,6 @@ Marketplace-ready packages should have aligned `composer.json` and `capell.json`
 ## Read Next
 
 - [Packages](../packages/README.md)
-- [How to create a Capell extension](../packages/how-to-create-a-capell-extension.md)
 - [Package anatomy](../packages/package-anatomy.md)
 - [Package checklist](../packages/package-checklist.md)
 - [Extension point chooser](../packages/extension-point-chooser.md)

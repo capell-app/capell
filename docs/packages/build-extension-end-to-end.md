@@ -39,6 +39,8 @@ announcement-bar/
 
 Keep the package small until this works. Add migrations, jobs, widgets, or Marketplace metadata only when the package really needs them.
 
+To scaffold this layout instead of writing each file by hand, use `php artisan capell:make-extension`. [Package authoring](../platform/package-authoring.md) covers the scaffold profiles and install commands.
+
 ## Boot Flow
 
 ```mermaid
@@ -76,6 +78,8 @@ flowchart LR
 ```
 
 The namespace should match the package. Do not place app-specific models or host project classes in reusable packages.
+
+Keep `extra.laravel.providers` to this single bootstrap provider. Capell loads runtime-specific providers from the `capell.json` provider map.
 
 ## `capell.json`
 
@@ -153,6 +157,8 @@ The namespace should match the package. Do not place app-specific models or host
 ```
 
 The manifest is package metadata, not runtime logic. Runtime registration belongs in providers.
+
+Keep `dependencies.requires` honest. This package registers admin and frontend surfaces, so it requires `capell-app/admin` and `capell-app/frontend`. Any package that registers an admin page, an Extensions page action, a Filament resource, or admin translations must require `capell-app/admin`.
 
 This tutorial registers the render hook directly in the provider below. For a Marketplace-ready package, extract that hook into a class and declare it in `contributes` with `type`, `class`, and `surface` so manifest audits can trace the shipped runtime surface.
 
@@ -387,6 +393,7 @@ vendor/bin/pest packages/announcement-bar/tests --configuration=phpunit.xml
 
 - Package appears in `composer show capell-app/announcement-bar`.
 - `capell.json` validates and uses manifest version 3.
+- `php artisan capell:extension-audit packages/announcement-bar` passes.
 - Provider registers package-owned settings, admin, frontend, and cache behavior only.
 - Admin UI strings use translations.
 - Public output passes anonymous and non-admin safety tests.

@@ -36,7 +36,7 @@ For developers extending Capell with packages, frontend rendering, and extension
 7. [AI-ready Capell](ai-ready.md)
 8. [Creating Capell packages](../packages/README.md)
 9. [Package authoring](../platform/package-authoring.md)
-10. [How to create a Capell extension](../packages/how-to-create-a-capell-extension.md)
+10. [Build an extension end to end](../packages/build-extension-end-to-end.md)
 
 ## Inertia Reading Path
 
