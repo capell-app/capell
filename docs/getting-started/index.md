@@ -7,7 +7,7 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 | I need to...                        | Read                                                    |
 | ----------------------------------- | ------------------------------------------------------- |
 | Understand what Capell is           | [Why Capell](why-capell.md)                             |
-| Compare it with WordPress and Craft | [Capell, WordPress, and Craft CMS](comparing-capell.md) |
+| Compare it with WordPress and Craft | [Compare Capell with WordPress and Craft CMS](comparing-capell.md) |
 | Understand the architecture         | [How Capell works](how-capell-works.md)                 |
 | Understand the AI-ready path        | [AI-ready Capell](ai-ready.md)                          |
 

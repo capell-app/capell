@@ -109,7 +109,7 @@ Deletion and retention:
 - [Page management](page-management.md)
 - [Content management](content-management.md)
 - [Extending Capell](extending-capell.md)
-- [Cache](cache.md)
+- [HasCache guide](cache.md)
 - [Multi-site and multi-lingual](multi-site-multi-lingual.md)
 - [Relationship diagnostics](relationship-diagnostics.md)
 - [Subscriber manager](subscriber-manager.md)

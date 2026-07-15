@@ -6,7 +6,7 @@ If you have not installed Capell yet, start with the [quickstart](quickstart.md)
 
 ## Start from Pages
 
-Open **Pages** from the sidebar. Pages are the main routable content records in Capell: they belong to a [Site](../reference/glossary.md#content-model), can sit inside a page tree, and publish to frontend URLs.
+Open **Pages** from the sidebar. Pages are the main routable content records in Capell: they belong to a [Site](../reference/glossary.md#editing-terms), can sit inside a page tree, and publish to frontend URLs.
 
 ![The Pages list in Capell Admin](../images/generated/admin/first-page-pages-list.png)
 
@@ -193,7 +193,7 @@ Do not install every package on day one. Add the next package when the page you 
 | Built-in Default Theme                                         | A practical frontend starting point provided by `capell-app/frontend` without installing a theme package.  |
 | [Frontend Authoring](../packages/catalog.md#capell-foundation) | Edit page title, description, or content from the public page after the admin-only beacon confirms access. |
 | [Media Library](../packages/catalog.md#capell-foundation)      | The Curator media backend and picker, instead of the default Spatie MediaLibrary backend.                  |
-| [SEO Suite](../packages/catalog.md#capell-search-seo)          | Audits, structured data, robots controls, and stronger social metadata.                                    |
+| [SEO Suite](../packages/catalog.md#capell-search--seo)         | Audits, structured data, robots controls, and stronger social metadata.                                    |
 | [Site Discovery](../packages/catalog.md#capell-foundation)     | HTML/XML sitemaps and discoverability files.                                                               |
 
 That order keeps the learning curve sane: create pages first, add structured blocks or Layout Builder when the content needs it, connect pages with Navigation, protect URLs with Redirects, then add SEO or richer operational tooling when the site is real enough to benefit.

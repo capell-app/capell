@@ -227,7 +227,7 @@ Use the [package checklist](package-checklist.md) before release.
 - Package tests pass in isolation.
 - README explains install, config, commands, extension points, and troubleshooting.
 
-## Read Next
+## Next
 
 | Need                                        | Read                                                            |
 | ------------------------------------------- | --------------------------------------------------------------- |

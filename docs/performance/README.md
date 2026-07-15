@@ -8,7 +8,7 @@ Use this section if you tune caching, response delivery, assets, or hydration on
 | Understand URL-to-model dependencies     | [Model URL cache](model-url-cache.md)                                          |
 | Return 304 responses for unchanged pages | [ETags and conditional responses](etag-and-conditional-responses.md)           |
 | Cache expensive Blade partials           | [Fragment caching](fragment-caching.md)                                        |
-| Tune render-blocking CSS and preloads    | [Critical asset optimization](critical-asset-optimization.md)                  |
+| Tune render-blocking CSS and preloads    | [Frontend asset optimization](critical-asset-optimization.md)                  |
 | Flush caches when models change          | [Cache invalidation](cache-invalidation.md)                                    |
 | Avoid eager loads on cold cache hits     | [Lazy page hydration](lazy-page-hydration.md)                                  |
 | Reduce rendered HTML size                | [Frontend server configuration](../../packages/frontend/docs/server-config.md) |

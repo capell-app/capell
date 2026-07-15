@@ -681,6 +681,6 @@ Extension callbacks via the bootstrapper run on every request. Keep them lightwe
 
 ## Related Documentation
 
-- [Packages & Add-ons](../../../docs/packages.md)
+- [Packages and extensions](../../../docs/packages/catalog.md)
 - [Configuration Reference](../../../docs/development/configuration.md)
 - [Extending Capell](../../core/docs/extending-capell.md)

@@ -72,7 +72,7 @@ npm run screenshots
 Run the narrow safety checks before release:
 
 ```sh
-vendor/bin/pest packages/frontend/tests/Unit/Security/PublicHtmlSafetyInspectorTest.php packages/frontend/tests/Unit/PageCacheTest.php packages/frontend/tests/Feature/Middleware/HtmlCacheMiddlewareTest.php --configuration=phpunit.xml
+vendor/bin/pest packages/frontend/tests/Unit/Security/PublicHtmlSafetyInspectorTest.php packages/frontend/tests/Unit/Loader/PageCachePolicyTest.php packages/frontend/tests/Feature/Cache/PageCacheInvalidatorTest.php --configuration=phpunit.xml
 ```
 
 Then run package-level or full-suite checks based on the release scope:

@@ -79,3 +79,7 @@ Admin preview surfaces resolve images in this order:
 - GD must be available because the generator writes PNGs directly.
 - A stale queued job will not overwrite a newer signature.
 - Manual image changes do not leave old generated images behind; generated state is cleared when a manual image exists.
+
+## Next
+
+- [Theme Library](theme-library.md)
