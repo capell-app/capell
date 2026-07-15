@@ -222,10 +222,17 @@ final class PackageLifecycleRunner
     /** @return array<string, string>|null */
     private function freshProcessEnvironment(): ?array
     {
-        if (! str_contains(base_path(), 'testbench-skeletons')) {
+        $basePath = str_replace('\\', '/', base_path());
+
+        if (! str_contains($basePath, 'testbench-skeletons')
+            && ! str_contains($basePath, '/vendor/orchestra/testbench-core/laravel')) {
             return null;
         }
 
-        return ['TESTBENCH_WORKING_PATH' => dirname(__DIR__, 5)];
+        $workingPath = function_exists('Orchestra\\Testbench\\package_path')
+            ? \Orchestra\Testbench\package_path()
+            : dirname(__DIR__, 5);
+
+        return ['TESTBENCH_WORKING_PATH' => $workingPath];
     }
 }
