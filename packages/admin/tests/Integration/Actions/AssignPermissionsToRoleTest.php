@@ -6,6 +6,7 @@ use Capell\Admin\Actions\AssignPermissionsToRole;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Spatie\Permission\Models\Permission;
 
 it('assigns permissions to a role', function (): void {
     // Call action with enums as expected by signature; it perform-builder side effects and returns void
@@ -15,7 +16,8 @@ it('assigns permissions to a role', function (): void {
         widgets: [FilamentWidgetEnum::SiteStatsOverviewFilamentWidget],
     );
 
-    expect(true)->toBeTrue();
+    expect(Permission::query()->where('name', 'View:SettingsPage')->exists())->toBeTrue()
+        ->and(Permission::query()->where('name', 'View:SiteStatsOverviewFilamentWidget')->exists())->toBeTrue();
 });
 
 it('fails when role missing', function (): void {
