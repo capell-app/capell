@@ -17,6 +17,7 @@ if ($repositoryRoot === false) {
  */
 $allowedOrphans = [
     'docs/packages.md', // redirect stub kept alive for published docs-site URLs
+    'docs/packages/how-to-create-a-capell-extension.md', // redirect stub; diagnostics package links to the published URL
     'docs/superpowers/', // internal plans and specs are not part of the public docs navigation
 ];
 
