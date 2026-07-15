@@ -111,18 +111,12 @@ parameters:
         - identifier: instanceof.alwaysFalse
           path: ../packages/frontend/*
           reportUnmatched: false
-        - identifier: booleanOr.alwaysTrue
-          path: ../packages/frontend/*
-          reportUnmatched: false
         - identifier: property.onlyWritten
           path: ../packages/frontend/*
           reportUnmatched: false
 
         # Installer patching code relies on parser/runtime checks that static analysis over-narrows.
         - identifier: argument.type
-          path: ../packages/installer/*
-          reportUnmatched: false
-        - identifier: nullsafe.neverNull
           path: ../packages/installer/*
           reportUnmatched: false
         - identifier: catch.neverThrown
@@ -148,13 +142,7 @@ parameters:
         - identifier: nullsafe.neverNull
           path: ../packages/marketplace/*
           reportUnmatched: false
-        - identifier: nullCoalesce.property
-          path: ../packages/marketplace/*
-          reportUnmatched: false
         - identifier: notIdentical.alwaysTrue
-          path: ../packages/marketplace/*
-          reportUnmatched: false
-        - identifier: function.alreadyNarrowedType
           path: ../packages/marketplace/*
           reportUnmatched: false
         - identifier: missingType.generics
