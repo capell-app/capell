@@ -183,6 +183,12 @@ final class PlanValidator
                 throw new ReleaseException("Package {$package['name']} must resolve every direct dependency exactly once.");
             }
         }
+        if ($names !== $inventoryNames) {
+            throw new ReleaseException('A foundation release must select every lockstep package in inventory order.');
+        }
+        if (count(array_unique(array_column($plan['packages'], 'proposed_version'))) !== 1) {
+            throw new ReleaseException('A foundation release must assign one lockstep version to every package.');
+        }
         if (DependencyGraph::order($graph) !== $plan['dependency_order']) {
             throw new ReleaseException('Dependency order is invalid.');
         }
@@ -252,7 +258,8 @@ final class ReleaseEngine
         $packages = [];
         $candidates = [];
         $graph = [];
-        $knownNames = [...array_column($definitions, 'name'), ...array_column($externalLedger, 'name')];
+        $knownNames = array_column($definitions, 'name');
+        $dependencyNames = [...$knownNames, ...array_column($externalLedger, 'name')];
         foreach ($bumps as $name => $type) {
             if (! in_array($name, $knownNames, true) || ! in_array($type, ['patch', 'minor', 'major'], true)) {
                 throw new ReleaseException("Invalid or unknown bump {$name}={$type}.");
@@ -263,41 +270,46 @@ final class ReleaseEngine
             (new PlanValidator)->validateManifest($manifest);
             $dependencies = array_values(array_filter(array_keys($manifest['require'] ?? []), fn (string $name): bool => str_starts_with($name, 'capell-app/')));
             foreach ($dependencies as $dependency) {
-                if (! in_array($dependency, $knownNames, true)) {
+                if (! in_array($dependency, $dependencyNames, true)) {
                     throw new ReleaseException("Unknown inventory dependency {$dependency}.");
+                }
+
+                if (in_array($dependency, $knownNames, true) && ($manifest['require'][$dependency] ?? null) !== 'self.version') {
+                    throw new ReleaseException("Lockstep foundation dependency {$definition['name']}->{$dependency} must use self.version.");
                 }
             }
             $graph[$definition['name']] = $dependencies;
             $old = $previous === null ? null : current(array_filter($previous['ledger'], fn (array $item): bool => $item['name'] === $definition['name']));
             $tree = $this->git(['rev-parse', "{$commit}:{$definition['path']}"]);
             $candidates[$definition['name']] = compact('definition', 'dependencies', 'old', 'tree');
-            if ($previous !== null && is_array($old) && $old['subtree_hash'] === $tree && ! isset($bumps[$definition['name']])) {
-                continue;
-            }
-            $proposed = $previous === null ? '1.0.0' : self::bump((string) $old['version'], $bumps[$definition['name']] ?? 'patch');
-            $type = $previous === null ? 'baseline' : ($bumps[$definition['name']] ?? 'patch');
-            $reason = $previous === null ? 'Initial independent public release.' : (isset($bumps[$definition['name']]) ? "Manual {$type} bump." : 'Package subtree changed.');
-            $packages[] = self::packageEntry($definition, $dependencies, $old, $tree, $commit, $proposed, $reason, $type);
         }
-        if ($previous !== null) {
-            do {
-                $added = false;
-                foreach ($candidates as $name => $candidate) {
-                    if (in_array($name, array_column($packages, 'name'), true)) {
-                        continue;
-                    }
-                    foreach ($candidate['dependencies'] as $dependency) {
-                        $plannedDependency = current(array_filter($packages, fn (array $item): bool => $item['name'] === $dependency));
-                        $priorMinimum = $candidate['old']['resolved_minimum_versions'][$dependency] ?? null;
-                        if ($plannedDependency !== false && $priorMinimum !== $plannedDependency['proposed_version']) {
-                            $proposed = self::bump((string) $candidate['old']['version'], 'patch');
-                            $packages[] = self::packageEntry($candidate['definition'], $candidate['dependencies'], $candidate['old'], $candidate['tree'], $commit, $proposed, 'Dependency minimum requirement changed.', 'patch');
-                            $added = true;
-                            break;
-                        }
-                    }
-                }
-            } while ($added);
+
+        $hasChanges = $previous === null || $bumps !== [] || array_filter(
+            $candidates,
+            fn (array $candidate): bool => ! is_array($candidate['old']) || $candidate['old']['subtree_hash'] !== $candidate['tree'],
+        ) !== [];
+
+        if ($hasChanges) {
+            $type = $previous === null ? 'baseline' : self::highestBumpType($bumps);
+            $proposed = $previous === null
+                ? '1.0.0'
+                : self::bump(self::highestLedgerVersion($previous['ledger']), $type);
+            $reason = $previous === null
+                ? 'Initial lockstep foundation release.'
+                : "Lockstep {$type} foundation release.";
+
+            foreach ($candidates as $candidate) {
+                $packages[] = self::packageEntry(
+                    $candidate['definition'],
+                    $candidate['dependencies'],
+                    $candidate['old'],
+                    $candidate['tree'],
+                    $commit,
+                    $proposed,
+                    $reason,
+                    $type,
+                );
+            }
         }
         foreach ($packages as &$package) {
             foreach ($package['direct_capell_dependencies'] as $dependency) {
@@ -464,6 +476,25 @@ final class ReleaseEngine
             'minor' => $major . '.' . ($minor + 1) . '.0',
             default => "{$major}.{$minor}." . ($patch + 1),
         };
+    }
+
+    /** @param array<string, string> $bumps */
+    private static function highestBumpType(array $bumps): string
+    {
+        $weights = ['patch' => 1, 'minor' => 2, 'major' => 3];
+        $types = array_values($bumps);
+        usort($types, fn (string $left, string $right): int => $weights[$right] <=> $weights[$left]);
+
+        return $types[0] ?? 'patch';
+    }
+
+    /** @param list<array<string, mixed>> $ledger */
+    private static function highestLedgerVersion(array $ledger): string
+    {
+        $versions = array_column($ledger, 'version');
+        usort($versions, fn (string $left, string $right): int => version_compare($right, $left));
+
+        return $versions[0];
     }
 
     private static function pushCommand(string $repository, string $refspec, ?string $lease = null): array
