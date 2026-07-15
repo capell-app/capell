@@ -11,7 +11,7 @@ Use the [Quickstart](quickstart.md) for a disposable demo. For an existing appli
 | Requirement | Supported value |
 | --- | --- |
 | PHP | 8.4+ |
-| Laravel | 12.41.1+ in the 12.x line or Laravel 13.x |
+| Laravel | 12.41.1+ or 13.x |
 | Filament | `~5.6.8`, installed by the selected Admin package |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
 | Node.js | 20+ |

@@ -10,12 +10,14 @@ Allow about ten minutes for the first Composer install.
 
 | Requirement | Supported value |
 | --- | --- |
-| PHP | 8.4+ with `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and `gd` or `imagick` |
-| Laravel | 12.41.1+ in the 12.x line or Laravel 13.x |
+| PHP | 8.4+ |
+| Laravel | 12.41.1+ or 13.x |
 | Filament | Installed by the selected Capell Admin package; supported line `~5.6.8` |
 | Node.js | 20+ |
 | Composer | 2.7+ |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
+
+Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
 
 Capell renders through this Laravel application. This quickstart does not create a hosted Capell account or a public content-delivery API.
 
