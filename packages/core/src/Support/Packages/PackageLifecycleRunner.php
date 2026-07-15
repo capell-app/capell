@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 namespace Capell\Core\Support\Packages;
 
 use Capell\Core\Contracts\PackageLifecycleAction;
