@@ -11,6 +11,18 @@ use Capell\Release\ReleaseException;
 
 $root = dirname(__DIR__);
 $command = $argv[1] ?? '';
+
+// Plans written before per-package maturity existed lack the field; default
+// it to stable explicitly at load time so the validator can stay strict.
+$normalizeMaturity = static function (array $plan): array {
+    foreach (['ledger', 'external_ledger', 'packages'] as $section) {
+        foreach ($plan[$section] ?? [] as $index => $entry) {
+            $plan[$section][$index]['maturity'] ??= 'stable';
+        }
+    }
+
+    return $plan;
+};
 try {
     if ($command === 'plan') {
         $baseline = null;
@@ -36,14 +48,14 @@ try {
                 $dependenciesFrom = substr($argument, 20);
             }
         }
-        $previous = $from === null ? null : json_decode((string) file_get_contents($from), true, 512, JSON_THROW_ON_ERROR);
+        $previous = $from === null ? null : $normalizeMaturity(json_decode((string) file_get_contents($from), true, 512, JSON_THROW_ON_ERROR));
         $version = $baseline ?? 'incremental';
         if (! is_string($version)) {
             throw new ReleaseException('plan requires --baseline-version or --from.');
         }
         $externalLedger = [];
         if ($dependenciesFrom !== null) {
-            $dependencyPlan = json_decode((string) file_get_contents($dependenciesFrom), true, 512, JSON_THROW_ON_ERROR);
+            $dependencyPlan = $normalizeMaturity(json_decode((string) file_get_contents($dependenciesFrom), true, 512, JSON_THROW_ON_ERROR));
             (new PlanValidator)->validate($dependencyPlan);
             $externalLedger = [...($dependencyPlan['external_ledger'] ?? []), ...$dependencyPlan['ledger']];
         }
@@ -54,9 +66,10 @@ try {
     if ($path === null) {
         throw new ReleaseException("{$command} requires a plan path.");
     }
-    $plan = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    $plan = $normalizeMaturity(json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR));
     (new PlanValidator)->validate($plan);
     if ($command === 'validate') {
+        PlanValidator::assertDeclaredMaturity($plan, json_decode((string) file_get_contents($root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR));
         echo "Plan is valid.\n";
         exit(0);
     }
