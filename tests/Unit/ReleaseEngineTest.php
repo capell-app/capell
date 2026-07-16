@@ -7,12 +7,26 @@ require_once dirname(__DIR__, 2) . '/scripts/release/ReleaseEngine.php';
 use Capell\Release\CommandRunner;
 use Capell\Release\DependencyGraph;
 use Capell\Release\PlanValidator;
+use Capell\Release\ProcessCommandRunner;
 use Capell\Release\ReleaseEngine;
 use Capell\Release\ReleaseException;
 use Capell\Release\ResumeDecision;
 
 beforeEach(function (): void {
     putenv('RELEASE_PREFLIGHT_SCRIPT=' . dirname(__DIR__, 2) . '/scripts/release-preflight.php');
+});
+
+it('captures large output from both process streams without blocking', function (): void {
+    $runner = new ProcessCommandRunner;
+    $result = $runner->run([
+        PHP_BINARY,
+        '-r',
+        'fwrite(STDERR, str_repeat("error", 20000)); echo str_repeat("output", 20000);',
+    ]);
+
+    expect($result['exitCode'])->toBe(0)
+        ->and($result['output'])->toHaveLength(120000)
+        ->and($result['error'])->toHaveLength(100000);
 });
 
 it('orders direct dependencies before consumers', function (): void {
@@ -174,7 +188,7 @@ it('publishes a verified split and records atomic resumable state', function ():
                 str_contains($joined, 'status --porcelain') => ['output' => '', 'exitCode' => 0],
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
                 str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
-                str_contains($joined, 'subtree split') => ['output' => $this->split, 'exitCode' => 0],
+                str_contains($joined, 'commit-tree'), str_contains($joined, 'subtree split') => ['output' => $this->split, 'exitCode' => 0],
                 str_contains($joined, '^{tree}') => ['output' => $this->tree, 'exitCode' => 0],
                 str_contains($joined, 'git/ref/tags') && count(array_filter($this->commands, fn (array $seen): bool => str_contains(implode(' ', $seen), 'git/ref/tags'))) === 1 => ['output' => '', 'exitCode' => 1],
                 str_contains($joined, 'git/ref/tags') => ['output' => $this->tagSha, 'exitCode' => 0],
@@ -194,7 +208,7 @@ it('publishes a verified split and records atomic resumable state', function ():
     expect($state['packages']['capell-app/core']['split_sha'])->toBe($split)
         ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
         ->and(implode("\n", array_map(fn (array $command): string => implode(' ', $command), $runner->commands)))
-        ->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0');
+        ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
