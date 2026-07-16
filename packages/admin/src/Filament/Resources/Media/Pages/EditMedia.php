@@ -323,7 +323,9 @@ class EditMedia extends EditRecord
         return [
             $this->getSaveFormAction()
                 ->submit(null)
-                ->action(fn (): mixed => $this->save()),
+                ->action(function (): void {
+                    $this->save();
+                }),
             $this->getCancelFormAction(),
         ];
     }

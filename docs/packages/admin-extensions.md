@@ -176,6 +176,24 @@ Use the abstract schema extenders when possible:
 
 They provide no-op defaults so a package only overrides the hooks it needs. See [Schema Hooks](../../packages/admin/docs/schemas/hooks.md) for method signatures, hook enums, and resolver debugging.
 
+## Configurators
+
+Configurators shape an existing Capell editing surface: blueprints, pages, sites, languages, layouts, and themes. A configurator implements `Capell\Admin\Contracts\ConfiguratorInterface` with a stable `getKey()`, a `getSort()` order, and a `configure()` method that returns a Filament `Schema`.
+
+Register configurators from an admin bridge:
+
+```php
+use Capell\Admin\Enums\ConfiguratorTypeEnum;
+
+$registrar->configurator(
+    ExampleSiteConfigurator::class,
+    group: ConfiguratorTypeEnum::Site->value,
+    name: ExampleSiteConfigurator::getKey(),
+);
+```
+
+Keep configurators thin: assemble Filament components there, put domain work in Actions, and keep visible text in translations. Wrap normal fields in contained `Section` components, the same presentation rule as settings schemas. Use package settings schemas for package-level configuration; use configurators only to extend an existing editing surface.
+
 ## Page Table Status
 
 The main Pages table renders one core publish/workflow status column. Admin owns the column layout; packages that provide workflow semantics should replace the resolver instead of adding a competing status column.
@@ -273,7 +291,7 @@ Register header actions for package-level work such as installing example conten
 
 The Extensions page already provides core row actions such as documentation and uninstall where available, so packages should not duplicate those actions.
 
-See [How To Create A Capell Extension](how-to-create-a-capell-extension.md) for the full package authoring flow and code examples.
+See [Build an extension end to end](build-extension-end-to-end.md) for the full package authoring flow and code examples.
 
 ## Extensions Page Contributions
 
@@ -286,6 +304,18 @@ resolve(ExtensionsPageActionRegistry::class)->registerHeaderAction(
     fn (ExtensionsPage $page): Action => Action::make('examplePackageAction')
         ->label(__('capell-example::actions.example'))
         ->modalContent(view('capell-example::filament.extensions.example-modal')),
+);
+```
+
+Gate package-management work with `->authorize(fn (): bool => ExtensionsPage::canManageExtensions())`.
+
+Use `registerTableAction()` when the action belongs to one extension row. Table action callbacks receive the row as an array:
+
+```php
+resolve(ExtensionsPageActionRegistry::class)->registerTableAction(
+    fn (ExtensionsPage $page): Action => Action::make('checkExtensionHealth')
+        ->label(__('capell-example::actions.check_health'))
+        ->action(fn (array $record): mixed => CheckExtensionHealthAction::run($record['name'])),
 );
 ```
 

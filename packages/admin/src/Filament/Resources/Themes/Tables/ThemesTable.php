@@ -457,11 +457,14 @@ class ThemesTable implements TableConfigurator
             return null;
         }
 
-        return Page::getSiteHomePage($site)
+        /** @var Page|null $page */
+        $page = Page::getSiteHomePage($site)
             ?? Page::query()
                 ->where('site_id', $site->getKey())
                 ->defaultOrder()
                 ->first();
+
+        return $page;
     }
 
     /**

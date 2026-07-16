@@ -275,9 +275,11 @@ class PhpFileEditor
     }
 
     /**
-     * @param  Node[]  $nodes
+     * @template TNode of Node
+     *
+     * @param  array<int, TNode>  $nodes
      * @param  array<string>  $uses
-     * @return Node[]
+     * @return list<TNode>
      */
     private function removeUseStatementsFromNodes(array $nodes, array $uses): array
     {

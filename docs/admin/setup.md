@@ -83,3 +83,8 @@ Reruns are idempotent. Existing custom colors are respected, existing Capell plu
 | `unsupported_shape` | The `panel()` method is not a single fluent return chain           |
 | `existing_conflict` | Existing code needs manual review before Capell calls can be added |
 | `validation`        | Command input such as `--schemas` was invalid                      |
+
+## Next
+
+- [Admin interface](interface.md)
+- [Users and roles](users-and-roles.md)

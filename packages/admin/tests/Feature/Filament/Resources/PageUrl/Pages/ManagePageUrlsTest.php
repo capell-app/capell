@@ -28,7 +28,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('can list page urls', function (): void {
+it('can list page urls', function (): void {
     $language = Language::factory()->createOne();
 
     $pages = Page::factory()
@@ -49,7 +49,7 @@ test('can list page urls', function (): void {
         ->assertCanSeeTableRecords($pageUrls);
 });
 
-test('can search page urls', function (): void {
+it('can search page urls', function (): void {
     $language = Language::factory()->createOne();
 
     $pages = Page::factory()
@@ -74,7 +74,7 @@ test('can search page urls', function (): void {
         ->assertCanNotSeeTableRecords($pageUrls->where('full_url', '!=', $pageUrl));
 });
 
-test('can search full page url', function (): void {
+it('can search full page url', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->createOne();
     $siteDomain = SiteDomain::factory()->createOne([
@@ -101,7 +101,7 @@ test('can search full page url', function (): void {
         ->assertCanSeeTableRecords([$pageUrl]);
 });
 
-test('can search full page url for a null site domain', function (): void {
+it('can search full page url for a null site domain', function (): void {
     config([
         'app.url' => 'https://capell.test',
         'capell-frontend.default_scheme' => 'https',
@@ -131,7 +131,7 @@ test('can search full page url for a null site domain', function (): void {
         ->assertCanSeeTableRecords([$pageUrl]);
 });
 
-test('can sort page urls', function (): void {
+it('can sort page urls', function (): void {
     $pages = Page::factory()
         ->count(3)
         ->withTranslations()
@@ -154,7 +154,7 @@ test('can sort page urls', function (): void {
         ->assertCanSeeTableRecords(array_keys($sorted), inOrder: true);
 });
 
-test('can replicate page url', function (): void {
+it('can replicate page url', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $page = Page::factory()->recycle($site)->withTranslations()->create();
@@ -177,7 +177,7 @@ test('can replicate page url', function (): void {
     ]);
 });
 
-test('can create page url', function (): void {
+it('can create page url', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()
         ->state(['language_id' => $language->id])
@@ -222,14 +222,14 @@ test('can create page url', function (): void {
     ]);
 });
 
-test('create page url form explains url input before destination is selected', function (): void {
+it('create page url form explains url input before destination is selected', function (): void {
     Livewire::test(ManagePageUrls::class)
         ->assertSuccessful()
         ->mountAction(CreateAction::class)
         ->assertMountedActionModalSee(__('capell-admin::generic.page_url_path_info'));
 });
 
-test('can not create page url', function (): void {
+it('can not create page url', function (): void {
     Livewire::test(ManagePageUrls::class)
         ->assertSuccessful()
         ->assertSee(__('capell-admin::generic.no_page_urls'))
@@ -241,7 +241,7 @@ test('can not create page url', function (): void {
         ->assertCountTableRecords(0);
 });
 
-test('can update page url', function (): void {
+it('can update page url', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->recycle($language)->withTranslations()->create();
     $page = Page::factory()->recycle($site)->withTranslations()->create();
@@ -275,7 +275,7 @@ test('can update page url', function (): void {
         ->status->toBeFalse();
 });
 
-test('can not update page url', function (): void {
+it('can not update page url', function (): void {
     $pageUrl = PageUrl::factory()->createOne();
 
     Livewire::test(ManagePageUrls::class)
@@ -291,7 +291,7 @@ test('can not update page url', function (): void {
         ]);
 });
 
-test('can delete page url', function (): void {
+it('can delete page url', function (): void {
     $page = Page::factory()->withTranslations()->create();
 
     $pageUrl = $page->pageUrl;
@@ -306,7 +306,7 @@ test('can delete page url', function (): void {
     assertSoftDeleted($pageUrl, ['id' => $pageUrl->id]);
 });
 
-test('can group delete page urls', function (): void {
+it('can group delete page urls', function (): void {
     $pageUrls = PageUrl::factory()->count(5)->create();
 
     Livewire::test(ManagePageUrls::class)

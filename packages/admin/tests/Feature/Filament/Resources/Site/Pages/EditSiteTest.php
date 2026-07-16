@@ -205,7 +205,7 @@ it('can save with the default language marked as a required translation', functi
         ->toHaveKey('require_translations', [$language->code]);
 });
 
-test('validates edit site', function (): void {
+it('validates edit site', function (): void {
     $site = Site::factory()->createOne();
 
     Livewire::test(EditSite::class, [
@@ -223,7 +223,7 @@ test('validates edit site', function (): void {
         ]);
 });
 
-test('can replicate site', function (): void {
+it('can replicate site', function (): void {
     $site = Site::factory()->withTranslations()->create();
 
     Livewire::test(EditSite::class, [
@@ -270,7 +270,7 @@ it('can delete', function (): void {
     assertSoftDeleted($site, ['id' => $site]);
 });
 
-test('delete modal warns about affected pages', function (): void {
+it('delete modal warns about affected pages', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $layout = Layout::factory()->createOne(['site_id' => $site->getKey()]);
     Page::factory()->site($site)->layout($layout)->withTranslations()->create();
@@ -283,7 +283,7 @@ test('delete modal warns about affected pages', function (): void {
         ->assertMountedActionModalSee('1 page');
 });
 
-test('delete action cascades through site-owned records', function (): void {
+it('delete action cascades through site-owned records', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $layout = Layout::factory()->createOne(['site_id' => $site->getKey()]);
     $page = Page::factory()->site($site)->layout($layout)->withTranslations()->create();

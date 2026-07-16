@@ -122,7 +122,7 @@ For deeper Marketplace incidents, use [Debugging Marketplace](debugging-marketpl
 | Published pages still show old content           | [Published pages still show old content](troubleshooting.md#published-pages-still-show-old-content)                                     |
 | Frontend shows Laravel's welcome page            | [Laravel's default welcome page](troubleshooting.md#the-frontend-shows-laravels-default-welcome-page)                                   |
 | Non-interactive install fails with `Required.`   | [`NonInteractiveValidationException: Required.`](troubleshooting.md#laravelpromptsexceptionsnoninteractivevalidationexception-required) |
-| Composer cannot find Capell packages             | [`composer require` cannot find the package](troubleshooting.md#composer-require-capell-appcapell-cannot-find-the-package)              |
+| Composer cannot find Capell packages             | [`composer require` cannot find the package](troubleshooting.md#composer-require-capell-appinstaller-cannot-find-the-package)              |
 | Vite cannot resolve package CSS imports          | [`Can't resolve 'swiper/...'` during `npm run build`](troubleshooting.md#cant-resolve-swiper-during-npm-run-build)                      |
 
 For the full list of error strings and fixes, see [Troubleshooting](troubleshooting.md).

@@ -96,3 +96,7 @@ The admin tab controls the editor-facing side: configurator selection, icon, sho
 Developers and packages register blueprints through Capell extension points. Core page blueprints, package page blueprints, widgets, page sections, and content blocks all use the same idea: give a model a reusable named configuration that can be discovered, edited, and rendered consistently.
 
 Use [How Capell works](how-capell-works.md#extension-points) for the high-level map, and [Extending Capell](../../packages/core/docs/extending-capell.md#2-page-types-and-component-registration) for developer registration details. That lower-level guide still uses `PageTypeData` because the public extension API names the page subject contract rather than an individual blueprint record.
+
+## Next
+
+- [Build a page](building-pages.md)

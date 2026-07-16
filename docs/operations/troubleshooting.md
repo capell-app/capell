@@ -28,7 +28,7 @@ chmod -R u+rwX storage bootstrap/cache
 
 ## `composer require capell-app/installer` cannot find the package
 
-**Why:** Your app is not using the private Composer credentials or repository configuration supplied for the licensed project.
+**Why:** Composer cannot resolve the package from Packagist. The foundation packages are public and need no credentials, so the usual causes are a stale Composer cache, a custom `repositories` entry shadowing Packagist, or a PHP platform requirement the application does not meet.
 
 **Check:**
 
@@ -37,7 +37,7 @@ composer config repositories
 composer show capell-app/installer --available
 ```
 
-Confirm that the licence and repository access are active, then add the repository entries from the [install guide](../getting-started/install.md#2-configure-private-capell-access). Run:
+Confirm the package name is spelled `capell-app/installer`, that no custom repository entry overrides Packagist, and that the application meets the [install requirements](../getting-started/install.md#requirements). Then run:
 
 ```bash
 composer clear-cache
@@ -154,7 +154,7 @@ If it still fails, add Vite aliases as described in [Tailwind vendor CSS](../fro
 
 **Why:** Your Filament theme is not scanning Capell's Blade views.
 
-**Fix:** Add the Capell sources from [theme compilation](../getting-started/install.md#7-theme-compilation) to `resources/css/filament/admin/theme.css`, then run:
+**Fix:** Add the Capell sources from [themes and frontend assets](../getting-started/install.md#themes-and-frontend-assets) to `resources/css/filament/admin/theme.css`, then run:
 
 ```bash
 npm run build

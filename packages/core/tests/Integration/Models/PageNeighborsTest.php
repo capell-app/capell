@@ -9,7 +9,7 @@ use Capell\Tests\Support\Concerns\TestingFrontend;
 
 uses(TestingFrontend::class);
 
-test('page with neighbors', function (): void {
+it('page with neighbors', function (): void {
     $site = Site::factory()->withTranslations()->create();
 
     $parent = Page::factory()->site($site)->withTranslations()->create();

@@ -7,7 +7,7 @@ use Capell\Core\Support\Patching\PhpFileEditor;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
-test('adds_use_statement_without_reformatting_existing_code', function (): void {
+it('adds_use_statement_without_reformatting_existing_code', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $originalContent = <<<'PHP'
 <?php
@@ -73,7 +73,7 @@ PHP;
     }
 });
 
-test('removes namespaced use statements before admin panel patches rewrite providers', function (): void {
+it('removes namespaced use statements before admin panel patches rewrite providers', function (): void {
     $testProviderPath = temporaryPhpEditorFile(<<<'PHP'
 <?php
 
@@ -119,7 +119,7 @@ PHP);
     }
 });
 
-test('edits global php files with sorted imports and backup copies', function (): void {
+it('edits global php files with sorted imports and backup copies', function (): void {
     $testFilePath = temporaryPhpEditorFile(<<<'PHP'
 <?php
 
@@ -164,7 +164,7 @@ PHP);
     }
 });
 
-test('throws when php file save cannot be written', function (): void {
+it('throws when php file save cannot be written', function (): void {
     $testFilePath = temporaryPhpEditorFile(<<<'PHP'
 <?php
 
@@ -192,7 +192,7 @@ PHP);
     }
 });
 
-test('throws when php file backup cannot read the source file', function (): void {
+it('throws when php file backup cannot read the source file', function (): void {
     $testFilePath = temporaryPhpEditorFile(<<<'PHP'
 <?php
 
@@ -218,7 +218,7 @@ PHP);
     }
 });
 
-test('fails clearly for missing and invalid php files', function (): void {
+it('fails clearly for missing and invalid php files', function (): void {
     expect(fn (): PhpFileEditor => new PhpFileEditor(sys_get_temp_dir() . '/missing-capell-php-editor-file.php'))
         ->toThrow(RuntimeException::class, 'File does not exist');
 

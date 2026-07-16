@@ -28,6 +28,7 @@ class ComponentMacro
                 $this->view($view);
             }
 
+            /** @phpstan-ignore return.type (Laravel rebinds this macro closure to the target Filament Section at runtime.) */
             return $this;
         };
     }

@@ -26,6 +26,7 @@ final class ResolvePendingThemeInstallsAction
                 }
 
                 $intent->status = MarketplaceInstallIntentStatus::Resolved;
+                /** @phpstan-ignore assign.propertyType (The immutable_datetime cast converts Laravel's current-time Carbon value on assignment.) */
                 $intent->resolved_at = now();
                 $intent->save();
 

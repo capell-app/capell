@@ -122,7 +122,7 @@ it('hydrates legacy layouts without groups to the default group', function (): v
     expect($layout->refresh()->group)->toBe(LayoutGroupEnum::Default->value);
 });
 
-test('validates edit layout', function (): void {
+it('validates edit layout', function (): void {
     $layout = Layout::factory()->createOne();
 
     Livewire::test(EditLayout::class, [
@@ -158,7 +158,7 @@ it('can delete', function (): void {
     assertSoftDeleted($layout, ['id' => $layout->id]);
 });
 
-test('can not delete layout if it is used', function (): void {
+it('can not delete layout if it is used', function (): void {
     $layout = Layout::factory()->createOne();
     Page::factory()->layout($layout)->create();
 
@@ -175,7 +175,7 @@ test('can not delete layout if it is used', function (): void {
     assertDatabaseHas($layout, ['id' => $layout->id]);
 });
 
-test('can edit layouts', function (LayoutEnum $layoutEnum): void {
+it('can edit layouts', function (LayoutEnum $layoutEnum): void {
     $layout = resolve(LayoutCreator::class)->create($layoutEnum);
 
     $newData = Layout::factory()->make();

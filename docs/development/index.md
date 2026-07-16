@@ -1,6 +1,5 @@
 # Development
 
-
 Use this page when working in the Capell 1.x host repo or wiring Capell into a Laravel app. Product concepts live in [How Capell works](../getting-started/how-capell-works.md); package-authoring rules live in [Packages](../packages/README.md).
 
 > **Who's this for?** Contributors working inside this monorepo. Local setup, commands, and tests — not needed to install or use Capell ([start here](../getting-started/quickstart.md)).
@@ -70,6 +69,7 @@ Optional-package commands such as `capell:static-site`, `capell:xml-sitemap`, an
 
 | Need                                    | Read                                                   |
 | --------------------------------------- | ------------------------------------------------------ |
+| Apply repository coding conventions     | [Coding standards](../standards/coding-standards.md)   |
 | Decide host vs package vs app ownership | [Host, package, or app code](package-boundaries.md)    |
 | Pick an install path                    | [Install matrix](../getting-started/install-matrix.md) |
 | Configure local repo work               | [Local development](local-development.md)              |

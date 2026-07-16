@@ -199,7 +199,7 @@ class Layout extends Model implements Defaultable, HasMedia, HasMediaContract, S
         $this->addMediaCollection(MediaCollectionEnum::Image->value)->singleFile();
     }
 
-    /** @return MorphOne<Media, self> */
+    /** @return MorphOne<Media, $this> */
     public function image(): MorphOne
     {
         return $this->morphOne(Media::class, 'model')

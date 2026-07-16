@@ -76,7 +76,7 @@ function createScopedUserForListLayoutsTest(SupportCollection $assignedSiteIds):
     return $user;
 }
 
-test('can list layouts', function (): void {
+it('can list layouts', function (): void {
     $layouts = Layout::factory()->count(5)->create();
 
     Livewire::test(ListLayouts::class)
@@ -85,7 +85,7 @@ test('can list layouts', function (): void {
         ->assertCanSeeTableRecords($layouts);
 });
 
-test('renders layouts as cards with expandable container metadata', function (): void {
+it('renders layouts as cards with expandable container metadata', function (): void {
     Storage::fake('public');
 
     $layout = Layout::factory()->createOne([
@@ -132,7 +132,7 @@ test('renders layouts as cards with expandable container metadata', function ():
         ->assertSee(__('capell-admin::table.last_updated'));
 });
 
-test('can search layouts', function (): void {
+it('can search layouts', function (): void {
     $layouts = Layout::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Language(%d)', $sequence->index)])
         ->count(3)
@@ -151,7 +151,7 @@ test('can search layouts', function (): void {
         ->each(fn (Layout $layout) => $component->assertDontSee($layout->name));
 });
 
-test('can sort layouts', function (): void {
+it('can sort layouts', function (): void {
     $layouts = Layout::factory()->count(5)->create();
     $sortedLayoutNames = $layouts->sortBy('name')->pluck('name')->all();
 
@@ -162,7 +162,7 @@ test('can sort layouts', function (): void {
         ->assertSeeInOrder($sortedLayoutNames);
 });
 
-test('can replicate layout', function (): void {
+it('can replicate layout', function (): void {
     $layout = Layout::factory()->createOne();
 
     Livewire::test(ListLayouts::class)
@@ -183,7 +183,7 @@ test('can replicate layout', function (): void {
     ]);
 });
 
-test('groups related site and theme editing actions for layouts', function (): void {
+it('groups related site and theme editing actions for layouts', function (): void {
     $site = Site::factory()->createOne();
     $theme = Theme::factory()->createOne(['name' => 'Layout theme']);
     $layout = Layout::factory()->site($site)->createOne(['theme_id' => $theme->getKey()]);
@@ -205,7 +205,7 @@ test('groups related site and theme editing actions for layouts', function (): v
         ->toContain('edit-site', 'edit-theme');
 });
 
-test('can delete layout', function (): void {
+it('can delete layout', function (): void {
     $layout = Layout::factory()->createOne();
 
     Livewire::test(ListLayouts::class)
@@ -218,7 +218,7 @@ test('can delete layout', function (): void {
     assertSoftDeleted($layout, ['id' => $layout->id]);
 });
 
-test('can group delete layouts', function (): void {
+it('can group delete layouts', function (): void {
     $layouts = Layout::factory()->count(5)->create();
 
     Livewire::test(ListLayouts::class)
@@ -232,7 +232,7 @@ test('can group delete layouts', function (): void {
     }
 });
 
-test('page counts only include assigned sites for non-global users', function (): void {
+it('page counts only include assigned sites for non-global users', function (): void {
     $layout = Layout::factory()->createOne();
     $assignedSite = Site::factory()->createOne();
     $hiddenSite = Site::factory()->createOne();

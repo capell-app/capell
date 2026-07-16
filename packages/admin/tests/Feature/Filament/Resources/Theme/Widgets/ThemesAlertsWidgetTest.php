@@ -20,12 +20,12 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('see livewire component on themes page', function (): void {
+it('see livewire component on themes page', function (): void {
     get(ManageThemes::getUrl())
         ->assertSeeLivewire(ThemesAlertsWidget::class);
 });
 
-test('alerts when default theme is missing', function (): void {
+it('alerts when default theme is missing', function (): void {
     Blueprint::factory()->site()->create();
     Blueprint::factory()->theme()->create();
 
@@ -40,7 +40,7 @@ test('alerts when default theme is missing', function (): void {
         });
 });
 
-test('no alerts when default theme exists', function (): void {
+it('no alerts when default theme exists', function (): void {
     $themeType = Blueprint::factory()->theme()->create();
     Theme::factory()->state(['blueprint_id' => $themeType->id, 'default' => true])->create();
 

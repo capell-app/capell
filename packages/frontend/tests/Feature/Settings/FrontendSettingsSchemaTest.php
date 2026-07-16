@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
 uses(CreatesAdminUser::class)
     ->group('frontend', 'settings');
 
-test('registers frontend settings schema in registry', function (): void {
+it('registers frontend settings schema in registry', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     expect($registry->hasGroup('frontend'))->toBeTrue()
@@ -24,20 +24,20 @@ test('registers frontend settings schema in registry', function (): void {
         ->and($registry->getSchemas('frontend'))->toHaveKey('FrontendSettingsSchema');
 });
 
-test('frontend settings schema implements hasschema contract', function (): void {
+it('frontend settings schema implements hasschema contract', function (): void {
     $interfaces = class_implements(FrontendSettingsSchema::class);
 
     expect($interfaces)->toContain(HasSchema::class);
 });
 
-test('frontend settings schema returns form components', function (): void {
+it('frontend settings schema returns form components', function (): void {
     $schema = Mockery::mock(Schema::class);
     $components = FrontendSettingsSchema::make($schema);
 
     expect($components)->toBeArray();
 });
 
-test('frontend settings fields are grouped inside contained sections', function (): void {
+it('frontend settings fields are grouped inside contained sections', function (): void {
     $schema = Mockery::mock(Schema::class);
     $components = FrontendSettingsSchema::make($schema);
 
@@ -50,14 +50,14 @@ test('frontend settings fields are grouped inside contained sections', function 
     }
 });
 
-test('frontend settings include custom system page toggles', function (): void {
+it('frontend settings include custom system page toggles', function (): void {
     $settings = resolve(FrontendSettings::class);
 
     expect($settings->custom_error_page_enabled)->toBeTrue()
         ->and($settings->custom_maintenance_page_enabled)->toBeTrue();
 });
 
-test('frontend admin settings schema exposes custom system page toggles', function (): void {
+it('frontend admin settings schema exposes custom system page toggles', function (): void {
     $schema = Mockery::mock(Schema::class);
     $components = FrontendSettingsSchema::make($schema);
 

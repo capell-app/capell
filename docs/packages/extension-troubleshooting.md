@@ -34,41 +34,37 @@ Confirm the package service provider is loaded through Composer discovery, the h
 
 ## Package Not Discovered
 
-| Symptom                                                     | Likely cause                                                         | Check                                                                 | Fix                                                                                                                 |
-| ----------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `php artisan list capell` does not show package commands    | Composer autoload or provider discovery is stale                     | `composer show capell-app/<package>` and `composer dump-autoload -o`  | Reinstall/update the package, fix `composer.json` autoload, then clear Laravel and Capell package caches.           |
-| Package appears in Composer but not in Capell package state | `capell.json` is missing, invalid, or not loaded                     | Inspect `capell.json`; run package manifest tests when available      | Fix manifest name, providers, surfaces, and version constraints, then run `php artisan capell:package-cache:clear`. |
-| Install/setup runs but package data is missing              | Install command skipped settings migrations or package setup actions | Check package install command output and `php artisan migrate:status` | Register settings migrations and run setup through Actions rather than writing from providers.                      |
+**Symptom:** the package is installed with Composer, but `php artisan list capell` shows no package commands, or the package never appears in Capell package state.
+
+**Check:**
+
+```bash
+composer show capell-app/<package>
+composer dump-autoload -o
+php artisan capell:package-cache:clear
+```
+
+**Fix:** debug the chain left to right — Composer, autoload, provider discovery, `capell.json` manifest — with [Debugging package discovery](debugging-package-discovery.md).
+
+One symptom is install behavior rather than discovery:
+
+| Symptom                                        | Likely cause                                                          | Check                                                                  | Fix                                                                                            |
+| ---------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Install/setup runs but package data is missing | Install command skipped settings migrations or package setup actions | Check package install command output and `php artisan migrate:status` | Register settings migrations and run setup through Actions rather than writing from providers. |
 
 ## Composer Drift
 
-Composer drift means `capell_extensions` and the current Composer/package registry no longer agree. The Extensions dashboard reports drift as a health alert, but it is read-only: loading `/admin/extensions` must never run `composer require`.
+**Symptom:** the Extensions dashboard shows a drift health alert — `capell_extensions` and the current Composer/package registry no longer agree. The alert is read-only: loading `/admin/extensions` never runs `composer require`.
 
-Capell classifies drift into four reasons:
+**Check:** the drift reason on the dashboard alert, and the latest repair status on `capell_extensions.metadata`.
 
-| Reason                       | What it means                                                                   | Repair path                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Missing registry manifest    | A `capell_extensions` row exists, but the current registry has no manifest      | Review the record manually. The package may have been removed, renamed, or stopped registering metadata. |
-| Composer unavailable         | The registry manifest exists, but Composer does not expose the package          | Run `php artisan capell:extensions:repair-composer-drift vendor/example`.                                |
-| Version mismatch             | Composer exposes a different version than the Capell extension record           | Run the repair command, then verify the extension install/upgrade path if metadata still disagrees.      |
-| Disabled or failed in Capell | Composer exposes the package, but `capell_extensions.status` blocks runtime use | Review status, runtime gate, and recent install/upgrade failures before re-enabling the extension.       |
-
-For one package, run:
+**Fix:** for one Composer-actionable package, run:
 
 ```bash
 php artisan capell:extensions:repair-composer-drift vendor/example
 ```
 
-For scheduled or operator-approved bulk repair, enable the gate first:
-
-```bash
-CAPELL_EXTENSIONS_COMPOSER_DRIFT_AUTO_FIX=true
-php artisan capell:extensions:repair-composer-drift --all
-```
-
-`--all --force` bypasses the config gate for a single manual run. Use it only when you have already reviewed the dashboard alerts and know the drift is Composer-actionable.
-
-The latest repair attempt is recorded on `capell_extensions.metadata` with `composer_drift_last_repair_attempted_at`, `composer_drift_last_repair_status`, `composer_drift_last_repair_message`, and `composer_drift_last_detected_reason`. The dashboard alert includes the latest repair status/message when present.
+For the four drift reasons and their repair paths, see [Composer drift in Debugging package discovery](debugging-package-discovery.md#composer-drift). For bulk repair, the `CAPELL_EXTENSIONS_COMPOSER_DRIFT_AUTO_FIX` gate, `--force`, and the recorded repair metadata, see [`capell:extensions:repair-composer-drift`](../development/artisan-commands.md#capellextensionsrepair-composer-drift).
 
 ## Admin Surface Missing
 

@@ -67,7 +67,7 @@ Keep these views public-safe. Blade should use hydrated data prepared by Capell;
 
 Start every new page with HTML unless the content itself needs structured blocks. Add Layout Builder when the team needs reusable section composition. Reach for a dedicated Blade layout only after the page cannot be expressed as a safe layout and widget composition. That keeps page content simple, shared structure reusable, and bespoke code isolated to the layout that needs it.
 
-## Read next
+## Next
 
 - [Create your first page](create-your-first-page.md) for the page editor workflow.
 - [Block Library](https://docs.capell.app/packages/block-library) for block definitions and package details.

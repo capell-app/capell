@@ -17,7 +17,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 uses(CreatesAdminUser::class)
     ->group('blueprint');
 
-test('page blueprint creator', function (PageTypeEnum $pageTypeEnum): void {
+it('page blueprint creator', function (PageTypeEnum $pageTypeEnum): void {
     $blueprint = resolve(BlueprintCreator::class)->createPageType($pageTypeEnum->value);
 
     expect($blueprint)->toBeInstanceOf(Blueprint::class)
@@ -36,7 +36,7 @@ dataset('pageBlueprintInterceptors', [
 
 // One parameterized test that asserts interceptors are invoked and their admin data is merged
 // into the created Blueprint for all supported page blueprints.
-test('calls registered interceptors before and after creation for page blueprints', function (PageTypeEnum $pageType, string $interceptorClass, array $customAdmin): void {
+it('calls registered interceptors before and after creation for page blueprints', function (PageTypeEnum $pageType, string $interceptorClass, array $customAdmin): void {
     $blueprintModel = Blueprint::class;
     assert(class_exists($interceptorClass));
 
@@ -64,7 +64,7 @@ test('calls registered interceptors before and after creation for page blueprint
 
 // Priority order test: lower priority number runs first; both beforeCreate and afterCreated
 // should execute in ascending priority order. The last beforeCreate return wins.
-test('executes multiple interceptors for the same key in ascending priority', function (): void {
+it('executes multiple interceptors for the same key in ascending priority', function (): void {
     $blueprintModel = Blueprint::class;
     $key = ['key' => PageTypeEnum::Home->value, 'type' => BlueprintSubjectEnum::Page];
 

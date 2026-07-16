@@ -69,7 +69,7 @@ function createScopedUserForListPagesFilamentWidgetTest(SupportCollection $assig
     return $user;
 }
 
-test('see livewire component', function (): void {
+it('see livewire component', function (): void {
     Permission::create(['name' => 'View:ListPagesFilamentWidget', 'guard_name' => 'web']);
 
     test()->actingAsAdmin();

@@ -522,7 +522,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     }
 
     /**
-     * @return HasMany<Page, self>
+     * @return HasMany<Page, $this>
      */
     public function siblings(): HasMany
     {
@@ -532,7 +532,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     /**
      * Explicit children relation for factories and UI.
      *
-     * @return HasMany<Page, self>
+     * @return HasMany<Page, $this>
      */
     public function children(): HasMany
     {
@@ -540,7 +540,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     }
 
     /**
-     * @return BelongsToJson<Page, self>
+     * @return BelongsToJson<Page, $this>
      */
     public function related(): BelongsToJson
     {
@@ -567,14 +567,14 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         $this->addMediaCollection(MediaCollectionEnum::SocialImage->value)->singleFile();
     }
 
-    /** @return MorphOne<Media, self> */
+    /** @return MorphOne<Media, $this> */
     public function image(): MorphOne
     {
         return $this->morphOne(Media::class, 'model')
             ->where('collection_name', MediaCollectionEnum::Image->value);
     }
 
-    /** @return MorphOne<Media, self> */
+    /** @return MorphOne<Media, $this> */
     public function socialImage(): MorphOne
     {
         return $this->morphOne(Media::class, 'model')

@@ -88,3 +88,20 @@ $registry->register('example', ExampleSettingsSchema::class);
 ```
 
 Expose package settings through a Filament page that extends `Capell\Admin\Filament\Pages\AbstractPackageSettingsPage` and register it with `CapellAdmin::registerExtensionPage($packageName, YourPackageSettingsPage::class)`. This adds the page to Filament, lists the package on the Extensions management page with a direct **Edit** action, and adds accessible registered pages to the grouped Filament sub-navigation on the Extensions page. Packages with multiple registered pages use the first page as the primary edit target and show the others as direct secondary links.
+
+Settings schemas should return contained Filament sections:
+
+```php
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
+
+Section::make(__('capell-example::settings.general'))
+    ->columnSpanFull()
+    ->schema([
+        TextInput::make('api_key')
+            ->label(__('capell-example::settings.api_key')),
+    ])
+    ->columns(2);
+```
+
+Do not return bare fields or bare grids from a settings schema. Do not use `contained(false)` around normal fields unless another contained section already provides the background. Labels, helper text, toggles, and inputs must remain readable in both light and dark mode.

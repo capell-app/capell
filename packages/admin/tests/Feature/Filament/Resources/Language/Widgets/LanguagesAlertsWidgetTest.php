@@ -20,12 +20,12 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('see livewire component on languages page', function (): void {
+it('see livewire component on languages page', function (): void {
     get(ManageLanguages::getUrl())
         ->assertSeeLivewire(LanguagesAlertsWidget::class);
 });
 
-test('alerts when default language is missing', function (): void {
+it('alerts when default language is missing', function (): void {
     Blueprint::factory()->site()->create();
 
     Livewire::test(LanguagesAlertsWidget::class)
@@ -39,7 +39,7 @@ test('alerts when default language is missing', function (): void {
         });
 });
 
-test('no alerts when default language exists', function (): void {
+it('no alerts when default language exists', function (): void {
     Language::factory()->default()->create();
 
     Livewire::test(LanguagesAlertsWidget::class)

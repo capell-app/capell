@@ -34,7 +34,9 @@ final class MarketplaceConnectionFormModel
             ->visible(fn (): bool => ExtensionsPage::canManageExtensions())
             ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
             ->disabled(fn (): bool => ! $this->instance() instanceof MarketplaceInstance)
-            ->action(fn (): mixed => $this->runHeartbeat());
+            ->action(function (): void {
+                $this->runHeartbeat();
+            });
     }
 
     public function connectionState(): string
