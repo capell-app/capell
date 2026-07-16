@@ -38,13 +38,14 @@ class BulkRevertToDraftBulkAction extends BulkAction
                     ]));
 
                 if (! empty($result['skipped_pages'])) {
-                    $body = collect($result['skipped_pages'])
-                        ->map(fn (array $row): string => sprintf(
+                    $body = implode("\n", array_map(
+                        fn (array $row): string => sprintf(
                             '• %s — %s',
                             $row['name'],
                             __('capell-admin::bulk_actions.revert_to_draft_reason_' . $row['reason']),
-                        ))
-                        ->implode("\n");
+                        ),
+                        $result['skipped_pages'],
+                    ));
                     $notification->body($body);
                 }
 

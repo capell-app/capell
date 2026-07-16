@@ -48,7 +48,7 @@ it('invokes Laravel Actions through run rather than handle', function (): void {
 
     $violations = [];
     foreach ($contentsByPath as $path => $contents) {
-        preg_match_all('/(?:new\s+(?:[A-Za-z_\\\\]+\\\\)?([A-Za-z_][A-Za-z0-9_]*Action)\s*\([^;]*?\)|(?:app|resolve)\(\s*(?:[A-Za-z_\\\\]+\\\\)?([A-Za-z_][A-Za-z0-9_]*Action)::class\s*\)|([A-Za-z_][A-Za-z0-9_]*Action)::make\s*\([^)]*\))\s*->handle\s*\(/s', $contents, $directMatches, PREG_SET_ORDER);
+        preg_match_all('/(?:new\s+(?:[A-Za-z_\\\\]+\\\\)?([A-Za-z_][A-Za-z0-9_]*Action)\s*\([^;]*?\)|(?:app|resolve)\(\s*(?:[A-Za-z_\\\\]+\\\\)?([A-Za-z_][A-Za-z0-9_]*Action)::class\s*\)|([A-Za-z_][A-Za-z0-9_]*Action)::make\s*\([^)]*\))\s*->handle\s*\(/s', $contents, $directMatches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
 
         foreach ($directMatches as $directMatch) {
             $actionName = $directMatch[1] ?: $directMatch[2] ?: $directMatch[3];
