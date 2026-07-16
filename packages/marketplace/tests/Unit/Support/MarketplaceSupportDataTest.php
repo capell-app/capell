@@ -77,6 +77,22 @@ it('parses health alerts from heartbeat responses', function (): void {
         ->and($result->toArray()['alerts'][0]['signature'])->toBe('signed-alert');
 });
 
+it('preserves the commercial heartbeat contract only when it is an array', function (): void {
+    $commercial = [
+        'purchases' => [['name' => 'Capell Membership', 'status' => 'active']],
+        'renewal_url' => 'https://capell.test/customer/packages',
+    ];
+
+    $result = HeartbeatResultData::fromApiResponse([
+        'instance_id' => 'inst_123',
+        'commercial' => $commercial,
+    ]);
+
+    expect($result->commercial)->toBe($commercial)
+        ->and($result->toArray()['commercial'])->toBe($commercial)
+        ->and(HeartbeatResultData::fromApiResponse(['commercial' => 'invalid'])->commercial)->toBeNull();
+});
+
 it('parses extension detail payloads with conservative collection defaults', function (): void {
     config(['capell-marketplace.marketplace.web_url' => 'https://capell.app']);
 

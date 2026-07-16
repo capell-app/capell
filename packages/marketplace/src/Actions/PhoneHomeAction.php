@@ -114,6 +114,10 @@ final class PhoneHomeAction
                     ['instance_id' => $heartbeatResult->instanceId],
                     [
                         'signing_secret_encrypted' => $signingSecret,
+                        'connection_metadata' => [
+                            ...(is_array($marketplaceInstance?->connection_metadata) ? $marketplaceInstance->connection_metadata : []),
+                            'commercial' => $heartbeatResult->commercial,
+                        ],
                         'last_heartbeat_at' => now(),
                     ],
                 );

@@ -20,6 +20,7 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
     MarketplaceInstance::query()->create([
         'instance_id' => '00000000-0000-4000-8000-000000000001',
         'signing_secret_encrypted' => 'test-signing-secret',
+        'connection_metadata' => ['connection_session_id' => 'session-safe'],
         'last_heartbeat_at' => now(),
     ]);
 
@@ -70,11 +71,23 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
                 'instance_id' => '00000000-0000-4000-8000-000000000001',
                 'updates' => [],
                 'advisories' => [],
+                'commercial' => [
+                    'purchases' => [['name' => 'Capell Membership', 'status' => 'active']],
+                    'renewal_url' => 'https://capell.test/customer/packages',
+                ],
             ],
         ]),
     ]);
 
     expect(PhoneHomeAction::run())->toBeTrue();
+
+    expect(MarketplaceInstance::query()->firstOrFail()->connection_metadata)->toMatchArray([
+        'connection_session_id' => 'session-safe',
+        'commercial' => [
+            'purchases' => [['name' => 'Capell Membership', 'status' => 'active']],
+            'renewal_url' => 'https://capell.test/customer/packages',
+        ],
+    ]);
 
     Http::assertSent(function ($request): bool {
         $payload = $request->data();
