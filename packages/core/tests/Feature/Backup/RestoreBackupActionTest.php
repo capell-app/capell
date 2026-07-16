@@ -6,6 +6,9 @@ use Capell\Core\Actions\Backup\CreateBackupAction;
 use Capell\Core\Actions\Backup\RestoreBackupAction;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Support\Facades\Storage;
+
+use function Orchestra\Testbench\package_path;
+
 use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
@@ -69,7 +72,7 @@ it('restores a verified snapshot only into scratch database and media targets', 
             '--database=' . $result->database,
         )
         ->and($this->doctorProcesses->environments[0])->toBe([
-            'TESTBENCH_WORKING_PATH' => \Orchestra\Testbench\package_path(),
+            'TESTBENCH_WORKING_PATH' => package_path(),
         ]);
 });
 

@@ -7,12 +7,14 @@ use Symfony\Component\Finder\Finder;
 it('uses explicit object and fake traits instead of the Laravel Actions umbrella trait', function (): void {
     $violations = [];
     $actionFiles = 0;
+    $asActionTrait = implode('\\', ['Lorisleiva', 'Actions', 'Concerns', 'AsAction']);
+    $asFakeTrait = implode('\\', ['Lorisleiva', 'Actions', 'Concerns', 'AsFake']);
 
     foreach ((new Finder)->files()->in([dirname(__DIR__, 2) . '/packages', __DIR__ . '/..'])->name('*.php') as $file) {
         $contents = $file->getContents();
 
-        if (str_contains($contents, 'Lorisleiva\\Actions\\Concerns\\AsAction') || preg_match('/\\buse\\s+AsAction\\s*;/', $contents) === 1) {
-            $violations[] = "{$file->getRelativePathname()}: uses AsAction";
+        if (str_contains($contents, $asActionTrait) || preg_match('/\\buse\\s+AsAction\\s*;/', $contents) === 1) {
+            $violations[] = $file->getRelativePathname() . ': uses AsAction';
 
             continue;
         }
@@ -23,8 +25,8 @@ it('uses explicit object and fake traits instead of the Laravel Actions umbrella
 
         $actionFiles++;
 
-        if (! str_contains($contents, 'Lorisleiva\\Actions\\Concerns\\AsFake') || preg_match('/\\buse\\s+AsFake\\s*;/', $contents) !== 1) {
-            $violations[] = "{$file->getRelativePathname()}: AsObject actions must include AsFake";
+        if (! str_contains($contents, $asFakeTrait) || preg_match('/\\buse\\s+AsFake\\s*;/', $contents) !== 1) {
+            $violations[] = $file->getRelativePathname() . ': AsObject actions must include AsFake';
         }
     }
 
@@ -54,15 +56,15 @@ it('invokes Laravel Actions through run rather than handle', function (): void {
             $actionName = $directMatch[1] ?: $directMatch[2] ?: $directMatch[3];
 
             if (isset($actionNames[$actionName])) {
-                $violations[] = "{$path}: directly invokes {$actionName}::handle()";
+                $violations[] = sprintf('%s: directly invokes %s::handle()', $path, $actionName);
             }
         }
 
-        preg_match_all('/\b(?:[A-Za-z_\\\\]+\\\\)?([A-Za-z_][A-Za-z0-9_]*Action)\s+\$([A-Za-z_][A-Za-z0-9_]*)/', $contents, $propertyMatches, PREG_SET_ORDER);
+        preg_match_all('/\b(?:[A-Za-z_\\\\]+\\\\)?([A-Za-z_]\w*Action)\s+\$([A-Za-z_]\w*)/', $contents, $propertyMatches, PREG_SET_ORDER);
 
         foreach ($propertyMatches as $propertyMatch) {
-            if (isset($actionNames[$propertyMatch[1]]) && str_contains($contents, "\$this->{$propertyMatch[2]}->handle(")) {
-                $violations[] = "{$path}: directly invokes {$propertyMatch[1]}::handle()";
+            if (isset($actionNames[$propertyMatch[1]]) && str_contains($contents, sprintf('$this->%s->handle(', $propertyMatch[2]))) {
+                $violations[] = sprintf('%s: directly invokes %s::handle()', $path, $propertyMatch[1]);
             }
         }
     }

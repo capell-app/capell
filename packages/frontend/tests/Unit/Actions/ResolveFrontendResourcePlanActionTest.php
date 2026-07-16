@@ -210,7 +210,7 @@ it('warns about missing external integrity by default and can require it', funct
 
     config()->set('capell-frontend.external_resources.integrity_policy', 'require');
 
-    expect(fn () => ResolveFrontendResourcePlanAction::run([
+    expect(fn (): mixed => ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ]))->toThrow(FrontendResourcePlanException::class, 'requires an integrity hash');
 });

@@ -44,13 +44,20 @@ function pestStylePhpPaths(): array
         );
 
         foreach ($files as $file) {
-            if (! $file->isFile() || $file->getExtension() !== 'php') {
+            if (! $file->isFile()) {
+                continue;
+            }
+
+            if ($file->getExtension() !== 'php') {
                 continue;
             }
 
             $path = $file->getPathname();
+            if ($path === __FILE__) {
+                continue;
+            }
 
-            if ($path === __FILE__ || str_contains($path, '/vendor/')) {
+            if (str_contains((string) $path, '/vendor/')) {
                 continue;
             }
 

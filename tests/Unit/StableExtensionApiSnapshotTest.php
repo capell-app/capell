@@ -10,6 +10,7 @@ it('keeps the pending first-public-release baseline current', function (): void 
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-stable-extension-api.php', '--check'], $root);
     $process->run();
+
     $output = $process->getOutput();
 
     expect($process->getExitCode())->toBe(0)

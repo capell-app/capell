@@ -34,7 +34,11 @@ function frontendProductionPhpPaths(): array
     );
 
     foreach ($files as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php') {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        if ($file->getExtension() !== 'php') {
             continue;
         }
 
