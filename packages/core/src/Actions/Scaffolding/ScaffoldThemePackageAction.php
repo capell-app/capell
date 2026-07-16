@@ -7,12 +7,17 @@ namespace Capell\Core\Actions\Scaffolding;
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
 use Illuminate\Support\Facades\File;
 use JsonException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 
 final class ScaffoldThemePackageAction
 {
+    use AsFake;
+    use AsObject;
+
     /**
      * @throws JsonException
      */

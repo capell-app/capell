@@ -28,14 +28,14 @@ final class OrchestrateInstallAction
         ProgressReporter $reporter,
         InstallOrchestrationHost $host,
     ): void {
-        PreflightExtraPackagesAction::run($inputData->extraPackages, $reporter);
+        $this->preflightExtraPackages->handle($inputData->extraPackages, $reporter);
         $host->prepareApplication($inputData, $reporter);
 
         if ($orchestration->outputPlan) {
             $host->outputPlan($inputData);
         }
 
-        RunInstallAction::run($inputData, $reporter);
+        $this->runInstall->handle($inputData, $reporter);
         $host->upgradeFilament();
 
         if ($orchestration->runNpmBuild) {
@@ -46,7 +46,7 @@ final class OrchestrateInstallAction
             $host->removeInstaller();
         }
 
-        ClearCachesAction::run($orchestration->cachesToClear, $reporter);
+        $this->clearCaches->handle($orchestration->cachesToClear, $reporter);
         $host->reportManualChanges();
         $host->finalizeInstall();
     }
