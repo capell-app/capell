@@ -42,7 +42,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     public function handle(): ReportSnapshotData
     {
-        $installationState = $this->resolveInstallationState->handle();
+        $installationState = ResolveCapellInstallationStateAction::run();
 
         if ($installationState === CapellInstallationState::NotInstalled) {
             return new ReportSnapshotData(
@@ -74,7 +74,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         }
 
         $doctorFindings = [];
-        $doctorChecks = $this->buildDoctorReport->handle(includePackageDoctors: false)->checks;
+        $doctorChecks = BuildDoctorReportAction::run(includePackageDoctors: false)->checks;
 
         foreach ($doctorChecks as $doctorCheck) {
             $finding = $this->findingForFailedCheck($doctorCheck);
