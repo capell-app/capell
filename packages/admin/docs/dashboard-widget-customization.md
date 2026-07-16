@@ -321,17 +321,17 @@ If `canView()` and widget hydration need the same expensive data, put that looku
 
 ## Related Code
 
-| File                                                                                                                                     | Purpose                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`../src/Filament/Pages/CapellDashboard.php`](../src/Filament/Pages/CapellDashboard.php)                                                 | Main dashboard page and date filter.                  |
-| [`../src/Support/CapellAdminManager.php`](../src/Support/CapellAdminManager.php)                                                         | Widget and overview stat registration.                |
-| [`../src/Enums/DashboardEnum.php`](../src/Enums/DashboardEnum.php)                                                                       | Dashboard buckets.                                    |
-| [`../src/Enums/FilamentWidgetEnum.php`](../src/Enums/FilamentWidgetEnum.php)                                                             | Legacy/core built-in widget enum.                     |
-| [`../src/Settings/AdminSettings.php`](../src/Settings/AdminSettings.php)                                                                 | Stored dashboard settings.                            |
-| [`../src/Filament/Settings/Schemas/DashboardSettingsSchema.php`](../src/Filament/Settings/Schemas/DashboardSettingsSchema.php)           | Settings UI metadata aggregation.                     |
-| [`../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php`](../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php)           | Default setting repair/sync.                          |
-| [`../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php`](../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php) | Dashboard layout normalisation.                       |
-| [`../src/Contracts/DashboardSettingsContributor.php`](../src/Contracts/DashboardSettingsContributor.php)                                 | Settings metadata contribution contract.              |
+| File                                                                                                                                     | Purpose                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| [`../src/Filament/Pages/CapellDashboard.php`](../src/Filament/Pages/CapellDashboard.php)                                                 | Main dashboard page and date filter.     |
+| [`../src/Support/CapellAdminManager.php`](../src/Support/CapellAdminManager.php)                                                         | Widget and overview stat registration.   |
+| [`../src/Enums/DashboardEnum.php`](../src/Enums/DashboardEnum.php)                                                                       | Dashboard buckets.                       |
+| [`../src/Enums/FilamentWidgetEnum.php`](../src/Enums/FilamentWidgetEnum.php)                                                             | Legacy/core built-in widget enum.        |
+| [`../src/Settings/AdminSettings.php`](../src/Settings/AdminSettings.php)                                                                 | Stored dashboard settings.               |
+| [`../src/Filament/Settings/Schemas/DashboardSettingsSchema.php`](../src/Filament/Settings/Schemas/DashboardSettingsSchema.php)           | Settings UI metadata aggregation.        |
+| [`../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php`](../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php)           | Default setting repair/sync.             |
+| [`../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php`](../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php) | Dashboard layout normalisation.          |
+| [`../src/Contracts/DashboardSettingsContributor.php`](../src/Contracts/DashboardSettingsContributor.php)                                 | Settings metadata contribution contract. |
 
 ## Next
 
