@@ -105,6 +105,8 @@ Deletion and retention:
 - [Admin tool registry](admin-tool-registry.md)
 - [Dashboard Filament widget customization](dashboard-widget-customization.md)
 - [Event registry](event-registry.md)
+- [Header navigation tree](header-navigation-tree.md)
+- [Marketing Studio](marketing-studio.md)
 - [User resource customization](user-resource-customization.md)
 - [Resource registration](resource-registration.md)
 - [Settings schema registry](settings-schema-registry.md)

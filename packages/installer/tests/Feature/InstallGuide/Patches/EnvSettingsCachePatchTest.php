@@ -6,12 +6,12 @@ use Capell\Core\Support\Patching\EnvFileEditor;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\EnvSettingsCachePatch;
 
-test('probe_returns_unsupported_when_env_file_does_not_exist', function (): void {
+it('probe_returns_unsupported_when_env_file_does_not_exist', function (): void {
     $patch = new EnvSettingsCachePatch;
     expect($patch->probe())->toBeIn([PatchStatus::Applicable, PatchStatus::Unsupported]);
 });
 
-test('probe_returns_applicable_when_settings_cache_key_missing', function (): void {
+it('probe_returns_applicable_when_settings_cache_key_missing', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 
@@ -32,7 +32,7 @@ test('probe_returns_applicable_when_settings_cache_key_missing', function (): vo
     }
 });
 
-test('probe_returns_already_applied_when_settings_cache_enabled_is_true', function (): void {
+it('probe_returns_already_applied_when_settings_cache_enabled_is_true', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nSETTINGS_CACHE_ENABLED=true\n");
 
@@ -46,7 +46,7 @@ test('probe_returns_already_applied_when_settings_cache_enabled_is_true', functi
     }
 });
 
-test('probe_returns_customised_when_settings_cache_enabled_is_false', function (): void {
+it('probe_returns_customised_when_settings_cache_enabled_is_false', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nSETTINGS_CACHE_ENABLED=false\n");
 
@@ -60,7 +60,7 @@ test('probe_returns_customised_when_settings_cache_enabled_is_false', function (
     }
 });
 
-test('apply_adds_settings_cache_enabled_when_missing', function (): void {
+it('apply_adds_settings_cache_enabled_when_missing', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 
@@ -82,7 +82,7 @@ test('apply_adds_settings_cache_enabled_when_missing', function (): void {
     }
 });
 
-test('apply_preserves_other_env_variables', function (): void {
+it('apply_preserves_other_env_variables', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     $originalContent = "APP_NAME=TestApp\nAPP_DEBUG=false\nQUEUE_CONNECTION=database\n";
     file_put_contents($testEnvPath, $originalContent);
@@ -104,7 +104,7 @@ test('apply_preserves_other_env_variables', function (): void {
     }
 });
 
-test('apply_is_idempotent', function (): void {
+it('apply_is_idempotent', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\n");
 
@@ -136,7 +136,7 @@ test('apply_is_idempotent', function (): void {
     }
 });
 
-test('patch_metadata_is_correct', function (): void {
+it('patch_metadata_is_correct', function (): void {
     $patch = new EnvSettingsCachePatch;
 
     expect($patch->id())->toBe('env-settings-cache-patch');

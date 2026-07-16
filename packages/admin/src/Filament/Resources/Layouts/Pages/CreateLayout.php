@@ -46,7 +46,9 @@ class CreateLayout extends CreateRecord
         return [
             $this->getCreateFormAction()
                 ->submit(null)
-                ->action(fn (): mixed => $this->create()),
+                ->action(function (): void {
+                    $this->create();
+                }),
             $this->getCreateAnotherFormAction(),
             $this->getCancelFormAction(),
         ];

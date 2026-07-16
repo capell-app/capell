@@ -10,14 +10,14 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('language');
 
-test('admin can see languages', function (): void {
+it('admin can see languages', function (): void {
     test()->actingAsAdmin();
 
     get(LanguageResource::getUrl())
         ->assertOk();
 });
 
-test('cannot see languages', function (): void {
+it('cannot see languages', function (): void {
     test()->actingAsUser();
 
     get(LanguageResource::getUrl())

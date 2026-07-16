@@ -62,7 +62,7 @@ When you delete a media item, you can see which pages or content items reference
 
 ## Tags and Categories
 
-If the [Blog package](../../../docs/packages.md#blog) is installed, article pages support tagging via Spatie Tags. Tags are managed in the admin under their own resource and can be applied to multiple articles.
+If the [Blog package](../../../docs/packages/catalog.md#extension-catalogue) is installed, article pages support tagging via Spatie Tags. Tags are managed in the admin under their own resource and can be applied to multiple articles.
 
 ---
 
@@ -95,6 +95,6 @@ Anonymous users, signed-in non-admin users, cached HTML, and static exports must
 
 - [Page Management](page-management.md) — hierarchy, URLs, publishing, draft previews
 - [Multi-site & Multi-lingual](multi-site-multi-lingual.md) — per-locale content and URLs
-- [Packages & Add-ons](../../../docs/packages.md) — Blog, Hero
+- [Packages and extensions](../../../docs/packages/catalog.md) — Blog, Hero
 - [Extending Capell](extending-capell.md) — custom content types
 - [Render Hooks](../../frontend/docs/extending-render-hooks.md) — injecting UI into frontend components

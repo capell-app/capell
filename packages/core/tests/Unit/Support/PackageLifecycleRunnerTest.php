@@ -9,6 +9,9 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\InvalidLifecycleAction;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Illuminate\Support\Facades\Artisan;
+
+use function Orchestra\Testbench\package_path;
+
 use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
@@ -122,7 +125,7 @@ it('runs a dynamically installed package command in a fresh process when the cur
             $isTestbenchApplication = str_contains($basePath, 'testbench-skeletons')
                 || str_contains($basePath, '/vendor/orchestra/testbench-core/laravel');
             $expectedEnvironment = $isTestbenchApplication
-                ? ['TESTBENCH_WORKING_PATH' => \Orchestra\Testbench\package_path()]
+                ? ['TESTBENCH_WORKING_PATH' => package_path()]
                 : null;
 
             return $command === [

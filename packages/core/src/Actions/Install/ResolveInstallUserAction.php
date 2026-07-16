@@ -48,6 +48,7 @@ final class ResolveInstallUserAction
                 return $existingUser;
             }
 
+            /** @var Model&Authenticatable $user */
             $user = $userModel::query()->create([
                 'name' => $newUser->name,
                 'email' => $newUser->email,

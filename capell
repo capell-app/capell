@@ -40,6 +40,7 @@ Docker harness commands:
 App container shortcuts:
   composer [args]       Run Composer in the app container
   npm [args]            Run npm in the app container
+  pint [args]           Run Laravel Pint in the app container
   test [args]           Run composer test in the app container
   pest [args]           Run vendor/bin/pest in the app container
   analyze [args]        Run composer analyze in the app container
@@ -106,6 +107,9 @@ case "$command_name" in
         ;;
     npm)
         "${app_exec[@]}" npm "$@"
+        ;;
+    pint)
+        "${app_exec[@]}" vendor/bin/pint "$@"
         ;;
     test)
         "${app_exec[@]}" composer test "$@"

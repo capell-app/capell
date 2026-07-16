@@ -512,7 +512,9 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         return array_values([
             $this->getSaveAndPublishFormAction()
                 ->submit(null)
-                ->action(fn (): mixed => $this->save()),
+                ->action(function (): void {
+                    $this->save();
+                }),
             ...$this->getPageEditExtenderFormActions(),
             $this->getCancelFormAction(),
         ]);

@@ -10,14 +10,14 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('user');
 
-test('admin can see users', function (): void {
+it('admin can see users', function (): void {
     test()->actingAsAdmin();
 
     get(UserResource::getUrl())
         ->assertOk();
 });
 
-test('cannot see users', function (): void {
+it('cannot see users', function (): void {
     test()->actingAsUser();
 
     get(UserResource::getUrl())

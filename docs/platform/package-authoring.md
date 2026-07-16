@@ -105,10 +105,9 @@ php artisan capell:extension-audit packages/example
 
 Marketplace-ready packages should have aligned `composer.json` and `capell.json` names, clear `marketplace` metadata, screenshots where useful, support notes in the README, and a normal Composer install path through Packagist, private Composer, VCS, or another configured repository.
 
-## Read Next
+## Next
 
 - [Packages](../packages/README.md)
-- [How to create a Capell extension](../packages/how-to-create-a-capell-extension.md)
 - [Package anatomy](../packages/package-anatomy.md)
 - [Package checklist](../packages/package-checklist.md)
 - [Extension point chooser](../packages/extension-point-chooser.md)

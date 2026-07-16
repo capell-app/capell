@@ -109,8 +109,6 @@ abstract class AbstractTestCase extends TestCase
 
         Model::shouldBeStrict();
 
-        // $this->app->setLocale('en_GB');
-
         $this->setUpDatabase();
     }
 
@@ -278,7 +276,6 @@ abstract class AbstractTestCase extends TestCase
             $this->registerPackageConfig($package_key, $config);
         }
 
-        // config('filament-shield.register_role_policy.enabled', false);
         Config::set('filament-shield.authenticable-resources', [User::class]);
         Config::set('filament-shield.auth_provider_model', User::class);
 

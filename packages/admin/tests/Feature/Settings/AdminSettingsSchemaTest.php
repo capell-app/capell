@@ -17,7 +17,7 @@ use Spatie\Permission\Models\Permission;
 uses(CreatesAdminUser::class)
     ->group('admin', 'settings');
 
-test('registers admin settings schema in registry', function (): void {
+it('registers admin settings schema in registry', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
 
     expect($registry->hasGroup('admin'))->toBeTrue()
@@ -25,20 +25,20 @@ test('registers admin settings schema in registry', function (): void {
         ->and($registry->getSchemas('admin'))->toHaveKey('AdminSettingsSchema');
 });
 
-test('admin settings schema implements hasschema contract', function (): void {
+it('admin settings schema implements hasschema contract', function (): void {
     $interfaces = class_implements(AdminSettingsSchema::class);
 
     expect($interfaces)->toContain(HasSchema::class);
 });
 
-test('admin settings schema returns form components', function (): void {
+it('admin settings schema returns form components', function (): void {
     $schema = Mockery::mock(Schema::class);
     $components = AdminSettingsSchema::make($schema);
 
     expect($components)->toBeArray();
 });
 
-test('admin settings fields are grouped inside contained sections', function (): void {
+it('admin settings fields are grouped inside contained sections', function (): void {
     $schema = Mockery::mock(Schema::class);
     $components = AdminSettingsSchema::make($schema);
 
@@ -62,7 +62,7 @@ test('admin settings fields are grouped inside contained sections', function ():
         ]);
 });
 
-test('admin settings schema exposes user resource bridge controls', function (): void {
+it('admin settings schema exposes user resource bridge controls', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
@@ -77,7 +77,7 @@ test('admin settings schema exposes user resource bridge controls', function ():
         ->assertFormFieldExists('admin.enable_support_actions_user_bridge');
 });
 
-test('admin settings schema exposes form action position control', function (): void {
+it('admin settings schema exposes form action position control', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
@@ -87,7 +87,7 @@ test('admin settings schema exposes form action position control', function (): 
         ->assertFormFieldExists('admin.form_action_position');
 });
 
-test('admin settings schema exposes header navigation tree control', function (): void {
+it('admin settings schema exposes header navigation tree control', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
@@ -97,7 +97,7 @@ test('admin settings schema exposes header navigation tree control', function ()
         ->assertFormFieldExists('admin.enable_header_navigation_tree');
 });
 
-test('admin settings schema form action position control has translated labels and helper text', function (): void {
+it('admin settings schema form action position control has translated labels and helper text', function (): void {
     $translationKeys = [
         'form_action_position',
         'form_action_position_helper',
@@ -110,13 +110,13 @@ test('admin settings schema form action position control has translated labels a
     }
 });
 
-test('admin settings schema header navigation tree control has translated labels and helper text', function (): void {
+it('admin settings schema header navigation tree control has translated labels and helper text', function (): void {
     foreach (['enable_header_navigation_tree', 'enable_header_navigation_tree_helper'] as $translationKey) {
         expect(__('capell-admin::form.' . $translationKey))->not->toBe('capell-admin::form.' . $translationKey);
     }
 });
 
-test('admin settings schema bridge controls have translated labels and helper text', function (): void {
+it('admin settings schema bridge controls have translated labels and helper text', function (): void {
     $translationKeys = [
         'enable_login_audit_user_bridge',
         'enable_publishing_studio_user_bridge',

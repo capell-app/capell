@@ -10,6 +10,7 @@ it('keeps the pending first-public-release baseline current', function (): void 
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-stable-extension-api.php', '--check'], $root);
     $process->run();
+
     $output = $process->getOutput();
 
     expect($process->getExitCode())->toBe(0)
@@ -40,7 +41,7 @@ it('classifies every compatibility-relevant form of stable drift', function (): 
         'configKeys' => ['capell.renamed'],
     ];
 
-    /** @phpstan-ignore-next-line Function is loaded from the required executable script above. */
+    /** @phpstan-ignore-next-line function.notFound (Function is loaded from the required executable script above.) */
     expect(capellStableApiDrift($baseline, $current))->toBe([
         'removed class: stable.removed',
         'changed public signature: stable.changed',

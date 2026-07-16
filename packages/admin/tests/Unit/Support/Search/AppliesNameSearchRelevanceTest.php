@@ -6,7 +6,7 @@ use Capell\Admin\Tests\Fixtures\Search\NameSearchRelevanceApplier;
 use Capell\Core\Models\Layout;
 use Illuminate\Support\Str;
 
-test('it ranks matching names by relevance while preserving query constraints and selection', function (): void {
+it('it ranks matching names by relevance while preserving query constraints and selection', function (): void {
     Layout::factory()->createOne(['name' => 'Z cap', 'key' => 'z-cap']);
     Layout::factory()->createOne(['name' => 'Y cap', 'key' => 'y-cap']);
     Layout::factory()->createOne(['name' => 'Axx cap', 'key' => 'axx-cap']);
@@ -28,7 +28,7 @@ test('it ranks matching names by relevance while preserving query constraints an
         ->toBeTrue();
 });
 
-test('it binds user supplied search text in relevance ordering', function (): void {
+it('it binds user supplied search text in relevance ordering', function (): void {
     $search = "cap' THEN 0 ELSE 1 END; DROP TABLE layouts; --";
     $query = Layout::query()->where('name', 'like', '%' . $search . '%');
 
@@ -46,7 +46,7 @@ test('it binds user supplied search text in relevance ordering', function (): vo
         ->toContain($searchExpression . '%');
 });
 
-test('it ranks substring matches before non-matches in broadly constrained queries', function (): void {
+it('it ranks substring matches before non-matches in broadly constrained queries', function (): void {
     Layout::factory()->createOne(['name' => 'unrelated', 'key' => 'unrelated']);
     Layout::factory()->createOne(['name' => 'Z cap', 'key' => 'z-cap']);
     Layout::factory()->createOne(['name' => 'cap', 'key' => 'cap']);
@@ -60,7 +60,7 @@ test('it ranks substring matches before non-matches in broadly constrained queri
     expect($names)->toBe(['cap', 'Z cap', 'unrelated']);
 });
 
-test('it ranks SQLite name matches using case-insensitive positions', function (): void {
+it('it ranks SQLite name matches using case-insensitive positions', function (): void {
     Layout::factory()->createOne(['name' => 'Z xxxxxx cAp', 'key' => 'case-variant']);
     Layout::factory()->createOne(['name' => 'A CAP', 'key' => 'exact-case']);
 
@@ -72,7 +72,7 @@ test('it ranks SQLite name matches using case-insensitive positions', function (
     expect($names)->toBe(['A CAP', 'Z xxxxxx cAp']);
 });
 
-test('it generates a driver-compatible substring position expression', function (string $connection, string $expectedFunction): void {
+it('it generates a driver-compatible substring position expression', function (string $connection, string $expectedFunction): void {
     if ($connection === 'relevance-pgsql') {
         config()->set('database.connections.relevance-pgsql', [
             'driver' => 'pgsql',
@@ -99,7 +99,7 @@ test('it generates a driver-compatible substring position expression', function 
     'postgresql' => ['relevance-pgsql', 'STRPOS'],
 ]);
 
-test('it normalizes PostgreSQL relevance comparisons and bindings', function (): void {
+it('it normalizes PostgreSQL relevance comparisons and bindings', function (): void {
     config()->set('database.connections.relevance-pgsql', [
         'driver' => 'pgsql',
         'host' => '127.0.0.1',

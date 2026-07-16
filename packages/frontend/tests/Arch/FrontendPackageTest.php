@@ -18,7 +18,3 @@ it('Site package to be standalone')
 it('Frontend package must not reference FoundationTheme')
     ->expect('Capell\Frontend')
     ->not()->toUse(['Capell\FoundationTheme']);
-
-/*it('Components should not use test()->')
-    ->expect('packages/frontend/resources/views/components')
-    ->not()->toUse('test()->');*/

@@ -28,7 +28,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('can list types', function (): void {
+it('can list types', function (): void {
     $types = Blueprint::factory()->count(5)->create();
 
     Livewire::test(ManageBlueprints::class)
@@ -37,7 +37,7 @@ test('can list types', function (): void {
         ->assertCanSeeTableRecords($types);
 });
 
-test('can filter type', function (): void {
+it('can filter type', function (): void {
     Blueprint::factory()->page()->create();
 
     $types = Blueprint::factory()->site()->count(5)->create();
@@ -50,7 +50,7 @@ test('can filter type', function (): void {
         ->assertCountTableRecords(1);
 });
 
-test('can search types', function (): void {
+it('can search types', function (): void {
     $types = Blueprint::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Blueprint(%d)', $sequence->index)])
         ->count(3)
@@ -67,7 +67,7 @@ test('can search types', function (): void {
         ->assertCanNotSeeTableRecords($types->where('name', '!=', $name));
 });
 
-test('ranks blueprint name matches before key matches', function (): void {
+it('ranks blueprint name matches before key matches', function (): void {
     $search = 'capell-blueprint-table-relevance';
 
     $nameMatch = Blueprint::factory()->createOne([
@@ -85,7 +85,7 @@ test('ranks blueprint name matches before key matches', function (): void {
         ->assertCanSeeTableRecords([$nameMatch, $keyMatch], inOrder: true);
 });
 
-test('keeps explicit blueprint table sorting ahead of search relevance', function (): void {
+it('keeps explicit blueprint table sorting ahead of search relevance', function (): void {
     $search = 'capell-blueprint-table-explicit-sort';
 
     $nameMatch = Blueprint::factory()->createOne([
@@ -104,7 +104,7 @@ test('keeps explicit blueprint table sorting ahead of search relevance', functio
         ->assertCanSeeTableRecords([$keyMatch, $nameMatch], inOrder: true);
 });
 
-test('can sort types', function (): void {
+it('can sort types', function (): void {
     $types = Blueprint::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Blueprint(%02d)', $sequence->index)])
         ->count(10)
@@ -119,7 +119,7 @@ test('can sort types', function (): void {
         ->assertCanSeeTableRecords($sorted, inOrder: true);
 });
 
-test('can replicate type', function (): void {
+it('can replicate type', function (): void {
     $type = Blueprint::factory()->createOne();
 
     Livewire::test(ManageBlueprints::class)
@@ -142,7 +142,7 @@ test('can replicate type', function (): void {
     ]);
 });
 
-test('can create type', function (BlueprintSubjectEnum $type): void {
+it('can create type', function (BlueprintSubjectEnum $type): void {
     $record = Blueprint::factory()->make();
 
     $hasTypeConfigurator = AdminSurfaceLookup::hasConfigurator(ConfiguratorTypeEnum::Blueprint, $type->getKey());
@@ -173,7 +173,7 @@ test('can create type', function (BlueprintSubjectEnum $type): void {
     ]);
 })->with(BlueprintSubjectEnum::cases());
 
-test('can create basic type from the primary create action', function (): void {
+it('can create basic type from the primary create action', function (): void {
     Livewire::test(ManageBlueprints::class)
         ->assertSuccessful()
         ->assertActionExists('create')
@@ -205,7 +205,7 @@ test('can create basic type from the primary create action', function (): void {
         ->and($type->meta)->toBeNull();
 });
 
-test('basic type creation shows editor fields and keeps developer settings behind custom mode', function (): void {
+it('basic type creation shows editor fields and keeps developer settings behind custom mode', function (): void {
     Livewire::test(ManageBlueprints::class)
         ->assertSuccessful()
         ->mountAction('create')
@@ -232,7 +232,7 @@ function mutateCreateBlueprintActionData(array $data): array
     return $method->invoke(CreateBlueprintAction::make('create'), $data);
 }
 
-test('can create and edit page blueprints with admin and frontend meta fields', function (): void {
+it('can create and edit page blueprints with admin and frontend meta fields', function (): void {
     Livewire::test(ManageBlueprints::class)
         ->assertSuccessful()
         ->mountAction('create')
@@ -300,7 +300,7 @@ test('can create and edit page blueprints with admin and frontend meta fields', 
         ]);
 });
 
-test('can edit database-backed page type fields from the admin form', function (): void {
+it('can edit database-backed page type fields from the admin form', function (): void {
     $type = Blueprint::factory()->page()->create([
         'name' => 'Original landing page',
         'key' => 'original-landing-page',
@@ -406,7 +406,7 @@ test('can edit database-backed page type fields from the admin form', function (
         ->status->toBeFalse();
 });
 
-test('hydrates the default admin configurator when editing a created type', function (): void {
+it('hydrates the default admin configurator when editing a created type', function (): void {
     Blueprint::query()->create(mutateCreateBlueprintActionData([
         'creation_mode' => BlueprintCreationModeEnum::Basic->value,
         'type' => BlueprintSubjectEnum::Page->value,
@@ -426,7 +426,7 @@ test('hydrates the default admin configurator when editing a created type', func
         ]);
 });
 
-test('can not create type', function (BlueprintSubjectEnum $type): void {
+it('can not create type', function (BlueprintSubjectEnum $type): void {
     Livewire::test(ManageBlueprints::class)
         ->assertSuccessful()
         ->callAction(
@@ -445,7 +445,7 @@ test('can not create type', function (BlueprintSubjectEnum $type): void {
         ->assertCountTableRecords(0);
 })->with(BlueprintSubjectEnum::cases());
 
-test('can update type', function (BlueprintSubjectEnum $typeEnum): void {
+it('can update type', function (BlueprintSubjectEnum $typeEnum): void {
     $type = Blueprint::factory()
         ->type($typeEnum)
         ->when(
@@ -473,7 +473,7 @@ test('can update type', function (BlueprintSubjectEnum $typeEnum): void {
         ->key->toBe($newType->key);
 })->with(BlueprintSubjectEnum::cases());
 
-test('can not update page role restrictions without the manage restrictions permission', function (): void {
+it('can not update page role restrictions without the manage restrictions permission', function (): void {
     Permission::findOrCreate(CapellPermission::ManagePageRestrictions->name());
 
     $role = Role::findOrCreate('client_editor');
@@ -505,7 +505,7 @@ test('can not update page role restrictions without the manage restrictions perm
     expect($type->refresh()->getRestrictedRoleIds()->all())->toBe([]);
 });
 
-test('can update page role restrictions with the manage restrictions permission', function (): void {
+it('can update page role restrictions with the manage restrictions permission', function (): void {
     Permission::findOrCreate(CapellPermission::ManagePageRestrictions->name());
 
     $role = Role::findOrCreate('client_editor');
@@ -538,7 +538,7 @@ test('can update page role restrictions with the manage restrictions permission'
     expect($type->refresh()->getRestrictedRoleIds()->all())->toBe([$role->getKey()]);
 });
 
-test('can update whether page layouts are editable', function (): void {
+it('can update whether page layouts are editable', function (): void {
     $type = Blueprint::factory()
         ->page()
         ->adminTypeConfigurator('page')
@@ -568,7 +568,7 @@ test('can update whether page layouts are editable', function (): void {
         ->getMeta('layout_editable')->toBeFalse();
 });
 
-test('can not update type', function (): void {
+it('can not update type', function (): void {
     $type = Blueprint::factory()->createOne();
 
     Livewire::test(ManageBlueprints::class)
@@ -587,7 +587,7 @@ test('can not update type', function (): void {
         ]);
 });
 
-test('can delete type', function (): void {
+it('can delete type', function (): void {
     $type = Blueprint::factory()->createOne();
 
     Livewire::test(ManageBlueprints::class)
@@ -600,7 +600,7 @@ test('can delete type', function (): void {
     assertSoftDeleted($type, ['id' => $type->id]);
 });
 
-test('can group delete types', function (): void {
+it('can group delete types', function (): void {
     $types = Blueprint::factory()->count(5)->create();
 
     Livewire::test(ManageBlueprints::class)

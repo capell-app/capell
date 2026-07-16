@@ -23,21 +23,21 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('page');
 
-test('admin can see pages', function (): void {
+it('admin can see pages', function (): void {
     test()->actingAsAdmin();
 
     get(PageResource::getUrl())
         ->assertOk();
 });
 
-test('cannot see pages', function (): void {
+it('cannot see pages', function (): void {
     test()->actingAsUser();
 
     get(PageResource::getUrl())
         ->assertForbidden();
 });
 
-test('admin cannot create page without a site', function (): void {
+it('admin cannot create page without a site', function (): void {
     test()->actingAsAdmin();
 
     Language::factory()->default()->create();
@@ -47,7 +47,7 @@ test('admin cannot create page without a site', function (): void {
         ->assertRedirectToRoute(CreateSite::getRouteName());
 });
 
-test('admin can see create page', function (): void {
+it('admin can see create page', function (): void {
     test()->actingAsAdmin();
 
     $language = Language::factory()->default()->create();
@@ -62,7 +62,7 @@ test('admin can see create page', function (): void {
         ->assertOk();
 });
 
-test('admin can see edit page', function (): void {
+it('admin can see edit page', function (): void {
     test()->actingAsAdmin();
 
     get(PageResource::getUrl('edit', ['record' => Page::factory()->createOne()]))
@@ -89,7 +89,7 @@ it('applies page resource defaults and extension widgets for the admin surface',
             return [
                 TestDashboardFilamentWidgetForRegistrar::class,
                 stdClass::class,
-                /** @phpstan-ignore class.notFound */
+                /** @phpstan-ignore class.notFound (A missing widget class is the invalid registration scenario under test.) */
                 Widget::class,
             ];
         }

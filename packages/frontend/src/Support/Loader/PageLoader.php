@@ -445,7 +445,7 @@ class PageLoader
                 ->when(
                     $page instanceof Page,
                     fn (Builder $query): Builder => $query
-                        // @phpstan-ignore method.notFound
+                        // @phpstan-ignore method.notFound (The local Page scope is unavailable on the generic Builder contract.)
                         ->notHomePage()
                         ->ordered($direction === 'next' ? 'asc' : 'desc'),
                 )

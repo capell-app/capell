@@ -10,14 +10,14 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('theme');
 
-test('admin can see themes', function (): void {
+it('admin can see themes', function (): void {
     test()->actingAsAdmin();
 
     get(ThemeResource::getUrl())
         ->assertOk();
 });
 
-test('cannot see themes', function (): void {
+it('cannot see themes', function (): void {
     test()->actingAsUser();
 
     get(ThemeResource::getUrl())

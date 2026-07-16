@@ -1466,7 +1466,7 @@ it('does not document extension authoring on the extensions page', function (): 
     Livewire::test(ExtensionsPage::class)
         ->assertSuccessful()
         ->assertDontSee('Need to add a capability? Create a Capell extension.')
-        ->assertDontSee('https://docs.capell.app/packages/how-to-create-a-capell-extension');
+        ->assertDontSee('https://docs.capell.app/packages/build-extension-end-to-end');
 });
 
 it('registers package owned extension pages without extension groups', function (): void {

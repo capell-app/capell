@@ -11,21 +11,21 @@ use function Pest\Laravel\get;
 uses(CreatesAdminUser::class)
     ->group('type');
 
-test('admin can see blueprints', function (): void {
+it('admin can see blueprints', function (): void {
     test()->actingAsAdmin();
 
     get(BlueprintResource::getUrl())
         ->assertOk();
 });
 
-test('cannot see blueprints', function (): void {
+it('cannot see blueprints', function (): void {
     test()->actingAsUser();
 
     get(BlueprintResource::getUrl())
         ->assertForbidden();
 });
 
-test('uses blueprint labels', function (): void {
+it('uses blueprint labels', function (): void {
     test()->actingAsAdmin();
 
     get(BlueprintResource::getUrl())

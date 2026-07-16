@@ -186,7 +186,7 @@ final class BuildThemeDoctorReportAction
                 }
             }
         } catch (Throwable) {
-            //
+            // Runtime provider bootstrapping is best-effort; the registry check reports the failed registration.
         }
     }
 }

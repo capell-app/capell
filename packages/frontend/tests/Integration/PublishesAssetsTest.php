@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\ServiceProvider;
 
-test('capell-frontend assets publish under both the capell tag and the laravel-assets group', function (): void {
+it('capell-frontend assets publish under both the capell tag and the laravel-assets group', function (): void {
     $target = public_path('vendor/capell-frontend');
 
     expect(ServiceProvider::$publishGroups)
@@ -20,7 +20,7 @@ test('capell-frontend assets publish under both the capell tag and the laravel-a
         ->toContain($target);
 });
 
-test('capell-frontend published build includes the default theme css entry', function (): void {
+it('capell-frontend published build includes the default theme css entry', function (): void {
     $manifest = json_decode(
         file_get_contents(__DIR__ . '/../../publishes/build/manifest.json') ?: '[]',
         true,

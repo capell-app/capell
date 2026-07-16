@@ -812,11 +812,11 @@ class PagesTable implements TableConfigurator
      */
     protected static function filtersForNames(array $filters, array $names): array
     {
-        return collect($names)
+        return array_values(collect($names)
             ->map(fn (string $name): mixed => $filters[$name] ?? null)
             ->filter()
             ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -826,10 +826,10 @@ class PagesTable implements TableConfigurator
      */
     protected static function remainingFilters(array $filters, array $handledNames): array
     {
-        return collect($filters)
+        return array_values(collect($filters)
             ->except($handledNames)
             ->values()
-            ->all();
+            ->all());
     }
 
     /**

@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelNavigationPatch;
 
-test('probe_detects_the_workbench_admin_panel_provider_state', function (): void {
+it('probe_detects_the_workbench_admin_panel_provider_state', function (): void {
     $patch = new AdminPanelNavigationPatch;
     expect($patch->probe())->toBeIn([
         PatchStatus::AlreadyApplied,
@@ -14,13 +14,13 @@ test('probe_detects_the_workbench_admin_panel_provider_state', function (): void
     ]);
 });
 
-test('probe_returns_applicable_when_both_navigation_methods_missing', function (): void {
+it('probe_returns_applicable_when_both_navigation_methods_missing', function (): void {
     $patch = new AdminPanelNavigationPatch;
     // Verify the patch can be instantiated
     expect($patch)->toBeInstanceOf(AdminPanelNavigationPatch::class);
 });
 
-test('probe_returns_already_applied_when_both_methods_present', function (): void {
+it('probe_returns_already_applied_when_both_methods_present', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $providerWithNavigation = <<<'PHP'
 <?php
@@ -60,7 +60,7 @@ PHP;
     }
 });
 
-test('probe_returns_customised_when_only_navigationItems_present', function (): void {
+it('probe_returns_customised_when_only_navigationItems_present', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $providerWithPartialNavigation = <<<'PHP'
 <?php
@@ -98,7 +98,7 @@ PHP;
     }
 });
 
-test('probe_returns_customised_when_only_navigationGroups_present', function (): void {
+it('probe_returns_customised_when_only_navigationGroups_present', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $providerWithPartialNavigation = <<<'PHP'
 <?php
@@ -136,7 +136,7 @@ PHP;
     }
 });
 
-test('probe_returns_customised_when_panel_has_multiple_statements', function (): void {
+it('probe_returns_customised_when_panel_has_multiple_statements', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $customProvider = <<<'PHP'
 <?php
@@ -173,7 +173,7 @@ PHP;
     }
 });
 
-test('probe_returns_unsupported_when_panel_method_missing', function (): void {
+it('probe_returns_unsupported_when_panel_method_missing', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $providerWithoutPanel = <<<'PHP'
 <?php
@@ -201,7 +201,7 @@ PHP;
     }
 });
 
-test('patch_metadata_is_correct', function (): void {
+it('patch_metadata_is_correct', function (): void {
     $patch = new AdminPanelNavigationPatch;
 
     expect($patch->id())->toBe('admin-panel-navigation-patch');

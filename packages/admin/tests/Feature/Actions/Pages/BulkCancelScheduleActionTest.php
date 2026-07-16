@@ -10,7 +10,7 @@ use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
 
-test('clears future visible_from / visible_until and preserves past values', function (): void {
+it('clears future visible_from / visible_until and preserves past values', function (): void {
     Permission::query()->firstOrCreate(['name' => 'Update:Page', 'guard_name' => 'web']);
     $pendingPublish = Page::factory()->createOne([
         'visible_from' => now()->addWeek(),

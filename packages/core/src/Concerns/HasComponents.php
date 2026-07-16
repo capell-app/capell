@@ -296,7 +296,7 @@ trait HasComponents
         try {
             Artisan::call('filament:clear-cached-components');
         } catch (Throwable) {
-            //
+            // Cache cleanup is best-effort because Filament may not be registered in every host application.
         }
     }
 }

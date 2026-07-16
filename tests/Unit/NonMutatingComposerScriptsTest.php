@@ -28,7 +28,22 @@ it('keeps documented Composer check scripts recursively non-mutating', function 
             ->not->toContain('capell:install')
             ->not->toContain('migrate:fresh');
     }
-})->with(['preflight', 'preflight:all']);
+})->with(['preflight']);
+
+it('applies Rector transformations during the full preflight', function (): void {
+    $composer = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+    $scripts = $composer['scripts'] ?? [];
+    $commands = expandComposerCheckScript('preflight:all', $scripts);
+    $rectorCommands = array_values(array_filter(
+        $commands,
+        static fn (string $command): bool => str_contains(strtolower($command), 'vendor/bin/rector'),
+    ));
+
+    expect($rectorCommands)
+        ->toHaveCount(1)
+        ->and(strtolower($rectorCommands[0]))
+        ->not->toContain('--dry-run');
+});
 
 /**
  * @param  array<string, string|list<string>>  $scripts

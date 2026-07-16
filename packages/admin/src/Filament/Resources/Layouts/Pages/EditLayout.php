@@ -114,7 +114,9 @@ class EditLayout extends EditRecord implements ValidatesDelete
         return [
             $this->getSaveFormAction()
                 ->submit(null)
-                ->action(fn (): mixed => $this->save()),
+                ->action(function (): void {
+                    $this->save();
+                }),
             $this->getCancelFormAction(),
         ];
     }

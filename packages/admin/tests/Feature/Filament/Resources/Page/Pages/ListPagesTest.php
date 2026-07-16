@@ -48,7 +48,7 @@ afterEach(function (): void {
     CarbonImmutable::setTestNow();
 });
 
-test('supports common page table controls', function (): void {
+it('supports common page table controls', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()
         ->recycle($language)
@@ -107,7 +107,7 @@ test('supports common page table controls', function (): void {
     // ->assertTableColumnStateSet('translation.title', state: $page->translation->title, record: $page)
 });
 
-test('shows normal pages by default and keeps system pages behind the advanced filter', function (): void {
+it('shows normal pages by default and keeps system pages behind the advanced filter', function (): void {
     $defaultType = Blueprint::factory()
         ->page()
         ->createOne(['group' => null, 'name' => 'Default page']);
@@ -137,7 +137,7 @@ test('shows normal pages by default and keeps system pages behind the advanced f
         ->assertCanNotSeeTableRecords([$systemPage]);
 });
 
-test('offers a guided page type chooser while keeping quick create available', function (): void {
+it('offers a guided page type chooser while keeping quick create available', function (): void {
     $landingType = Blueprint::factory()
         ->page()
         ->default()
@@ -174,7 +174,7 @@ test('offers a guided page type chooser while keeping quick create available', f
         ->assertMountedActionModalDontSee($disabledType->name);
 });
 
-test('can show all pages or only system pages through the system pages filter', function (): void {
+it('can show all pages or only system pages through the system pages filter', function (): void {
     $defaultType = Blueprint::factory()
         ->page()
         ->createOne(['group' => null, 'name' => 'Default page']);
@@ -209,7 +209,7 @@ test('can show all pages or only system pages through the system pages filter', 
         ->assertCanNotSeeTableRecords([$defaultPage, $marketingPage]);
 });
 
-test('site tab badges follow the system pages filter', function (): void {
+it('site tab badges follow the system pages filter', function (): void {
     Cache::flush();
 
     $defaultType = Blueprint::factory()
@@ -254,7 +254,7 @@ test('site tab badges follow the system pages filter', function (): void {
         ->and(Cache::has(CacheEnum::siteTabs(Site::class, 'pages')))->toBeFalse();
 });
 
-test('renders page summary and publish status in the pages table', function (): void {
+it('renders page summary and publish status in the pages table', function (): void {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-23 09:00:00'));
 
     $parent = Page::factory()->createOne(['name' => 'Parent page']);
@@ -297,7 +297,7 @@ test('renders page summary and publish status in the pages table', function (): 
     expect($component->instance()->isTableColumnToggledHidden('blueprint.name'))->toBeFalse();
 });
 
-test('groups related page record actions', function (): void {
+it('groups related page record actions', function (): void {
     $page = Page::factory()->createOne();
     $pageName = $page->name;
     $blueprintName = 'Updated page type';
@@ -329,7 +329,7 @@ test('groups related page record actions', function (): void {
         ->and($page->blueprint->refresh()->name)->toBe($blueprintName);
 });
 
-test('hides blueprint editing from page listers without blueprint update permission', function (): void {
+it('hides blueprint editing from page listers without blueprint update permission', function (): void {
     $page = Page::factory()->createOne();
     Permission::findOrCreate('ViewAny:Page');
 
@@ -345,7 +345,7 @@ test('hides blueprint editing from page listers without blueprint update permiss
         ->assertTableActionHidden('edit-blueprint', record: $page);
 });
 
-test('shows blueprint editing to page listers with blueprint update permission', function (): void {
+it('shows blueprint editing to page listers with blueprint update permission', function (): void {
     $page = Page::factory()->createOne();
     Permission::findOrCreate('ViewAny:Page');
     Permission::findOrCreate(ResourceEnum::Blueprint->permission('update'));
@@ -364,7 +364,7 @@ test('shows blueprint editing to page listers with blueprint update permission',
         ->assertTableActionVisible('edit-blueprint', record: $page);
 });
 
-test('loads optional page table relations only when their columns are visible', function (): void {
+it('loads optional page table relations only when their columns are visible', function (): void {
     $parent = Page::factory()->createOne(['name' => 'Optional relation parent']);
     $page = Page::factory()
         ->parent($parent)
@@ -403,7 +403,7 @@ test('loads optional page table relations only when their columns are visible', 
         ->and($expandedRecord->relationLoaded('editor'))->toBeTrue();
 });
 
-test('resolves visit action url for the filtered page language', function (): void {
+it('resolves visit action url for the filtered page language', function (): void {
     $english = Language::factory()->english()->create();
     $french = Language::factory()->french()->create();
 
@@ -436,7 +436,7 @@ test('resolves visit action url for the filtered page language', function (): vo
         ->assertTableActionVisible(VisitUrlAction::getDefaultName(), record: $page);
 });
 
-test('hides visit action when the page url has no active site domain', function (): void {
+it('hides visit action when the page url has no active site domain', function (): void {
     $language = Language::factory()->english()->create();
     $site = Site::factory()
         ->language($language)
@@ -459,7 +459,7 @@ test('hides visit action when the page url has no active site domain', function 
         ->assertTableActionHidden(VisitUrlAction::getDefaultName(), record: $page);
 });
 
-test('renders compact page health indicators in the page summary', function (): void {
+it('renders compact page health indicators in the page summary', function (): void {
     $page = Page::factory()->createOne(['name' => 'Needs work page']);
 
     $page->pageUrls()->delete();
@@ -474,7 +474,7 @@ test('renders compact page health indicators in the page summary', function (): 
         ->assertTableActionHidden(VisitUrlAction::getDefaultName(), record: $page);
 });
 
-test('page table status can be supplied by a package resolver', function (): void {
+it('page table status can be supplied by a package resolver', function (): void {
     $visiblePage = Page::factory()->createOne(['name' => 'Visible workflow page']);
     Page::factory()->createOne(['name' => 'Hidden workflow page']);
 
@@ -512,7 +512,7 @@ test('page table status can be supplied by a package resolver', function (): voi
         ->assertSee('Workflow package supplied this status.');
 });
 
-test('escapes page urls before rendering links', function (): void {
+it('escapes page urls before rendering links', function (): void {
     $page = Page::factory()->createOne();
 
     PageUrl::factory()
@@ -528,7 +528,7 @@ test('escapes page urls before rendering links', function (): void {
         ->assertSeeHtml('&lt;script&gt;alert(1)&lt;/script&gt;');
 });
 
-test('escapes page names before rendering table links', function (): void {
+it('escapes page names before rendering table links', function (): void {
     Page::factory()->createOne(['name' => 'Page <script>alert(1)</script>']);
 
     Livewire::test(ListPages::class)
@@ -537,7 +537,7 @@ test('escapes page names before rendering table links', function (): void {
         ->assertSeeHtml('Page &lt;script&gt;alert(1)&lt;/script&gt;');
 });
 
-test('can delete page', function (): void {
+it('can delete page', function (): void {
     $page = Page::factory()->createOne();
 
     Livewire::test(ListPages::class)
@@ -548,7 +548,7 @@ test('can delete page', function (): void {
     assertSoftDeleted($page, ['id' => $page->id]);
 });
 
-test('can group delete pages', function (): void {
+it('can group delete pages', function (): void {
     $pages = Page::factory()->count(5)->create();
 
     Livewire::test(ListPages::class)
@@ -562,7 +562,7 @@ test('can group delete pages', function (): void {
     }
 });
 
-test('can replicate page', function (): void {
+it('can replicate page', function (): void {
     $page = Page::factory()->createOne();
 
     Livewire::test(ListPages::class)
