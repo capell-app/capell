@@ -504,7 +504,7 @@ final class ReleaseEngine
         foreach ($packages as &$package) {
             foreach ($package['direct_capell_dependencies'] as $dependency) {
                 $planned = current(array_filter($packages, fn (array $item): bool => $item['name'] === $dependency));
-                $priorLedger = $previous === null ? $externalLedger : [...($previous['external_ledger'] ?? []), ...$previous['ledger']];
+                $priorLedger = $previous === null ? $externalLedger : [...$externalLedger, ...$previous['ledger']];
                 $prior = current(array_filter($priorLedger, fn (array $item): bool => $item['name'] === $dependency));
                 $package['resolved_minimum_versions'][$dependency] = $planned['proposed_version'] ?? $prior['version'];
             }
