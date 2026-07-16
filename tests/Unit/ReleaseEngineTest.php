@@ -26,7 +26,7 @@ it('captures large output from both process streams without blocking', function 
 
     expect($result['exitCode'])->toBe(0)
         ->and($result['output'])->toHaveLength(120000)
-        ->and($result['error'])->toHaveLength(100000);
+        ->and($result['error'] ?? '')->toHaveLength(100000);
 });
 
 it('orders direct dependencies before consumers', function (): void {
