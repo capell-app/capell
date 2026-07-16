@@ -112,7 +112,7 @@
                                             <p
                                                 class="text-xs text-gray-600 dark:text-gray-300"
                                             >
-                                                {{ __('capell-marketplace::marketplace.marketplace.commercial.access_ends', ['date' => Carbon::parse(data_get($purchase, 'access_ends_at'))->toFormattedDateString()]) }}
+                                                {{ __('capell-marketplace::marketplace.marketplace.commercial.access_ends', ['date' => date_create_immutable((string) data_get($purchase, 'access_ends_at'))->format('M j, Y')]) }}
                                             </p>
                                         @endif
                                     </div>
