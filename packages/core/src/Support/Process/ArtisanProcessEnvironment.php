@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Process;
 
+use function Orchestra\Testbench\package_path;
+
 final class ArtisanProcessEnvironment
 {
     /**
@@ -20,7 +22,7 @@ final class ArtisanProcessEnvironment
         }
 
         $workingPath = function_exists('Orchestra\\Testbench\\package_path')
-            ? \Orchestra\Testbench\package_path()
+            ? package_path()
             : dirname(__DIR__, 5);
 
         return array_merge($environment ?? [], [

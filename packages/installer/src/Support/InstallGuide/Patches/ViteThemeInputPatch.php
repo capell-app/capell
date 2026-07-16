@@ -74,16 +74,12 @@ final class ViteThemeInputPatch implements Patch
 
     public function apply(): void
     {
-        if ($this->probe() !== PatchStatus::Applicable) {
-            throw new RuntimeException('The Vite theme input patch is not applicable.');
-        }
+        throw_if($this->probe() !== PatchStatus::Applicable, RuntimeException::class, 'The Vite theme input patch is not applicable.');
 
         $viteConfigPath = base_path(self::VITE_CONFIG_PATH);
         $contents = file_get_contents($viteConfigPath);
 
-        if (! is_string($contents)) {
-            throw new RuntimeException('Could not read vite.config.js.');
-        }
+        throw_unless(is_string($contents), RuntimeException::class, 'Could not read vite.config.js.');
 
         $updatedContents = preg_replace_callback(
             '/(\binput\s*:\s*\[)([^\]]*?)(\])/s',
@@ -97,13 +93,9 @@ final class ViteThemeInputPatch implements Patch
             1,
         );
 
-        if (! is_string($updatedContents) || $updatedContents === $contents) {
-            throw new RuntimeException('Could not register the Filament theme in vite.config.js.');
-        }
+        throw_if(! is_string($updatedContents) || $updatedContents === $contents, RuntimeException::class, 'Could not register the Filament theme in vite.config.js.');
 
-        if (file_put_contents($viteConfigPath, $updatedContents) === false) {
-            throw new RuntimeException('Could not write vite.config.js.');
-        }
+        throw_if(file_put_contents($viteConfigPath, $updatedContents) === false, RuntimeException::class, 'Could not write vite.config.js.');
     }
 
     private function inputArrayMatches(string $contents): bool
