@@ -388,11 +388,11 @@ it('defines the paid root package as the aggregate of the public foundation', fu
             'Capell\\Marketplace\\',
         ])
         ->and($manifest['extra']['laravel']['providers'])->toContain(
-            'Capell\\Core\\Providers\\CapellServiceProvider',
-            'Capell\\Admin\\Providers\\AdminServiceProvider',
-            'Capell\\Frontend\\Providers\\FrontendServiceProvider',
-            'Capell\\Installer\\Providers\\InstallerServiceProvider',
-            'Capell\\Marketplace\\Providers\\MarketplaceServiceProvider',
+            CapellServiceProvider::class,
+            AdminServiceProvider::class,
+            FrontendServiceProvider::class,
+            InstallerServiceProvider::class,
+            MarketplaceServiceProvider::class,
         );
 });
 
