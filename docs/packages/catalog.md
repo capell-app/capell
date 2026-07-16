@@ -30,7 +30,7 @@ First-party package information pages in this host repo:
 
 ## Capell Foundation
 
-Foundation add-ons such as content sections, navigation, frontend authoring, media, HTML cache, and discovery are documented in the generated extension catalogue. Core documentation may mention them as examples, but their inventory and product grouping stay package-owned.
+Foundation add-ons such as content sections, navigation, frontend authoring, media, HTML cache, discovery, and Socials (`capell-app/socials`) are documented in the generated extension catalogue. Core documentation may mention them as examples, but their inventory and product grouping stay package-owned.
 
 ## Capell Operations
 
