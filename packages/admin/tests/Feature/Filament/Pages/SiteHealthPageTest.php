@@ -67,7 +67,7 @@ function createSiteScopedHealthUser(Site $site): Authenticatable
             return true;
         }
 
-        // @phpstan-ignore missingType.iterableValue
+        // @phpstan-ignore missingType.iterableValue (The authorization fake accepts Laravel's intentionally mixed ability payload.)
         public function can(mixed $abilities, mixed $arguments = []): bool
         {
             return $abilities === 'View:SiteHealthPage';

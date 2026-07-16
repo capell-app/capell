@@ -20,12 +20,12 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('see livewire component on blueprints page', function (): void {
+it('see livewire component on blueprints page', function (): void {
     get(ManageBlueprints::getUrl())
         ->assertSeeLivewire(BlueprintsAlertsWidget::class);
 });
 
-test('alerts when default blueprints are missing', function (): void {
+it('alerts when default blueprints are missing', function (): void {
     Livewire::test(BlueprintsAlertsWidget::class)
         ->assertSet('alerts', function (Collection $alerts): bool {
             $alert = $alerts['blueprints'] ?? null;
@@ -37,7 +37,7 @@ test('alerts when default blueprints are missing', function (): void {
         });
 });
 
-test('no alerts when default blueprints exist', function (): void {
+it('no alerts when default blueprints exist', function (): void {
     foreach (BlueprintSubjectEnum::cases() as $enum) {
         Blueprint::factory()->type($enum)->create();
     }

@@ -8,7 +8,7 @@ use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 
-test('service providers are loaded', function (): void {
+it('service providers are loaded', function (): void {
     $providers = app()->getLoadedProviders();
     expect($providers)
         ->toHaveKey(CapellServiceProvider::class)
@@ -18,7 +18,7 @@ test('service providers are loaded', function (): void {
         ->toHaveKey(MarketplaceServiceProvider::class);
 });
 
-test('root package does not replace split Capell packages', function (): void {
+it('root package does not replace split Capell packages', function (): void {
     $composer = json_decode(
         (string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'),
         true,

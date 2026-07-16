@@ -18,22 +18,6 @@ trait TestingFrontend
             return;
         }
 
-        // Disable HTML cache during tests to avoid stale content
-        // Config::set('capell-frontend.html_cache', false);
-
-        // Clear page cache storage if present
-        /*try {
-            $pageCache = resolve(PageCacheService::class);
-            if ($pageCache->exists('')) {
-                $pageCache->deleteDirectory('/');
-            }
-        } catch (Throwable) {
-            // ignore
-        }*/
-
-        // Optionally could register routes if needed
-        // \Capell\Frontend\Helpers\Routes::routes();
-
         $this->withoutVite();
     }
 }

@@ -32,12 +32,12 @@ function writeAdminPanelPluginPatchProvider(string $contents): string
     return $path;
 }
 
-test('probe_detects_the_workbench_admin_panel_provider_state', function (): void {
+it('probe_detects_the_workbench_admin_panel_provider_state', function (): void {
     $patch = new AdminPanelPluginPatch;
     expect($patch->probe())->toBeIn([PatchStatus::AlreadyApplied, PatchStatus::Unsupported]);
 });
 
-test('probe_returns_applicable_when_plugin_missing', function (): void {
+it('probe_returns_applicable_when_plugin_missing', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $originalPath = base_path('app/Providers/Filament/AdminPanelProvider.php');
     $providerWithoutPlugin = <<<'PHP'
@@ -86,7 +86,7 @@ PHP;
     }
 });
 
-test('probe_returns_already_applied_when_plugin_present', function (): void {
+it('probe_returns_already_applied_when_plugin_present', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $originalPath = base_path('app/Providers/Filament/AdminPanelProvider.php');
     $providerWithPlugin = <<<'PHP'
@@ -137,7 +137,7 @@ PHP;
     }
 });
 
-test('probe_returns_applicable_when_plugin_is_present_but_default_panel_is_missing', function (): void {
+it('probe_returns_applicable_when_plugin_is_present_but_default_panel_is_missing', function (): void {
     writeAdminPanelPluginPatchProvider(<<<'PHP'
 <?php
 
@@ -165,7 +165,7 @@ PHP);
     expect((new AdminPanelPluginPatch)->probe())->toBe(PatchStatus::Applicable);
 });
 
-test('apply_adds_default_without_duplicating_an_existing_plugin_call', function (): void {
+it('apply_adds_default_without_duplicating_an_existing_plugin_call', function (): void {
     $path = writeAdminPanelPluginPatchProvider(<<<'PHP'
 <?php
 
@@ -198,7 +198,7 @@ PHP);
         ->and(substr_count($contents, '->plugin('))->toBe(1);
 });
 
-test('apply_adds_plugin_and_default_to_a_stock_filament_panel', function (): void {
+it('apply_adds_plugin_and_default_to_a_stock_filament_panel', function (): void {
     $path = writeAdminPanelPluginPatchProvider(<<<'PHP'
 <?php
 
@@ -229,7 +229,7 @@ PHP);
         ->and($contents)->toContain('->plugin(CapellAdminPlugin::make()->discoverSchemas(');
 });
 
-test('probe_returns_customised_when_panel_has_multiple_statements', function (): void {
+it('probe_returns_customised_when_panel_has_multiple_statements', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $originalPath = base_path('app/Providers/Filament/AdminPanelProvider.php');
     $customProvider = <<<'PHP'
@@ -278,7 +278,7 @@ PHP;
     }
 });
 
-test('probe_returns_customised_when_panel_has_single_conditional', function (): void {
+it('probe_returns_customised_when_panel_has_single_conditional', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $providerWithCondition = <<<'PHP'
 <?php
@@ -318,7 +318,7 @@ PHP;
     }
 });
 
-test('patch_detects_plugin_in_method_chain', function (): void {
+it('patch_detects_plugin_in_method_chain', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $providerWithPlugin = <<<'PHP'
 <?php
@@ -356,7 +356,7 @@ PHP;
     }
 });
 
-test('patch_metadata_is_correct', function (): void {
+it('patch_metadata_is_correct', function (): void {
     $patch = new AdminPanelPluginPatch;
 
     expect($patch->id())->toBe('admin-panel-plugin-patch');

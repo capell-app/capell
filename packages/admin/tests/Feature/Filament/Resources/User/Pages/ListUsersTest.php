@@ -23,7 +23,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('can list users', function (): void {
+it('can list users', function (): void {
     /** @var class-string<User> $model */
     /** @var class-string $model */
     $model = config('auth.providers.users.model');
@@ -39,7 +39,7 @@ test('can list users', function (): void {
         ->assertCanSeeTableRecords($users);
 });
 
-test('can search users', function (): void {
+it('can search users', function (): void {
     /** @var class-string<User> $model */
     /** @var class-string $model */
     $model = config('auth.providers.users.model');
@@ -63,7 +63,7 @@ test('can search users', function (): void {
         ->assertCanNotSeeTableRecords($users->where('name', '!=', $name));
 });
 
-test('can sort users', function (): void {
+it('can sort users', function (): void {
     /** @var class-string<User> $model */
     /** @var class-string $model */
     $model = config('auth.providers.users.model');
@@ -80,7 +80,7 @@ test('can sort users', function (): void {
         ->assertCanSeeTableRecords($users->sortBy('name'), inOrder: true);
 });
 
-test('can group delete users', function (): void {
+it('can group delete users', function (): void {
     $user = UserFactory::new()->createOne();
     /** @var EloquentCollection<int, User> $users */
     $users = UserFactory::new()->count(5)->create();
@@ -98,7 +98,7 @@ test('can group delete users', function (): void {
     }
 });
 
-test('can filter users by role', function (): void {
+it('can filter users by role', function (): void {
     $adminRole = (new RoleFactory)->create(['name' => 'Admin']);
     $editorRole = (new RoleFactory)->create(['name' => 'Editor']);
 
@@ -121,7 +121,7 @@ test('can filter users by role', function (): void {
         ->assertCanNotSeeTableRecords([$adminUser, $otherUser]);
 });
 
-test('can select any editable role to edit from a user row', function (): void {
+it('can select any editable role to edit from a user row', function (): void {
     $firstRole = (new RoleFactory)->create(['name' => 'First role']);
     $secondRole = (new RoleFactory)->create(['name' => 'Second role']);
     $user = UserFactory::new()->createOne();
@@ -140,7 +140,7 @@ test('can select any editable role to edit from a user row', function (): void {
         ->assertRedirect(RoleResource::getUrl('edit', ['record' => $secondRole]));
 });
 
-test('can filter users by verified status', function (): void {
+it('can filter users by verified status', function (): void {
     $verifiedUser = UserFactory::new()->createOne(['email_verified_at' => now()]);
     $unverifiedUser = UserFactory::new()->createOne(['email_verified_at' => null]);
 

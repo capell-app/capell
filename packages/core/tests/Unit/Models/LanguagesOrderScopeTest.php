@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Scopes\LanguagesOrderScope;
 
-test('language order scope binds language ids before building raw ordering', function (): void {
+it('language order scope binds language ids before building raw ordering', function (): void {
     $query = Page::query();
     $maliciousLanguageId = '1) DESC; DROP TABLE pages; --';
 

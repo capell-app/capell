@@ -125,3 +125,8 @@ Warnings mean the theme may still be previewable, but the package author should 
 Theme library changes must not change the public-output safety contract. Anonymous/public HTML must not include admin labels, package internals, field paths, model IDs, signed editor URLs, or authoring scripts.
 
 Runtime reads the selected theme, active preset, brand profile, and package definition server-side. Public output receives ordinary frontend HTML and token CSS only.
+
+## Next
+
+- [Generated theme images](generated-theme-images.md)
+- [Creating custom themes](../packages/creating-custom-themes.md)

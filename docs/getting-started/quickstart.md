@@ -4,7 +4,7 @@ Use this path to evaluate the current 1.x foundation in a fresh Laravel applicat
 
 The current 1.x foundation release is available through public Packagist packages. Marketplace access may be required separately for paid extensions or customer services.
 
-For an existing application, use the [Install guide](install.md#path-b-existing-laravel-app) and take a database and media backup before running migrations.
+For an existing application, use the [Install guide](install.md#existing-laravel-applications) and take a database and media backup before running migrations.
 
 ## Before you start
 
@@ -144,7 +144,7 @@ Before production, also configure and prove the separate [database and media bac
 | A queued publish never finishes                        | Start `php artisan queue:work`                                                                                  | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate)                 |
 | The public page remains stale                          | Use Admin **Clear Cache**, then inspect the response/cache path                                                 | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
 | A package class is missing after Composer              | `composer dump-autoload && php artisan optimize:clear`                                                          | [Package discovery](../packages/debugging-package-discovery.md)                                                   |
-| Frontend CSS is missing                                | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Theme compilation](install.md#7-theme-compilation)                                                               |
+| Frontend CSS is missing                                | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Themes and frontend assets](install.md#themes-and-frontend-assets)                                                               |
 | The installer stops at health review                   | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor`                                      | [Site Health](../operations/site-health.md)                                                                       |
 
 ## Next

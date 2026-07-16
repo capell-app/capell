@@ -100,7 +100,7 @@ abstract class AbstractFileMaker implements Maker
         return Str::kebab(Str::remove($suffix, $this->studlyName($input)));
     }
 
-    /** @phpstan-ignore missingType.generics */
+    /** @phpstan-ignore missingType.generics (Maker extension collections intentionally carry heterogeneous preview values.) */
     protected function previewData(MakerInputData $input, Collection $files, Collection $commands, Collection $notes): MakerPreviewData
     {
         return new MakerPreviewData(

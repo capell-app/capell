@@ -11,6 +11,7 @@ Use this guide when a package or app needs to register dashboard Filament widget
 | Add a compact metric to the Capell overview            | `CapellAdmin::registerOverviewStat(...)`                                                        |
 | Add a standalone Filament widget                       | `CapellAdmin::registerDashboardFilamentWidget(...)`                                             |
 | Register package admin surfaces through one bridge     | `AdminBridgeRegistrar::filamentDashboardWidget(...)` or `extensionDashboardFilamentWidget(...)` |
+| Add a widget to a resource or page surface             | `CapellAdmin::contributeToAdminSurface(...)` or an `AdminBridge`                                |
 | Supply labels/descriptions for dashboard settings      | A class tagged with `DashboardSettingsContributor::TAG`                                         |
 | Read dashboard Filament widgets for a dashboard bucket | `CapellAdmin::getDashboardFilamentWidgets($dashboard)`                                          |
 | Filter legacy/core built-in widgets                    | `CapellAdmin::getWidgets(...)`                                                                  |
@@ -38,9 +39,65 @@ enum DashboardEnum: string
 }
 ```
 
+Each bucket maps to an admin surface:
+
+| Dashboard enum                   | Surface                                                  |
+| -------------------------------- | -------------------------------------------------------- |
+| `DashboardEnum::Main`            | Installed admin dashboard at `/admin`.                   |
+| `DashboardEnum::MarketingStudio` | Marketing Studio dashboard at `/admin/marketing-studio`. |
+| `DashboardEnum::Extensions`      | Extensions dashboard at `/admin/extensions`.             |
+| `DashboardEnum::SystemHealth`    | Reserved for system-health dashboard integrations.       |
+| `DashboardEnum::NotInstalled`    | Setup/empty state before Admin has an installed site.    |
+
+The main dashboard page is `Capell\Admin\Filament\Pages\CapellDashboard`.
+
 Register against the most specific dashboard. Extension management widgets belong on `DashboardEnum::Extensions`; Marketing Studio widgets belong on `DashboardEnum::MarketingStudio`.
 
 ## Built-In Widgets
+
+The Admin service provider and Filament plugin register the default dashboard Filament widgets. Registration decides which dashboard can use a widget. Settings decide whether a settings-gated widget is visible.
+
+### Main Dashboard
+
+| Widget                            | Default state | Purpose                                                         |
+| --------------------------------- | ------------- | --------------------------------------------------------------- |
+| `CapellAccountFilamentWidget`     | Enabled       | Filament account welcome card.                                  |
+| `CapellInfoFilamentWidget`        | Enabled       | Filament version and documentation links.                       |
+| `ListPagesFilamentWidget`         | Enabled       | Recently updated pages filtered by dashboard date range.        |
+| `RecentActivityFilamentWidget`    | Enabled       | Recent admin activity when activity exists for the site.        |
+| `UpdateAdvisoryFilamentWidget`    | Enabled       | Package/update advisory panel.                                  |
+| `MyWorkQueueFilamentWidget`       | Available     | Editor work queue from the configured data provider.            |
+| `RecentlyPublishedFilamentWidget` | Available     | Recently published page list from the configured data provider. |
+| `PageStatusFilamentWidget`        | Available     | Page status panel.                                              |
+| `SiteStatsOverviewFilamentWidget` | Available     | Site stats overview.                                            |
+
+Resource pages can have their own alert widgets, such as page, site, blueprint, language, and theme alerts. Those widgets live on the resource screens rather than the main dashboard.
+
+### Marketing Studio
+
+| Widget                                         | Purpose                                |
+| ---------------------------------------------- | -------------------------------------- |
+| `MarketingStudioQuickActionsFilamentWidget`    | Package-contributed marketing actions. |
+| `MarketingStudioWorkQueueFilamentWidget`       | Marketing work queue.                  |
+| `MarketingStudioLaunchReadinessFilamentWidget` | Launch-readiness status.               |
+| `MarketingStudioTimelineFilamentWidget`        | Marketing timeline.                    |
+| `MarketingStudioAdvancedFilamentWidget`        | Advanced marketing actions.            |
+
+### Extensions
+
+| Widget                                        | Purpose                                              |
+| --------------------------------------------- | ---------------------------------------------------- |
+| `ExtensionStatsOverviewFilamentWidget`        | Installed/uninstalled/attention/update/block counts. |
+| `ExtensionHealthFilamentWidget`               | Extension health summary.                            |
+| `ExtensionDiagnosticsFilamentWidget`          | Extension diagnostics.                               |
+| `ExtensionUpdateReadinessFilamentWidget`      | Update readiness checks.                             |
+| `ExtensionDependencyGraphFilamentWidget`      | Extension dependency graph.                          |
+| `ExtensionRuntimeCompatibilityFilamentWidget` | Runtime compatibility checks.                        |
+| `ExtensionActionsFilamentWidget`              | Extension quick actions.                             |
+| `RecentlyChangedExtensionsFilamentWidget`     | Recent extension state changes.                      |
+| `InstalledExtensionsFilamentWidget`           | Installed extension table.                           |
+
+### Legacy Widget Enum
 
 `FilamentWidgetEnum` is the legacy/core list used by `CapellAdmin::getWidgets()`. Each enum value is a fully-qualified widget class name.
 
@@ -219,6 +276,20 @@ Use package-prefixed keys, for example `vendor_package.status`. If two contribut
 
 ## Defaults And Sync
 
+Dashboard settings store two arrays on `Capell\Admin\Settings\AdminSettings`:
+
+| Setting           | Purpose                                                                                |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `enabled_widgets` | Boolean visibility by widget settings key, such as `list_pages` or `extensions.stats`. |
+| `widget_order`    | Sort order by widget settings key.                                                     |
+
+Settings entries are discovered from:
+
+1. Registered dashboard Filament widgets that expose `settingsKey()`.
+2. Legacy built-in `FilamentWidgetEnum` values.
+3. Overview stat groups registered with `CapellAdmin::registerOverviewStat()`.
+4. Contributors tagged with `DashboardSettingsContributor::TAG`.
+
 Dashboard settings are normalised by `SyncDashboardFilamentWidgetSettingsAction`.
 
 - Missing known keys are added to `enabled_widgets`.
@@ -228,6 +299,8 @@ Dashboard settings are normalised by `SyncDashboardFilamentWidgetSettingsAction`
 - If every known default was disabled during setup, the action can repair the default layout.
 
 `NormalizeDashboardFilamentWidgetSettingsAction` handles submitted dashboard layout state. It updates only the keys for the dashboard being customised and preserves settings for other dashboards.
+
+The built-in numeric settings (`my_work_queue_limit`, `recently_published_limit`, and friends) are documented on the admin [Customize your dashboard](../../../docs/admin/dashboard-customize.md#widget-limits) page.
 
 Avoid using `setEnabledWidgets()` for new package dashboards. It stores legacy enum/class values for `getWidgets()` and does not express the settings-key layout used by the current dashboard customiser.
 
@@ -248,14 +321,19 @@ If `canView()` and widget hydration need the same expensive data, put that looku
 
 ## Related Code
 
-| File                                                                                                                                     | Purpose                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`../src/Support/CapellAdminManager.php`](../src/Support/CapellAdminManager.php)                                                         | Widget and overview stat registration.                |
-| [`../src/Enums/DashboardEnum.php`](../src/Enums/DashboardEnum.php)                                                                       | Dashboard buckets.                                    |
-| [`../src/Enums/FilamentWidgetEnum.php`](../src/Enums/FilamentWidgetEnum.php)                                                             | Legacy/core built-in widget enum.                     |
-| [`../src/Settings/AdminSettings.php`](../src/Settings/AdminSettings.php)                                                                 | Stored dashboard settings.                            |
-| [`../src/Filament/Settings/Schemas/DashboardSettingsSchema.php`](../src/Filament/Settings/Schemas/DashboardSettingsSchema.php)           | Settings UI metadata aggregation.                     |
-| [`../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php`](../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php)           | Default setting repair/sync.                          |
-| [`../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php`](../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php) | Dashboard layout normalisation.                       |
-| [`../src/Contracts/DashboardSettingsContributor.php`](../src/Contracts/DashboardSettingsContributor.php)                                 | Settings metadata contribution contract.              |
-| [Admin dashboard Filament widgets](../../../docs/admin/dashboard-widgets.md)                                                             | Admin/operator-level dashboard Filament widget guide. |
+| File                                                                                                                                     | Purpose                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| [`../src/Filament/Pages/CapellDashboard.php`](../src/Filament/Pages/CapellDashboard.php)                                                 | Main dashboard page and date filter.     |
+| [`../src/Support/CapellAdminManager.php`](../src/Support/CapellAdminManager.php)                                                         | Widget and overview stat registration.   |
+| [`../src/Enums/DashboardEnum.php`](../src/Enums/DashboardEnum.php)                                                                       | Dashboard buckets.                       |
+| [`../src/Enums/FilamentWidgetEnum.php`](../src/Enums/FilamentWidgetEnum.php)                                                             | Legacy/core built-in widget enum.        |
+| [`../src/Settings/AdminSettings.php`](../src/Settings/AdminSettings.php)                                                                 | Stored dashboard settings.               |
+| [`../src/Filament/Settings/Schemas/DashboardSettingsSchema.php`](../src/Filament/Settings/Schemas/DashboardSettingsSchema.php)           | Settings UI metadata aggregation.        |
+| [`../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php`](../src/Actions/SyncDashboardFilamentWidgetSettingsAction.php)           | Default setting repair/sync.             |
+| [`../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php`](../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php) | Dashboard layout normalisation.          |
+| [`../src/Contracts/DashboardSettingsContributor.php`](../src/Contracts/DashboardSettingsContributor.php)                                 | Settings metadata contribution contract. |
+
+## Next
+
+- [Admin dashboard Filament widgets](../../../docs/admin/dashboard-widgets.md)
+- [Customize your dashboard](../../../docs/admin/dashboard-customize.md)

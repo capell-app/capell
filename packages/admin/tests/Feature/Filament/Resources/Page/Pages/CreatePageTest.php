@@ -62,7 +62,7 @@ it('renders guided setup and publish sections on the create page form', function
         ->assertSee(__('capell-admin::form.publish_from'));
 });
 
-test('can search parent results', function (): void {
+it('can search parent results', function (): void {
     $parent = Page::factory()->withTranslations()->create();
 
     $livewire = Livewire::test(CreatePage::class);
@@ -118,7 +118,7 @@ test(
     [ResultsPageConfigurator::class],
 ]);
 
-test('prevents creating a page if parent missing languages', function (): void {
+it('prevents creating a page if parent missing languages', function (): void {
     $languages = Language::factory()->count(2)->create();
     $language1 = $languages->first();
     $language2 = $languages->get(1);
@@ -217,7 +217,7 @@ describe('from edit page', function (): void {
         [ResultsPageConfigurator::class],
     ]);
 
-    test('required fields are required', function (): void {
+    it('required fields are required', function (): void {
         $page = Page::factory()->createOne();
 
         Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
@@ -234,7 +234,7 @@ describe('from edit page', function (): void {
 });
 
 describe('from list page', function (): void {
-    test('can create page', function (PageTypeEnum $typeEum): void {
+    it('can create page', function (PageTypeEnum $typeEum): void {
         Blueprint::factory()->page()->default()->create();
         $type = $typeEum->createPageType();
 
@@ -347,7 +347,7 @@ describe('from list page', function (): void {
             [ResultsPageConfigurator::class],
         ]);
 
-    test('required fields are required', function (): void {
+    it('required fields are required', function (): void {
         $language = Language::factory()->createOne();
         Blueprint::factory()->page()->default()->create();
 

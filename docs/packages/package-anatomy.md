@@ -60,9 +60,11 @@ Use a narrow package name and PSR-4 namespace:
 
 Composer autoloading makes package classes available. `capell.json` tells Capell how the package is discovered, installed, and activated.
 
+Keep `extra.laravel.providers` to the package bootstrap provider only. Runtime-specific providers belong in the `capell.json` provider map.
+
 ## Capell Manifest
 
-`capell.json` uses manifest v3 metadata plus lifecycle and provider routing. Older manifest fields such as `capell-version` are not supported.
+`capell.json` uses manifest v3 metadata plus lifecycle and provider routing. Older manifest fields such as `capell-version` are rejected by the manifest validator; manifest v3 uses `capellApiVersion`.
 
 ```json
 {
@@ -140,7 +142,7 @@ Composer autoloading makes package classes available. `capell.json` tells Capell
 }
 ```
 
-Use `dependencies.requires` for packages that must be installed before this package can work. Use `dependencies.supports` for support packages that should be pulled into an install only when their own requirements are already selected or installed. Support packages that should not appear as standalone product choices should set `"visibility": "support"`; the installer can still add them through `dependencies.supports`.
+Use `dependencies.requires` for packages that must be installed before this package can work. Keep it honest: a package that registers an admin page, an Extensions page action, a Filament resource, or admin translations must require `capell-app/admin`. Use `dependencies.supports` for support packages that should be pulled into an install only when their own requirements are already selected or installed. Support packages that should not appear as standalone product choices should set `"visibility": "support"`; the installer can still add them through `dependencies.supports`.
 
 The command map is lifecycle metadata. Capell reads install, after-install, setup, upgrade, demo, and faker command keys where those workflows apply. Package doctor and health checks are discovered from `capell:doctor` integration and the top-level `healthChecks` manifest list, not from command-map doctor or health entries.
 

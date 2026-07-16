@@ -8,7 +8,7 @@ use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Scalar\String_;
 
-test('reads and edits package config arrays used by installer guide patches', function (): void {
+it('reads and edits package config arrays used by installer guide patches', function (): void {
     $configPath = temporaryInstallerConfigFile(<<<'PHP'
 <?php
 
@@ -50,7 +50,7 @@ PHP);
     }
 });
 
-test('rejects unsupported config array shapes before installer patches write them', function (): void {
+it('rejects unsupported config array shapes before installer patches write them', function (): void {
     $nonConfigPath = temporaryInstallerConfigFile("<?php\n\ndeclare(strict_types=1);\n\nreturn 'not-an-array';\n");
     $scalarRootPath = temporaryInstallerConfigFile(<<<'PHP'
 <?php

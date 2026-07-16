@@ -14,6 +14,7 @@ Use this section if you build or maintain a Capell package.
 | Add admin surfaces                         | [Admin extensions](admin-extensions.md)                            |
 | Add anonymous-safe frontend output         | [Frontend extensions](frontend-extensions.md)                      |
 | Look up exact contracts, tags, and tests   | [Extension point API reference](extension-point-api-reference.md)  |
+| Browse every extension surface in one list | [Extension surface catalogue](extension-surface-catalog.md)        |
 | Test a package                             | [Testing packages](testing-packages.md)                            |
 | Debug missing package output               | [Extension troubleshooting](extension-troubleshooting.md)          |
 
@@ -94,7 +95,14 @@ Use a wildcard path repository in `composer.json` when the app should load sever
 }
 ```
 
-See [How to create a Capell extension](how-to-create-a-capell-extension.md#5-require-the-package-with-composer) for Packagist, private Git, and Marketplace examples.
+For a private Git repository, configure a Composer VCS repository:
+
+```bash
+composer config repositories.vendor-example vcs git@github.com:vendor/example.git
+composer require vendor/example:^1.0
+```
+
+Use `symlink: true` path repositories during local development so package edits apply without reinstalling. Switch to a tagged constraint such as `^1.0` once the package is published. See [Package authoring](../platform/package-authoring.md) for scaffold profiles and Marketplace sharing.
 
 ## `capell.json`
 
@@ -219,7 +227,7 @@ Use the [package checklist](package-checklist.md) before release.
 - Package tests pass in isolation.
 - README explains install, config, commands, extension points, and troubleshooting.
 
-## Read Next
+## Next
 
 | Need                                        | Read                                                            |
 | ------------------------------------------- | --------------------------------------------------------------- |

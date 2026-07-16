@@ -120,7 +120,7 @@ For Laravel teams, the value is not just that a button can open a modal. The val
 | Admin developer reusing Filament schema helpers              | [Presentation and interactions admin controls](../../packages/admin/docs/presentation-and-interactions.md) |
 | Layout Builder package maintainer                            | [Layout Builder package docs](https://docs.capell.app/packages/layout-builder)                             |
 
-## Read Next
+## Next
 
 - [Frontend widgets](../frontend/widgets.md)
 - [Frontend guide](../frontend/guide.md)

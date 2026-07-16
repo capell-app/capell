@@ -43,7 +43,7 @@ class ThemeStudioSettings extends Settings implements SettingsContract, ThemeRun
         'overlayTreatment' => 'subtle',
     ];
 
-    // @phpstan-ignore-next-line missingType.iterableValue
+    // @phpstan-ignore-next-line missingType.iterableValue (Theme override payloads are keyed by extension-defined token names.)
     public array $themeOverrides = [];
 
     public static function group(): string

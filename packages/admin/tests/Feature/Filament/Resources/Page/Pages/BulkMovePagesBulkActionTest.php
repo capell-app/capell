@@ -24,7 +24,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('bulk move pages action moves selected pages under chosen parent', function (): void {
+it('bulk move pages action moves selected pages under chosen parent', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $newParent = Page::factory()->recycle($site)->create();
     $pages = Page::factory()->recycle($site)->count(2)->create();
@@ -44,7 +44,7 @@ test('bulk move pages action moves selected pages under chosen parent', function
     }
 });
 
-test('bulk move pages action requires a parent', function (): void {
+it('bulk move pages action requires a parent', function (): void {
     $pages = Page::factory()->count(2)->create();
 
     Livewire::test(ListPages::class)
@@ -57,7 +57,7 @@ test('bulk move pages action requires a parent', function (): void {
         ->assertHasActionErrors(['parent_id' => 'required']);
 });
 
-test('bulk move pages action rejects a non-existent parent via form validation', function (): void {
+it('bulk move pages action rejects a non-existent parent via form validation', function (): void {
     $pages = Page::factory()->count(2)->create();
 
     Livewire::test(ListPages::class)
@@ -74,7 +74,7 @@ test('bulk move pages action rejects a non-existent parent via form validation',
     }
 });
 
-test('bulk move pages action refuses to assign a page as its own parent', function (): void {
+it('bulk move pages action refuses to assign a page as its own parent', function (): void {
     $page = Page::factory()->createOne();
     $originalParentId = $page->parent_id;
 
@@ -91,7 +91,7 @@ test('bulk move pages action refuses to assign a page as its own parent', functi
     expect($page->fresh()->parent_id)->toBe($originalParentId);
 });
 
-test('bulk move pages action refuses a parent that is a descendant of the moved page', function (): void {
+it('bulk move pages action refuses a parent that is a descendant of the moved page', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $page = Page::factory()->recycle($site)->create();
     $child = Page::factory()->recycle($site)->parent($page)->create();
@@ -110,7 +110,7 @@ test('bulk move pages action refuses a parent that is a descendant of the moved 
     expect($page->fresh()->parent_id)->toBe($originalParentId);
 });
 
-test('bulk move pages action creates redirects when the add_redirects checkbox is checked', function (): void {
+it('bulk move pages action creates redirects when the add_redirects checkbox is checked', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $newParent = Page::factory()->recycle($site)->withTranslations()->create();
     $page = Page::factory()->recycle($site)->withTranslations()->create();
@@ -150,7 +150,7 @@ test('bulk move pages action creates redirects when the add_redirects checkbox i
     }
 });
 
-test('bulk move pages action does not create redirects when the add_redirects checkbox is unchecked', function (): void {
+it('bulk move pages action does not create redirects when the add_redirects checkbox is unchecked', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $newParent = Page::factory()->recycle($site)->create();
     $page = Page::factory()->recycle($site)->create();
@@ -174,7 +174,7 @@ test('bulk move pages action does not create redirects when the add_redirects ch
         ->toBe($redirectsBefore);
 });
 
-test('bulk move pages with translations to unrelated parent succeeds', function (): void {
+it('bulk move pages with translations to unrelated parent succeeds', function (): void {
     $site = Site::factory()->withTranslations()->create();
 
     // Create two separate branches with translations
@@ -197,7 +197,7 @@ test('bulk move pages with translations to unrelated parent succeeds', function 
     expect($childOfA->fresh()->parent_id)->toBe($branchB->getKey());
 });
 
-test('bulk move pages correctly detects cycles with deep parent chains', function (): void {
+it('bulk move pages correctly detects cycles with deep parent chains', function (): void {
     $site = Site::factory()->withTranslations()->create();
 
     // Create a deep hierarchy: root → level1 → level2 → level3
@@ -222,7 +222,7 @@ test('bulk move pages correctly detects cycles with deep parent chains', functio
     expect($root->fresh()->parent_id)->toBe($originalRootParent);
 });
 
-test('bulk move mixed valid and invalid pages reports correct counts', function (): void {
+it('bulk move mixed valid and invalid pages reports correct counts', function (): void {
     $site = Site::factory()->withTranslations()->create();
 
     $validTarget = Page::factory()->recycle($site)->create();

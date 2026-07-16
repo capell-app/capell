@@ -344,21 +344,21 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
         $this->addMediaCollection(MediaCollectionEnum::LogoInverted->value)->singleFile();
     }
 
-    /** @return MorphOne<Media, self> */
+    /** @return MorphOne<Media, $this> */
     public function image(): MorphOne
     {
         return $this->morphOne(Media::class, 'model')
             ->where('collection_name', MediaCollectionEnum::Image->value);
     }
 
-    /** @return MorphOne<Media, self> */
+    /** @return MorphOne<Media, $this> */
     public function logo(): MorphOne
     {
         return $this->morphOne(Media::class, 'model')
             ->where('collection_name', MediaCollectionEnum::Logo->value);
     }
 
-    /** @return MorphOne<Media, self> */
+    /** @return MorphOne<Media, $this> */
     public function logoInverted(): MorphOne
     {
         return $this->morphOne(Media::class, 'model')

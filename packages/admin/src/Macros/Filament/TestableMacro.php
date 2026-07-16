@@ -32,10 +32,10 @@ class TestableMacro
             $livewire = $this->instance();
 
             /** @var Schema $schema */
-            /** @phpstan-ignore-next-line */
+            /** @phpstan-ignore-next-line method.notFound (Filament adds this testing accessor to the Livewire test wrapper at runtime.) */
             $schema = $livewire->getPropertyValue($formName);
 
-            /** @phpstan-ignore-next-line */
+            /** @phpstan-ignore-next-line method.notFound (The runtime Filament Schema exposes its state path through macro-backed test APIs.) */
             $formStatePath = $schema->getStatePath();
 
             /** @var Collection<int|string, mixed> $errorKeys */
@@ -53,7 +53,7 @@ class TestableMacro
                     if (is_string($key) && str_contains($key, '*')) {
                         $originalKey = $key;
 
-                        /** @phpstan-ignore-next-line */
+                        /** @phpstan-ignore-next-line method.notFound (Filament adds the error bag accessor to the Livewire test wrapper at runtime.) */
                         $errors = $livewire->getErrorBag();
 
                         /** @var list<string> $validationErrorKeys */
@@ -77,7 +77,7 @@ class TestableMacro
 
             Assert::assertCount(
                 count($keys),
-                /** @phpstan-ignore-next-line */
+                /** @phpstan-ignore-next-line method.notFound (Filament adds the error bag accessor to the Livewire test wrapper at runtime.) */
                 $livewire->getErrorBag(),
                 'Failed asserting that the form has all the errors.',
             );

@@ -31,7 +31,7 @@ final class RemoveSetupPackageAction
         try {
             Artisan::call('filament:clear-cached-components');
         } catch (Throwable) {
-            //
+            // Cache cleanup is best-effort because the command may be unavailable after a partial install.
         }
     }
 

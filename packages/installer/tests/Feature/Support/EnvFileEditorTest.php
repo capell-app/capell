@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Patching\EnvFileEditor;
 
-test('sets_new_env_variable', function (): void {
+it('sets_new_env_variable', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 
@@ -21,7 +21,7 @@ test('sets_new_env_variable', function (): void {
     }
 });
 
-test('updates_existing_env_variable', function (): void {
+it('updates_existing_env_variable', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 
@@ -39,7 +39,7 @@ test('updates_existing_env_variable', function (): void {
     }
 });
 
-test('gets_env_variable', function (): void {
+it('gets_env_variable', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 
@@ -56,7 +56,7 @@ test('gets_env_variable', function (): void {
     }
 });
 
-test('creates_backup', function (): void {
+it('creates_backup', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 
@@ -82,7 +82,7 @@ test('creates_backup', function (): void {
     }
 });
 
-test('throws when environment file save cannot be written', function (): void {
+it('throws when environment file save cannot be written', function (): void {
     $testEnvPath = tempnam(sys_get_temp_dir(), 'test_env_');
     file_put_contents($testEnvPath, "APP_NAME=TestApp\nAPP_DEBUG=false\n");
 

@@ -94,14 +94,14 @@ function groupedHeaderAction(EditPage $component, string $actionName): Action
     return $action;
 }
 
-test('can render page', function (): void {
+it('can render page', function (): void {
     get(PageResource::getUrl('edit', [
         'record' => Page::factory()->createOne(),
     ]))
         ->assertSuccessful();
 });
 
-test('standard page relations survive blueprint relations without duplicates', function (): void {
+it('standard page relations survive blueprint relations without duplicates', function (): void {
     $page = Page::factory()->createOne();
 
     $component = Livewire::test(EditPage::class, [
@@ -123,7 +123,7 @@ test('standard page relations survive blueprint relations without duplicates', f
         ->toBe(1);
 });
 
-test('renders the typed Blocks page-body editor for a page-level content structure override', function (): void {
+it('renders the typed Blocks page-body editor for a page-level content structure override', function (): void {
     $language = Language::factory()->createOne();
     $page = Page::factory()
         ->recycle($language)
@@ -141,7 +141,7 @@ test('renders the typed Blocks page-body editor for a page-level content structu
         ->assertDontSee('layout-builder-visual-toolbar', false);
 });
 
-test('can render page when its layout has been deleted', function (): void {
+it('can render page when its layout has been deleted', function (): void {
     $page = Page::factory()->createOne();
     $page->layout->delete();
 
@@ -153,7 +153,7 @@ test('can render page when its layout has been deleted', function (): void {
         ->assertSuccessful();
 });
 
-test('edit page hides authoring surface markup', function (bool $layoutEditable): void {
+it('edit page hides authoring surface markup', function (bool $layoutEditable): void {
     Queue::fake();
 
     $type = Blueprint::factory()->page()->create([
@@ -465,7 +465,7 @@ it('lets an editor explicitly take over an active page lock', function (): void 
     Date::setTestNow();
 });
 
-test('uses form actions below the edit form by default', function (): void {
+it('uses form actions below the edit form by default', function (): void {
     $page = Page::factory()->createOne(['visible_until' => null]);
 
     $livewire = Livewire::test(EditPage::class, [
@@ -708,7 +708,7 @@ it('shows the revisions header action when a revision exists', function (): void
     expect(groupedHeaderAction($component, 'revisions')->isHiddenInGroup())->toBeFalse();
 });
 
-test('moves edit form actions above the form when configured', function (): void {
+it('moves edit form actions above the form when configured', function (): void {
     $settings = AdminSettings::instance();
     $settings->form_action_position = AdminFormActionPositionEnum::AboveForm;
     $settings->save();
@@ -1309,7 +1309,7 @@ it('ignores tampered redirect event payloads that were not recorded url changes'
     expect(PageUrl::query()->where('language_id', $otherLanguage->getKey())->exists())->toBeFalse();
 });
 
-test('can save content string into blocks', function (): void {
+it('can save content string into blocks', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
     $page = Page::factory()->recycle($language)->type($type)->withTranslations()->create();
@@ -1334,7 +1334,7 @@ test('can save content string into blocks', function (): void {
         ->and(Str::isUuid($savedContent[0]['data']['__capell']['instance_id']))->toBeTrue();
 });
 
-test('can save content blocks into string', function (): void {
+it('can save content blocks into string', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->create();
     $page = Page::factory()->recycle($language)->type($type)->create();
@@ -1361,7 +1361,7 @@ test('can save content blocks into string', function (): void {
     ]);
 });
 
-test('can convert html content to blocks from the content editor hint action', function (): void {
+it('can convert html content to blocks from the content editor hint action', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Html)->create();
     $page = Page::factory()->recycle($language)->type($type)->withTranslations()->create();
@@ -1385,7 +1385,7 @@ test('can convert html content to blocks from the content editor hint action', f
         ]]]);
 });
 
-test('content structure conversion action is only added to the main page content editor', function (): void {
+it('content structure conversion action is only added to the main page content editor', function (): void {
     $contentEditor = ContentEditor::make('content');
     $heroEditor = ContentEditor::make('hero');
 
@@ -1395,7 +1395,7 @@ test('content structure conversion action is only added to the main page content
         ->not->toContain('convertContentToBlocks', 'convertContentToHtml');
 });
 
-test('default content block uses a simplified content-only schema', function (): void {
+it('default content block uses a simplified content-only schema', function (): void {
     $schema = Schema::make(Capell\Admin\Tests\Fixtures\Livewire::make())
         ->statePath('data')
         ->components([
@@ -1426,7 +1426,7 @@ test('default content block uses a simplified content-only schema', function ():
         ->not->toContain('media', 'mediaAlign', 'mediaOrdering', '__capell');
 });
 
-test('can convert content blocks back to html from the content editor hint action', function (): void {
+it('can convert content blocks back to html from the content editor hint action', function (): void {
     $language = Language::factory()->createOne();
     $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
     $page = Page::factory()->recycle($language)->type($type)->create();
@@ -1458,7 +1458,7 @@ test('can convert content blocks back to html from the content editor hint actio
         ->toBe($content);
 });
 
-test('can edit page type and handle updated the content data changing to builder', function (): void {
+it('can edit page type and handle updated the content data changing to builder', function (): void {
     $language = Language::factory()->createOne();
     $page = Page::factory()->recycle($language)->withTranslations()->create();
     $content = $page->translation->content;

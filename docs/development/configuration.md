@@ -94,12 +94,6 @@ Source: `packages/core/config/redirects.php`
 | ------------------------------- | ------- | ------------------------------------ |
 | `CAPELL_REDIRECTS_AUTO_ENABLED` | `true`  | Enables automatic redirect behaviour |
 
-Source: `packages/core/config/audit.php`
-
-| Variable           | Default | Used for                                                   |
-| ------------------ | ------- | ---------------------------------------------------------- |
-| `AUDITING_ENABLED` | `true`  | Enables auditing support where the audit package is active |
-
 ## Admin Config
 
 Source: `packages/admin/config/capell-admin.php`
@@ -145,7 +139,6 @@ Source: `packages/frontend/config/capell-frontend.php`
 | -------------------------------------------- | ------------- | ------------------------------------------------------------------- |
 | `CAPELL_FRONTEND_LAYOUT_FILE`                | `capell::app` | Default Blade layout for frontend page rendering                    |
 | `CAPELL_FRONTEND_CONTAINER_WIDTH_DEFAULT`    | _(null)_      | Default layout container width key when the layout has no override  |
-| `CAPELL_FRONTEND_ASSET_BUILD_TOOL`           | `vite`        | Frontend build integration: `vite`, `mix`, or `static`              |
 | `CAPELL_FRONTEND_PUBLIC_AGGRESSIVE_PREFETCH` | `false`       | Enables Laravel Vite aggressive prefetching for public assets       |
 | `CAPELL_HTML_CACHE`                          | `true`        | Enables static HTML cache reads                                     |
 | `CAPELL_WRITE_HTML_CACHE`                    | `true`        | Allows static HTML cache writes                                     |

@@ -19,12 +19,12 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-test('see livewire component on sites list', function (): void {
+it('see livewire component on sites list', function (): void {
     get(ListSites::getUrl())
         ->assertSeeLivewire(ListSiteAlertsWidget::class);
 });
 
-test('alerts when no sites exist', function (): void {
+it('alerts when no sites exist', function (): void {
     Livewire::test(ListSiteAlertsWidget::class)
         ->assertSet('alerts', function (Collection $alerts): bool {
             $alert = $alerts['site'] ?? null;
@@ -36,7 +36,7 @@ test('alerts when no sites exist', function (): void {
         });
 });
 
-test('no alerts when site exists', function (): void {
+it('no alerts when site exists', function (): void {
     Site::factory()->createOne();
 
     Livewire::test(ListSiteAlertsWidget::class)

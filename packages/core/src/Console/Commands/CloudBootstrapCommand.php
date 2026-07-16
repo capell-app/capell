@@ -105,7 +105,7 @@ class CloudBootstrapCommand extends Command
      * the package (settings class / users column) is actually installed, so it
      * is a safe no-op otherwise.
      *
-     * @param  array{name?: string, email?: string, password?: string}  $bootstrap
+     * @param  array<array-key, mixed>  $bootstrap
      */
     private function forceAdminPasswordChange(array $bootstrap): void
     {
@@ -161,9 +161,7 @@ class CloudBootstrapCommand extends Command
         $this->components->info('Bootstrap admin must change password on first login.');
     }
 
-    /**
-     * @return array{name?: string, email?: string, password?: string}|null
-     */
+    /** @return array<array-key, mixed>|null */
     private function fetchBootstrapCredentials(string $registrationUrl, string $registrationToken, string $instanceId, string $appUrl): ?array
     {
         $response = Http::acceptJson()
@@ -190,7 +188,7 @@ class CloudBootstrapCommand extends Command
     }
 
     /**
-     * @param  array{name?: string, email?: string, password?: string}  $bootstrap
+     * @param  array<array-key, mixed>  $bootstrap
      */
     private function installCapell(string $appUrl, array $bootstrap): void
     {

@@ -45,6 +45,21 @@ composer show capell-app/example --available
 | Frontend output missing                    | Frontend provider not loaded or path not reserved        | `php artisan route:list` and frontend registry tests             | Register frontend provider, render hook, component, or reserved path.    |
 | Settings missing                           | Settings class/schema not registered                     | Inspect `SettingsSchemaRegistry` registrations                   | Register settings class and schema; run settings migration.              |
 
+## Composer Drift
+
+Composer drift means `capell_extensions` and the current Composer/package registry no longer agree. The Extensions dashboard reports drift as a health alert, but it is read-only: loading `/admin/extensions` must never run `composer require`.
+
+Capell classifies drift into four reasons:
+
+| Reason                       | What it means                                                                   | Repair path                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Missing registry manifest    | A `capell_extensions` row exists, but the current registry has no manifest      | Review the record manually. The package may have been removed, renamed, or stopped registering metadata. |
+| Composer unavailable         | The registry manifest exists, but Composer does not expose the package          | Run `php artisan capell:extensions:repair-composer-drift vendor/example`.                                |
+| Version mismatch             | Composer exposes a different version than the Capell extension record           | Run the repair command, then verify the extension install/upgrade path if metadata still disagrees.      |
+| Disabled or failed in Capell | Composer exposes the package, but `capell_extensions.status` blocks runtime use | Review status, runtime gate, and recent install/upgrade failures before re-enabling the extension.       |
+
+For bulk repair, the `CAPELL_EXTENSIONS_COMPOSER_DRIFT_AUTO_FIX` gate, `--force`, and the recorded repair metadata, see [`capell:extensions:repair-composer-drift`](../development/artisan-commands.md#capellextensionsrepair-composer-drift).
+
 ## Manifest Checklist
 
 The package manifest should answer:

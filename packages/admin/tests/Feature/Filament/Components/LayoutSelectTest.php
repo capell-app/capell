@@ -7,7 +7,7 @@ use Capell\Core\Models\Layout;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 
-test('layout select search ordering binds user supplied search text', function (): void {
+it('layout select search ordering binds user supplied search text', function (): void {
     $component = LayoutSelect::make('layout_id');
     $query = Layout::query();
     $search = "Hero' THEN 1 ELSE 1 END; DROP TABLE layouts; --";
@@ -24,13 +24,13 @@ test('layout select search ordering binds user supplied search text', function (
         ->and($orderBindings)->toContain($search);
 });
 
-test('layout select does not preload every layout option into page edit payloads', function (): void {
+it('layout select does not preload every layout option into page edit payloads', function (): void {
     $component = LayoutSelect::make('layout_id');
 
     expect($component->isPreloaded())->toBeFalse();
 });
 
-test('layout select falls back to generated preview image metadata', function (): void {
+it('layout select falls back to generated preview image metadata', function (): void {
     Storage::fake('public');
 
     $component = LayoutSelect::make('layout_id');
@@ -46,7 +46,7 @@ test('layout select falls back to generated preview image metadata', function ()
         ->toContain('generated-layout-previews/layout-preview.png');
 });
 
-test('layout select keeps thumbnail in selected option without rendering preview below field', function (): void {
+it('layout select keeps thumbnail in selected option without rendering preview below field', function (): void {
     Storage::fake('public');
 
     $component = LayoutSelect::make('layout_id');

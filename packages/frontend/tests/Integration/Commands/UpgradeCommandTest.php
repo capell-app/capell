@@ -7,7 +7,7 @@ use Illuminate\Console\OutputStyle;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 
-test('runs frontend upgrade command successfully', function (): void {
+it('runs frontend upgrade command successfully', function (): void {
     $calls = [];
     $mock = new class($calls) extends UpgradeCommand
     {

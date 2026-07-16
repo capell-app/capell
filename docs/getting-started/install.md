@@ -273,3 +273,8 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 | Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`      |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.
+
+## Next
+
+- [Your first session](first-session.md)
+- [Create your first page](create-your-first-page.md)

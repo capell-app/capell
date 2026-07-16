@@ -258,7 +258,7 @@ it('deletes a package through composer remove when requested', function (): void
     UninstallPackageActionDataDeleter::$deletedPackages = [];
 
     CapellCore::registerPackage('vendor/package', PackageTypeEnum::Plugin, version: '^1.0');
-    /** @phpstan-ignore-next-line This test exercises the delete-data lifecycle contract, not provider booting. */
+    /** @phpstan-ignore-next-line assign.propertyType (This test exercises the delete-data lifecycle contract, not provider booting.) */
     CapellCore::getPackage('vendor/package')->serviceProviderClass = UninstallPackageActionDataDeleter::class;
     CapellCore::forcePackageInstalled('vendor/package');
     bindSuccessfulComposerRemoveProcess('vendor/package');
