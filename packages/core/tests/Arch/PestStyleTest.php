@@ -15,7 +15,7 @@ it('uses it for named Pest test definitions', function (): void {
         }
 
         foreach ($lines as $index => $line) {
-            if (preg_match('/^\s*test\(\s*[\'\"]/', $line) !== 1) {
+            if (preg_match('/^\s*test\s*\(\s*[\'\"]/', $line) !== 1) {
                 continue;
             }
 
