@@ -35,16 +35,14 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
     private const array EVENT_SOURCING_TABLES = ['stored_events', 'page_revisions'];
 
     public function __construct(
-        private readonly BuildDoctorReportAction $buildDoctorReport,
         private readonly RuntimeSchemaState $schemaState,
         private readonly ConnectionResolverInterface $connections,
-        private readonly ResolveCapellInstallationStateAction $resolveInstallationState,
         private readonly CapellRuntimeSchemaContract $runtimeSchema,
     ) {}
 
     public function handle(): ReportSnapshotData
     {
-        $installationState = $this->resolveInstallationState->handle();
+        $installationState = ResolveCapellInstallationStateAction::run();
 
         if ($installationState === CapellInstallationState::NotInstalled) {
             return new ReportSnapshotData(
@@ -76,7 +74,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         }
 
         $doctorFindings = [];
-        $doctorChecks = $this->buildDoctorReport->handle(includePackageDoctors: false)->checks;
+        $doctorChecks = BuildDoctorReportAction::run(includePackageDoctors: false)->checks;
 
         foreach ($doctorChecks as $doctorCheck) {
             $finding = $this->findingForFailedCheck($doctorCheck);
