@@ -44,7 +44,7 @@
 - [x] Record rules that cannot be safely mass-enforced.
 - [x] Link the standard from contributor and development navigation.
 - [x] Run the documentation checks and `git diff --check`.
-- [ ] Commit as a documentation-only theme.
+- [x] Commit as a documentation-only theme (`593a6dd8d`).
 
 ### Task 3: Make the Docker harness match the documented workflow
 
