@@ -23,11 +23,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection as SupportCollection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** @phpstan-type PageModel Model&Pageable<Model> */
 final class ListPagesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

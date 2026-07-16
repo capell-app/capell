@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Illuminate\Support\Facades\Vite;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -12,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetCriticalCssContentAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $asset, string $buildDirectory): string

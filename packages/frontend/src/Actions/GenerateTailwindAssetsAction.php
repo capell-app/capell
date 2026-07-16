@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Illuminate\Filesystem\Filesystem;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 class GenerateTailwindAssetsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * Generate per-theme Tailwind asset files and return their absolute paths with contents.

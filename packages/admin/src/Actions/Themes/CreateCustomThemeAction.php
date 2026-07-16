@@ -9,14 +9,16 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Theme;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static Theme run(string $name, string $key, ?string $description = null, bool $default = false, bool $status = true)
  */
 final class CreateCustomThemeAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @throws ValidationException

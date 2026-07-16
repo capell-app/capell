@@ -8,10 +8,12 @@ use Capell\Core\Models\ContentLock;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class AcquireContentLockAction
 {
+    use AsFake;
     use AsObject;
 
     private const int DEFAULT_TTL_MINUTES = 15;

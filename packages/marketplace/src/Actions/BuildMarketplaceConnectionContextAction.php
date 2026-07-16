@@ -7,12 +7,14 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildMarketplaceConnectionContextAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array{instance_id?: string, account_id?: string}

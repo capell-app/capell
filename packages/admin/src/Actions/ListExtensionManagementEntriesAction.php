@@ -24,12 +24,14 @@ use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Carbon\CarbonImmutable;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ListExtensionManagementEntriesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private const string REQUEST_CACHE_KEY = 'extension-management-entries';
 

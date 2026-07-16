@@ -31,7 +31,7 @@ it('renders head and body resources with security attributes and vite nonce', fu
         defer: false,
     );
     $inlineScript = FrontendResourceData::inlineScript('capell-app/gallery:inline-script', 'capell-app/gallery', 'window.ready = true;</script>');
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($style),
         new FrontendResourceContributionData($script),
         new FrontendResourceContributionData($inlineScript),
@@ -51,7 +51,7 @@ it('renders head and body resources with security attributes and vite nonce', fu
 
 it('keeps internal handles and composer package ownership out of lazy payloads', function (): void {
     $resource = FrontendResourceData::moduleScript('capell-app/gallery:runtime', 'capell-app/gallery', new ExternalResourceSourceData('https://cdn.example.com/runtime.js'));
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource, [
             new FrontendResourceActivationData('widget_opaque', PresentationLoadingStrategy::Visible),
         ]),

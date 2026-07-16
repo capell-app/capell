@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\Marketplace;
 
 use Capell\Core\Data\Marketplace\ExtensionHealthAlertData;
 use Capell\Core\Models\ExtensionHealthAlert;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RecordExtensionHealthAlertsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<int, ExtensionHealthAlertData>  $alerts

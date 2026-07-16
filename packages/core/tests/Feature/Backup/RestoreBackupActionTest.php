@@ -49,10 +49,10 @@ afterEach(function (): void {
 
 it('restores a verified snapshot only into scratch database and media targets', function (): void {
     Storage::disk('media')->put('images/example.txt', 'original-media');
-    $manifest = resolve(CreateBackupAction::class)->handle();
+    $manifest = CreateBackupAction::run();
     new PDO('sqlite:' . $this->databasePath)->exec("UPDATE examples SET value = 'changed-live'");
 
-    $result = resolve(RestoreBackupAction::class)->handle(
+    $result = RestoreBackupAction::run(
         snapshotId: $manifest->snapshotId,
         scratchDatabase: 'capell_restore_test',
         mediaDisk: 'scratch-media',
@@ -75,24 +75,24 @@ it('restores a verified snapshot only into scratch database and media targets', 
 
 it('rejects unsafe or live restore targets and non-empty media prefixes', function (): void {
     Storage::disk('media')->put('images/example.txt', 'original-media');
-    $manifest = resolve(CreateBackupAction::class)->handle();
+    $manifest = CreateBackupAction::run();
 
-    expect(fn () => resolve(RestoreBackupAction::class)->handle($manifest->snapshotId, '../live', 'scratch-media', 'restore-test'))
+    expect(fn () => RestoreBackupAction::run($manifest->snapshotId, '../live', 'scratch-media', 'restore-test'))
         ->toThrow(InvalidArgumentException::class, 'safe scratch database')
-        ->and(fn () => resolve(RestoreBackupAction::class)->handle($manifest->snapshotId, 'capell_restore_test', 'media', 'restore-test'))
+        ->and(fn () => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'media', 'restore-test'))
         ->toThrow(InvalidArgumentException::class, 'different from every live media disk');
 
     Storage::disk('scratch-media')->put('restore-test/existing.txt', 'occupied');
 
-    expect(fn () => resolve(RestoreBackupAction::class)->handle($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restore-test'))
+    expect(fn () => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restore-test'))
         ->toThrow(InvalidArgumentException::class, 'must be empty');
 });
 
 it('rejects checksum failures before creating a scratch database', function (): void {
-    $manifest = resolve(CreateBackupAction::class)->handle(databaseOnly: true);
+    $manifest = CreateBackupAction::run(databaseOnly: true);
     Storage::disk('backups')->put($manifest->database->path, 'corrupt');
 
-    expect(fn () => resolve(RestoreBackupAction::class)->handle($manifest->snapshotId, 'capell_restore_test'))
+    expect(fn () => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test'))
         ->toThrow(RuntimeException::class, 'failed integrity verification')
         ->and(is_dir($this->scratchDirectory))->toBeFalse();
 });

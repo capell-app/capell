@@ -10,6 +10,7 @@ use Capell\Core\Models\Contracts\Statusable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -19,6 +20,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ToggleRecordStatusAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model&Statusable $record, User $actor, ?bool $enabled = null): PublishVisibilityActionResultData

@@ -12,11 +12,13 @@ use Capell\Admin\Enums\AdminPanelChangeStatus;
 use Capell\Admin\Enums\AdminPanelFailureCategory;
 use Capell\Admin\Support\AdminPanelIntegration\AdminPanelProviderEditor;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class IntegrateCapellAdminPanelAction
 {
+    use AsFake;
     use AsObject;
 
     private const string DOCS_URL = 'https://capellcms.com/docs/admin-setup';

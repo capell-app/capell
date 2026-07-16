@@ -7,10 +7,12 @@ namespace Capell\Core\Actions\ContentGraph;
 use Capell\Core\Models\ContentGraphEdge;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class FindContentGraphDependentsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

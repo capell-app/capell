@@ -37,7 +37,7 @@ afterEach(function (): void {
 it('creates a database and media snapshot and writes its manifest last', function (): void {
     Storage::disk('media')->put('images/example.txt', 'media-content');
 
-    $manifest = resolve(CreateBackupAction::class)->handle();
+    $manifest = CreateBackupAction::run();
     $manifestPath = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
 
     Storage::disk('backups')->assertExists($manifestPath);
@@ -62,7 +62,7 @@ it('creates a database and media snapshot and writes its manifest last', functio
 it('supports database-only snapshots', function (): void {
     Storage::disk('media')->put('images/example.txt', 'media-content');
 
-    $manifest = resolve(CreateBackupAction::class)->handle(databaseOnly: true);
+    $manifest = CreateBackupAction::run(databaseOnly: true);
 
     expect($manifest->media)->toBe([])
         ->and(Storage::disk('backups')->allFiles('capell-backups/' . $manifest->snapshotId))->toHaveCount(2);
@@ -71,11 +71,11 @@ it('supports database-only snapshots', function (): void {
 it('fails closed when backup is disabled or recursively targets its backup disk', function (): void {
     config(['backup.enabled' => false]);
 
-    expect(fn () => resolve(CreateBackupAction::class)->handle())
+    expect(fn () => CreateBackupAction::run())
         ->toThrow(RuntimeException::class, 'Backups are disabled.')
         ->and(function (): void {
             config(['backup.enabled' => true, 'backup.media_disks' => ['backups']]);
-            resolve(CreateBackupAction::class)->handle();
+            CreateBackupAction::run();
         })->toThrow(RuntimeException::class, 'Backup storage cannot also be a media source.');
 });
 

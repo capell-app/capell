@@ -7,11 +7,13 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Models\Site;
 use JsonException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class BuildSiteFromSpecFileAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $path): Site

@@ -8,6 +8,7 @@ use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Rollback\RollbackPreviewData;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -18,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ApplyRollbackAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

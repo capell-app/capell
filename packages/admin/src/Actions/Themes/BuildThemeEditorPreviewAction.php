@@ -11,14 +11,16 @@ use Capell\Admin\Data\Themes\ThemeEditorStateData;
 use Capell\Admin\Support\Themes\ThemeEditorExtensionRegistry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static ThemeEditorPreviewData run(ThemeEditorStateData|array<string, mixed> $state, ?ThemeEditorContextData $context = null)
  */
 final class BuildThemeEditorPreviewAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  ThemeEditorStateData|array<string, mixed>  $state

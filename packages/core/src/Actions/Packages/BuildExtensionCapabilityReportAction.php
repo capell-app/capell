@@ -8,6 +8,7 @@ use Capell\Core\Data\ExtensionCapabilityReportData;
 use Capell\Core\Data\ExtensionInstallImpactData;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildExtensionCapabilityReportAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -11,14 +11,16 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static Theme run(SetActiveThemeForSitesData $data)
  */
 final class SetActiveThemeForSitesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(SetActiveThemeForSitesData $data): Theme
     {

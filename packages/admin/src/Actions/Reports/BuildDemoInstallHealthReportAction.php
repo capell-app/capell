@@ -22,10 +22,12 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
 use Illuminate\Database\ConnectionResolverInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 {
+    use AsFake;
     use AsObject;
 
     private const string REPORT_KEY = 'core.demo_install_health';
@@ -42,7 +44,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     public function handle(): ReportSnapshotData
     {
-        $installationState = $this->resolveInstallationState->handle();
+        $installationState = ResolveCapellInstallationStateAction::run();
 
         if ($installationState === CapellInstallationState::NotInstalled) {
             return new ReportSnapshotData(
@@ -74,7 +76,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         }
 
         $doctorFindings = [];
-        $doctorChecks = $this->buildDoctorReport->handle(includePackageDoctors: false)->checks;
+        $doctorChecks = BuildDoctorReportAction::run(includePackageDoctors: false)->checks;
 
         foreach ($doctorChecks as $doctorCheck) {
             $finding = $this->findingForFailedCheck($doctorCheck);

@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class RunInstallPreflightChecksAction
 {
+    use AsFake;
     use AsObject;
 
     /** @var list<string> */

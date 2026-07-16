@@ -8,10 +8,12 @@ use Capell\Core\Data\Presentation\PresentationSettingsData;
 use Capell\Core\Enums\PresentationAlignment;
 use Capell\Core\Enums\PresentationDeviceVisibility;
 use Capell\Core\Enums\PresentationWidthMode;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class RenderWidgetRuntimeAttributesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

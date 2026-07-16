@@ -7,11 +7,13 @@ namespace Capell\Admin\Actions\Extensions;
 use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionRuntimeCompatibilityData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildExtensionRuntimeCompatibilityAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @return list<ExtensionRuntimeCompatibilityData> */
     public function handle(): array

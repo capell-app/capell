@@ -10,6 +10,7 @@ use Capell\Core\Data\Backup\BackupManifestData;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 use UnexpectedValueException;
@@ -17,6 +18,7 @@ use UnexpectedValueException;
 /** @method static BackupHealthReportData run() */
 final class InspectBackupHealthAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

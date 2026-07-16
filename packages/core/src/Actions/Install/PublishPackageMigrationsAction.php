@@ -9,11 +9,13 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class PublishPackageMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

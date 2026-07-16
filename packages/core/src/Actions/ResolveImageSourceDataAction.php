@@ -9,11 +9,13 @@ use Capell\Core\Data\ImageSourceData;
 use Capell\Core\Enums\ImageSourceType;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Illuminate\Support\Facades\Storage;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ResolveImageSourceDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly ImageUrlPolicy $urlPolicy) {}

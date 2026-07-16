@@ -7,11 +7,13 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Models\UpdateNoticeDismissal;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class DismissUpdateNoticeAction
 {
+    use AsFake;
     use AsObject;
 
     /**

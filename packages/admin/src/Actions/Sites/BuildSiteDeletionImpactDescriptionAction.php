@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Sites;
 
 use Capell\Core\Data\DeletionImpactData;
 use Illuminate\Support\Number;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildSiteDeletionImpactDescriptionAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(DeletionImpactData $impact): string

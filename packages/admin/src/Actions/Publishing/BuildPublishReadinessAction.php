@@ -14,10 +14,12 @@ use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublishReadinessAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

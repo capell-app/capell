@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\SystemPageResolver;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolveSystemPageAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $type, Site $site, Language $language): ?Pageable

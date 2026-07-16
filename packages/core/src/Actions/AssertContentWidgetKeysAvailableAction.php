@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Facades\CapellCore;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
@@ -15,6 +16,7 @@ use RuntimeException;
  */
 final class AssertContentWidgetKeysAvailableAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param list<PackageData> $packages */

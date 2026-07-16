@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Support\Fragments\DeferredFragmentPlaceholderData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -12,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolveDeferredFragmentPlaceholderDataAction
 {
+    use AsFake;
     use AsObject;
 
     /**

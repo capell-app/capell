@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\Upgrade;
 
 use Capell\Core\Data\VersionAudit;
 use Capell\Core\Models\UpgradeLogEntry;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class AuditInstalledVersionsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @var array<int, string>

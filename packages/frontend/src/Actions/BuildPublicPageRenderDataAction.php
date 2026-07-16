@@ -16,10 +16,12 @@ use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildPublicPageRenderDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(FrontendRenderContextData $context): PublicPageRenderData

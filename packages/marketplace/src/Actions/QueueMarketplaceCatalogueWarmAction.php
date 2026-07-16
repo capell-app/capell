@@ -8,11 +8,13 @@ use Capell\Marketplace\Data\MarketplaceCatalogueQueryData;
 use Capell\Marketplace\Jobs\WarmMarketplaceCatalogueCacheJob;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Illuminate\Support\Facades\Cache;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class QueueMarketplaceCatalogueWarmAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(private readonly MarketplaceClient $marketplace) {}
 

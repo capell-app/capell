@@ -7,11 +7,13 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Carbon\CarbonImmutable;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildMarketplaceInstallPolicyEvidenceAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @param array<string, string> $dependencyMaturity */
     public function handle(

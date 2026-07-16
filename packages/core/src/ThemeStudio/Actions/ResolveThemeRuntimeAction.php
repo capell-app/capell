@@ -14,11 +14,13 @@ use Capell\Core\ThemeStudio\Data\ThemeRuntimeData;
 use Capell\Core\ThemeStudio\Exceptions\ThemePresetNotFoundException;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class ResolveThemeRuntimeAction
 {
+    use AsFake;
     use AsObject;
 
     /**

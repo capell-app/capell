@@ -8,12 +8,14 @@ use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Data\Makers\MakerInputData;
 use Capell\Core\Data\Makers\MakerResultData;
 use Capell\Core\Support\Makers\MakerSafety;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 class RunMakerAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(
         private readonly MakerRegistryInterface $registry,

@@ -19,7 +19,7 @@ The July 2026 standards inventory covered the following surfaces before rules we
 | Surface                                         |        Repository population |                                     Representative sample | Dominant findings                                                           |
 | ----------------------------------------------- | ---------------------------: | --------------------------------------------------------: | --------------------------------------------------------------------------- |
 | PHP under `packages/`, `tests/`, and `scripts/` |                  3,451 files |                                     repository-wide check | 100% use `declare(strict_types=1)`                                          |
-| Actions                                         |                  405 classes |                               24 across all host packages | verb-led operations, `handle()`, explicit returns, `AsObject` or `AsAction` |
+| Actions                                         |                  405 classes |                               24 across all host packages | verb-led operations, `handle()`, explicit returns, explicit `AsObject` + `AsFake` traits |
 | Support code                                    |                    373 files |                               25 across all host packages | focused collaborators, typed APIs, early returns                            |
 | Enums                                           |                    149 enums |                               20 across all host packages | singular concepts; suffix usage is split and therefore compatibility-owned  |
 | Livewire components                             |                    9 classes |                                                     all 9 | typed public state and authorization at mutations                           |
@@ -87,7 +87,7 @@ Use an Action when the operation:
 - needs direct behavioural tests, authorization, transaction ownership, queueing, or orchestration;
 - is a stable operation packages may call.
 
-Actions use a verb-led singular name and the `Action` suffix, expose one public `handle()` operation, and use the repository's established `AsObject`/`AsAction` concern where static `run()` is part of the call shape. Constructor injection is preferred for collaborators. Public lifecycle Actions that predate the suffix rule remain compatibility exceptions.
+Actions use a verb-led singular name and the `Action` suffix, expose one public `handle()` operation, and compose `AsObject` with `AsFake` where static `run()` is part of the call shape. `AsAction` is prohibited because it adds controller, command, listener, and job adapters that a domain Action may not need. Add a granular adapter trait only when its corresponding entry point is actually used. Production and test callers invoke Actions through `::run(...)`, never by resolving, constructing, or injecting an Action solely to call `handle(...)`. Constructor injection is preferred for collaborators, and tests fake downstream Actions with `::shouldRun()`, `::shouldNotRun()`, `::mock()`, or `::spy()`. Public lifecycle Actions that predate the suffix rule remain compatibility exceptions.
 
 Use a Support class for a cohesive capability, policy, resolver, registry, adapter, or stateful collaborator with more than one meaningful operation. `packages/frontend/src/Support/Render/PublicViewQueryGuard.php` is a Support class because it owns query-capture state and several cohesive policies.
 

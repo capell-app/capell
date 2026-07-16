@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Permission;
 
 class InstallImpersonationPermissionAction
 {
+    use AsFake;
     use AsObject;
 
     public const string PERMISSION_IMPERSONATE = 'impersonate_users';

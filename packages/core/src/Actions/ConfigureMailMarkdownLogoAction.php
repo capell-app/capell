@@ -8,11 +8,13 @@ use Capell\Core\Contracts\Media\MediaContract;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ConfigureMailMarkdownLogoAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): void

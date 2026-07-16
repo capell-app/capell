@@ -6,11 +6,13 @@ namespace Capell\Frontend\Actions;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HttpFoundation\Response;
 
 final class RenderFallbackPublicViewAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Request $request): ?Response

@@ -6,11 +6,13 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildMarketplaceInstallDiagnosticBundleAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(MarketplaceInstallAttempt $attempt): string
     {

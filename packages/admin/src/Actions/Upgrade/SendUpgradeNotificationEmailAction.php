@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Upgrade;
 
 use Capell\Admin\Notifications\UpgradeSummaryNotification;
 use Illuminate\Support\Facades\Notification;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class SendUpgradeNotificationEmailAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(): int
     {

@@ -10,12 +10,14 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class PublishMarketplaceComposerChangeAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array{status: string, reference?: string, type?: string, failure_reason?: string, fallback?: string}

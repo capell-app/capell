@@ -8,14 +8,16 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static string|null run(Pageable $page, Language $language)
  */
 final class ResolvePageCanonicalUrlAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(Pageable $page, Language $language): ?string
     {

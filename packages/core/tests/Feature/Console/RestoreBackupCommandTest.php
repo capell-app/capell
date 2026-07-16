@@ -42,7 +42,7 @@ afterEach(function (): void {
 });
 
 it('restores and verifies a snapshot from the command', function (): void {
-    $snapshotId = resolve(CreateBackupAction::class)->handle(databaseOnly: true)->snapshotId;
+    $snapshotId = CreateBackupAction::run(databaseOnly: true)->snapshotId;
 
     artisanCommand('capell:backup:restore', [
         'snapshot' => $snapshotId,

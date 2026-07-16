@@ -8,6 +8,7 @@ use Capell\Core\Models\Language;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use Locale;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class CreateDefaultLanguagesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

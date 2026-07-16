@@ -9,12 +9,14 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Role;
 use Throwable;
 
 final class GrantInstallUserAdminAccessAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Authenticatable $user, ProgressReporter $reporter): void

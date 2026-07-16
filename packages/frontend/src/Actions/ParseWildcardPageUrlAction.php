@@ -8,6 +8,7 @@ use Capell\Core\Enums\UrlParamTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\Url\UrlPathNormalizer;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -20,6 +21,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class ParseWildcardPageUrlAction
 {
+    use AsFake;
     use AsObject;
 
     /**

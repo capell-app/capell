@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Support\Manifest\ManifestValidator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -12,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ValidateExtensionManifestAction
 {
+    use AsFake;
     use AsObject;
 
     /**

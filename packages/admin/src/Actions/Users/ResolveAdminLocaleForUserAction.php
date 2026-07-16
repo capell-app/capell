@@ -7,11 +7,13 @@ namespace Capell\Admin\Actions\Users;
 use Capell\Core\Models\Language;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Database\Eloquent\Model;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveAdminLocaleForUserAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(?Model $user): string
     {

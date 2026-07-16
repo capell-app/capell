@@ -8,10 +8,12 @@ use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Core\Contracts\SettingsSchema;
 use Filament\Schemas\Schema;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildSettingsSchemaComponentsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

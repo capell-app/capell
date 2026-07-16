@@ -7,10 +7,12 @@ namespace Capell\Admin\Actions;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Settings\AdminSettings;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class NormalizeDashboardFilamentWidgetSettingsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

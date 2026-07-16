@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Contracts\AdminResourceResolver;
 use Capell\Core\Models\Blueprint;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetResourceFromBlueprintAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?Blueprint $type = null): string

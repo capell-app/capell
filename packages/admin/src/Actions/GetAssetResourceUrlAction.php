@@ -8,6 +8,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetAssetResourceUrlAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $type, int|Model $record): ?string

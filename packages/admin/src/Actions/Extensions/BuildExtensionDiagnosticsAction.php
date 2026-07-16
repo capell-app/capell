@@ -7,12 +7,14 @@ namespace Capell\Admin\Actions\Extensions;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildExtensionDiagnosticsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @return list<ExtensionHealthAlertData> */
     public function handle(): array

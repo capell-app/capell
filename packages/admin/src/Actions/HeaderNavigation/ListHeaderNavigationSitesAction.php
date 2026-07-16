@@ -9,10 +9,12 @@ use Capell\Admin\Support\HeaderNavigation\HeaderNavigationAccessResolver;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ListHeaderNavigationSitesAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

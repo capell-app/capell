@@ -9,11 +9,13 @@ use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class TransitionPublicationAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(
@@ -31,7 +33,7 @@ final class TransitionPublicationAction
             );
         }
 
-        $result = $this->evaluator->handle($request);
+        $result = EvaluatePublicationTransitionAction::run($request);
 
         if (! $result->changed()) {
             return $result;

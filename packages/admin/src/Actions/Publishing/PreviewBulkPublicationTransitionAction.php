@@ -15,10 +15,12 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PreviewBulkPublicationTransitionAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(
@@ -46,7 +48,7 @@ final class PreviewBulkPublicationTransitionAction
                 requestedTime: $requestedTime,
             );
             $result = $this->authorizer->allows($request)
-                ? $this->evaluator->handle($request)
+                ? EvaluatePublicationTransitionAction::run($request)
                 : $this->evaluator->unchanged(
                     $request,
                     PublicationTransitionOutcome::Unauthorized,

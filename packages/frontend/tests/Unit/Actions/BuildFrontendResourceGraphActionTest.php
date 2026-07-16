@@ -14,7 +14,7 @@ it('builds server-side graph diagnostics with ownership placement and fingerprin
         'capell-app/gallery',
         new PublicResourceSourceData('vendor/gallery/gallery.css'),
     );
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ]);
 

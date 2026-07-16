@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildExtensionRiskScoreAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  list<ExtensionHealthAlertData>  $alerts

@@ -20,11 +20,13 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildAccessibilityReadinessReportAction implements BuildsReportSnapshot
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?Site $site = null): ReportSnapshotData

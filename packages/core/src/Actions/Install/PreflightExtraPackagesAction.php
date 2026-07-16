@@ -7,11 +7,13 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class PreflightExtraPackagesAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

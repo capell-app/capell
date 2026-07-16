@@ -7,11 +7,13 @@ namespace Capell\Admin\Actions\Upgrade;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RecordUpgradeSnapshotAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private const string UPDATE_ADVISORY_SNAPSHOTS_TABLE = 'marketplace_update_advisory_snapshots';
 

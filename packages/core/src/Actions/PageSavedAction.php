@@ -6,10 +6,12 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Events\PageSaved;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class PageSavedAction
 {
+    use AsFake;
     use AsObject;
 
     /**

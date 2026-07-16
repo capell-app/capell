@@ -9,11 +9,13 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class PublishPendingMigrationsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(bool $dryRun = false): MigrationPublishResult
     {

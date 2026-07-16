@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Component;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetFlatComponentKeysAction
 {
+    use AsFake;
     use AsObject;
 
     /**

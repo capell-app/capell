@@ -12,10 +12,12 @@ use Capell\Core\Models\Contracts\Publishable;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ScheduleRecordPublishAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model&Publishable $record, User $actor, CarbonImmutable $publishAt): PublicationTransitionResultData

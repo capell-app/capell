@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\ThemeStudio\Actions;
 
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -12,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildBrandProfileSeedAction
 {
+    use AsFake;
     use AsObject;
 
     /**

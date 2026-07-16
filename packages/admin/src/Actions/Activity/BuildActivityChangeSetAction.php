@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Activity;
 
 use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Support\Activity\ActivityChangeSetBuilderResolver;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
 
@@ -14,6 +15,7 @@ use Spatie\Activitylog\Models\Activity;
  */
 final class BuildActivityChangeSetAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Activity $activity): ActivityChangeSetData

@@ -8,6 +8,7 @@ use Capell\Core\Data\PageUrlSiteDomainDiagnosticData;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class DiagnosePageUrlSiteDomainAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PageUrl $pageUrl, ?string $caller = null): PageUrlSiteDomainDiagnosticData

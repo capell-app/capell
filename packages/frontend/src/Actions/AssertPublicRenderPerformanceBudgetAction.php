@@ -7,10 +7,12 @@ namespace Capell\Frontend\Actions;
 use Capell\Frontend\Data\PublicRenderPerformanceBudgetData;
 use Capell\Frontend\Data\PublicRenderPerformanceBudgetResultData;
 use Capell\Frontend\Data\PublicRenderPerformanceReportData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class AssertPublicRenderPerformanceBudgetAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

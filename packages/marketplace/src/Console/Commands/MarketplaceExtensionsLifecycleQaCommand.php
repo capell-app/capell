@@ -26,7 +26,7 @@ final class MarketplaceExtensionsLifecycleQaCommand extends Command
 
     public function handle(RunMarketplaceExtensionsLifecycleQaAction $qa): int
     {
-        $results = $qa->handle(
+        $results = RunMarketplaceExtensionsLifecycleQaAction::run(
             only: $this->only(),
             skipDelete: (bool) $this->option('skip-delete'),
             stopOnFailure: (bool) $this->option('stop-on-failure'),

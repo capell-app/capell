@@ -7,11 +7,13 @@ namespace Capell\Core\Actions\Makers;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Data\Makers\MakerInputData;
 use Capell\Core\Data\Makers\MakerPreviewData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class PreviewMakerAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<string, mixed>  $values

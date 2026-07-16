@@ -9,14 +9,16 @@ use Capell\Admin\Data\Themes\ThemeLibraryCardData;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static array{installed: list<ThemeLibraryCardData>, available: list<ThemeLibraryCardData>, pending: int, pendingInstalls: list<array{name: string, package: string, command: string}>, warnings: list<ThemeLibraryCardData>} run()
  */
 final class ResolveThemeLibraryAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array{installed: list<ThemeLibraryCardData>, available: list<ThemeLibraryCardData>, pending: int, pendingInstalls: list<array{name: string, package: string, command: string}>, warnings: list<ThemeLibraryCardData>}

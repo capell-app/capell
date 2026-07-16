@@ -29,7 +29,7 @@ it('builds deterministic static page artifact metadata from render data and resp
         'url' => '/',
     ]);
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
-    $resourcePlan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $resourcePlan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData(FrontendResourceData::style(
             'capell-app/theme:style',
             'capell-app/theme',

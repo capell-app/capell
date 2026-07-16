@@ -10,10 +10,12 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicRenderPerformanceBudgetData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildPageFrontendResourceDiagnosticsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

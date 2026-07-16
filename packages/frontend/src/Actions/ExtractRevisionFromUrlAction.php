@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ExtractRevisionFromUrlAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(string $url): ?int
     {

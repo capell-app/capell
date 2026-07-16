@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Themes;
 
 use Capell\Core\Models\Theme;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class SetActiveThemeAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Theme $theme): Theme

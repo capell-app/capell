@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Enums\LayoutEnum;
 use Capell\Core\Models\Layout;
 use Capell\Core\Support\Creator\LayoutCreator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class GetOrCreateResultsLayoutAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): Layout

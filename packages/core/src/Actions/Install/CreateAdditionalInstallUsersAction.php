@@ -10,6 +10,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Spatie\Permission\Models\Role;
@@ -17,6 +18,7 @@ use Throwable;
 
 final class CreateAdditionalInstallUsersAction
 {
+    use AsFake;
     use AsObject;
 
     /**

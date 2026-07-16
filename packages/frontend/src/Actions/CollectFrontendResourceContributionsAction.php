@@ -8,10 +8,12 @@ use Capell\Frontend\Contracts\FrontendResourceContributor;
 use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
 use Capell\Frontend\Data\FrontendResourceContextData;
 use Illuminate\Contracts\Foundation\Application;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CollectFrontendResourceContributionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly Application $application) {}

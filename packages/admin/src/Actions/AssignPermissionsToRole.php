@@ -11,6 +11,7 @@ use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -19,6 +20,7 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class AssignPermissionsToRole
 {
+    use AsFake;
     use AsObject;
 
     /**

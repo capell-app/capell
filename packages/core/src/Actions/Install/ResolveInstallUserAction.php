@@ -9,11 +9,13 @@ use Capell\Core\Data\NewUserData;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class ResolveInstallUserAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?int $userId, ?NewUserData $newUser, ProgressReporter $reporter): Authenticatable

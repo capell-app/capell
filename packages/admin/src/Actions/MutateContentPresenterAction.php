@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Enums\ContentStructure;
 use Filament\Forms\Components\RichEditor\RichContentRenderer;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class MutateContentPresenterAction
 {
+    use AsFake;
     use AsObject;
 
     /**

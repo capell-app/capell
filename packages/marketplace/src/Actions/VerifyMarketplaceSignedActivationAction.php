@@ -7,12 +7,14 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class VerifyMarketplaceSignedActivationAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(private readonly MarketplacePayloadSigner $signer) {}
 

@@ -8,11 +8,13 @@ use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Data\Extensions\ExtensionDependencyBlockData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Core\Facades\CapellCore;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildExtensionDependencyGraphAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @return list<ExtensionDependencyBlockData> */
     public function handle(): array

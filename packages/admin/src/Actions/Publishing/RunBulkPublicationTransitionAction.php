@@ -14,10 +14,12 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RunBulkPublicationTransitionAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param Collection<int, Model&Publishable> $records */

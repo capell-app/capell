@@ -51,7 +51,7 @@ class BulkPublishPagesBulkAction extends BulkAction
                 /** @var User $actor */
                 $actor = auth()->user();
 
-                $result = BulkPublishPagesAction::make()->handle($records, $actor);
+                $result = BulkPublishPagesAction::run($records, $actor);
 
                 $notification = Notification::make()
                     ->title(__('capell-admin::bulk_actions.publish_pages_done', [

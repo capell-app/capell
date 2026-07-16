@@ -13,11 +13,13 @@ use Capell\Core\Support\Creator\PageCreator;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class BuildCapellSiteFromSpecAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(CapellSiteSpecData $spec): Site

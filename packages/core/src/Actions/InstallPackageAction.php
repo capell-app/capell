@@ -15,6 +15,7 @@ use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
 use Exception;
 use Illuminate\Support\Facades\Event;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
@@ -24,6 +25,7 @@ use Throwable;
  */
 class InstallPackageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -6,10 +6,12 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class DeactivateLockdownAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

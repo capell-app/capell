@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Illuminate\Support\Collection;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class FilterExtensionOperationPackagesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  iterable<ExtensionOperationPackageData>  $packages

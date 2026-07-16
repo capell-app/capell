@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -25,6 +26,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class LoadPageTreeBranchAction
 {
+    use AsFake;
     use AsObject;
 
     /**

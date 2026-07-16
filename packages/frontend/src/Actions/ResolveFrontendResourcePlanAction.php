@@ -26,11 +26,13 @@ use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Illuminate\Foundation\Vite;
 use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ResolveFrontendResourcePlanAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

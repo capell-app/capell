@@ -8,11 +8,13 @@ use Capell\Admin\Contracts\Diagnostics\SiteAwareSiteHealthReportExtender;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Data\Diagnostics\DiagnosticSectionData;
 use Capell\Admin\Data\Diagnostics\SiteHealthReportData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildSiteHealthReportAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(?int $siteId = null): SiteHealthReportData
     {

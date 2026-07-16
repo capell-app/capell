@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\Redirects;
 
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\RedirectHealthSnapshot;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class RefreshRedirectHealthSnapshotAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(PageUrl $redirect): RedirectHealthSnapshot
     {

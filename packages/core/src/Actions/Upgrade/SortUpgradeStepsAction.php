@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Upgrade;
 
 use Capell\Core\Contracts\UpgradeStepContract;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class SortUpgradeStepsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

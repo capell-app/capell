@@ -7,11 +7,13 @@ namespace Capell\Admin\Actions\Reports;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Settings\AdminSettings;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Role;
 
 final class BuildReportVisibilityFormStateAction
 {
+    use AsFake;
     use AsObject;
 
     /**

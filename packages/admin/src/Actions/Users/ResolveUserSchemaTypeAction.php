@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Users;
 
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class ResolveUserSchemaTypeAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<int, string>  $roleNames

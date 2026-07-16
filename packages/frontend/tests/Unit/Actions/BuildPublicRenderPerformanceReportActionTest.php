@@ -15,7 +15,7 @@ it('summarises the resolved resource plan without fetching remote resources', fu
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $runtime->usesInertia = true;
 
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData(FrontendResourceData::style('capell-app/theme:style', 'capell-app/theme', new PublicResourceSourceData('theme.css'))),
         new FrontendResourceContributionData(FrontendResourceData::inlineStyle('capell-app/theme:critical', 'capell-app/theme', '.hero{display:block}', criticalCssEligible: true)),
     ]);

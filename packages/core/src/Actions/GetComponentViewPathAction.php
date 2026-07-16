@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\View;
 use Illuminate\View\Compilers\ComponentTagCompiler;
 use InvalidArgumentException;
 use Livewire\Finder\Finder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -21,6 +22,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetComponentViewPathAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $component, bool $livewire = false): string

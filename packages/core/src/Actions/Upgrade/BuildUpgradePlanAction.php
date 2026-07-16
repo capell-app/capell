@@ -10,11 +10,13 @@ use Capell\Core\Data\UpgradePlanData;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Capell\Core\Models\UpgradeLogEntry;
 use Illuminate\Database\Query\JoinClause;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildUpgradePlanAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(bool $dryRun = false, string $triggeredBy = 'upgrade'): UpgradePlanData
     {

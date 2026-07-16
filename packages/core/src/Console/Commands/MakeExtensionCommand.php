@@ -96,7 +96,7 @@ final class MakeExtensionCommand extends Command
         $slug = Str::of($packageName)->after('/')->replace('_', '-')->slug()->toString();
         $tier = $this->option('premium') === true ? 'premium' : 'free';
 
-        $scaffoldPackage->handle(new PackageScaffoldInputData(
+        ScaffoldPackageAction::run(new PackageScaffoldInputData(
             packageName: $packageName,
             namespace: $namespace,
             slug: $slug,

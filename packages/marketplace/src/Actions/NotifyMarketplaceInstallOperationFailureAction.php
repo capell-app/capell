@@ -18,12 +18,14 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class NotifyMarketplaceInstallOperationFailureAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(MarketplaceInstallAttempt $attempt, ?string $reason = null): void
     {

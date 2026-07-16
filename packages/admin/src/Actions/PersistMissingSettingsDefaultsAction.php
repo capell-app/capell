@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionProperty;
 use Spatie\LaravelSettings\Settings;
@@ -11,6 +12,7 @@ use Spatie\LaravelSettings\Support\Crypto;
 
 final class PersistMissingSettingsDefaultsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

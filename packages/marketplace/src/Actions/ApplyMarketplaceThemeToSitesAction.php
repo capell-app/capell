@@ -10,11 +10,13 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ApplyMarketplaceThemeToSitesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(string $themeKey, string $themeName, ?int $siteId = null): Theme
     {

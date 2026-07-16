@@ -8,10 +8,12 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class SetupPageUrlsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

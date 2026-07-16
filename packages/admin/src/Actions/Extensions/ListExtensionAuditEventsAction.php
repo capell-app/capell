@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Admin\Data\Extensions\ExtensionAuditEventData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ListExtensionAuditEventsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @return list<ExtensionAuditEventData> */
     public function handle(int $limit = 10): array

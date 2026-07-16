@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\Upgrade;
 
 use Capell\Core\Data\MigrationRunResult;
 use Illuminate\Support\Facades\Artisan;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class RunSettingsMigrationsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(bool $dryRun = false): MigrationRunResult
     {

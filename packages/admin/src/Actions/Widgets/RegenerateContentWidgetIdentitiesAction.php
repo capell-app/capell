@@ -7,10 +7,12 @@ namespace Capell\Admin\Actions\Widgets;
 use Capell\Admin\Support\Widgets\BoundedContentWidgetStateTraversal;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Illuminate\Support\Str;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RegenerateContentWidgetIdentitiesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @var array<string, true> */

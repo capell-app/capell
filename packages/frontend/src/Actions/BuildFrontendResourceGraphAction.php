@@ -6,10 +6,12 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildFrontendResourceGraphAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return array<string, mixed> */

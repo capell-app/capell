@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Core\Models\Page;
 use Illuminate\Support\Facades\URL;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -19,6 +20,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class IssuePagePreviewTokenAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page $page, int $ttlMinutes = 30): string

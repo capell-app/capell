@@ -11,13 +11,15 @@ use Capell\Core\Models\Media;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Throwable;
 
 final class BuildMediaUsageItemsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return list<array{label: string, title: string, url: string|null}>

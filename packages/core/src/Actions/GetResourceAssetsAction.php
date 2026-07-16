@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use FilesystemIterator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -14,6 +15,7 @@ use RecursiveIteratorIterator;
  */
 class GetResourceAssetsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

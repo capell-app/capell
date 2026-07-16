@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\AdminPanelIntegration;
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelCandidateData;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
@@ -19,6 +20,7 @@ use Throwable;
 
 final class DiscoverFilamentPanelsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

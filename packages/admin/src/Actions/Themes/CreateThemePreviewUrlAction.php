@@ -9,6 +9,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewSigner;
 use Illuminate\Support\Facades\URL;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -16,6 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class CreateThemePreviewUrlAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Theme $theme, Site $site, Page $page, ?string $presetKey = null): string
