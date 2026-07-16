@@ -362,6 +362,40 @@ it('documents the verified dual installation paths without exposing a real crede
         ->not->toMatch('/capell_membership_[A-Za-z0-9]{20,}/');
 });
 
+it('defines the paid root package as the aggregate of the public foundation', function (): void {
+    $root = dirname(__DIR__, 2);
+    $manifest = json_decode(
+        file_get_contents($root . '/composer.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($manifest['name'])->toBe('capell-app/capell')
+        ->and($manifest['license'])->toBe('proprietary')
+        ->and($manifest['replace'])->toBe([
+            'capell-app/admin' => 'self.version',
+            'capell-app/core' => 'self.version',
+            'capell-app/frontend' => 'self.version',
+            'capell-app/installer' => 'self.version',
+            'capell-app/marketplace' => 'self.version',
+        ])
+        ->and($manifest['autoload']['psr-4'])->toHaveKeys([
+            'Capell\\Admin\\',
+            'Capell\\Core\\',
+            'Capell\\Frontend\\',
+            'Capell\\Installer\\',
+            'Capell\\Marketplace\\',
+        ])
+        ->and($manifest['extra']['laravel']['providers'])->toContain(
+            'Capell\\Core\\Providers\\CapellServiceProvider',
+            'Capell\\Admin\\Providers\\AdminServiceProvider',
+            'Capell\\Frontend\\Providers\\FrontendServiceProvider',
+            'Capell\\Installer\\Providers\\InstallerServiceProvider',
+            'Capell\\Marketplace\\Providers\\MarketplaceServiceProvider',
+        );
+});
+
 it('documents one public distribution and commercial licensing story', function (): void {
     $root = dirname(__DIR__, 2);
     $readme = file_get_contents($root . '/README.md');
