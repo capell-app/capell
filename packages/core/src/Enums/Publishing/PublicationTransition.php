@@ -6,6 +6,7 @@ namespace Capell\Core\Enums\Publishing;
 
 enum PublicationTransition: string
 {
+    case CancelSchedule = 'cancel-schedule';
     case PublishNow = 'publish-now';
     case RevertToDraft = 'revert-to-draft';
     case SchedulePublish = 'schedule-publish';
