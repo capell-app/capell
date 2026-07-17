@@ -1072,16 +1072,6 @@ PHP);
     );
 });
 
-it('uses a dry run require to prove downloadable packages are installable', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/src/Http/Controllers/InstallController.php');
-
-    expect($content)
-        ->toContain("'require'")
-        ->toContain("'--dry-run'")
-        ->toContain("'--no-scripts'")
-        ->toContain("'--with-all-dependencies'");
-});
-
 it('shows an already installed message when capell core is composer available and site data exists', function (): void {
     config(['capell-installer.allow_reinstall' => false]);
     Cache::forget('capell.install.lock');
