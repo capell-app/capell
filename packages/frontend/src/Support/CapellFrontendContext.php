@@ -20,13 +20,8 @@ final class CapellFrontendContext
     use Macroable;
 
     public function __construct(
-        private FrontendContextReader $contextReader,
+        private readonly FrontendContextReader $contextReader,
     ) {}
-
-    public function contextReader(): FrontendContextReader
-    {
-        return $this->contextReader;
-    }
 
     public function site(): ?Site
     {

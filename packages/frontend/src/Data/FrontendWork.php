@@ -16,7 +16,6 @@ class FrontendWork
         private ?RedirectResponse $redirect = null,
         /** @var array{status:int,message?:string}|null */
         private ?array $error = null,
-        private ?FrontendContext $context = null,
     ) {}
 
     public function setRedirect(RedirectResponse $response): self
@@ -45,15 +44,8 @@ class FrontendWork
         return $this->error;
     }
 
-    public function setContext(FrontendContext $context): self
+    public function context(): FrontendContext
     {
-        $this->context = $context;
-
-        return $this;
-    }
-
-    public function context(): ?FrontendContext
-    {
-        return $this->context;
+        return $this->state->snapshot();
     }
 }

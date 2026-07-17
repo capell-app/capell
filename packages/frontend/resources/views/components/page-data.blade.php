@@ -1,6 +1,5 @@
 <?php
 use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\Context\FrontendContext;
 use Illuminate\Support\Facades\Route;
 
 $site = Frontend::site();
@@ -14,7 +13,7 @@ $beaconRoute = is_string($routeName) && Route::has($routeName) ? route($routeNam
 $beacon = [
     'url' => $beaconRoute,
     'timeout' => config('session.lifetime') * 60 * 1000,
-    'error' => FrontendContext::isErrorPage(),
+    'error' => Frontend::isError(),
     'payload' => [],
 ];
 ?>

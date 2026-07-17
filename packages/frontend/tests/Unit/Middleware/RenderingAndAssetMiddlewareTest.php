@@ -11,7 +11,6 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,7 +20,7 @@ it('adds the page rendering strategy header from frontend context', function ():
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::BladeWithIslands->value],
     ]));
 
-    $response = (new RenderingStrategyMiddleware)->handle(
+    $response = resolve(RenderingStrategyMiddleware::class)->handle(
         Request::create('/about'),
         fn (): Response => new Response('<html></html>', Response::HTTP_OK),
     );
@@ -33,14 +32,14 @@ it('adds the page rendering strategy header from frontend context', function ():
 it('falls back to blade-only rendering for missing or unavailable page context', function (): void {
     bindFrontendContext(page: new Page(['meta' => []]));
 
-    $response = (new RenderingStrategyMiddleware)->handle(
+    $response = resolve(RenderingStrategyMiddleware::class)->handle(
         Request::create('/about'),
         fn (): Response => new Response('<html></html>', Response::HTTP_OK),
     );
 
-    app()->forgetInstance(CapellFrontendContext::class);
+    app()->forgetInstance(FrontendContextReader::class);
 
-    $missingContextResponse = (new RenderingStrategyMiddleware)->handle(
+    $missingContextResponse = resolve(RenderingStrategyMiddleware::class)->handle(
         Request::create('/missing-context'),
         fn (): Response => new Response('<html></html>', Response::HTTP_OK),
     );
@@ -56,7 +55,7 @@ it('injects asset hints into successful html responses only', function (): void 
 
     bindFrontendContext(theme: $theme);
 
-    $htmlResponse = (new AssetOptimizationMiddleware)->handle(
+    $htmlResponse = resolve(AssetOptimizationMiddleware::class)->handle(
         Request::create('/home'),
         fn (): Response => new Response(
             '<html><head><title>Home</title></head><body></body></html>',
@@ -65,7 +64,7 @@ it('injects asset hints into successful html responses only', function (): void 
         ),
     );
 
-    $jsonResponse = (new AssetOptimizationMiddleware)->handle(
+    $jsonResponse = resolve(AssetOptimizationMiddleware::class)->handle(
         Request::create('/api/home'),
         fn (): Response => new Response(
             '{"ok":true}',
@@ -85,9 +84,9 @@ it('registers the opt-in asset optimization middleware alias', function (): void
 });
 
 it('leaves asset responses unchanged when optimization cannot run', function (): void {
-    app()->forgetInstance(CapellFrontendContext::class);
+    app()->forgetInstance(FrontendContextReader::class);
 
-    $response = (new AssetOptimizationMiddleware)->handle(
+    $response = resolve(AssetOptimizationMiddleware::class)->handle(
         Request::create('/home'),
         fn (): Response => new Response(
             '<html><head></head><body></body></html>',
@@ -102,7 +101,8 @@ it('leaves asset responses unchanged when optimization cannot run', function ():
 
 function bindFrontendContext(?Page $page = null, ?Theme $theme = null): void
 {
-    app()->instance(CapellFrontendContext::class, new CapellFrontendContext(
+    app()->instance(
+        FrontendContextReader::class,
         new readonly class($page, $theme) implements FrontendContextReader
         {
             public function __construct(
@@ -160,5 +160,5 @@ function bindFrontendContext(?Page $page = null, ?Theme $theme = null): void
                 return $key === null ? [] : null;
             }
         },
-    ));
+    );
 }
