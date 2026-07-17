@@ -667,36 +667,6 @@
             "notes": "Shows launch-focused checks for pages, URLs, translations, layouts, and publication timing."
         },
         {
-            "id": "cache-freshness-report",
-            "title": "Cache freshness report.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "CacheFreshnessReport",
-            "scenario": "admin-index",
-            "url": "/reports/cache-freshness",
-            "waitFor": "body",
-            "docsPage": "docs/architecture/page-cache.md",
-            "output": "docs/images/generated/admin/cache-freshness-report.png",
-            "required": false,
-            "notes": "Shows admin checks for cached page freshness and invalidation state."
-        },
-        {
-            "id": "url-health-report",
-            "title": "URL health report.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "UrlHealthReport",
-            "scenario": "admin-index",
-            "url": "/reports/url-health",
-            "waitFor": "body",
-            "docsPage": "docs/performance/model-url-cache.md",
-            "output": "docs/images/generated/admin/url-health-report.png",
-            "required": false,
-            "notes": "Shows report output for page URL and redirect health."
-        },
-        {
             "id": "page-urls-list",
             "title": "Page URLs list.",
             "package": "documentation",

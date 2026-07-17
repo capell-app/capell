@@ -30,7 +30,7 @@ Do not use render hooks to add authoring buttons, hidden model IDs, field paths,
 
 Register package Tailwind sources or imports through Capell asset registries when package views contain classes that must be compiled.
 
-Use `TailwindAssetsRegistry` for source files, imports, plugins, and theme colors. Use `FrontendResourceRegistry` groups or tagged `FrontendAssetContributor` implementations for runtime CSS, JavaScript, preload, and lazy asset delivery.
+Use `TailwindAssetsRegistry` for source files, imports, plugins, and theme colors. Use `FrontendResourceRegistry` groups or tagged `FrontendResourceContributor` implementations for runtime CSS, JavaScript, preload, and lazy asset delivery.
 
 ```php
 use Capell\Core\Support\Tailwind\TailwindAssetsRegistry;

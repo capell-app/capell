@@ -3,7 +3,7 @@
 > **Who is this for?**
 > Frontend package developers tuning public CSS, JavaScript, preload hints, and DNS prefetch without leaking package/editor internals into cached HTML.
 
-> **TL;DR:** Package runtime assets are declared through `FrontendAssetContributor` implementations or `FrontendResourceRegistry` groups. `AssetOptimizationMiddleware` is available as the opt-in `frontend.asset-optimization` route middleware alias and injects safe response hints from the resolved public frontend context.
+> **TL;DR:** Package runtime assets are declared through `FrontendResourceContributor` implementations or `FrontendResourceRegistry` groups. `AssetOptimizationMiddleware` is available as the opt-in `frontend.asset-optimization` route middleware alias and injects safe response hints from the resolved public frontend context.
 
 ## When To Use This
 
@@ -21,7 +21,7 @@ Do not add asset tags with render hooks when those tags belong to a reusable wid
 Packages have two supported asset paths:
 
 - `FrontendResourceRegistry` groups for widget-scoped CSS and JavaScript.
-- Tagged `FrontendAssetContributor` implementations for lower-level runtime asset manifest contributions.
+- Tagged `FrontendResourceContributor` implementations for lower-level runtime resource contributions.
 
 `AssetOptimizationMiddleware` is registered as `frontend.asset-optimization`. It is not globally applied; attach it to the route group or route that should receive response hints:
 
@@ -43,8 +43,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Capell\LayoutBuilder\Data\LayoutWidgets\LayoutWidgetDefinitionData;
-use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
+use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
+use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Illuminate\Support\ServiceProvider;
 
@@ -52,10 +54,23 @@ final class FrontendServiceProvider extends ServiceProvider
 {
     public function boot(FrontendResourceRegistry $resources, LayoutWidgetRegistry $widgets): void
     {
-        $resources
-            ->group('example.carousel')
-            ->css('resources/css/carousel.css', buildPath: 'vendor/example')
-            ->js('resources/js/carousel.js', buildPath: 'vendor/example', loading: PresentationLoadingStrategy::Visible);
+        $resources->register(new FrontendResourceGroupData(
+            key: 'example.carousel',
+            label: 'Carousel',
+            package: 'example/carousel',
+            resources: [
+                FrontendResourceData::style(
+                    handle: 'example/carousel:style',
+                    package: 'example/carousel',
+                    source: new PublicResourceSourceData('/vendor/example/carousel.css'),
+                ),
+                FrontendResourceData::classicScript(
+                    handle: 'example/carousel:runtime',
+                    package: 'example/carousel',
+                    source: new PublicResourceSourceData('/vendor/example/carousel.js'),
+                ),
+            ],
+        ));
 
         $widgets->registerDefinition(LayoutWidgetDefinitionData::frontendBlade(
             key: 'carousel',
@@ -70,7 +85,7 @@ The public asset manifest exposes generated resource IDs. Keep package names, mo
 
 ## Asset Contributors
 
-Use `FrontendAssetContributor::TAG` when a package needs to contribute directly to the frontend asset manifest instead of a widget resource group. Register contributors as tagged container services from the package provider.
+Use `FrontendResourceContributor::TAG` when a package needs to contribute directly to the frontend resource plan instead of a widget resource group. Register contributors as tagged container services from the package provider.
 
 ## AssetOptimizationMiddleware Behaviour
 

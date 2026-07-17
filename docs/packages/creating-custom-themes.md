@@ -12,7 +12,6 @@ A theme package should include:
 - `capell.json`
 - a service provider
 - a `ThemeDefinitionData` registration
-- one `ThemeRenderer`
 - section renderers for the sections the package owns
 - public CSS/JS assets registered from PHP
 - preset definitions with preview metadata
@@ -53,23 +52,25 @@ manifest during diagnostics so a path package can be checked before release.
 
 ## Register The Theme
 
-Register with `ThemePackageRegistrar` from the package service provider when the
-theme uses Blade views:
+Register the definition with `ThemeRegistry` from the package service provider:
 
 ```php
-resolve(ThemePackageRegistrar::class)->registerBladeTheme(
-    definition: $this->definition(),
-    layoutView: 'equidynamics-theme::page',
-    sectionViews: [
-        'hero' => 'equidynamics-theme::sections.hero',
-    ],
-    viewNamespace: 'equidynamics-theme',
-    viewPaths: [__DIR__ . '/../resources/views'],
-);
+use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+
+public function packageBooted(): void
+{
+    if (! $this->isPackageInstalled()) {
+        return;
+    }
+
+    resolve(ThemeRegistry::class)->register($this->definition());
+}
 ```
 
-Use direct `ThemeRegistry` registration only when a theme needs a custom renderer
-object instead of the standard Blade renderer:
+Local themes use the same registration call without the installed-package guard,
+so a fresh install can discover and render the path package in the same process.
+The definition controls the theme's metadata, presets, assets, runtime, and
+parent relationship:
 
 ```php
 use Capell\Core\Enums\FrontendRuntime;
@@ -77,10 +78,10 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 
-public function boot(ThemeRegistry $themes): void
+public function packageBooted(): void
 {
-    $themes->register(
-        definition: new ThemeDefinitionData(
+    resolve(ThemeRegistry::class)->register(
+        new ThemeDefinitionData(
             key: 'agency-launch',
             name: 'Agency Launch',
             description: 'Portfolio and lead generation theme for service businesses.',
@@ -108,11 +109,6 @@ public function boot(ThemeRegistry $themes): void
             runtime: FrontendRuntime::Livewire,
             extends: 'default',
         ),
-        themeRenderer: new AgencyLaunchThemeRenderer,
-        sectionRenderers: [
-            new HeroSectionRenderer,
-            new FeaturesSectionRenderer,
-        ],
     );
 }
 ```

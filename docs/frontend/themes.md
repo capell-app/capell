@@ -11,11 +11,11 @@ The optional [Layout Builder package](https://docs.capell.app/packages/layout-bu
 ## Runtime Path
 
 1. Admin installs a package, creates an available theme definition, or creates a custom theme record.
-2. The package registers `ThemeDefinitionData` and a `ThemeRenderer` with `ThemeRegistry`.
+2. The package registers `ThemeDefinitionData` with `ThemeRegistry`.
 3. The installed `themes.key` points at the registered definition key.
 4. Sites either use the global default theme or an explicit `sites.theme_id`.
 5. Frontend context resolves the current site, page, layout, and theme before Blade renders.
-6. `RenderCurrentThemePageAction` resolves the active preset and calls `ResolveThemeRuntimeAction`.
+6. The frontend theme runtime hook resolves the active preset through `ResolveThemeRuntimeAction`.
 7. The renderer prints public HTML using prepared `ThemePageData`.
 
 The public page does not need to know that Theme Library, Customize, or Preview exist.

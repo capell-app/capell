@@ -51,7 +51,7 @@ Inertia themes declare `FrontendRuntime::Inertia` in their theme definition. Whe
 - `usesInertia = true`
 - `modules['inertia'] = true`
 
-`VendorBuildAssetContributor` then includes JavaScript assets for the active Inertia runtime. The render performance report also includes the `inertia` module flag so missing assets can be diagnosed from the same report as Blade and Livewire runtime concerns.
+`ResolveFrontendRuntimeAction` marks the runtime manifest as using Inertia. The typed frontend resource plan then includes the required runtime JavaScript. The render performance report also includes the `inertia` module flag so missing assets can be diagnosed from the same report as Blade and Livewire runtime concerns.
 
 ## Adapter Selection
 
