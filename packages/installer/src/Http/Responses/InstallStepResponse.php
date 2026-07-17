@@ -20,13 +20,13 @@ final class InstallStepResponse
         array $additional = [],
     ): JsonResponse {
         return response()->json([
+            ...$additional,
             'installId' => $installId,
             'currentStep' => $currentStep,
             'nextStep' => $nextStep,
             'status' => 'running',
             'lines' => $this->sessions->lines($installId),
             'logPath' => $logPath,
-            ...$additional,
             'csrfToken' => csrf_token(),
         ]);
     }
@@ -55,6 +55,7 @@ final class InstallStepResponse
         int $statusCode = 200,
     ): JsonResponse {
         return response()->json([
+            ...$additional,
             'installId' => $installId,
             'currentStep' => $currentStep,
             'nextStep' => null,
@@ -62,7 +63,6 @@ final class InstallStepResponse
             'lines' => $this->sessions->lines($installId),
             'logPath' => $logPath,
             'error' => $error,
-            ...$additional,
             'csrfToken' => csrf_token(),
         ], $statusCode);
     }

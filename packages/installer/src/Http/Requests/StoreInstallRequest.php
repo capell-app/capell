@@ -18,8 +18,9 @@ final class StoreInstallRequest extends FormRequest
     }
 
     /** @return array<string, mixed> */
-    public function rules(InstallerOptions $options): array
+    public function rules(): array
     {
+        $options = $this->options();
         $input = $this->all();
         $packageKeys = CapellCore::getPackages(sortByDependencies: true)->keys()->all();
         $downloadablePackageKeys = collect($options->downloadablePackages())
@@ -95,7 +96,7 @@ final class StoreInstallRequest extends FormRequest
         $validated = $this->validated();
 
         if (($validated['language'] ?? null) === '__custom') {
-            $validated['language'] = resolve(InstallerOptions::class)
+            $validated['language'] = $this->options()
                 ->normaliseLanguageCode((string) $validated['custom_language_code']);
         }
 
@@ -105,11 +106,16 @@ final class StoreInstallRequest extends FormRequest
     #[Override]
     protected function prepareForValidation(): void
     {
-        $options = resolve(InstallerOptions::class);
+        $options = $this->options();
 
         $this->replace($options->withDefaultAdminUserInput(
             $this->all(),
             (string) $this->input('admin_user_mode', 'create'),
         ));
+    }
+
+    private function options(): InstallerOptions
+    {
+        return resolve(InstallerOptions::class);
     }
 }
