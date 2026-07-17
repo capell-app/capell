@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Tests\Support\Concerns\TestingFrontend;
@@ -12,24 +13,12 @@ uses(TestingFrontend::class);
 beforeEach(function (): void {
     View::addNamespace('capell-frontend', dirname(__DIR__, 3) . '/packages/frontend/resources/views');
     Frontend::clearResolvedInstance(FrontendContextReader::class);
-    app()->instance(FrontendContextReader::class, new class
-    {
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
 
-        public function theme(): object
-        {
-            return new class
-            {
-                public function getMeta(string $key): bool
-                {
-                    return false;
-                }
-            };
-        }
-    });
+    $context = Mockery::mock(FrontendContextReader::class);
+    $context->shouldReceive('getFrontendData')->andReturnNull();
+    $context->shouldReceive('theme')->andReturn(Theme::factory()->make(['meta' => []]));
+
+    app()->instance(FrontendContextReader::class, $context);
 });
 
 it('renders asset index component with icon prop', function (): void {
