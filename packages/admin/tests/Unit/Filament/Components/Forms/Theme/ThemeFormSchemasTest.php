@@ -67,10 +67,10 @@ it('builds header and footer chrome fieldsets from the registered theme componen
         ->and(themeFormComponentByName($components, 'footer_color'))->toBeInstanceOf(ColorPicker::class)
         ->and(themeFormComponentByName($components, 'footer_spacing'))->toBeInstanceOf(Select::class)
         ->and($headerFile)->toBeInstanceOf(Select::class)
-        ->and($headerFile->getOptions())->toBe(['vendor-theme::header' => 'Vendor header'])
+        ->and($headerFile->getOptions())->toBe($registry->headerOptions())
         ->and(collect($headerFile->getValidationRules())->contains(fn (mixed $rule): bool => $rule instanceof In))->toBeTrue()
         ->and($footerFile)->toBeInstanceOf(Select::class)
-        ->and($footerFile->getOptions())->toBe(['vendor-theme::footer' => 'Vendor footer'])
+        ->and($footerFile->getOptions())->toBe($registry->footerOptions())
         ->and(collect($footerFile->getValidationRules())->contains(fn (mixed $rule): bool => $rule instanceof In))->toBeTrue();
 });
 
