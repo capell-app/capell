@@ -7,10 +7,12 @@ namespace Capell\Core\Actions;
 use Capell\Core\Contracts\Pageable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePublicPageableMorphTypesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return list<class-string<Model>|string> */
