@@ -467,8 +467,12 @@ abstract class AbstractTestCase extends TestCase
         }
     }
 
-    private function discoverPackageMigrations(string $path): array
+    private function discoverPackageMigrations(?string $path): array
     {
+        if ($path === null) {
+            return [];
+        }
+
         $path = realpath($path . '/database/migrations');
 
         if (! $path) {

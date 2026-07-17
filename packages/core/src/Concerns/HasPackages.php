@@ -132,14 +132,15 @@ trait HasPackages
 
     public function registerManifestPackage(CapellManifestData $manifest, ?string $version = null): static
     {
-        $installed = $this->packages[$manifest->name]->installed ?? $this->forcedPackageInstallStates[$manifest->name] ?? null;
+        $existing = $this->packages[$manifest->name] ?? null;
+        $installed = $existing->installed ?? $this->forcedPackageInstallStates[$manifest->name] ?? null;
 
         $this->packages[$manifest->name] = new PackageData(
             name: $manifest->name,
             type: $this->packageTypeFromManifestKind($manifest->kind),
             scopes: array_map(PackageScopeEnum::from(...), $manifest->scopes),
-            serviceProviderClass: $this->serviceProviderClassFromManifest($manifest),
-            path: $manifest->installPath,
+            serviceProviderClass: $existing->serviceProviderClass ?? $this->serviceProviderClassFromManifest($manifest),
+            path: $existing->path ?? $manifest->installPath,
             shortName: $manifest->displayName,
             description: $manifest->description,
             sort: $manifest->order,
@@ -153,7 +154,7 @@ trait HasPackages
             demoCommand: is_string($manifest->commands['demo'] ?? null) ? $manifest->commands['demo'] : null,
             demoParams: is_array($manifest->commands['demoParams'] ?? null) ? array_values($manifest->commands['demoParams']) : [],
             setting: $manifest->settings[0] ?? null,
-            version: $version ?? $manifest->version,
+            version: $version ?? $existing->version ?? $manifest->version,
             requirements: $manifest->requires,
             productGroup: $manifest->productGroup,
             tier: $manifest->tier,
