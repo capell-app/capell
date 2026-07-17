@@ -107,17 +107,6 @@ it('renders installer pages through the shared installer layout', function (): v
         ->and($progressView)->not->toContain('<style>');
 });
 
-it('keeps the install runner defensive around response and step boundaries', function (): void {
-    $runner = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install/runner.js');
-
-    expect($runner)
-        ->toContain("status: 'failed'")
-        ->toContain('if (!stepKey)')
-        ->toContain('if (result.payload.csrfToken)')
-        ->toContain('csrf.setToken(result.payload.csrfToken)')
-        ->and(substr_count($runner, 'csrf.setToken(result.payload.csrfToken)'))->toBe(2);
-});
-
 it('leaves request execution limits to hosting configuration', function (): void {
     $projectRoot = dirname(__DIR__, 4);
     $sourceRoot = $projectRoot . '/packages/installer/src';

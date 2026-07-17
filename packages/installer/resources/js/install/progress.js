@@ -124,18 +124,72 @@
             copy.replaceChild(select, oldLabel)
             row.dataset.stepWindowState = windowState
             select.addEventListener('change', function () {
-                row.dataset.stepKey = select.value
-                row.querySelector('.duration').dataset.durationFor =
-                    select.value
+                updateSelectableStepWindowItem(row, select.value)
                 updateDurations()
             })
             return row
+        }
+
+        function updateSelectableStepWindowItem(row, stepKey) {
+            var duration = row.querySelector('.duration')
+
+            row.dataset.stepKey = stepKey
+
+            if (duration) {
+                duration.dataset.durationFor = stepKey
+                duration.textContent = durationText(stepKey)
+            }
+        }
+
+        function selectedStepWindowState() {
+            var select = document.activeElement
+
+            if (
+                !select ||
+                select.tagName !== 'SELECT' ||
+                !select.closest('[data-step-window-state]')
+            ) {
+                return null
+            }
+
+            return {
+                state: select.closest('[data-step-window-state]').dataset
+                    .stepWindowState,
+                value: select.value,
+            }
+        }
+
+        function restoreSelectedStepWindowState(state) {
+            if (!state) {
+                return
+            }
+
+            var row = stepsElement.querySelector(
+                '[data-step-window-state="' + state.state + '"]',
+            )
+            var select = row ? row.querySelector('select') : null
+
+            if (!select) {
+                return
+            }
+
+            if (
+                Array.prototype.some.call(select.options, function (option) {
+                    return option.value === state.value
+                })
+            ) {
+                select.value = state.value
+                updateSelectableStepWindowItem(row, state.value)
+            }
+
+            select.focus({ preventScroll: true })
         }
 
         function renderStepWindow(currentKey) {
             var timeline = stepsElement.querySelector(
                 '[data-progress-steps-timeline]',
             )
+            var selectedWindowState = selectedStepWindowState()
             if (!timeline) return
             timeline.innerHTML = ''
             if (planSteps.length === 0) return
@@ -181,6 +235,8 @@
                     ),
                 )
             }
+
+            restoreSelectedStepWindowState(selectedWindowState)
         }
 
         function updateSummary() {
