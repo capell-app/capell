@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\Install\InstallHandoffData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class WriteInstallHandoffAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(InstallHandoffData $handoff, string $path): string

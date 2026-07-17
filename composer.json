@@ -232,13 +232,6 @@
     "conflict": {
         "firebase/php-jwt": "<7.0.0"
     },
-    "replace": {
-        "capell-app/admin": "self.version",
-        "capell-app/core": "self.version",
-        "capell-app/frontend": "self.version",
-        "capell-app/installer": "self.version",
-        "capell-app/marketplace": "self.version"
-    },
     "extra": {
         "laravel": {
             "providers": [

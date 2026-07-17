@@ -8,10 +8,12 @@ use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallPlan;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildInstallHandoffAction
 {
+    use AsFake;
     use AsObject;
 
     private const string FIRST_PAGE_DOCS_URL = 'https://docs.capell.app/getting-started/create-your-first-page/';
@@ -38,12 +40,12 @@ final class BuildInstallHandoffAction
         return new InstallHandoffData(
             schemaVersion: 1,
             status: $completed ? 'completed' : 'incomplete',
-            selectedPackages: collect($result->selectedPackages)
+            selectedPackages: array_values(collect($result->selectedPackages)
                 ->filter(fn (mixed $package): bool => is_string($package) && $package !== '')
                 ->unique()
                 ->sort()
                 ->values()
-                ->all(),
+                ->all()),
             outcomes: [
                 'migrations' => $migrationsCompleted ? 'completed' : 'incomplete',
                 'setup' => $setupCompleted ? 'completed' : 'incomplete',
@@ -58,12 +60,12 @@ final class BuildInstallHandoffAction
                     ? $firstPageStatus
                     : 'unavailable',
             ],
-            warnings: collect($warnings)
+            warnings: array_values(collect($warnings)
                 ->filter(fn (mixed $warning): bool => is_string($warning) && trim($warning) !== '')
                 ->map(fn (string $warning): string => $this->sanitizeWarning($warning))
                 ->unique()
                 ->values()
-                ->all(),
+                ->all()),
             nextAction: $completed
                 ? [
                     'label' => 'Create and verify your first editable public page',
