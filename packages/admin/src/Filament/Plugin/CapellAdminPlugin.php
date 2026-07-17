@@ -8,7 +8,6 @@ use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
-use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
@@ -16,24 +15,6 @@ use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
 use Capell\Admin\Filament\Pages\AbstractPackageSettingsPage;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Admin\Filament\Resources\Users\UserResource;
-use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
-use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
-use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
-use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionDependencyGraphFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionDiagnosticsFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionRuntimeCompatibilityFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionUpdateReadinessFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\InstalledExtensionsFilamentWidget;
-use Capell\Admin\Filament\Widgets\Extensions\RecentlyChangedExtensionsFilamentWidget;
-use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioAdvancedFilamentWidget;
-use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadinessFilamentWidget;
-use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
-use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
-use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
 use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
@@ -153,7 +134,6 @@ class CapellAdminPlugin implements Plugin
             ->registerPlugins($panel)
             ->synchronizeAdminSurface($panel)
             ->registerNavigationItems($panel)
-            ->registerDashboardFilamentWidgets()
             ->registerSettings($panel);
 
         app()->booted(function () use ($panel): void {
@@ -397,30 +377,6 @@ class CapellAdminPlugin implements Plugin
     {
         $panelResources = new ReflectionProperty($panel, 'resources');
         $panelResources->setValue($panel, $resources);
-    }
-
-    private function registerDashboardFilamentWidgets(): self
-    {
-        CapellAdmin::registerDashboardFilamentWidget(CapellAccountFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(CapellInfoFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(ListPagesFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(RecentActivityFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioQuickActionsFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioWorkQueueFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioLaunchReadinessFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioTimelineFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioAdvancedFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionStatsOverviewFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionHealthFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionDiagnosticsFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionUpdateReadinessFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionDependencyGraphFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionRuntimeCompatibilityFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionActionsFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(RecentlyChangedExtensionsFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(InstalledExtensionsFilamentWidget::class, DashboardEnum::Extensions);
-
-        return $this;
     }
 
     private function registerSettings(Panel $panel): self

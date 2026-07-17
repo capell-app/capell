@@ -101,6 +101,7 @@ it('builds typed package capability nodes from explicit and derived manifest dat
         ->and($graph->packageHas('vendor/forms', PackageCapability::PublicStatic))->toBeFalse()
         ->and($graph->packageHas('vendor/forms', PackageCapability::RequiresLivewire))->toBeTrue()
         ->and($graph->packageHas('vendor/forms', PackageCapability::RenderHook))->toBeTrue()
+        ->and($graph->packageHas('vendor/forms', PackageCapability::FrontendSurface))->toBeTrue()
         ->and($graph->packageHas('vendor/forms', PackageCapability::CacheBlocking))->toBeTrue()
         ->and($graph->capabilitiesFor('vendor/forms'))->toContain(
             PackageCapability::PublicForm,
@@ -111,6 +112,7 @@ it('builds typed package capability nodes from explicit and derived manifest dat
         ->and($graph->unknownFor('vendor/forms'))->toBe(['legacy-form-runtime'])
         ->and($graph->packageHas('vendor/theme', PackageCapability::PublicStatic))->toBeTrue()
         ->and($graph->packageHas('vendor/theme', PackageCapability::FrontendAssets))->toBeTrue()
+        ->and($graph->packageHas('vendor/theme', PackageCapability::FrontendSurface))->toBeTrue()
         ->and($graph->packagesWith(PackageCapability::PublicStatic))->toBe(['vendor/theme'])
         ->and($graph->toArray()['unknownCapabilities'])->toBe([
             'vendor/forms' => ['legacy-form-runtime'],

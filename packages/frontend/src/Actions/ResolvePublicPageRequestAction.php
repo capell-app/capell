@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Contracts\RedirectResolver;
@@ -17,8 +18,6 @@ use Capell\Frontend\Data\PublicPageResolutionInputData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Capell\Frontend\Support\Logging\FrontendLogger;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -277,7 +276,7 @@ final class ResolvePublicPageRequestAction
 
     private function getWildcardPageUrl(Site $site, Language $language, string $url): ?PageUrl
     {
-        $publicPageableMorphTypes = $this->publicPageableMorphTypes();
+        $publicPageableMorphTypes = ResolvePublicPageableMorphTypesAction::run();
 
         if ($publicPageableMorphTypes === []) {
             return null;
@@ -305,20 +304,6 @@ final class ResolvePublicPageRequestAction
         $this->setPageUrlRelations($pageUrl, $site, $language);
 
         return $pageUrl;
-    }
-
-    /**
-     * @return list<class-string<Model>|string>
-     */
-    private function publicPageableMorphTypes(): array
-    {
-        return array_values(collect(Relation::morphMap())
-            ->filter(fn (string $modelClass): bool => is_subclass_of($modelClass, Model::class)
-                && is_subclass_of($modelClass, Pageable::class))
-            ->flatMap(fn (string $modelClass, string $alias): array => [$alias, $modelClass])
-            ->unique()
-            ->values()
-            ->all());
     }
 
     private function setPageUrlRelations(PageUrl $pageUrl, Site $site, Language $language): void
