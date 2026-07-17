@@ -24,6 +24,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Services\VersionCompatibilityChecker;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Capell\Marketplace\Support\MarketplaceTrustedUrlPolicy;
 use Composer\InstalledVersions;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -34,9 +35,9 @@ use Throwable;
 final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMetadataProvider
 {
     /** @var array<int, int> */
-    private const TABLE_PAGE_OPTIONS = [18, 36, 72];
+    public const TABLE_PAGE_OPTIONS = [18, 36, 72];
 
-    private const int DEFAULT_TABLE_PAGE_OPTION = 18;
+    public const int DEFAULT_TABLE_PAGE_OPTION = 18;
 
     private const int MAX_REMOTE_PAGE = 100;
 
@@ -67,6 +68,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     public function __construct(
         private readonly MarketplaceInstallActionPresenter $installActionPresenter,
         private readonly MarketplaceInstanceResolver $instances,
+        private readonly MarketplaceTrustedUrlPolicy $trustedUrlPolicy,
     ) {}
 
     /**
@@ -85,6 +87,30 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             lockedKind: $lockedKind,
             includeLocalExtensionState: $includeLocalExtensionState,
         )->extensions;
+    }
+
+    /** @return array<int, ExtensionListingData> */
+    public function browseExtensions(): array
+    {
+        try {
+            $downloadedComposerNames = $this->getDownloadedComposerNames();
+            $marketplacePage = resolve(MarketplaceClient::class)->listExtensionPage(new MarketplaceCatalogueQueryData(
+                sort: MarketplaceClient::DEFAULT_EXTENSION_SORT,
+                installedComposerNames: $downloadedComposerNames,
+                page: 1,
+                perPage: 9,
+            ), allowStale: true);
+
+            return array_values(array_filter(
+                $marketplacePage->extensions,
+                fn (ExtensionListingData $extension): bool => ! $this->isHiddenMarketplaceExtension($extension)
+                    && ! in_array($extension->composerName, $downloadedComposerNames, true),
+            ));
+        } catch (Throwable $throwable) {
+            Log::warning('capell-marketplace: marketplace browse failed', ['error' => $throwable->getMessage()]);
+
+            return [];
+        }
     }
 
     /**
@@ -262,8 +288,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             search: $search,
             filters: $filters,
             lockedKind: $lockedKind,
-            page: $this->tablePageValue($page),
-            perPage: $this->tableRecordsPerPageValue($perPage),
+            page: $this->normalizePage($page),
+            perPage: $this->normalizeRecordsPerPage($perPage),
             allowStale: true,
             includeLocalExtensionState: $includeLocalExtensionState,
         );
@@ -365,6 +391,41 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             nextPageUrl: $resolvedPage['next_page_url'],
             stale: $resolvedPage['stale'],
         );
+    }
+
+    /** @return array{capell: ?string, laravel: ?string, livewire: ?string, filament: ?string} */
+    public function detectedCompatibilityVersions(): array
+    {
+        return [
+            'capell' => CapellCore::getInstalledPrettyVersion('capell-app/capell')
+                ?? CapellCore::getInstalledPrettyVersion('capell/core'),
+            'laravel' => $this->installedPackagePrettyVersion('laravel/framework') ?? app()->version(),
+            'livewire' => $this->installedPackagePrettyVersion('livewire/livewire'),
+            'filament' => $this->installedPackagePrettyVersion('filament/filament'),
+        ];
+    }
+
+    public function normalizePage(int|string $value): int
+    {
+        if (! is_numeric($value) || (int) $value < 1) {
+            return 1;
+        }
+
+        return min((int) $value, self::MAX_REMOTE_PAGE);
+    }
+
+    public function normalizeRecordsPerPage(int|string $value): int
+    {
+        return is_numeric($value) && in_array((int) $value, self::TABLE_PAGE_OPTIONS, true)
+            ? (int) $value
+            : self::DEFAULT_TABLE_PAGE_OPTION;
+    }
+
+    public function lockedMarketplaceKind(?string $lockedKind): ?string
+    {
+        $kind = $this->validKind($lockedKind);
+
+        return $kind !== '' ? $kind : null;
     }
 
     /**
@@ -556,18 +617,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         return $this->installedPluginVersions[$composerName] = null;
     }
 
-    /** @return array{capell: ?string, laravel: ?string, livewire: ?string, filament: ?string} */
-    private function detectedCompatibilityVersions(): array
-    {
-        return [
-            'capell' => CapellCore::getInstalledPrettyVersion('capell-app/capell')
-                ?? CapellCore::getInstalledPrettyVersion('capell/core'),
-            'laravel' => $this->installedPackagePrettyVersion('laravel/framework') ?? app()->version(),
-            'livewire' => $this->installedPackagePrettyVersion('livewire/livewire'),
-            'filament' => $this->installedPackagePrettyVersion('filament/filament'),
-        ];
-    }
-
     private function canExposeLocalExtensionState(bool $requested): bool
     {
         if (! $requested) {
@@ -610,7 +659,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         $isInstalled = $includeLocalExtensionState && $this->isInstalled($extension);
         $installedVersion = $isInstalled ? $this->installedPluginVersion($extension->composerName) : null;
         $compatibilityDetails = resolve(VersionCompatibilityChecker::class)->compatibilityDetails($extension);
-        $purchaseUrl = $this->trustedMarketplaceUrl($extension->purchaseUrl);
+        $purchaseUrl = $this->trustedUrlPolicy->trusted($extension->purchaseUrl);
         $isCompatible = ! in_array('incompatible', $compatibilityDetails, true);
         $activeInstallOperation = $includeLocalExtensionState
             ? $this->activeInstallOperation($extension->composerName)
@@ -662,7 +711,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'is_installed' => $isInstalled,
             'installed_version' => $installedVersion,
             'has_update_available' => $includeLocalExtensionState && $this->hasUpdateAvailable($installedVersion, $extension->latestVersion),
-            'documentation_url' => $this->trustedMarketplaceUrl($extension->documentationUrl),
+            'documentation_url' => $this->trustedUrlPolicy->trusted($extension->documentationUrl),
             'purchase_url' => $purchaseUrl,
             'requires_confirmation' => $extension->requiresConfirmation,
             'install_confirmation' => $extension->installConfirmation,
@@ -899,22 +948,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             : null;
     }
 
-    private function tablePageValue(int|string $value): int
-    {
-        if (! is_numeric($value) || (int) $value < 1) {
-            return 1;
-        }
-
-        return min((int) $value, self::MAX_REMOTE_PAGE);
-    }
-
-    private function tableRecordsPerPageValue(int|string $value): int
-    {
-        return is_numeric($value) && in_array((int) $value, self::TABLE_PAGE_OPTIONS, true)
-            ? (int) $value
-            : self::DEFAULT_TABLE_PAGE_OPTION;
-    }
-
     /**
      * @param  array<string, mixed>  $filters
      * @return list<string>
@@ -964,13 +997,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         return ExtensionKind::tryFrom((string) $kind) instanceof ExtensionKind
             ? (string) $kind
             : '';
-    }
-
-    private function lockedMarketplaceKind(?string $lockedKind): ?string
-    {
-        $kind = $this->validKind($lockedKind);
-
-        return $kind !== '' ? $kind : null;
     }
 
     private function validSort(?string $sort): string
@@ -1051,52 +1077,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             ->all());
     }
 
-    private function trustedMarketplaceUrl(?string $url): ?string
-    {
-        if ($url === null || $url === '') {
-            return null;
-        }
-
-        $urlParts = parse_url($url);
-
-        if (! is_array($urlParts)) {
-            return null;
-        }
-
-        $schemeValue = $urlParts['scheme'] ?? '';
-        $hostValue = $urlParts['host'] ?? '';
-        $scheme = is_string($schemeValue) ? strtolower($schemeValue) : '';
-        $host = is_string($hostValue) ? strtolower($hostValue) : '';
-
-        if ($scheme !== 'https' || $host === '') {
-            return null;
-        }
-
-        return in_array($host, $this->trustedMarketplaceHosts(), true) ? $url : null;
-    }
-
     private function marketplaceImageUrl(?string $url): ?string
     {
         return MarketplaceAssetUrl::toUrl($url);
-    }
-
-    /** @return list<string> */
-    private function trustedMarketplaceHosts(): array
-    {
-        return array_values(collect([
-            config('capell-marketplace.marketplace.web_url'),
-            config('capell.marketplace_web_url'),
-            config('capell-marketplace.marketplace.base_url'),
-        ])
-            ->filter(fn (mixed $url): bool => is_string($url))
-            ->map(function (string $url): string {
-                $host = parse_url($url, PHP_URL_HOST);
-
-                return is_string($host) ? strtolower($host) : '';
-            })
-            ->filter(fn (string $host): bool => $host !== '')
-            ->unique()
-            ->values()
-            ->all());
     }
 }

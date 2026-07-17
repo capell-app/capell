@@ -21,6 +21,7 @@ use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\MarketplaceInstallAuthorizationPolicy;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Filament\Actions\Action as FilamentAction;
 use Filament\Notifications\Notification;
@@ -45,6 +46,7 @@ final class InstallMarketplaceExtensionAction
         private readonly MarketplaceClient $marketplace,
         private readonly MarketplaceConnectionFormModel $connection,
         private readonly MarketplaceInstallActionPresenter $presenter,
+        private readonly MarketplaceInstallAuthorizationPolicy $authorizationPolicy,
     ) {}
 
     public function handle(MarketplaceInstallRequestData $request): ?string
@@ -146,7 +148,7 @@ final class InstallMarketplaceExtensionAction
 
         $authorizationEligibility = $acquisition->authorizationEligibilityPolicy;
 
-        if ($this->authorizationBlocksInstall($authorizationEligibility)) {
+        if ($this->authorizationPolicy->blocksInstall($authorizationEligibility)) {
             $this->recordAuthorizationBlockedAttempt($listing, $acquisition, $selectedInstallOptions, $authorizationEligibility);
 
             if ($redirectAccountActions && $authorizationEligibility instanceof MarketplaceInstallEligibilityData && $this->shouldRedirectForMarketplaceAccountAction($authorizationEligibility)) {
@@ -169,7 +171,7 @@ final class InstallMarketplaceExtensionAction
             ? $publishedComposerChange['reference']
             : $acquisition->composerCommand;
 
-        if (! $this->requiresMarketplaceAuthorization($listing)) {
+        if (! $this->authorizationPolicy->requiresAuthorization($listing)) {
             dispatch(new SendMarketplaceInstallTelemetryJob((int) $installAttempt->getKey()));
         }
 
@@ -426,7 +428,7 @@ final class InstallMarketplaceExtensionAction
                 'image_url' => $listing->imageUrl,
                 'description' => $listing->description,
             ],
-            telemetryStatus: $this->requiresMarketplaceAuthorization($listing) ? null : 'pending',
+            telemetryStatus: $this->authorizationPolicy->requiresAuthorization($listing) ? null : 'pending',
             user: auth()->user(),
         );
     }
@@ -482,23 +484,6 @@ final class InstallMarketplaceExtensionAction
                 : MarketplaceInstallActorData::system());
     }
 
-    private function authorizationBlocksInstall(?MarketplaceInstallEligibilityData $eligibility): bool
-    {
-        if (! $eligibility instanceof MarketplaceInstallEligibilityData) {
-            return false;
-        }
-
-        if ($eligibility->blocksInstall()) {
-            return true;
-        }
-
-        if ($eligibility->state === MarketplaceInstallState::PurchaseRequired) {
-            return true;
-        }
-
-        return $eligibility->state === MarketplaceInstallState::ActivationRequired;
-    }
-
     private function shouldRedirectForMarketplaceAccountAction(MarketplaceInstallEligibilityData $eligibility): bool
     {
         return in_array($eligibility->blockReason, ['account_required', 'not_connected', 'email_verification_required'], true);
@@ -514,22 +499,6 @@ final class InstallMarketplaceExtensionAction
             'instance_id' => $instance?->instance_id,
             'account_id' => $instance?->account_id,
         ], fn (mixed $value): bool => ! in_array($value, [null, [], ''], true));
-    }
-
-    private function requiresMarketplaceAuthorization(ExtensionListingData $listing): bool
-    {
-        if ($listing->isPaid || $listing->activationRequired) {
-            return true;
-        }
-
-        $eligibility = $listing->installEligibilityPolicy;
-
-        return $eligibility instanceof MarketplaceInstallEligibilityData
-            && (
-                $eligibility->blocksInstall()
-                || $eligibility->state === MarketplaceInstallState::PurchaseRequired
-                || $eligibility->state === MarketplaceInstallState::ActivationRequired
-            );
     }
 
     /** @return array<string, mixed> */

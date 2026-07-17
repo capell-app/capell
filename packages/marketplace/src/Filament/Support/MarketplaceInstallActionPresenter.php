@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Filament\Support;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
+use Capell\Marketplace\Support\MarketplaceTrustedUrlPolicy;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -15,6 +16,7 @@ final class MarketplaceInstallActionPresenter
 {
     public function __construct(
         private readonly MarketplaceConnectionFormModel $connectionFormModel,
+        private readonly MarketplaceTrustedUrlPolicy $trustedUrlPolicy,
     ) {}
 
     /**
@@ -186,7 +188,7 @@ final class MarketplaceInstallActionPresenter
      */
     public function purchaseUrlWithContext(string $purchaseUrl, array $record): ?string
     {
-        $purchaseUrl = $this->trustedMarketplaceUrl($purchaseUrl);
+        $purchaseUrl = $this->trustedUrlPolicy->trusted($purchaseUrl);
 
         if ($purchaseUrl === null) {
             return null;
@@ -226,51 +228,7 @@ final class MarketplaceInstallActionPresenter
 
         return is_string($purchaseUrl)
             && $purchaseUrl !== ''
-            && $this->trustedMarketplaceUrl($purchaseUrl) !== null;
-    }
-
-    private function trustedMarketplaceUrl(?string $url): ?string
-    {
-        if ($url === null || $url === '') {
-            return null;
-        }
-
-        $urlParts = parse_url($url);
-
-        if (! is_array($urlParts)) {
-            return null;
-        }
-
-        $schemeValue = $urlParts['scheme'] ?? '';
-        $hostValue = $urlParts['host'] ?? '';
-        $scheme = is_string($schemeValue) ? strtolower($schemeValue) : '';
-        $host = is_string($hostValue) ? strtolower($hostValue) : '';
-
-        if ($scheme !== 'https' || $host === '') {
-            return null;
-        }
-
-        return in_array($host, $this->trustedMarketplaceHosts(), true) ? $url : null;
-    }
-
-    /** @return list<string> */
-    private function trustedMarketplaceHosts(): array
-    {
-        return array_values(collect([
-            config('capell-marketplace.marketplace.web_url'),
-            config('capell.marketplace_web_url'),
-            config('capell-marketplace.marketplace.base_url'),
-        ])
-            ->filter(fn (mixed $url): bool => is_string($url))
-            ->map(function (string $url): string {
-                $host = parse_url($url, PHP_URL_HOST);
-
-                return is_string($host) ? strtolower($host) : '';
-            })
-            ->filter(fn (string $host): bool => $host !== '')
-            ->unique()
-            ->values()
-            ->all());
+            && $this->trustedUrlPolicy->trusted($purchaseUrl) !== null;
     }
 
     /** @param array<string, mixed> $record */

@@ -11,7 +11,7 @@ use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -87,7 +87,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     {
         $this->authorizeMarketplaceAccess();
 
-        resolve(MarketplaceBrowser::class)->queueDefaultWarm(
+        resolve(MarketplaceCatalogueRecordProvider::class)->queueDefaultWarm(
             lockedKind: $this->lockedKind,
             includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
         );
@@ -323,7 +323,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     {
         $this->authorizeMarketplaceAccess();
 
-        return resolve(MarketplaceCatalogueTable::class)->paginatedRecords(
+        return resolve(MarketplaceCatalogueRecordProvider::class)->paginatedRecords(
             search: $this->tableSearch,
             filters: $this->availableMarketplaceFilters(),
             lockedKind: $this->lockedKind,
@@ -364,10 +364,11 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     {
         $this->authorizeMarketplaceAccess();
 
-        return resolve(MarketplaceBrowser::class)->table(
+        return resolve(MarketplaceCatalogueTable::class)->configure(
             table: $table,
             lockedKind: $this->lockedKind,
             includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
+            forceAvailableOnly: true,
         );
     }
 
@@ -606,7 +607,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     /** @return array<string, array<string, mixed>> */
     private function currentMarketplaceRecordsByComposerName(): array
     {
-        return collect(resolve(MarketplaceBrowser::class)->records(
+        return collect(resolve(MarketplaceCatalogueRecordProvider::class)->records(
             search: $this->tableSearch,
             filters: $this->availableMarketplaceFilters(),
             lockedKind: $this->lockedKind,
@@ -626,7 +627,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      */
     private function marketplaceRecordsByComposerName(array $composerNames): array
     {
-        return resolve(MarketplaceBrowser::class)->recordsByComposerNames(
+        return resolve(MarketplaceCatalogueRecordProvider::class)->recordsByComposerNames(
             composerNames: $composerNames,
             lockedKind: $this->lockedKind,
             includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),

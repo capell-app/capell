@@ -11,6 +11,7 @@ use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\MarketplaceInstallAuthorizationPolicy;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -26,6 +27,7 @@ final class CreateExtensionAcquisitionAction
         private readonly MarketplaceClient $marketplace,
         private readonly MarketplaceInstanceResolver $instances,
         private readonly MarketplacePayloadSigner $signer,
+        private readonly MarketplaceInstallAuthorizationPolicy $authorizationPolicy,
     ) {}
 
     /**
@@ -43,7 +45,7 @@ final class CreateExtensionAcquisitionAction
 
         $selectedInstallOptions = $this->selectedInstallOptions($listing, $installOptions);
 
-        if (! $this->requiresMarketplaceAuthorization($listing)) {
+        if (! $this->authorizationPolicy->requiresAuthorization($listing)) {
             $versionConstraint = $listing->latestVersion !== null ? '^' . $listing->latestVersion : '*';
 
             return new ExtensionAcquisitionData(
@@ -103,7 +105,7 @@ final class CreateExtensionAcquisitionAction
             authorizationEligibilityPolicy: $authorization->installEligibilityPolicy,
         );
 
-        if ($this->authorizationBlocksInstall($authorization->installEligibilityPolicy)) {
+        if ($this->authorizationPolicy->blocksInstall($authorization->installEligibilityPolicy)) {
             return $acquisition;
         }
 
@@ -115,23 +117,6 @@ final class CreateExtensionAcquisitionAction
         );
 
         return $acquisition;
-    }
-
-    private function authorizationBlocksInstall(?MarketplaceInstallEligibilityData $eligibility): bool
-    {
-        if (! $eligibility instanceof MarketplaceInstallEligibilityData) {
-            return false;
-        }
-
-        if ($eligibility->blocksInstall()) {
-            return true;
-        }
-
-        if ($eligibility->state === MarketplaceInstallState::PurchaseRequired) {
-            return true;
-        }
-
-        return $eligibility->state === MarketplaceInstallState::ActivationRequired;
     }
 
     /**
@@ -196,21 +181,5 @@ final class CreateExtensionAcquisitionAction
     private function marketplaceInstance(): ?MarketplaceInstance
     {
         return $this->instances->latest();
-    }
-
-    private function requiresMarketplaceAuthorization(ExtensionListingData $listing): bool
-    {
-        if ($listing->isPaid || $listing->activationRequired) {
-            return true;
-        }
-
-        $eligibility = $listing->installEligibilityPolicy;
-
-        return $eligibility instanceof MarketplaceInstallEligibilityData
-            && (
-                $eligibility->blocksInstall()
-                || $eligibility->state === MarketplaceInstallState::PurchaseRequired
-                || $eligibility->state === MarketplaceInstallState::ActivationRequired
-            );
     }
 }

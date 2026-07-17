@@ -6,7 +6,7 @@ namespace Capell\Marketplace\Filament\Extenders;
 
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Illuminate\Contracts\Support\Htmlable;
 
 final class MarketplaceExtensionsPageExtender implements ExtensionsPageExtender
@@ -18,7 +18,7 @@ final class MarketplaceExtensionsPageExtender implements ExtensionsPageExtender
             return [];
         }
 
-        resolve(MarketplaceBrowser::class)->queueDefaultWarm();
+        resolve(MarketplaceCatalogueRecordProvider::class)->queueDefaultWarm();
 
         return [];
     }
