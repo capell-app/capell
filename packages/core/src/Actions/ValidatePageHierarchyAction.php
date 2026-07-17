@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Models\Page;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -16,6 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ValidatePageHierarchyAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): bool

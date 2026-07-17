@@ -11,12 +11,14 @@ use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class RunDatabaseMigrationsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(bool $dryRun = false): MigrationRunResult
     {

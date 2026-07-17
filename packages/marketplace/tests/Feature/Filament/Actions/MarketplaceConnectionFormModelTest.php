@@ -7,7 +7,24 @@ use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Http;
+use Spatie\Permission\Models\Role;
+
+uses(CreatesAdminUser::class);
+
+it('restricts marketplace connection details to the configured global superadmin role', function (): void {
+    Role::findOrCreate('admin');
+    Role::findOrCreate('super_admin');
+    $manager = test()->createUserWithRole('admin');
+    $superAdmin = test()->createUserWithRole('super_admin');
+
+    $this->actingAs($manager);
+    expect(resolve(MarketplaceConnectionFormModel::class)->canViewConnectionDetails())->toBeFalse();
+
+    $this->actingAs($superAdmin);
+    expect(resolve(MarketplaceConnectionFormModel::class)->canViewConnectionDetails())->toBeTrue();
+});
 
 it('reports marketplace connection state from configuration and connected account records', function (): void {
     $formModel = resolve(MarketplaceConnectionFormModel::class);

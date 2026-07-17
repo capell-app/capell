@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class ColorConverterAction
 {
+    use AsFake;
     use AsObject;
 
     /**

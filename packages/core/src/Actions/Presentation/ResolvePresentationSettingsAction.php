@@ -14,10 +14,12 @@ use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Core\Enums\PresentationWidthMode;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Illuminate\Support\Arr;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class ResolvePresentationSettingsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

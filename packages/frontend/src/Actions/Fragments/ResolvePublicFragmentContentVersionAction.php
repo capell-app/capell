@@ -12,10 +12,12 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePublicFragmentContentVersionAction
 {
+    use AsFake;
     use AsObject;
 
     /**

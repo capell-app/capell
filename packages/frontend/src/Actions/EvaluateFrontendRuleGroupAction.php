@@ -7,11 +7,13 @@ namespace Capell\Frontend\Actions;
 use Capell\Frontend\Contracts\FrontendRuleCondition;
 use Capell\Frontend\Data\FrontendRuleContextData;
 use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class EvaluateFrontendRuleGroupAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(
         private readonly FrontendRuleConditionRegistry $conditions,

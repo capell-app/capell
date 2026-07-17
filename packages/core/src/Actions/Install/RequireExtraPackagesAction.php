@@ -9,11 +9,13 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 class RequireExtraPackagesAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

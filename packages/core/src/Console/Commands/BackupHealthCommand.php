@@ -16,7 +16,7 @@ final class BackupHealthCommand extends Command
 
     public function handle(InspectBackupHealthAction $inspectBackupHealth): int
     {
-        $report = $inspectBackupHealth->handle();
+        $report = InspectBackupHealthAction::run();
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($report->toArray(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));

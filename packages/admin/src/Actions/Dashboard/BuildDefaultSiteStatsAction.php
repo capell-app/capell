@@ -9,10 +9,12 @@ use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildDefaultSiteStatsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $period = 'last_30_days'): SiteStatsData

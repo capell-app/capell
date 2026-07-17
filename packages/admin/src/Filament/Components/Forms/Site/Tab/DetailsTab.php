@@ -10,6 +10,7 @@ use Capell\Admin\Filament\Components\Forms\Site\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
 use Capell\Admin\Filament\Components\Forms\SocialIcons;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TextInput;
@@ -67,7 +68,9 @@ class DetailsTab
                                 TextInput::make('twitter')
                                     ->label(__('capell-admin::form.twitter_handle'))
                                     ->placeholder('@yourhandle')
-                                    ->maxLength(50),
+                                    ->maxLength(50)
+                                    ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
+                                    ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials')),
                             ]),
                     ]),
 
@@ -94,7 +97,9 @@ class DetailsTab
                             ->compact()
                             ->schema(function () use ($schema): array {
                                 $sectionComponents = [
-                                    SocialIcons::make('social_links'),
+                                    SocialIcons::make('social_links')
+                                        ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
+                                        ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials')),
                                 ];
 
                                 return collect(app()->tagged(SiteSchemaExtender::TAG))

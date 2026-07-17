@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
+
 /**
  * Minifies hand-authored critical CSS for inlining into the `<style data-critical-css>` block.
  *
@@ -14,6 +17,9 @@ namespace Capell\Frontend\Actions;
  */
 final class MinifyCriticalCssAction
 {
+    use AsFake;
+    use AsObject;
+
     public function handle(string $css): string
     {
         // Drop comments.

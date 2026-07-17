@@ -9,12 +9,14 @@ use Capell\Core\Models\MarketplaceInstall;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class SendExtensionHealthReportAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(
         private readonly MarketplacePayloadSigner $signer,

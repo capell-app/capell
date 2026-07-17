@@ -10,11 +10,13 @@ use Capell\Frontend\Facades\Frontend;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class GetPageVariablesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

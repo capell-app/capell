@@ -8,12 +8,14 @@ use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Illuminate\Support\Facades\Log;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class AssertMarketplaceInstallAllowedAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(
         ExtensionListingData $listing,

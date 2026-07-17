@@ -13,13 +13,15 @@ use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class CompleteMarketplaceInstallFlowAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(
         private readonly MarketplaceClient $marketplace,

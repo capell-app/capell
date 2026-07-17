@@ -13,7 +13,7 @@ it('resolves the installation-state schema matrix', function (
     ?ExtensionStatusEnum $status,
     CapellInstallationState $expected,
 ): void {
-    $state = resolve(ResolveCapellInstallationStateAction::class)->handle(
+    $state = ResolveCapellInstallationStateAction::run(
         existingTables: $tables,
         coreStatus: $status,
         coreRecorded: $coreRecorded,

@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Support\Str;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class BuildDefaultTranslationsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

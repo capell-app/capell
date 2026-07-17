@@ -12,6 +12,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
@@ -20,6 +21,7 @@ use Throwable;
  */
 final class BuildFrontendSourceMapAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class RenderPageRecordDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Pageable $page, array $replace): void

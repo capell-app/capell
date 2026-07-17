@@ -10,6 +10,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\BlueprintCreator;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -17,6 +18,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class CreateSiteAction
 {
+    use AsFake;
     use AsObject;
 
     /**

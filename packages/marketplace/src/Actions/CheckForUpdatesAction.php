@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CheckForUpdatesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private ?string $failureMessage = null;
 

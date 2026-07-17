@@ -8,10 +8,12 @@ use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
 use Capell\Admin\Contracts\Reports\BuildsReportSnapshot;
 use Capell\Admin\Data\Diagnostics\OperationsCenterData;
 use Capell\Admin\Data\Reports\ReportFindingData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildOperationsCenterAction
 {
+    use AsFake;
     use AsObject;
 
     /** @var list<string> */
@@ -31,7 +33,9 @@ final class BuildOperationsCenterAction
 
     public function handle(): OperationsCenterData
     {
-        $snapshot = ($this->buildHealthReport ?? resolve(BuildDemoInstallHealthReportAction::class))->handle();
+        $snapshot = $this->buildHealthReport instanceof BuildsReportSnapshot
+            ? $this->buildHealthReport->handle()
+            : BuildDemoInstallHealthReportAction::run();
         $categories = array_fill_keys(self::CATEGORIES, []);
 
         foreach ($snapshot->findings as $finding) {

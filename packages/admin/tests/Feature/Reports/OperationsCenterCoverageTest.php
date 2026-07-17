@@ -36,7 +36,7 @@ it('groups every operations category behind stable finding contracts', function 
         }
     };
 
-    $operations = new BuildOperationsCenterAction($report)->handle();
+    $operations = runBoundAction(BuildOperationsCenterAction::class, new BuildOperationsCenterAction($report));
 
     expect(array_keys($operations->categories))->toBe(BuildOperationsCenterAction::CATEGORIES)
         ->and(collect($operations->categories)->flatten(1))->toHaveCount(7)

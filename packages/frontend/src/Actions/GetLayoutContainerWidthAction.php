@@ -7,6 +7,7 @@ namespace Capell\Frontend\Actions;
 use Capell\Core\Enums\ContainerWidthEnum;
 use Capell\Core\Models\Layout;
 use Capell\Frontend\Facades\Frontend;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetLayoutContainerWidthAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?string $default = null, ?Layout $layout = null): ContainerWidthEnum

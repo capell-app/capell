@@ -15,6 +15,7 @@ final class HeartbeatResultData extends Data
      * @param  array<int, AdvisoryNoticeData>  $advisories
      * @param  array<int, ExtensionHealthAlertData>  $alerts
      * @param  array<string, mixed>  $policy
+     * @param  array<string, mixed>|null  $commercial
      */
     public function __construct(
         public readonly string $instanceId,
@@ -26,6 +27,7 @@ final class HeartbeatResultData extends Data
         public readonly ?string $checkedAt = null,
         public readonly ?string $capellVersion = null,
         public readonly ?string $responseId = null,
+        public readonly ?array $commercial = null,
     ) {}
 
     /**
@@ -60,6 +62,7 @@ final class HeartbeatResultData extends Data
             checkedAt: isset($payload['checked_at']) ? (string) $payload['checked_at'] : null,
             capellVersion: isset($payload['capell_version']) ? (string) $payload['capell_version'] : null,
             responseId: isset($payload['response_id']) ? (string) $payload['response_id'] : null,
+            commercial: is_array($payload['commercial'] ?? null) ? $payload['commercial'] : null,
         );
     }
 
@@ -78,6 +81,7 @@ final class HeartbeatResultData extends Data
             'policy' => $this->policy,
             'response_id' => $this->responseId,
             'instance_id' => $this->instanceId,
+            'commercial' => $this->commercial,
         ], fn (mixed $value): bool => $value !== null);
     }
 

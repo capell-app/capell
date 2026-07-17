@@ -11,10 +11,12 @@ use Capell\Frontend\Contracts\WidgetInteractionLocatorResolver;
 use Capell\Frontend\Exceptions\PublicFragmentReferenceInvalid;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildInteractionRenderDataAction
 {
+    use AsFake;
     use AsObject;
 
     /**

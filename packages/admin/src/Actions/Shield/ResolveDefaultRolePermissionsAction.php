@@ -7,11 +7,13 @@ namespace Capell\Admin\Actions\Shield;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Permission;
 
 class ResolveDefaultRolePermissionsAction
 {
+    use AsFake;
     use AsObject;
     use ResolvesShieldPermission;
 

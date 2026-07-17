@@ -6,12 +6,14 @@ namespace Capell\Admin\Actions\Shield;
 
 use Capell\Admin\Data\Shield\RolePermissionChangeSetData;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class BuildRolePermissionChangeSetAction
 {
+    use AsFake;
     use AsObject;
 
     /**

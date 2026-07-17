@@ -10,14 +10,16 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static Theme run(string $themeKey)
  */
 final class CreateAvailableThemeAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @throws ValidationException

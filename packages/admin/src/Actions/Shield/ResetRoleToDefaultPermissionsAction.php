@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Shield;
 
 use Capell\Admin\Data\Shield\RolePermissionChangeSetData;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -13,6 +14,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 class ResetRoleToDefaultPermissionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Role $role, ?Model $actor = null): void

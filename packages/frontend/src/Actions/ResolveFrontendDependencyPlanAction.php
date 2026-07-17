@@ -10,10 +10,12 @@ use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Enums\FrontendPackageManager;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveFrontendDependencyPlanAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly FrontendPackageDependencyRegistry $registry) {}

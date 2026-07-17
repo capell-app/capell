@@ -11,10 +11,12 @@ use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Models\PublicRenderContractEvent;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublicRenderSafetyReportAction implements BuildsReportSnapshot
 {
+    use AsFake;
     use AsObject;
 
     private const int FINDING_LIMIT = 50;

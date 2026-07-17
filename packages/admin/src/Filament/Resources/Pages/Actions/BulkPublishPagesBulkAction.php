@@ -51,7 +51,7 @@ class BulkPublishPagesBulkAction extends BulkAction
                 /** @var User $actor */
                 $actor = auth()->user();
 
-                $result = BulkPublishPagesAction::make()->handle($records, $actor);
+                $result = BulkPublishPagesAction::run($records, $actor);
 
                 $notification = Notification::make()
                     ->title(__('capell-admin::bulk_actions.publish_pages_done', [
@@ -59,17 +59,20 @@ class BulkPublishPagesBulkAction extends BulkAction
                         'skipped' => $records->count() - $result->changed(),
                     ]));
 
-                $skipped = collect($result->records)
-                    ->reject(fn (array $row): bool => $row['result']->outcome === PublicationTransitionOutcome::Changed);
+                $skipped = array_filter(
+                    $result->records,
+                    fn (array $row): bool => $row['result']->outcome !== PublicationTransitionOutcome::Changed,
+                );
 
-                if ($skipped->isNotEmpty()) {
-                    $body = $skipped
-                        ->map(fn (array $row): string => sprintf(
+                if ($skipped !== []) {
+                    $body = implode("\n", array_map(
+                        fn (array $row): string => sprintf(
                             '• %s — %s',
                             $row['label'],
                             __('capell-admin::bulk_actions.outcome_' . $row['result']->outcome->value),
-                        ))
-                        ->implode("\n");
+                        ),
+                        $skipped,
+                    ));
                     $notification->body($body);
                 }
 

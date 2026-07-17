@@ -12,6 +12,7 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -21,6 +22,7 @@ use Throwable;
  */
 final class RecordPublicRenderContractEventAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

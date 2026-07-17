@@ -10,6 +10,7 @@ use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Process\Process;
 
@@ -18,6 +19,7 @@ use Symfony\Component\Process\Process;
  */
 class DemoPackageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -10,10 +10,12 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CancelScheduledPageUnpublishAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page&Pageable $page, User $actor): PublishVisibilityActionResultData

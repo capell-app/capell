@@ -11,6 +11,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -20,6 +21,7 @@ use Spatie\Permission\PermissionRegistrar;
  */
 final class SyncSitePermissionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(User $actor, Site $site, SyncSitePermissionsData $input): void

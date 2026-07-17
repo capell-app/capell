@@ -13,6 +13,7 @@ use Capell\Core\Models\Contracts\Userstampable;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -24,6 +25,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolvePublishPanelViewAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $record): PublishPanelViewData

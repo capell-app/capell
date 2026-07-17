@@ -10,6 +10,7 @@ use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Activity\ActivityRevertHandlerResolver;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
 
@@ -18,6 +19,7 @@ use Spatie\Activitylog\Models\Activity;
  */
 final class RevertActivityAction
 {
+    use AsFake;
     use AsObject;
 
     /**

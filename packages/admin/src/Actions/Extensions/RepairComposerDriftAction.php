@@ -10,12 +10,14 @@ use Capell\Core\Actions\RequirePackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class RepairComposerDriftAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return list<array{package:string,status:string,message:string,reason:string|null}>

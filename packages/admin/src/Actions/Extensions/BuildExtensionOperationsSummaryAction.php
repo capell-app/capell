@@ -29,12 +29,14 @@ use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildExtensionOperationsSummaryAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private const string REQUEST_CACHE_KEY = 'extension-operations-summary';
 

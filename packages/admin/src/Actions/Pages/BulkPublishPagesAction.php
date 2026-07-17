@@ -12,10 +12,12 @@ use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BulkPublishPagesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param Collection<int, Page&Pageable> $pages */

@@ -11,12 +11,14 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Composer\InstalledVersions;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Process\ExecutableFinder;
 
 final class RunMarketplaceInstallPreflightChecksAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array{passed: bool, checks: list<array{name: string, passed: bool, message: string}>}

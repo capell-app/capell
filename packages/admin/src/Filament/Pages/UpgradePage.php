@@ -325,7 +325,7 @@ class UpgradePage extends Page
     public function checkForUpdates(): null
     {
         try {
-            $wasSuccessful = resolve(CheckForUpdatesAction::class)->handle() === true;
+            $wasSuccessful = CheckForUpdatesAction::run() === true;
         } catch (Throwable $throwable) {
             Notification::make('update-check-failed')
                 ->danger()

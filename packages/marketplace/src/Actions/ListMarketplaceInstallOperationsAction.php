@@ -8,11 +8,13 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ListMarketplaceInstallOperationsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return Collection<int, MarketplaceInstallAttempt>

@@ -8,10 +8,12 @@ use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Core\Models\Page;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Illuminate\Support\Arr;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildSelectedFrontendWidgetResourceUsagesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

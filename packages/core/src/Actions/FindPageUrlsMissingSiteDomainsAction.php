@@ -8,6 +8,7 @@ use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class FindPageUrlsMissingSiteDomainsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

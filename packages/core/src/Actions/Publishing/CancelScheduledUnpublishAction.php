@@ -9,10 +9,12 @@ use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CancelScheduledUnpublishAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model&Publishable $record, CarbonImmutable $now): bool

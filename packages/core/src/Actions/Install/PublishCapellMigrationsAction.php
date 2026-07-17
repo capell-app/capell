@@ -7,11 +7,13 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Actions\PublishMigrationsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class PublishCapellMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(ProgressReporter $reporter, bool $publishSchema = true, bool $publishSettings = true): void

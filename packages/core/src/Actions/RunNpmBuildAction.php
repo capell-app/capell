@@ -6,11 +6,13 @@ namespace Capell\Core\Actions;
 
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 class RunNpmBuildAction
 {
+    use AsFake;
     use AsObject;
 
     private const int BUILD_TIMEOUT_SECONDS = 300;

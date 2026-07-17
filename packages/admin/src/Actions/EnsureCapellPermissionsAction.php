@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Capell\Admin\Enums\CapellPermission;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
 class EnsureCapellPermissionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?string $guardName = null): void

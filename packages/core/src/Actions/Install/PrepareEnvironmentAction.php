@@ -7,10 +7,12 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Contracts\ProgressReporter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PrepareEnvironmentAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(ProgressReporter $reporter): void

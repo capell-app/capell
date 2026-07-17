@@ -9,11 +9,13 @@ use Capell\Core\Enums\Upgrade\UpgradeRunStatus;
 use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Models\UpgradeRun;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class MarkUpgradeRunFinishedAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(
         UpgradeRun $run,

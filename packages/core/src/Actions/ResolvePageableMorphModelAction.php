@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class ResolvePageableMorphModelAction
 {
+    use AsFake;
     use AsObject;
 
     /**

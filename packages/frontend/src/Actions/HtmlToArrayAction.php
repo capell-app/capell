@@ -7,14 +7,16 @@ namespace Capell\Frontend\Actions;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static array run(string $html)
  */
 class HtmlToArrayAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(string $html): array
     {

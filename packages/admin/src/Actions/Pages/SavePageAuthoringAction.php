@@ -10,10 +10,12 @@ use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Models\Language;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class SavePageAuthoringAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PageAuthoringInputData $inputData): PageAuthoringResultData

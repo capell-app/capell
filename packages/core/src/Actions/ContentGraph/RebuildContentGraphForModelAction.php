@@ -8,10 +8,12 @@ use Capell\Core\Data\ContentGraph\ContentGraphEdgeData;
 use Capell\Core\Models\ContentGraphEdge;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class RebuildContentGraphForModelAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $model): void

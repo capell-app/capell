@@ -19,7 +19,7 @@ final class CreateBackupCommand extends Command
     public function handle(CreateBackupAction $createBackup): int
     {
         try {
-            $manifest = $createBackup->handle(databaseOnly: (bool) $this->option('database-only'));
+            $manifest = CreateBackupAction::run(databaseOnly: (bool) $this->option('database-only'));
         } catch (Throwable $throwable) {
             $this->components->error($throwable->getMessage());
 

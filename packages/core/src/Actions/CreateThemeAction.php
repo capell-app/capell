@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\BlueprintCreator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -16,6 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class CreateThemeAction
 {
+    use AsFake;
     use AsObject;
 
     /**

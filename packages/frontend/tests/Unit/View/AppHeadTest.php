@@ -97,7 +97,7 @@ it('renders static theme css assets without requiring a vite manifest entry', fu
     $page->load(['pageUrl', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
 
     $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
-    $resourcePlan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $resourcePlan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData(FrontendResourceData::style(
             'capell-app/theme:saas',
             'capell-app/theme',
@@ -146,7 +146,7 @@ it('delegates public resource rendering through the resource plan renderer contr
     $page->load(['pageUrl', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
 
     $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
-    $resourcePlan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $resourcePlan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData(FrontendResourceData::style(
             'capell-app/theme:saas',
             'capell-app/theme',

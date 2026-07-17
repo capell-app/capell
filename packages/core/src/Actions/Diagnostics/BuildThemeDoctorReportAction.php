@@ -12,6 +12,7 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Finder\SplFileInfo;
 use Throwable;
@@ -21,6 +22,7 @@ use Throwable;
  */
 final class BuildThemeDoctorReportAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly ManifestLoader $manifestLoader) {}

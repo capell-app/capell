@@ -8,6 +8,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\LayoutContentSnapshot;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class CaptureLayoutContentSnapshotAction
 {
+    use AsFake;
     use AsObject;
 
     /**

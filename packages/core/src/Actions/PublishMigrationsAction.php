@@ -7,10 +7,12 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\MigrationPublishCommandResultData;
 use Capell\Core\Support\Dataset\DatasetPublisher;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PublishMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

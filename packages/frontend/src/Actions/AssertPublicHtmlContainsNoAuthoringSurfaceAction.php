@@ -7,6 +7,7 @@ namespace Capell\Frontend\Actions;
 use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class AssertPublicHtmlContainsNoAuthoringSurfaceAction
 {
+    use AsFake;
     use AsObject;
 
     public const string SAFE_INSPECTION_HASH_ATTRIBUTE = 'capell.frontend.public_html_safety.inspected_hash';

@@ -6,12 +6,14 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
 class RequirePackageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Frontend\Providers\FrontendServiceProvider;
+use Capell\Installer\Providers\InstallerServiceProvider;
+use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Composer\Semver\Semver;
 
 it('defines the public v1 split package release contract', function (): void {
@@ -182,6 +187,56 @@ it('defines the public v1 split package release contract', function (): void {
 
     expect($localSplitScript)->toContain('config/release-packages.json')
         ->and($packagistScript)->toContain('config/release-packages.json');
+});
+
+it('defines the paid root package as the aggregate of the public foundation', function (): void {
+    $root = dirname(__DIR__, 2);
+    $manifest = json_decode(
+        file_get_contents($root . '/composer.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($manifest['name'])->toBe('capell-app/capell')
+        ->and($manifest['license'])->toBe('proprietary')
+        ->and($manifest['replace'])->toBe([
+            'capell-app/admin' => 'self.version',
+            'capell-app/core' => 'self.version',
+            'capell-app/frontend' => 'self.version',
+            'capell-app/installer' => 'self.version',
+            'capell-app/marketplace' => 'self.version',
+        ])
+        ->and($manifest['autoload']['psr-4'])->toHaveKeys([
+            'Capell\\Admin\\',
+            'Capell\\Core\\',
+            'Capell\\Frontend\\',
+            'Capell\\Installer\\',
+            'Capell\\Marketplace\\',
+        ])
+        ->and($manifest['extra']['laravel']['providers'])->toContain(
+            CapellServiceProvider::class,
+            AdminServiceProvider::class,
+            FrontendServiceProvider::class,
+            InstallerServiceProvider::class,
+            MarketplaceServiceProvider::class,
+        );
+});
+
+it('documents the verified dual installation paths without exposing a real credential', function (): void {
+    $root = dirname(__DIR__, 2);
+    $readme = file_get_contents($root . '/README.md');
+    $installGuide = file_get_contents($root . '/docs/getting-started/install.md');
+
+    expect($readme)->toContain('composer require capell-app/installer')
+        ->toContain('composer config repositories.capell composer https://capell.app/composer')
+        ->toContain('composer config bearer.capell.app <short-lived-token>')
+        ->toContain('composer require capell-app/capell')
+        ->toContain('expires within 30 minutes')
+        ->and($installGuide)->toContain('Owners, Billing members, and authorised technical members')
+        ->toContain('stored only as a hash by Capell')
+        ->toContain('keep that file out of source control')
+        ->not->toMatch('/capell_membership_[A-Za-z0-9]{20,}/');
 });
 
 it('documents one public distribution and commercial licensing story', function (): void {

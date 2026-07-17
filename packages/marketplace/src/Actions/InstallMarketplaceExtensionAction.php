@@ -28,12 +28,14 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class InstallMarketplaceExtensionAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private ?MarketplaceInstallPolicyEvidenceData $activePolicyEvidence = null;
 

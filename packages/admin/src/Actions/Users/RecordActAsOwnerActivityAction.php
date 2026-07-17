@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Users;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class RecordActAsOwnerActivityAction
 {
+    use AsFake;
     use AsObject;
 
     public const string LOG_NAME = 'support';

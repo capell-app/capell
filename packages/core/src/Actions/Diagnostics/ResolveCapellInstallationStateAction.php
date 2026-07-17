@@ -9,11 +9,13 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveCapellInstallationStateAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(
         private readonly CapellRuntimeSchemaContract $schema,

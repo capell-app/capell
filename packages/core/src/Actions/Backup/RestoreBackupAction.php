@@ -15,6 +15,7 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\FilesystemManager;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
@@ -24,6 +25,7 @@ use Throwable;
  */
 final class RestoreBackupAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

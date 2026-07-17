@@ -8,12 +8,17 @@ use Capell\Core\Data\Scaffolding\PackageScaffoldInputData;
 use Capell\Core\Enums\PackageScaffoldProfile;
 use Illuminate\Support\Facades\File;
 use JsonException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 
 final class ScaffoldPackageAction
 {
+    use AsFake;
+    use AsObject;
+
     /**
      * @throws JsonException
      */

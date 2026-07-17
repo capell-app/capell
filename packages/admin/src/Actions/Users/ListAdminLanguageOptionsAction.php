@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Users;
 
 use Capell\Core\Models\Language;
 use Illuminate\Support\Collection;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ListAdminLanguageOptionsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return Collection<int, string>

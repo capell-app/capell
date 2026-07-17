@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Support\Renderables\RenderableViewDataContext;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolveRenderableViewDataAction
 {
+    use AsFake;
     use AsObject;
 
     /**

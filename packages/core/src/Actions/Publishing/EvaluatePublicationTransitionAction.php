@@ -12,10 +12,12 @@ use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class EvaluatePublicationTransitionAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PublicationTransitionRequestData $request): PublicationTransitionResultData

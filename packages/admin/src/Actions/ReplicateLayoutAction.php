@@ -9,6 +9,7 @@ use Capell\Core\Actions\IncrementNameAction;
 use Capell\Core\Models\Layout;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
@@ -17,6 +18,7 @@ use RuntimeException;
  */
 class ReplicateLayoutAction
 {
+    use AsFake;
     use AsObject;
 
     /**

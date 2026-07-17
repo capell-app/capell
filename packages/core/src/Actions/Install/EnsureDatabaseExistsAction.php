@@ -7,12 +7,14 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Contracts\ProgressReporter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use PDO;
 use RuntimeException;
 
 final class EnsureDatabaseExistsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(ProgressReporter $reporter): void

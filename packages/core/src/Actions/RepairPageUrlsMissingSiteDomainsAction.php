@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\SiteDomain;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class RepairPageUrlsMissingSiteDomainsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): int

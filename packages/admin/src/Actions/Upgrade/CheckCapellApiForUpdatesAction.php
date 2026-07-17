@@ -8,12 +8,14 @@ use Capell\Core\Actions\Upgrade\ResolveInstalledComposerVersionsAction;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class CheckCapellApiForUpdatesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(): bool
     {

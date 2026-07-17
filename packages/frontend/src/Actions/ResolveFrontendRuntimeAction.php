@@ -15,10 +15,12 @@ use Capell\Frontend\Data\FrontendRuntimeResolutionData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class ResolveFrontendRuntimeAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

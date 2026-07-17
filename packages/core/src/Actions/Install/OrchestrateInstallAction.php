@@ -17,7 +17,6 @@ final class OrchestrateInstallAction
     use AsObject;
 
     public function __construct(
-        private readonly PreflightExtraPackagesAction $preflightExtraPackages,
         private readonly RunInstallAction $runInstall,
         private readonly ClearCachesAction $clearCaches,
     ) {}
@@ -28,7 +27,7 @@ final class OrchestrateInstallAction
         ProgressReporter $reporter,
         InstallOrchestrationHost $host,
     ): void {
-        $this->preflightExtraPackages->handle($inputData->extraPackages, $reporter);
+        PreflightExtraPackagesAction::run($inputData->extraPackages, $reporter);
         $host->prepareApplication($inputData, $reporter);
 
         if ($orchestration->outputPlan) {
@@ -48,6 +47,6 @@ final class OrchestrateInstallAction
 
         $this->clearCaches->handle($orchestration->cachesToClear, $reporter);
         $host->reportManualChanges();
-        $host->finalizeInstall();
+        $host->finalizeInstall($inputData, BuildInstallRunResultAction::run($inputData));
     }
 }

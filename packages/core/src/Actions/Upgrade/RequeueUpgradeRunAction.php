@@ -8,11 +8,13 @@ use Capell\Core\Enums\Upgrade\UpgradeRunEventLevel;
 use Capell\Core\Enums\Upgrade\UpgradeRunStatus;
 use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Models\UpgradeRun;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RequeueUpgradeRunAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(UpgradeRun $run, string $message): UpgradeRun
     {

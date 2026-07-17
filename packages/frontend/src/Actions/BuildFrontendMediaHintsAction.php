@@ -9,10 +9,12 @@ use Capell\Core\Enums\MediaConversionEnum;
 use Capell\Frontend\Data\FrontendMediaHintData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildFrontendMediaHintsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

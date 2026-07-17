@@ -11,6 +11,7 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Blade;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -18,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class RenderRenderableAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

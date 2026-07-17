@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Actions\Shield\ResolveDefaultRolePermissionsAction;
 use Illuminate\Database\Eloquent\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Contracts\Role as RoleContract;
 use Spatie\Permission\Models\Permission;
@@ -25,6 +26,7 @@ use Spatie\Permission\Models\Role;
  */
 class SeedDefaultRolesAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): void

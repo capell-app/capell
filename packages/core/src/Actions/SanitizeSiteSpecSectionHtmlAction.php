@@ -6,12 +6,14 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Support\CapellSiteSpecConstraints;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 final class SanitizeSiteSpecSectionHtmlAction
 {
+    use AsFake;
     use AsObject;
 
     private static ?HtmlSanitizer $sanitizer = null;

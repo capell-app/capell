@@ -7,14 +7,16 @@ namespace Capell\Admin\Actions\Themes;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static array<string, ThemeDefinitionData> run()
  */
 final class ResolveThemeDefinitionsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array<string, ThemeDefinitionData>

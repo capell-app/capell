@@ -22,12 +22,14 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 class GenerateStaticPageArtifactsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

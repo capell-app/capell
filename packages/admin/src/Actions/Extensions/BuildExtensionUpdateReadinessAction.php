@@ -7,11 +7,13 @@ namespace Capell\Admin\Actions\Extensions;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionUpdateReadinessData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildExtensionUpdateReadinessAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @return list<ExtensionUpdateReadinessData> */
     public function handle(): array

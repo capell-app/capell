@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\BuildSiteFromSpecFileAction;
+use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
+use Capell\Core\Actions\Install\WriteInstallHandoffAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
@@ -14,8 +17,10 @@ use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
+use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\InstallInputData;
@@ -23,6 +28,7 @@ use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
@@ -37,6 +43,7 @@ use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
+use Filament\Facades\Filament;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User;
@@ -99,6 +106,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--install-welcome-route : Remove Laravel default welcome home route when present}
         {--developer-tooling : Install Laravel Boost and Capell Agent Bridge developer tooling}
         {--no-boost-install : Install developer tooling packages without running boost:install}
+        {--handoff-json= : Write the redacted install handoff to a JSON file}
         {--production : Run in unattended production-safe mode: forces --no-interaction and refuses --fresh}
     ';
 
@@ -547,7 +555,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->logInstallDebug('filament upgrade finished');
     }
 
-    public function finalizeInstall(): void
+    public function finalizeInstall(InstallInputData $inputData, InstallRunResultData $result): void
     {
         if ($this->input->isInteractive() && ! $this->shouldUseFreshDemoDefaults()) {
             $this->logInstallDebug('prompting for github star');
@@ -556,6 +564,25 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->announceInstallSpec($this->orchestratedSeedDefaultData);
+
+        $handoff = BuildInstallHandoffAction::run(
+            inputData: $inputData,
+            result: $result,
+            adminUrl: $this->installAdminUrl(),
+            firstPageStatus: $this->installFirstPageStatus(),
+            warnings: array_values(array_unique($this->manualInstallChanges)),
+        );
+        $handoffJson = $this->option('handoff-json');
+
+        if (is_string($handoffJson) && trim($handoffJson) !== '') {
+            $handoffPath = str_starts_with($handoffJson, DIRECTORY_SEPARATOR)
+                ? $handoffJson
+                : base_path($handoffJson);
+
+            WriteInstallHandoffAction::run($handoff, $handoffPath);
+        }
+
+        $this->outputInstallHandoff($handoff, is_string($handoffJson) && trim($handoffJson) !== '');
     }
 
     protected function shouldInstallAllPackages(): bool
@@ -581,6 +608,63 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $packages
             ->keys()
             ->all();
+    }
+
+    private function installAdminUrl(): ?string
+    {
+        try {
+            $panelId = (string) config('capell-admin.panel.id', 'admin');
+
+            return Filament::getPanel($panelId)->getUrl();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function installFirstPageStatus(): string
+    {
+        try {
+            if (! Schema::hasTable('pages')) {
+                return 'missing';
+            }
+
+            $page = Page::query()->with('blueprint')->first();
+
+            if (! $page instanceof Page) {
+                return 'missing';
+            }
+
+            return GetEditPageResourceUrlAction::run($page) !== null
+                ? 'editable'
+                : 'present_unverified';
+        } catch (Throwable) {
+            return 'unavailable';
+        }
+    }
+
+    private function outputInstallHandoff(InstallHandoffData $handoff, bool $wroteJson): void
+    {
+        $this->newLine();
+        $this->line('<fg=blue;options=bold>Capell Install Handoff</>');
+        $this->newLine();
+        $this->components->twoColumnDetail(
+            'Selected packages',
+            $handoff->selectedPackages === [] ? 'None' : implode(', ', $handoff->selectedPackages),
+        );
+        $this->components->twoColumnDetail('Migrations', $handoff->outcomes['migrations']);
+        $this->components->twoColumnDetail('Setup', $handoff->outcomes['setup']);
+        $this->components->twoColumnDetail('Doctor', $handoff->outcomes['doctor']);
+        $this->components->twoColumnDetail('Admin URL', $handoff->urls['admin'] ?? 'Unavailable');
+        $this->components->twoColumnDetail('Public URL', $handoff->urls['public']);
+        $this->components->twoColumnDetail('First page', $handoff->firstPage['status']);
+        $this->components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
+        $this->line('Next: ' . $handoff->nextAction['label'] . ' — ' . $handoff->nextAction['url']);
+        $this->line($handoff->publicImpact['summary']);
+        $this->line('No Capell account connection or telemetry identity submission is required for this handoff.');
+
+        if ($wroteJson) {
+            $this->info('Machine-readable install handoff written.');
+        }
     }
 
     private function ensureInstallationMemoryLimit(): void

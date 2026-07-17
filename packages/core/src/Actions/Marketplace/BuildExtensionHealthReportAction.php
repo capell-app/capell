@@ -8,12 +8,14 @@ use Capell\Core\Data\Marketplace\ExtensionHealthReportData;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Foundation\Application;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildExtensionHealthReportAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array<string, mixed>

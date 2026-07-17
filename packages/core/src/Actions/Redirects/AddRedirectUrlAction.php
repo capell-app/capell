@@ -9,10 +9,12 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class AddRedirectUrlAction
 {
+    use AsFake;
     use AsObject;
 
     /**

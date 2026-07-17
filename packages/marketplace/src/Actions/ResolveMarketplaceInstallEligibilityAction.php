@@ -9,11 +9,13 @@ use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Models\MarketplaceInstance;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveMarketplaceInstallEligibilityAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(
         ExtensionListingData $listing,

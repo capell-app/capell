@@ -15,7 +15,7 @@ use Throwable;
 
 final class MarketplaceAccountConnectionCallbackController
 {
-    public function __invoke(Request $request, CompleteMarketplaceAccountConnectionAction $completeConnection): RedirectResponse
+    public function __invoke(Request $request): RedirectResponse
     {
         abort_unless(ExtensionsPage::canManageExtensions(), 403);
 
@@ -35,7 +35,7 @@ final class MarketplaceAccountConnectionCallbackController
         }
 
         try {
-            $completeConnection->handle($connectionSessionId, $code, $state);
+            CompleteMarketplaceAccountConnectionAction::run($connectionSessionId, $code, $state);
         } catch (Throwable $throwable) {
             Log::warning('capell-marketplace: account connection callback failed', ['error' => $throwable->getMessage()]);
 

@@ -8,10 +8,12 @@ use Capell\Core\Enums\DefaultColorEnum;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Data\ColorData;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class GetThemeColorsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Theme $theme): Collection

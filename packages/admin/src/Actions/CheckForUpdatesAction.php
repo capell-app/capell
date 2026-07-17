@@ -9,17 +9,19 @@ use Capell\Core\Actions\Upgrade\ResolveInstalledComposerVersionsAction;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class CheckForUpdatesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private const string UPDATE_ADVISORY_SNAPSHOTS_TABLE = 'marketplace_update_advisory_snapshots';
 
     public function handle(): bool
     {
-        if (resolve(CheckCapellApiForUpdatesAction::class)->handle()) {
+        if (CheckCapellApiForUpdatesAction::run()) {
             return true;
         }
 

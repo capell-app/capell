@@ -13,12 +13,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class CheckAdminPanelAccessAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(): DoctorCheckResultData
     {

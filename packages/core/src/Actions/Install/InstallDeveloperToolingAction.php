@@ -9,12 +9,14 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Illuminate\Support\Facades\Artisan;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
 class InstallDeveloperToolingAction
 {
+    use AsFake;
     use AsObject;
 
     /** @var (callable(array<int, string>, string, array<string, string>|null): Process)|null */

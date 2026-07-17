@@ -6,14 +6,16 @@ namespace Capell\Admin\Actions\Themes;
 
 use Capell\Admin\Data\Themes\ThemeEditorStateData;
 use Capell\Core\Models\Theme;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static ThemeEditorStateData run(Theme $theme)
  */
 final class ResolveThemeEditorStateAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(Theme $theme): ThemeEditorStateData
     {

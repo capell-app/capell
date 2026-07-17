@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionClass;
 
@@ -12,6 +13,7 @@ use ReflectionClass;
  */
 class EnsureSchemaImportsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param ReflectionClass<*> $reflector */

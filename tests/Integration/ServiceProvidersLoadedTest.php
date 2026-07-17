@@ -18,7 +18,7 @@ it('service providers are loaded', function (): void {
         ->toHaveKey(MarketplaceServiceProvider::class);
 });
 
-it('root package does not replace split Capell packages', function (): void {
+test('root package does not replace split Capell packages', function (): void {
     $composer = json_decode(
         (string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'),
         true,

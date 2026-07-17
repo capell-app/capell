@@ -11,11 +11,13 @@ use Capell\Core\Enums\AssetEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Illuminate\Support\Collection;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPageTreeViewDataAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array{

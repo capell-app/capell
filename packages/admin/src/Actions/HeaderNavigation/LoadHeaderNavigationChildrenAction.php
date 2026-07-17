@@ -13,10 +13,12 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class LoadHeaderNavigationChildrenAction
 {
+    use AsFake;
     use AsObject;
 
     public const string MODE_SITE_ROOT = 'site-root';

@@ -20,10 +20,12 @@ use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePublicPageRequestAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly FrontendLogger $logger) {}

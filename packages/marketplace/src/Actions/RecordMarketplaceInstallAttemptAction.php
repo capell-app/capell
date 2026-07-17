@@ -10,11 +10,13 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RecordMarketplaceInstallAttemptAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<string, mixed>  $requestedOptions

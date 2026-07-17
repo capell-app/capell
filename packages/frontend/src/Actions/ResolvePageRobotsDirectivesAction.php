@@ -6,14 +6,16 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static array<int, string> run(Pageable $page, ?Language $language = null)
  */
 final class ResolvePageRobotsDirectivesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return array<int, string>

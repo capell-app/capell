@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -18,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetNameFromTranslationsAction
 {
+    use AsFake;
     use AsObject;
 
     /**
