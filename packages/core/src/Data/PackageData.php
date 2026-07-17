@@ -112,7 +112,7 @@ class PackageData extends Data
             return $this->sort;
         }
 
-        return $this->manifest?->order ?? 0;
+        return $this->manifest->order ?? 0;
     }
 
     public function getShortName(): string
@@ -121,7 +121,7 @@ class PackageData extends Data
             return $this->shortName;
         }
 
-        return $this->manifest?->displayName
+        return $this->manifest->displayName
             ?? str($this->name)->afterLast('/')->replace('-', ' ')->title()->toString();
     }
 
@@ -201,7 +201,7 @@ class PackageData extends Data
     /** @return list<ExtensionContributionData> */
     public function getContributions(): array
     {
-        return $this->manifest?->contributes ?? [];
+        return $this->manifest->contributes ?? [];
     }
 
     /**
@@ -213,7 +213,7 @@ class PackageData extends Data
             return $this->supportingPackages;
         }
 
-        return $this->manifest?->supports ?? [];
+        return $this->manifest->supports ?? [];
     }
 
     /**
@@ -246,7 +246,7 @@ class PackageData extends Data
             return $this->productGroup;
         }
 
-        return $this->manifest?->productGroup ?? 'Uncategorised';
+        return $this->manifest->productGroup ?? 'Uncategorised';
     }
 
     public function getTier(): string
@@ -255,7 +255,7 @@ class PackageData extends Data
             return $this->tier;
         }
 
-        return $this->manifest?->tier ?? 'free';
+        return $this->manifest->tier ?? 'free';
     }
 
     public function getBundle(): ?string
@@ -273,7 +273,7 @@ class PackageData extends Data
             return $this->kind;
         }
 
-        return $this->manifest?->kind ?? $this->type->value;
+        return $this->manifest->kind ?? $this->type->value;
     }
 
     public function declaresSchemaMigrations(): bool
