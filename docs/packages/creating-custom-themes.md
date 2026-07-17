@@ -75,15 +75,19 @@ definition controls the theme's metadata, presets, assets, and runtime:
 {
     "kind": "theme",
     "extends": "default",
-    "themeKey": "agency-launch",
-    "runtime": "blade"
+    "themeKey": "agency-launch"
 }
 ```
 
-Theme inheritance is resolved from the package manifest's `extends` value, not
-from `ThemeDefinitionData`. The parent must be an installed theme package; Capell
-uses its manifest `themeKey` to find the parent definition. Keep the definition
-free of an `extends` value so the package metadata remains authoritative:
+The package manifest's `extends` value drives the public view-chain resolution.
+At runtime, the child package and its parent definition must be registered and
+available through `CapellCore` and `ThemeRegistry`; the parent does not need to
+be installed. Capell uses the parent manifest's `themeKey` to find that
+definition.
+
+`ThemeDefinitionData::$extends` remains supported metadata for local providers
+and admin diagnostics. A provider can mirror the manifest value there, but it
+does not select the public view chain:
 
 ```php
 use Capell\Core\Enums\FrontendRuntime;
@@ -120,6 +124,7 @@ public function packageBooted(): void
                 'frontend' => '/vendor/capell/theme-agency-launch/theme.css',
             ],
             runtime: FrontendRuntime::Livewire,
+            extends: 'default',
         ),
     );
 }
