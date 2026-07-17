@@ -24,12 +24,12 @@ use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\InstallInputData;
-use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
@@ -45,10 +45,7 @@ use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -56,8 +53,6 @@ use InvalidArgumentException;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\multiselect;
-use function Laravel\Prompts\password;
-use function Laravel\Prompts\search;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
@@ -155,7 +150,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         [$freshInstall, $forceFreshInstall] = $this->freshInstallOptions();
         $demo = $this->shouldInstallDemoContent();
         $userEmailOption = $this->option('user');
-        $newUser = $this->newUserFromOptions();
+        $userPrompter = $this->userPrompter();
+        $newUser = $userPrompter->newUserFromOptions(
+            $this->option('name'),
+            $this->option('email'),
+            $this->option('password'),
+        );
         $clearCache = $this->option('clear-cache');
         $generateSitemap = $this->option('generate-sitemap');
         $seedDatabase = (bool) $this->option('seed');
@@ -323,7 +323,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->logInstallDebug('resolving admin user');
-        [$userId, $resolvedNewUser, $exitCode] = $this->resolveUserInput($userEmailOption, $newUser, $freshInstall);
+        [$userId, $resolvedNewUser, $exitCode] = $userPrompter->resolveUserInput(
+            $userEmailOption,
+            $newUser,
+            $freshInstall,
+            $this->shouldUseFreshDemoDefaults(),
+        );
         if ($exitCode !== null) {
             $this->logInstallDebug('admin user resolution failed', [
                 'exit_code' => $exitCode,
@@ -337,7 +342,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'new_user_email' => $resolvedNewUser?->email,
         ]);
 
-        [$additionalUsers, $additionalUsersExitCode] = $this->resolveAdditionalUsersInput();
+        [$additionalUsers, $additionalUsersExitCode] = $userPrompter->resolveAdditionalUsersInput(
+            (bool) $this->option('role-users'),
+            $this->option('role-user-password'),
+            resolve(InstallInputFactory::class),
+        );
         if ($additionalUsersExitCode !== null) {
             $this->logInstallDebug('additional user resolution failed', [
                 'exit_code' => $additionalUsersExitCode,
@@ -1267,16 +1276,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ];
     }
 
-    private function createAdminUserOption(): string
-    {
-        return '__create_admin_user__';
-    }
-
-    private function useExistingAdminUserOption(): string
-    {
-        return 'existing';
-    }
-
     private function installerPackageName(): string
     {
         return 'capell-app/installer';
@@ -1324,152 +1323,23 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ];
     }
 
-    /** @return array{?int, ?NewUserData, ?int} */
-    private function resolveUserInput(?string $userEmailOption, ?NewUserData $newUserOption, bool $freshInstall): array
+    private function userPrompter(): InstallUserPrompter
     {
-        /** @var class-string<User> $userModel */
-        $userModel = config('auth.providers.users.model');
-        $userTable = (new $userModel)->getTable();
-
-        if ($userEmailOption !== null && $newUserOption instanceof NewUserData) {
-            $this->error('Use either --user for an existing user or --name/--email/--password for a new user, not both.');
-
-            return [null, null, CommandAlias::FAILURE];
-        }
-
-        if ($newUserOption instanceof NewUserData) {
-            return [null, $newUserOption, null];
-        }
-
-        if ($freshInstall && $this->shouldUseFreshDemoDefaults()) {
-            return [null, $this->defaultDemoAdminUser(), null];
-        }
-
-        if (! Schema::hasTable($userTable)) {
-            if ($userEmailOption !== null) {
-                $this->error('User table not found: ' . $userTable);
-
-                return [null, null, CommandAlias::FAILURE];
-            }
-
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        if ($userEmailOption !== null) {
-            $user = $userModel::query()->where('email', $userEmailOption)->first();
-            if ($user === null) {
-                $this->error('User not found: ' . $userEmailOption);
-
-                return [null, null, CommandAlias::FAILURE];
-            }
-
-            return [$user->getKey(), null, null];
-        }
-
-        if ($freshInstall) {
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        $totalUsers = $userModel::query()->count();
-
-        if ($totalUsers === 0) {
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        $adminUserMode = select(
-            label: 'Which admin user should we use?',
-            options: [
-                $this->useExistingAdminUserOption() => 'Use an existing user',
-                $this->createAdminUserOption() => 'Create a new admin user',
-            ],
-            default: $this->useExistingAdminUserOption(),
+        return new InstallUserPrompter(
+            interactive: $this->input->isInteractive(),
+            writeError: function (string $message): void {
+                $this->error($message);
+            },
+            writeLine: function (string $message): void {
+                $this->line($message);
+            },
+            logDebug: function (string $message, array $context): void {
+                $this->logInstallDebug($message, $context);
+            },
+            requireInteractiveOrFail: function (string $requirement, string $hint): void {
+                $this->requireInteractiveOrFail($requirement, $hint);
+            },
         );
-
-        if ($adminUserMode === $this->createAdminUserOption()) {
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        $selectedUser = search(
-            label: 'Search for an existing admin user',
-            options: fn (string $search): array => $this->existingUserOptions($userModel, $search),
-            validate: fn (int|string|null $value): ?string => $this->validateInstallUserSelection($value, $userTable),
-        );
-
-        return [(int) $selectedUser, null, null];
-    }
-
-    /**
-     * @param  class-string<User>  $userModel
-     * @return array<int|string, string>
-     */
-    private function existingUserOptions(string $userModel, string $search): array
-    {
-        return $userModel::query()
-            ->when(mb_strlen($search) > 0, fn (Builder $query) => $query->whereAny(['name', 'email'], 'like', $search . '%'))
-            ->limit(10)
-            ->select(['id', 'name', 'email'])
-            ->get()
-            ->mapWithKeys(fn (User $user): array => [
-                $user->getKey() => sprintf('%s <%s>', $user->name, $user->email),
-            ])
-            ->all();
-    }
-
-    private function validateInstallUserSelection(int|string|null $value, string $userTable): ?string
-    {
-        if ($value === $this->createAdminUserOption()) {
-            return null;
-        }
-
-        if (! is_int($value) && ! ctype_digit((string) $value)) {
-            return 'Select an existing user or create a new admin user.';
-        }
-
-        return Schema::hasTable($userTable) && DB::table($userTable)->where('id', (int) $value)->exists()
-            ? null
-            : 'The selected user does not exist.';
-    }
-
-    private function newUserFromOptions(): ?NewUserData
-    {
-        $name = $this->option('name');
-        $email = $this->option('email');
-        $password = $this->option('password');
-
-        $hasAnyOption = $name !== null || $email !== null || $password !== null;
-        if ($hasAnyOption) {
-            throw_if(
-                ! is_string($name) || $name === '' || ! is_string($email) || $email === '' || ! is_string($password) || $password === '',
-                InvalidArgumentException::class,
-                'Pass --name, --email, and --password together to create the first user non-interactively.',
-            );
-
-            return new NewUserData(name: $name, email: $email, password: $password);
-        }
-
-        return $this->newUserFromInstallerConfig();
-    }
-
-    private function newUserFromInstallerConfig(): ?NewUserData
-    {
-        $configured = config('capell-installer.admin_user');
-        if (! is_array($configured)) {
-            $configured = config('capell.install.admin_user', []);
-        }
-
-        if (! is_array($configured)) {
-            return null;
-        }
-
-        $name = $this->stringConfigValue($configured['name'] ?? null);
-        $email = $this->stringConfigValue($configured['email'] ?? null);
-        $password = $this->stringConfigValue($configured['password'] ?? null);
-
-        if ($name === '' || $email === '' || $password === '') {
-            return null;
-        }
-
-        return new NewUserData(name: $name, email: $email, password: $password);
     }
 
     private function stringConfigValue(mixed $value): string
@@ -1480,55 +1350,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function defaultSiteUrl(): string
     {
         return $this->stringConfigValue(config('app.url'));
-    }
-
-    private function promptForNewUser(): NewUserData
-    {
-        $this->line('Please enter details for the admin user who can log in to Capell.');
-        $name = text(label: 'Name', required: true);
-        $email = text(label: 'Email', required: true, validate: ['email' => 'email']);
-        $password = password(label: 'Password', required: true);
-
-        return new NewUserData(name: $name, email: $email, password: $password);
-    }
-
-    private function defaultDemoAdminUser(): NewUserData
-    {
-        $this->logInstallDebug('using default fresh demo admin user', [
-            'email' => 'admin@example.test',
-        ]);
-
-        return new NewUserData(
-            name: 'Capell Admin',
-            email: 'admin@example.test',
-            password: 'password',
-        );
-    }
-
-    /**
-     * @return array{array<NewUserData>, ?int}
-     */
-    private function resolveAdditionalUsersInput(): array
-    {
-        $createRoleUsers = $this->option('role-users');
-
-        if (! $createRoleUsers) {
-            return [[], null];
-        }
-
-        $password = $this->option('role-user-password');
-
-        if (! is_string($password) || $password === '') {
-            if (! $this->input->isInteractive()) {
-                $this->error('Pass --role-user-password=<password> when using --role-users non-interactively.');
-
-                return [[], CommandAlias::FAILURE];
-            }
-
-            $password = password(label: 'Example role user password', required: true);
-        }
-
-        return [resolve(InstallInputFactory::class)->exampleRoleUsers($password), null];
     }
 
     private function recordManualInstallChange(string $message): void

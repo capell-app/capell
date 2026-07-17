@@ -14,7 +14,9 @@ it('normalizes php memory limit units for the installer floor', function (): voi
 });
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Support\Facades\Schema;
@@ -94,20 +96,19 @@ it('uses cache defaults that exist for the current application', function (): vo
 });
 
 it('creates new admin user data only when all non-interactive options are present', function (): void {
-    $newUser = callInstallCommandMethod(installCommandForOptions([
+    $newUser = requiredInstallNewUser(installUserPrompterForOptions([
         '--name' => 'Capell Admin',
         '--email' => 'admin@example.test',
         '--password' => 'secret-password',
-    ]), 'newUserFromOptions');
+    ])->newUserFromOptions('Capell Admin', 'admin@example.test', 'secret-password'));
 
     expect($newUser)->toBeInstanceOf(NewUserData::class)
         ->and($newUser->name)->toBe('Capell Admin')
         ->and($newUser->email)->toBe('admin@example.test')
         ->and($newUser->password)->toBe('secret-password');
 
-    expect(fn (): mixed => callInstallCommandMethod(installCommandForOptions([
-        '--name' => 'Missing email',
-    ]), 'newUserFromOptions'))->toThrow(InvalidArgumentException::class, 'Pass --name, --email, and --password together');
+    expect(fn (): ?NewUserData => installUserPrompterForOptions([])->newUserFromOptions('Missing email', null, null))
+        ->toThrow(InvalidArgumentException::class, 'Pass --name, --email, and --password together');
 });
 
 it('uses installer configuration for first user defaults when options are absent', function (): void {
@@ -121,7 +122,7 @@ it('uses installer configuration for first user defaults when options are absent
     ]);
 
     $command = installCommandForOptions([]);
-    $configuredUser = callInstallCommandMethod($command, 'newUserFromOptions');
+    $configuredUser = requiredInstallNewUser(installUserPrompterForOptions([])->newUserFromOptions(null, null, null));
 
     expect($configuredUser)->toBeInstanceOf(NewUserData::class)
         ->and($configuredUser->name)->toBe('Configured Admin')
@@ -244,8 +245,20 @@ it('fails existing-user resolution when the application user table is missing', 
 
     Schema::drop($userTable);
 
-    expect(callInstallCommandMethod($command, 'resolveUserInput', 'missing@example.test', null, false))
+    expect(installUserPrompterForOptions([])->resolveUserInput('missing@example.test', null, false, false))
         ->toBe([null, null, SymfonyCommand::FAILURE]);
+});
+
+it('uses the install command non-interactive fallback before prompting for an admin user', function (): void {
+    $userTable = (new User)->getTable();
+
+    Schema::drop($userTable);
+
+    expect(fn (): array => installUserPrompterForOptions([])->resolveUserInput(null, null, false, false))
+        ->toThrow(
+            RuntimeException::class,
+            'Admin user is required in non-interactive mode. Pass --name=<name>, --email=<email>, and --password=<password>.',
+        );
 });
 
 it('resolves command user and role-user inputs without interactive prompts', function (): void {
@@ -255,32 +268,17 @@ it('resolves command user and role-user inputs without interactive prompts', fun
         password: 'secret-password',
     );
 
-    $conflictingUserCommand = installCommandForOptions([
-        '--fresh' => 'force',
-        '--demo' => true,
-        '--user' => 'existing@example.test',
-    ]);
-    $freshDemoCommand = installCommandForOptions([
-        '--fresh' => 'force',
-        '--demo' => true,
-    ]);
-    $roleUsersWithoutPasswordCommand = installCommandForOptions([
-        '--role-users' => true,
-    ]);
-    $roleUsersCommand = installCommandForOptions([
-        '--role-users' => true,
-        '--role-user-password' => 'shared-password',
-    ]);
+    $prompter = installUserPrompterForOptions([]);
 
-    $conflict = callInstallCommandMethod($conflictingUserCommand, 'resolveUserInput', 'existing@example.test', $newUser, true);
-    $freshDemoUser = callInstallCommandMethod($freshDemoCommand, 'resolveUserInput', null, null, true);
-    $missingPassword = callInstallCommandMethod($roleUsersWithoutPasswordCommand, 'resolveAdditionalUsersInput');
-    $roleUsers = callInstallCommandMethod($roleUsersCommand, 'resolveAdditionalUsersInput');
+    $conflict = $prompter->resolveUserInput('existing@example.test', $newUser, true, true);
+    $freshDemoUser = $prompter->resolveUserInput(null, null, true, true);
+    $missingPassword = $prompter->resolveAdditionalUsersInput(true, null, resolve(InstallInputFactory::class));
+    $roleUsers = $prompter->resolveAdditionalUsersInput(true, 'shared-password', resolve(InstallInputFactory::class));
 
     expect($conflict)->toBe([null, null, SymfonyCommand::FAILURE])
         ->and($freshDemoUser[0])->toBeNull()
         ->and($freshDemoUser[1])->toBeInstanceOf(NewUserData::class)
-        ->and($freshDemoUser[1]->email)->toBe('admin@example.test')
+        ->and(requiredInstallNewUser($freshDemoUser[1])->email)->toBe('admin@example.test')
         ->and($freshDemoUser[2])->toBeNull()
         ->and($missingPassword)->toBe([[], SymfonyCommand::FAILURE])
         ->and($roleUsers[0])->toHaveCount(2)
@@ -291,7 +289,7 @@ it('resolves command user and role-user inputs without interactive prompts', fun
         ->and($roleUsers[1])->toBeNull();
 });
 
-it('normalises array list options and exposes install selection sentinels', function (): void {
+it('normalises array list options and exposes installer package options', function (): void {
     $command = installCommandForOptions([
         '--languages' => [' en ', '', 'fr'],
         '--sites' => [' Main Site ', null, 'Knowledge'],
@@ -300,8 +298,6 @@ it('normalises array list options and exposes install selection sentinels', func
     expect(callInstallCommandMethod($command, 'parseListOption', 'languages'))->toBe(['en', 'fr'])
         ->and(callInstallCommandMethod($command, 'parseListOption', 'sites'))->toBe(['Main Site', 'Knowledge'])
         ->and(callInstallCommandMethod(installCommandForOptions(['--languages' => ' , ']), 'parseListOption', 'languages'))->toBeNull()
-        ->and(callInstallCommandMethod($command, 'createAdminUserOption'))->toBe('__create_admin_user__')
-        ->and(callInstallCommandMethod($command, 'useExistingAdminUserOption'))->toBe('existing')
         ->and(callInstallCommandMethod($command, 'installerPackageName'))->toBe('capell-app/installer')
         ->and(callInstallCommandMethod($command, 'optionalCacheOptions'))->toHaveKeys([
             'admin',
@@ -317,22 +313,22 @@ it('validates existing admin user selections before install input is built', fun
         'name' => 'Install Admin',
         'email' => 'install-admin@example.test',
     ]);
-    $command = installCommandForOptions([]);
+    $prompter = installUserPrompterForOptions([]);
     $userTable = (new User)->getTable();
 
-    expect(callInstallCommandMethod($command, 'existingUserOptions', User::class, 'Install'))->toBe([
+    expect($prompter->existingUserOptions(User::class, 'Install'))->toBe([
         $user->getKey() => 'Install Admin <install-admin@example.test>',
     ])
-        ->and(callInstallCommandMethod($command, 'validateInstallUserSelection', '__create_admin_user__', $userTable))->toBeNull()
-        ->and(callInstallCommandMethod($command, 'validateInstallUserSelection', 'not-a-user-id', $userTable))
+        ->and($prompter->validateInstallUserSelection('__create_admin_user__', $userTable))->toBeNull()
+        ->and($prompter->validateInstallUserSelection('not-a-user-id', $userTable))
         ->toBe('Select an existing user or create a new admin user.')
-        ->and(callInstallCommandMethod($command, 'validateInstallUserSelection', (string) $user->getKey(), $userTable))->toBeNull()
-        ->and(callInstallCommandMethod($command, 'validateInstallUserSelection', (string) ($user->getKey() + 1000), $userTable))
+        ->and($prompter->validateInstallUserSelection((string) $user->getKey(), $userTable))->toBeNull()
+        ->and($prompter->validateInstallUserSelection((string) ($user->getKey() + 1000), $userTable))
         ->toBe('The selected user does not exist.');
 
     Schema::drop($userTable);
 
-    expect(callInstallCommandMethod($command, 'validateInstallUserSelection', (string) $user->getKey(), $userTable))
+    expect($prompter->validateInstallUserSelection((string) $user->getKey(), $userTable))
         ->toBe('The selected user does not exist.');
 });
 
@@ -346,7 +342,7 @@ it('ignores incomplete installer admin user config', function (): void {
         ],
     ]);
 
-    expect(callInstallCommandMethod(installCommandForOptions([]), 'newUserFromOptions'))->toBeNull();
+    expect(installUserPrompterForOptions([])->newUserFromOptions(null, null, null))->toBeNull();
 });
 
 /**
@@ -367,6 +363,23 @@ function installCommandForOptions(array $options, bool $interactive = false): In
     $outputProperty->setValue($command, new BufferedOutput);
 
     return $command;
+}
+
+/**
+ * @param  array<string, mixed>  $options
+ */
+function installUserPrompterForOptions(array $options, bool $interactive = false): InstallUserPrompter
+{
+    return callInstallCommandMethod(installCommandForOptions($options, $interactive), 'userPrompter');
+}
+
+function requiredInstallNewUser(?NewUserData $newUser): NewUserData
+{
+    if ($newUser === null) {
+        throw new RuntimeException('Expected installer user data.');
+    }
+
+    return $newUser;
 }
 
 function callInstallCommandMethod(InstallCommand $command, string $method, mixed ...$arguments): mixed
