@@ -42,6 +42,31 @@ it('accepts a stable v1 internal minimum', function (): void {
     expect(true)->toBeTrue();
 });
 
+it('requires the plan ledger to exactly match the declared release package inventory', function (array $definitions): void {
+    $plan = releaseEnginePlan(str_repeat('a', 40), str_repeat('b', 40));
+
+    expect(fn () => PlanValidator::assertDeclaredMaturity($plan, $definitions))
+        ->toThrow(ReleaseException::class, 'Plan ledger must exactly match declared release package inventory.');
+})->with([
+    'missing declaration' => [[]],
+    'unknown declaration' => [[['name' => 'capell-app/admin', 'maturity' => 'stable']]],
+    'additional declaration' => [[
+        ['name' => 'capell-app/core', 'maturity' => 'stable'],
+        ['name' => 'capell-app/admin', 'maturity' => 'stable'],
+    ]],
+]);
+
+it('rejects release metadata that does not describe the exact version transition', function (array $package): void {
+    expect(fn () => PlanValidator::assertVersionTransition($package))
+        ->toThrow(ReleaseException::class, 'Invalid release transition for capell-app/core.');
+})->with([
+    'unknown type' => [['name' => 'capell-app/core', 'current_version' => '1.0.0', 'proposed_version' => '1.0.1', 'release_type' => 'hotfix', 'maturity' => 'stable']],
+    'baseline with current version' => [['name' => 'capell-app/core', 'current_version' => '1.0.0', 'proposed_version' => '1.0.0', 'release_type' => 'baseline', 'maturity' => 'stable']],
+    'skipped patch' => [['name' => 'capell-app/core', 'current_version' => '1.0.0', 'proposed_version' => '1.0.2', 'release_type' => 'patch', 'maturity' => 'stable']],
+    'invalid beta opening' => [['name' => 'capell-app/core', 'current_version' => '1.0.0', 'proposed_version' => '1.1.0-beta.2', 'release_type' => 'beta', 'maturity' => 'beta']],
+    'invalid promotion' => [['name' => 'capell-app/core', 'current_version' => '1.1.0-beta.2', 'proposed_version' => '1.1.1', 'release_type' => 'promote', 'maturity' => 'stable']],
+]);
+
 it('validates local package requirements against an imported external ledger', function (): void {
     $sourceCommit = str_repeat('a', 40);
     $externalCommit = str_repeat('b', 40);
@@ -57,6 +82,7 @@ it('validates local package requirements against an imported external ledger', f
         'subtree_hash' => $externalTree,
         'direct_capell_dependencies' => [],
         'resolved_minimum_versions' => [],
+        'maturity' => 'stable',
     ];
     $local = [
         'name' => 'capell-app/example',
@@ -69,6 +95,7 @@ it('validates local package requirements against an imported external ledger', f
         'subtree_hash' => $localTree,
         'direct_capell_dependencies' => ['capell-app/core'],
         'resolved_minimum_versions' => ['capell-app/core' => '1.0.0'],
+        'maturity' => 'stable',
     ];
     $selected = [
         'name' => 'capell-app/example',
@@ -85,6 +112,7 @@ it('validates local package requirements against an imported external ledger', f
         'release_type' => 'baseline',
         'publication_state' => 'pending',
         'tag_sha' => null,
+        'maturity' => 'stable',
     ];
     $plan = [
         'schema_version' => 1,
@@ -154,14 +182,14 @@ it('publishes a verified split and records atomic resumable state', function ():
             };
         }
     };
-    $plan = ['schema_version' => 1, 'source' => ['repository' => 'source', 'commit' => $sha], 'inventory' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0']], 'ledger' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => []]], 'packages' => [[
+    $plan = ['schema_version' => 1, 'source' => ['repository' => 'source', 'commit' => $sha], 'inventory' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0']], 'ledger' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'maturity' => 'stable']], 'packages' => [[
         'name' => 'capell-app/core', 'path' => 'packages/core', 'split_repository' => 'capell-app/core', 'current_version' => null,
         'proposed_version' => '1.0.0', 'source_commit' => $sha, 'source_tag' => 'core/v1.0.0', 'subtree_hash' => $tree, 'direct_capell_dependencies' => [],
-        'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null,
+        'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null, 'maturity' => 'stable',
     ]], 'dependency_order' => ['capell-app/core']];
     $path = tempnam(sys_get_temp_dir(), 'release-plan-');
     putenv('GH_TOKEN=test-token');
-    new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, $path);
+    new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
     $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
     expect($state['packages']['capell-app/core']['split_sha'])->toBe($split)
         ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
@@ -202,7 +230,7 @@ it('aborts a mismatched remote tag before pushing', function (): void {
     };
     $plan = releaseEnginePlan($sha, $tree);
     try {
-        new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-'));
+        new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-'));
     } catch (ReleaseException $releaseException) {
         expect($releaseException->getMessage())->toContain('immutable tag');
     }
@@ -224,13 +252,14 @@ it('verify rejects remote main drift', function (): void {
             $text = implode(' ', $command);
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core') => $this->tree,str_contains($text, 'git/ref/tags') => $this->tag,str_contains($text, 'git/ref/heads/main') => str_repeat('e', 40),default => 'ok'
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core') => $this->tree,str_contains($text, 'isPrerelease') => 'false',str_contains($text, 'git/ref/tags') => $this->tag,str_contains($text, 'git/ref/heads/main') => str_repeat('e', 40),default => 'ok'
             }, 'exitCode' => 0];
         }
     };
     $path = tempnam(sys_get_temp_dir(), 'plan-');
     file_put_contents($path . '.state.json', json_encode(['packages' => ['capell-app/core' => ['tag_sha' => $tag, 'split_sha' => $split]]], JSON_THROW_ON_ERROR));
-    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->verify(releaseEnginePlan($sha, $tree), $path))
+    $plan = releaseEnginePlan($sha, $tree);
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->verify($plan, $path))
         ->toThrow(ReleaseException::class, 'Remote main drift');
     @unlink($path);
     @unlink($path . '.state.json');
@@ -255,7 +284,8 @@ it('publish refuses exact source subtree drift before splitting', function (): v
             }, 'exitCode' => 0];
         }
     };
-    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-')))
+    $plan = releaseEnginePlan($sha, $tree);
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))
         ->toThrow(ReleaseException::class, 'Source tree drift');
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('subtree', $command, true)))->toBeEmpty();
 });
@@ -263,21 +293,37 @@ it('publish refuses exact source subtree drift before splitting', function (): v
 /** @return array<string,mixed> */
 function releaseEnginePlan(string $sha, string $tree): array
 {
-    $history = ['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => []];
+    $history = ['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'maturity' => 'stable'];
 
     return ['schema_version' => 1, 'source' => ['repository' => 'source', 'commit' => $sha], 'inventory' => [['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core', 'version' => '1.0.0']], 'ledger' => [$history], 'packages' => [[
         'name' => 'capell-app/core', 'path' => 'packages/core', 'split_repository' => 'capell-app/core', 'current_version' => null, 'proposed_version' => '1.0.0',
         'source_commit' => $sha, 'source_tag' => 'core/v1.0.0', 'subtree_hash' => $tree, 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline',
-        'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null,
+        'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null, 'maturity' => 'stable',
     ]], 'dependency_order' => ['capell-app/core']];
+}
+
+/** @param array<string,mixed> $plan */
+function releaseEngineRootForPlan(array $plan): string
+{
+    $root = sys_get_temp_dir() . '/capell-release-' . bin2hex(random_bytes(5));
+    mkdir($root . '/config', 0777, true);
+    $definitions = array_map(fn (array $entry): array => [
+        'name' => $entry['name'],
+        'path' => $entry['path'],
+        'repository' => $entry['repository'],
+        'maturity' => $entry['maturity'],
+    ], $plan['ledger']);
+    file_put_contents($root . '/config/release-packages.json', json_encode($definitions, JSON_THROW_ON_ERROR));
+
+    return $root;
 }
 
 function twoPackageReleasePlan(string $sha, array $trees): array
 {
     $plan = releaseEnginePlan($sha, $trees['capell-app/core']);
     $plan['inventory'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0'];
-    $plan['ledger'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => []];
-    $plan['packages'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'split_repository' => 'capell-app/admin', 'current_version' => null, 'proposed_version' => '1.0.0', 'source_commit' => $sha, 'source_tag' => 'admin/v1.0.0', 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null];
+    $plan['ledger'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => $sha, 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'maturity' => 'stable'];
+    $plan['packages'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'split_repository' => 'capell-app/admin', 'current_version' => null, 'proposed_version' => '1.0.0', 'source_commit' => $sha, 'source_tag' => 'admin/v1.0.0', 'subtree_hash' => $trees['capell-app/admin'], 'direct_capell_dependencies' => [], 'resolved_minimum_versions' => [], 'reason' => 'baseline', 'release_type' => 'baseline', 'publication_state' => 'pending', 'tag_sha' => null, 'maturity' => 'stable'];
     $plan['dependency_order'][] = 'capell-app/admin';
 
     return $plan;
@@ -342,9 +388,32 @@ it('persists full history and releases every foundation package at one lockstep 
         ->and(array_values(array_unique(array_column($next['ledger'], 'version'))))->toBe(['2.0.0']);
 });
 
+it('rejects beta and promote bump requests because foundation packages release in stable lockstep', function (string $type): void {
+    $root = sys_get_temp_dir() . '/capell-release-' . bin2hex(random_bytes(5));
+    mkdir($root . '/config', 0777, true);
+    mkdir($root . '/packages/core', 0777, true);
+    file_put_contents($root . '/packages/core/composer.json', json_encode(['name' => 'capell-app/core'], JSON_THROW_ON_ERROR));
+    file_put_contents($root . '/config/release-packages.json', json_encode([['name' => 'capell-app/core', 'path' => 'packages/core', 'repository' => 'capell-app/core']], JSON_THROW_ON_ERROR));
+    $runner = new readonly class implements CommandRunner
+    {
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $text = implode(' ', $command);
+
+            return ['output' => match (true) {
+                str_contains($text, 'status --porcelain') => '',
+                str_contains($text, 'rev-parse HEAD') => str_repeat('1', 40),
+                default => str_repeat('a', 40),
+            }, 'exitCode' => 0];
+        }
+    };
+    expect(fn (): array => new ReleaseEngine($root, $runner)->plan('1.0.0', null, ['capell-app/core' => $type]))
+        ->toThrow(ReleaseException::class, 'Foundation packages release in stable lockstep.');
+})->with(['beta', 'promote']);
+
 it('rejects invalid ledger dependency semantics', function (Closure $mutate, string $message): void {
     $plan = releaseEnginePlan(str_repeat('a', 40), str_repeat('b', 40));
-    $plan['ledger'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => str_repeat('a', 40), 'subtree_hash' => str_repeat('c', 40), 'direct_capell_dependencies' => ['capell-app/core'], 'resolved_minimum_versions' => ['capell-app/core' => '1.0.0']];
+    $plan['ledger'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0', 'previous_version' => null, 'source_commit' => str_repeat('a', 40), 'subtree_hash' => str_repeat('c', 40), 'direct_capell_dependencies' => ['capell-app/core'], 'resolved_minimum_versions' => ['capell-app/core' => '1.0.0'], 'maturity' => 'stable'];
     $plan['inventory'][] = ['name' => 'capell-app/admin', 'path' => 'packages/admin', 'repository' => 'capell-app/admin', 'version' => '1.0.0'];
     $mutate($plan);
     expect(fn () => (new PlanValidator)->validate($plan))->toThrow(ReleaseException::class, $message);
@@ -386,8 +455,11 @@ it('rejects a foundation plan with mixed package versions', function (): void {
         'capell-app/core' => str_repeat('b', 40),
         'capell-app/admin' => str_repeat('c', 40),
     ]);
+    $plan['packages'][1]['current_version'] = '1.0.0';
     $plan['packages'][1]['proposed_version'] = '1.0.1';
     $plan['packages'][1]['source_tag'] = 'admin/v1.0.1';
+    $plan['packages'][1]['release_type'] = 'patch';
+    $plan['ledger'][1]['previous_version'] = '1.0.0';
     $plan['ledger'][1]['version'] = '1.0.1';
     $plan['inventory'][1]['version'] = '1.0.1';
 
@@ -426,7 +498,7 @@ it('rejects stale release state before running publication commands', function (
             return ['output' => '', 'exitCode' => 0];
         }
     };
-    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, $path))
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))
         ->toThrow(ReleaseException::class, 'different plan');
     expect($runner->commands)->toBeEmpty();
     @unlink($path);
@@ -456,7 +528,8 @@ it('never exposes command stderr secrets when a push fails', function (): void {
     };
     putenv('GH_TOKEN=' . $secret);
     try {
-        new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-'));
+        $plan = releaseEnginePlan($sha, $tree);
+        new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-'));
         expect(false)->toBeTrue();
     } catch (ReleaseException $releaseException) {
         expect($releaseException->getMessage())->not->toContain($secret)->not->toContain('Bearer')->toContain('[redacted]');
@@ -491,7 +564,7 @@ it('preserves completed state while recording a later package', function (): voi
         }
     };
     putenv('GH_TOKEN=test');
-    new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, $path);
+    new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
     $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
     expect($state['packages']['capell-app/earlier']['tag_sha'])->toBe('kept')->and($state['packages'])->toHaveKey('capell-app/core');
     @unlink($path);
@@ -537,7 +610,7 @@ it('records all main pushes but creates no tags when multi-package preflight fai
     };
     putenv('GH_TOKEN=test');
     try {
-        new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, $path);
+        new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
         expect(false)->toBeTrue();
     } catch (ReleaseException $releaseException) {
         expect($releaseException->getMessage())->not->toContain($secret);
@@ -571,7 +644,8 @@ it('rejects a missing preflight executable before remote mutation', function ():
             }, 'exitCode' => 0];
         }
     };
-    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'preflight script');
+    $plan = releaseEnginePlan($sha, $tree);
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'preflight script');
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true) || ($command[0] ?? '') === 'gh'))->toBeEmpty();
 });
 
@@ -616,7 +690,8 @@ it('checks a later mismatched tag before any main push or state write', function
             }, 'exitCode' => 0];
         }
     };
-    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(twoPackageReleasePlan($sha, $trees), $path))->toThrow(ReleaseException::class, 'immutable tag');
+    $plan = twoPackageReleasePlan($sha, $trees);
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))->toThrow(ReleaseException::class, 'immutable tag');
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty()->and(file_exists($path . '.state.json'))->toBeFalse();
 });
 
@@ -640,6 +715,7 @@ it('rejects a matching tag without plan-bound passed preflight state', function 
             }, 'exitCode' => 0];
         }
     };
-    expect(fn () => new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish(releaseEnginePlan($sha, $tree), tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'passed preflight state');
+    $plan = releaseEnginePlan($sha, $tree);
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'passed preflight state');
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty();
 });
