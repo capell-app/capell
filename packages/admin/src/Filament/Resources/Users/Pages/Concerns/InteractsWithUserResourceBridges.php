@@ -12,7 +12,7 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 
-trait InteractsWithUserFormExtenders
+trait InteractsWithUserResourceBridges
 {
     private mixed $preferredAdminLanguageId = null;
 

@@ -11,7 +11,6 @@ parameters:
         - identifier: trait.unused
           paths:
               - ../packages/core/src/Models/Concerns/ComposhipsJsonRelationshipsTrait.php
-              - ../packages/core/src/Models/Concerns/HasTypes.php
           reportUnmatched: false
 
         # The Translatable contract is implemented by Eloquent models, but PHPStan cannot

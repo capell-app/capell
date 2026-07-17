@@ -24,7 +24,5 @@ enum SchemaExtenderEnum: string
 
     case Type = 'capell.type_configurator.extenders';
 
-    case User = 'capell.user_schema.extenders';
-
     case PublishPanel = 'capell.publish_panel.extenders';
 }

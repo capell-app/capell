@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Contracts\Extenders\UserFormExtender;
-use Capell\Admin\Contracts\Extenders\UserSchemaExtender;
+use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Enums\UserSchemaHookEnum;
 use Capell\Admin\Filament\Resources\Users\Pages\EditUser;
-use Capell\Admin\Support\Schemas\AbstractUserSchemaExtender;
-use Capell\Admin\Tests\Fixtures\Autoload\HiddenUserSchemaExtenderTestRelationManager;
-use Capell\Admin\Tests\Fixtures\Autoload\VisibleUserSchemaExtenderTestRelationManager;
+use Capell\Admin\Support\Bridges\AbstractUserResourceBridge;
+use Capell\Admin\Tests\Fixtures\Autoload\HiddenUserResourceBridgeTestRelationManager;
+use Capell\Admin\Tests\Fixtures\Autoload\VisibleUserResourceBridgeTestRelationManager;
 use Capell\Core\Database\Factories\UserFactory;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\TextInput;
@@ -25,7 +24,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-it('passes role-derived edit context to supported schema extenders', function (): void {
+it('passes role-derived edit context to supported user resource bridges', function (): void {
     config()->set('capell-admin.user_resource.role_schema_types', [
         'editor' => 'editorial',
     ]);
@@ -34,7 +33,7 @@ it('passes role-derived edit context to supported schema extenders', function ()
     $user = UserFactory::new()->createOne(['name' => 'Editor User']);
     $user->assignRole($editorRole);
 
-    app()->bind('user-edit-schema-extender', fn (): UserSchemaExtender => new class extends AbstractUserSchemaExtender
+    app()->bind('user-edit-bridge', fn (): UserResourceBridge => new class extends AbstractUserResourceBridge
     {
         public function supports(UserSchemaContextData $context): bool
         {
@@ -49,17 +48,6 @@ it('passes role-derived edit context to supported schema extenders', function ()
 
             return [TextInput::make('editor_signature')];
         }
-    });
-    app()->tag(['user-edit-schema-extender'], UserSchemaExtender::TAG);
-
-    app()->bind('user-edit-form-extender', fn (): UserFormExtender => new class implements UserFormExtender
-    {
-        public function mutateDataBeforeCreate(array $data): array
-        {
-            return $data;
-        }
-
-        public function afterCreate(Model $record): void {}
 
         public function mutateDataBeforeSave(Model $record, array $data): array
         {
@@ -68,10 +56,8 @@ it('passes role-derived edit context to supported schema extenders', function ()
 
             return $data;
         }
-
-        public function afterSave(Model $record): void {}
     });
-    app()->tag(['user-edit-form-extender'], UserFormExtender::TAG);
+    app()->tag(['user-edit-bridge'], UserResourceBridge::TAG);
 
     Livewire::test(EditUser::class, ['record' => $user->getKey()])
         ->assertFormFieldExists('editor_signature')
@@ -87,14 +73,14 @@ it('passes role-derived edit context to supported schema extenders', function ()
     expect($user->refresh()->getAttribute('bio'))->toBe('Edited by schema extender');
 });
 
-it('does not render unsupported role-specific schema extender fields', function (): void {
+it('does not render unsupported role-specific bridge fields', function (): void {
     config()->set('capell-admin.user_resource.role_schema_types', [
         'editor' => 'editorial',
     ]);
 
     $user = UserFactory::new()->createOne();
 
-    app()->bind('unsupported-user-edit-schema-extender', fn (): UserSchemaExtender => new class extends AbstractUserSchemaExtender
+    app()->bind('unsupported-user-edit-bridge', fn (): UserResourceBridge => new class extends AbstractUserResourceBridge
     {
         public function supports(UserSchemaContextData $context): bool
         {
@@ -106,7 +92,7 @@ it('does not render unsupported role-specific schema extender fields', function 
             return [TextInput::make('editor_signature')];
         }
     });
-    app()->tag(['unsupported-user-edit-schema-extender'], UserSchemaExtender::TAG);
+    app()->tag(['unsupported-user-edit-bridge'], UserResourceBridge::TAG);
 
     Livewire::test(EditUser::class, ['record' => $user->getKey()])
         ->assertFormFieldDoesNotExist('editor_signature');
@@ -115,7 +101,7 @@ it('does not render unsupported role-specific schema extender fields', function 
 it('renders sidebar components through the fixed width sidebar layout', function (): void {
     $user = UserFactory::new()->createOne();
 
-    app()->bind('user-sidebar-schema-extender', fn (): UserSchemaExtender => new class extends AbstractUserSchemaExtender
+    app()->bind('user-sidebar-bridge', fn (): UserResourceBridge => new class extends AbstractUserResourceBridge
     {
         public function extendSidebarComponents(Schema $schema, UserSchemaContextData $context): array
         {
@@ -127,27 +113,27 @@ it('renders sidebar components through the fixed width sidebar layout', function
             ];
         }
     });
-    app()->tag(['user-sidebar-schema-extender'], UserSchemaExtender::TAG);
+    app()->tag(['user-sidebar-bridge'], UserResourceBridge::TAG);
 
     Livewire::test(EditUser::class, ['record' => $user->getKey()])
         ->assertFormFieldExists('sidebar_marker');
 });
 
-it('includes extender relation managers before Filament filters them for the edited record', function (): void {
+it('includes bridge relation managers before Filament filters them for the edited record', function (): void {
     $user = UserFactory::new()->createOne();
 
-    app()->bind('user-relation-schema-extender', fn (): UserSchemaExtender => new class extends AbstractUserSchemaExtender
+    app()->bind('user-relation-bridge', fn (): UserResourceBridge => new class extends AbstractUserResourceBridge
     {
         public function extendRelationManagers(Model $record, array $relationManagers, UserSchemaContextData $context): array
         {
             return [
                 ...$relationManagers,
-                VisibleUserSchemaExtenderTestRelationManager::class,
-                HiddenUserSchemaExtenderTestRelationManager::class,
+                VisibleUserResourceBridgeTestRelationManager::class,
+                HiddenUserResourceBridgeTestRelationManager::class,
             ];
         }
     });
-    app()->tag(['user-relation-schema-extender'], UserSchemaExtender::TAG);
+    app()->tag(['user-relation-bridge'], UserResourceBridge::TAG);
 
     $page = Livewire::test(EditUser::class, ['record' => $user->getKey()])
         ->instance();
@@ -157,6 +143,6 @@ it('includes extender relation managers before Filament filters them for the edi
     $relationManagers = $page->getRelationManagers();
 
     expect($relationManagers)
-        ->toContain(VisibleUserSchemaExtenderTestRelationManager::class)
-        ->not->toContain(HiddenUserSchemaExtenderTestRelationManager::class);
+        ->toContain(VisibleUserResourceBridgeTestRelationManager::class)
+        ->not->toContain(HiddenUserResourceBridgeTestRelationManager::class);
 });
