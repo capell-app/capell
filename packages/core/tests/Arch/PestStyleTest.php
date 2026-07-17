@@ -57,6 +57,10 @@ function pestStylePhpPaths(): array
                 continue;
             }
 
+            if (str_contains((string) $path, '/tests/.pest/')) {
+                continue;
+            }
+
             if (str_contains((string) $path, '/vendor/')) {
                 continue;
             }

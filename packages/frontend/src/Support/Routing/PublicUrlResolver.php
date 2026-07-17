@@ -20,7 +20,7 @@ final class PublicUrlResolver
 
         $origin = rtrim((string) url('/'), '/');
 
-        if ($origin !== '') {
+        if ($origin !== '' && ! $this->shouldRejectPrivateRequestOrigin($origin, $configuredOrigin)) {
             return $origin;
         }
 
@@ -42,6 +42,30 @@ final class PublicUrlResolver
         }
 
         return $this->origin() . $normalizedPath;
+    }
+
+    private function shouldRejectPrivateRequestOrigin(string $requestOrigin, string $configuredOrigin): bool
+    {
+        return $this->isPrivateOrigin($requestOrigin) && ! $this->isPrivateOrigin($configuredOrigin);
+    }
+
+    private function isPrivateOrigin(string $origin): bool
+    {
+        $host = parse_url($origin, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return false;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+        }
+
+        return $host === 'localhost'
+            || ! str_contains($host, '.')
+            || str_ends_with($host, '.test')
+            || str_ends_with($host, '.local')
+            || str_ends_with($host, '.internal');
     }
 
     private function forcedRoot(): ?string

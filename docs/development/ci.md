@@ -30,9 +30,9 @@ Before a finished branch, use:
 composer preflight:all
 ```
 
-`preflight:all` is CI-safe and non-mutating: Rector runs with `--dry-run`, Pint runs with `--test`, and Prettier runs with `--check`. It also runs documentation checks, the root-doc guard, PHPStan baseline growth protection, and the sharded Pest preflight.
+`preflight:all` applies repository-wide Rector transformations and Pint formatting automatically, then runs Prettier in check mode. It also runs documentation checks, the root-doc guard, PHPStan baseline growth protection, and the sharded Pest preflight. Review and commit any generated changes before pushing; CI asserts that the command leaves a clean checkout, so uncommitted transformations still fail the build.
 
-To intentionally apply Rector, Pint, and Prettier changes before rerunning the same checks, use:
+To apply Rector, Pint, and Prettier changes before rerunning the same checks, use:
 
 ```bash
 composer preflight:fix

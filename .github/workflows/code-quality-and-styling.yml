@@ -112,8 +112,11 @@ jobs:
       - name: Run Composer audit
         run: composer audit --locked
 
-      - name: Run Rector dry-run
-        run: composer rector:check
+      - name: Apply Rector transformations
+        run: composer rector
+
+      - name: Verify Rector left no uncommitted changes
+        run: git diff --exit-code
 
       - name: Run modernization verifier advisory
         continue-on-error: true

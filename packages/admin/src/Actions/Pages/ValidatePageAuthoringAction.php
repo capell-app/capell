@@ -6,8 +6,6 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Admin\Contracts\Extenders\PageAuthoringValidator;
 use Capell\Core\Contracts\Pageable;
-use Illuminate\Database\Eloquent\Model;
-use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
