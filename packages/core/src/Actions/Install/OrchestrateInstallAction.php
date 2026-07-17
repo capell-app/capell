@@ -48,6 +48,6 @@ final class OrchestrateInstallAction
 
         $this->clearCaches->handle($orchestration->cachesToClear, $reporter);
         $host->reportManualChanges();
-        $host->finalizeInstall();
+        $host->finalizeInstall($inputData, BuildInstallRunResultAction::run($inputData));
     }
 }

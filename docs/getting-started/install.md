@@ -203,10 +203,13 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 | `--clear-cache`                    | Clear Laravel and Capell caches after installation               |
 | `--install-welcome-route`          | Remove Laravel's stock welcome route so Capell can own `/`       |
 | `--remove-installer`               | Remove the temporary Installer only after success                |
+| `--handoff-json=path`              | Write a redacted machine-readable install handoff                |
 | `--fresh` / `--fresh=force`        | Rebuild the database; destructive                                |
 | `--production`                     | Force unattended production-safe mode and refuse `--fresh`       |
 
 Use `php artisan capell:install --help` for the authoritative option list in the installed release.
+
+A successful run also prints a `Capell Install Handoff` with the selected packages, verified outcomes, safe Admin/public URLs, first-page state, warnings, and one next action. For release automation, pass `--handoff-json=storage/app/capell-install-handoff.json`; the JSON uses the same versioned, redacted contract and does not connect a Capell account or submit a telemetry identity.
 
 ## Themes and frontend assets
 

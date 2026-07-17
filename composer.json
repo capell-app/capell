@@ -1,6 +1,6 @@
 {
     "name": "capell-app/capell",
-    "description": "A content-management layer for Laravel, built on Filament — pages, multi-site, multi-language, media, and clean extension points, with a frontend that stays yours.",
+    "description": "The supported, version-aligned Capell foundation aggregate for Core, Admin, Frontend, Installer, and Marketplace.",
     "keywords": [
         "laravel",
         "cms",
@@ -231,6 +231,13 @@
     },
     "conflict": {
         "firebase/php-jwt": "<7.0.0"
+    },
+    "replace": {
+        "capell-app/admin": "self.version",
+        "capell-app/core": "self.version",
+        "capell-app/frontend": "self.version",
+        "capell-app/installer": "self.version",
+        "capell-app/marketplace": "self.version"
     },
     "extra": {
         "laravel": {

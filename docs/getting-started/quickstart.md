@@ -71,9 +71,12 @@ The final output is part of the install contract. A healthy run ends in this ord
 Capell Install Health Summary
 All checks passed.
 ✓ Installation complete!
+Capell Install Handoff
 ```
 
 If a required package lifecycle, asset build, permission sync, or health check fails, the command exits non-zero and withholds the success message. Follow the printed `Fix:` instruction, then rerun the installer; do not treat a partial run as production-ready.
+
+The handoff names the installed packages, safe Admin and public URLs, first-page state, warnings, and the next verified action. It does not require a Capell account or send a telemetry identity. CI can persist the same redacted result with `--handoff-json=storage/app/capell-install-handoff.json`.
 
 ### Reproducible non-interactive smoke command
 

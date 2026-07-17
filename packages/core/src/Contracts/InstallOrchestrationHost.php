@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts;
 
+use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 
 interface InstallOrchestrationHost
@@ -20,5 +21,5 @@ interface InstallOrchestrationHost
 
     public function reportManualChanges(): void;
 
-    public function finalizeInstall(): void;
+    public function finalizeInstall(InstallInputData $inputData, InstallRunResultData $result): void;
 }

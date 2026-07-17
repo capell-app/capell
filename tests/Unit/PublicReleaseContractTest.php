@@ -214,6 +214,40 @@ it('documents one public distribution and commercial licensing story', function 
     }
 });
 
+it('defines the root package as the aligned aggregate of the foundation', function (): void {
+    $root = dirname(__DIR__, 2);
+    $manifest = json_decode(
+        file_get_contents($root . '/composer.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($manifest['name'])->toBe('capell-app/capell')
+        ->and($manifest['license'])->toBe('proprietary')
+        ->and($manifest['replace'])->toBe([
+            'capell-app/admin' => 'self.version',
+            'capell-app/core' => 'self.version',
+            'capell-app/frontend' => 'self.version',
+            'capell-app/installer' => 'self.version',
+            'capell-app/marketplace' => 'self.version',
+        ])
+        ->and($manifest['autoload']['psr-4'])->toHaveKeys([
+            'Capell\\Admin\\',
+            'Capell\\Core\\',
+            'Capell\\Frontend\\',
+            'Capell\\Installer\\',
+            'Capell\\Marketplace\\',
+        ])
+        ->and($manifest['extra']['laravel']['providers'])->toContain(
+            'Capell\\Core\\Providers\\CapellServiceProvider',
+            'Capell\\Admin\\Providers\\AdminServiceProvider',
+            'Capell\\Frontend\\Providers\\FrontendServiceProvider',
+            'Capell\\Installer\\Providers\\InstallerServiceProvider',
+            'Capell\\Marketplace\\Providers\\MarketplaceServiceProvider',
+        );
+});
+
 it('keeps split package readmes standalone', function (): void {
     $root = dirname(__DIR__, 2);
 
