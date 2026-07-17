@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Pages\Extensions\Tables\Actions;
 
+use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
+use Capell\Admin\Data\Extensions\ExtensionPackageUninstallResultData;
 use Capell\Admin\Data\Extensions\ExtensionUninstallAvailabilityData;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
 use Filament\Actions\Action;
@@ -19,32 +21,32 @@ final class UninstallExtensionAction
     {
         return Action::make('uninstallExtension')
             ->label(__('capell-admin::button.uninstall_extension'))
-            ->tooltip(fn (array $record): ?string => ExtensionRecord::canResolvePackage($record)
+            ->tooltip(fn (array $record): ?string => ExtensionRecord::hasAvailablePackage($record)
                 ? null
-                : ExtensionRecord::translation('capell-admin::generic.extension_uninstall_blocked_package_unavailable'))
+                : self::translation('capell-admin::generic.extension_uninstall_blocked_package_unavailable'))
             ->icon(Heroicon::OutlinedTrash)
-            ->color(fn (array $record): string => ExtensionRecord::canResolvePackage($record) ? 'danger' : 'gray')
-            ->outlined(fn (array $record): bool => ! ExtensionRecord::canResolvePackage($record))
+            ->color(fn (array $record): string => ExtensionRecord::hasAvailablePackage($record) ? 'danger' : 'gray')
+            ->outlined(fn (array $record): bool => ! ExtensionRecord::hasAvailablePackage($record))
             ->extraAttributes(['class' => 'capell-extension-card-lifecycle-action'])
             ->button()
             ->requiresConfirmation()
             ->modalHeading(fn (array $record): string => __('capell-admin::generic.uninstall_extension_heading', [
                 'extension' => (string) ($record['label'] ?? $record['packageName'] ?? ''),
             ]))
-            ->modalDescription(fn (array $record): string => ExtensionRecord::uninstallAvailability($record)->modalDescription)
-            ->modalSubmitAction(fn (array $record, Action $action): Action|bool => ExtensionRecord::uninstallAvailability($record)->canRun ? $action : false)
-            ->modalSubmitActionLabel(fn (array $record): string => ExtensionRecord::uninstallAvailability($record)->requiresDependentConfirmation
+            ->modalDescription(fn (array $record): string => ExtensionRecord::resolveUninstallAvailability($record)->modalDescription)
+            ->modalSubmitAction(fn (array $record, Action $action): Action|bool => ExtensionRecord::resolveUninstallAvailability($record)->canRun ? $action : false)
+            ->modalSubmitActionLabel(fn (array $record): string => ExtensionRecord::resolveUninstallAvailability($record)->requiresDependentConfirmation
                 ? __('capell-admin::button.uninstall_confirmed_extensions')
                 : __('capell-admin::button.uninstall_extension'))
-            ->modalCancelActionLabel(fn (array $record): string => ExtensionRecord::uninstallAvailability($record)->canRun
+            ->modalCancelActionLabel(fn (array $record): string => ExtensionRecord::resolveUninstallAvailability($record)->canRun
                 ? __('filament-actions::modal.actions.cancel.label')
                 : __('capell-admin::button.close'))
             ->schema(fn (array $record): array => self::schema($record))
-            ->visible(fn (array $record): bool => ExtensionRecord::canShowUninstall($record))
+            ->visible(fn (array $record): bool => ExtensionRecord::canShowUninstallAction($record))
             ->action(function (array $record, array $data, Component $livewire): void {
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
-                $availability = ExtensionRecord::uninstallAvailability($record);
+                $availability = ExtensionRecord::resolveUninstallAvailability($record);
 
                 if (! $availability->canRun) {
                     return;
@@ -62,12 +64,15 @@ final class UninstallExtensionAction
 
                 $deletePackage = self::shouldDeletePackage($data);
 
-                if (! ExtensionRecord::uninstallPackages(
-                    $availability,
-                    $record,
+                $result = UninstallExtensionPackagesAction::run(
+                    $availability->uninstallPackageNames,
                     deletePackage: $deletePackage,
                     deleteData: self::shouldDeleteData($data),
-                )) {
+                );
+
+                if (! $result->successful) {
+                    self::sendUninstallFailedNotification($result, $record);
+
                     return;
                 }
 
@@ -91,7 +96,7 @@ final class UninstallExtensionAction
      */
     private static function schema(array $record): array
     {
-        $availability = ExtensionRecord::uninstallAvailability($record);
+        $availability = ExtensionRecord::resolveUninstallAvailability($record);
 
         if (! $availability->requiresDependentConfirmation) {
             return [self::deletePackageCheckbox(), self::deleteDataCheckbox()];
@@ -130,7 +135,7 @@ final class UninstallExtensionAction
             ->label(__('capell-admin::generic.extension_uninstall_confirm_packages_label'))
             ->helperText(__('capell-admin::generic.extension_uninstall_confirm_packages_help'))
             ->options(collect($packageNames)
-                ->mapWithKeys(fn (string $packageName): array => [$packageName => ExtensionRecord::label(ExtensionRecord::forPackageName($packageName, $record)) . ' (' . $packageName . ')'])
+                ->mapWithKeys(fn (string $packageName): array => [$packageName => ExtensionRecord::label(ExtensionRecord::recordForPackageName($packageName, $record)) . ' (' . $packageName . ')'])
                 ->all())
             ->columns(1);
     }
@@ -170,7 +175,7 @@ final class UninstallExtensionAction
         if ($availability->requiresDependentConfirmation) {
             return __('capell-admin::message.extensions_uninstalled_body', [
                 'extensions' => collect($availability->uninstallPackageNames)
-                    ->map(fn (string $packageName): string => ExtensionRecord::label(ExtensionRecord::forPackageName($packageName, $record)))
+                    ->map(fn (string $packageName): string => ExtensionRecord::label(ExtensionRecord::recordForPackageName($packageName, $record)))
                     ->implode(', '),
             ]);
         }
@@ -188,5 +193,28 @@ final class UninstallExtensionAction
     private static function shouldDeleteData(array $data): bool
     {
         return ($data['delete_extension_data'] ?? false) === true;
+    }
+
+    /** @param array<string, mixed> $record */
+    private static function sendUninstallFailedNotification(ExtensionPackageUninstallResultData $result, array $record): void
+    {
+        $failedRecord = $result->failedPackageName === null
+            ? $record
+            : ExtensionRecord::recordForPackageName($result->failedPackageName, $record);
+
+        Notification::make('extension-uninstall-failed')
+            ->title(__('capell-admin::message.extension_uninstall_failed', [
+                'extension' => ExtensionRecord::label($failedRecord),
+            ]))
+            ->body($result->failureMessage ?? '')
+            ->danger()
+            ->send();
+    }
+
+    private static function translation(string $key): string
+    {
+        $value = __($key);
+
+        return is_string($value) ? $value : $key;
     }
 }

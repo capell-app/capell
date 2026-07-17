@@ -8,12 +8,9 @@ use Capell\Admin\Actions\Extensions\ResolveExtensionUninstallAvailabilityAction;
 use Capell\Admin\Data\Extensions\ExtensionUninstallAvailabilityData;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
-use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
-use Filament\Notifications\Notification;
 use Livewire\Component;
-use Throwable;
 
 final class ExtensionRecord
 {
@@ -41,14 +38,14 @@ final class ExtensionRecord
     }
 
     /** @param array<string, mixed> $record */
-    public static function canShowUninstall(array $record): bool
+    public static function canShowUninstallAction(array $record): bool
     {
         return ExtensionsPage::canManageExtensions()
             && ($record['installed'] ?? false) === true;
     }
 
     /** @param array<string, mixed> $record */
-    public static function canResolvePackage(array $record): bool
+    public static function hasAvailablePackage(array $record): bool
     {
         $packageName = $record['packageName'] ?? null;
 
@@ -58,7 +55,7 @@ final class ExtensionRecord
     }
 
     /** @param array<string, mixed> $record */
-    public static function package(array $record): ?PackageData
+    public static function resolvePackage(array $record): ?PackageData
     {
         $packageName = $record['packageName'] ?? null;
 
@@ -80,13 +77,13 @@ final class ExtensionRecord
     }
 
     /** @param array<string, mixed> $record */
-    public static function uninstallAvailability(array $record): ExtensionUninstallAvailabilityData
+    public static function resolveUninstallAvailability(array $record): ExtensionUninstallAvailabilityData
     {
         $packageName = $record['packageName'] ?? null;
 
         return ResolveExtensionUninstallAvailabilityAction::run(
             packageName: is_string($packageName) ? $packageName : '',
-            package: self::package($record),
+            package: self::resolvePackage($record),
             installed: ($record['installed'] ?? false) === true,
         );
     }
@@ -114,43 +111,11 @@ final class ExtensionRecord
         $livewire->dispatch('refresh-sidebar');
     }
 
-    /** @param array<string, mixed> $record */
-    public static function sendUninstallFailedNotification(array $record, Throwable $exception): void
-    {
-        Notification::make('extension-uninstall-failed')
-            ->title(__('capell-admin::message.extension_uninstall_failed', [
-                'extension' => self::label($record),
-            ]))
-            ->body($exception->getMessage())
-            ->danger()
-            ->send();
-    }
-
-    /** @param array<string, mixed> $record */
-    public static function uninstallPackages(ExtensionUninstallAvailabilityData $availability, array $record, bool $deletePackage, bool $deleteData): bool
-    {
-        foreach ($availability->uninstallPackageNames as $packageName) {
-            if (! CapellCore::hasPackage($packageName)) {
-                continue;
-            }
-
-            try {
-                UninstallPackageAction::run(CapellCore::getPackage($packageName), delete: $deletePackage, deleteData: $deleteData);
-            } catch (Throwable $exception) {
-                self::sendUninstallFailedNotification(self::forPackageName($packageName, $record), $exception);
-
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /**
      * @param  array<string, mixed>  $fallbackRecord
      * @return array<string, mixed>
      */
-    public static function forPackageName(string $packageName, array $fallbackRecord): array
+    public static function recordForPackageName(string $packageName, array $fallbackRecord): array
     {
         if (($fallbackRecord['packageName'] ?? null) === $packageName) {
             return $fallbackRecord;
@@ -162,12 +127,5 @@ final class ExtensionRecord
             'packageName' => $packageName,
             'label' => $package instanceof PackageData ? $package->getShortName() : $packageName,
         ];
-    }
-
-    public static function translation(string $key): string
-    {
-        $value = __($key);
-
-        return is_string($value) ? $value : $key;
     }
 }

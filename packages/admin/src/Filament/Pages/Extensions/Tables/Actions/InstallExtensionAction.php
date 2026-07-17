@@ -30,7 +30,7 @@ final class InstallExtensionAction
             ->action(function (array $record, Component $livewire): void {
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
-                $package = ExtensionRecord::package($record);
+                $package = ExtensionRecord::resolvePackage($record);
 
                 if (! $package instanceof PackageData) {
                     return;

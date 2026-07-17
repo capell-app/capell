@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Pages\Extensions\Tables\Actions;
 
+use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
+use Capell\Admin\Data\Extensions\ExtensionPackageUninstallResultData;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
 use Capell\Core\Actions\DeleteExtensionDataAction;
 use Capell\Core\Actions\RemovePackageAction;
@@ -34,16 +36,28 @@ final class DeleteExtensionAction
             ->action(function (array $record, Component $livewire): void {
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
-                $package = ExtensionRecord::package($record);
+                $package = ExtensionRecord::resolvePackage($record);
 
                 if (! $package instanceof PackageData) {
                     return;
                 }
 
                 if (($record['installed'] ?? false) === true) {
-                    $availability = ExtensionRecord::uninstallAvailability($record);
+                    $availability = ExtensionRecord::resolveUninstallAvailability($record);
 
-                    if (! $availability->canRun || ! ExtensionRecord::uninstallPackages($availability, $record, deletePackage: false, deleteData: true)) {
+                    if (! $availability->canRun) {
+                        return;
+                    }
+
+                    $uninstallResult = UninstallExtensionPackagesAction::run(
+                        $availability->uninstallPackageNames,
+                        deletePackage: false,
+                        deleteData: true,
+                    );
+
+                    if (! $uninstallResult->successful) {
+                        self::sendUninstallFailedNotification($uninstallResult, $record);
+
                         return;
                     }
                 } else {
@@ -53,7 +67,14 @@ final class DeleteExtensionAction
                 try {
                     RemovePackageAction::run($package->name);
                 } catch (Throwable $throwable) {
-                    ExtensionRecord::sendUninstallFailedNotification($record, $throwable);
+                    self::sendUninstallFailedNotification(
+                        ExtensionPackageUninstallResultData::failed(
+                            packageName: (string) $package->name,
+                            failureMessage: $throwable->getMessage(),
+                            uninstalledPackageNames: [],
+                        ),
+                        $record,
+                    );
 
                     return;
                 }
@@ -68,5 +89,21 @@ final class DeleteExtensionAction
 
                 ExtensionRecord::refreshTable($livewire);
             });
+    }
+
+    /** @param array<string, mixed> $record */
+    private static function sendUninstallFailedNotification(ExtensionPackageUninstallResultData $result, array $record): void
+    {
+        $failedRecord = $result->failedPackageName === null
+            ? $record
+            : ExtensionRecord::recordForPackageName($result->failedPackageName, $record);
+
+        Notification::make('extension-uninstall-failed')
+            ->title(__('capell-admin::message.extension_uninstall_failed', [
+                'extension' => ExtensionRecord::label($failedRecord),
+            ]))
+            ->body($result->failureMessage ?? '')
+            ->danger()
+            ->send();
     }
 }
