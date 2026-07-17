@@ -117,6 +117,9 @@ test('package dependencies, select-all, labels, and wizard navigation are observ
     const app = page.locator('[data-package-checkbox="vendor/app"]')
     const middle = page.locator('[data-package-checkbox="vendor/middle"]')
     const base = page.locator('[data-package-checkbox="vendor/base"]')
+    const baseRequiredBadge = page.locator(
+        '[data-required-badge="vendor/base"]',
+    )
     const selectAll = page.locator('[data-package-select-all]')
 
     await page.locator('[data-step-continue]').click()
@@ -132,9 +135,8 @@ test('package dependencies, select-all, labels, and wizard navigation are observ
     await expect(
         page.locator('[data-required-hidden="vendor/base"]'),
     ).toHaveValue('vendor/base')
-    await expect(
-        page.locator('[data-required-badge="vendor/base"]'),
-    ).toHaveText('Required by App')
+    await expect(baseRequiredBadge).toHaveText('Required by App')
+    await expect(baseRequiredBadge).toBeVisible()
     await expect(selectAll).toHaveJSProperty('indeterminate', false)
     await expect(page.locator('[data-submit-label]')).toHaveText(
         'Install 3 packages',
@@ -148,6 +150,8 @@ test('package dependencies, select-all, labels, and wizard navigation are observ
     await expect(
         page.locator('[data-required-hidden="vendor/base"]'),
     ).toHaveCount(0)
+    await expect(baseRequiredBadge).toBeHidden()
+    await expect(baseRequiredBadge).toHaveText('')
 
     await middle.check()
     await expect(selectAll).toHaveJSProperty('indeterminate', true)
@@ -342,24 +346,29 @@ test('run-step propagates csrf and treats 419 as a hard session failure', async 
     )
 })
 
-test('runner terminates missing next steps and uses the active success url', async ({
+test('runner safely completes a running step with no next step', async ({
     page,
 }) => {
     await setRunnerHarness(page)
 
     const result = await page.evaluate(async () => {
         const events = []
+        let requestCount = 0
         const responses = [
             {
                 installId: 'install-1',
                 runStepUrl: '/run-step',
-                successUrl: '#installed',
                 nextStep: 'finish',
             },
-            { status: 'complete', lines: [], csrfToken: 'completed-token' },
+            { status: 'running', lines: [] },
         ]
-        window.fetch = async () =>
-            new Response(JSON.stringify(responses.shift()), { status: 200 })
+        window.fetch = async () => {
+            requestCount += 1
+
+            return new Response(JSON.stringify(responses.shift()), {
+                status: 200,
+            })
+        }
         const runner = window.CapellInstaller.createInstallRunner({
             form: document.getElementById('install-form'),
             wizard: {
@@ -386,9 +395,68 @@ test('runner terminates missing next steps and uses the active success url', asy
 
         await runner.submitInstallForm(false)
         await new Promise((resolve) => setTimeout(resolve, 20))
-        return { events, hash: window.location.hash }
+        return { events, requestCount }
     })
 
+    expect(result.requestCount).toBe(2)
+    expect(result.events).toContain('step-complete')
+    expect(result.events).toContain('complete')
+    expect(result.events).toContain('flow-complete')
+    expect(result.events).toContain('installed')
+})
+
+test('runner uses the active success url after a valid completion', async ({
+    page,
+}) => {
+    await setRunnerHarness(page)
+
+    const result = await page.evaluate(async () => {
+        const events = []
+        let requestCount = 0
+        const responses = [
+            {
+                installId: 'install-1',
+                runStepUrl: '/run-step',
+                successUrl: '#installed',
+                nextStep: 'finish',
+            },
+            { status: 'complete', lines: [], csrfToken: 'completed-token' },
+        ]
+        window.fetch = async () => {
+            requestCount += 1
+
+            return new Response(JSON.stringify(responses.shift()), {
+                status: 200,
+            })
+        }
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: { completeInstallingFlow: () => {} },
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress: {
+                renderPlanSteps: () => {},
+                configureReport: () => {},
+                appendLogLine: () => {},
+                setStatus: () => {},
+                startStepTimer: () => {},
+                markStepStatus: () => {},
+                renderLines: () => {},
+                completeStep: () => events.push('step-complete'),
+                showInstalledPanel: () => {},
+            },
+            csrf: {
+                token: () => 'token',
+                setToken: (token) => events.push(token),
+            },
+            messages: {},
+        })
+
+        await runner.submitInstallForm(false)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        return { events, hash: window.location.hash, requestCount }
+    })
+
+    expect(result.requestCount).toBe(2)
     expect(result.events).toContain('completed-token')
     expect(result.events).toContain('step-complete')
     expect(result.hash).toBe('#installed')
