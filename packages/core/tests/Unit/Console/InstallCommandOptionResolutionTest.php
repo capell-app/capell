@@ -13,15 +13,18 @@ it('normalizes php memory limit units for the installer floor', function (): voi
         ->and(callInstallCommandMethod($command, 'memoryLimitInBytes', '536870912'))->toBe(536_870_912);
 });
 use Capell\Core\Data\Install\DeveloperToolingChoiceData;
+use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
+use Capell\Core\Support\Install\Cli\InstallCommandPresenter;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Console\OutputStyle;
+use Illuminate\Console\View\Components\Factory;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -57,9 +60,9 @@ it('resolves demo languages and sites from explicit options or safe defaults', f
 });
 
 it('builds install intro details from selected command modes', function (): void {
-    expect(callInstallCommandMethod(
-        installCommandForOptions([]),
-        'installCommandIntroDetails',
+    $presenter = new InstallCommandPresenter;
+
+    expect($presenter->introDetails(
         true,
         false,
         true,
@@ -71,15 +74,66 @@ it('builds install intro details from selected command modes', function (): void
         'a plan-only preview',
         'side effects disabled',
     ])
-        ->and(callInstallCommandMethod(
-            installCommandForOptions([]),
-            'installCommandIntroDetails',
+        ->and($presenter->introDetails(
             true,
             true,
             false,
             false,
             false,
         ))->toBe(['a forced fresh database refresh']);
+});
+
+it('renders the install handoff details in their established order', function (): void {
+    $buffer = new BufferedOutput;
+    $output = new OutputStyle(new ArrayInput([]), $buffer);
+
+    (new InstallCommandPresenter)->outputHandoff(
+        new InstallHandoffData(
+            schemaVersion: 1,
+            status: 'completed',
+            selectedPackages: ['capell-app/core'],
+            outcomes: [
+                'migrations' => 'Completed',
+                'setup' => 'Completed',
+                'doctor' => 'Healthy',
+            ],
+            urls: [
+                'admin' => 'https://example.test/admin',
+                'public' => 'https://example.test',
+            ],
+            firstPage: ['status' => 'editable'],
+            warnings: ['Review the admin panel.'],
+            nextAction: [
+                'label' => 'Open the admin panel',
+                'url' => 'https://example.test/admin',
+            ],
+            publicImpact: [
+                'summary' => 'The public site is ready.',
+                'accountConnection' => 'not_required',
+                'telemetrySubmission' => 'not_performed',
+            ],
+        ),
+        true,
+        $output,
+        new Factory($output),
+    );
+
+    $renderedHandoff = $buffer->fetch();
+    $headerPosition = strpos($renderedHandoff, 'Capell Install Handoff');
+    $packagesPosition = strpos($renderedHandoff, 'Selected packages');
+    $migrationsPosition = strpos($renderedHandoff, 'Migrations');
+    $privacyPosition = strpos($renderedHandoff, 'No Capell account connection or telemetry identity submission is required for this handoff.');
+    $writtenPosition = strpos($renderedHandoff, 'Machine-readable install handoff written.');
+
+    expect($headerPosition)->toBeInt()
+        ->and($packagesPosition)->toBeInt()
+        ->and($migrationsPosition)->toBeInt()
+        ->and($privacyPosition)->toBeInt()
+        ->and($writtenPosition)->toBeInt()
+        ->and($headerPosition)->toBeLessThan($packagesPosition)
+        ->and($packagesPosition)->toBeLessThan($migrationsPosition)
+        ->and($migrationsPosition)->toBeLessThan($privacyPosition)
+        ->and($privacyPosition)->toBeLessThan($writtenPosition);
 });
 
 it('uses cache defaults that exist for the current application', function (): void {

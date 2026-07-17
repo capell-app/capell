@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
-use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
@@ -18,19 +17,18 @@ use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\Install\DeveloperToolingChoiceData;
-use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
-use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
+use Capell\Core\Support\Install\Cli\InstallCommandPresenter;
 use Capell\Core\Support\Install\Cli\InstallDeveloperToolingChoices;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
@@ -48,7 +46,6 @@ use Capell\Core\Support\Patching\PatchStatus;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
@@ -118,33 +115,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     public function handle(): int
     {
-        $this->ensureInstallationMemoryLimit();
-
-        $this->logInstallDebug('starting command', [
-            'interactive' => $this->input->isInteractive(),
-        ]);
-
-        if ($this->option('production')) {
-            if ($this->input->hasParameterOption('--fresh')) {
-                $this->error('Refusing --fresh in --production mode (data-destructive). Drop --fresh or rerun without --production.');
-                $this->logInstallDebug('production mode rejected --fresh');
-
-                return CommandAlias::FAILURE;
-            }
-
-            $this->input->setInteractive(false);
-            $this->logInstallDebug('production mode enabled', [
-                'interactive' => false,
-            ]);
+        $bootExitCode = $this->bootInstallCommand();
+        if ($bootExitCode !== null) {
+            return $bootExitCode;
         }
-
-        [$installProfile, $installProfileExitCode] = $this->resolveInstallProfile();
-        if ($installProfileExitCode !== null) {
-            return $installProfileExitCode;
-        }
-
-        $this->installProfile = $installProfile;
-        $this->applyInstallProfileDefaults();
 
         $planOnly = $this->option('plan');
         $noSideEffects = $this->option('no-side-effects');
@@ -165,7 +139,13 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $this->writeCommandIntro(
             'install Capell',
-            $this->installCommandIntroDetails($freshInstall, $forceFreshInstall, $demo, $planOnly, $noSideEffects),
+            resolve(InstallCommandPresenter::class)->introDetails(
+                $freshInstall,
+                $forceFreshInstall,
+                $demo,
+                $planOnly,
+                $noSideEffects,
+            ),
         );
 
         if ($noSideEffects && ! $planOnly) {
@@ -207,43 +187,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return CommandAlias::FAILURE;
         }
 
-        $siteUrl = $this->option('url');
-        if ($siteUrl === null) {
-            $siteUrl = $this->defaultSiteUrl();
-            $this->logInstallDebug('using default site url', [
-                'site_url' => $siteUrl,
-            ]);
-        }
-
-        if ($siteUrl === '') {
-            $this->logInstallDebug('prompting for site url');
-            $this->requireInteractiveOrFail('Site URL', 'Pass --url=<url>.');
-            $siteUrl = text(label: 'What is the URL of the site?', default: $this->defaultSiteUrl(), required: true, validate: ['siteUrl' => 'url']);
-        }
-
-        $this->logInstallDebug('resolved site url', [
-            'site_url' => $siteUrl,
-        ]);
-
-        try {
-            $this->logInstallDebug('resolving selected packages');
-            $packages = $this->getSelectedPackages();
-        } catch (InvalidArgumentException $invalidArgumentException) {
-            $this->error($invalidArgumentException->getMessage());
-            $this->logInstallDebug('package selection failed', [
-                'message' => $invalidArgumentException->getMessage(),
-            ]);
-
+        $siteUrl = $this->resolveSiteUrl();
+        $packages = $this->resolveSelectedPackages($demo, $freshInstall);
+        if ($packages === null) {
             return CommandAlias::FAILURE;
         }
-
-        $packages = $demo && $this->shouldIncludeDemoPackagesAfterSelection()
-            ? $this->includeDemoPackages($packages, $freshInstall)
-            : $packages;
-
-        $this->logInstallDebug('resolved selected packages', [
-            'packages' => $packages->keys()->values()->all(),
-        ]);
 
         $reporter = new ConsoleProgressReporter($this);
 
@@ -412,7 +360,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             );
             $this->logInstallDebug('install orchestration finished');
         } catch (Throwable $throwable) {
-            $this->renderInstallFailure($throwable);
+            resolve(InstallCommandPresenter::class)->renderFailure($throwable, $this->getOutput());
+            $this->logInstallDebug('install action failed', [
+                'exception' => $throwable::class,
+                'message' => $throwable->getMessage(),
+            ]);
 
             return CommandAlias::FAILURE;
         }
@@ -573,7 +525,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $this->processStarRepo();
         }
 
-        $this->announceInstallSpec($this->orchestratedSeedDefaultData);
+        $specOption = $this->option('spec');
+
+        resolve(InstallCommandPresenter::class)->announceInstallSpec(
+            is_string($specOption) ? $specOption : null,
+            $this->orchestratedSeedDefaultData,
+        );
 
         $handoff = BuildInstallHandoffAction::run(
             inputData: $inputData,
@@ -592,7 +549,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             WriteInstallHandoffAction::run($handoff, $handoffPath);
         }
 
-        $this->outputInstallHandoff($handoff, is_string($handoffJson) && trim($handoffJson) !== '');
+        resolve(InstallCommandPresenter::class)->outputHandoff(
+            $handoff,
+            is_string($handoffJson) && trim($handoffJson) !== '',
+            $this->getOutput(),
+            $this->outputComponents(),
+        );
     }
 
     protected function shouldInstallAllPackages(): bool
@@ -618,6 +580,90 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $packages
             ->keys()
             ->all();
+    }
+
+    private function bootInstallCommand(): ?int
+    {
+        $this->ensureInstallationMemoryLimit();
+
+        $this->logInstallDebug('starting command', [
+            'interactive' => $this->input->isInteractive(),
+        ]);
+
+        if ($this->option('production')) {
+            if ($this->input->hasParameterOption('--fresh')) {
+                $this->error('Refusing --fresh in --production mode (data-destructive). Drop --fresh or rerun without --production.');
+                $this->logInstallDebug('production mode rejected --fresh');
+
+                return CommandAlias::FAILURE;
+            }
+
+            $this->input->setInteractive(false);
+            $this->logInstallDebug('production mode enabled', [
+                'interactive' => false,
+            ]);
+        }
+
+        [$installProfile, $installProfileExitCode] = $this->resolveInstallProfile();
+        if ($installProfileExitCode !== null) {
+            return $installProfileExitCode;
+        }
+
+        $this->installProfile = $installProfile;
+        $this->applyInstallProfileDefaults();
+
+        return null;
+    }
+
+    private function resolveSiteUrl(): string
+    {
+        $siteUrl = $this->option('url');
+        if ($siteUrl === null) {
+            $siteUrl = $this->defaultSiteUrl();
+            $this->logInstallDebug('using default site url', [
+                'site_url' => $siteUrl,
+            ]);
+        }
+
+        if ($siteUrl === '') {
+            $this->logInstallDebug('prompting for site url');
+            $this->requireInteractiveOrFail('Site URL', 'Pass --url=<url>.');
+            $siteUrl = text(label: 'What is the URL of the site?', default: $this->defaultSiteUrl(), required: true, validate: ['siteUrl' => 'url']);
+        }
+
+        $this->logInstallDebug('resolved site url', [
+            'site_url' => $siteUrl,
+        ]);
+
+        return $siteUrl;
+    }
+
+    /**
+     * @return Collection<string, PackageData>|null
+     */
+    private function resolveSelectedPackages(bool $demo, bool $freshInstall): ?Collection
+    {
+        try {
+            $this->logInstallDebug('resolving selected packages');
+            $packages = $this->getSelectedPackages();
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            $this->error($invalidArgumentException->getMessage());
+            $this->logInstallDebug('package selection failed', [
+                'message' => $invalidArgumentException->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        $packages = $demo && $this->shouldIncludeDemoPackagesAfterSelection()
+            ? $this->includeDemoPackages($packages, $freshInstall)
+            : $packages;
+
+        $this->logInstallDebug('resolved selected packages', [
+            'packages' => $packages->keys()->values()->all(),
+        ]);
+
+        return $packages;
     }
 
     private function installAdminUrl(): ?string
@@ -652,31 +698,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
     }
 
-    private function outputInstallHandoff(InstallHandoffData $handoff, bool $wroteJson): void
-    {
-        $this->newLine();
-        $this->line('<fg=blue;options=bold>Capell Install Handoff</>');
-        $this->newLine();
-        $this->components->twoColumnDetail(
-            'Selected packages',
-            $handoff->selectedPackages === [] ? 'None' : implode(', ', $handoff->selectedPackages),
-        );
-        $this->components->twoColumnDetail('Migrations', $handoff->outcomes['migrations']);
-        $this->components->twoColumnDetail('Setup', $handoff->outcomes['setup']);
-        $this->components->twoColumnDetail('Doctor', $handoff->outcomes['doctor']);
-        $this->components->twoColumnDetail('Admin URL', $handoff->urls['admin'] ?? 'Unavailable');
-        $this->components->twoColumnDetail('Public URL', $handoff->urls['public']);
-        $this->components->twoColumnDetail('First page', $handoff->firstPage['status']);
-        $this->components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
-        $this->line('Next: ' . $handoff->nextAction['label'] . ' — ' . $handoff->nextAction['url']);
-        $this->line($handoff->publicImpact['summary']);
-        $this->line('No Capell account connection or telemetry identity submission is required for this handoff.');
-
-        if ($wroteJson) {
-            $this->info('Machine-readable install handoff written.');
-        }
-    }
-
     private function ensureInstallationMemoryLimit(): void
     {
         $configuredLimit = ini_get('memory_limit');
@@ -700,25 +721,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         };
 
         return (int) $configuredLimit * $multiplier;
-    }
-
-    /**
-     * After a successful install, consume a supplied site spec in Core, then
-     * announce it so extensions can perform compatible post-build work.
-     */
-    private function announceInstallSpec(bool $seededDefaults): void
-    {
-        $specOption = $this->option('spec');
-
-        if (! is_string($specOption) || $specOption === '') {
-            return;
-        }
-
-        $resolvedPath = realpath($specOption);
-        $specPath = $resolvedPath === false ? $specOption : $resolvedPath;
-
-        BuildSiteFromSpecFileAction::run($specPath);
-        Event::dispatch(new CapellInstalled($specPath, $seededDefaults));
     }
 
     /**
@@ -869,60 +871,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         return $this->input->hasParameterOption('--' . $option . '=');
-    }
-
-    private function renderInstallFailure(Throwable $throwable): void
-    {
-        report($throwable);
-
-        $message = trim($throwable->getMessage());
-
-        $this->newLine();
-        $this->error('Capell installation failed.');
-
-        if ($message !== '') {
-            $this->line($message);
-        }
-
-        $this->line('Run the command again with CAPELL_INSTALL_DEBUG=1 for step-level diagnostics.');
-
-        $this->logInstallDebug('install action failed', [
-            'exception' => $throwable::class,
-            'message' => $throwable->getMessage(),
-        ]);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function installCommandIntroDetails(
-        bool $freshInstall,
-        bool $forceFreshInstall,
-        bool $demo,
-        bool $planOnly,
-        bool $noSideEffects,
-    ): array {
-        $details = [];
-
-        if ($freshInstall) {
-            $details[] = $forceFreshInstall
-                ? 'a forced fresh database refresh'
-                : 'a fresh database refresh';
-        }
-
-        if ($demo) {
-            $details[] = 'demo content';
-        }
-
-        if ($planOnly) {
-            $details[] = 'a plan-only preview';
-        }
-
-        if ($noSideEffects) {
-            $details[] = 'side effects disabled';
-        }
-
-        return $details;
     }
 
     /**
