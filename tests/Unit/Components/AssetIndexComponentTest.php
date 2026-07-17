@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Capell\Tests\Support\Concerns\TestingFrontend;
 use Illuminate\Support\Facades\View;
 
@@ -11,9 +11,14 @@ uses(TestingFrontend::class);
 
 beforeEach(function (): void {
     View::addNamespace('capell-frontend', dirname(__DIR__, 3) . '/packages/frontend/resources/views');
-    Frontend::clearResolvedInstance(CapellFrontendContext::class);
-    app()->instance(CapellFrontendContext::class, new class
+    Frontend::clearResolvedInstance(FrontendContextReader::class);
+    app()->instance(FrontendContextReader::class, new class
     {
+        public function getFrontendData(?string $key = null): mixed
+        {
+            return null;
+        }
+
         public function theme(): object
         {
             return new class

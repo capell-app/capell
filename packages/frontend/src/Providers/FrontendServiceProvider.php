@@ -107,7 +107,6 @@ use Capell\Frontend\Support\Cache\Resolvers\MediaTranslationCacheDependencyResol
 use Capell\Frontend\Support\Cache\Resolvers\PageableTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\SiteTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\TranslationCacheDependencyRegistry;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
@@ -282,9 +281,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FrontendLogger::class);
         $this->app->singleton(ThemePreviewRendererInterface::class, FrontendThemePreviewRenderer::class);
         $this->app->scoped(PublicFrontendAssetUrl::class);
-
-        $this->app->scoped(CapellFrontendContext::class, fn (Application $app): CapellFrontendContext => new CapellFrontendContext($app->make(FrontendContextReader::class)));
-        $this->app->alias(CapellFrontendContext::class, 'capell.frontend.context');
 
         // Asset optimization
         $this->app->singleton(FrontendResourceRegistry::class);

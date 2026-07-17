@@ -12,7 +12,6 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\GetPageVariablesAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Support\CapellFrontendContext;
 
 it('builds page variables from the active frontend context when route params are unavailable', function (): void {
     $page = Page::factory()->make();
@@ -83,8 +82,6 @@ it('builds page variables from the active frontend context when route params are
             return null;
         }
     });
-
-    app()->forgetInstance(CapellFrontendContext::class);
 
     $variables = GetPageVariablesAction::run();
 
@@ -175,8 +172,6 @@ it('adds archive date variables and parent labels from public route params', fun
             return null;
         }
     });
-
-    app()->forgetInstance(CapellFrontendContext::class);
 
     $variables = GetPageVariablesAction::run($page, $site, [
         'title' => ['en' => 'Manual Override', 'fr' => 'Remplacement manuel'],

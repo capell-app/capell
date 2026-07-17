@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Facades;
 
-use Capell\Frontend\Support\CapellFrontendContext;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @mixin CapellFrontendContext
+ * @mixin FrontendContextReader
  */
 final class Frontend extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
-        return CapellFrontendContext::class;
+        return FrontendContextReader::class;
     }
 }
