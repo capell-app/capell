@@ -48,7 +48,7 @@ it('rejects retired private and schema-driven positioning', function (string $re
     $root = rootDocsFixture();
 
     try {
-        file_put_contents($root . '/README.md', file_get_contents($root . '/README.md') . "\n{$retiredClaim}");
+        file_put_contents($root . '/README.md', file_get_contents($root . '/README.md') . (PHP_EOL . $retiredClaim));
 
         [$exitCode, $output] = runRootDocsCheck($root);
 

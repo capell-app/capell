@@ -295,11 +295,11 @@ it('defines the root package as the aligned aggregate of the foundation', functi
             'Capell\\Marketplace\\',
         ])
         ->and($manifest['extra']['laravel']['providers'])->toContain(
-            'Capell\\Core\\Providers\\CapellServiceProvider',
-            'Capell\\Admin\\Providers\\AdminServiceProvider',
-            'Capell\\Frontend\\Providers\\FrontendServiceProvider',
-            'Capell\\Installer\\Providers\\InstallerServiceProvider',
-            'Capell\\Marketplace\\Providers\\MarketplaceServiceProvider',
+            CapellServiceProvider::class,
+            AdminServiceProvider::class,
+            FrontendServiceProvider::class,
+            InstallerServiceProvider::class,
+            MarketplaceServiceProvider::class,
         );
 });
 

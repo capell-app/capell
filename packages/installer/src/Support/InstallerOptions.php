@@ -191,9 +191,7 @@ final class InstallerOptions
     {
         $model = config('auth.providers.users.model');
 
-        if (! is_string($model) || ! is_subclass_of($model, Model::class)) {
-            throw new RuntimeException('The configured user provider model must be an Eloquent model.');
-        }
+        throw_if(! is_string($model) || ! is_subclass_of($model, Model::class), RuntimeException::class, 'The configured user provider model must be an Eloquent model.');
 
         return $model;
     }

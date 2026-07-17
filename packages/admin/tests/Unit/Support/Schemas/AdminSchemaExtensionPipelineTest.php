@@ -97,7 +97,7 @@ function capellPipelineUserBridge(string $suffix, bool $supports = true): UserRe
 {
     return new class($suffix, $supports) extends AbstractUserResourceBridge
     {
-        public function __construct(private string $suffix, private bool $supportsContext) {}
+        public function __construct(private readonly string $suffix, private readonly bool $supportsContext) {}
 
         public function supports(UserSchemaContextData $context): bool
         {
