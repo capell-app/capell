@@ -89,6 +89,20 @@
             return checked
         }
 
+        function getDirectlyCheckedPackages() {
+            var checked = []
+
+            document
+                .querySelectorAll('[data-package-checkbox]:checked')
+                .forEach(function (input) {
+                    if (input.dataset.autoRequired !== 'true') {
+                        checked.push(input.value)
+                    }
+                })
+
+            return checked
+        }
+
         function selectedPackageCount() {
             return getAllCheckedPackages().length
         }
@@ -164,7 +178,7 @@
         function update() {
             showPackageSelectionLists()
 
-            var directlyChecked = getAllCheckedPackages()
+            var directlyChecked = getDirectlyCheckedPackages()
             var required = support.resolveRequiredPackages(
                 directlyChecked,
                 requirementsMap,
@@ -187,6 +201,9 @@
                 )
 
                 if (required[packageName]) {
+                    if (!checkbox.checked) {
+                        checkbox.dataset.autoRequired = 'true'
+                    }
                     checkbox.checked = true
                     checkbox.disabled = true
                     ensureRequiredHiddenInput(checkbox, packageName)
@@ -204,6 +221,10 @@
                 } else {
                     checkbox.disabled = false
                     removeRequiredHiddenInput(packageName)
+                    if (checkbox.dataset.autoRequired === 'true') {
+                        checkbox.checked = false
+                        delete checkbox.dataset.autoRequired
+                    }
                     if (badge) {
                         badge.textContent = ''
                         badge.style.display = 'none'
@@ -356,6 +377,7 @@
 
                 checkboxes.forEach(function (checkbox) {
                     checkbox.checked = input.checked
+                    delete checkbox.dataset.autoRequired
                 })
 
                 update()
