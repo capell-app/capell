@@ -1,16 +1,14 @@
 # CI And Test Shards
 
-Capell's CI keeps two separate concerns visible: code quality checks run in the PHP Quality workflow, and Pest shard timing maintenance runs from a scheduled workflow that opens small rebalance pull requests.
-
-![CI and Pest shard maintenance flow](../images/ci-test-shards-flow.svg)
+Capell's CI runs code-quality checks and divides the test suite with Pest's native sharding support.
 
 ## Pest Shards
 
-`composer test:preflight` runs `scripts/run-pest-shards.php`. The runner partitions test files using `tests/.pest/shards.json`, then starts each shard as a Pest process with its own `TEST_TOKEN`.
+`composer test:preflight` runs Pest's parallel suite. Pull-request jobs set `PEST_SHARD` and use `composer test:fast:ci` to select their native Pest shard.
 
-Shard weights are maintained by `composer run test:shards:balance`, which runs `scripts/update-pest-shard-timings.php`. That script gathers per-file JUnit durations and rewrites `tests/.pest/shards.json` with repo-relative file timings. `scripts/patch-pest-shards.php` keeps the manifest available after Composer autoload refreshes.
+Run `composer test:shards` when the timing manifest needs refreshing. Pest writes `tests/.pest/shards.json` directly.
 
-The `.github/workflows/update-pest-shards.yml` workflow runs weekly and on demand. When timings change, it commits only `tests/.pest/shards.json` and opens a PR against `1.x`.
+Pest 4.7 requires a small namespace compatibility patch for this monorepo. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
 
 ## Composer Refresh For Screenshot Fixtures
 
@@ -30,7 +28,7 @@ Before a finished branch, use:
 composer preflight:all
 ```
 
-`preflight:all` applies repository-wide Rector transformations and Pint formatting automatically, then runs Prettier in check mode. It also runs documentation checks, the root-doc guard, PHPStan baseline growth protection, and the sharded Pest preflight. Review and commit any generated changes before pushing; CI asserts that the command leaves a clean checkout, so uncommitted transformations still fail the build.
+`preflight:all` applies repository-wide Rector transformations and Pint formatting automatically, then runs Prettier in check mode. It also runs documentation checks, the root-doc guard, PHPStan baseline growth protection, and Pest. Review and commit any generated changes before pushing; CI asserts that the command leaves a clean checkout, so uncommitted transformations still fail the build.
 
 To apply Rector, Pint, and Prettier changes before rerunning the same checks, use:
 
