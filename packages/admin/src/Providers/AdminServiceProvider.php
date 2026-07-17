@@ -20,7 +20,6 @@ use Capell\Admin\Console\Commands\SyncPermissionsCommand;
 use Capell\Admin\Console\Commands\UpgradeCommand;
 use Capell\Admin\Console\Commands\ValidateThemesCommand;
 use Capell\Admin\Contracts\Backup\PageExporter;
-use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Dashboard\ContentHealthDataProvider;
 use Capell\Admin\Contracts\Dashboard\MyWorkQueueDataProvider;
@@ -204,11 +203,6 @@ use STS\FilamentImpersonate\Events\LeaveImpersonation;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
-    /** @var list<class-string<AdminBridge>> */
-    public const array OPTIONAL_ADMIN_BRIDGES = [
-        'Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheAdminBridge',
-    ];
-
     public static string $name = 'capell-admin';
 
     public static string $packageName = 'capell-app/admin';
@@ -337,7 +331,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerPages()
             ->registerCoreReports()
             ->registerResources()
-            ->registerOptionalAdminBridges()
             ->registerWidgets()
             ->registerDashboardFilamentWidgets()
             ->registerOverviewStats();
@@ -485,24 +478,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                     && $user->hasRole(config('capell.roles.super_admin', 'super_admin'));
             })
             ->values();
-    }
-
-    private function registerOptionalAdminBridges(): self
-    {
-        foreach (self::OPTIONAL_ADMIN_BRIDGES as $bridgeClass) {
-            $this->registerOptionalAdminBridge($bridgeClass);
-        }
-
-        return $this;
-    }
-
-    private function registerOptionalAdminBridge(string $bridgeClass): void
-    {
-        if (! is_subclass_of($bridgeClass, AdminBridge::class)) {
-            return;
-        }
-
-        CapellAdmin::registerAdminBridge(static::$packageName, $bridgeClass);
     }
 
     private function registerPages(): self

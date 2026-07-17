@@ -20,7 +20,6 @@ use Capell\Admin\Tests\Fixtures\Autoload\DefaultRelationManagerTestConfigurator;
 use Capell\Admin\Tests\Fixtures\Autoload\HideEmptyRelationManagerOwnerModel;
 use Capell\Admin\Tests\Fixtures\Autoload\HideEmptyRelationManagerTestManager;
 use Capell\Admin\Tests\Fixtures\Autoload\RelationManagerBadgeTestManager;
-use Capell\Admin\Tests\Fixtures\Autoload\TestBridgeForAdminBridgeBootTest;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
@@ -80,21 +79,6 @@ it('selects dashboard Filament widgets from install state and available sites', 
         ->toContain('main-widget')
         ->toContain($capellAccountWidget)
         ->toContain($filamentInfoWidget);
-});
-
-it('registers extracted admin package bridges as optional integrations', function (): void {
-    CapellAdmin::shouldReceive('registerAdminBridge')
-        ->once()
-        ->with(AdminServiceProvider::$packageName, TestBridgeForAdminBridgeBootTest::class);
-
-    $method = new ReflectionMethod(AdminServiceProvider::class, 'registerOptionalAdminBridge');
-    $provider = new AdminServiceProvider(app());
-    $method->invoke($provider, TestBridgeForAdminBridgeBootTest::class);
-    $method->invoke($provider, 'Capell\\Missing\\UnknownAdminBridge');
-
-    expect(AdminServiceProvider::OPTIONAL_ADMIN_BRIDGES)->toBe([
-        'Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheAdminBridge',
-    ]);
 });
 
 it('returns default page relation managers based on available counts', function (): void {

@@ -199,11 +199,6 @@ use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
 {
-    /** @var list<class-string> */
-    public const array OPTIONAL_FRONTEND_BRIDGES = [
-        'Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheFrontendBridge',
-    ];
-
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
@@ -211,7 +206,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     public function bootInstalledPackage(): void
     {
         $this
-            ->bootOptionalFrontendBridges()
             ->registerPublishCommands()
             ->registerTailwindAssets()
             ->registerAboutInfo()
@@ -482,24 +476,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ...config('view.paths', []),
             __DIR__ . '/../../resources/views',
         ]]);
-    }
-
-    private function bootOptionalFrontendBridges(): self
-    {
-        foreach (self::OPTIONAL_FRONTEND_BRIDGES as $bridgeClass) {
-            $this->bootOptionalFrontendBridge($bridgeClass);
-        }
-
-        return $this;
-    }
-
-    private function bootOptionalFrontendBridge(string $bridgeClass): void
-    {
-        if (! class_exists($bridgeClass) || ! method_exists($bridgeClass, 'register')) {
-            return;
-        }
-
-        call_user_func([$bridgeClass, 'register'], $this->app);
     }
 
     private function registerAboutInfo(): self
