@@ -6,6 +6,7 @@ use Capell\Admin\Actions\AdminPanelIntegration\DiscoverFilamentPanelsAction;
 use Capell\Admin\Actions\AdminPanelIntegration\IntegrateCapellAdminPanelAction;
 use Capell\Admin\Console\Commands\SetupCommand;
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Support\Setup\TailwindSourceRegistrar;
 use Capell\Admin\Tests\Support\AdminPanelProviderFixtures;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
@@ -351,8 +352,9 @@ it('validates setup command option parsing and path helpers before mutating the 
 
     $parseConfiguratorOption = new ReflectionMethod($command, 'parseConfiguratorOption');
     $parseListOption = new ReflectionMethod($command, 'parseListOption');
-    $normalisePath = new ReflectionMethod($command, 'normalisePath');
-    $tailwindSourceForPackagePath = new ReflectionMethod($command, 'tailwindSourceForPackagePath');
+    $tailwindSourceRegistrar = new TailwindSourceRegistrar;
+    $normalisePath = new ReflectionMethod($tailwindSourceRegistrar, 'normalisePath');
+    $tailwindSourceForPackagePath = new ReflectionMethod($tailwindSourceRegistrar, 'tailwindSourceForPackagePath');
 
     $packagePath = storage_path('framework/testing/setup-command-path-package');
     File::ensureDirectoryExists($packagePath);
@@ -363,9 +365,9 @@ it('validates setup command option parsing and path helpers before mutating the 
             ['in' => 'Modules/Blog', 'for' => 'Modules\\Blog\\Filament'],
         ])
             ->and($parseListOption->invoke($command, 'languages'))->toBe(['en', 'fr'])
-            ->and($normalisePath->invoke($command, '/var/www/../app//./resources/views'))->toBe('/var/app/resources/views')
-            ->and($tailwindSourceForPackagePath->invoke($command, $packagePath, resource_path('css/filament/admin/theme.css')))->toBeNull()
-            ->and($tailwindSourceForPackagePath->invoke($command, $packagePath, resource_path('css/filament/admin/theme.css'), false))
+            ->and($normalisePath->invoke($tailwindSourceRegistrar, '/var/www/../app//./resources/views'))->toBe('/var/app/resources/views')
+            ->and($tailwindSourceForPackagePath->invoke($tailwindSourceRegistrar, $packagePath, resource_path('css/filament/admin/theme.css')))->toBeNull()
+            ->and($tailwindSourceForPackagePath->invoke($tailwindSourceRegistrar, $packagePath, resource_path('css/filament/admin/theme.css'), false))
             ->toContain("@source '");
     } finally {
         File::deleteDirectory($packagePath);
@@ -408,11 +410,11 @@ CSS);
     CapellCore::registerPackage('capell-app/core');
 
     try {
-        $command = new SetupCommand;
-        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput));
-
-        $method = new ReflectionMethod($command, 'registerTailwindSources');
-        $method->invoke($command);
+        $registrar = new TailwindSourceRegistrar;
+        $messages = [];
+        $registrar->register(static function (string $message) use (&$messages): void {
+            $messages[] = $message;
+        });
 
         $contents = File::get($themeCss);
 
@@ -420,9 +422,10 @@ CSS);
             ->toContain('/admin/resources/views/**/*.blade.php')
             ->toContain('/core/resources/views/**/*.blade.php')
             ->toContain('/frontend/resources/views/**/*.blade.php')
-            ->toContain("@source '../../../../storage/capell/tailwind-classes.txt';");
+            ->toContain("@source '../../../../storage/capell/tailwind-classes.txt';")
+            ->and($messages)->toBe(['Added Capell Tailwind sources to theme.css']);
 
-        $method->invoke($command);
+        $registrar->register(static function (string $message): void {});
 
         expect(substr_count(File::get($themeCss), '/admin/resources/views/**/*.blade.php'))
             ->toBe(1);
@@ -457,11 +460,7 @@ CSS);
     );
 
     try {
-        $command = new SetupCommand;
-        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput));
-
-        $method = new ReflectionMethod($command, 'registerTailwindSources');
-        $method->invoke($command);
+        (new TailwindSourceRegistrar)->register(static function (string $message): void {});
 
         expect(File::get($themeCss))->toContain('/capell-registered-tailwind-package/resources/views/**/*.blade.php');
     } finally {
@@ -522,11 +521,10 @@ it('updates generated filament theme css for tailwind four during setup', functi
 CSS);
 
     try {
-        $command = new SetupCommand;
-        $command->setOutput(new OutputStyle(new ArrayInput([]), new BufferedOutput));
-
-        $method = new ReflectionMethod($command, 'registerTailwindSources');
-        $method->invoke($command);
+        $messages = [];
+        (new TailwindSourceRegistrar)->register(static function (string $message) use (&$messages): void {
+            $messages[] = $message;
+        });
 
         $contents = File::get($themeCss);
 
@@ -534,7 +532,11 @@ CSS);
             ->toContain("@import 'tailwindcss';")
             ->toContain("@config './tailwind.config.js';")
             ->not->toContain('@tailwind base;')
-            ->not->toContain('@tailwind utilities;');
+            ->not->toContain('@tailwind utilities;')
+            ->and($messages)->toBe([
+                'Updated theme.css for Tailwind 4 compatibility',
+                'Added Capell Tailwind sources to theme.css',
+            ]);
     } finally {
         if ($originalContents === null) {
             File::delete($themeCss);
