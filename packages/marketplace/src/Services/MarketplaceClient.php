@@ -39,6 +39,10 @@ final class MarketplaceClient
         private readonly MarketplaceInstanceResolver $instances,
     ) {}
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     public function createAccountConnectionSession(array $payload): array
     {
         return $this->postJsonData(
@@ -49,6 +53,10 @@ final class MarketplaceClient
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     public function exchangeAccountConnectionCode(array $payload): array
     {
         return $this->postJsonData(
@@ -59,6 +67,10 @@ final class MarketplaceClient
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     public function createInstallFlow(array $payload): array
     {
         $path = '/marketplace/install-flows';
@@ -77,6 +89,10 @@ final class MarketplaceClient
         return $data;
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     public function exchangeInstallFlow(array $payload): array
     {
         $path = '/marketplace/install-flows/exchange';
@@ -89,6 +105,7 @@ final class MarketplaceClient
         );
     }
 
+    /** @param array<string, mixed> $payload */
     public function heartbeat(array $payload): HeartbeatResultData
     {
         $heartbeatUrl = $this->marketplaceUrl('/instances/heartbeat');
@@ -426,6 +443,7 @@ final class MarketplaceClient
         return ExtensionLicenceDecisionData::fromApiResponse($data);
     }
 
+    /** @return array<string, mixed> */
     public function submitExtensionFeedback(ExtensionFeedbackData $feedback, ?string $domain = null): array
     {
         unset($domain);
@@ -463,6 +481,7 @@ final class MarketplaceClient
         return MarketplaceUpgradeAuthorizationData::fromApiResponse($response->json() ?? []);
     }
 
+    /** @param array<string, mixed> $payload */
     public function recordInstallIntent(array $payload): void
     {
         try {
@@ -482,6 +501,7 @@ final class MarketplaceClient
         }
     }
 
+    /** @param array<string, mixed> $payload */
     public function sendFreeInstallTelemetry(array $payload): void
     {
         $payload = [
@@ -607,6 +627,7 @@ final class MarketplaceClient
         return config('capell-marketplace.marketplace.base_url') . $path;
     }
 
+    /** @param array<string, mixed> $payload */
     private function postJson(string $path, array $payload): Response
     {
         return Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
@@ -614,32 +635,38 @@ final class MarketplaceClient
             ->post($this->marketplaceUrl($path), $payload);
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function postJsonData(string $path, array $payload, string $failureMessage, string $missingDataMessage): array
     {
         return $this->responseDataOrFail($this->postJson($path, $payload), $failureMessage, $missingDataMessage);
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function postSignedJsonData(string $path, array $payload, string $failureMessage, string $missingDataMessage): array
     {
         return $this->responseDataOrFail($this->postSignedJson($path, $payload), $failureMessage, $missingDataMessage);
     }
 
+    /** @return array<string, mixed> */
     private function responseDataOrFail(
         Response $response,
         string $failureMessage,
         string $missingDataMessage,
-        bool $friendlyMissingData = false,
     ): array {
         if (! $response->successful()) {
             throw new RuntimeException($this->friendlyResponseMessage($response, $failureMessage));
         }
 
-        return $this->dataOrFail(
-            $response,
-            $friendlyMissingData ? $this->friendlyResponseMessage($response, $missingDataMessage) : $missingDataMessage,
-        );
+        return $this->dataOrFail($response, $missingDataMessage);
     }
 
+    /** @return array<string, mixed> */
     private function dataOrFail(Response $response, string $missingDataMessage): array
     {
         $data = $response->json('data');
@@ -649,7 +676,11 @@ final class MarketplaceClient
         return $data;
     }
 
-    /** @return array{response: Response, data: array<mixed>} */
+    /**
+     * @param  array<string, string>  $parameters
+     * @param  array{instance_id?: string, account_id?: string}|null  $marketplaceContext
+     * @return array{response: Response, data: array<int|string, mixed>}
+     */
     private function getCatalogueData(
         string $url,
         array $parameters,
@@ -670,12 +701,21 @@ final class MarketplaceClient
             return ['response' => $response, 'data' => []];
         }
 
-        return [
-            'response' => $response,
-            'data' => $this->responseDataOrFail($response, $failureMessage, $missingDataMessage, friendlyMissingData: true),
-        ];
+        if (! $response->successful()) {
+            throw new RuntimeException($this->friendlyResponseMessage($response, $failureMessage));
+        }
+
+        $data = $response->json('data');
+
+        throw_unless(is_array($data), RuntimeException::class, $this->friendlyResponseMessage($response, $missingDataMessage));
+
+        return ['response' => $response, 'data' => $data];
     }
 
+    /**
+     * @param  array{instance_id?: string, account_id?: string}  $marketplaceContext
+     * @return array<string, mixed>|null
+     */
     private function fetchExtensionData(string $path, array $marketplaceContext, ?string $missingDataMessage = null): ?array
     {
         $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
