@@ -33,8 +33,8 @@ Nothing gets deleted on audit-trust alone. Verification is the first task of eac
 
 | # | Finding | Priority | Evidence | Real state | Classification |
 |---|---|---|---|---|---|
-| 1 | Eight empty reports registered as real features | P2 | ✅ verified | `BuildEmptyReportAction::handle()` returns only `key`+`emptyState`; registered + default-enabled. Real. | **Fresh (small).** Standalone deletion, no competing owner. Best warm-up. |
-| 4 | Publishing state-machine migration incomplete | P2 | ✅ verified | Core boundary + single-record adapters + bulk-publish preview **all landed**. Residual: 3 bulk actions still write dates directly; they were never in the plan. `PagePublishSentinel` is a *delegating alias*, not a duplicate. | **Residual.** Extend existing publishing plan (Task 7). First concrete win. |
+| 1 | Eight empty reports registered as real features | P2 | ✅ verified | `BuildEmptyReportAction::handle()` returns only `key`+`emptyState`; registered + default-enabled. Real. | ✅ **DONE 2026-07-17** (`ffcec6fb2`). **The "standalone deletion" framing here was WRONG** — five real reports (400/392/314/261/112 lines) share the contract, so this was a subclass cull, not a subsystem removal. Registry, `BuildsReportSnapshot`, `ReportDefinitionData`, `AbstractCoreReportPage` all survive. 13 registrations → 5. |
+| 4 | Publishing state-machine migration incomplete | P2 | ✅ verified | Core boundary + single-record adapters + bulk-publish preview **all landed**. Residual: 3 bulk actions still write dates directly; they were never in the plan. `PagePublishSentinel` is a *delegating alias*, not a duplicate. | ✅ **DONE 2026-07-17** (Task 7; `7c83c2127`..`50e3fc093`). Added Core `CancelSchedule`; all 3 bulk actions now adapters. Closed a real bug: cancel-schedule set `visible_from = null` (= published), pushing pages live. `PagePublishSentinel` **retained** — 2 live callers remain. Exit gate NOT yet tickable. |
 | 5 | Marketplace querying + install policy spread across façades | P2 | ✅ verified | The existing *policy/cache* plan is **fully landed** (typed request DTO, policy-evidence migration, `InstallMarketplaceExtensionAction::handle(MarketplaceInstallRequestData)`, translation-ownership resolvers). But that plan solved a **different problem**. The audit's #5 — façade layering (`MarketplaceBrowser`→`MarketplaceCatalogueTable`→`MarketplaceCatalogueRecordProvider`) and URL-trust duplication (`RecordProvider` + `InstallActionPresenter`) — is **untouched**. | **Fresh.** New spec for structural consolidation; existing plan does not cover it. |
 | 2 | Two package registries + two manifest models | P2 | ⚠️ audit-trusted | `CapellPackageRegistry` built, then copied into 851-line `HasPackages`; `PackageData` supports legacy `ManifestData` + v3 `CapellManifestData`. | **Fresh.** Highest-risk source-of-truth merge. Own spec. |
 | 3 | Installer implements the same feature several times | P2 | ⚠️ audit-trusted | `InstallController` + `BuildInstallerPageDataAction` duplicate catalogue/options; 1,583-line Blade; 1,952-line JS; tests assert JS source strings. | **Fresh.** Own spec. Large; may itself decompose (service boundary / Blade component / JS modules). |
@@ -68,8 +68,16 @@ Small, safe, no competing-owner risk. Batch these opportunistically; each is a s
 
 Ordered by *risk-adjusted value*: safe removals first, finish in-flight migrations, then the source-of-truth merges, then the large structural reworks, then the tooling spike.
 
-1. **#1 — Remove empty reports.** Standalone deletion; no competing owner. (Fresh, small.)
-2. **#4 — Finish publishing bulk-action residual.** Extend the existing plan (Task 7): add Core `CancelSchedule` transition, convert the three bulk actions to adapters. **In progress this session.**
+1. ~~**#1 — Remove empty reports.**~~ ✅ **DONE 2026-07-17** (`ffcec6fb2`).
+2. ~~**#4 — Finish publishing bulk-action residual.**~~ ✅ **DONE 2026-07-17** (Task 7).
+
+> **Lesson from #1 and #4 — re-verify the framing, not just the finding.** Both findings
+> were real, but the audit's *characterisation* of both was wrong in ways that would have
+> caused damage if executed literally. #1 was billed as a "standalone deletion" when five
+> working reports share the contract. #4's step list mislocated two classes and specified a
+> test command scoped too narrowly to catch the contract test its own change necessarily
+> broke. Treat every remaining finding's **shape** as audit-trusted, even where the finding
+> itself is marked ✅ verified.
 3. **#5 — Marketplace façade + URL-trust consolidation.** Fresh spec; one catalogue query service, one URL-trust policy, table = presentation only.
 4. **#2 — Consolidate package registries + manifest models.** Fresh spec; `CapellPackageRegistry` sole source, retire `ManifestData`. Highest source-of-truth risk — do after confidence built.
 5. **#3 — Installer catalogue/options boundary.** Fresh spec; may decompose into service / Blade component / JS-module sub-specs.
