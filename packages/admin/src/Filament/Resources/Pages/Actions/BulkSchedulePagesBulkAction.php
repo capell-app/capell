@@ -54,6 +54,12 @@ class BulkSchedulePagesBulkAction extends BulkAction
 
                 $publishAt = CarbonImmutable::parse((string) $data['publish_at']);
 
+                // Deliberately no batch transaction: the state machine transacts per
+                // record, so a mid-batch failure leaves earlier pages scheduled and
+                // reports the rest as failed. That partial success is the point — a
+                // batch rollback would make the returned per-record outcomes untrue.
+                // Contrast BulkMovePagesAction, which does wrap the batch because a
+                // half-applied move breaks frontend routing.
                 $preview = RunBulkPublicationTransitionAction::run(
                     records: $records,
                     actor: $actor,

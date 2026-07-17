@@ -256,7 +256,7 @@
   ```
 
 **Completed 2026-07-17** on `task7/cancel-schedule` (commits `7c83c2127`, `7f43a85de`, `03b8bbc61`).
-Task suite: 50 passed / 214 assertions (from a 33/131 baseline).
+Task suite: 57 passed / 223 assertions (from a 33/131 baseline).
 
 Deviations and findings worth carrying forward:
 
