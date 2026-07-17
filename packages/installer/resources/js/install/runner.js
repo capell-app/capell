@@ -26,6 +26,7 @@
                     payload = text ? JSON.parse(text) : {}
                 } catch (error) {
                     payload = {
+                        status: 'failed',
                         error: global.CapellInstaller.support.responseLooksLikeServerTimeout(
                             response.status,
                             text,
@@ -56,6 +57,10 @@
         }
 
         function runNextStep(installId, runStepUrl, stepKey) {
+            if (!stepKey) {
+                return
+            }
+
             progress.setStatus('running')
             progress.startStepTimer(stepKey)
             progress.markStepStatus(stepKey)
@@ -73,6 +78,10 @@
             })
                 .then(responseResult)
                 .then(function (result) {
+                    if (result.payload.csrfToken) {
+                        csrf.setToken(result.payload.csrfToken)
+                    }
+
                     if (result.httpStatus === 419) {
                         failStep(stepKey, false)
                         progress.appendLogLine(
@@ -81,8 +90,6 @@
                         )
                         return
                     }
-                    if (result.payload.csrfToken)
-                        csrf.setToken(result.payload.csrfToken)
                     if (result.payload.redirectUrl) {
                         window.location.href = result.payload.redirectUrl
                         return
@@ -167,6 +174,10 @@
             })
                 .then(responseResult)
                 .then(function (result) {
+                    if (result.payload.csrfToken) {
+                        csrf.setToken(result.payload.csrfToken)
+                    }
+
                     if (result.httpStatus === 419) {
                         if (!hasRetried)
                             return csrf.refresh().then(function (token) {
@@ -196,8 +207,6 @@
                         result.payload.installId &&
                         result.payload.runStepUrl
                     ) {
-                        if (result.payload.csrfToken)
-                            csrf.setToken(result.payload.csrfToken)
                         activeSuccessUrl = result.payload.successUrl || ''
                         progress.renderPlanSteps(result.payload.plan || [])
                         progress.configureReport(
