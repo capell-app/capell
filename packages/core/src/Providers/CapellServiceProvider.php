@@ -589,6 +589,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             serviceProviderClass: self::class,
             path: dirname(__DIR__, 2),
             version: CapellCore::getInstalledPrettyVersion(self::$packageName),
+            setting: CoreSettings::class,
         );
 
         return $this;
