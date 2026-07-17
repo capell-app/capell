@@ -11,9 +11,14 @@ use Capell\Admin\Data\Themes\ThemeEditorTokenData;
 use Capell\Admin\Support\Themes\ThemeEditorLabelResolver;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final readonly class ResolveThemeEditorSchemaAction
 {
+    use AsFake;
+    use AsObject;
+
     public function __construct(private ThemeEditorLabelResolver $labels) {}
 
     public function handle(ThemeDefinitionData $definition): ThemeEditorSchemaData

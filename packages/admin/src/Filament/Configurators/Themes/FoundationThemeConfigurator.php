@@ -9,7 +9,6 @@ use Capell\Admin\Contracts\ConfiguratorInterface;
 use Capell\Admin\Contracts\ConfiguratorTypeEnumInterface;
 use Capell\Admin\Contracts\Extenders\ThemeSchemaExtender;
 use Capell\Admin\Data\Themes\ThemeEditorContextData;
-use Capell\Admin\Data\Themes\ThemeEditorGroupData;
 use Capell\Admin\Data\Themes\ThemeEditorTokenData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\SchemaExtenderEnum;
@@ -274,15 +273,23 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
             return [$this->surfaceSection()];
         }
 
-        return collect($groups)
-            ->map(fn (ThemeEditorGroupData $group): Section => Section::make($group->label)
+        $sections = [];
+
+        foreach ($groups as $group) {
+            $controls = [];
+
+            foreach ($group->tokens as $token) {
+                $controls[] = $this->tokenControl($token);
+            }
+
+            $sections[] = Section::make($group->label)
                 ->description(__('capell-admin::theme-editor.descriptions.schema_group'))
                 ->statePath('meta.editor.tokens')
                 ->columns(['@sm' => 2])
-                ->schema(collect($group->tokens)
-                    ->map(fn (ThemeEditorTokenData $token): Select => $this->tokenControl($token))
-                    ->all()))
-            ->all();
+                ->schema($controls);
+        }
+
+        return $sections;
     }
 
     protected function tokenControl(ThemeEditorTokenData $token): Select

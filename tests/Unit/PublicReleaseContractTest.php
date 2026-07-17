@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Frontend\Providers\FrontendServiceProvider;
+use Capell\Installer\Providers\InstallerServiceProvider;
+use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Composer\Semver\Semver;
 
 it('defines the public v1 split package release contract', function (): void {
@@ -210,11 +215,11 @@ it('defines the paid root package as the aggregate of the public foundation', fu
             'Capell\\Marketplace\\',
         ])
         ->and($manifest['extra']['laravel']['providers'])->toContain(
-            'Capell\\Core\\Providers\\CapellServiceProvider',
-            'Capell\\Admin\\Providers\\AdminServiceProvider',
-            'Capell\\Frontend\\Providers\\FrontendServiceProvider',
-            'Capell\\Installer\\Providers\\InstallerServiceProvider',
-            'Capell\\Marketplace\\Providers\\MarketplaceServiceProvider',
+            CapellServiceProvider::class,
+            AdminServiceProvider::class,
+            FrontendServiceProvider::class,
+            InstallerServiceProvider::class,
+            MarketplaceServiceProvider::class,
         );
 });
 

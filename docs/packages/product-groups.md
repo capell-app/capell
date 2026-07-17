@@ -13,6 +13,7 @@ Capell packages are grouped by customer-facing value, not by internal implementa
 | Navigation         | `capell-app/navigation`         | Header, footer, and sidebar menus are foundational.                                                                   |
 | Tags               | `capell-app/tags`               | Shared taxonomy supports normal content organisation.                                                                 |
 | Address            | `capell-app/address`            | Country and address fields are common site data.                                                                      |
+| Socials            | `capell-app/socials`            | Trusted site-scoped social profiles and accessible follow/share links are a baseline public-site capability.          |
 | Media Library      | `capell-app/media-library`      | Media management is foundational, even when a project chooses Curator over Spatie MediaLibrary.                       |
 | Frontend Authoring | `capell-app/frontend-authoring` | Admin-only in-page editing is a baseline authoring convenience, but public visitors must never receive editor markup. |
 | Frontend Default   | `capell-app/frontend`           | Every install gets a minimal working frontend theme fallback without a separate theme package.                        |

@@ -28,6 +28,7 @@ use Capell\Admin\Filament\Components\Forms\SocialIcons;
 use Capell\Admin\Filament\Components\Forms\TranslationLanguageSelect;
 use Capell\Admin\Filament\Concerns\HasConfigurator;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\CapellCoreHelper;
@@ -305,8 +306,12 @@ class DefaultSiteConfigurator implements ConfiguratorInterface
                     ->label(__('capell-admin::form.twitter_handle'))
                     ->helperText(__('capell-admin::generic.twitter_handle_info'))
                     ->placeholder('@yourhandle')
-                    ->maxLength(50),
+                    ->maxLength(50)
+                    ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
+                    ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials')),
                 SocialIcons::make('social_links')
+                    ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
+                    ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
                     ->columnSpanFull(),
             ]);
     }

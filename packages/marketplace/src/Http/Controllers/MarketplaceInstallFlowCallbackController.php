@@ -19,8 +19,6 @@ final class MarketplaceInstallFlowCallbackController
 {
     public function __invoke(
         Request $request,
-        CompleteMarketplaceInstallFlowAction $completeFlow,
-        ResumeMarketplaceInstallFlowAction $resumeFlow,
     ): RedirectResponse {
         abort_unless(ExtensionsPage::canManageExtensions(), 403);
 

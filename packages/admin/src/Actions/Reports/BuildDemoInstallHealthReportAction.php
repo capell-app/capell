@@ -35,10 +35,8 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
     private const array EVENT_SOURCING_TABLES = ['stored_events', 'page_revisions'];
 
     public function __construct(
-        private readonly BuildDoctorReportAction $buildDoctorReport,
         private readonly RuntimeSchemaState $schemaState,
         private readonly ConnectionResolverInterface $connections,
-        private readonly ResolveCapellInstallationStateAction $resolveInstallationState,
         private readonly CapellRuntimeSchemaContract $runtimeSchema,
     ) {}
 

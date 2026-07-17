@@ -15,7 +15,7 @@ use Throwable;
 
 final class MarketplaceAccountConnectionCallbackController
 {
-    public function __invoke(Request $request, CompleteMarketplaceAccountConnectionAction $completeConnection): RedirectResponse
+    public function __invoke(Request $request): RedirectResponse
     {
         abort_unless(ExtensionsPage::canManageExtensions(), 403);
 

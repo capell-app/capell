@@ -70,18 +70,27 @@ final class ProcessCommandRunner implements CommandRunner
 {
     public function run(array $command, ?string $workingDirectory = null): array
     {
-        $descriptor = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $process = proc_open(array_map(strval(...), $command), $descriptor, $pipes, $workingDirectory);
-        if (! is_resource($process)) {
-            throw new RuntimeException('Unable to start command.');
+        $outputPath = tempnam(sys_get_temp_dir(), 'capell-release-output-');
+        $errorPath = tempnam(sys_get_temp_dir(), 'capell-release-error-');
+        if ($outputPath === false || $errorPath === false) {
+            throw new RuntimeException('Unable to allocate command output files.');
         }
-        $output = stream_get_contents($pipes[1]);
-        $error = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $exitCode = proc_close($process);
 
-        return ['output' => trim((string) $output), 'exitCode' => $exitCode, 'error' => trim((string) $error)];
+        try {
+            $descriptor = [1 => ['file', $outputPath, 'w'], 2 => ['file', $errorPath, 'w']];
+            $process = proc_open(array_map(strval(...), $command), $descriptor, $pipes, $workingDirectory);
+            if (! is_resource($process)) {
+                throw new RuntimeException('Unable to start command.');
+            }
+            $exitCode = proc_close($process);
+            $output = file_get_contents($outputPath);
+            $error = file_get_contents($errorPath);
+
+            return ['output' => trim((string) $output), 'exitCode' => $exitCode, 'error' => trim((string) $error)];
+        } finally {
+            @unlink($outputPath);
+            @unlink($errorPath);
+        }
     }
 }
 
@@ -555,14 +564,21 @@ final class ReleaseEngine
         $releases = [];
         foreach ($plan['dependency_order'] as $name) {
             $package = current(array_filter($plan['packages'], fn (array $item): bool => $item['name'] === $name));
+            $tag = 'v' . $package['proposed_version'];
+            $repository = $package['split_repository'];
+            $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             $branch = 'capell-release-' . str_replace('/', '-', $name) . '-' . substr($plan['source']['commit'], 0, 12);
-            $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit'], '-b', $branch]);
+            if (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
+                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", "refs/heads/main:refs/remotes/{$branch}"], $this->root);
+                $parent = $this->git(['rev-parse', "refs/remotes/{$branch}"]);
+                $splitSha = $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', "Release {$tag}"]);
+            } else {
+                $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit'], '-b', $branch]);
+            }
             $splitTree = $this->git(['rev-parse', "{$splitSha}^{tree}"]);
             if (! hash_equals($package['subtree_hash'], $splitTree)) {
                 throw new ReleaseException("Split tree mismatch for {$name}.");
             }
-            $tag = 'v' . $package['proposed_version'];
-            $repository = $package['split_repository'];
             $existing = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
             $peeled = $existing === null ? null : $this->optional(['gh', 'api', "repos/{$repository}/git/tags/{$existing}", '--jq', '.object.sha']) ?? $existing;
             $decision = ResumeDecision::forTag($peeled, $splitSha);
