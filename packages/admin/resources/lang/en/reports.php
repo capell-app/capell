@@ -20,18 +20,6 @@ return [
     'category_structure' => 'Structure',
     'category_workflow' => 'Workflow',
 
-    'content_integrity_label' => 'Content Integrity',
-    'content_integrity_description' => 'Spot pages and content records with broken relationships, invalid references, or required data gaps before they reach preview, publishing, or export.',
-    'empty_state_content_integrity' => 'No broken content relationships, missing required data, or invalid references have been reported.',
-
-    'site_language_coverage_label' => 'Site & Language Coverage',
-    'site_language_coverage_description' => 'Compare sites, languages, domains, pages, and translations so localisation gaps are visible before editors ship partial content.',
-    'empty_state_site_language_coverage' => 'All configured site and language checks are clear.',
-
-    'url_health_label' => 'URL Health',
-    'url_health_description' => 'Audit public URL records for missing routes, duplicate paths, bad redirects, stale targets, and domain mismatches.',
-    'empty_state_url_health' => 'No missing URLs, duplicate paths, stale redirects, or domain mismatches have been reported.',
-
     'accessibility_readiness_label' => 'Accessibility Readiness',
     'accessibility_readiness_description' => 'Find required-language content, localized media metadata, decorative intent, and localized URL gaps before publishing.',
     'empty_state_accessibility_readiness' => 'Required translations, localized media metadata, decorative intent, and URLs are complete.',
@@ -54,14 +42,6 @@ return [
     'accessibility_media_field_alt' => 'alternative text',
     'accessibility_media_field_caption' => 'caption',
     'accessibility_media_field_credit' => 'credit',
-
-    'layout_widget_usage_label' => 'Layout & Widget Usage',
-    'layout_widget_usage_description' => 'See which layouts and widgets are used, unused, site-specific, or tied to a theme before changing a layout contract.',
-    'empty_state_layout_widget_usage' => 'No unusual layout or widget usage patterns have been reported.',
-
-    'blueprint_schema_drift_label' => 'Blueprint / Schema Drift',
-    'blueprint_schema_drift_description' => 'Compare stored blueprints with registered schemas, components, and configurators to catch upgrade drift before editors hit broken forms.',
-    'empty_state_blueprint_schema_drift' => 'No blueprint, schema, component, or configurator drift has been reported.',
 
     'publishing_readiness_label' => 'Publishing Readiness',
     'publishing_readiness_description' => 'List content that is close to launch but still blocked by schedules, missing translations, disabled URLs, workflow state, or required fields.',
@@ -109,18 +89,6 @@ return [
     'publishing_readiness_missing_url_description' => 'This page does not have a URL record for :language, so visitors and previews cannot reach that locale.',
     'publishing_readiness_disabled_url_title' => ':language URL is disabled',
     'publishing_readiness_disabled_url_description' => 'This page has a :language URL record, but no active public URL is available for that language.',
-
-    'cache_freshness_label' => 'Cache Freshness',
-    'cache_freshness_description' => 'Check whether public cache or optimizer state is older than the content, layout, theme, or dependency data it serves.',
-    'empty_state_cache_freshness' => 'No stale cache or optimizer state has been reported.',
-
-    'navigation_coverage_label' => 'Navigation Coverage',
-    'navigation_coverage_description' => 'Find live, URL-backed pages that are missing from navigation, plus navigation entries that point at disabled or missing content.',
-    'empty_state_navigation_coverage' => 'No navigation gaps or invalid navigation targets have been reported.',
-
-    'permissions_access_surface_label' => 'Permissions & Access Surface',
-    'permissions_access_surface_description' => 'Map roles, permissions, registered admin pages, report visibility, and access mismatches without treating menu visibility as security.',
-    'empty_state_permissions_access_surface' => 'No permission coverage gaps or access-surface mismatches have been reported.',
 
     'demo_install_health_label' => 'Demo / Install Health',
     'demo_install_health_description' => 'Check whether a fresh or demo install has the expected sites, languages, domains, pages, layouts, settings, and package surfaces.',
