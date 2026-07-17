@@ -132,7 +132,7 @@ it('rejects cancelling the schedule of a deleted record', function (): void {
     ));
 
     expect($result->outcome)->toBe(PublicationTransitionOutcome::InvalidTransition)
-        ->and($result->reasonKey)->toBe('publication.transition.deleted');
+        ->and($result->reasonKey)->toBe(EvaluatePublicationTransitionAction::REASON_DELETED);
 });
 
 it('persists exactly one cancel schedule write clearing both future dates', function (): void {

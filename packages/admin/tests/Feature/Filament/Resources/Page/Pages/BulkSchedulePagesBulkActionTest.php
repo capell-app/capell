@@ -41,3 +41,24 @@ it('schedules selected pages to publish later', function (): void {
 
     expect($page->fresh()->visible_from?->toDateTimeString())->toBe($publishAt->toDateTimeString());
 });
+
+it('counts a page already scheduled for the requested time as skipped, not scheduled', function (): void {
+    $publishAt = CarbonImmutable::now()->addWeek()->setTime(10, 0, 0);
+    $alreadyScheduledPage = Page::factory()->createOne(['visible_from' => $publishAt]);
+
+    Livewire::test(ListPages::class)
+        ->assertSuccessful()
+        ->selectTableRecords([$alreadyScheduledPage])
+        ->callAction(
+            TestAction::make(BulkSchedulePagesBulkAction::class)->table()->bulk(),
+            data: ['publish_at' => $publishAt->toDateTimeString()],
+        )
+        ->assertHasNoActionErrors()
+        ->assertNotified(__('capell-admin::bulk_actions.schedule_pages_done', [
+            'scheduled' => 0,
+            'skipped' => 1,
+        ]));
+
+    expect($alreadyScheduledPage->fresh()->visible_from?->toDateTimeString())
+        ->toBe($publishAt->toDateTimeString());
+});

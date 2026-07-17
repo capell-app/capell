@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Publishing;
 
+use Capell\Core\Actions\Publishing\EvaluatePublicationTransitionAction;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
 
@@ -26,7 +27,7 @@ final class PublicationSkipReason
             PublicationTransitionOutcome::AlreadyCorrect => $alreadyCorrectSlug,
             PublicationTransitionOutcome::Unauthorized => 'unauthorized',
             PublicationTransitionOutcome::Failed => 'failed',
-            PublicationTransitionOutcome::InvalidTransition => $result->reasonKey === 'publication.transition.deleted'
+            PublicationTransitionOutcome::InvalidTransition => $result->reasonKey === EvaluatePublicationTransitionAction::REASON_DELETED
                 ? 'trashed'
                 : 'invalid',
         };
