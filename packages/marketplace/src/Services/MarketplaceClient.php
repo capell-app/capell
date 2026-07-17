@@ -45,19 +45,12 @@ final class MarketplaceClient
      */
     public function createAccountConnectionSession(array $payload): array
     {
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-            ->acceptJson()
-            ->post(config('capell-marketplace.marketplace.base_url') . '/marketplace/connections', $payload);
-
-        if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not start account connection.'));
-        }
-
-        $data = $response->json('data');
-
-        throw_unless(is_array($data), RuntimeException::class, 'Marketplace did not return account connection data.');
-
-        return $data;
+        return $this->postJsonData(
+            '/marketplace/connections',
+            $payload,
+            'Marketplace could not start account connection.',
+            'Marketplace did not return account connection data.',
+        );
     }
 
     /**
@@ -66,19 +59,12 @@ final class MarketplaceClient
      */
     public function exchangeAccountConnectionCode(array $payload): array
     {
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-            ->acceptJson()
-            ->post(config('capell-marketplace.marketplace.base_url') . '/marketplace/connections/exchange', $payload);
-
-        if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not complete account connection.'));
-        }
-
-        $data = $response->json('data');
-
-        throw_unless(is_array($data), RuntimeException::class, 'Marketplace did not return connected account data.');
-
-        return $data;
+        return $this->postJsonData(
+            '/marketplace/connections/exchange',
+            $payload,
+            'Marketplace could not complete account connection.',
+            'Marketplace did not return connected account data.',
+        );
     }
 
     /**
@@ -87,17 +73,13 @@ final class MarketplaceClient
      */
     public function createInstallFlow(array $payload): array
     {
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-            ->acceptJson()
-            ->post(config('capell-marketplace.marketplace.base_url') . '/marketplace/install-flows', $this->installFlowPayload($payload, '/marketplace/install-flows'));
-
-        if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not start the install flow.'));
-        }
-
-        $data = $response->json('data');
-
-        throw_unless(is_array($data), RuntimeException::class, 'Marketplace did not return install flow data.');
+        $path = '/marketplace/install-flows';
+        $data = $this->postJsonData(
+            $path,
+            $this->installFlowPayload($payload, $path),
+            'Marketplace could not start the install flow.',
+            'Marketplace did not return install flow data.',
+        );
 
         $approvalUrl = $data['approval_url'] ?? null;
 
@@ -113,19 +95,14 @@ final class MarketplaceClient
      */
     public function exchangeInstallFlow(array $payload): array
     {
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-            ->acceptJson()
-            ->post(config('capell-marketplace.marketplace.base_url') . '/marketplace/install-flows/exchange', $this->installFlowPayload($payload, '/marketplace/install-flows/exchange'));
+        $path = '/marketplace/install-flows/exchange';
 
-        if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not complete the install flow.'));
-        }
-
-        $data = $response->json('data');
-
-        throw_unless(is_array($data), RuntimeException::class, 'Marketplace did not return install flow exchange data.');
-
-        return $data;
+        return $this->postJsonData(
+            $path,
+            $this->installFlowPayload($payload, $path),
+            'Marketplace could not complete the install flow.',
+            'Marketplace did not return install flow exchange data.',
+        );
     }
 
     /**
@@ -133,7 +110,7 @@ final class MarketplaceClient
      */
     public function heartbeat(array $payload): HeartbeatResultData
     {
-        $heartbeatUrl = config('capell-marketplace.marketplace.base_url') . '/instances/heartbeat';
+        $heartbeatUrl = $this->marketplaceUrl('/instances/heartbeat');
 
         $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
             ->acceptJson()
@@ -265,7 +242,7 @@ final class MarketplaceClient
                 ],
                 fn (string $value): bool => $value !== '',
             );
-            $url = config('capell-marketplace.marketplace.base_url') . '/extensions';
+            $url = $this->marketplaceUrl('/extensions');
             $items = [];
             $visitedUrls = [];
 
@@ -281,11 +258,7 @@ final class MarketplaceClient
                     throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace catalogue is unavailable right now.'));
                 }
 
-                $responseItems = $response->json('data');
-
-                if (! is_array($responseItems)) {
-                    throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace catalogue did not return JSON extension data.'));
-                }
+                $responseItems = $this->dataOrFail($response, 'The marketplace catalogue did not return JSON extension data.', friendly: true);
 
                 $items = [
                     ...$items,
@@ -305,7 +278,7 @@ final class MarketplaceClient
 
         return array_map(
             ExtensionListingData::fromApiResponse(...),
-            $items,
+            array_values($items),
         );
     }
 
@@ -367,7 +340,7 @@ final class MarketplaceClient
             $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
                 ->acceptJson()
                 ->withHeaders($this->marketplaceContextHeaders($marketplaceContext))
-                ->get(config('capell-marketplace.marketplace.base_url') . '/extensions/by-composer', $params);
+                ->get($this->marketplaceUrl('/extensions/by-composer'), $params);
 
             if ($response->notFound()) {
                 return [];
@@ -377,11 +350,7 @@ final class MarketplaceClient
                 throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace exact extension lookup is unavailable right now.'));
             }
 
-            $responseItems = $response->json('data');
-
-            if (! is_array($responseItems)) {
-                throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace exact extension lookup did not return JSON extension data.'));
-            }
+            $responseItems = $this->dataOrFail($response, 'The marketplace exact extension lookup did not return JSON extension data.', friendly: true);
 
             return array_is_list($responseItems) ? $responseItems : array_values($responseItems);
         };
@@ -418,22 +387,7 @@ final class MarketplaceClient
         ], JSON_THROW_ON_ERROR));
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
 
-        $fetchExtension = function () use ($path, $marketplaceContext): ?array {
-            $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-                ->acceptJson()
-                ->withHeaders($this->marketplaceContextHeaders($marketplaceContext))
-                ->get(config('capell-marketplace.marketplace.base_url') . $path);
-
-            if ($response->notFound()) {
-                return null;
-            }
-
-            if (! $response->successful()) {
-                throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace extension detail is unavailable right now.'));
-            }
-
-            return $response->json('data');
-        };
+        $fetchExtension = fn (): ?array => $this->fetchExtensionData($path, $marketplaceContext);
 
         $item = $allowCache ? Cache::remember($cacheKey, $ttl, $fetchExtension) : $fetchExtension();
 
@@ -450,26 +404,15 @@ final class MarketplaceClient
         ], JSON_THROW_ON_ERROR));
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
 
-        $data = Cache::remember($cacheKey, $ttl, function () use ($path, $marketplaceContext): ?array {
-            $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-                ->acceptJson()
-                ->withHeaders($this->marketplaceContextHeaders($marketplaceContext))
-                ->get(config('capell-marketplace.marketplace.base_url') . $path);
-
-            if ($response->notFound()) {
-                return null;
-            }
-
-            if (! $response->successful()) {
-                throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace extension detail is unavailable right now.'));
-            }
-
-            $data = $response->json('data');
-
-            throw_unless(is_array($data), RuntimeException::class, 'The marketplace extension detail response did not include a data object.');
-
-            return $data;
-        });
+        $data = Cache::remember(
+            $cacheKey,
+            $ttl,
+            fn (): ?array => $this->fetchExtensionData(
+                $path,
+                $marketplaceContext,
+                'The marketplace extension detail response did not include a data object.',
+            ),
+        );
 
         return is_array($data) ? ExtensionDetailData::fromApiResponse($data) : null;
     }
@@ -500,18 +443,15 @@ final class MarketplaceClient
     {
         unset($domain);
 
-        $response = $this->postSignedJson($this->extensionPath($slug, '/licence-decision'), [
-            'action' => $action,
-            'app_url' => config('app.url'),
-        ]);
-
-        if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not resolve this licence decision.'));
-        }
-
-        $data = $response->json('data');
-
-        throw_unless(is_array($data), RuntimeException::class, 'The marketplace licence decision response did not include a data object.');
+        $data = $this->postSignedJsonData(
+            $this->extensionPath($slug, '/licence-decision'),
+            [
+                'action' => $action,
+                'app_url' => config('app.url'),
+            ],
+            'Marketplace could not resolve this licence decision.',
+            'The marketplace licence decision response did not include a data object.',
+        );
 
         return ExtensionLicenceDecisionData::fromApiResponse($data);
     }
@@ -523,22 +463,17 @@ final class MarketplaceClient
     {
         unset($domain);
 
-        $response = $this->postSignedJson($this->extensionPath($feedback->slug, '/feedback'), [
-            'rating' => $feedback->rating,
-            'comment' => $feedback->comment,
-            'tip' => $feedback->tip,
-            'app_url' => config('app.url'),
-        ]);
-
-        if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not submit this feedback.'));
-        }
-
-        $data = $response->json('data');
-
-        throw_unless(is_array($data), RuntimeException::class, 'The marketplace feedback response did not include a data object.');
-
-        return $data;
+        return $this->postSignedJsonData(
+            $this->extensionPath($feedback->slug, '/feedback'),
+            [
+                'rating' => $feedback->rating,
+                'comment' => $feedback->comment,
+                'tip' => $feedback->tip,
+                'app_url' => config('app.url'),
+            ],
+            'Marketplace could not submit this feedback.',
+            'The marketplace feedback response did not include a data object.',
+        );
     }
 
     public function createUpgradeAuthorization(
@@ -597,7 +532,7 @@ final class MarketplaceClient
 
         $response = Http::timeout(config('capell-marketplace.marketplace.telemetry_timeout_seconds', 3))
             ->acceptJson()
-            ->post(config('capell-marketplace.marketplace.base_url') . '/extensions/install-intents', $payload);
+            ->post($this->marketplaceUrl('/extensions/install-intents'), $payload);
 
         if (! $response->successful()) {
             throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not record free install telemetry.'));
@@ -631,7 +566,7 @@ final class MarketplaceClient
      */
     private function fetchCataloguePage(MarketplaceCatalogueQueryData $query, array $marketplaceContext): array
     {
-        $url = config('capell-marketplace.marketplace.base_url') . '/extensions';
+        $url = $this->marketplaceUrl('/extensions');
         $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
             ->acceptJson()
             ->get($url, $query->toRequestParameters($marketplaceContext));
@@ -640,11 +575,7 @@ final class MarketplaceClient
             throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace catalogue is unavailable right now.'));
         }
 
-        $responseItems = $response->json('data');
-
-        if (! is_array($responseItems)) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace catalogue did not return JSON extension data.'));
-        }
+        $responseItems = $this->dataOrFail($response, 'The marketplace catalogue did not return JSON extension data.', friendly: true);
 
         return [
             'data' => $responseItems,
@@ -714,6 +645,94 @@ final class MarketplaceClient
         return is_numeric($value) ? (int) $value : null;
     }
 
+    private function marketplaceUrl(string $path): string
+    {
+        return config('capell-marketplace.marketplace.base_url') . $path;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function postJson(string $path, array $payload): Response
+    {
+        return Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+            ->acceptJson()
+            ->post($this->marketplaceUrl($path), $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function postJsonData(string $path, array $payload, string $failureMessage, string $missingDataMessage): array
+    {
+        $response = $this->postJson($path, $payload);
+
+        if (! $response->successful()) {
+            throw new RuntimeException($this->friendlyResponseMessage($response, $failureMessage));
+        }
+
+        return $this->dataOrFail($response, $missingDataMessage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function postSignedJsonData(string $path, array $payload, string $failureMessage, string $missingDataMessage): array
+    {
+        $response = $this->postSignedJson($path, $payload);
+
+        if (! $response->successful()) {
+            throw new RuntimeException($this->friendlyResponseMessage($response, $failureMessage));
+        }
+
+        return $this->dataOrFail($response, $missingDataMessage);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dataOrFail(Response $response, string $missingDataMessage, bool $friendly = false): array
+    {
+        $data = $response->json('data');
+
+        if (! is_array($data)) {
+            throw new RuntimeException($friendly ? $this->friendlyResponseMessage($response, $missingDataMessage) : $missingDataMessage);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  array{instance_id?: string, account_id?: string}  $marketplaceContext
+     * @return array<string, mixed>|null
+     */
+    private function fetchExtensionData(string $path, array $marketplaceContext, ?string $missingDataMessage = null): ?array
+    {
+        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+            ->acceptJson()
+            ->withHeaders($this->marketplaceContextHeaders($marketplaceContext))
+            ->get($this->marketplaceUrl($path));
+
+        if ($response->notFound()) {
+            return null;
+        }
+
+        if (! $response->successful()) {
+            throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace extension detail is unavailable right now.'));
+        }
+
+        $data = $response->json('data');
+
+        if ($missingDataMessage !== null) {
+            throw_unless(is_array($data), RuntimeException::class, $missingDataMessage);
+        }
+
+        /** @var array<string, mixed> $data */
+        return $data;
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      */
@@ -743,7 +762,7 @@ final class MarketplaceClient
                 'X-Capell-Signature' => $signature,
             ])
             ->withBody($jsonPayload, 'application/json')
-            ->post(config('capell-marketplace.marketplace.base_url') . $path);
+            ->post($this->marketplaceUrl($path));
     }
 
     /**
