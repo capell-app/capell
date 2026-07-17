@@ -20,6 +20,13 @@ final class EvaluatePublicationTransitionAction
     use AsFake;
     use AsObject;
 
+    /**
+     * Reason key emitted when a transition is refused because the record is
+     * soft-deleted. Consumers that branch on this reason must reference this
+     * constant rather than duplicating the literal.
+     */
+    public const string REASON_DELETED = 'publication.transition.deleted';
+
     public function handle(PublicationTransitionRequestData $request): PublicationTransitionResultData
     {
         $beforeFrom = $this->date($request->record->getAttribute('visible_from'));
@@ -38,7 +45,7 @@ final class EvaluatePublicationTransitionAction
                 $beforeFrom,
                 $beforeUntil,
                 $request,
-                'publication.transition.deleted',
+                self::REASON_DELETED,
             );
         }
 
