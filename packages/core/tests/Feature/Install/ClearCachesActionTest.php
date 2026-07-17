@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 
@@ -101,6 +102,7 @@ it('calls optional capell and filament cache commands when they are selected and
     $availableCommands = [
         'capell:admin-clear-cache' => true,
         'capell:clear-components-cache' => true,
+        'capell:admin-clear-widgets-cache' => true,
         'capell:admin-clear-configurators-cache' => true,
         'filament:clear-cached-components' => true,
         'capell:package-cache:clear' => true,
@@ -110,6 +112,7 @@ it('calls optional capell and filament cache commands when they are selected and
     $kernel->shouldReceive('all')->zeroOrMoreTimes()->andReturn($availableCommands);
     $kernel->shouldReceive('call')->with('capell:admin-clear-cache')->once()->andReturn(0);
     $kernel->shouldReceive('call')->with('capell:clear-components-cache')->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('capell:admin-clear-widgets-cache')->once()->andReturn(0);
     $kernel->shouldReceive('call')->with('capell:admin-clear-configurators-cache')->once()->andReturn(0);
     $kernel->shouldReceive('call')->with('filament:clear-cached-components')->once()->andReturn(0);
     $kernel->shouldReceive('call')->with('capell:package-cache:clear')->once()->andReturn(0);
@@ -118,10 +121,52 @@ it('calls optional capell and filament cache commands when they are selected and
     ClearCachesAction::run([
         'admin',
         'components',
+        'widgets',
         'configurators',
         'filament-components',
         'packages',
     ], new NullProgressReporter);
+});
+
+it('executes a cache command for every individually advertised cache key', function (): void {
+    $availableCommands = array_fill_keys(
+        array_column(InstallCacheOptionCatalog::optionalOptions(), 'command'),
+        true,
+    );
+    $availableCommands['capell:html-cache:clear'] = true;
+    $executedCommands = [];
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->zeroOrMoreTimes()->andReturn($availableCommands);
+    $kernel->shouldReceive('call')->zeroOrMoreTimes()->andReturnUsing(
+        function (string $command) use (&$executedCommands): int {
+            $executedCommands[] = $command;
+
+            return 0;
+        },
+    );
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    $advertisedCacheKeys = array_values(array_filter(
+        array_keys([
+            ...InstallCacheOptionCatalog::baseOptions(),
+            ...InstallCacheOptionCatalog::optionalOptions(),
+        ]),
+        static fn (string $cacheKey): bool => $cacheKey !== 'all',
+    ));
+
+    ClearCachesAction::run($advertisedCacheKeys, new NullProgressReporter);
+
+    expect($executedCommands)->toBe([
+        'capell:html-cache:clear',
+        'config:clear',
+        'view:clear',
+        'capell:admin-clear-cache',
+        'capell:clear-components-cache',
+        'capell:admin-clear-widgets-cache',
+        'capell:admin-clear-configurators-cache',
+        'filament:clear-cached-components',
+    ]);
 });
 
 it('clears generated capell package cache files when all is selected', function (): void {

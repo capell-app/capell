@@ -47,6 +47,11 @@ class ClearCachesAction
             'message' => '✓ Capell components cache cleared',
             'optional' => true,
         ],
+        'widgets' => [
+            'command' => 'capell:admin-clear-widgets-cache',
+            'message' => '✓ Capell widgets cache cleared',
+            'optional' => true,
+        ],
         'configurators' => [
             'command' => 'capell:admin-clear-configurators-cache',
             'message' => '✓ Capell configurators cache cleared',

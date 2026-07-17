@@ -12,6 +12,7 @@ it('normalizes php memory limit units for the installer floor', function (): voi
         ->and(callInstallCommandMethod($command, 'memoryLimitInBytes', '524288K'))->toBe(536_870_912)
         ->and(callInstallCommandMethod($command, 'memoryLimitInBytes', '536870912'))->toBe(536_870_912);
 });
+use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
@@ -169,7 +170,8 @@ it('resolves non-interactive fresh demo defaults without prompting', function ()
         ->and(callInstallCommandMethod($freshDemoCommand, 'shouldUseFreshDemoPackageDefaults'))->toBeTrue()
         ->and(callInstallCommandMethod($freshDemoCommand, 'shouldInstallAllPackages'))->toBeTrue()
         ->and(callInstallCommandMethod($freshDemoCommand, 'shouldIncludeDemoPackagesAfterSelection'))->toBeTrue()
-        ->and(callInstallCommandMethod($freshDemoCommand, 'developerToolingOptionsForPlan'))->toBe([false, false])
+        ->and(developerToolingChoiceForOptions($freshDemoCommand)->installDeveloperTooling)->toBeFalse()
+        ->and(developerToolingChoiceForOptions($freshDemoCommand)->configureBoostDeveloperTooling)->toBeFalse()
         ->and(callInstallCommandMethod($freshDemoCommand, 'resolveLanguages'))->toBe(['en', 'cy', 'fr', 'de'])
         ->and(callInstallCommandMethod($freshDemoCommand, 'resolveSites'))->toBe(['Capell Demo', 'Capell Knowledge', 'Capell Services'])
         ->and(callInstallCommandMethod($explicitDemoCommand, 'shouldUseFreshDemoDefaults'))->toBeFalse()
@@ -211,7 +213,8 @@ it('covers non-interactive install command branch decisions and manual-change re
     ]);
 
     expect(callInstallCommandMethod($allPackagesCommand, 'shouldIncludeDemoPackagesAfterSelection'))->toBeTrue()
-        ->and(callInstallCommandMethod($developerToolingCommand, 'developerToolingOptionsForPlan'))->toBe([true, false])
+        ->and(developerToolingChoiceForOptions($developerToolingCommand)->installDeveloperTooling)->toBeTrue()
+        ->and(developerToolingChoiceForOptions($developerToolingCommand)->configureBoostDeveloperTooling)->toBeFalse()
         ->and(callInstallCommandMethod($invalidThemeCommand, 'resolveThemeSelection'))->toBe([null, SymfonyCommand::FAILURE])
         ->and(resolve(InstallPackageSetComposer::class)->formatThemeCandidatesForConsole([
             'none' => 'No starter theme',
@@ -389,4 +392,15 @@ function callInstallCommandMethod(InstallCommand $command, string $method, mixed
     $reflectionMethod = new ReflectionMethod($command, $method);
 
     return $reflectionMethod->invoke($command, ...$arguments);
+}
+
+function developerToolingChoiceForOptions(InstallCommand $command): DeveloperToolingChoiceData
+{
+    $choice = callInstallCommandMethod($command, 'developerToolingOptionsForPlan');
+
+    if (! $choice instanceof DeveloperToolingChoiceData) {
+        throw new RuntimeException('Expected developer tooling choice data.');
+    }
+
+    return $choice;
 }

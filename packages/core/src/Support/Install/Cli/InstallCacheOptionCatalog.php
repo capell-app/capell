@@ -10,10 +10,10 @@ final class InstallCacheOptionCatalog
     public static function baseOptions(): array
     {
         return [
-            'all' => 'Laravel optimized caches',
-            'page' => 'Page cache',
-            'config' => 'Config cache',
-            'views' => 'Views cache',
+            'all' => __('capell-core::install.cache.all'),
+            'page' => __('capell-core::install.cache.page'),
+            'config' => __('capell-core::install.cache.config'),
+            'views' => __('capell-core::install.cache.views'),
         ];
     }
 
@@ -24,23 +24,23 @@ final class InstallCacheOptionCatalog
     {
         return [
             'admin' => [
-                'label' => 'Capell admin cache',
+                'label' => __('capell-core::install.cache.admin'),
                 'command' => 'capell:admin-clear-cache',
             ],
             'components' => [
-                'label' => 'Capell components cache',
+                'label' => __('capell-core::install.cache.components'),
                 'command' => 'capell:clear-components-cache',
             ],
             'widgets' => [
-                'label' => 'Capell widgets cache',
+                'label' => __('capell-core::install.cache.widgets'),
                 'command' => 'capell:admin-clear-widgets-cache',
             ],
             'configurators' => [
-                'label' => 'Capell configurators cache',
+                'label' => __('capell-core::install.cache.configurators'),
                 'command' => 'capell:admin-clear-configurators-cache',
             ],
             'filament-components' => [
-                'label' => 'Filament components cache',
+                'label' => __('capell-core::install.cache.filament_components'),
                 'command' => 'filament:clear-cached-components',
             ],
         ];

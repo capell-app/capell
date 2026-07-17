@@ -17,6 +17,7 @@ use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
@@ -293,7 +294,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         if ($planOnly) {
             $this->logInstallDebug('building plan-only input');
-            [$installDeveloperTooling, $configureBoostDeveloperTooling] = $this->developerToolingOptionsForPlan();
+            $developerToolingChoice = $this->developerToolingOptionsForPlan();
 
             $inputData = resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
                 siteUrl: $siteUrl,
@@ -310,8 +311,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 seedDatabase: $seedDatabase,
                 freshInstall: $freshInstall,
                 installWelcomeRoute: $installWelcomeRoute,
-                installDeveloperTooling: $installDeveloperTooling,
-                configureBoostDeveloperTooling: $configureBoostDeveloperTooling,
+                installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
+                configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
                 selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
                 extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
             );
@@ -359,10 +360,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'count' => count($additionalUsers),
         ]);
 
-        [$installDeveloperTooling, $configureBoostDeveloperTooling] = $this->developerToolingOptions();
+        $developerToolingChoice = $this->developerToolingOptions();
         $this->logInstallDebug('resolved developer tooling', [
-            'install_developer_tooling' => $installDeveloperTooling,
-            'configure_boost_developer_tooling' => $configureBoostDeveloperTooling,
+            'install_developer_tooling' => $developerToolingChoice->installDeveloperTooling,
+            'configure_boost_developer_tooling' => $developerToolingChoice->configureBoostDeveloperTooling,
         ]);
 
         $runNpmBuild = $this->shouldRunNpmBuild($hasFrontend);
@@ -388,8 +389,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             seedDatabase: $seedDatabase,
             freshInstall: $freshInstall,
             installWelcomeRoute: $installWelcomeRoute,
-            installDeveloperTooling: $installDeveloperTooling,
-            configureBoostDeveloperTooling: $configureBoostDeveloperTooling,
+            installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
+            configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
             additionalUsers: $additionalUsers,
             selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
             extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
@@ -1129,10 +1130,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
     }
 
-    /**
-     * @return array{0: bool, 1: bool}
-     */
-    private function developerToolingOptions(): array
+    private function developerToolingOptions(): DeveloperToolingChoiceData
     {
         if ($this->option('developer-tooling')) {
             return InstallDeveloperToolingChoices::explicitlyRequested((bool) $this->option('no-boost-install'));
@@ -1164,13 +1162,13 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             hint: $boostInstallationPrompt['hint'],
         );
 
-        return [true, $configureBoostDeveloperTooling];
+        return new DeveloperToolingChoiceData(
+            installDeveloperTooling: true,
+            configureBoostDeveloperTooling: $configureBoostDeveloperTooling,
+        );
     }
 
-    /**
-     * @return array{0: bool, 1: bool}
-     */
-    private function developerToolingOptionsForPlan(): array
+    private function developerToolingOptionsForPlan(): DeveloperToolingChoiceData
     {
         if ($this->option('developer-tooling')) {
             return InstallDeveloperToolingChoices::explicitlyRequested((bool) $this->option('no-boost-install'));

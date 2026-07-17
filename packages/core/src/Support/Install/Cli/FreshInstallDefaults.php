@@ -46,8 +46,8 @@ final class FreshInstallDefaults
     {
         return [
             $applicationName,
-            'Capell Knowledge',
-            'Capell Services',
+            __('capell-core::install.demo.knowledge_site'),
+            __('capell-core::install.demo.services_site'),
         ];
     }
 }
