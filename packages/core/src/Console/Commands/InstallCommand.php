@@ -28,6 +28,9 @@ use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
+use Capell\Core\Support\Install\Cli\InstallDeveloperToolingChoices;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
@@ -764,7 +767,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $useDefaults = $freshInstall
             && (bool) $this->option('demo')
-            && ! $this->hasExplicitFreshDemoInput();
+            && ! FreshInstallDefaults::hasExplicitDemoInput([
+                'url' => $this->input->getOption('url'),
+                'user' => $this->input->getOption('user'),
+                'name' => $this->input->getOption('name'),
+                'email' => $this->input->getOption('email'),
+                'password' => $this->input->getOption('password'),
+                'theme' => $this->input->getOption('theme'),
+            ]);
 
         $this->logInstallDebug('resolved fresh demo defaults', [
             'use_defaults' => $useDefaults,
@@ -773,19 +783,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ]);
 
         return $useDefaults;
-    }
-
-    private function hasExplicitFreshDemoInput(): bool
-    {
-        foreach (['url', 'user', 'name', 'email', 'password', 'theme'] as $optionName) {
-            $value = $this->input->getOption($optionName);
-
-            if (! in_array($value, [null, false, ''], true)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -976,12 +973,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         if ($this->option('demo')) {
-            return array_values(array_unique([
-                'en',
-                config('app.locale', 'en'),
-                'fr',
-                'de',
-            ]));
+            return FreshInstallDefaults::demoLanguages(config('app.locale', 'en'));
         }
 
         return [config('app.locale', 'en')];
@@ -999,11 +991,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         if ($this->option('demo')) {
-            return [
-                config('app.name', 'Capell Application'),
-                'Capell Knowledge',
-                'Capell Services',
-            ];
+            return FreshInstallDefaults::demoSites(config('app.name', 'Capell Application'));
         }
 
         return [config('app.name', 'Capell Application')];
@@ -1147,29 +1135,33 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function developerToolingOptions(): array
     {
         if ($this->option('developer-tooling')) {
-            return [true, ! $this->option('no-boost-install')];
+            return InstallDeveloperToolingChoices::explicitlyRequested((bool) $this->option('no-boost-install'));
         }
 
         if (resolve(DeveloperToolingInstallationState::class)->isInstalled()) {
-            return [true, false];
+            return InstallDeveloperToolingChoices::alreadyInstalled();
         }
 
         if (! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults()) {
-            return [false, false];
+            return InstallDeveloperToolingChoices::notInstalled();
         }
+
+        $installationPrompt = InstallDeveloperToolingChoices::installationPrompt();
 
         if (! confirm(
-            label: 'Install AI / Agent Bridge developer tooling?',
-            default: false,
-            hint: 'Installs Laravel Boost and Capell Agent Bridge for local agent workflows.',
+            label: $installationPrompt['label'],
+            default: $installationPrompt['default'],
+            hint: $installationPrompt['hint'],
         )) {
-            return [false, false];
+            return InstallDeveloperToolingChoices::notInstalled();
         }
 
+        $boostInstallationPrompt = InstallDeveloperToolingChoices::boostInstallationPrompt();
+
         $configureBoostDeveloperTooling = confirm(
-            label: 'Run Laravel Boost installer for Agent Bridge, guidelines, and skills?',
-            default: true,
-            hint: 'Runs boost:install --guidelines --skills --mcp without interaction.',
+            label: $boostInstallationPrompt['label'],
+            default: $boostInstallationPrompt['default'],
+            hint: $boostInstallationPrompt['hint'],
         );
 
         return [true, $configureBoostDeveloperTooling];
@@ -1181,22 +1173,22 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function developerToolingOptionsForPlan(): array
     {
         if ($this->option('developer-tooling')) {
-            return [true, ! $this->option('no-boost-install')];
+            return InstallDeveloperToolingChoices::explicitlyRequested((bool) $this->option('no-boost-install'));
         }
 
         if (resolve(DeveloperToolingInstallationState::class)->isInstalled()) {
-            return [true, false];
+            return InstallDeveloperToolingChoices::alreadyInstalled();
         }
 
-        return [false, false];
+        return InstallDeveloperToolingChoices::notInstalled();
     }
 
     /** @return array<string, string> */
     private function cacheOptions(): array
     {
-        $options = $this->baseCacheOptions();
+        $options = InstallCacheOptionCatalog::baseOptions();
 
-        foreach ($this->optionalCacheOptions() as $key => $option) {
+        foreach (InstallCacheOptionCatalog::optionalOptions() as $key => $option) {
             if ($this->getApplication()?->has($option['command']) === true) {
                 $options[$key] = $option['label'];
             }
@@ -1212,73 +1204,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function defaultCachesToClear(array $cacheOptions): array
     {
         return array_values(array_filter(
-            $this->defaultCacheKeys(),
+            InstallCacheOptionCatalog::defaultKeys(),
             fn (string $cacheKey): bool => array_key_exists($cacheKey, $cacheOptions),
         ));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function defaultCacheKeys(): array
-    {
-        return [
-            'page',
-            'config',
-            'views',
-            'admin',
-            'components',
-            'widgets',
-            'configurators',
-            'filament-components',
-        ];
     }
 
     private function installerPackageName(): string
     {
         return 'capell-app/installer';
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function baseCacheOptions(): array
-    {
-        return [
-            'all' => 'Laravel optimized caches',
-            'page' => 'Page cache',
-            'config' => 'Config cache',
-            'views' => 'Views cache',
-        ];
-    }
-
-    /**
-     * @return array<string, array{label: string, command: string}>
-     */
-    private function optionalCacheOptions(): array
-    {
-        return [
-            'admin' => [
-                'label' => 'Capell admin cache',
-                'command' => 'capell:admin-clear-cache',
-            ],
-            'components' => [
-                'label' => 'Capell components cache',
-                'command' => 'capell:clear-components-cache',
-            ],
-            'widgets' => [
-                'label' => 'Capell widgets cache',
-                'command' => 'capell:admin-clear-widgets-cache',
-            ],
-            'configurators' => [
-                'label' => 'Capell configurators cache',
-                'command' => 'capell:admin-clear-configurators-cache',
-            ],
-            'filament-components' => [
-                'label' => 'Filament components cache',
-                'command' => 'filament:clear-cached-components',
-            ],
-        ];
     }
 
     private function userPrompter(): InstallUserPrompter

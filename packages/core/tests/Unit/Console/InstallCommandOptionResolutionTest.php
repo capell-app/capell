@@ -14,6 +14,7 @@ it('normalizes php memory limit units for the installer floor', function (): voi
 });
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
@@ -86,8 +87,8 @@ it('uses cache defaults that exist for the current application', function (): vo
     $outputProperty = new ReflectionProperty($command, 'output');
     $outputProperty->setValue($command, new OutputStyle(new ArrayInput([], $command->getDefinition()), $buffer));
 
-    expect(callInstallCommandMethod($command, 'baseCacheOptions'))->toHaveKeys(['all', 'page', 'config', 'views'])
-        ->and(callInstallCommandMethod($command, 'defaultCacheKeys'))->toContain('page', 'config', 'views', 'admin')
+    expect(InstallCacheOptionCatalog::baseOptions())->toHaveKeys(['all', 'page', 'config', 'views'])
+        ->and(InstallCacheOptionCatalog::defaultKeys())->toContain('page', 'config', 'views', 'admin')
         ->and(callInstallCommandMethod($command, 'defaultCachesToClear', [
             'page' => 'Page cache',
             'views' => 'Views cache',
@@ -300,7 +301,7 @@ it('normalises array list options and exposes installer package options', functi
         ->and(callInstallCommandMethod($command, 'parseListOption', 'sites'))->toBe(['Main Site', 'Knowledge'])
         ->and(callInstallCommandMethod(installCommandForOptions(['--languages' => ' , ']), 'parseListOption', 'languages'))->toBeNull()
         ->and(callInstallCommandMethod($command, 'installerPackageName'))->toBe('capell-app/installer')
-        ->and(callInstallCommandMethod($command, 'optionalCacheOptions'))->toHaveKeys([
+        ->and(InstallCacheOptionCatalog::optionalOptions())->toHaveKeys([
             'admin',
             'components',
             'widgets',
