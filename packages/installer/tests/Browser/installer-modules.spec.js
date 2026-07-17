@@ -75,6 +75,7 @@ async function setInstallerHarness(page) {
                 <div id="progress-steps"></div>
                 <a id="admin-link"></a><a id="back-link" hidden></a>
                 <form id="report-link"></form>
+                <button data-report-download-button hidden></button>
             </div>
             <div data-flow-step="readiness"></div><div data-flow-step="site"></div>
             <div data-flow-step="packages"></div><div data-flow-step="options"></div>
@@ -109,7 +110,14 @@ async function setInstallerHarness(page) {
     await addInstallerScripts(page)
 }
 
-test('package dependencies, select-all, labels, and wizard navigation are observable', async ({
+async function continueToPackages(page) {
+    await page.locator('[data-step-continue]').click()
+    await page.locator('input[name="site_name"]').fill('Capell')
+    await page.locator('[data-step-continue]').click()
+    await expect(page.locator('[data-installer-step="packages"]')).toBeVisible()
+}
+
+test('package dependencies, form inputs, select-all, and labels are observable', async ({
     page,
 }) => {
     await setInstallerHarness(page)
@@ -122,10 +130,7 @@ test('package dependencies, select-all, labels, and wizard navigation are observ
     )
     const selectAll = page.locator('[data-package-select-all]')
 
-    await page.locator('[data-step-continue]').click()
-    await page.locator('input[name="site_name"]').fill('Capell')
-    await page.locator('[data-step-continue]').click()
-    await expect(page.locator('[data-installer-step="packages"]')).toBeVisible()
+    await continueToPackages(page)
 
     await app.check()
     await expect(middle).toBeChecked()
@@ -161,10 +166,15 @@ test('package dependencies, select-all, labels, and wizard navigation are observ
     await selectAll.uncheck()
     await expect(app).not.toBeChecked()
     await expect(middle).not.toBeChecked()
+})
 
-    await page.locator('[data-step-back]').click()
+test('wizard blocks invalid input and Enter advances without submitting', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+
+    await page.locator('[data-step-continue]').click()
     await expect(page.locator('[data-installer-step="site"]')).toBeVisible()
-    await page.locator('input[name="site_name"]').clear()
     await page.locator('[data-step-continue]').click()
     await expect(page.locator('input[name="site_name"]')).toHaveAttribute(
         'aria-invalid',
@@ -224,6 +234,158 @@ test('runner reports malformed submit responses as failures', async ({
     })
 
     expect(result).toEqual(['HTTP 500 Server Error'])
+})
+
+test('runner classifies timeout html without rendering the raw response', async ({
+    page,
+}) => {
+    await setRunnerHarness(page)
+
+    const errors = await page.evaluate(async () => {
+        const messages = []
+        window.fetch = async () =>
+            new Response('<html><h1>504 Gateway Timeout</h1></html>', {
+                status: 504,
+                statusText: 'Gateway Timeout',
+            })
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: {
+                currentStep: () => 'options',
+                setFlowStep: () => {},
+                showGlobalError: (message) => messages.push(message),
+            },
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress: { showFormView: () => {} },
+            csrf: { token: () => 'initial-token', setToken: () => {} },
+            messages: {
+                serverTimeoutError: 'The installation request timed out.',
+                unknownError: 'Unknown error',
+            },
+        })
+
+        await runner.submitInstallForm(false)
+        return messages
+    })
+
+    expect(errors).toEqual(['The installation request timed out.'])
+    expect(errors.join(' ')).not.toContain('<html>')
+    expect(errors.join(' ')).not.toContain('Gateway Timeout')
+})
+
+test('progress renders step windows, timers, and report configuration', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+
+    await page.evaluate(() => {
+        let now = 1000
+        const originalNow = Date.now
+        Date.now = () => now
+        const progress = window.CapellInstaller.createProgress({
+            messages: {
+                progressCompletedSteps: '__completed__ of __total__ complete',
+                progressPreviousStep: 'Previous',
+                progressCurrentStep: 'Current',
+                progressNextStep: 'Next',
+            },
+        })
+        progress.renderPlanSteps([
+            { key: 'preflight', label: 'Preflight' },
+            { key: 'database', label: 'Database' },
+            { key: 'assets', label: 'Assets' },
+            { key: 'cache', label: 'Cache' },
+        ])
+        progress.startStepTimer('preflight')
+        now = 61000
+        progress.completeStep('preflight')
+        progress.markStepStatus('database')
+        progress.configureReport('/install/report', 'install-123')
+        Date.now = originalNow
+    })
+
+    await expect(
+        page.locator('[data-step-window-state="previous"] select'),
+    ).toHaveValue('preflight')
+    await expect(
+        page.locator('[data-step-key="preflight"] .duration'),
+    ).toHaveText('1m 00s')
+    await expect(page.locator('[data-step-key="database"]')).toHaveClass(
+        /active/,
+    )
+    await expect(
+        page.locator('[data-step-window-state="next"] select'),
+    ).toHaveValue('assets')
+    await page
+        .locator('[data-step-window-state="next"] select')
+        .selectOption('cache')
+    await expect(
+        page.locator('[data-step-window-state="next"]'),
+    ).toHaveAttribute('data-step-key', 'cache')
+    await expect(page.locator('[data-progress-steps-count]')).toHaveText(
+        '1 of 4 complete',
+    )
+    await expect(page.locator('#report-link')).toHaveJSProperty('hidden', false)
+    await expect(page.locator('#report-link')).toHaveAttribute(
+        'action',
+        '/install/report',
+    )
+    await expect(page.locator('[data-report-download-button]')).toBeVisible()
+    await expect(page.locator('[data-report-download-button]')).toHaveAttribute(
+        'data-download-filename',
+        'capell-install-install-123.json',
+    )
+})
+
+test('failed steps render error and remediation in the progress UI', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+
+    await page.evaluate(() => {
+        window.fetch = async () =>
+            new Response(
+                JSON.stringify({
+                    status: 'failed',
+                    error: 'Database unavailable',
+                    remediation: 'Check the database connection.',
+                    lines: [{ line: 'Opening database', type: 'output' }],
+                }),
+                { status: 500 },
+            )
+        const progress = window.CapellInstaller.createProgress({
+            messages: {
+                installationProblemMessage: 'There is a problem with :step.',
+                unknownError: 'Unknown error',
+                statuses: { running: 'Running', failed: 'Failed' },
+            },
+        })
+        progress.renderPlanSteps([{ key: 'database', label: 'Build database' }])
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: {},
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress,
+            csrf: { token: () => 'token', setToken: () => {} },
+            messages: {},
+        })
+        runner.runNextStep('install-1', '/run-step', 'database')
+    })
+
+    await expect(page.locator('#progress-status')).toHaveClass(/failed/)
+    await expect(page.locator('#failure-panel')).toBeVisible()
+    await expect(page.locator('#failure-title')).toHaveText(
+        'There is a problem with build database.',
+    )
+    await expect(page.locator('#log')).toContainText('Database unavailable')
+    await expect(page.locator('#log')).toContainText(
+        'Fix: Check the database connection.',
+    )
+    await expect(page.locator('#technical-log-panel')).toHaveJSProperty(
+        'open',
+        true,
+    )
+    await expect(page.locator('#back-link')).toHaveJSProperty('hidden', false)
 })
 
 test('submit refreshes a 419 token and retries exactly once', async ({
@@ -304,6 +466,10 @@ test('run-step propagates csrf and treats 419 as a hard session failure', async 
     const result = await page.evaluate(async () => {
         const events = []
         let requestToken = null
+        let resolveFailure
+        const failureShown = new Promise((resolve) => {
+            resolveFailure = resolve
+        })
         window.fetch = async (url, options) => {
             requestToken = options.headers['X-CSRF-TOKEN']
             return new Response(JSON.stringify({ csrfToken: 'server-token' }), {
@@ -320,7 +486,10 @@ test('run-step propagates csrf and treats 419 as a hard session failure', async 
                 startStepTimer: () => {},
                 finishStepTimer: () => {},
                 markStepStatus: () => {},
-                showFailurePanel: () => events.push('failure'),
+                showFailurePanel: () => {
+                    events.push('failure')
+                    resolveFailure()
+                },
                 appendLogLine: (line) => events.push(line),
             },
             csrf: {
@@ -331,7 +500,7 @@ test('run-step propagates csrf and treats 419 as a hard session failure', async 
         })
 
         runner.runNextStep('install-1', '/run-step', 'database')
-        await new Promise((resolve) => setTimeout(resolve, 20))
+        await failureShown
         return { events, requestToken }
     })
 
@@ -354,6 +523,10 @@ test('runner safely completes a running step with no next step', async ({
     const result = await page.evaluate(async () => {
         const events = []
         let requestCount = 0
+        let resolveInstalled
+        const installed = new Promise((resolve) => {
+            resolveInstalled = resolve
+        })
         const responses = [
             {
                 installId: 'install-1',
@@ -384,7 +557,10 @@ test('runner safely completes a running step with no next step', async ({
                 markStepStatus: () => {},
                 renderLines: () => {},
                 completeStep: () => events.push('step-complete'),
-                showInstalledPanel: () => events.push('installed'),
+                showInstalledPanel: () => {
+                    events.push('installed')
+                    resolveInstalled()
+                },
             },
             csrf: {
                 token: () => 'token',
@@ -393,8 +569,8 @@ test('runner safely completes a running step with no next step', async ({
             messages: {},
         })
 
-        await runner.submitInstallForm(false)
-        await new Promise((resolve) => setTimeout(resolve, 20))
+        runner.submitInstallForm(false)
+        await installed
         return { events, requestCount }
     })
 
@@ -451,13 +627,25 @@ test('runner uses the active success url after a valid completion', async ({
             messages: {},
         })
 
-        await runner.submitInstallForm(false)
-        await new Promise((resolve) => setTimeout(resolve, 20))
-        return { events, hash: window.location.hash, requestCount }
+        await new Promise((resolve) => {
+            runner.submitInstallForm(false)
+            const poll = () => {
+                if (window.location.hash === '#installed') {
+                    resolve()
+                    return
+                }
+                window.requestAnimationFrame(poll)
+            }
+            window.requestAnimationFrame(poll)
+        })
+        return { events, requestCount }
     })
+
+    await expect
+        .poll(() => page.evaluate(() => window.location.hash))
+        .toBe('#installed')
 
     expect(result.requestCount).toBe(2)
     expect(result.events).toContain('completed-token')
     expect(result.events).toContain('step-complete')
-    expect(result.hash).toBe('#installed')
 })
