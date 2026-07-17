@@ -2,22 +2,14 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Actions\Reports\BuildBlueprintSchemaDriftReportAction;
-use Capell\Admin\Actions\Reports\BuildCacheFreshnessReportAction;
-use Capell\Admin\Actions\Reports\BuildContentIntegrityReportAction;
-use Capell\Admin\Actions\Reports\BuildLayoutWidgetUsageReportAction;
-use Capell\Admin\Actions\Reports\BuildNavigationCoverageReportAction;
 use Capell\Admin\Actions\Reports\BuildPackageReadinessReportAction;
-use Capell\Admin\Actions\Reports\BuildPermissionsAccessSurfaceReportAction;
 use Capell\Admin\Actions\Reports\BuildPublicRenderSafetyReportAction;
 use Capell\Admin\Actions\Reports\BuildReportVisibilityFormStateAction;
-use Capell\Admin\Actions\Reports\BuildSiteLanguageCoverageReportAction;
-use Capell\Admin\Actions\Reports\BuildUrlHealthReportAction;
 use Capell\Admin\Actions\Reports\NormalizeReportVisibilitySettingsAction;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\Reports\ContentIntegrityReport;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
+use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Settings\AdminSettings;
@@ -43,31 +35,24 @@ uses(CreatesAdminUser::class)
 
 beforeEach(function (): void {
     Permission::findOrCreate('View:SettingsPage', 'web');
-    Permission::findOrCreate('View:ContentIntegrityReport', 'web');
+    Permission::findOrCreate('View:PublicRenderSafetyReport', 'web');
     Role::findOrCreate('editor', 'web');
 });
 
 it('registers installed core report metadata and page classes', function (): void {
     $reports = CapellAdmin::getReports();
 
-    expect($reports)->toHaveKeys([
-        'core.content_integrity',
-        'core.site_language_coverage',
-        'core.url_health',
-        'core.accessibility_readiness',
-        'core.layout_widget_usage',
-        'core.blueprint_schema_drift',
-        'core.publishing_readiness',
-        'core.cache_freshness',
-        'core.navigation_coverage',
-        'core.permissions_access_surface',
-        'core.demo_install_health',
-        'core.package_readiness',
-        'core.public_render_safety',
-    ])
-        ->and($reports['core.content_integrity']->pageClass)->toBe(ContentIntegrityReport::class)
+    expect($reports)->toHaveCount(5)
+        ->and($reports)->toHaveKeys([
+            'core.accessibility_readiness',
+            'core.publishing_readiness',
+            'core.demo_install_health',
+            'core.package_readiness',
+            'core.public_render_safety',
+        ])
+        ->and($reports['core.public_render_safety']->pageClass)->toBe(PublicRenderSafetyReport::class)
         ->and($reports['core.package_readiness']->pageClass)->toBe(PackageReadinessReport::class)
-        ->and(CapellAdmin::getAdminSurfaceRegistry()->pages())->toContain(ContentIntegrityReport::class);
+        ->and(CapellAdmin::getAdminSurfaceRegistry()->pages())->toContain(PublicRenderSafetyReport::class);
 });
 
 it('loads report visibility controls grouped by role in admin settings', function (): void {
@@ -83,7 +68,7 @@ it('loads report visibility controls grouped by role in admin settings', functio
     expect($state)->toBeArray()
         ->and(collect($state)->pluck('role_name')->all())->toContain('editor')
         ->and(collect($state)->flatMap(fn (array $role): array => $role['reports'])->pluck('report_key')->all())
-        ->toContain('core.content_integrity');
+        ->toContain('core.public_render_safety');
 });
 
 it('builds report visibility form state with role labels and persisted defaults', function (): void {
@@ -92,21 +77,21 @@ it('builds report visibility form state with role labels and persisted defaults'
     $settings = AdminSettings::instance();
     $settings->enabled_reports_by_role = [
         'content_admin' => [
-            'core.content_integrity' => false,
+            'core.public_render_safety' => false,
         ],
     ];
 
     $state = BuildReportVisibilityFormStateAction::run($settings);
     $contentAdminState = collect($state)->firstWhere('role_name', 'content_admin');
-    $contentIntegrityReport = collect($contentAdminState['reports'] ?? [])
-        ->firstWhere('report_key', 'core.content_integrity');
+    $publicRenderSafetyReport = collect($contentAdminState['reports'] ?? [])
+        ->firstWhere('report_key', 'core.public_render_safety');
 
     expect($contentAdminState)->not->toBeNull()
         ->and($contentAdminState['role_label'])->toBe('Content Admin')
-        ->and($contentIntegrityReport)->not->toBeNull()
-        ->and($contentIntegrityReport['report_label'])->toBe('Content Integrity')
-        ->and($contentIntegrityReport['report_description'])->toBe(__('capell-admin::reports.content_integrity_description'))
-        ->and($contentIntegrityReport['enabled'])->toBeFalse();
+        ->and($publicRenderSafetyReport)->not->toBeNull()
+        ->and($publicRenderSafetyReport['report_label'])->toBe('Public Render Safety')
+        ->and($publicRenderSafetyReport['report_description'])->toBe(__('capell-admin::reports.public_render_safety_description'))
+        ->and($publicRenderSafetyReport['enabled'])->toBeFalse();
 });
 
 it('normalizes report visibility settings defensively', function (): void {
@@ -114,8 +99,8 @@ it('normalizes report visibility settings defensively', function (): void {
         [
             'role_name' => 'editor',
             'reports' => [
-                ['report_key' => 'core.content_integrity', 'enabled' => false],
-                ['report_key' => 'core.site_language_coverage'],
+                ['report_key' => 'core.public_render_safety', 'enabled' => false],
+                ['report_key' => 'core.package_readiness'],
                 ['report_key' => 'missing.report', 'enabled' => true],
                 ['report_key' => '', 'enabled' => true],
                 'not-a-report-row',
@@ -124,19 +109,19 @@ it('normalizes report visibility settings defensively', function (): void {
         [
             'role_name' => '',
             'reports' => [
-                ['report_key' => 'core.url_health', 'enabled' => true],
+                ['report_key' => 'core.publishing_readiness', 'enabled' => true],
             ],
         ],
         [
             'role_name' => 123,
             'reports' => [
-                ['report_key' => 'core.cache_freshness', 'enabled' => true],
+                ['report_key' => 'core.demo_install_health', 'enabled' => true],
             ],
         ],
         [
             'role_name' => 'super_admin',
             'reports' => [
-                ['report_key' => 'core.url_health', 'enabled' => true],
+                ['report_key' => 'core.publishing_readiness', 'enabled' => true],
             ],
         ],
         [
@@ -147,11 +132,11 @@ it('normalizes report visibility settings defensively', function (): void {
 
     expect($settings)->toBe([
         'editor' => [
-            'core.content_integrity' => false,
-            'core.site_language_coverage' => false,
+            'core.public_render_safety' => false,
+            'core.package_readiness' => false,
         ],
         'super_admin' => [
-            'core.url_health' => true,
+            'core.publishing_readiness' => true,
         ],
     ]);
 });
@@ -172,7 +157,7 @@ it('saves role scoped report visibility settings using stable report keys', func
         }
 
         foreach ($roleState['reports'] as $reportIndex => $reportState) {
-            if (($reportState['report_key'] ?? null) !== 'core.content_integrity') {
+            if (($reportState['report_key'] ?? null) !== 'core.public_render_safety') {
                 continue;
             }
 
@@ -194,31 +179,15 @@ it('saves role scoped report visibility settings using stable report keys', func
         'name' => 'enabled_reports_by_role',
         'payload' => json_encode([
             'editor' => [
-                'core.content_integrity' => false,
-                'core.site_language_coverage' => true,
-                'core.url_health' => true,
                 'core.accessibility_readiness' => true,
-                'core.layout_widget_usage' => true,
-                'core.blueprint_schema_drift' => true,
                 'core.publishing_readiness' => true,
-                'core.cache_freshness' => true,
-                'core.navigation_coverage' => true,
-                'core.permissions_access_surface' => true,
                 'core.demo_install_health' => true,
                 'core.package_readiness' => true,
-                'core.public_render_safety' => true,
+                'core.public_render_safety' => false,
             ],
             'super_admin' => [
-                'core.content_integrity' => true,
-                'core.site_language_coverage' => true,
-                'core.url_health' => true,
                 'core.accessibility_readiness' => true,
-                'core.layout_widget_usage' => true,
-                'core.blueprint_schema_drift' => true,
                 'core.publishing_readiness' => true,
-                'core.cache_freshness' => true,
-                'core.navigation_coverage' => true,
-                'core.permissions_access_surface' => true,
                 'core.demo_install_health' => true,
                 'core.package_readiness' => true,
                 'core.public_render_safety' => true,
@@ -229,25 +198,25 @@ it('saves role scoped report visibility settings using stable report keys', func
 
 it('shows reports in navigation by default for eligible users', function (): void {
     test()->actingAsRole('editor');
-    test()->authenticatedUser()->givePermissionTo('View:ContentIntegrityReport');
+    test()->authenticatedUser()->givePermissionTo('View:PublicRenderSafetyReport');
 
-    expect(ContentIntegrityReport::shouldRegisterNavigation())->toBeTrue();
+    expect(PublicRenderSafetyReport::shouldRegisterNavigation())->toBeTrue();
 });
 
 it('hides a disabled role report from navigation without blocking direct access', function (): void {
     $settings = AdminSettings::instance();
     $settings->enabled_reports_by_role = [
         'editor' => [
-            'core.content_integrity' => false,
+            'core.public_render_safety' => false,
         ],
     ];
     $settings->save();
 
     test()->actingAsRole('editor');
-    test()->authenticatedUser()->givePermissionTo('View:ContentIntegrityReport');
+    test()->authenticatedUser()->givePermissionTo('View:PublicRenderSafetyReport');
 
-    expect(ContentIntegrityReport::shouldRegisterNavigation())->toBeFalse()
-        ->and(ContentIntegrityReport::canAccess())->toBeTrue();
+    expect(PublicRenderSafetyReport::shouldRegisterNavigation())->toBeFalse()
+        ->and(PublicRenderSafetyReport::canAccess())->toBeTrue();
 });
 
 it('keeps shield page permissions isolated between registered report pages', function (): void {
@@ -257,12 +226,12 @@ it('keeps shield page permissions isolated between registered report pages', fun
     test()->authenticatedUser()->givePermissionTo('View:PublishingReadinessReport');
 
     expect(PublishingReadinessReport::canAccess())->toBeTrue()
-        ->and(ContentIntegrityReport::canAccess())->toBeFalse();
+        ->and(PublicRenderSafetyReport::canAccess())->toBeFalse();
 
     test()->actingAsRole('editor');
-    test()->authenticatedUser()->givePermissionTo('View:ContentIntegrityReport');
+    test()->authenticatedUser()->givePermissionTo('View:PublicRenderSafetyReport');
 
-    expect(ContentIntegrityReport::canAccess())->toBeTrue()
+    expect(PublicRenderSafetyReport::canAccess())->toBeTrue()
         ->and(PublishingReadinessReport::canAccess())->toBeFalse();
 });
 
@@ -275,22 +244,22 @@ it('keeps report page permissions isolated after mounting another report page', 
         ->assertSuccessful();
 
     test()->actingAsRole('editor');
-    test()->authenticatedUser()->givePermissionTo('View:ContentIntegrityReport');
+    test()->authenticatedUser()->givePermissionTo('View:PublicRenderSafetyReport');
 
-    expect(ContentIntegrityReport::canAccess())->toBeTrue();
+    expect(PublicRenderSafetyReport::canAccess())->toBeTrue();
 });
 
 it('omits disabled reports from built navigation groups only', function (): void {
     $settings = AdminSettings::instance();
     $settings->enabled_reports_by_role = [
         'editor' => [
-            'core.content_integrity' => false,
+            'core.public_render_safety' => false,
         ],
     ];
     $settings->save();
 
     test()->actingAsRole('editor');
-    test()->authenticatedUser()->givePermissionTo('View:ContentIntegrityReport');
+    test()->authenticatedUser()->givePermissionTo('View:PublicRenderSafetyReport');
 
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::bootCurrentPanel();
@@ -301,7 +270,7 @@ it('omits disabled reports from built navigation groups only', function (): void
 
     if ($reportsNavigationGroup instanceof NavigationGroup) {
         expect(collect($reportsNavigationGroup->getItems())->map->getLabel()->all())
-            ->not->toContain(ContentIntegrityReport::getNavigationLabel());
+            ->not->toContain(PublicRenderSafetyReport::getNavigationLabel());
     } else {
         expect($reportsNavigationGroup)->toBeNull();
     }
@@ -366,28 +335,12 @@ it('falls back safely when a report page has no registered definition', function
 });
 
 it('dispatches AsObject report actions from report pages', function (): void {
-    $snapshot = resolve(ContentIntegrityReport::class)->reportSnapshot();
+    $snapshot = resolve(PublicRenderSafetyReport::class)->reportSnapshot();
 
-    expect($snapshot->key)->toBe('core.content_integrity')
-        ->and($snapshot->isEmpty())->toBeTrue();
-});
-
-it('returns empty-state snapshots from core report actions', function (string $actionClass, string $reportKey): void {
-    $snapshot = $actionClass::run();
-
-    expect($snapshot->key)->toBe($reportKey)
-        ->and($snapshot->isEmpty())->toBeTrue()
+    expect($snapshot->key)->toBe('core.public_render_safety')
+        ->and($snapshot->metrics)->not->toBeEmpty()
         ->and($snapshot->emptyState)->not->toBe('');
-})->with([
-    'content integrity' => [BuildContentIntegrityReportAction::class, 'core.content_integrity'],
-    'site language coverage' => [BuildSiteLanguageCoverageReportAction::class, 'core.site_language_coverage'],
-    'url health' => [BuildUrlHealthReportAction::class, 'core.url_health'],
-    'layout widget usage' => [BuildLayoutWidgetUsageReportAction::class, 'core.layout_widget_usage'],
-    'blueprint schema drift' => [BuildBlueprintSchemaDriftReportAction::class, 'core.blueprint_schema_drift'],
-    'cache freshness' => [BuildCacheFreshnessReportAction::class, 'core.cache_freshness'],
-    'navigation coverage' => [BuildNavigationCoverageReportAction::class, 'core.navigation_coverage'],
-    'permissions access surface' => [BuildPermissionsAccessSurfaceReportAction::class, 'core.permissions_access_surface'],
-]);
+});
 
 it('builds public render safety report metrics from recorded contract events', function (): void {
     PublicRenderContractEvent::query()->create([
