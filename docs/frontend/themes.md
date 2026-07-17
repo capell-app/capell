@@ -1,6 +1,6 @@
 # Frontend Themes
 
-Capell themes connect installed admin theme records to public rendering. The admin owns selection and customization; the frontend receives a resolved runtime with a theme definition, preset, brand tokens, section renderers, and safe assets.
+Capell themes connect installed admin theme records to public rendering. The admin owns selection and customization; the frontend receives a resolved runtime with a theme definition, preset, brand tokens, and safe assets.
 
 Layouts are the editorial bridge between page records and public templates. Theme records then decide the presentation runtime used when those layouts render.
 
@@ -15,8 +15,8 @@ The optional [Layout Builder package](https://docs.capell.app/packages/layout-bu
 3. The installed `themes.key` points at the registered definition key.
 4. Sites either use the global default theme or an explicit `sites.theme_id`.
 5. Frontend context resolves the current site, page, layout, and theme before Blade renders.
-6. The frontend theme runtime hook resolves the active preset through `ResolveThemeRuntimeAction`.
-7. The renderer prints public HTML using prepared `ThemePageData`.
+6. The `RenderHookLocation::HeadClose` hook resolves the active preset through `ResolveThemeRuntimeAction` and adds the theme-token stylesheet when available.
+7. The frontend response pipeline builds hydrated public render data and produces public HTML through the configured response renderer.
 
 The public page does not need to know that Theme Library, Customize, or Preview exist.
 
@@ -52,7 +52,7 @@ Presets should use this vocabulary for shared brand values:
 | `overlayTreatment`                                                                                                | media overlay treatment: `none`, `subtle`, or `strong`             |
 | `spacing`, `alignment`, `cardStyle`, `navigationStyle`, `layoutPresentation`, `motionIntensity`, `mediaTreatment` | renderer-facing presentation choices                               |
 
-Theme packages may include package-specific keys. Renderers must tolerate unknown keys and continue with safe defaults.
+Theme packages may include package-specific keys. Public theme code must tolerate unknown keys and continue with safe defaults.
 
 ## Assets
 
@@ -78,7 +78,7 @@ Do not bulk-update `sites.theme_id` from new code paths unless you also reproduc
 
 ## Public Output Contract
 
-Theme renderers must not print admin/editor details into public output. Avoid:
+Theme views and frontend contributions must not print admin/editor details into public output. Avoid:
 
 - package names that only an admin should see
 - model IDs, field paths, selectors, permissions, or signed editor URLs

@@ -12,10 +12,10 @@ A theme package should include:
 - `capell.json`
 - a service provider
 - a `ThemeDefinitionData` registration
-- section renderers for the sections the package owns
+- a page wrapper and views owned by the package
 - public CSS/JS assets registered from PHP
 - preset definitions with preview metadata
-- package tests for manifest, renderer registration, presets, preview image, and public-output safety
+- package tests for manifest, definition registration, presets, preview image, and public-output safety
 
 Themes that extend Foundation should declare the parent through package metadata and keep only the changed sections/assets in the child package.
 
@@ -68,9 +68,22 @@ public function packageBooted(): void
 ```
 
 Local themes use the same registration call without the installed-package guard,
-so a fresh install can discover and render the path package in the same process.
-The definition controls the theme's metadata, presets, assets, runtime, and
-parent relationship:
+so a fresh install can discover the path package in the same process. The
+definition controls the theme's metadata, presets, assets, and runtime:
+
+```json
+{
+    "kind": "theme",
+    "extends": "default",
+    "themeKey": "agency-launch",
+    "runtime": "blade"
+}
+```
+
+Theme inheritance is resolved from the package manifest's `extends` value, not
+from `ThemeDefinitionData`. The parent must be an installed theme package; Capell
+uses its manifest `themeKey` to find the parent definition. Keep the definition
+free of an `extends` value so the package metadata remains authoritative:
 
 ```php
 use Capell\Core\Enums\FrontendRuntime;
@@ -107,7 +120,6 @@ public function packageBooted(): void
                 'frontend' => '/vendor/capell/theme-agency-launch/theme.css',
             ],
             runtime: FrontendRuntime::Livewire,
-            extends: 'default',
         ),
     );
 }
@@ -125,7 +137,7 @@ Presets are explicit choices, not hidden defaults. Each preset needs:
 - preview image path
 - token values using the shared vocabulary in [Frontend themes](../frontend/themes.md#brand-tokens)
 
-Package-specific values are allowed, but the renderer must handle missing or unknown values safely.
+Package-specific values are allowed, but public theme code must handle missing or unknown values safely.
 
 ## Theme Editor Extension
 
@@ -208,11 +220,18 @@ Register it from the package service provider:
 $this->app->tag(AgencyLaunchThemeEditorExtension::class, ThemeEditorExtension::TAG);
 ```
 
-## Renderer Rules
+## Public Theme Views
 
-Theme renderers receive prepared `ThemePageData`. They should render from that data and registered section renderers.
+The service provider makes the package page wrapper and views available. The
+frontend runtime resolves the installed theme through `ThemeRegistry`, builds
+hydrated public render data, and sends it through the configured frontend response
+pipeline. Public Blade views receive that data; they do not query models or
+resolve theme state themselves.
 
-Do not query models from public Blade views. Load public render data before the view receives it, or add an explicit view component/action that prepares the data.
+`FrontendServiceProvider` registers a `RenderHookLocation::HeadClose` hook. When
+the active theme definition and token stylesheet are available, the hook resolves
+the active preset through `ResolveThemeRuntimeAction` and emits the sanitized
+theme-token stylesheet. Package views should not recreate that token output.
 
 Do not print authoring metadata. Public HTML must be safe for anonymous visitors, signed-in users, admins, crawlers, cache files, and static exports.
 
@@ -245,11 +264,12 @@ Package tests should cover:
 - `capell.json` and Composer metadata are valid
 - `ExtensionTestHarness::assertThemeManifest()` passes for the expected theme key
 - `ExtensionTestHarness::assertThemeUsesSafeAssetUrls()` passes
-- provider registers the theme definition and renderer
+- provider registers the expected `ThemeDefinitionData` with `ThemeRegistry`
 - all advertised presets resolve
 - preview images are present in the package/public asset path
-- section renderers cover the declared sections or inherit safely from Foundation
 - public rendered output contains expected frontend HTML
 - public rendered output does not expose authoring metadata
 
-Use a route-backed frontend test for at least one seeded page. A renderer-only unit test is useful, but it will not catch package boot, asset, cache, or public safety regressions.
+Use a route-backed frontend test for at least one seeded page. It proves package
+boot, view registration, asset planning, cache behavior, and public safety
+together.
