@@ -18,7 +18,7 @@ it('service providers are loaded', function (): void {
         ->toHaveKey(MarketplaceServiceProvider::class);
 });
 
-test('root package does not replace split Capell packages', function (): void {
+test('root package replaces split Capell packages as the version-aligned aggregate', function (): void {
     $composer = json_decode(
         (string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'),
         true,
@@ -26,11 +26,11 @@ test('root package does not replace split Capell packages', function (): void {
     );
 
     expect(data_get($composer, 'replace', []))
-        ->not->toHaveKey('capell-app/core')
-        ->not->toHaveKey('capell-app/admin')
-        ->not->toHaveKey('capell-app/frontend')
-        ->not->toHaveKey('capell-app/installer')
-        ->not->toHaveKey('capell-app/marketplace')
+        ->toHaveKey('capell-app/core')
+        ->toHaveKey('capell-app/admin')
+        ->toHaveKey('capell-app/frontend')
+        ->toHaveKey('capell-app/installer')
+        ->toHaveKey('capell-app/marketplace')
         ->and(data_get($composer, 'extra.laravel.providers'))->toEqualCanonicalizing([
             CapellServiceProvider::class,
             AdminServiceProvider::class,

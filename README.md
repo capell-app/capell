@@ -58,6 +58,8 @@ php artisan capell:install --demo
 
 The guided command asks for the site URL and first administrator. A successful run ends with `All checks passed` followed by `Installation complete`. If a required step fails, the command exits non-zero and does not print the success message.
 
+The canonical installation entry point for an existing Laravel application is `capell-app/installer`. The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line; it does not replace the guided Installer workflow.
+
 Then run the application using your normal Laravel development workflow and open:
 
 - `/admin` to sign in with the administrator created during installation;

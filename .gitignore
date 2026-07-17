@@ -97,4 +97,5 @@ _ide_helper_models.php
 /docs/*runbook*.md
 /docs/*playbook*.md
 /docs/*harness*.md
+/docs/superpowers
 .worktrees/
