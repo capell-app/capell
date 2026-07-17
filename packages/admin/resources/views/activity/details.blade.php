@@ -273,7 +273,8 @@
                                         <pre
                                             class="max-h-64 overflow-auto rounded-md bg-white p-3 text-xs break-words whitespace-pre-wrap text-gray-700 dark:bg-gray-950 dark:text-gray-300"
                                         >
-{{ $fieldDiff->beforeDetail }}</pre>
+{{ $fieldDiff->beforeDetail }}</pre
+                                        >
                                     </div>
 
                                     <div class="space-y-2">
@@ -285,7 +286,8 @@
                                         <pre
                                             class="max-h-64 overflow-auto rounded-md bg-white p-3 text-xs break-words whitespace-pre-wrap text-gray-700 dark:bg-gray-950 dark:text-gray-300"
                                         >
-{{ $fieldDiff->afterDetail }}</pre>
+{{ $fieldDiff->afterDetail }}</pre
+                                        >
                                     </div>
                                 </div>
                             </details>

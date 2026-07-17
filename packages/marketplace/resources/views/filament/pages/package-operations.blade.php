@@ -188,7 +188,8 @@
                                     <pre
                                         class="mt-3 max-h-48 overflow-auto rounded-md bg-gray-950 p-3 text-xs text-gray-100"
                                     >
-{{ $event->output_excerpt }}</pre>
+{{ $event->output_excerpt }}</pre
+                                    >
                                 @endif
                             </li>
                         @empty
@@ -214,7 +215,8 @@
                             readonly
                             class="mt-2 h-72 w-full rounded-md border-gray-300 font-mono text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                         >
-{{ $diagnosticBundle }}</textarea>
+{{ $diagnosticBundle }}</textarea
+                        >
                     </div>
                 @endif
             @else

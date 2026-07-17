@@ -480,7 +480,8 @@
                 <pre
                     class="mt-3 max-h-96 overflow-auto rounded-lg bg-gray-950 p-4 text-sm text-gray-100"
                 >
-{{ $this->lastOutput }}</pre>
+{{ $this->lastOutput }}</pre
+                >
             </details>
         @endif
     </div>
