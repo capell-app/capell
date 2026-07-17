@@ -69,16 +69,17 @@ it('exposes numeric tuning defaults', function (): void {
 });
 
 it('publishes admin settings migrations', function (): void {
-    expect(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_05_10_190834_01_add_admin_settings.php'))
-        ->not->toContain('admin.widget_spans')
-        ->toContain('admin.form_action_position')
-        ->toContain('admin.ai_orchestrator_spend_window_days')
-        ->and(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_05_28_000001_01_add_header_navigation_tree_admin_setting.php'))
-        ->toContain('admin.enable_header_navigation_tree')
-        ->and(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_06_01_000001_01_add_configurator_path_hint_admin_setting.php'))
-        ->toContain('admin.show_configurator_path_hints')
-        ->and(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_06_05_000001_01_add_report_visibility_admin_setting.php'))
-        ->toContain('admin.enabled_reports_by_role')
+    $settings = AdminSettings::instance();
+
+    expect($settings)
+        ->toHaveProperties([
+            'form_action_position',
+            'ai_orchestrator_spend_window_days',
+            'enable_header_navigation_tree',
+            'show_configurator_path_hints',
+            'enabled_reports_by_role',
+        ])
+        ->not->toHaveProperty('widget_spans')
         ->and(CapellAdmin::getSettingMigrations())
         ->toBe([
             '2026_05_10_190834_01_add_admin_settings',

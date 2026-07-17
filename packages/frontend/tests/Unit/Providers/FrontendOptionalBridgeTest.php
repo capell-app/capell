@@ -3,15 +3,17 @@
 declare(strict_types=1);
 
 use Capell\Frontend\Providers\FrontendServiceProvider;
+use Capell\Frontend\Tests\Fixtures\Autoload\FrontendBridgeForProviderTest;
 
 it('boots extracted frontend package bridges as optional integrations', function (): void {
-    $reflection = new ReflectionClass(FrontendServiceProvider::class);
-    $source = file_get_contents((string) $reflection->getFileName());
+    FrontendBridgeForProviderTest::$application = null;
 
-    expect($source)
-        ->toContain('Capell\\\\HtmlCache\\\\Support\\\\Bridges\\\\HtmlCacheFrontendBridge')
-        ->and($source)
-        ->toContain("method_exists(\$bridgeClass, 'register')")
-        ->and($source)
-        ->toContain("call_user_func([\$bridgeClass, 'register'], \$this->app);");
+    $method = new ReflectionMethod(FrontendServiceProvider::class, 'bootOptionalFrontendBridge');
+    $provider = new FrontendServiceProvider(app());
+    $method->invoke($provider, FrontendBridgeForProviderTest::class);
+    $method->invoke($provider, 'Capell\\Missing\\UnknownFrontendBridge');
+
+    expect(FrontendServiceProvider::OPTIONAL_FRONTEND_BRIDGES)->toBe([
+        'Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheFrontendBridge',
+    ])->and(FrontendBridgeForProviderTest::$application)->toBe(app());
 });

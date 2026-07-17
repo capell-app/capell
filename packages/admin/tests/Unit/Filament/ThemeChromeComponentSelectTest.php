@@ -2,16 +2,40 @@
 
 declare(strict_types=1);
 
-it('uses registered theme chrome selects instead of free-text component inputs', function (): void {
-    $headerFieldset = file_get_contents(dirname(__DIR__, 3) . '/src/Filament/Components/Forms/Theme/HeaderFieldset.php');
-    $footerFieldset = file_get_contents(dirname(__DIR__, 3) . '/src/Filament/Components/Forms/Theme/FooterFieldset.php');
+use Capell\Admin\Filament\Components\Forms\Theme\FooterFieldset;
+use Capell\Admin\Filament\Components\Forms\Theme\HeaderFieldset;
+use Capell\Admin\Tests\Fixtures\Livewire;
+use Capell\Core\Support\Themes\ThemeChromeRegistry;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Schema;
 
-    expect($headerFieldset)->toContain("Select::make('header_file')")
-        ->and($headerFieldset)->toContain('ThemeChromeRegistry::class')
-        ->and($headerFieldset)->toContain('Rule::in(array_keys(resolve(ThemeChromeRegistry::class)->headerOptions()))')
-        ->and($headerFieldset)->not->toContain("TextInput::make('header_file')")
-        ->and($footerFieldset)->toContain("Select::make('footer_file')")
-        ->and($footerFieldset)->toContain('ThemeChromeRegistry::class')
-        ->and($footerFieldset)->toContain('Rule::in(array_keys(resolve(ThemeChromeRegistry::class)->footerOptions()))')
-        ->and($footerFieldset)->not->toContain("TextInput::make('footer_file')");
+it('uses registered theme chrome selects instead of free-text component inputs', function (): void {
+    $registry = resolve(ThemeChromeRegistry::class);
+    $registry->registerHeader('vendor-theme::header', 'Vendor header');
+    $registry->registerFooter('vendor-theme::footer', 'Vendor footer');
+
+    $schema = Schema::make(Livewire::make())->components([
+        HeaderFieldset::make('header_options'),
+        FooterFieldset::make('footer_options'),
+    ]);
+
+    $flatten = function (array $components) use (&$flatten): array {
+        return collect($components)->flatMap(function (Component $component) use (&$flatten): array {
+            $children = array_filter(
+                $component->getChildSchema()?->getComponents() ?? [],
+                fn (mixed $child): bool => $child instanceof Component,
+            );
+
+            return [$component, ...$flatten(array_values($children))];
+        })->all();
+    };
+    $components = collect($flatten($schema->getComponents()));
+    $headerFile = $components->first(fn (Component $component): bool => method_exists($component, 'getName') && $component->getName() === 'header_file');
+    $footerFile = $components->first(fn (Component $component): bool => method_exists($component, 'getName') && $component->getName() === 'footer_file');
+
+    expect($headerFile)->toBeInstanceOf(Select::class)
+        ->and($headerFile->getOptions())->toBe($registry->headerOptions())
+        ->and($footerFile)->toBeInstanceOf(Select::class)
+        ->and($footerFile->getOptions())->toBe($registry->footerOptions());
 });

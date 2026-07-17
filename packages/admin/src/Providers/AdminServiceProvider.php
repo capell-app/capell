@@ -204,6 +204,11 @@ use STS\FilamentImpersonate\Events\LeaveImpersonation;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
+    /** @var list<class-string<AdminBridge>> */
+    public const array OPTIONAL_ADMIN_BRIDGES = [
+        'Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheAdminBridge',
+    ];
+
     public static string $name = 'capell-admin';
 
     public static string $packageName = 'capell-app/admin';
@@ -484,7 +489,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerOptionalAdminBridges(): self
     {
-        $this->registerOptionalAdminBridge('Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheAdminBridge');
+        foreach (self::OPTIONAL_ADMIN_BRIDGES as $bridgeClass) {
+            $this->registerOptionalAdminBridge($bridgeClass);
+        }
 
         return $this;
     }

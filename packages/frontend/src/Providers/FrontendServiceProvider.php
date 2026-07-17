@@ -199,6 +199,11 @@ use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
 {
+    /** @var list<class-string> */
+    public const array OPTIONAL_FRONTEND_BRIDGES = [
+        'Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheFrontendBridge',
+    ];
+
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
@@ -481,7 +486,9 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function bootOptionalFrontendBridges(): self
     {
-        $this->bootOptionalFrontendBridge('Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheFrontendBridge');
+        foreach (self::OPTIONAL_FRONTEND_BRIDGES as $bridgeClass) {
+            $this->bootOptionalFrontendBridge($bridgeClass);
+        }
 
         return $this;
     }

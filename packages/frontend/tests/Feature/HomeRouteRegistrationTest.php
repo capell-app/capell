@@ -2,14 +2,33 @@
 
 declare(strict_types=1);
 
-it('requires the packaged frontend home route to be explicitly enabled', function (): void {
-    $config = file_get_contents(__DIR__ . '/../../config/capell-frontend.php');
+use Capell\Frontend\Http\Controllers\PageController;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Route;
 
-    expect($config)->toContain("'register_home_route' => env('CAPELL_FRONTEND_REGISTER_HOME_ROUTE', false),");
+it('keeps the packaged frontend home route disabled by default', function (): void {
+    expect(config('capell-frontend.register_home_route'))->toBeFalse()
+        ->and(Route::has('home'))->toBeFalse()
+        ->and(Route::has('capell-frontend.home'))->toBeFalse();
+});
 
-    $routes = file_get_contents(__DIR__ . '/../../routes/web.php');
+it('registers the packaged frontend home route when enabled before routes boot', function (): void {
+    $originalRouter = Route::getFacadeRoot();
+    $router = new Router(app('events'), app());
+    config(['capell-frontend.register_home_route' => true]);
+    Route::swap($router);
 
-    expect($routes)
-        ->toContain("config('capell-frontend.register_home_route', false)")
-        ->toContain("Route::get('/', PageController::class)->name('home');");
+    try {
+        require __DIR__ . '/../../routes/web.php';
+
+        $router->getRoutes()->refreshNameLookups();
+        $route = $router->getRoutes()->getByName('capell-frontend.home');
+
+        expect($route)->not->toBeNull()
+            ->and($route?->uri())->toBe('/')
+            ->and($route?->getActionName())->toBe(PageController::class);
+    } finally {
+        config(['capell-frontend.register_home_route' => false]);
+        Route::swap($originalRouter);
+    }
 });
