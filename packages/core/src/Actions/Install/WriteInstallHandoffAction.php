@@ -20,13 +20,9 @@ final class WriteInstallHandoffAction
         $path = trim($path);
         $parent = dirname($path);
 
-        if ($path === '' || ! is_dir($parent) || ! is_writable($parent)) {
-            throw new RuntimeException('Install handoff parent directory must already exist and be writable.');
-        }
+        throw_if($path === '' || ! is_dir($parent) || ! is_writable($parent), RuntimeException::class, 'Install handoff parent directory must already exist and be writable.');
 
-        if (is_dir($path)) {
-            throw new RuntimeException('Install handoff path must identify a JSON file, not a directory.');
-        }
+        throw_if(is_dir($path), RuntimeException::class, 'Install handoff path must identify a JSON file, not a directory.');
 
         $json = json_encode(
             $handoff->toArray(),
@@ -35,13 +31,9 @@ final class WriteInstallHandoffAction
         $temporaryPath = $path . '.tmp-' . bin2hex(random_bytes(6));
 
         try {
-            if (file_put_contents($temporaryPath, $json, LOCK_EX) === false) {
-                throw new RuntimeException('Unable to write the temporary install handoff.');
-            }
+            throw_if(file_put_contents($temporaryPath, $json, LOCK_EX) === false, RuntimeException::class, 'Unable to write the temporary install handoff.');
 
-            if (! rename($temporaryPath, $path)) {
-                throw new RuntimeException('Unable to replace the install handoff atomically.');
-            }
+            throw_unless(rename($temporaryPath, $path), RuntimeException::class, 'Unable to replace the install handoff atomically.');
 
             chmod($path, 0600);
         } catch (Throwable $throwable) {
