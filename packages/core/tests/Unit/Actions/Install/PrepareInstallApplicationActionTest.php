@@ -69,7 +69,6 @@ it('reports skipped confirmation without applying the patch', function (): void 
         },
         new InstallPatchConfirmation(
             label: 'Apply the test patch?',
-            hint: null,
             skippedMessage: '→ Test patch skipped.',
         ),
     );
@@ -140,12 +139,12 @@ function prepareInstallApplicationTestInput(): InstallInputData
 
 function prepareInstallApplicationTestPatch(string $label, PatchStatus $status, Closure $apply): Patch
 {
-    return new class($label, $status, $apply) implements Patch
+    return new readonly class($label, $status, $apply) implements Patch
     {
         public function __construct(
-            private readonly string $label,
-            private readonly PatchStatus $status,
-            private readonly Closure $apply,
+            private string $label,
+            private PatchStatus $status,
+            private Closure $apply,
         ) {}
 
         public function id(): string

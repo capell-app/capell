@@ -427,9 +427,7 @@ function installUserPrompterForOptions(array $options, bool $interactive = false
 
 function requiredInstallNewUser(?NewUserData $newUser): NewUserData
 {
-    if ($newUser === null) {
-        throw new RuntimeException('Expected installer user data.');
-    }
+    throw_if(! $newUser instanceof NewUserData, RuntimeException::class, 'Expected installer user data.');
 
     return $newUser;
 }

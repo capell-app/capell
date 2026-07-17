@@ -280,7 +280,11 @@ final class TailwindSourceRegistrar
         $packages = [];
 
         foreach ($repositories as $repository) {
-            if (! is_array($repository) || ($repository['type'] ?? null) !== 'path') {
+            if (! is_array($repository)) {
+                continue;
+            }
+
+            if (($repository['type'] ?? null) !== 'path') {
                 continue;
             }
 
@@ -292,8 +296,11 @@ final class TailwindSourceRegistrar
             foreach ($directories !== false ? $directories : [] as $directory) {
                 $packageComposerJson = $this->readComposerJson(rtrim($directory, DIRECTORY_SEPARATOR) . '/composer.json');
                 $packageName = (string) ($packageComposerJson['name'] ?? '');
+                if (! str_starts_with($packageName, 'capell-app/')) {
+                    continue;
+                }
 
-                if (! str_starts_with($packageName, 'capell-app/') || ! in_array($packageName, $requiredPackageNames, true)) {
+                if (! in_array($packageName, $requiredPackageNames, true)) {
                     continue;
                 }
 
@@ -379,7 +386,11 @@ final class TailwindSourceRegistrar
         $segments = [];
 
         foreach (explode('/', str_replace('\\', '/', $path)) as $segment) {
-            if ($segment === '' || $segment === '.') {
+            if ($segment === '') {
+                continue;
+            }
+
+            if ($segment === '.') {
                 continue;
             }
 

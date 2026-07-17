@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Frontend\Http\Controllers\PageController;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
@@ -14,7 +15,7 @@ it('keeps the packaged frontend home route disabled by default', function (): vo
 
 it('registers the packaged frontend home route when enabled before routes boot', function (): void {
     $originalRouter = Route::getFacadeRoot();
-    $router = new Router(app('events'), app());
+    $router = new Router(resolve(Dispatcher::class), app());
     config(['capell-frontend.register_home_route' => true]);
     Route::swap($router);
 

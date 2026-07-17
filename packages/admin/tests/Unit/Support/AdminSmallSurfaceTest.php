@@ -65,7 +65,7 @@ it('forces livewire asset injection while serving admin pages', function (): voi
     SupportAutoInjectedAssets::$forceAssetInjection = false;
     Event::fake([ServingAdmin::class]);
 
-    ServingFilament::dispatch();
+    event(new ServingFilament);
 
     expect(SupportAutoInjectedAssets::$forceAssetInjection)->toBeTrue();
     Event::assertDispatched(ServingAdmin::class);

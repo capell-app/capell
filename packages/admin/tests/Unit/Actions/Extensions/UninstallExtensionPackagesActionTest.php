@@ -35,7 +35,7 @@ it('returns the failed package and message after preserving completed uninstalls
     $calls = new stdClass;
     $calls->packages = [];
 
-    app()->bind(UninstallPackageAction::class, fn (): object => new class($calls)
+    app()->bind(UninstallPackageAction::class, fn (): object => new readonly class($calls)
     {
         public function __construct(private stdClass $calls) {}
 
@@ -43,9 +43,7 @@ it('returns the failed package and message after preserving completed uninstalls
         {
             $this->calls->packages[] = [$package->name, $delete, $deleteData];
 
-            if ($package->name === 'vendor/failing-extension') {
-                throw new RuntimeException('Unable to uninstall failing extension.');
-            }
+            throw_if($package->name === 'vendor/failing-extension', RuntimeException::class, 'Unable to uninstall failing extension.');
         }
     });
 

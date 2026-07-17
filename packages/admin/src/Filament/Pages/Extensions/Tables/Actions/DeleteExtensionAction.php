@@ -69,7 +69,7 @@ final class DeleteExtensionAction
                 } catch (Throwable $throwable) {
                     self::sendUninstallFailedNotification(
                         ExtensionPackageUninstallResultData::failed(
-                            packageName: (string) $package->name,
+                            packageName: $package->name,
                             failureMessage: $throwable->getMessage(),
                             uninstalledPackageNames: [],
                         ),

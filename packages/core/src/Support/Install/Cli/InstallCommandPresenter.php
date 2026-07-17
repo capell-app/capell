@@ -53,6 +53,7 @@ final class InstallCommandPresenter
         $output->newLine();
         $output->writeln('<fg=blue;options=bold>Capell Install Handoff</>');
         $output->newLine();
+
         $components->twoColumnDetail(
             'Selected packages',
             $handoff->selectedPackages === [] ? 'None' : implode(', ', $handoff->selectedPackages),
@@ -64,6 +65,7 @@ final class InstallCommandPresenter
         $components->twoColumnDetail('Public URL', $handoff->urls['public']);
         $components->twoColumnDetail('First page', $handoff->firstPage['status']);
         $components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
+
         $output->writeln('Next: ' . $handoff->nextAction['label'] . ' — ' . $handoff->nextAction['url']);
         $output->writeln($handoff->publicImpact['summary']);
         $output->writeln('No Capell account connection or telemetry identity submission is required for this handoff.');

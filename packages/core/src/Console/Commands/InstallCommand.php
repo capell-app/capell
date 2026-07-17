@@ -186,7 +186,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $siteUrl = $this->resolveSiteUrl();
         $packages = $this->resolveSelectedPackages($demo, $freshInstall);
-        if ($packages === null) {
+        if (! $packages instanceof Collection) {
             return CommandAlias::FAILURE;
         }
 

@@ -21,13 +21,7 @@ final class FreshInstallDefaults
      */
     public static function hasExplicitDemoInput(array $optionValues): bool
     {
-        foreach (self::ExplicitDemoInputOptions as $optionName) {
-            if (! in_array($optionValues[$optionName] ?? null, [null, false, ''], true)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::ExplicitDemoInputOptions, fn (string $optionName): bool => ! in_array($optionValues[$optionName] ?? null, [null, false, ''], true));
     }
 
     /** @return list<string> */

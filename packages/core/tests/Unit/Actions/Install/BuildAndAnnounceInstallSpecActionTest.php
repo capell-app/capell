@@ -9,9 +9,7 @@ use Illuminate\Support\Facades\Event;
 it('builds the resolved spec and announces the completed install', function (): void {
     $temporaryPath = tempnam(sys_get_temp_dir(), 'capell-core-install-spec-');
 
-    if ($temporaryPath === false) {
-        throw new RuntimeException('Could not create a temporary install spec.');
-    }
+    throw_if($temporaryPath === false, RuntimeException::class, 'Could not create a temporary install spec.');
 
     $specPath = $temporaryPath . '.json';
     unlink($temporaryPath);
