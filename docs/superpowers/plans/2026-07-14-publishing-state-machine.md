@@ -214,6 +214,47 @@
   git commit -m "fix(admin): align publication state consumers"
   ```
 
+### Task 7: Route remaining bulk actions through the state machine
+
+> **Added 2026-07-17** to close the residual found in the over-complexity audit (finding #4). Tasks 1–6 landed the Core boundary, single-record adapters, and bulk *publish* preview. Three bulk actions — cancel-schedule, revert-to-draft, schedule — were never in the original file list and still assign `visible_from`/`visible_until` directly. Cancel-schedule has no existing transition, so this task also adds one to Core. Decision recorded in `docs/superpowers/specs/2026-07-17-cleanup-audit-roadmap-design.md`.
+
+**Files:**
+- Modify: `packages/core/src/Enums/Publishing/PublicationTransition.php`
+- Modify: `packages/core/src/Actions/Publishing/EvaluatePublicationTransitionAction.php`
+- Modify: `packages/core/tests/Feature/Publishing/TransitionPublicationActionTest.php`
+- Modify: `packages/admin/src/Actions/Pages/BulkRevertPagesToDraftAction.php`
+- Modify: `packages/admin/src/Actions/Pages/BulkCancelScheduleAction.php`
+- Modify: `packages/admin/src/Filament/Resources/Pages/Actions/BulkSchedulePagesBulkAction.php`
+- Modify: `packages/admin/tests/Feature/Actions/Pages/*` (existing bulk-action tests)
+- Delete (conditional): `packages/admin/src/Support/Pages/PagePublishSentinel.php` — only if no remaining callers after conversion.
+
+- [ ] **Step 1: Add the `CancelSchedule` Core transition, test-first.** In `TransitionPublicationActionTest`, add a matrix with frozen time for: future scheduled-publish → draft, future scheduled-unpublish cleared, both-future cleared in one write, already-draft/no-future-dates → `AlreadyCorrect` (no-op), past/effective windows untouched, unauthorized actor, and expired/deleted rejection. Assert no fixture yields more than one changed write.
+
+- [ ] **Step 2: Implement the transition.** Add `case CancelSchedule = 'cancel-schedule';` to the enum; leave `requiresRequestedTime()` false for it (no requested time). In `EvaluatePublicationTransitionAction::handle()` add the match arm `PublicationTransition::CancelSchedule => $this->cancelSchedule($request, $beforeFrom, $beforeUntil)` and a private helper:
+
+  - `visible_from`: if it is strictly future **and** not already the draft sentinel (`PublishSentinel::isDraftValue`), set to `PublishSentinel::draftValue($request->now)`; otherwise leave unchanged.
+  - `visible_until`: if strictly future, set `null`; otherwise leave unchanged.
+  - Return `[$visibleFrom, $visibleUntil, null]` (never an invalid reason — cancelling nothing is a valid no-op, resolved to `AlreadyCorrect` by the existing `same()` check).
+
+- [ ] **Step 3: Convert the two `AsObject` bulk actions into adapters.** `BulkRevertPagesToDraftAction` and `BulkCancelScheduleAction` delegate to `RunBulkPublicationTransitionAction::run($records, $actor, PublicationTransition::RevertToDraft|CancelSchedule, $now)` and map the returned `BulkPublicationPreviewData` counts/outcomes onto their **existing return array shape** so Filament callers and notification text stay stable (mirror the Task 4 single-record adapter pattern). Delete the inline `Gate` checks, `PagePublishSentinel` reads, and direct `visible_*` assignments. Skips (trashed/unauthorized/already-correct) come from typed outcomes, not re-derived here.
+
+- [ ] **Step 4: Convert `BulkSchedulePagesBulkAction`.** Replace the inline `DB::transaction` date-writing loop with `RunBulkPublicationTransitionAction::run($records, $actor, PublicationTransition::SchedulePublish, $now, requestedTime: $publishAt)`. Build the notification (scheduled/skipped counts + per-page skip reasons) from the returned outcome counts. Keep the `publish_at` form field and `minDate(now())`.
+
+- [ ] **Step 5: Prove no direct date writes remain and no orphaned sentinel.**
+
+  Run: `rg -n "visible_(from|until)\s*=" packages/admin/src/Actions/Pages/BulkRevertPagesToDraftAction.php packages/admin/src/Actions/Pages/BulkCancelScheduleAction.php packages/admin/src/Filament/Resources/Pages/Actions/BulkSchedulePagesBulkAction.php`
+
+  Expected: no assignments. Then `rg -n "PagePublishSentinel" packages/` — if zero non-definition hits remain, delete the alias class and its test.
+
+- [ ] **Step 6: Run and commit**
+
+  Run: `vendor/bin/pest packages/core/tests/Feature/Publishing/TransitionPublicationActionTest.php packages/admin/tests/Feature/Actions/Pages`
+
+  ```bash
+  git add packages/core/src/Enums/Publishing packages/core/src/Actions/Publishing packages/core/tests packages/admin/src/Actions/Pages packages/admin/src/Filament/Resources/Pages/Actions packages/admin/tests
+  git commit -m "refactor(admin): route bulk schedule actions through core state machine"
+  ```
+
 ## Exit gate
 
 - Publish Now makes scheduled and expired records genuinely published.
@@ -222,3 +263,4 @@
 - UI, dashboard, readiness, workflow, and table filters agree at a shared timestamp.
 - Bulk previews and notifications report actual typed outcomes.
 - No Admin publication Action writes date columns independently.
+- Every bulk action (publish, revert, schedule, cancel-schedule) delegates to the Core state machine; `CancelSchedule` is a first-class Core transition.
