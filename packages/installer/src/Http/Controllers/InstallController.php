@@ -6,32 +6,29 @@ namespace Capell\Installer\Http\Controllers;
 
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
-use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
-use Capell\Core\Facades\CapellCore;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallPlan;
-use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
+use Capell\Installer\Http\Requests\RunInstallStepRequest;
+use Capell\Installer\Http\Requests\StoreInstallRequest;
+use Capell\Installer\Http\Responses\InstallStepResponse;
+use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerInstallationState;
 use Capell\Installer\Support\InstallerOptions;
+use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
-use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -42,6 +39,9 @@ final class InstallController
     public function __construct(
         private readonly InstallerSessionRepository $sessions,
         private readonly InstallerOptions $options,
+        private readonly InstallStepResponse $stepResponse,
+        private readonly InstallerRemediation $remediation,
+        private readonly AdminUserModelGuard $adminUserModelGuard,
     ) {}
 
     public function show(Request $request): Response
@@ -72,23 +72,12 @@ final class InstallController
             ->withHeaders($this->installerSessionHeaders());
     }
 
-    public function store(Request $request): Response
+    public function store(StoreInstallRequest $request): Response
     {
-        try {
-            $validated = $this->validateInput($request);
-        } catch (ValidationException $validationException) {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'message' => $validationException->getMessage(),
-                    'errors' => $validationException->errors(),
-                ], 422);
-            }
-
-            throw $validationException;
-        }
+        $validated = $request->validated();
 
         $inputData = resolve(InstallInputFactory::class)->fromWebInput(
-            $this->normaliseLanguageInput($validated),
+            $request->normalisedInput(),
             allowWelcomeRoute: true,
             defaultPackageNames: $this->options->configuredDefaultPackageNames(),
         );
@@ -109,8 +98,8 @@ final class InstallController
         if ($runAsJob) {
             $queueReporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
             try {
-                if ($this->hasInstalledAdminPackageSelection($inputData)) {
-                    $this->ensureUserModelSupportsAdminPackage($inputData, $queueReporter);
+                if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
+                    $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $queueReporter);
                 }
             } catch (Throwable $throwable) {
                 if ($request->expectsJson()) {
@@ -168,8 +157,8 @@ final class InstallController
         $installCompleted = false;
 
         try {
-            if ($this->hasInstalledAdminPackageSelection($inputData)) {
-                $this->ensureUserModelSupportsAdminPackage($inputData, $reporter);
+            if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
+                $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
             }
 
             RunInstallAction::run($inputData, $reporter);
@@ -185,34 +174,16 @@ final class InstallController
         return to_route($installCompleted ? 'capell-installer.success' : 'capell-installer.progress', ['installId' => $installId]);
     }
 
-    public function runStep(Request $request): JsonResponse
+    public function runStep(RunInstallStepRequest $request): JsonResponse
     {
-
-        try {
-            $validated = Validator::make($request->all(), [
-                'install_id' => ['required', 'uuid'],
-                'step' => ['required', 'string'],
-            ])->validate();
-        } catch (ValidationException $validationException) {
-            return response()->json([
-                'message' => $validationException->getMessage(),
-                'errors' => $validationException->errors(),
-            ], 422);
-        }
-
-        $installId = (string) $validated['install_id'];
-        $stepKey = (string) $validated['step'];
+        $installId = (string) $request->validated('install_id');
+        $stepKey = (string) $request->validated('step');
 
         abort_unless($this->canAccessInstall($request, $installId), 404);
 
         $inputArray = $this->sessions->input($installId);
         if (! is_array($inputArray)) {
-            return response()->json([
-                'installId' => $installId,
-                'status' => 'failed',
-                'error' => 'Install session not found or expired. Please restart the installer.',
-                'csrfToken' => csrf_token(),
-            ], 410);
+            return $this->stepResponse->gone($installId, 'Install session not found or expired. Please restart the installer.');
         }
 
         $inputData = InstallInputData::from($inputArray);
@@ -223,30 +194,16 @@ final class InstallController
         $reporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
 
         if ($this->sessions->status($installId, 'pending') === 'complete') {
-            return response()->json([
-                'installId' => $installId,
-                'currentStep' => $stepKey,
-                'nextStep' => null,
-                'status' => 'complete',
-                'lines' => $this->sessions->lines($installId),
-                'logPath' => $reporter->logPath(),
-                'redirectUrl' => route('capell-installer.success', ['installId' => $installId]),
-                'csrfToken' => csrf_token(),
-            ]);
+            return $this->stepResponse->complete($installId, $stepKey, $reporter->logPath());
         }
 
         $expectedStepKey = $this->sessions->expectedStepKey($installId, $plan);
         if ($expectedStepKey === null) {
-            return response()->json([
-                'installId' => $installId,
-                'status' => 'failed',
-                'error' => 'Install plan not found or expired. Please restart the installer.',
-                'csrfToken' => csrf_token(),
-            ], 410);
+            return $this->stepResponse->gone($installId, 'Install plan not found or expired. Please restart the installer.');
         }
 
         if ($stepKey !== $expectedStepKey) {
-            return $this->outOfSequenceStepResponse($installId, $stepKey, $expectedStepKey, $reporter);
+            return $this->stepResponse->outOfSequence($installId, $stepKey, $expectedStepKey, $reporter->logPath());
         }
 
         $reporter->markRunning();
@@ -256,45 +213,31 @@ final class InstallController
             if ($stepKey === InstallPlan::STEP_PREFLIGHT_CHECKS) {
                 $preflight = resolve(InstallerPreflight::class)->run($inputData);
                 $this->sessions->putPreflightReport($installId, $preflight);
-                $this->reportPreflight($preflight, $reporter);
+                $this->remediation->reportPreflight($preflight, $reporter);
 
                 if (InstallerPreflight::hasBlockingFailures($preflight['checks'])) {
                     $reporter->markFailed();
                     $this->sessions->clearActiveLock();
 
-                    return response()->json([
-                        'installId' => $installId,
-                        'currentStep' => $stepKey,
-                        'nextStep' => null,
-                        'status' => 'failed',
-                        'lines' => $this->sessions->lines($installId),
-                        'logPath' => $reporter->logPath(),
-                        'error' => 'Preflight checks failed.',
-                        'remediation' => $this->preflightRemediation($preflight),
-                        'preflight' => $preflight,
-                        'csrfToken' => csrf_token(),
-                    ]);
+                    return $this->stepResponse->failed(
+                        $installId,
+                        $stepKey,
+                        $reporter->logPath(),
+                        'Preflight checks failed.',
+                        ['remediation' => $this->remediation->preflightRemediation($preflight), 'preflight' => $preflight],
+                    );
                 }
 
                 $nextStep = InstallPlan::findNextStep($plan, $stepKey);
                 $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
 
-                return response()->json([
-                    'installId' => $installId,
-                    'currentStep' => $stepKey,
-                    'nextStep' => $nextStep,
-                    'status' => 'running',
-                    'lines' => $this->sessions->lines($installId),
-                    'logPath' => $reporter->logPath(),
-                    'preflight' => $preflight,
-                    'csrfToken' => csrf_token(),
-                ]);
+                return $this->stepResponse->running($installId, $stepKey, $nextStep, $reporter->logPath(), ['preflight' => $preflight]);
             }
 
-            if (($stepKey === InstallPlan::STEP_RESOLVE_USER && $this->hasInstalledAdminPackageSelection($inputData))
+            if (($stepKey === InstallPlan::STEP_RESOLVE_USER && $this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData))
                 || $stepKey === InstallPlan::STEP_INSTALL_PACKAGES
                 || InstallPlan::packageNameFromStep($stepKey) === 'capell-app/admin') {
-                $this->ensureUserModelSupportsAdminPackage($inputData, $reporter);
+                $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
             }
 
             $newUserId = RunInstallStepAction::run($stepKey, $inputData, $reporter, $resolvedUserId);
@@ -307,18 +250,13 @@ final class InstallController
             $reporter->markFailed();
             $this->sessions->clearActiveLock();
 
-            return response()->json([
-                'installId' => $installId,
-                'currentStep' => $stepKey,
-                'nextStep' => null,
-                'status' => 'failed',
-                'lines' => $this->sessions->lines($installId),
-                'logPath' => $reporter->logPath(),
-                'error' => $throwable->getMessage(),
-                'errorClass' => $throwable::class,
-                'remediation' => $this->remediationFor($throwable->getMessage()),
-                'csrfToken' => csrf_token(),
-            ]);
+            return $this->stepResponse->failed(
+                $installId,
+                $stepKey,
+                $reporter->logPath(),
+                $throwable->getMessage(),
+                ['errorClass' => $throwable::class, 'remediation' => $this->remediation->remediationFor($throwable->getMessage())],
+            );
         }
 
         $nextStep = InstallPlan::findNextStep($plan, $stepKey);
@@ -329,27 +267,10 @@ final class InstallController
             $this->cacheSuccessSummary($installId, $inputData);
             $this->sessions->clearActiveLock();
 
-            return response()->json([
-                'installId' => $installId,
-                'currentStep' => $stepKey,
-                'nextStep' => null,
-                'status' => 'complete',
-                'lines' => $this->sessions->lines($installId),
-                'logPath' => $reporter->logPath(),
-                'redirectUrl' => route('capell-installer.success', ['installId' => $installId]),
-                'csrfToken' => csrf_token(),
-            ]);
+            return $this->stepResponse->complete($installId, $stepKey, $reporter->logPath());
         }
 
-        return response()->json([
-            'installId' => $installId,
-            'currentStep' => $stepKey,
-            'nextStep' => $nextStep,
-            'status' => 'running',
-            'lines' => $this->sessions->lines($installId),
-            'logPath' => $reporter->logPath(),
-            'csrfToken' => csrf_token(),
-        ]);
+        return $this->stepResponse->running($installId, $stepKey, $nextStep, $reporter->logPath());
     }
 
     public function progress(Request $request, string $installId): View
@@ -466,7 +387,7 @@ final class InstallController
                         ->all(),
                 ],
                 'lines' => $lines,
-                'remediations' => $this->remediationsForLines($lines),
+                'remediations' => $this->remediation->remediationsForLines($lines),
             ];
         } catch (Throwable $throwable) {
             return response()->json(['error' => $throwable->getMessage()], 500);
@@ -507,8 +428,8 @@ final class InstallController
         $logPath = storage_path(sprintf('logs/capell-install-%s.log', $installId));
         $reporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
 
-        if ($this->hasInstalledAdminPackageSelection($inputData)) {
-            $this->ensureUserModelSupportsAdminPackage($inputData, $reporter);
+        if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
+            $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
         }
 
         $this->sessions->cancelActiveInstallBeforeStarting($installId);
@@ -593,41 +514,6 @@ final class InstallController
             && $request->session()->get($this->installAccessSessionKey($installId)) === true;
     }
 
-    private function outOfSequenceStepResponse(
-        string $installId,
-        string $stepKey,
-        string $expectedStepKey,
-        FileLogProgressReporter $reporter,
-    ): JsonResponse {
-        if (in_array($stepKey, $this->sessions->completedSteps($installId), true)) {
-            return response()->json([
-                'installId' => $installId,
-                'currentStep' => $stepKey,
-                'nextStep' => $expectedStepKey,
-                'status' => 'running',
-                'lines' => $this->sessions->lines($installId),
-                'logPath' => $reporter->logPath(),
-                'csrfToken' => csrf_token(),
-            ]);
-        }
-
-        return response()->json([
-            'installId' => $installId,
-            'currentStep' => $stepKey,
-            'nextStep' => $expectedStepKey,
-            'expectedStep' => $expectedStepKey,
-            'status' => 'failed',
-            'lines' => $this->sessions->lines($installId),
-            'logPath' => $reporter->logPath(),
-            'error' => sprintf(
-                'Install step "%s" is out of sequence. Expected "%s". Refresh the installer progress page and continue from the current step.',
-                $stepKey,
-                $expectedStepKey,
-            ),
-            'csrfToken' => csrf_token(),
-        ], 409);
-    }
-
     private function allowInstallerRemoval(Request $request): void
     {
         $request->session()->put(self::REMOVE_INSTALLER_SESSION_KEY, true);
@@ -675,207 +561,9 @@ final class InstallController
         }
     }
 
-    /** @param array<string, mixed> $preflight */
-    private function reportPreflight(array $preflight, ProgressReporter $reporter): void
-    {
-        foreach (($preflight['checks'] ?? []) as $check) {
-            if (! is_array($check)) {
-                continue;
-            }
-
-            $status = (string) ($check['status'] ?? 'warning');
-            $label = (string) ($check['label'] ?? 'Check');
-            $message = (string) ($check['message'] ?? '');
-            $line = sprintf('%s %s: %s', $this->preflightMarker($status), $label, $message);
-
-            if ($status === 'fail') {
-                $reporter->error($line);
-                $remediation = (string) ($check['remediation'] ?? '');
-                if ($remediation !== '') {
-                    $reporter->error('  Fix: ' . $remediation);
-                }
-
-                continue;
-            }
-
-            $reporter->report($line);
-        }
-    }
-
-    private function preflightMarker(string $status): string
-    {
-        return match ($status) {
-            'pass' => '✓',
-            'fail' => '✗',
-            default => '!',
-        };
-    }
-
-    /** @param array<string, mixed> $preflight */
-    private function preflightRemediation(array $preflight): string
-    {
-        $checks = $preflight['checks'] ?? [];
-
-        if (! is_array($checks)) {
-            return '';
-        }
-
-        /** @var array<int, array<string, mixed>> $checks */
-        return collect($checks)
-            ->filter(fn (array $check): bool => ($check['status'] ?? null) === 'fail')
-            ->map(fn (array $check): string => (string) ($check['remediation'] ?? 'Review the failed preflight check.'))
-            ->filter()
-            ->unique()
-            ->implode(' ');
-    }
-
-    private function remediationFor(string $message): ?string
-    {
-        $message = strtolower($message);
-
-        return match (true) {
-            str_contains($message, 'assignrole') => 'Update the application User model to use Spatie Permission HasRoles before installing the admin package.',
-            str_contains($message, 'proc_open') => 'Enable proc_open for the web PHP runtime so Composer and Artisan subprocesses can run.',
-            str_contains($message, 'git@github.com'), str_contains($message, 'publickey') => 'Composer attempted an SSH GitHub clone. Use HTTPS repository URLs or configure GitHub SSH access for the web user.',
-            str_contains($message, 'access denied'), str_contains($message, 'permission denied') => 'Check database credentials and filesystem permissions for the web PHP user.',
-            str_contains($message, 'unknown database') => 'Grant CREATE DATABASE permission or create the configured database manually.',
-            str_contains($message, 'settings') && str_contains($message, 'base table') => 'Publish and run vendor migrations for spatie/laravel-settings before running Capell settings migrations.',
-            default => null,
-        };
-    }
-
-    private function ensureUserModelSupportsAdminPackage(InstallInputData $inputData, ProgressReporter $reporter): void
-    {
-        if (! in_array('capell-app/admin', [
-            ...$inputData->packages,
-            ...$inputData->extraPackages,
-        ], true)) {
-            return;
-        }
-
-        $patch = new UserModelPatch;
-        $status = $patch->probe();
-
-        if ($status === PatchStatus::AlreadyApplied) {
-            $reporter->report('✓ User model supports Capell admin roles.');
-
-            return;
-        }
-
-        if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException(sprintf(
-                'The installer could not automatically update app/Models/User.php for Capell admin roles because the user model patch status is "%s". Apply the user model install guide patch, then rerun the installer.',
-                $status->value,
-            ));
-        }
-
-        $reporter->step('Patching user model for Capell admin roles…');
-        $patch->apply();
-        $reporter->report('✓ User model supports Capell admin roles.');
-    }
-
-    private function hasInstalledAdminPackageSelection(InstallInputData $inputData): bool
-    {
-        return in_array('capell-app/admin', $inputData->packages, true);
-    }
-
-    /**
-     * @param  array<int, mixed>  $lines
-     * @return array<int, string>
-     */
-    private function remediationsForLines(array $lines): array
-    {
-        return collect($lines)
-            ->map(fn (mixed $line): ?string => is_array($line) ? $this->remediationFor((string) ($line['line'] ?? '')) : null)
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
-
     private function capellIsInstalled(): bool
     {
         return InstallerInstallationState::capellIsInstalled();
-    }
-
-    /** @return array<string, mixed> */
-    private function validateInput(Request $request): array
-    {
-        $input = $this->options->withDefaultAdminUserInput($request->all(), (string) $request->input('admin_user_mode', 'create'));
-        $packageKeys = CapellCore::getPackages(sortByDependencies: true)->keys()->all();
-        $downloadablePackageKeys = collect($this->options->downloadablePackages())
-            ->pluck('name')
-            ->filter(fn (mixed $packageName): bool => is_string($packageName) && $packageName !== '')
-            ->values()
-            ->all();
-        $userRules = $this->options->adminUserValidationRules((string) ($input['admin_user_mode'] ?? 'create'));
-
-        return Validator::make($input, [
-            'site_url' => ['required', 'url'],
-            'language' => ['required', 'string', Rule::in(array_merge(array_keys($this->options->languageOptions()), ['__custom']))],
-            'custom_language_code' => [
-                Rule::requiredIf(($input['language'] ?? null) === '__custom'),
-                'nullable',
-                'string',
-                'regex:/^[a-z]{2,3}$/',
-            ],
-            'package_selection_mode' => ['nullable', 'string', Rule::in(['core', 'all', 'custom'])],
-            'packages' => ['array'],
-            'packages.*' => ['string', 'in:' . implode(',', $packageKeys)],
-            'theme' => [
-                'nullable',
-                'string',
-                Rule::in(array_keys($this->options->themeNamesForSelection(
-                    (array) ($input['packages'] ?? []),
-                    (array) ($input['extra_packages'] ?? []),
-                ))),
-            ],
-            'extra_packages' => ['array'],
-            'extra_packages.*' => ['string', 'regex:/^[a-z0-9]([a-z0-9_.-]*[a-z0-9])?\/[a-z0-9]([a-z0-9_.-]*[a-z0-9])?$/', Rule::in($downloadablePackageKeys)],
-            'install_developer_tooling' => ['nullable', 'boolean'],
-            'configure_boost_developer_tooling' => ['nullable', 'boolean'],
-            'admin_user_mode' => ['nullable', 'string', Rule::in(['create', 'existing'])],
-            'existing_user_id' => $userRules['existing_user_id'],
-            'new_user_name' => $userRules['new_user_name'],
-            'new_user_email' => $userRules['new_user_email'],
-            'new_user_password' => $userRules['new_user_password'],
-            'create_role_users' => ['nullable', 'boolean'],
-            'role_user_password' => ['nullable', 'string', 'min:8'],
-            'demo_content' => ['nullable', 'boolean'],
-            'seed_default_data' => ['nullable', 'boolean'],
-            'install_filament_panel' => ['nullable', 'boolean'],
-            'install_welcome_route' => ['nullable', 'boolean'],
-            'admin_panel_changes_mode' => ['nullable', 'string', Rule::in(['auto', 'manual'])],
-            'integrate_admin_panel' => ['nullable', 'boolean'],
-            'admin_add_colors' => ['nullable', 'boolean'],
-            'admin_add_widgets' => ['nullable', 'boolean'],
-            'admin_add_navigation' => ['nullable', 'boolean'],
-            'generate_sitemap' => ['nullable', 'boolean'],
-            'rebuild_resources' => ['nullable', 'boolean'],
-            'fresh_install' => ['nullable', 'boolean'],
-            'run_as_job' => ['nullable', 'boolean'],
-            'install_id' => ['nullable', 'uuid'],
-        ], [], [
-            'existing_user_id' => 'existing user',
-            'new_user_name' => 'name',
-            'new_user_email' => 'email',
-            'new_user_password' => 'password',
-        ])->validate();
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
-    private function normaliseLanguageInput(array $validated): array
-    {
-        if (($validated['language'] ?? null) !== '__custom') {
-            return $validated;
-        }
-
-        $validated['language'] = $this->options->normaliseLanguageCode((string) $validated['custom_language_code']);
-
-        return $validated;
     }
 
     private function cacheStoreUnavailableResponse(Request $request): Response

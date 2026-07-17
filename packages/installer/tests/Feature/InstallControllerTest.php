@@ -2470,6 +2470,13 @@ it('returns validation errors when run-step payload is malformed', function (): 
         ->assertJsonValidationErrors(['install_id', 'step']);
 });
 
+it('returns json validation errors for malformed run-step payloads without an accept header', function (): void {
+    post(route('capell-installer.run-step'), ['install_id' => 'not-a-uuid'])
+        ->assertStatus(422)
+        ->assertHeader('content-type', 'application/json')
+        ->assertJsonValidationErrors(['install_id', 'step']);
+});
+
 it('returns 410 when run-step is called for an unknown install', function (): void {
     $installId = '44444444-4444-4444-a444-444444444444';
 
