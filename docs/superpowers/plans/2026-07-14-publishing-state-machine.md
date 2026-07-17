@@ -228,25 +228,25 @@
 - Modify: `packages/admin/tests/Feature/Actions/Pages/*` (existing bulk-action tests)
 - Delete (conditional): `packages/admin/src/Support/Pages/PagePublishSentinel.php` — only if no remaining callers after conversion.
 
-- [ ] **Step 1: Add the `CancelSchedule` Core transition, test-first.** In `TransitionPublicationActionTest`, add a matrix with frozen time for: future scheduled-publish → draft, future scheduled-unpublish cleared, both-future cleared in one write, already-draft/no-future-dates → `AlreadyCorrect` (no-op), past/effective windows untouched, unauthorized actor, and expired/deleted rejection. Assert no fixture yields more than one changed write.
+- [x] **Step 1: Add the `CancelSchedule` Core transition, test-first.** In `TransitionPublicationActionTest`, add a matrix with frozen time for: future scheduled-publish → draft, future scheduled-unpublish cleared, both-future cleared in one write, already-draft/no-future-dates → `AlreadyCorrect` (no-op), past/effective windows untouched, unauthorized actor, and expired/deleted rejection. Assert no fixture yields more than one changed write.
 
-- [ ] **Step 2: Implement the transition.** Add `case CancelSchedule = 'cancel-schedule';` to the enum; leave `requiresRequestedTime()` false for it (no requested time). In `EvaluatePublicationTransitionAction::handle()` add the match arm `PublicationTransition::CancelSchedule => $this->cancelSchedule($request, $beforeFrom, $beforeUntil)` and a private helper:
+- [x] **Step 2: Implement the transition.** Add `case CancelSchedule = 'cancel-schedule';` to the enum; leave `requiresRequestedTime()` false for it (no requested time). In `EvaluatePublicationTransitionAction::handle()` add the match arm `PublicationTransition::CancelSchedule => $this->cancelSchedule($request, $beforeFrom, $beforeUntil)` and a private helper:
 
   - `visible_from`: if it is strictly future **and** not already the draft sentinel (`PublishSentinel::isDraftValue`), set to `PublishSentinel::draftValue($request->now)`; otherwise leave unchanged.
   - `visible_until`: if strictly future, set `null`; otherwise leave unchanged.
   - Return `[$visibleFrom, $visibleUntil, null]` (never an invalid reason — cancelling nothing is a valid no-op, resolved to `AlreadyCorrect` by the existing `same()` check).
 
-- [ ] **Step 3: Convert the two `AsObject` bulk actions into adapters.** `BulkRevertPagesToDraftAction` and `BulkCancelScheduleAction` delegate to `RunBulkPublicationTransitionAction::run($records, $actor, PublicationTransition::RevertToDraft|CancelSchedule, $now)` and map the returned `BulkPublicationPreviewData` counts/outcomes onto their **existing return array shape** so Filament callers and notification text stay stable (mirror the Task 4 single-record adapter pattern). Delete the inline `Gate` checks, `PagePublishSentinel` reads, and direct `visible_*` assignments. Skips (trashed/unauthorized/already-correct) come from typed outcomes, not re-derived here.
+- [x] **Step 3: Convert the two `AsObject` bulk actions into adapters.** `BulkRevertPagesToDraftAction` and `BulkCancelScheduleAction` delegate to `RunBulkPublicationTransitionAction::run($records, $actor, PublicationTransition::RevertToDraft|CancelSchedule, $now)` and map the returned `BulkPublicationPreviewData` counts/outcomes onto their **existing return array shape** so Filament callers and notification text stay stable (mirror the Task 4 single-record adapter pattern). Delete the inline `Gate` checks, `PagePublishSentinel` reads, and direct `visible_*` assignments. Skips (trashed/unauthorized/already-correct) come from typed outcomes, not re-derived here.
 
-- [ ] **Step 4: Convert `BulkSchedulePagesBulkAction`.** Replace the inline `DB::transaction` date-writing loop with `RunBulkPublicationTransitionAction::run($records, $actor, PublicationTransition::SchedulePublish, $now, requestedTime: $publishAt)`. Build the notification (scheduled/skipped counts + per-page skip reasons) from the returned outcome counts. Keep the `publish_at` form field and `minDate(now())`.
+- [x] **Step 4: Convert `BulkSchedulePagesBulkAction`.** Replace the inline `DB::transaction` date-writing loop with `RunBulkPublicationTransitionAction::run($records, $actor, PublicationTransition::SchedulePublish, $now, requestedTime: $publishAt)`. Build the notification (scheduled/skipped counts + per-page skip reasons) from the returned outcome counts. Keep the `publish_at` form field and `minDate(now())`.
 
-- [ ] **Step 5: Prove no direct date writes remain and no orphaned sentinel.**
+- [x] **Step 5: Prove no direct date writes remain and no orphaned sentinel.**
 
   Run: `rg -n "visible_(from|until)\s*=" packages/admin/src/Actions/Pages/BulkRevertPagesToDraftAction.php packages/admin/src/Actions/Pages/BulkCancelScheduleAction.php packages/admin/src/Filament/Resources/Pages/Actions/BulkSchedulePagesBulkAction.php`
 
   Expected: no assignments. Then `rg -n "PagePublishSentinel" packages/` — if zero non-definition hits remain, delete the alias class and its test.
 
-- [ ] **Step 6: Run and commit**
+- [x] **Step 6: Run and commit**
 
   Run: `vendor/bin/pest packages/core/tests/Feature/Publishing/TransitionPublicationActionTest.php packages/admin/tests/Feature/Actions/Pages`
 
@@ -254,6 +254,29 @@
   git add packages/core/src/Enums/Publishing packages/core/src/Actions/Publishing packages/core/tests packages/admin/src/Actions/Pages packages/admin/src/Filament/Resources/Pages/Actions packages/admin/tests
   git commit -m "refactor(admin): route bulk schedule actions through core state machine"
   ```
+
+**Completed 2026-07-17** on `task7/cancel-schedule` (commits `7c83c2127`, `7f43a85de`, `03b8bbc61`).
+Task suite: 50 passed / 214 assertions (from a 33/131 baseline).
+
+Deviations and findings worth carrying forward:
+
+- **This closed a real bug, not just a layering seam.** `BulkCancelScheduleAction` previously
+  set `visible_from = null` when cancelling a pending publish. Null means *published*, so
+  cancelling a scheduled publish pushed the page live immediately. An existing assertion
+  (`toBeNull()`) was pinning that defect and has been corrected to expect draft state.
+- **Step 5's conditional delete did not fire.** `PagePublishSentinel` is retained: two live
+  callers remain at `CreatePage.php:252` and `CreatePageAction.php:157`, both of which write
+  `visible_from` directly on the creation path. Retiring those is the prerequisite for
+  deleting the alias.
+- **The step list mislocated two classes.** `RunBulkPublicationTransitionAction` and
+  `BulkPublicationPreviewData` live in `packages/admin`, not Core.
+- **Step 6's test command under-scopes the task.** It misses
+  `packages/admin/tests/Feature/Filament/Resources/Page/Pages/BulkSchedulePagesBulkActionTest.php`
+  and `packages/core/tests/Unit/Publishing/PublicationTransitionDataTest.php` — the latter is
+  the stable-transition contract registry, which any new enum case necessarily breaks. Both
+  were caught only by the unscoped suite. `BulkRevertPagesToDraftAction` also had no test at
+  all before this task; it now does.
+- `BulkSchedulePagesBulkActionTest` requires `-d memory_limit=2048M`; it OOMs at the 128M default.
 
 ## Exit gate
 
