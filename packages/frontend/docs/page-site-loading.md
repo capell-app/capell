@@ -32,6 +32,7 @@ Scoped state:
 
 - `FrontendState` is scoped per request.
 - `FrontendContextReader` resolves to `FrontendState`.
+- The `Frontend` facade resolves `FrontendContextReader`; it is a Laravel facade over the scoped reader, not a separate frontend-context wrapper.
 - `FrontendKernelInterface` is scoped and receives the scoped `FrontendState`.
 
 Kernel registration:

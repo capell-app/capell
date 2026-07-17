@@ -12,7 +12,6 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Illuminate\View\View;
 
 it('leaves existing runtime manifests untouched during public view composition', function (): void {
@@ -87,8 +86,6 @@ it('adds a livewire runtime manifest from the active frontend page strategy', fu
         }
     });
 
-    app()->forgetInstance(CapellFrontendContext::class);
-
     $view = Mockery::mock(View::class);
     $view->shouldReceive('getData')->once()->andReturn([]);
     $view->shouldReceive('with')
@@ -158,8 +155,6 @@ it('falls back to blade only view data when frontend context cannot resolve a pa
             return null;
         }
     });
-
-    app()->forgetInstance(CapellFrontendContext::class);
 
     $view = Mockery::mock(View::class);
     $view->shouldReceive('getData')->once()->andReturn([]);

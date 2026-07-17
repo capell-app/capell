@@ -21,7 +21,6 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
@@ -398,7 +397,6 @@ function bindBladeRendererContext(?Pageable $page, ?Site $site, ?Language $langu
     };
 
     app()->instance(FrontendContextReader::class, $context);
-    app()->instance(CapellFrontendContext::class, new CapellFrontendContext($context));
 }
 
 it('rejects authoring markers from the primary blade render path', function (): void {

@@ -6,7 +6,7 @@ use Capell\Admin\Enums\EditorEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Core\Facades\CapellCore;
-use Capell\Frontend\Facades\Frontend;
+use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -43,7 +43,7 @@ it('visit settings page when frontend cache setting is missing', function (): vo
 it('first-party settings schemas appear on the main settings page', function (): void {
     expect(CapellAdmin::settings()->html_editor)->toBe(EditorEnum::RichEditor)
         ->and(CapellCore::settings()->default_locale)->toBe('en')
-        ->and(Frontend::settings()->cache_enabled)->toBeTrue();
+        ->and(resolve(FrontendSettingsReaderInterface::class)->settings()->cache_enabled)->toBeTrue();
 
     Livewire::test(SettingsPage::class)
         ->assertSuccessful()

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
-use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -2199,10 +2199,7 @@ it('defaults interactive developer tooling to disabled', function (): void {
 });
 
 it('defaults interactive cache clearing to every specific cache option', function (): void {
-    $reflection = new ReflectionClass(InstallCommand::class);
-    $method = $reflection->getMethod('defaultCacheKeys');
-
-    expect($method->invoke(new InstallCommand))->toBe([
+    expect(InstallCacheOptionCatalog::defaultKeys())->toBe([
         'page',
         'config',
         'views',

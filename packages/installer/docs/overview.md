@@ -51,6 +51,28 @@ Screenshot contract:
 - Cache behaviour: install input, plan, progress, locks, and report access use `capell.install.{installId}.*` cache keys.
 - Extension hooks: install guide patches implement the Core-owned `Capell\Core\Support\Patching\Patch` contract and register with `PatchRegistry`; install-time patches are also contributed to Core's `InstallPatchRegistry`.
 
+## Installer JavaScript Modules
+
+The installer view loads its inline modules in this order: `install/support.js`,
+`install/wizard.js`, `install/packages.js`, `install/form-options.js`,
+`install/progress.js`, `install/csrf.js`, `install/runner.js`, then `install.js`.
+Each module uses an IIFE that adds a factory or support object to the
+`globalThis.CapellInstaller` namespace. `install.js` is the composition root: it
+reads the form and config, creates the factories, wires selection changes, and
+starts the runner only after client-side validation.
+
+`#capell-installer-config` is a JSON script element. Its contract is
+`requirementsMap`, `themePackageNames`, `installedThemeKeys`, and translated
+`messages`; package selection relies on the first three, while the factories use
+the message keys for labels and failures. Keep a new module dependency earlier
+than the module that consumes its namespaced factory.
+
+CSRF handling has two deliberate policies. Starting an install refreshes the
+token before the initial form request; a `419` from that request refreshes once
+and retries once, then returns the user to the form. Step requests send the
+current token and accept replacement `csrfToken` values from responses, but a
+`419` is a hard expired-session failure with no automatic retry.
+
 ## Data Model
 
 Installer owns no data tables.

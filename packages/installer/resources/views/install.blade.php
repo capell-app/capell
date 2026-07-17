@@ -1410,8 +1410,16 @@
             @php
                 $installerProviderClass = 'Capell\\Installer\\Providers\\InstallerServiceProvider';
                 $installerPackagePath = dirname((new ReflectionClass($installerProviderClass))->getFileName(), 3);
-                $installerScriptPath = $installerPackagePath . '/resources/js/install.js';
-                $installerScript = is_file($installerScriptPath) ? file_get_contents($installerScriptPath) : '';
+                $installerScriptFiles = [
+                    'install/support.js',
+                    'install/wizard.js',
+                    'install/packages.js',
+                    'install/form-options.js',
+                    'install/progress.js',
+                    'install/csrf.js',
+                    'install/runner.js',
+                    'install.js',
+                ];
                 $installerConfig = [
                     'requirementsMap' => $requirementsMap,
                     'themePackageNames' => $themePackageNames ?? [],
@@ -1459,9 +1467,11 @@
             >
                 {!! Js::encode($installerConfig) !!}
             </script>
-            <script>
-                {!! $installerScript !!}
-            </script>
+            @foreach ($installerScriptFiles as $installerScriptFile)
+                <script data-installer-module="{{ $installerScriptFile }}">
+                    {!! file_get_contents($installerPackagePath . '/resources/js/' . $installerScriptFile) !!}
+                </script>
+            @endforeach
         @endif
     </main>
 @endsection

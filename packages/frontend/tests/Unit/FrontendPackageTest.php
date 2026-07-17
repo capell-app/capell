@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCacheDirective;
@@ -23,7 +24,7 @@ it('frontend package has frontend scope', function (): void {
 });
 
 it('registers core-safe extension services', function (): void {
-    expect(app()->bound('capell.frontend.context'))->toBeTrue()
+    expect(app()->bound(FrontendContextReader::class))->toBeTrue()
         ->and(app()->bound('capell.frontend.retrieved-model-store'))->toBeTrue()
         ->and(app()->bound('capell.frontend.layout-container-width-resolver'))->toBeTrue()
         ->and(resolve('capell.frontend.layout-container-width-resolver'))->toBeCallable();

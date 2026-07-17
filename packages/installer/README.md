@@ -72,6 +72,7 @@ Do not pass an encrypted or already-hashed value to `CAPELL_SETUP_ADMIN_PASSWORD
 - Config: `config/capell-installer.php`
 - Routes: `routes/web.php`
 - Controller: `Capell\Installer\Http\Controllers\InstallController`
+- Form requests: `StoreInstallRequest` validates and normalises the initial install input; `RunInstallStepRequest` validates browser step requests and returns JSON validation errors.
 - Middleware: `Capell\Installer\Http\Middleware\EnsureNotInstalled`
 - Pages: `InstallCapellPage`, `InstallGuidePage`, `InstallProgressPage`
 - Actions: `GetActiveInstallAction`, `RemoveSetupPackageAction`, `ApplyInstallGuidePatchesAction`

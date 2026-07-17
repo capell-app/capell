@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
-use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Actions\Install\BuildAndAnnounceInstallSpecAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
-use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
+use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\WriteInstallHandoffAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\RunNpmBuildAction;
@@ -17,48 +17,38 @@ use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
-use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
-use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\InstallInputData;
-use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
-use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\Cli\FilamentAdminInstallPreflight;
+use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
+use Capell\Core\Support\Install\Cli\InstallCommandPresenter;
+use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
+use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
+use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
-use Capell\Core\Support\Install\InstallPatchContext;
-use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
-use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
-use Capell\Core\Support\Packages\TrustedCorePackages;
-use Capell\Core\Support\Patching\PatchStatus;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 use function Laravel\Prompts\confirm;
-use function Laravel\Prompts\multiselect;
-use function Laravel\Prompts\password;
-use function Laravel\Prompts\search;
-use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
 use RuntimeException;
@@ -122,40 +112,22 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     public function handle(): int
     {
-        $this->ensureInstallationMemoryLimit();
-
-        $this->logInstallDebug('starting command', [
-            'interactive' => $this->input->isInteractive(),
-        ]);
-
-        if ($this->option('production')) {
-            if ($this->input->hasParameterOption('--fresh')) {
-                $this->error('Refusing --fresh in --production mode (data-destructive). Drop --fresh or rerun without --production.');
-                $this->logInstallDebug('production mode rejected --fresh');
-
-                return CommandAlias::FAILURE;
-            }
-
-            $this->input->setInteractive(false);
-            $this->logInstallDebug('production mode enabled', [
-                'interactive' => false,
-            ]);
+        $bootExitCode = $this->bootInstallCommand();
+        if ($bootExitCode !== null) {
+            return $bootExitCode;
         }
-
-        [$installProfile, $installProfileExitCode] = $this->resolveInstallProfile();
-        if ($installProfileExitCode !== null) {
-            return $installProfileExitCode;
-        }
-
-        $this->installProfile = $installProfile;
-        $this->applyInstallProfileDefaults();
 
         $planOnly = $this->option('plan');
         $noSideEffects = $this->option('no-side-effects');
         [$freshInstall, $forceFreshInstall] = $this->freshInstallOptions();
         $demo = $this->shouldInstallDemoContent();
         $userEmailOption = $this->option('user');
-        $newUser = $this->newUserFromOptions();
+        $userPrompter = $this->userPrompter();
+        $newUser = $userPrompter->newUserFromOptions(
+            $this->option('name'),
+            $this->option('email'),
+            $this->option('password'),
+        );
         $clearCache = $this->option('clear-cache');
         $generateSitemap = $this->option('generate-sitemap');
         $seedDatabase = (bool) $this->option('seed');
@@ -164,7 +136,13 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $this->writeCommandIntro(
             'install Capell',
-            $this->installCommandIntroDetails($freshInstall, $forceFreshInstall, $demo, $planOnly, $noSideEffects),
+            resolve(InstallCommandPresenter::class)->introDetails(
+                $freshInstall,
+                $forceFreshInstall,
+                $demo,
+                $planOnly,
+                $noSideEffects,
+            ),
         );
 
         if ($noSideEffects && ! $planOnly) {
@@ -206,47 +184,23 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return CommandAlias::FAILURE;
         }
 
-        $siteUrl = $this->option('url');
-        if ($siteUrl === null) {
-            $siteUrl = $this->defaultSiteUrl();
-            $this->logInstallDebug('using default site url', [
-                'site_url' => $siteUrl,
-            ]);
-        }
-
-        if ($siteUrl === '') {
-            $this->logInstallDebug('prompting for site url');
-            $this->requireInteractiveOrFail('Site URL', 'Pass --url=<url>.');
-            $siteUrl = text(label: 'What is the URL of the site?', default: $this->defaultSiteUrl(), required: true, validate: ['siteUrl' => 'url']);
-        }
-
-        $this->logInstallDebug('resolved site url', [
-            'site_url' => $siteUrl,
-        ]);
-
-        try {
-            $this->logInstallDebug('resolving selected packages');
-            $packages = $this->getSelectedPackages();
-        } catch (InvalidArgumentException $invalidArgumentException) {
-            $this->error($invalidArgumentException->getMessage());
-            $this->logInstallDebug('package selection failed', [
-                'message' => $invalidArgumentException->getMessage(),
-            ]);
-
+        $siteUrl = $this->resolveSiteUrl();
+        $packages = $this->resolveSelectedPackages($demo, $freshInstall);
+        if (! $packages instanceof Collection) {
             return CommandAlias::FAILURE;
         }
 
-        $packages = $demo && $this->shouldIncludeDemoPackagesAfterSelection()
-            ? $this->includeDemoPackages($packages, $freshInstall)
-            : $packages;
-
-        $this->logInstallDebug('resolved selected packages', [
-            'packages' => $packages->keys()->values()->all(),
-        ]);
-
         $reporter = new ConsoleProgressReporter($this);
 
-        if (! $planOnly && ! $this->ensureFilamentIsInstalledForAdmin($packages, $reporter)) {
+        if (! $planOnly && ! resolve(FilamentAdminInstallPreflight::class)->ensureReady(
+            packages: $packages,
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+            reporter: $reporter,
+            writeError: function (string $message): void {
+                $this->error($message);
+            },
+        )) {
             $this->logInstallDebug('filament admin panel check failed');
 
             return CommandAlias::FAILURE;
@@ -285,7 +239,18 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $hasFrontend = $packages->filter(fn (PackageData $package): bool => $package->hasFrontendScope())->isNotEmpty();
         $installWelcomeRoute = $planOnly
             ? $hasFrontend && $this->option('install-welcome-route')
-            : $this->shouldInstallWelcomeRoute($hasFrontend);
+            : resolve(InstallPostInstallOptionResolver::class)->resolveWelcomeRoute(
+                hasFrontend: $hasFrontend,
+                installWelcomeRouteOption: (bool) $this->option('install-welcome-route'),
+                interactive: $this->input->isInteractive(),
+                welcomeRouteInstaller: resolve(WelcomeRouteInstaller::class),
+                recordManualInstallChange: function (string $message): void {
+                    $this->recordManualInstallChange($message);
+                },
+                writeWarning: function (string $message): void {
+                    $this->warn($message);
+                },
+            );
         $this->logInstallDebug('resolved welcome route option', [
             'has_frontend' => $hasFrontend,
             'install_welcome_route' => $installWelcomeRoute,
@@ -293,7 +258,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         if ($planOnly) {
             $this->logInstallDebug('building plan-only input');
-            [$installDeveloperTooling, $configureBoostDeveloperTooling] = $this->developerToolingOptionsForPlan();
+            $developerToolingChoice = resolve(InstallPostInstallOptionResolver::class)->resolveDeveloperToolingChoiceForPlan(
+                developerToolingRequested: (bool) $this->option('developer-tooling'),
+                skipBoostInstall: (bool) $this->option('no-boost-install'),
+                developerToolingInstalled: resolve(DeveloperToolingInstallationState::class)->isInstalled(),
+            );
 
             $inputData = resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
                 siteUrl: $siteUrl,
@@ -310,8 +279,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 seedDatabase: $seedDatabase,
                 freshInstall: $freshInstall,
                 installWelcomeRoute: $installWelcomeRoute,
-                installDeveloperTooling: $installDeveloperTooling,
-                configureBoostDeveloperTooling: $configureBoostDeveloperTooling,
+                installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
+                configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
                 selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
                 extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
             );
@@ -323,7 +292,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->logInstallDebug('resolving admin user');
-        [$userId, $resolvedNewUser, $exitCode] = $this->resolveUserInput($userEmailOption, $newUser, $freshInstall);
+        [$userId, $resolvedNewUser, $exitCode] = $userPrompter->resolveUserInput(
+            $userEmailOption,
+            $newUser,
+            $freshInstall,
+            $this->shouldUseFreshDemoDefaults(),
+        );
         if ($exitCode !== null) {
             $this->logInstallDebug('admin user resolution failed', [
                 'exit_code' => $exitCode,
@@ -337,7 +311,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'new_user_email' => $resolvedNewUser?->email,
         ]);
 
-        [$additionalUsers, $additionalUsersExitCode] = $this->resolveAdditionalUsersInput();
+        [$additionalUsers, $additionalUsersExitCode] = $userPrompter->resolveAdditionalUsersInput(
+            (bool) $this->option('role-users'),
+            $this->option('role-user-password'),
+            resolve(InstallInputFactory::class),
+        );
         if ($additionalUsersExitCode !== null) {
             $this->logInstallDebug('additional user resolution failed', [
                 'exit_code' => $additionalUsersExitCode,
@@ -350,14 +328,29 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'count' => count($additionalUsers),
         ]);
 
-        [$installDeveloperTooling, $configureBoostDeveloperTooling] = $this->developerToolingOptions();
+        $developerToolingChoice = resolve(InstallPostInstallOptionResolver::class)->resolveDeveloperToolingChoice(
+            developerToolingRequested: (bool) $this->option('developer-tooling'),
+            skipBoostInstall: (bool) $this->option('no-boost-install'),
+            developerToolingInstalled: resolve(DeveloperToolingInstallationState::class)->isInstalled(),
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+        );
         $this->logInstallDebug('resolved developer tooling', [
-            'install_developer_tooling' => $installDeveloperTooling,
-            'configure_boost_developer_tooling' => $configureBoostDeveloperTooling,
+            'install_developer_tooling' => $developerToolingChoice->installDeveloperTooling,
+            'configure_boost_developer_tooling' => $developerToolingChoice->configureBoostDeveloperTooling,
         ]);
 
-        $runNpmBuild = $this->shouldRunNpmBuild($hasFrontend);
-        $removeInstallerPackage = $this->shouldRemoveInstallerPackage();
+        $runNpmBuild = resolve(InstallPostInstallOptionResolver::class)->shouldRunNpmBuild(
+            hasFrontend: $hasFrontend,
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+        );
+        $removeInstallerPackage = resolve(InstallPostInstallOptionResolver::class)->shouldRemoveInstallerPackage(
+            installerPackageInstalled: CapellCore::hasPackage($this->installerPackageName()),
+            removeInstallerOption: (bool) $this->option('remove-installer'),
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+        );
         $this->logInstallDebug('resolved post-install side effects', [
             'run_npm_build' => $runNpmBuild,
             'remove_installer_package' => $removeInstallerPackage,
@@ -379,8 +372,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             seedDatabase: $seedDatabase,
             freshInstall: $freshInstall,
             installWelcomeRoute: $installWelcomeRoute,
-            installDeveloperTooling: $installDeveloperTooling,
-            configureBoostDeveloperTooling: $configureBoostDeveloperTooling,
+            installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
+            configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
             additionalUsers: $additionalUsers,
             selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
             extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
@@ -395,14 +388,23 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                     outputPlan: ! $this->input->isInteractive(),
                     runNpmBuild: $runNpmBuild,
                     removeInstaller: $removeInstallerPackage,
-                    cachesToClear: $this->resolveCachesToClear($clearCache, $freshInstall),
+                    cachesToClear: resolve(InstallCacheOptionResolver::class)->resolve(
+                        $clearCache,
+                        $freshInstall,
+                        fn (string $command): bool => $this->getApplication()?->has($command) === true,
+                    ),
                 ),
                 $reporter,
                 $this,
             );
             $this->logInstallDebug('install orchestration finished');
         } catch (Throwable $throwable) {
-            $this->renderInstallFailure($throwable);
+            report($throwable);
+            resolve(InstallCommandPresenter::class)->renderFailure($throwable, $this->getOutput());
+            $this->logInstallDebug('install action failed', [
+                'exception' => $throwable::class,
+                'message' => $throwable->getMessage(),
+            ]);
 
             return CommandAlias::FAILURE;
         }
@@ -455,75 +457,21 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     public function prepareApplication(InstallInputData $inputData, ProgressReporter $reporter): void
     {
-        $selectedPackageNames = array_values(array_unique([
-            ...$inputData->packages,
-            ...$inputData->extraPackages,
-        ]));
-
-        $patchContext = new InstallPatchContext(
-            packageNames: $selectedPackageNames,
-            hasFilamentAdminPanelProvider: $this->hasFilamentAdminPanelProvider(),
+        PrepareInstallApplicationAction::run(
+            inputData: $inputData,
+            hasFilamentAdminPanelProvider: resolve(FilamentAdminInstallPreflight::class)->hasInstalledPanelProvider(),
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+            reporter: $reporter,
+            confirmPatch: fn (InstallPatchConfirmation $confirmation): bool => confirm(
+                label: $confirmation->label,
+                default: $confirmation->default,
+                hint: $confirmation->hint ?? '',
+            ),
+            recordManualInstallChange: function (string $message): void {
+                $this->recordManualInstallChange($message);
+            },
         );
-
-        foreach (resolve(InstallPatchRegistry::class)->patchesFor($patchContext) as $registeredPatch) {
-            $patch = $registeredPatch->patch;
-            $status = $patch->probe();
-
-            if ($status === PatchStatus::AlreadyApplied) {
-                continue;
-            }
-
-            if ($status !== PatchStatus::Applicable) {
-                $this->recordManualInstallChange(sprintf(
-                    '%s: patch status is "%s".',
-                    $patch->label(),
-                    $status->value,
-                ));
-
-                $reporter->error(sprintf(
-                    '⚠ %s was not applied automatically. Manual changes may be required.',
-                    $patch->label(),
-                ));
-
-                continue;
-            }
-
-            $confirmation = $registeredPatch->confirmation;
-
-            if ($confirmation instanceof InstallPatchConfirmation
-                && $this->input->isInteractive()
-                && ! $this->shouldUseFreshDemoDefaults()
-                && ! confirm(
-                    label: $confirmation->label,
-                    default: $confirmation->default,
-                    hint: $confirmation->hint ?? '',
-                )
-            ) {
-                if ($confirmation->skippedMessage !== null) {
-                    $reporter->report($confirmation->skippedMessage);
-                }
-
-                continue;
-            }
-
-            $reporter->step('Applying install guide patch: ' . $patch->label());
-
-            try {
-                $patch->apply();
-            } catch (Throwable $throwable) {
-                $this->recordManualInstallChange(sprintf(
-                    '%s: %s',
-                    $patch->label(),
-                    $throwable->getMessage(),
-                ));
-
-                $reporter->error(sprintf(
-                    '⚠ %s was not applied automatically. Manual changes may be required.',
-                    $patch->label(),
-                ));
-                $reporter->error($throwable->getMessage());
-            }
-        }
     }
 
     public function reportManualChanges(): void
@@ -563,7 +511,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $this->processStarRepo();
         }
 
-        $this->announceInstallSpec($this->orchestratedSeedDefaultData);
+        $specOption = $this->option('spec');
+
+        BuildAndAnnounceInstallSpecAction::run(
+            is_string($specOption) ? $specOption : null,
+            $this->orchestratedSeedDefaultData,
+        );
 
         $handoff = BuildInstallHandoffAction::run(
             inputData: $inputData,
@@ -582,7 +535,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             WriteInstallHandoffAction::run($handoff, $handoffPath);
         }
 
-        $this->outputInstallHandoff($handoff, is_string($handoffJson) && trim($handoffJson) !== '');
+        resolve(InstallCommandPresenter::class)->outputHandoff(
+            $handoff,
+            is_string($handoffJson) && trim($handoffJson) !== '',
+            $this->getOutput(),
+            $this->outputComponents(),
+        );
     }
 
     protected function shouldInstallAllPackages(): bool
@@ -608,6 +566,90 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $packages
             ->keys()
             ->all();
+    }
+
+    private function bootInstallCommand(): ?int
+    {
+        $this->ensureInstallationMemoryLimit();
+
+        $this->logInstallDebug('starting command', [
+            'interactive' => $this->input->isInteractive(),
+        ]);
+
+        if ($this->option('production')) {
+            if ($this->input->hasParameterOption('--fresh')) {
+                $this->error('Refusing --fresh in --production mode (data-destructive). Drop --fresh or rerun without --production.');
+                $this->logInstallDebug('production mode rejected --fresh');
+
+                return CommandAlias::FAILURE;
+            }
+
+            $this->input->setInteractive(false);
+            $this->logInstallDebug('production mode enabled', [
+                'interactive' => false,
+            ]);
+        }
+
+        [$installProfile, $installProfileExitCode] = $this->resolveInstallProfile();
+        if ($installProfileExitCode !== null) {
+            return $installProfileExitCode;
+        }
+
+        $this->installProfile = $installProfile;
+        $this->applyInstallProfileDefaults();
+
+        return null;
+    }
+
+    private function resolveSiteUrl(): string
+    {
+        $siteUrl = $this->option('url');
+        if ($siteUrl === null) {
+            $siteUrl = $this->defaultSiteUrl();
+            $this->logInstallDebug('using default site url', [
+                'site_url' => $siteUrl,
+            ]);
+        }
+
+        if ($siteUrl === '') {
+            $this->logInstallDebug('prompting for site url');
+            $this->requireInteractiveOrFail('Site URL', 'Pass --url=<url>.');
+            $siteUrl = text(label: 'What is the URL of the site?', default: $this->defaultSiteUrl(), required: true, validate: ['siteUrl' => 'url']);
+        }
+
+        $this->logInstallDebug('resolved site url', [
+            'site_url' => $siteUrl,
+        ]);
+
+        return $siteUrl;
+    }
+
+    /**
+     * @return Collection<string, PackageData>|null
+     */
+    private function resolveSelectedPackages(bool $demo, bool $freshInstall): ?Collection
+    {
+        try {
+            $this->logInstallDebug('resolving selected packages');
+            $packages = $this->getSelectedPackages();
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            $this->error($invalidArgumentException->getMessage());
+            $this->logInstallDebug('package selection failed', [
+                'message' => $invalidArgumentException->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        $packages = $demo && $this->shouldIncludeDemoPackagesAfterSelection()
+            ? $this->includeDemoPackages($packages, $freshInstall)
+            : $packages;
+
+        $this->logInstallDebug('resolved selected packages', [
+            'packages' => $packages->keys()->values()->all(),
+        ]);
+
+        return $packages;
     }
 
     private function installAdminUrl(): ?string
@@ -642,31 +684,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
     }
 
-    private function outputInstallHandoff(InstallHandoffData $handoff, bool $wroteJson): void
-    {
-        $this->newLine();
-        $this->line('<fg=blue;options=bold>Capell Install Handoff</>');
-        $this->newLine();
-        $this->components->twoColumnDetail(
-            'Selected packages',
-            $handoff->selectedPackages === [] ? 'None' : implode(', ', $handoff->selectedPackages),
-        );
-        $this->components->twoColumnDetail('Migrations', $handoff->outcomes['migrations']);
-        $this->components->twoColumnDetail('Setup', $handoff->outcomes['setup']);
-        $this->components->twoColumnDetail('Doctor', $handoff->outcomes['doctor']);
-        $this->components->twoColumnDetail('Admin URL', $handoff->urls['admin'] ?? 'Unavailable');
-        $this->components->twoColumnDetail('Public URL', $handoff->urls['public']);
-        $this->components->twoColumnDetail('First page', $handoff->firstPage['status']);
-        $this->components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
-        $this->line('Next: ' . $handoff->nextAction['label'] . ' — ' . $handoff->nextAction['url']);
-        $this->line($handoff->publicImpact['summary']);
-        $this->line('No Capell account connection or telemetry identity submission is required for this handoff.');
-
-        if ($wroteJson) {
-            $this->info('Machine-readable install handoff written.');
-        }
-    }
-
     private function ensureInstallationMemoryLimit(): void
     {
         $configuredLimit = ini_get('memory_limit');
@@ -690,25 +707,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         };
 
         return (int) $configuredLimit * $multiplier;
-    }
-
-    /**
-     * After a successful install, consume a supplied site spec in Core, then
-     * announce it so extensions can perform compatible post-build work.
-     */
-    private function announceInstallSpec(bool $seededDefaults): void
-    {
-        $specOption = $this->option('spec');
-
-        if (! is_string($specOption) || $specOption === '') {
-            return;
-        }
-
-        $resolvedPath = realpath($specOption);
-        $specPath = $resolvedPath === false ? $specOption : $resolvedPath;
-
-        BuildSiteFromSpecFileAction::run($specPath);
-        Event::dispatch(new CapellInstalled($specPath, $seededDefaults));
     }
 
     /**
@@ -758,7 +756,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $useDefaults = $freshInstall
             && (bool) $this->option('demo')
-            && ! $this->hasExplicitFreshDemoInput();
+            && ! FreshInstallDefaults::hasExplicitDemoInput([
+                'url' => $this->input->getOption('url'),
+                'user' => $this->input->getOption('user'),
+                'name' => $this->input->getOption('name'),
+                'email' => $this->input->getOption('email'),
+                'password' => $this->input->getOption('password'),
+                'theme' => $this->input->getOption('theme'),
+            ]);
 
         $this->logInstallDebug('resolved fresh demo defaults', [
             'use_defaults' => $useDefaults,
@@ -767,37 +772,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ]);
 
         return $useDefaults;
-    }
-
-    private function hasExplicitFreshDemoInput(): bool
-    {
-        foreach (['url', 'user', 'name', 'email', 'password', 'theme'] as $optionName) {
-            $value = $this->input->getOption($optionName);
-
-            if (! in_array($value, [null, false, ''], true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function resolveCachesToClear(bool $clearCache, bool $freshInstall): array
-    {
-        if ($clearCache || $freshInstall) {
-            return ['all'];
-        }
-
-        $cacheOptions = $this->cacheOptions();
-
-        return array_map(static fn (int|string $cache): string => (string) $cache, multiselect(
-            label: 'Which caches would you like to clear?',
-            options: $cacheOptions,
-            default: $this->defaultCachesToClear($cacheOptions),
-        ));
     }
 
     private function shouldInstallDemoContent(): bool
@@ -867,110 +841,24 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $this->input->hasParameterOption('--' . $option . '=');
     }
 
-    private function renderInstallFailure(Throwable $throwable): void
-    {
-        report($throwable);
-
-        $message = trim($throwable->getMessage());
-
-        $this->newLine();
-        $this->error('Capell installation failed.');
-
-        if ($message !== '') {
-            $this->line($message);
-        }
-
-        $this->line('Run the command again with CAPELL_INSTALL_DEBUG=1 for step-level diagnostics.');
-
-        $this->logInstallDebug('install action failed', [
-            'exception' => $throwable::class,
-            'message' => $throwable->getMessage(),
-        ]);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function installCommandIntroDetails(
-        bool $freshInstall,
-        bool $forceFreshInstall,
-        bool $demo,
-        bool $planOnly,
-        bool $noSideEffects,
-    ): array {
-        $details = [];
-
-        if ($freshInstall) {
-            $details[] = $forceFreshInstall
-                ? 'a forced fresh database refresh'
-                : 'a fresh database refresh';
-        }
-
-        if ($demo) {
-            $details[] = 'demo content';
-        }
-
-        if ($planOnly) {
-            $details[] = 'a plan-only preview';
-        }
-
-        if ($noSideEffects) {
-            $details[] = 'side effects disabled';
-        }
-
-        return $details;
-    }
-
     /**
      * @param  Collection<string, PackageData>  $packages
      * @return Collection<string, PackageData>
      */
     private function includeDemoPackages(Collection $packages, bool $includeInstalledRequirements): Collection
     {
-        $demoPackageNames = CapellCore::getPackages(sortByDependencies: true)
-            ->filter(fn (PackageData $package): bool => $package->isDemo())
-            ->keys();
-
-        if ($demoPackageNames->isEmpty()) {
-            return $packages;
-        }
-
-        $withDemoPackages = $packages->keys()
-            ->merge($demoPackageNames)
-            ->unique()
-            ->values()
-            ->all();
-
-        if ($packages->keys()->all() === $withDemoPackages) {
-            return $packages;
-        }
-
-        return resolve(PackageWorkflowPlanner::class)->expandAndOrder(
-            CapellCore::getPackages(sortByDependencies: true),
-            $withDemoPackages,
-            $includeInstalledRequirements,
-        );
+        return $this->packageSetComposer()->includeDemoPackages($packages, $includeInstalledRequirements);
     }
 
     private function shouldIncludeDemoPackagesAfterSelection(): bool
     {
-        if (! $this->input->isInteractive()) {
-            return true;
-        }
-
-        if ($this->option('packages') !== null) {
-            return true;
-        }
-
-        if ($this->option('package-mode') !== null) {
-            return true;
-        }
-
-        if ($this->option('all-packages')) {
-            return true;
-        }
-
-        return $this->shouldUseFreshDemoPackageDefaults();
+        return $this->packageSetComposer()->shouldIncludeDemoPackagesAfterSelection(
+            interactive: $this->input->isInteractive(),
+            packagesOption: $this->option('packages'),
+            packageModeOption: $this->option('package-mode'),
+            allPackages: (bool) $this->option('all-packages'),
+            useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
+        );
     }
 
     private function shouldUseFreshDemoPackageDefaults(): bool
@@ -1002,12 +890,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         if ($this->option('demo')) {
-            return array_values(array_unique([
-                'en',
-                config('app.locale', 'en'),
-                'fr',
-                'de',
-            ]));
+            return FreshInstallDefaults::demoLanguages(config('app.locale', 'en'));
         }
 
         return [config('app.locale', 'en')];
@@ -1025,11 +908,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         if ($this->option('demo')) {
-            return [
-                config('app.name', 'Capell Application'),
-                'Capell Knowledge',
-                'Capell Services',
-            ];
+            return FreshInstallDefaults::demoSites(config('app.name', 'Capell Application'));
         }
 
         return [config('app.name', 'Capell Application')];
@@ -1071,210 +950,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function installTimePackageNamesFromSelection(): array
     {
-        $packageNames = collect($this->parseListOption('packages') ?? []);
-        $packageMode = $this->option('package-mode');
-
-        if ($packageMode === 'all' || $this->option('all-packages') || $this->shouldUseFreshDemoPackageDefaults()) {
-            $packageNames = $packageNames->merge(TrustedCorePackages::defaultInstallSelectionNames());
-        }
-
-        return $packageNames
-            ->filter(fn (string $packageName): bool => TrustedCorePackages::contains($packageName))
-            ->reject(fn (string $packageName): bool => CapellCore::hasPackage($packageName))
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    private function shouldRunNpmBuild(bool $hasFrontend): bool
-    {
-        if (! $hasFrontend) {
-            return false;
-        }
-
-        if (! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults()) {
-            return false;
-        }
-
-        return confirm('Would you like to run an npm build after this command completes?', default: true);
-    }
-
-    private function shouldRemoveInstallerPackage(): bool
-    {
-        if (! CapellCore::hasPackage($this->installerPackageName())) {
-            return false;
-        }
-
-        if ($this->option('remove-installer')) {
-            return true;
-        }
-
-        if (! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults()) {
-            return false;
-        }
-
-        return confirm(
-            label: 'Delete the installer after installing?',
-            hint: 'You can download again by composer require `capell-app/installer`',
+        return $this->packageSetComposer()->installTimePackageNames(
+            selectedPackageNames: $this->parseListOption('packages') ?? [],
+            packageMode: $this->option('package-mode'),
+            allPackages: (bool) $this->option('all-packages'),
+            useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
         );
-    }
-
-    private function shouldInstallWelcomeRoute(bool $hasFrontend): bool
-    {
-        if (! $hasFrontend) {
-            return false;
-        }
-
-        if ($this->option('install-welcome-route')) {
-            return true;
-        }
-
-        $welcomeRouteInstaller = resolve(WelcomeRouteInstaller::class);
-
-        if (! $welcomeRouteInstaller->canInstall()) {
-            return false;
-        }
-
-        if (! $this->input->isInteractive()) {
-            return false;
-        }
-
-        $removeExistingHomeRoute = confirm(
-            label: 'Remove existing home route?',
-            default: true,
-            hint: "Removes Laravel's default welcome route so Capell CMS can handle the homepage.",
-        );
-
-        if (! $removeExistingHomeRoute) {
-            $this->configureWelcomeRouteManuallyOnFailure(
-                function () use ($welcomeRouteInstaller): void {
-                    $welcomeRouteInstaller->disableFrontendHomeRoute();
-                },
-                'Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false in .env.',
-            );
-        } else {
-            $this->configureWelcomeRouteManuallyOnFailure(
-                function () use ($welcomeRouteInstaller): void {
-                    $welcomeRouteInstaller->enableFrontendHomeRoute();
-                },
-                'Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true in .env.',
-            );
-        }
-
-        return $removeExistingHomeRoute;
-    }
-
-    private function configureWelcomeRouteManuallyOnFailure(callable $callback, string $manualChange): void
-    {
-        try {
-            $callback();
-        } catch (Throwable $throwable) {
-            $this->recordManualInstallChange($manualChange . ' ' . $throwable->getMessage());
-            $this->warn('Unable to update .env automatically. Manual changes may be required.');
-        }
-    }
-
-    /**
-     * @return array{0: bool, 1: bool}
-     */
-    private function developerToolingOptions(): array
-    {
-        if ($this->option('developer-tooling')) {
-            return [true, ! $this->option('no-boost-install')];
-        }
-
-        if (resolve(DeveloperToolingInstallationState::class)->isInstalled()) {
-            return [true, false];
-        }
-
-        if (! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults()) {
-            return [false, false];
-        }
-
-        if (! confirm(
-            label: 'Install AI / Agent Bridge developer tooling?',
-            default: false,
-            hint: 'Installs Laravel Boost and Capell Agent Bridge for local agent workflows.',
-        )) {
-            return [false, false];
-        }
-
-        $configureBoostDeveloperTooling = confirm(
-            label: 'Run Laravel Boost installer for Agent Bridge, guidelines, and skills?',
-            default: true,
-            hint: 'Runs boost:install --guidelines --skills --mcp without interaction.',
-        );
-
-        return [true, $configureBoostDeveloperTooling];
-    }
-
-    /**
-     * @return array{0: bool, 1: bool}
-     */
-    private function developerToolingOptionsForPlan(): array
-    {
-        if ($this->option('developer-tooling')) {
-            return [true, ! $this->option('no-boost-install')];
-        }
-
-        if (resolve(DeveloperToolingInstallationState::class)->isInstalled()) {
-            return [true, false];
-        }
-
-        return [false, false];
-    }
-
-    /** @return array<string, string> */
-    private function cacheOptions(): array
-    {
-        $options = $this->baseCacheOptions();
-
-        foreach ($this->optionalCacheOptions() as $key => $option) {
-            if ($this->getApplication()?->has($option['command']) === true) {
-                $options[$key] = $option['label'];
-            }
-        }
-
-        return $options;
-    }
-
-    /**
-     * @param  array<string, string>  $cacheOptions
-     * @return array<string>
-     */
-    private function defaultCachesToClear(array $cacheOptions): array
-    {
-        return array_values(array_filter(
-            $this->defaultCacheKeys(),
-            fn (string $cacheKey): bool => array_key_exists($cacheKey, $cacheOptions),
-        ));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function defaultCacheKeys(): array
-    {
-        return [
-            'page',
-            'config',
-            'views',
-            'admin',
-            'components',
-            'widgets',
-            'configurators',
-            'filament-components',
-        ];
-    }
-
-    private function createAdminUserOption(): string
-    {
-        return '__create_admin_user__';
-    }
-
-    private function useExistingAdminUserOption(): string
-    {
-        return 'existing';
     }
 
     private function installerPackageName(): string
@@ -1282,194 +963,23 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return 'capell-app/installer';
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function baseCacheOptions(): array
+    private function userPrompter(): InstallUserPrompter
     {
-        return [
-            'all' => 'Laravel optimized caches',
-            'page' => 'Page cache',
-            'config' => 'Config cache',
-            'views' => 'Views cache',
-        ];
-    }
-
-    /**
-     * @return array<string, array{label: string, command: string}>
-     */
-    private function optionalCacheOptions(): array
-    {
-        return [
-            'admin' => [
-                'label' => 'Capell admin cache',
-                'command' => 'capell:admin-clear-cache',
-            ],
-            'components' => [
-                'label' => 'Capell components cache',
-                'command' => 'capell:clear-components-cache',
-            ],
-            'widgets' => [
-                'label' => 'Capell widgets cache',
-                'command' => 'capell:admin-clear-widgets-cache',
-            ],
-            'configurators' => [
-                'label' => 'Capell configurators cache',
-                'command' => 'capell:admin-clear-configurators-cache',
-            ],
-            'filament-components' => [
-                'label' => 'Filament components cache',
-                'command' => 'filament:clear-cached-components',
-            ],
-        ];
-    }
-
-    /** @return array{?int, ?NewUserData, ?int} */
-    private function resolveUserInput(?string $userEmailOption, ?NewUserData $newUserOption, bool $freshInstall): array
-    {
-        /** @var class-string<User> $userModel */
-        $userModel = config('auth.providers.users.model');
-        $userTable = (new $userModel)->getTable();
-
-        if ($userEmailOption !== null && $newUserOption instanceof NewUserData) {
-            $this->error('Use either --user for an existing user or --name/--email/--password for a new user, not both.');
-
-            return [null, null, CommandAlias::FAILURE];
-        }
-
-        if ($newUserOption instanceof NewUserData) {
-            return [null, $newUserOption, null];
-        }
-
-        if ($freshInstall && $this->shouldUseFreshDemoDefaults()) {
-            return [null, $this->defaultDemoAdminUser(), null];
-        }
-
-        if (! Schema::hasTable($userTable)) {
-            if ($userEmailOption !== null) {
-                $this->error('User table not found: ' . $userTable);
-
-                return [null, null, CommandAlias::FAILURE];
-            }
-
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        if ($userEmailOption !== null) {
-            $user = $userModel::query()->where('email', $userEmailOption)->first();
-            if ($user === null) {
-                $this->error('User not found: ' . $userEmailOption);
-
-                return [null, null, CommandAlias::FAILURE];
-            }
-
-            return [$user->getKey(), null, null];
-        }
-
-        if ($freshInstall) {
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        $totalUsers = $userModel::query()->count();
-
-        if ($totalUsers === 0) {
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        $adminUserMode = select(
-            label: 'Which admin user should we use?',
-            options: [
-                $this->useExistingAdminUserOption() => 'Use an existing user',
-                $this->createAdminUserOption() => 'Create a new admin user',
-            ],
-            default: $this->useExistingAdminUserOption(),
+        return new InstallUserPrompter(
+            interactive: $this->input->isInteractive(),
+            writeError: function (string $message): void {
+                $this->error($message);
+            },
+            writeLine: function (string $message): void {
+                $this->line($message);
+            },
+            logDebug: function (string $message, array $context): void {
+                $this->logInstallDebug($message, $context);
+            },
+            requireInteractiveOrFail: function (string $requirement, string $hint): void {
+                $this->requireInteractiveOrFail($requirement, $hint);
+            },
         );
-
-        if ($adminUserMode === $this->createAdminUserOption()) {
-            return [null, $this->promptForNewUser(), null];
-        }
-
-        $selectedUser = search(
-            label: 'Search for an existing admin user',
-            options: fn (string $search): array => $this->existingUserOptions($userModel, $search),
-            validate: fn (int|string|null $value): ?string => $this->validateInstallUserSelection($value, $userTable),
-        );
-
-        return [(int) $selectedUser, null, null];
-    }
-
-    /**
-     * @param  class-string<User>  $userModel
-     * @return array<int|string, string>
-     */
-    private function existingUserOptions(string $userModel, string $search): array
-    {
-        return $userModel::query()
-            ->when(mb_strlen($search) > 0, fn (Builder $query) => $query->whereAny(['name', 'email'], 'like', $search . '%'))
-            ->limit(10)
-            ->select(['id', 'name', 'email'])
-            ->get()
-            ->mapWithKeys(fn (User $user): array => [
-                $user->getKey() => sprintf('%s <%s>', $user->name, $user->email),
-            ])
-            ->all();
-    }
-
-    private function validateInstallUserSelection(int|string|null $value, string $userTable): ?string
-    {
-        if ($value === $this->createAdminUserOption()) {
-            return null;
-        }
-
-        if (! is_int($value) && ! ctype_digit((string) $value)) {
-            return 'Select an existing user or create a new admin user.';
-        }
-
-        return Schema::hasTable($userTable) && DB::table($userTable)->where('id', (int) $value)->exists()
-            ? null
-            : 'The selected user does not exist.';
-    }
-
-    private function newUserFromOptions(): ?NewUserData
-    {
-        $name = $this->option('name');
-        $email = $this->option('email');
-        $password = $this->option('password');
-
-        $hasAnyOption = $name !== null || $email !== null || $password !== null;
-        if ($hasAnyOption) {
-            throw_if(
-                ! is_string($name) || $name === '' || ! is_string($email) || $email === '' || ! is_string($password) || $password === '',
-                InvalidArgumentException::class,
-                'Pass --name, --email, and --password together to create the first user non-interactively.',
-            );
-
-            return new NewUserData(name: $name, email: $email, password: $password);
-        }
-
-        return $this->newUserFromInstallerConfig();
-    }
-
-    private function newUserFromInstallerConfig(): ?NewUserData
-    {
-        $configured = config('capell-installer.admin_user');
-        if (! is_array($configured)) {
-            $configured = config('capell.install.admin_user', []);
-        }
-
-        if (! is_array($configured)) {
-            return null;
-        }
-
-        $name = $this->stringConfigValue($configured['name'] ?? null);
-        $email = $this->stringConfigValue($configured['email'] ?? null);
-        $password = $this->stringConfigValue($configured['password'] ?? null);
-
-        if ($name === '' || $email === '' || $password === '') {
-            return null;
-        }
-
-        return new NewUserData(name: $name, email: $email, password: $password);
     }
 
     private function stringConfigValue(mixed $value): string
@@ -1482,55 +992,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $this->stringConfigValue(config('app.url'));
     }
 
-    private function promptForNewUser(): NewUserData
-    {
-        $this->line('Please enter details for the admin user who can log in to Capell.');
-        $name = text(label: 'Name', required: true);
-        $email = text(label: 'Email', required: true, validate: ['email' => 'email']);
-        $password = password(label: 'Password', required: true);
-
-        return new NewUserData(name: $name, email: $email, password: $password);
-    }
-
-    private function defaultDemoAdminUser(): NewUserData
-    {
-        $this->logInstallDebug('using default fresh demo admin user', [
-            'email' => 'admin@example.test',
-        ]);
-
-        return new NewUserData(
-            name: 'Capell Admin',
-            email: 'admin@example.test',
-            password: 'password',
-        );
-    }
-
-    /**
-     * @return array{array<NewUserData>, ?int}
-     */
-    private function resolveAdditionalUsersInput(): array
-    {
-        $createRoleUsers = $this->option('role-users');
-
-        if (! $createRoleUsers) {
-            return [[], null];
-        }
-
-        $password = $this->option('role-user-password');
-
-        if (! is_string($password) || $password === '') {
-            if (! $this->input->isInteractive()) {
-                $this->error('Pass --role-user-password=<password> when using --role-users non-interactively.');
-
-                return [[], CommandAlias::FAILURE];
-            }
-
-            $password = password(label: 'Example role user password', required: true);
-        }
-
-        return [resolve(InstallInputFactory::class)->exampleRoleUsers($password), null];
-    }
-
     private function recordManualInstallChange(string $message): void
     {
         $this->manualInstallChanges[] = $message;
@@ -1541,61 +1002,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function resolveThemeSelection(): array
     {
-        $themeOption = $this->option('theme');
-        $themeCandidates = $this->themeCandidates();
-
-        if (is_string($themeOption) && $themeOption !== '') {
-            $normalisedThemeOption = resolve(ThemePackageCandidates::class)->inputThemeKey($themeOption);
-            $themeCandidateKey = $normalisedThemeOption ?? $themeOption;
-
-            if (! array_key_exists($themeCandidateKey, $themeCandidates)) {
-                $this->error(sprintf(
-                    'Unknown theme [%s]. Available themes: %s.',
-                    $themeOption,
-                    $this->formatThemeCandidatesForConsole($themeCandidates),
-                ));
-
-                return [null, CommandAlias::FAILURE];
-            }
-
-            return [$normalisedThemeOption, null];
-        }
-
-        $defaultThemeKey = resolve(ThemePackageCandidates::class)->defaultThemeKeyForCatalogue();
-
-        if ($this->input->isInteractive() && ! $this->shouldUseFreshDemoDefaults()) {
-            return [
-                (string) select(
-                    label: 'Which starter theme should be installed?',
-                    options: $themeCandidates,
-                    default: $defaultThemeKey,
-                ),
-                null,
-            ];
-        }
-
-        return [$defaultThemeKey, null];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function themeCandidates(): array
-    {
-        return collect(resolve(ThemePackageCandidates::class)
-            ->optionDataForCatalogue())
-            ->mapWithKeys(fn (ThemeInstallOptionData $option): array => [$option->key => $option->consoleLabel()])
-            ->all();
-    }
-
-    /**
-     * @param  array<string, string>  $themeCandidates
-     */
-    private function formatThemeCandidatesForConsole(array $themeCandidates): string
-    {
-        return collect($themeCandidates)
-            ->map(fn (string $label, string $themeKey): string => sprintf('%s (%s)', $themeKey, $label))
-            ->implode(', ');
+        return $this->packageSetComposer()->resolveThemeSelection(
+            themeOption: $this->option('theme'),
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+            writeError: function (string $message): void {
+                $this->error($message);
+            },
+        );
     }
 
     /**
@@ -1604,112 +1018,16 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function includeSelectedThemePackage(Collection $selectedPackages, ?string $selectedThemeKey, bool $includeInstalledRequirements): array
     {
-        if ($selectedThemeKey === null || $selectedThemeKey === ThemePackageCandidates::NONE_KEY) {
-            return [$selectedPackages, []];
-        }
-
-        $themeOptions = resolve(ThemePackageCandidates::class)
-            ->optionDataForCatalogue();
-        $packageName = $themeOptions[$selectedThemeKey]->packageName ?? null;
-
-        if ($packageName === null || $selectedPackages->has($packageName)) {
-            return [$selectedPackages, []];
-        }
-
-        if (! CapellCore::hasPackage($packageName)) {
-            return [$selectedPackages, [$packageName]];
-        }
-
-        $packageNames = $selectedPackages->keys()
-            ->push($packageName)
-            ->unique()
-            ->values()
-            ->all();
-
-        return [
-            resolve(PackageWorkflowPlanner::class)->expandAndOrder(
-                CapellCore::getPackages(sortByDependencies: true),
-                $packageNames,
-                $includeInstalledRequirements,
-            ),
-            [],
-        ];
+        return $this->packageSetComposer()->includeSelectedThemePackage(
+            $selectedPackages,
+            $selectedThemeKey,
+            $includeInstalledRequirements,
+        );
     }
 
-    /**
-     * @param  Collection<string, PackageData>  $packages
-     */
-    private function ensureFilamentIsInstalledForAdmin(Collection $packages, ConsoleProgressReporter $reporter): bool
+    private function packageSetComposer(): InstallPackageSetComposer
     {
-        if (! $packages->has('capell-app/admin')) {
-            return true;
-        }
-
-        if (! $this->hasFilamentAdminPanelProvider()) {
-            if ($this->input->isInteractive()
-                && ! $this->shouldUseFreshDemoDefaults()
-                && ! confirm(
-                    label: 'The Capell admin package requires a Filament panel. Would you like to install Filament now?',
-                    default: true,
-                )) {
-                $this->error('Filament must be installed before installing the Capell admin package.');
-
-                return false;
-            }
-
-            try {
-                InstallFilamentPanelAction::run($reporter);
-            } catch (Throwable $throwable) {
-                $this->error($throwable->getMessage());
-
-                return false;
-            }
-        }
-
-        $this->registerFilamentAdminPanelProviders();
-
-        if (! $this->hasFilamentAdminPanelProvider()) {
-            $this->error('Filament panel installation did not create an AdminPanelProvider. Run `php artisan filament:install --panels` manually, then rerun `php artisan capell:install`.');
-
-            return false;
-        }
-
-        return true;
-    }
-
-    private function registerFilamentAdminPanelProviders(): void
-    {
-        foreach ($this->filamentAdminPanelProviderPaths() as $path) {
-            $relativePath = str_replace(app_path() . DIRECTORY_SEPARATOR, '', $path);
-            $class = 'App\\' . str_replace(['/', '.php'], ['\\', ''], $relativePath);
-
-            if (! class_exists($class)) {
-                require_once $path;
-            }
-
-            if (class_exists($class)) {
-                app()->register($class);
-            }
-        }
-    }
-
-    private function hasFilamentAdminPanelProvider(): bool
-    {
-        return $this->filamentAdminPanelProviderPaths() !== [];
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function filamentAdminPanelProviderPaths(): array
-    {
-        $paths = glob(app_path('Providers/Filament/*PanelProvider.php'));
-
-        if (! is_array($paths)) {
-            return [];
-        }
-
-        return array_values(array_filter($paths, is_file(...)));
+        return resolve(InstallPackageSetComposer::class);
     }
 
     private function isInstalled(): bool

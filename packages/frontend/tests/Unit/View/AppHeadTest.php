@@ -20,7 +20,6 @@ use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Illuminate\Support\Facades\Blade;
 
 it('ignores non string translation meta values in the public head', function (): void {
@@ -52,7 +51,7 @@ it('ignores non string translation meta values in the public head', function ():
     $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $resourcePlan = new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty'));
 
-    Frontend::swap(new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -63,7 +62,7 @@ it('ignores non string translation meta values in the public head', function ():
             'runtimeManifest' => $runtimeManifest,
         ],
         slug: null,
-    )));
+    ));
 
     $html = Blade::render(
         '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
@@ -105,7 +104,7 @@ it('renders static theme css assets without requiring a vite manifest entry', fu
         )),
     ]);
 
-    Frontend::swap(new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -116,7 +115,7 @@ it('renders static theme css assets without requiring a vite manifest entry', fu
             'runtimeManifest' => $runtimeManifest,
         ],
         slug: null,
-    )));
+    ));
 
     $html = Blade::render(
         '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
@@ -166,7 +165,7 @@ it('delegates public resource rendering through the resource plan renderer contr
         }
     });
 
-    Frontend::swap(new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -177,7 +176,7 @@ it('delegates public resource rendering through the resource plan renderer contr
             'runtimeManifest' => $runtimeManifest,
         ],
         slug: null,
-    )));
+    ));
 
     $html = Blade::render(
         '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
@@ -255,7 +254,7 @@ function bindAppHeadTestContext(array $params = [], ?Theme $theme = null): void
     $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $resourcePlan = new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty'));
 
-    Frontend::swap(new CapellFrontendContext(new FrontendContext(
+    Frontend::swap(new FrontendContext(
         site: $site,
         language: $language,
         page: $page,
@@ -267,5 +266,5 @@ function bindAppHeadTestContext(array $params = [], ?Theme $theme = null): void
             ...$params,
         ],
         slug: null,
-    )));
+    ));
 }
