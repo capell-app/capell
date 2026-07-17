@@ -42,14 +42,10 @@ it('installs a package with filesystem side-effects', function (): void {
 
 it('handles install failures', function (): void {
     // Register a package with a missing requirement
-    CapellCore::registerPackage('invalid/package', path: realpath(__DIR__ . '/../../../../../tests/fixtures/requirements-package'), version: '^0.0');
+    CapellCore::registerPackage('invalid/package', version: '^0.0');
 
-    $package = new PackageData(
-        name: 'invalid/package',
-        type: PackageTypeEnum::Plugin,
-        version: '^0.0',
-        requirements: ['dep1'],
-    );
+    $package = CapellCore::getPackage('invalid/package');
+    $package->requirements = ['dep1'];
 
     expect(fn () => InstallPackageAction::run($package))
         ->toThrow(Exception::class, 'cannot be installed. Missing required plugin(s): dep1.');
@@ -232,6 +228,7 @@ it('does not leave a throwing runtime provider bundle member installed', functio
 });
 
 it('tracks core package uninstall state outside the extension lifecycle ledger', function (): void {
+    CapellCore::clearPackages();
     CapellCore::registerPackage(
         name: 'capell-app/admin',
         path: makeInstallActionComposerPackageFixture('capell-app/admin'),
@@ -249,6 +246,7 @@ it('tracks core package uninstall state outside the extension lifecycle ledger',
 });
 
 it('honors uninstalled lifecycle state for core packages', function (): void {
+    CapellCore::clearPackages();
     CapellCore::registerPackage(
         name: 'capell-app/admin',
         path: makeInstallActionComposerPackageFixture('capell-app/admin'),
@@ -268,6 +266,7 @@ it('honors uninstalled lifecycle state for core packages', function (): void {
 });
 
 it('reinstalls trusted core packages by clearing durable uninstall state', function (): void {
+    CapellCore::clearPackages();
     CapellCore::registerPackage(
         name: 'capell-app/admin',
         path: makeInstallActionComposerPackageFixture('capell-app/admin'),

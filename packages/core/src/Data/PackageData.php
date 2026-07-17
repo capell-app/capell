@@ -20,14 +20,6 @@ use Spatie\LaravelData\Data;
 
 class PackageData extends Data
 {
-    private ?ManifestData $manifestData = null;
-
-    private bool $manifestLoaded = false;
-
-    private ?CapellManifestData $capellManifestData = null;
-
-    private bool $capellManifestLoaded = false;
-
     private ?Closure $descriptionResolver = null;
 
     public function __construct(
@@ -102,6 +94,7 @@ class PackageData extends Data
         public ?string $slug = null,
         public string $visibility = 'catalogue',
         public ?string $documentationUrl = null,
+        public ?CapellManifestData $manifest = null,
     ) {
         if ($this->key === null) {
             $this->key = strtolower((string) $this->shortName);
@@ -119,15 +112,7 @@ class PackageData extends Data
             return $this->sort;
         }
 
-        $manifest = $this->manifest();
-
-        if ($manifest instanceof ManifestData) {
-            return $manifest->order;
-        }
-
-        $capellManifest = $this->capellManifest();
-
-        return $capellManifest instanceof CapellManifestData ? $capellManifest->order : 0;
+        return $this->manifest?->order ?? 0;
     }
 
     public function getShortName(): string
@@ -136,11 +121,8 @@ class PackageData extends Data
             return $this->shortName;
         }
 
-        $manifest = $this->manifest();
-
-        return $manifest instanceof ManifestData
-            ? $manifest->label
-            : str($this->name)->afterLast('/')->replace('-', ' ')->title()->toString();
+        return $this->manifest?->displayName
+            ?? str($this->name)->afterLast('/')->replace('-', ' ')->title()->toString();
     }
 
     public function setDescriptionResolver(Closure $resolver): static
@@ -160,18 +142,12 @@ class PackageData extends Data
             return $this->description;
         }
 
-        $manifest = $this->manifest();
-
-        if ($manifest instanceof ManifestData && $manifest->description !== null) {
-            return $manifest->description;
-        }
-
-        return $this->capellManifest()?->description;
+        return $this->manifest?->description;
     }
 
     public function getIcon(): null|string|BackedEnum
     {
-        return $this->icon ?? $this->manifest()?->icon;
+        return $this->icon;
     }
 
     public function getUrl(): ?string
@@ -180,11 +156,7 @@ class PackageData extends Data
             return $this->url;
         }
 
-        $manifest = $this->manifest();
-
-        return $manifest instanceof ManifestData && $manifest->url !== null
-            ? $manifest->url
-            : 'https://github.com/' . $this->name;
+        return 'https://github.com/' . $this->name;
     }
 
     /**
@@ -197,7 +169,7 @@ class PackageData extends Data
             return $this->documentationUrl;
         }
 
-        return $this->capellManifest()?->documentationUrl;
+        return $this->manifest?->documentationUrl;
     }
 
     /**
@@ -209,16 +181,8 @@ class PackageData extends Data
             return $this->scopes;
         }
 
-        $manifest = $this->manifest();
-
-        if ($manifest instanceof ManifestData && $manifest->scopes !== []) {
-            return array_values($manifest->scopes);
-        }
-
-        $capellManifest = $this->capellManifest();
-
-        return $capellManifest instanceof CapellManifestData
-            ? array_values(array_map(PackageScopeEnum::from(...), $capellManifest->scopes))
+        return $this->manifest instanceof CapellManifestData
+            ? array_values(array_map(PackageScopeEnum::from(...), $this->manifest->scopes))
             : [];
     }
 
@@ -231,23 +195,13 @@ class PackageData extends Data
             return $this->requirements;
         }
 
-        $manifest = $this->manifest();
-
-        if ($manifest instanceof ManifestData) {
-            return array_values($manifest->dependsOn);
-        }
-
-        $capellManifest = $this->capellManifest();
-
-        return $capellManifest instanceof CapellManifestData ? array_values($capellManifest->requires) : [];
+        return $this->manifest instanceof CapellManifestData ? array_values($this->manifest->requires) : [];
     }
 
     /** @return list<ExtensionContributionData> */
     public function getContributions(): array
     {
-        $manifest = $this->capellManifest();
-
-        return $manifest instanceof CapellManifestData ? $manifest->contributes : [];
+        return $this->manifest?->contributes ?? [];
     }
 
     /**
@@ -259,9 +213,7 @@ class PackageData extends Data
             return $this->supportingPackages;
         }
 
-        $capellManifest = $this->capellManifest();
-
-        return $capellManifest instanceof CapellManifestData ? $capellManifest->supports : [];
+        return $this->manifest?->supports ?? [];
     }
 
     /**
@@ -269,7 +221,7 @@ class PackageData extends Data
      */
     public function getProviderClasses(?string $context = null): array
     {
-        $providers = $this->capellManifest()?->providers;
+        $providers = $this->manifest?->providers;
 
         if (! $providers instanceof ExtensionProviderData) {
             return [];
@@ -294,9 +246,7 @@ class PackageData extends Data
             return $this->productGroup;
         }
 
-        $manifest = $this->capellManifest();
-
-        return $manifest instanceof CapellManifestData ? $manifest->productGroup : 'Uncategorised';
+        return $this->manifest?->productGroup ?? 'Uncategorised';
     }
 
     public function getTier(): string
@@ -305,9 +255,7 @@ class PackageData extends Data
             return $this->tier;
         }
 
-        $manifest = $this->capellManifest();
-
-        return $manifest instanceof CapellManifestData ? $manifest->tier : 'free';
+        return $this->manifest?->tier ?? 'free';
     }
 
     public function getBundle(): ?string
@@ -316,7 +264,7 @@ class PackageData extends Data
             return $this->bundle;
         }
 
-        return $this->capellManifest()?->bundle;
+        return $this->manifest?->bundle;
     }
 
     public function getKind(): string
@@ -325,24 +273,22 @@ class PackageData extends Data
             return $this->kind;
         }
 
-        $manifest = $this->capellManifest();
-
-        return $manifest instanceof CapellManifestData ? $manifest->kind : $this->type->value;
+        return $this->manifest?->kind ?? $this->type->value;
     }
 
     public function declaresSchemaMigrations(): bool
     {
-        return ($this->capellManifest()?->database['migrations'] ?? false) === true;
+        return ($this->manifest?->database['migrations'] ?? false) === true;
     }
 
     public function declaresSettingsMigrations(): bool
     {
-        return ($this->capellManifest()?->database['settings'] ?? false) === true;
+        return ($this->manifest?->database['settings'] ?? false) === true;
     }
 
     public function getThemeKey(): ?string
     {
-        $manifest = $this->capellManifest();
+        $manifest = $this->manifest;
 
         if ($manifest instanceof CapellManifestData && $manifest->kind === 'theme') {
             return ThemeManifestKey::resolve($manifest);
@@ -359,7 +305,7 @@ class PackageData extends Data
 
     public function getExtendsPackage(): ?string
     {
-        return $this->extendsPackage ?? $this->capellManifest()?->extends;
+        return $this->extendsPackage ?? $this->manifest?->extends;
     }
 
     public function getPreviewImageUrl(): ?string
@@ -374,7 +320,7 @@ class PackageData extends Data
 
     public function isSupportPackage(): bool
     {
-        return $this->visibility === 'support' || $this->capellManifest()?->visibility === 'support';
+        return $this->visibility === 'support' || $this->manifest?->visibility === 'support';
     }
 
     public function isVisibleInCatalogue(): bool
@@ -384,7 +330,7 @@ class PackageData extends Data
 
     public function isHiddenFromMarketplace(): bool
     {
-        return $this->hiddenFromMarketplace || $this->capellManifest()?->marketplaceHidden === true;
+        return $this->hiddenFromMarketplace || $this->manifest?->marketplaceHidden === true;
     }
 
     public function isDemo(): bool
@@ -393,15 +339,7 @@ class PackageData extends Data
             return true;
         }
 
-        $manifest = $this->manifest();
-
-        if ($manifest instanceof ManifestData && $manifest->demo) {
-            return true;
-        }
-
-        $capellManifest = $this->capellManifest();
-
-        if ($capellManifest instanceof CapellManifestData && $capellManifest->demo) {
+        if ($this->manifest?->demo === true) {
             return true;
         }
 
@@ -529,56 +467,16 @@ class PackageData extends Data
         return in_array(PackageScopeEnum::Backend, $this->getScopes(), true);
     }
 
-    private function manifest(): ?ManifestData
-    {
-        if (! $this->manifestLoaded) {
-            $this->manifestLoaded = true;
-
-            if ($this->path !== null) {
-                $manifestPath = $this->path . '/capell.json';
-                $this->manifestData = is_file($manifestPath) ? ManifestData::fromFile($manifestPath) : null;
-            }
-        }
-
-        return $this->manifestData;
-    }
-
-    private function capellManifest(): ?CapellManifestData
-    {
-        if (! $this->capellManifestLoaded) {
-            $this->capellManifestLoaded = true;
-
-            if ($this->path !== null) {
-                $manifestPath = $this->path . '/capell.json';
-
-                if (is_file($manifestPath)) {
-                    $contents = file_get_contents($manifestPath);
-
-                    if ($contents !== false) {
-                        /** @var array<string, mixed>|null $decoded */
-                        $decoded = json_decode($contents, true);
-
-                        if (is_array($decoded) && ($decoded['manifest-version'] ?? null) === 3) {
-                            $this->capellManifestData = CapellManifestData::fromArray($decoded, $this->path);
-                        }
-                    }
-                }
-            }
-        }
-
-        return $this->capellManifestData;
-    }
-
     private function command(string $key): ?string
     {
-        $command = $this->capellManifest()?->commands[$key] ?? null;
+        $command = $this->manifest?->commands[$key] ?? null;
 
         return is_string($command) && $command !== '' ? $command : null;
     }
 
     private function action(string $key): ?string
     {
-        $action = $this->capellManifest()?->actions[$key] ?? null;
+        $action = $this->manifest?->actions[$key] ?? null;
 
         return is_string($action) && $action !== '' ? $action : null;
     }
@@ -588,7 +486,7 @@ class PackageData extends Data
      */
     private function commandParams(string $key): array
     {
-        $params = $this->capellManifest()?->commands[$key] ?? [];
+        $params = $this->manifest?->commands[$key] ?? [];
 
         return is_array($params) ? array_values($params) : [];
     }
@@ -599,7 +497,7 @@ class PackageData extends Data
             return $configuredCommand;
         }
 
-        return $this->legacyManifestCommand($key) ?? $this->command($key);
+        return $this->command($key);
     }
 
     private function actionWithManifestFallback(?string $configuredAction, string $key): ?string
@@ -621,47 +519,6 @@ class PackageData extends Data
             return $configuredParams;
         }
 
-        $legacyParams = $this->legacyManifestParams($key);
-
-        return $legacyParams !== [] ? $legacyParams : $this->commandParams($key . 'Params');
-    }
-
-    private function legacyManifestCommand(string $key): ?string
-    {
-        $manifest = $this->manifest();
-
-        if (! $manifest instanceof ManifestData) {
-            return null;
-        }
-
-        return match ($key) {
-            'install' => $manifest->installCommand,
-            'setup' => $manifest->setupCommand,
-            'afterInstall' => $manifest->afterInstallCommand,
-            'upgrade' => $manifest->upgradeCommand,
-            'demo' => $manifest->demoCommand,
-            'faker' => $manifest->fakerCommand,
-            default => null,
-        };
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function legacyManifestParams(string $key): array
-    {
-        $manifest = $this->manifest();
-
-        if (! $manifest instanceof ManifestData) {
-            return [];
-        }
-
-        return array_values(match ($key) {
-            'setup' => $manifest->setupParams,
-            'afterInstall' => $manifest->afterInstallParams,
-            'demo' => $manifest->demoParams,
-            'faker' => $manifest->fakerParams,
-            default => [],
-        });
+        return $this->commandParams($key . 'Params');
     }
 }

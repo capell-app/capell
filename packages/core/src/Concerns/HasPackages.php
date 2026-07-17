@@ -17,6 +17,7 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Illuminate\Support\Collection;
@@ -49,11 +50,7 @@ trait HasPackages
     private bool $extensionRecordsPreloaded = false;
 
     /**
-     * Legacy provider bootstrap registration.
-     *
-     * Extension packages should publish manifest v3 metadata and be registered through
-     * registerManifestPackage(); provider-side metadata registration remains callable
-     * only for trusted first-party bootstrap and compatibility tests.
+     * Attach runtime provider metadata or register a manifest-less test package.
      *
      * @param  class-string<ServiceProvider>  $serviceProviderClass
      * @param  array<int, string>  $permissions
@@ -75,6 +72,36 @@ trait HasPackages
         array $installParams = [],
         bool $defaultSelected = false,
     ): static {
+        $manifest = $this->hasPackage($name)
+            ? null
+            : $this->manifestFromPackagePath($path, $name);
+
+        if (! $this->hasPackage($name) && $manifest instanceof CapellManifestData) {
+            $this->registerManifestPackage($manifest, $version);
+        }
+
+        if ($this->hasPackage($name)) {
+            $package = $this->getPackage($name);
+            $package->serviceProviderClass = $serviceProviderClass ?? $package->serviceProviderClass;
+            $package->path = $path ?? $package->path;
+            $package->version = $version ?? $package->version;
+            $package->setting = $setting ?? $package->setting;
+            $package->permissions = $permissions !== [] ? array_values($permissions) : $package->permissions;
+            $package->installCommand = $installCommand ?? $package->installCommand;
+            $package->installParams = $installParams !== [] ? array_values($installParams) : $package->installParams;
+            $package->setupCommand = $setupCommand ?? $package->setupCommand;
+            $package->setupParams = $setupParams !== [] ? array_values($setupParams) : $package->setupParams;
+            $package->defaultSelected = $defaultSelected || $package->defaultSelected === true;
+
+            if ($description instanceof Closure) {
+                $package->setDescriptionResolver($description);
+            } elseif ($description !== null) {
+                $package->description = $description;
+            }
+
+            return $this;
+        }
+
         $installed = $this->packages[$name]->installed ?? $this->forcedPackageInstallStates[$name] ?? null;
 
         $package = new PackageData(
@@ -105,10 +132,6 @@ trait HasPackages
 
     public function registerManifestPackage(CapellManifestData $manifest, ?string $version = null): static
     {
-        if ($this->hasPackage($manifest->name)) {
-            return $this;
-        }
-
         $installed = $this->packages[$manifest->name]->installed ?? $this->forcedPackageInstallStates[$manifest->name] ?? null;
 
         $this->packages[$manifest->name] = new PackageData(
@@ -156,8 +179,13 @@ trait HasPackages
             slug: $manifest->slug,
             visibility: $manifest->visibility,
             documentationUrl: $manifest->documentationUrl,
+            manifest: $manifest,
         );
         $this->packages[$manifest->name]->installed = $installed;
+
+        if (app()->bound(CapellPackageRegistry::class)) {
+            resolve(CapellPackageRegistry::class)->register($manifest);
+        }
 
         return $this;
     }
@@ -571,6 +599,28 @@ trait HasPackages
 
         /** @var class-string<ServiceProvider> $provider */
         return $provider;
+    }
+
+    private function manifestFromPackagePath(?string $packagePath, string $packageName): ?CapellManifestData
+    {
+        $manifestPath = $packagePath !== null ? $packagePath . '/capell.json' : null;
+
+        if ($manifestPath === null) {
+            return null;
+        }
+
+        if (! is_file($manifestPath)) {
+            return null;
+        }
+
+        $contents = file_get_contents($manifestPath);
+        $manifest = $contents !== false ? json_decode($contents, true) : null;
+
+        if (! is_array($manifest) || ($manifest['manifest-version'] ?? null) !== 3 || ($manifest['name'] ?? null) !== $packageName) {
+            return null;
+        }
+
+        return CapellManifestData::fromArray($manifest, realpath($packagePath) ?: $packagePath);
     }
 
     /**

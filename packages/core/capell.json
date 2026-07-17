@@ -38,7 +38,7 @@
         "demo": null,
         "doctor": "capell:doctor"
     },
-    "settings": [],
+    "settings": ["Capell\\Core\\Settings\\CoreSettings"],
     "permissions": [],
     "capabilities": [
         "content-model",

@@ -879,7 +879,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             serviceProviderClass: static::class,
             path: dirname(__DIR__, 2),
             version: CapellCore::getInstalledPrettyVersion(static::$packageName),
-            setting: AdminSettings::class,
             setupCommand: 'capell:admin-setup',
             setupParams: [
                 'url',

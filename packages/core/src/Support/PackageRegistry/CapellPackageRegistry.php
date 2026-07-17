@@ -22,7 +22,18 @@ final class CapellPackageRegistry
     /** @param array<string, CapellManifestData> $manifests */
     public function fill(array $manifests): void
     {
-        $this->packages = $manifests;
+        $this->packages = [];
+
+        foreach ($manifests as $manifest) {
+            $this->packages[$manifest->name] = $manifest;
+        }
+
+        $this->contractRegistry = null;
+    }
+
+    public function register(CapellManifestData $manifest): void
+    {
+        $this->packages[$manifest->name] = $manifest;
         $this->contractRegistry = null;
     }
 

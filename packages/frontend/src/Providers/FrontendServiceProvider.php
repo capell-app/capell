@@ -682,7 +682,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             serviceProviderClass: self::class,
             path: realpath(__DIR__ . '/../..'),
             version: CapellCore::getInstalledPrettyVersion(self::$packageName),
-            setting: FrontendSettings::class,
         );
 
         return $this;

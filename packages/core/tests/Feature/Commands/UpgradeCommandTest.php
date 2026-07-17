@@ -102,14 +102,14 @@ it('processes multiple packages in sequence', function (): void {
 
 it('outputs package upgrade progress', function (): void {
     CapellCore::registerPackage(
-        name: 'test-package',
+        name: 'test',
         path: realpath(__DIR__ . '/../../../../../tests/fixtures/upgrade-package'),
     );
 
     artisanCommand('capell:upgrade', [
         '--no-clear-cache' => true,
     ])
-        ->expectsOutput('  Running test-package (test:upgrade)')
+        ->expectsOutput('  Running test (test:upgrade)')
         ->assertExitCode(0);
 
     expect(UpgradeRunEvent::query()
