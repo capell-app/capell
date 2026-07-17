@@ -41,7 +41,7 @@ if (! is_array($composer)) {
 
     foreach ($expectedReplacements as $package) {
         if (($composer['replace'][$package] ?? null) !== 'self.version') {
-            $failures[] = "composer.json must replace {$package} at self.version.";
+            $failures[] = sprintf('composer.json must replace %s at self.version.', $package);
         }
     }
 }
@@ -68,13 +68,13 @@ if (! is_string($readme)) {
 
     foreach ($readmeContracts as $contract) {
         if (! str_contains($readme, $contract)) {
-            $failures[] = "README.md is missing package truth: {$contract}";
+            $failures[] = 'README.md is missing package truth: ' . $contract;
         }
     }
 
     foreach ($retiredClaims as $retiredClaim) {
         if (str_contains(mb_strtolower($readme), $retiredClaim)) {
-            $failures[] = "README.md contains retired package positioning: {$retiredClaim}";
+            $failures[] = 'README.md contains retired package positioning: ' . $retiredClaim;
         }
     }
 }
@@ -93,7 +93,7 @@ if ($failures !== []) {
     fwrite(STDERR, "Root documentation contract failed:\n");
 
     foreach ($failures as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
     fwrite(STDERR, "\nKeep scratch and handoff notes outside the repository, and keep package positioning aligned with Composer.\n");
