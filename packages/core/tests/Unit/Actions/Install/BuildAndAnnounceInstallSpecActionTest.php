@@ -30,7 +30,7 @@ it('builds the resolved spec and announces the completed install', function (): 
     Event::fake([CapellInstalled::class]);
 
     try {
-        (new BuildAndAnnounceInstallSpecAction)->handle($specPath, true);
+        BuildAndAnnounceInstallSpecAction::run($specPath, true);
     } finally {
         unlink($specPath);
     }
@@ -44,7 +44,7 @@ it('builds the resolved spec and announces the completed install', function (): 
 it('does nothing when no spec option was supplied', function (): void {
     Event::fake([CapellInstalled::class]);
 
-    (new BuildAndAnnounceInstallSpecAction)->handle(null, false);
+    BuildAndAnnounceInstallSpecAction::run(null, false);
 
     Event::assertNotDispatched(CapellInstalled::class);
 });

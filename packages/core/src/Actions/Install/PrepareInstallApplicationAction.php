@@ -11,11 +11,13 @@ use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Patching\PatchStatus;
 use Closure;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class PrepareInstallApplicationAction
 {
+    use AsFake;
     use AsObject;
 
     /**
