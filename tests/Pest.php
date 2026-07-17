@@ -57,6 +57,18 @@ function bindFakeAction(string $actionClass, mixed $returnValue = null): stdClas
     return $spy;
 }
 
+/**
+ * Execute a preconfigured Action through Laravel Actions' object entry point.
+ *
+ * @param  class-string  $actionClass
+ */
+function runBoundAction(string $actionClass, object $action, mixed ...$arguments): mixed
+{
+    app()->instance($actionClass, $action);
+
+    return $actionClass::run(...$arguments);
+}
+
 function fakeMarketplace(array $stubs = []): void
 {
     config([

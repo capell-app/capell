@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class ReplicateModelAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -35,7 +35,7 @@ final class MarketplaceAccountConnectionCallbackController
         }
 
         try {
-            $completeConnection->handle($connectionSessionId, $code, $state);
+            CompleteMarketplaceAccountConnectionAction::run($connectionSessionId, $code, $state);
         } catch (Throwable $throwable) {
             Log::warning('capell-marketplace: account connection callback failed', ['error' => $throwable->getMessage()]);
 

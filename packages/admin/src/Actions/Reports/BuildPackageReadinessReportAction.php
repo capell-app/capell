@@ -21,11 +21,13 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
 {
+    use AsFake;
     use AsObject;
 
     private const int FINDING_LIMIT = 75;

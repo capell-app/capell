@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Actions\IncrementNameAction;
 use Capell\Core\Models\Page;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
@@ -14,6 +15,7 @@ use RuntimeException;
  */
 class ReplicatePageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

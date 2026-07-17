@@ -8,6 +8,7 @@ use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildExtensionContractRegistryAction
 {
+    use AsFake;
     use AsObject;
 
     /**

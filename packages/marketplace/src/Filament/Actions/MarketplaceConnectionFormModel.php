@@ -185,7 +185,13 @@ final class MarketplaceConnectionFormModel
 
     public function canViewConnectionDetails(): bool
     {
-        return $this->canManageConnectionActions();
+        $user = auth()->user();
+        $configuredRole = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
+        $superAdminRole = is_string($configuredRole) && $configuredRole !== '' ? $configuredRole : 'super_admin';
+
+        return is_object($user)
+            && method_exists($user, 'hasRole')
+            && $user->hasRole($superAdminRole);
     }
 
     private function marketplaceBaseUrlConfigured(): bool

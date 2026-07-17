@@ -6,12 +6,14 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\ExtensionRuntimeGateData;
 use Capell\Core\Models\CapellExtension;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ResolveExtensionRuntimeGateAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(CapellExtension $extension): ExtensionRuntimeGateData
     {

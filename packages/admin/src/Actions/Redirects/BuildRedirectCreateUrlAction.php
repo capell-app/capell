@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Redirects;
 
 use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildRedirectCreateUrlAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(
         ?string $sourceUrl = null,

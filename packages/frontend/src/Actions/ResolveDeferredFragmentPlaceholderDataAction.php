@@ -5,28 +5,30 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Support\Fragments\DeferredFragmentPlaceholderData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static DeferredFragmentPlaceholderData|null run(array $meta, string $reference, string $url)
+ * @method static DeferredFragmentPlaceholderData|null run(array $meta, string $cacheIdentity, string $url)
  */
 final class ResolveDeferredFragmentPlaceholderDataAction
 {
+    use AsFake;
     use AsObject;
 
     /**
      * @param  array<string, mixed>  $meta
      */
-    public function handle(array $meta, string $reference, string $url): ?DeferredFragmentPlaceholderData
+    public function handle(array $meta, string $cacheIdentity, string $url): ?DeferredFragmentPlaceholderData
     {
         $performance = is_array($meta['performance'] ?? null) ? $meta['performance'] : [];
 
-        if (($performance['defer'] ?? false) !== true || $reference === '' || $url === '') {
+        if (($performance['defer'] ?? false) !== true || $cacheIdentity === '' || $url === '') {
             return null;
         }
 
         return new DeferredFragmentPlaceholderData(
-            cacheKey: hash('sha256', $reference),
+            cacheKey: hash('sha256', $cacheIdentity),
             url: $url,
             strategy: $this->deferredStrategy($performance['defer_strategy'] ?? null),
             minHeight: $this->deferredMinHeight($performance['defer_min_height'] ?? null),

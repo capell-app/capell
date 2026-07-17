@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Activity;
 use Capell\Admin\Enums\CapellPermission;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
 
@@ -15,6 +16,7 @@ use Spatie\Activitylog\Models\Activity;
  */
 final class DeleteActivityLogAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Activity $activity): bool

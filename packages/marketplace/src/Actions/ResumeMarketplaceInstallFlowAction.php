@@ -16,13 +16,15 @@ use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class ResumeMarketplaceInstallFlowAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(private readonly MarketplaceClient $marketplace) {}
 

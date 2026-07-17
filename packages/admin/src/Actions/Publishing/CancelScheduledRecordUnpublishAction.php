@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -19,6 +20,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class CancelScheduledRecordUnpublishAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model&Publishable $record, User $actor): PublishVisibilityActionResultData

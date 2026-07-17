@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Models\Contracts\Translatable as TranslatableContract;
 use Capell\Core\Models\Translation;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -17,6 +18,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class CheckTranslationCompletenessAction
 {
+    use AsFake;
     use AsObject;
 
     /**

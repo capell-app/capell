@@ -6,10 +6,12 @@ namespace Capell\Core\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class GenerateUniqueKeyAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $model, string $var = 'name'): string

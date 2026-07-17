@@ -12,10 +12,12 @@ use Capell\Frontend\Events\FrontendRenderPreparing;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Illuminate\Support\Facades\Event;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PrepareFrontendRenderAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

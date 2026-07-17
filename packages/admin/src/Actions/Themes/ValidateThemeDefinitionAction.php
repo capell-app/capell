@@ -8,14 +8,16 @@ use Capell\Admin\Data\Themes\ThemeDiagnosticsData;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static ThemeDiagnosticsData run(string $themeKey, ?ThemeDefinitionData $definition = null, ?Theme $theme = null)
  */
 final class ValidateThemeDefinitionAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(string $themeKey, ?ThemeDefinitionData $definition = null, ?Theme $theme = null): ThemeDiagnosticsData
     {

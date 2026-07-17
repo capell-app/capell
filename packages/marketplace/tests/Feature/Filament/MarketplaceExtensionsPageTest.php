@@ -382,3 +382,53 @@ it('hides marketplace connection details from view-only status cards', function 
         ->not->toContain('ben@example.com')
         ->not->toContain('00000000-0000-4000-8000-000000000123');
 });
+
+it('renders safe commercial status when connection details are explicitly available', function (): void {
+    MarketplaceInstance::query()->create([
+        'instance_id' => 'instance-commercial-status',
+        'signing_secret_encrypted' => 'secret-value',
+        'connection_mode' => MarketplaceConnectionMode::AccountLinked,
+        'account_id' => 'acct_123',
+        'connection_metadata' => [
+            'commercial' => [
+                'purchases' => [[
+                    'name' => 'Capell Membership',
+                    'status' => 'active',
+                    'access_ends_at' => '2027-07-16T00:00:00+00:00',
+                    'protected_updates' => true,
+                ]],
+                'membership_comparison' => [
+                    'name' => 'Capell Membership',
+                    'price_cents' => 19900,
+                    'renewal_price_cents' => 15920,
+                    'currency' => 'GBP',
+                    'included_product_count' => 38,
+                    'named_user_limit' => 5,
+                ],
+                'new_membership_product_count' => 4,
+                'renewal_url' => 'https://capell.test/customer/packages',
+                'support_url' => 'https://capell.test/support/request',
+                'priority_support_price_cents' => 4900,
+                'expired_explanation' => 'Installed software continues to run after expiry; protected updates and included support require renewal.',
+            ],
+        ],
+        'last_heartbeat_at' => now(),
+    ]);
+
+    $content = view('capell-marketplace::filament.pages.extensions-page-marketplace-status', [
+        'marketplaceConnection' => resolve(MarketplaceConnectionFormModel::class),
+        'marketplaceConnectionActionsVisible' => true,
+        'marketplaceConnectionDetailsVisible' => true,
+    ])->render();
+
+    expect($content)
+        ->toContain('Capell Membership')
+        ->toContain('GBP 199.00')
+        ->toContain('GBP 159.20')
+        ->toContain('38 products')
+        ->toContain('£49.00')
+        ->toContain('https://capell.test/customer/packages')
+        ->toContain('https://capell.test/support/request')
+        ->not->toContain('secret-value')
+        ->not->toContain('acct_123');
+});

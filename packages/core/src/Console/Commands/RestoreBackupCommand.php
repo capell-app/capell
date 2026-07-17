@@ -22,7 +22,7 @@ final class RestoreBackupCommand extends Command
     public function handle(RestoreBackupAction $restoreBackup): int
     {
         try {
-            $result = $restoreBackup->handle(
+            $result = RestoreBackupAction::run(
                 snapshotId: (string) $this->argument('snapshot'),
                 scratchDatabase: (string) $this->argument('scratch-database'),
                 mediaDisk: is_string($this->option('media-disk')) ? $this->option('media-disk') : null,

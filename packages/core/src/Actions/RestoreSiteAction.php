@@ -17,6 +17,7 @@ use Capell\Core\Support\CapellCoreHelper;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -24,6 +25,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class RestoreSiteAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Site $site): bool

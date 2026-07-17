@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Exception;
 use Illuminate\View\Compilers\ComponentTagCompiler;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
@@ -17,6 +18,7 @@ use Throwable;
  */
 class GetComponentClassAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

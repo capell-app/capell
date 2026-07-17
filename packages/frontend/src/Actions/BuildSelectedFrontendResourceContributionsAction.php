@@ -10,10 +10,12 @@ use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
 use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Support\Assets\ThemeResourceResolver;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildSelectedFrontendResourceContributionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly ThemeResourceResolver $resolver) {}

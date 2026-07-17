@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Reports;
 
 use Capell\Admin\Facades\CapellAdmin;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class NormalizeReportVisibilitySettingsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

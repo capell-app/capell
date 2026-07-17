@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class DeletePackageMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly MigrationFilesystemInterface $files) {}

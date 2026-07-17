@@ -17,11 +17,13 @@ use Capell\Core\Support\Upgrade\NullUpgradeReporter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class RunCapellUpgradeAction
 {
+    use AsFake;
     use AsObject;
 
     public const int UPGRADE_LOCK_SECONDS = 1500;

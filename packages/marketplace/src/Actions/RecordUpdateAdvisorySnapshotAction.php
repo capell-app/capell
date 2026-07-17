@@ -8,12 +8,14 @@ use Capell\Marketplace\Models\UpdateAdvisorySnapshot;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Arr;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class RecordUpdateAdvisorySnapshotAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<string, mixed>  $payload

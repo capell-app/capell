@@ -7,14 +7,16 @@ namespace Capell\Frontend\Actions;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\HtmlMinifier;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static string|array<int|string, mixed> run(null|string|array<int|string, mixed> $content, ?ContentStructure $structure = null, array<string, mixed> $context = [], bool $stripTags = false, bool $decodeEntities = false, bool $asArray = false)
  */
 class RenderContentAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<int|string, mixed>|string|null  $content

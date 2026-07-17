@@ -7,10 +7,12 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\BlazeOptimizationData;
 use Livewire\Blaze\Blaze;
 use Livewire\Blaze\Config as BlazeConfig;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RegisterBlazeOptimizedViewsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $path, ?BlazeOptimizationData $optimization = null): bool

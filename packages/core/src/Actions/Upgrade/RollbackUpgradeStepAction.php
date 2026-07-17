@@ -10,12 +10,14 @@ use Capell\Core\Data\UpgradeStepResult;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Capell\Core\Models\UpgradeLogEntry;
 use Illuminate\Support\Facades\DB;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class RollbackUpgradeStepAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(UpgradeStepContract $step, UpgradeContext $context): UpgradeStepResult
     {

@@ -29,7 +29,7 @@ class BulkRevertToDraftBulkAction extends BulkAction
                 /** @var User $actor */
                 $actor = auth()->user();
 
-                $result = BulkRevertPagesToDraftAction::make()->handle($records, $actor);
+                $result = BulkRevertPagesToDraftAction::run($records, $actor);
 
                 $notification = Notification::make()
                     ->title(__('capell-admin::bulk_actions.revert_to_draft_done', [

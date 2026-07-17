@@ -8,6 +8,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -18,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolveFirstPageByTypeAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

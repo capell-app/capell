@@ -68,6 +68,19 @@ Then run the application using your normal Laravel development workflow and open
 
 Do not run `filament:install --panels` before requiring Capell: the installer brings in and configures the selected Admin package. See the [Quickstart](docs/getting-started/quickstart.md) for SQLite and queue setup, expected prompts, health checks, and first-run recovery.
 
+### Capell Membership install
+
+An active Capell Membership organisation can request a short-lived private Composer command from its Capell account. Run the generated commands in the Laravel application, then use the same Installer flow:
+
+```bash
+composer config repositories.capell composer https://capell.app/composer
+composer config bearer.capell.app <short-lived-token>
+composer require capell-app/capell
+php artisan capell:install
+```
+
+`capell-app/capell` is the root aggregate for the aligned Core, Admin, Frontend, Installer, and Marketplace code line. Marketplace then authorises the Membership catalogue for the connected organisation. The token is scoped, expires within 30 minutes, and is redacted from account serialization. Do not paste it into tickets, logs, source control, or shared shell history; request a new command when it expires.
+
 ## Theme it
 
 Installed themes use one Admin path: **Theme Library → Customize → Preview → Apply**. Preview a change against real content before making it active, and keep theme presentation in the Laravel application rather than in page records.

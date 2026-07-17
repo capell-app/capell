@@ -6,7 +6,7 @@ use Capell\Frontend\Actions\MinifyCriticalCssAction;
 
 function minifyCriticalCss(string $css): string
 {
-    return resolve(MinifyCriticalCssAction::class)->handle($css);
+    return MinifyCriticalCssAction::run($css);
 }
 
 it('preserves the descendant combinator before a pseudo-class selector', function (): void {

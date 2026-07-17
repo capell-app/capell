@@ -6,11 +6,13 @@ namespace Capell\Frontend\Actions\Performance;
 
 use Capell\Frontend\Data\Performance\ExtensionRenderContributionData;
 use Illuminate\Http\Request;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RecordExtensionRenderContributionAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private const string REQUEST_ATTRIBUTE = 'capell.frontend.extension_render_contributions';
 

@@ -11,7 +11,7 @@ it('classifies a persisted-install footprint with schema damage as partial', fun
     $schema = resolve(CapellRuntimeSchemaContract::class);
     $damagedTables = array_values(array_diff($schema->requiredTables(), ['pages']));
 
-    $state = resolve(ResolveCapellInstallationStateAction::class)->handle(
+    $state = ResolveCapellInstallationStateAction::run(
         existingTables: $damagedTables,
         coreStatus: ExtensionStatusEnum::Enabled,
         coreRecorded: true,

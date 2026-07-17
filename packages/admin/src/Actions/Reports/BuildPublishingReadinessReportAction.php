@@ -23,10 +23,12 @@ use Capell\Core\Models\Translation;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
 {
+    use AsFake;
     use AsObject;
 
     private const int FINDING_LIMIT = 50;

@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Contracts\Extensions\DeletesExtensionData;
 use Capell\Core\Data\PackageData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class DeleteExtensionDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PackageData $package): void

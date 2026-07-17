@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -19,6 +20,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  */
 class ReplaceMediaFileAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Media $media, string $absoluteFilePath): Media

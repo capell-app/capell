@@ -20,10 +20,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePublicFragmentContextAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PublicFragmentReferenceData $reference): PublicFragmentContextData

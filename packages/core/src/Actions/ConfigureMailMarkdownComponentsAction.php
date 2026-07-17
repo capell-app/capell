@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ConfigureMailMarkdownComponentsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): void

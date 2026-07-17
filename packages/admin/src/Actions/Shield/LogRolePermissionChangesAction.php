@@ -6,12 +6,14 @@ namespace Capell\Admin\Actions\Shield;
 
 use Capell\Admin\Data\Shield\RolePermissionChangeSetData;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 
 class LogRolePermissionChangesAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Role $role, RolePermissionChangeSetData $changeSet, ?Model $actor = null): void

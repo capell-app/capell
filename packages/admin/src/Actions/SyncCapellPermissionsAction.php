@@ -10,11 +10,13 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Filament\Facades\Filament;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\PermissionRegistrar;
 
 class SyncCapellPermissionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PermissionSyncMode $mode = PermissionSyncMode::Install): void

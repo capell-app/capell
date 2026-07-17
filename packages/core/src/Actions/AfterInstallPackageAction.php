@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class AfterInstallPackageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

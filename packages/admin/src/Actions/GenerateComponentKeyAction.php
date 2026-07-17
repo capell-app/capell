@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -11,6 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GenerateComponentKeyAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $name, int $index): string

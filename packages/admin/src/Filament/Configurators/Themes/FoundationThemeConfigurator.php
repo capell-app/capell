@@ -268,7 +268,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
             return [$this->surfaceSection()];
         }
 
-        $groups = resolve(ResolveThemeEditorSchemaAction::class)->handle($definition)->groups;
+        $groups = ResolveThemeEditorSchemaAction::run($definition)->groups;
 
         if ($groups === []) {
             return [$this->surfaceSection()];

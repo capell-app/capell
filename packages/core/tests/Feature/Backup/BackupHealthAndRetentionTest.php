@@ -36,9 +36,9 @@ afterEach(function (): void {
 });
 
 it('reports healthy only when freshness retention and artifact integrity pass', function (): void {
-    resolve(CreateBackupAction::class)->handle(databaseOnly: true);
+    CreateBackupAction::run(databaseOnly: true);
 
-    $report = resolve(InspectBackupHealthAction::class)->handle();
+    $report = InspectBackupHealthAction::run();
 
     expect($report->passed())->toBeTrue()
         ->and($report->snapshotCount)->toBe(1)
@@ -46,19 +46,19 @@ it('reports healthy only when freshness retention and artifact integrity pass', 
 });
 
 it('reports stale missing and checksum-mismatched backup artifacts', function (): void {
-    $manifest = resolve(CreateBackupAction::class)->handle(databaseOnly: true);
+    $manifest = CreateBackupAction::run(databaseOnly: true);
     Date::setTestNow('2026-07-10 15:00:01 UTC');
 
-    $stale = resolve(InspectBackupHealthAction::class)->handle();
+    $stale = InspectBackupHealthAction::run();
     $artifact = Storage::disk('backups')->get($manifest->database->path);
 
     throw_if(! is_string($artifact) || $artifact === '', RuntimeException::class, 'Backup integrity fixture is missing.');
 
     $artifact[0] = $artifact[0] === 'x' ? 'y' : 'x';
     Storage::disk('backups')->put($manifest->database->path, $artifact);
-    $corrupt = resolve(InspectBackupHealthAction::class)->handle();
+    $corrupt = InspectBackupHealthAction::run();
     Storage::disk('backups')->delete($manifest->database->path);
-    $missing = resolve(InspectBackupHealthAction::class)->handle();
+    $missing = InspectBackupHealthAction::run();
 
     expect($stale->passed())->toBeFalse()
         ->and(backupHealthCheck($stale->checks, 'freshness')['passed'])->toBeFalse()
@@ -67,9 +67,9 @@ it('reports stale missing and checksum-mismatched backup artifacts', function ()
 });
 
 it('fails health for disabled storage no manifests and insufficient retention', function (): void {
-    $empty = resolve(InspectBackupHealthAction::class)->handle();
+    $empty = InspectBackupHealthAction::run();
     config(['backup.enabled' => false]);
-    $disabled = resolve(InspectBackupHealthAction::class)->handle();
+    $disabled = InspectBackupHealthAction::run();
 
     expect($empty->passed())->toBeFalse()
         ->and(backupHealthCheck($empty->checks, 'snapshots')['passed'])->toBeFalse()
@@ -79,13 +79,13 @@ it('fails health for disabled storage no manifests and insufficient retention', 
 });
 
 it('rejects future-dated manifests as invalid rather than permanently fresh', function (): void {
-    $manifest = resolve(CreateBackupAction::class)->handle(databaseOnly: true);
+    $manifest = CreateBackupAction::run(databaseOnly: true);
     $manifestPath = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
     $stored = Storage::disk('backups')->json($manifestPath);
     $stored['created_at'] = '2027-07-10T12:00:00+00:00';
     Storage::disk('backups')->put($manifestPath, json_encode($stored, JSON_THROW_ON_ERROR));
 
-    $report = resolve(InspectBackupHealthAction::class)->handle();
+    $report = InspectBackupHealthAction::run();
 
     expect($report->passed())->toBeFalse()
         ->and(backupHealthCheck($report->checks, 'freshness')['passed'])->toBeFalse()
@@ -97,7 +97,7 @@ it('previews pruning and deletes only completed snapshots beyond retention when 
 
     foreach (['12:00:00', '12:01:00', '12:02:00'] as $time) {
         Date::setTestNow('2026-07-10 ' . $time . ' UTC');
-        $snapshots[] = resolve(CreateBackupAction::class)->handle(databaseOnly: true)->snapshotId;
+        $snapshots[] = CreateBackupAction::run(databaseOnly: true)->snapshotId;
     }
 
     $prune = resolve(PruneBackupsAction::class);
@@ -115,7 +115,7 @@ it('rejects traversal and out-of-prefix snapshot deletion', function (): void {
 });
 
 it('exposes health JSON and dry-run pruning through commands', function (): void {
-    resolve(CreateBackupAction::class)->handle(databaseOnly: true);
+    CreateBackupAction::run(databaseOnly: true);
 
     artisanCommand('capell:backup:health', ['--json' => true])
         ->expectsOutputToContain('"status": "healthy"')

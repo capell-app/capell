@@ -7,12 +7,14 @@ namespace Capell\Core\Actions\Marketplace;
 use Capell\Core\Models\MarketplaceInstall;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class RegisterMarketplaceInstallAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(?string $installId = null): MarketplaceInstall
     {

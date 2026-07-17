@@ -7,12 +7,14 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ClassifyMarketplaceInstallFailureAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(
         ?MarketplaceInstallFailureStage $stage = null,

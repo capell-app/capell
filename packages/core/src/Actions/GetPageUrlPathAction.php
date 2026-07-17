@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Query\JoinClause;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -16,6 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class GetPageUrlPathAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page $page, Language $language, bool $fullUrl = false): string

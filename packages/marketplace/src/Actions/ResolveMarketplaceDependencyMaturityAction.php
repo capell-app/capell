@@ -6,11 +6,13 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Services\MarketplaceClient;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveMarketplaceDependencyMaturityAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(private readonly MarketplaceClient $marketplace) {}
 

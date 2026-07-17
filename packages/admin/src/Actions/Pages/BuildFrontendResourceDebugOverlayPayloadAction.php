@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Pages;
 
 use Capell\Core\Models\Page;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildFrontendResourceDebugOverlayPayloadAction
 {
+    use AsFake;
     use AsObject;
 
     /**

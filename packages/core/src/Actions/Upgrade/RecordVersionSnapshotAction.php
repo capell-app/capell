@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\Upgrade;
 
 use Capell\Core\Models\UpgradeLogEntry;
 use Illuminate\Database\Query\JoinClause;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class RecordVersionSnapshotAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<string, string>  $packageVersions

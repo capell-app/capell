@@ -6,12 +6,14 @@ namespace Capell\Admin\Actions;
 
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\PermissionSyncMode;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class GrantCapellDefaultRolePermissionsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PermissionSyncMode $mode): void

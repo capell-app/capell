@@ -9,6 +9,7 @@ use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Contracts\Publishable;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -22,6 +23,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class RecordPublishHistoryAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -8,12 +8,14 @@ use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class MarketplaceInstallFlowSessionTransitionAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @var array<string, array<int, string>>

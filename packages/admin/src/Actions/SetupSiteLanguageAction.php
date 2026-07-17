@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Illuminate\Support\Arr;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
@@ -15,6 +16,7 @@ use RuntimeException;
  */
 class SetupSiteLanguageAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Site $site, Language $language): void

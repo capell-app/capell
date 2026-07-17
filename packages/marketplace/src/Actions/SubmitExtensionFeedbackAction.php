@@ -7,12 +7,14 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Actions\Marketplace\ResolveExtensionLicenceDecisionAction;
 use Capell\Marketplace\Data\ExtensionFeedbackData;
 use Capell\Marketplace\Services\MarketplaceClient;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class SubmitExtensionFeedbackAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(private readonly MarketplaceClient $marketplace) {}
 

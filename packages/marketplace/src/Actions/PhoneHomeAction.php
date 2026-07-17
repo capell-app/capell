@@ -12,12 +12,14 @@ use Capell\Marketplace\Support\MarketplacePayloadSigner;
 use Capell\Marketplace\Support\MarketplaceWebhookUrl;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class PhoneHomeAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     private static ?string $lastFailureMessage = null;
 
@@ -112,6 +114,10 @@ final class PhoneHomeAction
                     ['instance_id' => $heartbeatResult->instanceId],
                     [
                         'signing_secret_encrypted' => $signingSecret,
+                        'connection_metadata' => [
+                            ...(is_array($marketplaceInstance?->connection_metadata) ? $marketplaceInstance->connection_metadata : []),
+                            'commercial' => $heartbeatResult->commercial,
+                        ],
                         'last_heartbeat_at' => now(),
                     ],
                 );

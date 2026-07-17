@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Illuminate\Support\Facades\File;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * @method static void run(list<string> $classes)
  */
 class UpdateTailwindClassesFileAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     protected string $filePath;
 

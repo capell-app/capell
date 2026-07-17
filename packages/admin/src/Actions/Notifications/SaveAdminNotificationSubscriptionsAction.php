@@ -8,11 +8,13 @@ use Capell\Admin\Models\AdminNotificationSubscription;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class SaveAdminNotificationSubscriptionsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<int, string>  $subscribedGroupKeys

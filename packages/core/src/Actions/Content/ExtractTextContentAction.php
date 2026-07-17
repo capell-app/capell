@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Content;
 
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class ExtractTextContentAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * Extracts plain text from a string, array, or JSON-encoded content.

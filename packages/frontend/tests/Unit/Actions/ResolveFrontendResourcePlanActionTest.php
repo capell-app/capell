@@ -42,7 +42,7 @@ it('resolves and dependency-orders eager resources across placements', function 
         defer: false,
     );
 
-    $plan = new ResolveFrontendResourcePlanAction(url(), resolve(Vite::class))->handle([
+    $plan = runBoundAction(ResolveFrontendResourcePlanAction::class, new ResolveFrontendResourcePlanAction(url(), resolve(Vite::class)), [
         new FrontendResourceContributionData($plugin),
         new FrontendResourceContributionData($library),
     ]);
@@ -65,7 +65,7 @@ it('expands transitive dependencies and detects missing handles', function (): v
         dependsOn: ['capell-app/gallery:missing'],
     );
 
-    resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ]);
 })->throws(FrontendResourcePlanException::class, 'Missing frontend resource dependency');
@@ -74,7 +74,7 @@ it('detects dependency cycles', function (): void {
     $first = FrontendResourceData::moduleScript('capell-app/gallery:first', 'capell-app/gallery', new PublicResourceSourceData('first.js'), dependsOn: ['capell-app/gallery:second']);
     $second = FrontendResourceData::moduleScript('capell-app/gallery:second', 'capell-app/gallery', new PublicResourceSourceData('second.js'), dependsOn: ['capell-app/gallery:first']);
 
-    resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($first),
         new FrontendResourceContributionData($second),
     ]);
@@ -84,7 +84,7 @@ it('rejects asynchronous resources used as dependencies', function (): void {
     $async = FrontendResourceData::classicScript('capell-app/gallery:async', 'capell-app/gallery', new PublicResourceSourceData('async.js'), async: true);
     $dependent = FrontendResourceData::classicScript('capell-app/gallery:dependent', 'capell-app/gallery', new PublicResourceSourceData('dependent.js'), dependsOn: [$async->handle]);
 
-    resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($async),
         new FrontendResourceContributionData($dependent),
     ]);
@@ -94,7 +94,7 @@ it('deduplicates compatible canonical URLs as aliases', function (): void {
     $first = FrontendResourceData::style('capell-app/gallery:first', 'capell-app/gallery', new PublicResourceSourceData('shared.css'));
     $second = FrontendResourceData::style('capell-app/gallery:second', 'capell-app/gallery', new PublicResourceSourceData('shared.css'));
 
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($first),
         new FrontendResourceContributionData($second),
     ]);
@@ -110,7 +110,7 @@ it('preserves every independent lazy activation trigger for a shared resource', 
         new PublicResourceSourceData('gallery.js'),
     );
 
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource, [
             new FrontendResourceActivationData('widget_a', PresentationLoadingStrategy::Visible),
         ]),
@@ -137,7 +137,7 @@ it('promotes a shared resource and its dependencies when any contribution is eag
     $library = FrontendResourceData::classicScript('capell-app/gallery:library', 'capell-app/gallery', new PublicResourceSourceData('library.js'));
     $plugin = FrontendResourceData::classicScript('capell-app/gallery:plugin', 'capell-app/gallery', new PublicResourceSourceData('plugin.js'), dependsOn: [$library->handle]);
 
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($library, [
             new FrontendResourceActivationData('widget_a', PresentationLoadingStrategy::Visible),
         ]),
@@ -174,7 +174,7 @@ it('expands production vite entries with imported css and module preloads', func
             'capell-app/frontend',
             new ViteResourceSourceData('resources/js/app.js', $buildDirectory),
         );
-        $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+        $plan = ResolveFrontendResourcePlanAction::run([
             new FrontendResourceContributionData($resource),
         ]);
 
@@ -199,7 +199,7 @@ it('warns about missing external integrity by default and can require it', funct
         new ExternalResourceSourceData('https://cdn.example.com/gallery.js'),
     );
 
-    $plan = resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    $plan = ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ]);
 
@@ -210,7 +210,7 @@ it('warns about missing external integrity by default and can require it', funct
 
     config()->set('capell-frontend.external_resources.integrity_policy', 'require');
 
-    expect(fn () => resolve(ResolveFrontendResourcePlanAction::class)->handle([
+    expect(fn () => ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ]))->toThrow(FrontendResourcePlanException::class, 'requires an integrity hash');
 });

@@ -8,6 +8,7 @@ use Capell\Admin\Contracts\Activity\ActivityDecorator;
 use Capell\Admin\Data\Activity\ActivityPresentationData;
 use Capell\Admin\Support\Activity\DefaultActivityDecorator;
 use Capell\Admin\Support\Activity\TranslationActivityDecorator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
 
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Models\Activity;
  */
 final class DescribeActivityAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Activity $activity): ActivityPresentationData

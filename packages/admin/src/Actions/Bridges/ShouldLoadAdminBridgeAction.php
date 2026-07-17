@@ -6,12 +6,14 @@ namespace Capell\Admin\Actions\Bridges;
 
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Facades\CapellCore;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class ShouldLoadAdminBridgeAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(string $adminSetting, bool $packageEnabled, ?string $packageName = null): bool
     {

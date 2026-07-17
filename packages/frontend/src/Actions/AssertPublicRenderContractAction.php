@@ -15,6 +15,7 @@ use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -23,6 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class AssertPublicRenderContractAction
 {
+    use AsFake;
     use AsObject;
 
     /**

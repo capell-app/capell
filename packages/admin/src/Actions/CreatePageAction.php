@@ -9,6 +9,7 @@ use Capell\Core\Contracts\Actionable;
 use Capell\Core\Models\Page;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -16,6 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class CreatePageAction implements Actionable
 {
+    use AsFake;
     use AsObject;
 
     /**

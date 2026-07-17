@@ -12,10 +12,12 @@ use Capell\Core\Enums\InteractionTargetType;
 use Capell\Core\Enums\InteractionTriggerEvent;
 use Capell\Core\Support\Security\PublicUrlSanitizer;
 use Illuminate\Support\Arr;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class ResolveInteractionTriggersAction
 {
+    use AsFake;
     use AsObject;
 
     /**

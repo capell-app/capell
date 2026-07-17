@@ -35,8 +35,8 @@ final class MarketplaceInstallFlowCallbackController
         }
 
         try {
-            $session = $completeFlow->handle($flowId, $code, $state);
-            $attempts = $resumeFlow->handle($session);
+            $session = CompleteMarketplaceInstallFlowAction::run($flowId, $code, $state);
+            $attempts = ResumeMarketplaceInstallFlowAction::run($session);
         } catch (Throwable $throwable) {
             Log::warning('capell-marketplace: install flow callback failed', [
                 'error' => $throwable->getMessage(),

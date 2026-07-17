@@ -8,6 +8,7 @@ use Capell\Core\Data\Backup\BackupManifestData;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
@@ -15,6 +16,7 @@ use Throwable;
 /** @method static list<string> run(bool $force = false) */
 final class PruneBackupsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

@@ -8,10 +8,12 @@ use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
 use Capell\Core\Data\ContentGraph\ContentGraphEdgeData;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildContentGraphForModelAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $model): ContentGraphEdgeCollectionData

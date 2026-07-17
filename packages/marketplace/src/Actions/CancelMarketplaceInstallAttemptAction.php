@@ -6,11 +6,13 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CancelMarketplaceInstallAttemptAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(MarketplaceInstallAttempt $attempt): MarketplaceInstallAttempt
     {

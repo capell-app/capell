@@ -12,10 +12,12 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Event;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PrepareFreshInstallAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(ProgressReporter $reporter): void

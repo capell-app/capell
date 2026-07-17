@@ -7,10 +7,12 @@ namespace Capell\Frontend\Actions;
 use Capell\Core\Models\Page;
 use Capell\Frontend\Jobs\PurgeCdnCacheJob;
 use Capell\Frontend\Support\Cache\FragmentCache;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class PurgeCdnCacheByPageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

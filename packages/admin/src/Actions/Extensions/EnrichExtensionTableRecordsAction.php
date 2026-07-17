@@ -6,12 +6,14 @@ namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class EnrichExtensionTableRecordsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  list<array<string, mixed>>  $records

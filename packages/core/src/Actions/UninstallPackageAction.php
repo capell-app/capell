@@ -15,6 +15,7 @@ use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Event;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -22,6 +23,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class UninstallPackageAction
 {
+    use AsFake;
     use AsObject;
 
     public static function handle(PackageData $package, bool $delete = false, bool $deleteData = false): void

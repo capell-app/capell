@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Upgrade;
 
 use Composer\InstalledVersions;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class ResolveInstalledComposerVersionsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<int, string>  $prefixes

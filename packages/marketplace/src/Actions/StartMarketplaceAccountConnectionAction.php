@@ -11,13 +11,15 @@ use Capell\Marketplace\Support\MarketplaceApprovalUrl;
 use Carbon\CarbonImmutable;
 use Composer\InstalledVersions;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class StartMarketplaceAccountConnectionAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function __construct(private readonly MarketplaceClient $marketplace) {}
 

@@ -14,6 +14,7 @@ use Capell\Core\Data\PackageCapabilityGraphData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -21,6 +22,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildExtensionInstallImpactAction
 {
+    use AsFake;
     use AsObject;
 
     /**

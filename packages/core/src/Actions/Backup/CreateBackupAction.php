@@ -12,6 +12,7 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\FilesystemManager;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
@@ -21,6 +22,7 @@ use Throwable;
  */
 final class CreateBackupAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

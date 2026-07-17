@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Capell\Admin\Enums\CapellPermission;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class InstallCapellCustomPermissionsAction
 {
+    use AsFake;
     use AsObject;
 
     public const string PERMISSION_PAGE_EXPORT = 'page.export';

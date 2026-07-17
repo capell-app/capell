@@ -16,10 +16,12 @@ use Capell\Core\Support\Install\PackageDemoLifecycle;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class InstallPackagesAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(InstallInputData $inputData, ?Authenticatable $user, ProgressReporter $reporter): void

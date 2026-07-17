@@ -10,10 +10,12 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class CreateAutomaticRedirectAction
 {
+    use AsFake;
     use AsObject;
 
     /**

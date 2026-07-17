@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class ResolveRenderableComponentAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

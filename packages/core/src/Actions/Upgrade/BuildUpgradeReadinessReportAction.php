@@ -15,12 +15,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildUpgradeReadinessReportAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(): UpgradeReadinessReportData
     {

@@ -13,12 +13,14 @@ use Composer\InstalledVersions;
 use Composer\Semver\Semver;
 use Illuminate\Console\Command;
 use Illuminate\Database\Migrations\Migrator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionObject;
 use Throwable;
 
 final class ReportCapellUpgradeDryRunAction
 {
+    use AsFake;
     use AsObject;
 
     private const string CURRENT_CAPELL_API_VERSION = CapellExtensionApi::CURRENT_VERSION;

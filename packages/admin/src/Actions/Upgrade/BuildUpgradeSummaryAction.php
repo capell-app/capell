@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Upgrade;
 
 use Capell\Admin\Data\Upgrade\UpgradeNoticeData;
 use Capell\Admin\Data\Upgrade\UpgradeSummaryData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildUpgradeSummaryAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(): UpgradeSummaryData
     {

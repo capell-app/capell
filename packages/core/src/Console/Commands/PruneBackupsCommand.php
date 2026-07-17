@@ -20,7 +20,7 @@ final class PruneBackupsCommand extends Command
         $force = (bool) $this->option('force');
 
         try {
-            $snapshots = $pruneBackups->handle($force);
+            $snapshots = PruneBackupsAction::run($force);
         } catch (Throwable $throwable) {
             $this->components->error($throwable->getMessage());
 

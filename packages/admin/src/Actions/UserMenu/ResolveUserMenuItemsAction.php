@@ -8,11 +8,13 @@ use Capell\Admin\Data\UserMenu\UserMenuItemData;
 use Closure;
 use Filament\Actions\Action;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class ResolveUserMenuItemsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

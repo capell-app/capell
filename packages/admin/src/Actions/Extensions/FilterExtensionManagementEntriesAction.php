@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Admin\Data\ExtensionManagementEntryData;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class FilterExtensionManagementEntriesAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  list<ExtensionManagementEntryData>  $entries

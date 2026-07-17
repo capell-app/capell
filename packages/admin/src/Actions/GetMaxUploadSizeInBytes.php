@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Illuminate\Support\Facades\Config;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -12,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetMaxUploadSizeInBytes
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): int

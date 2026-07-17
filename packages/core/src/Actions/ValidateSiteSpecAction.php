@@ -9,10 +9,12 @@ use Capell\Core\Support\CapellSiteSpecConstraints;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ValidateSiteSpecAction
 {
+    use AsFake;
     use AsObject;
 
     /**

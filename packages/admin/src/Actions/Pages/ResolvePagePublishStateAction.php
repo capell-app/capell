@@ -9,10 +9,12 @@ use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePagePublishStateAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

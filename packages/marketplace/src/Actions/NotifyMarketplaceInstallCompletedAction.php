@@ -14,12 +14,14 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class NotifyMarketplaceInstallCompletedAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(MarketplaceInstallAttempt $attempt): void
     {

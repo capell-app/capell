@@ -7,10 +7,12 @@ namespace Capell\Admin\Actions\ContentGraph;
 use Capell\Admin\Data\ContentGraph\DeleteImpactValidationData;
 use Capell\Core\Actions\ContentGraph\BuildContentImpactPreviewAction;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class ValidateContentDeleteImpactAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $record): DeleteImpactValidationData

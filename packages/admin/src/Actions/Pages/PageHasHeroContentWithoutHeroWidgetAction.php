@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Pages;
 
 use Capell\Core\Models\Page;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PageHasHeroContentWithoutHeroWidgetAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(Page $page): bool
     {

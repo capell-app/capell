@@ -6,12 +6,14 @@ namespace Capell\Core\Actions\Marketplace;
 
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Illuminate\Support\Facades\Http;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class ResolveExtensionLicenceDecisionAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(string $slug, string $action, string $domain): ExtensionLicenceDecisionData
     {

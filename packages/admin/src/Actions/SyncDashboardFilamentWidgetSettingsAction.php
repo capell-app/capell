@@ -11,10 +11,12 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Settings\AdminSettings;
 use Exception;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class SyncDashboardFilamentWidgetSettingsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @var list<string> */

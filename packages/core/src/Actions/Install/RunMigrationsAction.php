@@ -9,12 +9,14 @@ use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class RunMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

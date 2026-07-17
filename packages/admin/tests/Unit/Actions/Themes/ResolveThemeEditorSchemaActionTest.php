@@ -38,7 +38,7 @@ beforeEach(function (): void {
 });
 
 it('resolves translated layout typography and media groups with closed token options', function (): void {
-    $schema = resolve(ResolveThemeEditorSchemaAction::class)->handle(themeEditorDefinition());
+    $schema = ResolveThemeEditorSchemaAction::run(themeEditorDefinition());
 
     expect($schema)->toBeInstanceOf(ThemeEditorSchemaData::class)
         ->and(collect($schema->groups)->map->key->all())->toBe(['layout', 'typography', 'media'])
@@ -51,7 +51,7 @@ it('resolves translated layout typography and media groups with closed token opt
 });
 
 it('builds exactly one closed select control for every declared token', function (): void {
-    $schema = resolve(ResolveThemeEditorSchemaAction::class)->handle(themeEditorDefinition());
+    $schema = ResolveThemeEditorSchemaAction::run(themeEditorDefinition());
     $configurator = new class extends FoundationThemeConfigurator
     {
         /** @return array<int, Select> */
@@ -80,7 +80,7 @@ it('builds exactly one closed select control for every declared token', function
 it('rejects unknown groups duplicate tokens and free text tokens', function (array $frontend, string $message): void {
     $definition = themeEditorDefinition($frontend);
 
-    expect(fn (): ThemeEditorSchemaData => resolve(ResolveThemeEditorSchemaAction::class)->handle($definition))
+    expect(fn (): ThemeEditorSchemaData => ResolveThemeEditorSchemaAction::run($definition))
         ->toThrow(InvalidArgumentException::class, $message);
 })->with([
     'unknown group' => [
@@ -102,7 +102,7 @@ it('rejects unknown groups duplicate tokens and free text tokens', function (arr
 
 it('applies preset defaults before explicit declared token selections', function (): void {
     $definition = themeEditorDefinition();
-    $schema = resolve(ResolveThemeEditorSchemaAction::class)->handle($definition);
+    $schema = ResolveThemeEditorSchemaAction::run($definition);
     $selection = ['headingScale' => 'expressive'];
 
     expect($schema->tokensByKey()['headingScale']->accepts($selection['headingScale']))->toBeTrue()

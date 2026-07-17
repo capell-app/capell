@@ -18,12 +18,14 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildPublishingWorkflowEntryAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     public function handle(
         ?Authenticatable $user = null,

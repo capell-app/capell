@@ -17,10 +17,12 @@ use Capell\Core\Models\UpgradeRun;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class QueueCapellUpgradeAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(bool $dryRun = false, ?int $userId = null): UpgradeQueueResultData

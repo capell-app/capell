@@ -11,10 +11,12 @@ use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class UnpublishPageAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page&Pageable $page, User $actor): PublishVisibilityActionResultData

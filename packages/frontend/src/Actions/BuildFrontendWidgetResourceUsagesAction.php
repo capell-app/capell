@@ -9,10 +9,12 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\LayoutBuilder\Contracts\Assets\LayoutWidgetResourceUsageContributor;
 use Capell\LayoutBuilder\Data\Assets\LayoutWidgetResourceUsageData;
 use Illuminate\Contracts\Foundation\Application;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class BuildFrontendWidgetResourceUsagesAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

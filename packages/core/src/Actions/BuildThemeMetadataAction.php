@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Enums\DefaultColorEnum;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class BuildThemeMetadataAction
 {
+    use AsFake;
     use AsObject;
 
     /**

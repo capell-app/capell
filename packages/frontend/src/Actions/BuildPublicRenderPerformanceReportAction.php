@@ -11,10 +11,12 @@ use Capell\Frontend\Data\PublicRenderPerformanceReportData;
 use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\FrontendResourceSourceKind;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublicRenderPerformanceReportAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PublicPageRenderData $renderData, ?FrontendRenderContextData $context = null, ?int $lastRenderMilliseconds = null): PublicRenderPerformanceReportData

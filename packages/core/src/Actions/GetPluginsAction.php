@@ -11,6 +11,7 @@ use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -18,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class GetPluginsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

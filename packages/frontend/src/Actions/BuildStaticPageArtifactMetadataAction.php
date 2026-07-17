@@ -12,11 +12,13 @@ use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\StaticPageArtifactData;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\HttpFoundation\Response;
 
 class BuildStaticPageArtifactMetadataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PageUrl $pageUrl, PublicPageRenderData $renderData, Response $response, ?string $file = null): StaticPageArtifactData

@@ -9,6 +9,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Exception;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -18,6 +19,7 @@ use Symfony\Component\Process\Process;
  */
 class SetupPackageAction
 {
+    use AsFake;
     use AsObject;
 
     /**

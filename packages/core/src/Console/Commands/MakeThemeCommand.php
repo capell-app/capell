@@ -87,7 +87,7 @@ final class MakeThemeCommand extends Command
 
         $namespace = $this->namespaceForPackage($packageName);
 
-        $scaffoldThemePackage->handle(new ThemeScaffoldInputData(
+        ScaffoldThemePackageAction::run(new ThemeScaffoldInputData(
             packageName: $packageName,
             namespace: $namespace,
             slug: Str::of($packageName)->after('/')->replace('_', '-')->slug()->toString(),

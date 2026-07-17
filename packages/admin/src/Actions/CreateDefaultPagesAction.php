@@ -10,6 +10,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Creator\PageCreator;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
@@ -18,6 +19,7 @@ use Throwable;
  */
 class CreateDefaultPagesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

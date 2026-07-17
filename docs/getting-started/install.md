@@ -49,6 +49,19 @@ Paid marketplace packages use authenticated Composer access. The credentials sup
 composer require capell-app/installer
 ```
 
+#### Membership aggregate
+
+Owners, Billing members, and authorised technical members of an organisation with an active Capell Membership term can reveal a short-lived Composer command in the customer account. Use that generated command instead of inventing repository credentials:
+
+```bash
+composer config repositories.capell composer https://capell.app/composer
+composer config bearer.capell.app <short-lived-token>
+composer require capell-app/capell
+php artisan capell:install
+```
+
+The root package keeps Core, Admin, Frontend, Installer, and Marketplace on one version identity. The connected Marketplace account supplies access to entitled Membership products. The bearer token expires within 30 minutes and is stored only as a hash by Capell. Composer may retain the supplied credential in its local authentication configuration, so keep that file out of source control and replace the credential when it expires. Never put the token in deployment output, support requests, queue payloads, or application logs.
+
 Do not run `filament:install --panels` first. The Installer requires and configures the selected Admin package in the correct lifecycle order.
 
 ### 3. Run the CLI installer

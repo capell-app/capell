@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Locale;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ResourceBundle;
 use Spatie\Permission\Models\Role;
@@ -30,6 +31,7 @@ use Throwable;
 
 final class BuildInstallerPageDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

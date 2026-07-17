@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -25,6 +26,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 class ResolvePublicPageByUrlAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

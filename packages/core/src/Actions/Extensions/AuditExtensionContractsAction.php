@@ -13,6 +13,7 @@ use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
@@ -21,6 +22,7 @@ use Throwable;
  */
 final class AuditExtensionContractsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -6,11 +6,13 @@ namespace Capell\Admin\Actions\Diagnostics;
 
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
 use Capell\Core\Support\Database\RuntimeSchemaState;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildProductionEnvironmentDiagnosticsAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @return list<DiagnosticCheckData>

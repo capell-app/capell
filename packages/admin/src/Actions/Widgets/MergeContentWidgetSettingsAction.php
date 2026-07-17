@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Widgets;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class MergeContentWidgetSettingsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @var list<string> */

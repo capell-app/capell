@@ -10,11 +10,13 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Illuminate\Support\Collection;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveExtensionUninstallAvailabilityAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /** @var array<string, ExtensionUninstallAvailabilityData> */
     private array $resolved = [];

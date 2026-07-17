@@ -6,10 +6,12 @@ namespace Capell\Installer\Actions;
 
 use Capell\Installer\Data\ActiveInstallData;
 use Capell\Installer\Support\InstallerSessionRepository;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class GetActiveInstallAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

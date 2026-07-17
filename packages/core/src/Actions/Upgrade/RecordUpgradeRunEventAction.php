@@ -9,11 +9,13 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Models\UpgradeRunEvent;
 use Illuminate\Support\Str;
-use Lorisleiva\Actions\Concerns\AsAction;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RecordUpgradeRunEventAction
 {
-    use AsAction;
+    use AsFake;
+    use AsObject;
 
     /**
      * @param  array<string, mixed>  $context

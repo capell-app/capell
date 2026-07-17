@@ -13,10 +13,12 @@ use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Testing\ExtensionTestHarness;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildExtensionSurfaceCatalogAction
 {
+    use AsFake;
     use AsObject;
 
     /**
