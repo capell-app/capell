@@ -43,6 +43,7 @@ final class EvaluatePublicationTransitionAction
         }
 
         [$visibleFrom, $visibleUntil, $invalidReason] = match ($request->transition) {
+            PublicationTransition::CancelSchedule => $this->cancelSchedule($request, $beforeFrom, $beforeUntil),
             PublicationTransition::PublishNow => $this->publishNow(
                 $request,
                 $beforeState,
@@ -115,6 +116,34 @@ final class EvaluatePublicationTransitionAction
             visibleUntil: $visibleUntil,
             reasonKey: $reasonKey,
         );
+    }
+
+    /**
+     * Cancelling a schedule drops any *pending* publish/unpublish dates and leaves
+     * anything already in effect alone. A future `visible_from` that is already the
+     * draft sentinel is left byte-identical, so cancelling nothing resolves to
+     * AlreadyCorrect via the caller's `same()` check rather than rewriting the
+     * sentinel to a fresh instant.
+     *
+     * @return array{?CarbonImmutable, ?CarbonImmutable, null}
+     */
+    private function cancelSchedule(
+        PublicationTransitionRequestData $request,
+        ?CarbonImmutable $visibleFrom,
+        ?CarbonImmutable $visibleUntil,
+    ): array {
+        $cancelledFrom = $visibleFrom instanceof CarbonImmutable
+            && $visibleFrom->greaterThan($request->now)
+            && ! PublishSentinel::isDraftValue($visibleFrom, $request->now)
+                ? PublishSentinel::draftValue($request->now)
+                : $visibleFrom;
+
+        $cancelledUntil = $visibleUntil instanceof CarbonImmutable
+            && $visibleUntil->greaterThan($request->now)
+                ? null
+                : $visibleUntil;
+
+        return [$cancelledFrom, $cancelledUntil, null];
     }
 
     /** @return array{?CarbonImmutable, ?CarbonImmutable, null} */

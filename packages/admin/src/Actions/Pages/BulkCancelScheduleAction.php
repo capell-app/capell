@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Pages;
 
+use Capell\Admin\Actions\Publishing\RunBulkPublicationTransitionAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Models\Page;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * Cancels future publish/unpublish schedules on a collection of pages.
- * Only future timestamps are cleared — past or currently-active visibility
- * windows are not affected. Pages the actor cannot update are silently skipped.
+ * Adapter: cancels future publish/unpublish schedules via the Core publication
+ * state machine, mapping the typed outcomes back onto this action's long-standing
+ * return shape so the Filament caller and its notification text stay stable.
+ *
+ * Authorization, trashed-record rejection and no-op detection all happen inside
+ * Core and surface as typed outcomes — they are not re-derived here.
  */
 class BulkCancelScheduleAction
 {
@@ -28,42 +33,16 @@ class BulkCancelScheduleAction
      */
     public function handle(Collection $pages, User $actor): array
     {
-        $cancelledCount = 0;
-        $skippedCount = 0;
-
-        foreach ($pages as $page) {
-            $response = Gate::forUser($actor)->inspect('update', $page);
-
-            if (! $response->allowed()) {
-                $skippedCount++;
-
-                continue;
-            }
-
-            $hasFutureFrom = $page->visible_from !== null && $page->visible_from->isFuture();
-            $hasFutureUntil = $page->visible_until !== null && $page->visible_until->isFuture();
-
-            if (! $hasFutureFrom && ! $hasFutureUntil) {
-                $skippedCount++;
-
-                continue;
-            }
-
-            if ($hasFutureFrom) {
-                $page->visible_from = null;
-            }
-
-            if ($hasFutureUntil) {
-                $page->visible_until = null;
-            }
-
-            $page->save();
-            $cancelledCount++;
-        }
+        $preview = RunBulkPublicationTransitionAction::run(
+            records: $pages,
+            actor: $actor,
+            transition: PublicationTransition::CancelSchedule,
+            now: CarbonImmutable::now(),
+        );
 
         return [
-            'cancelled' => $cancelledCount,
-            'skipped' => $skippedCount,
+            'cancelled' => $preview->changed(),
+            'skipped' => $preview->blocked() + $preview->unchanged(),
         ];
     }
 }
