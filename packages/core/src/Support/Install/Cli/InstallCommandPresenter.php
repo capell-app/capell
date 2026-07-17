@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install\Cli;
 
-use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Data\Install\InstallHandoffData;
-use Capell\Core\Events\CapellInstalled;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
-use Illuminate\Support\Facades\Event;
 use Throwable;
 
 final class InstallCommandPresenter
@@ -78,8 +75,6 @@ final class InstallCommandPresenter
 
     public function renderFailure(Throwable $throwable, OutputStyle $output): void
     {
-        report($throwable);
-
         $message = trim($throwable->getMessage());
 
         $output->newLine();
@@ -90,22 +85,5 @@ final class InstallCommandPresenter
         }
 
         $output->writeln('Run the command again with CAPELL_INSTALL_DEBUG=1 for step-level diagnostics.');
-    }
-
-    /**
-     * After a successful install, consume a supplied site spec in Core, then
-     * announce it so extensions can perform compatible post-build work.
-     */
-    public function announceInstallSpec(?string $specOption, bool $seededDefaults): void
-    {
-        if ($specOption === null || $specOption === '') {
-            return;
-        }
-
-        $resolvedPath = realpath($specOption);
-        $specPath = $resolvedPath === false ? $specOption : $resolvedPath;
-
-        BuildSiteFromSpecFileAction::run($specPath);
-        Event::dispatch(new CapellInstalled($specPath, $seededDefaults));
     }
 }

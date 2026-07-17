@@ -17,8 +17,10 @@ use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
 use Capell\Core\Support\Install\Cli\InstallCommandPresenter;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
+use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
@@ -137,19 +139,16 @@ it('renders the install handoff details in their established order', function ()
 });
 
 it('uses cache defaults that exist for the current application', function (): void {
-    $command = installCommandForOptions([]);
-    $buffer = new BufferedOutput;
-    $outputProperty = new ReflectionProperty($command, 'output');
-    $outputProperty->setValue($command, new OutputStyle(new ArrayInput([], $command->getDefinition()), $buffer));
+    $resolver = new InstallCacheOptionResolver;
 
     expect(InstallCacheOptionCatalog::baseOptions())->toHaveKeys(['all', 'page', 'config', 'views'])
         ->and(InstallCacheOptionCatalog::defaultKeys())->toContain('page', 'config', 'views', 'admin')
-        ->and(callInstallCommandMethod($command, 'defaultCachesToClear', [
+        ->and($resolver->defaultKeys([
             'page' => 'Page cache',
             'views' => 'Views cache',
         ]))->toBe(['page', 'views'])
-        ->and(callInstallCommandMethod($command, 'resolveCachesToClear', true, false))->toBe(['all'])
-        ->and(callInstallCommandMethod($command, 'resolveCachesToClear', false, true))->toBe(['all']);
+        ->and($resolver->resolve(true, false, fn (): bool => false))->toBe(['all'])
+        ->and($resolver->resolve(false, true, fn (): bool => false))->toBe(['all']);
 });
 
 it('creates new admin user data only when all non-interactive options are present', function (): void {
@@ -280,20 +279,14 @@ it('covers non-interactive install command branch decisions and manual-change re
     $outputProperty = new ReflectionProperty($command, 'output');
     $outputProperty->setValue($command, new OutputStyle(new ArrayInput([], $command->getDefinition()), $buffer));
 
-    callInstallCommandMethod(
-        $command,
-        'configureWelcomeRouteManuallyOnFailure',
-        fn (): never => throw new RuntimeException('permission denied'),
-        'Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false in .env.',
-    );
+    callInstallCommandMethod($command, 'recordManualInstallChange', 'Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false in .env. permission denied');
     callInstallCommandMethod($command, 'recordManualInstallChange', 'Review app/Providers/Filament/AdminPanelProvider.php.');
     callInstallCommandMethod($command, 'recordManualInstallChange', 'Review app/Providers/Filament/AdminPanelProvider.php.');
     $command->reportManualChanges();
 
     $output = $buffer->fetch();
 
-    expect($output)->toContain('Unable to update .env automatically')
-        ->and($output)->toContain('Manual install changes required')
+    expect($output)->toContain('Manual install changes required')
         ->and($output)->toContain('Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false in .env. permission denied')
         ->and(substr_count($output, 'Review app/Providers/Filament/AdminPanelProvider.php.'))->toBe(1);
 });
@@ -450,11 +443,9 @@ function callInstallCommandMethod(InstallCommand $command, string $method, mixed
 
 function developerToolingChoiceForOptions(InstallCommand $command): DeveloperToolingChoiceData
 {
-    $choice = callInstallCommandMethod($command, 'developerToolingOptionsForPlan');
-
-    if (! $choice instanceof DeveloperToolingChoiceData) {
-        throw new RuntimeException('Expected developer tooling choice data.');
-    }
-
-    return $choice;
+    return resolve(InstallPostInstallOptionResolver::class)->resolveDeveloperToolingChoiceForPlan(
+        developerToolingRequested: (bool) $command->option('developer-tooling'),
+        skipBoostInstall: (bool) $command->option('no-boost-install'),
+        developerToolingInstalled: resolve(DeveloperToolingInstallationState::class)->isInstalled(),
+    );
 }
