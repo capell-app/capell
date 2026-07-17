@@ -22,13 +22,13 @@ use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
-use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
@@ -38,10 +38,8 @@ use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
-use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
-use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
@@ -53,7 +51,6 @@ use InvalidArgumentException;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\multiselect;
-use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
 use RuntimeException;
@@ -936,50 +933,18 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function includeDemoPackages(Collection $packages, bool $includeInstalledRequirements): Collection
     {
-        $demoPackageNames = CapellCore::getPackages(sortByDependencies: true)
-            ->filter(fn (PackageData $package): bool => $package->isDemo())
-            ->keys();
-
-        if ($demoPackageNames->isEmpty()) {
-            return $packages;
-        }
-
-        $withDemoPackages = $packages->keys()
-            ->merge($demoPackageNames)
-            ->unique()
-            ->values()
-            ->all();
-
-        if ($packages->keys()->all() === $withDemoPackages) {
-            return $packages;
-        }
-
-        return resolve(PackageWorkflowPlanner::class)->expandAndOrder(
-            CapellCore::getPackages(sortByDependencies: true),
-            $withDemoPackages,
-            $includeInstalledRequirements,
-        );
+        return $this->packageSetComposer()->includeDemoPackages($packages, $includeInstalledRequirements);
     }
 
     private function shouldIncludeDemoPackagesAfterSelection(): bool
     {
-        if (! $this->input->isInteractive()) {
-            return true;
-        }
-
-        if ($this->option('packages') !== null) {
-            return true;
-        }
-
-        if ($this->option('package-mode') !== null) {
-            return true;
-        }
-
-        if ($this->option('all-packages')) {
-            return true;
-        }
-
-        return $this->shouldUseFreshDemoPackageDefaults();
+        return $this->packageSetComposer()->shouldIncludeDemoPackagesAfterSelection(
+            interactive: $this->input->isInteractive(),
+            packagesOption: $this->option('packages'),
+            packageModeOption: $this->option('package-mode'),
+            allPackages: (bool) $this->option('all-packages'),
+            useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
+        );
     }
 
     private function shouldUseFreshDemoPackageDefaults(): bool
@@ -1080,19 +1045,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function installTimePackageNamesFromSelection(): array
     {
-        $packageNames = collect($this->parseListOption('packages') ?? []);
-        $packageMode = $this->option('package-mode');
-
-        if ($packageMode === 'all' || $this->option('all-packages') || $this->shouldUseFreshDemoPackageDefaults()) {
-            $packageNames = $packageNames->merge(TrustedCorePackages::defaultInstallSelectionNames());
-        }
-
-        return $packageNames
-            ->filter(fn (string $packageName): bool => TrustedCorePackages::contains($packageName))
-            ->reject(fn (string $packageName): bool => CapellCore::hasPackage($packageName))
-            ->unique()
-            ->values()
-            ->all();
+        return $this->packageSetComposer()->installTimePackageNames(
+            selectedPackageNames: $this->parseListOption('packages') ?? [],
+            packageMode: $this->option('package-mode'),
+            allPackages: (bool) $this->option('all-packages'),
+            useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
+        );
     }
 
     private function shouldRunNpmBuild(bool $hasFrontend): bool
@@ -1362,61 +1320,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function resolveThemeSelection(): array
     {
-        $themeOption = $this->option('theme');
-        $themeCandidates = $this->themeCandidates();
-
-        if (is_string($themeOption) && $themeOption !== '') {
-            $normalisedThemeOption = resolve(ThemePackageCandidates::class)->inputThemeKey($themeOption);
-            $themeCandidateKey = $normalisedThemeOption ?? $themeOption;
-
-            if (! array_key_exists($themeCandidateKey, $themeCandidates)) {
-                $this->error(sprintf(
-                    'Unknown theme [%s]. Available themes: %s.',
-                    $themeOption,
-                    $this->formatThemeCandidatesForConsole($themeCandidates),
-                ));
-
-                return [null, CommandAlias::FAILURE];
-            }
-
-            return [$normalisedThemeOption, null];
-        }
-
-        $defaultThemeKey = resolve(ThemePackageCandidates::class)->defaultThemeKeyForCatalogue();
-
-        if ($this->input->isInteractive() && ! $this->shouldUseFreshDemoDefaults()) {
-            return [
-                (string) select(
-                    label: 'Which starter theme should be installed?',
-                    options: $themeCandidates,
-                    default: $defaultThemeKey,
-                ),
-                null,
-            ];
-        }
-
-        return [$defaultThemeKey, null];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function themeCandidates(): array
-    {
-        return collect(resolve(ThemePackageCandidates::class)
-            ->optionDataForCatalogue())
-            ->mapWithKeys(fn (ThemeInstallOptionData $option): array => [$option->key => $option->consoleLabel()])
-            ->all();
-    }
-
-    /**
-     * @param  array<string, string>  $themeCandidates
-     */
-    private function formatThemeCandidatesForConsole(array $themeCandidates): string
-    {
-        return collect($themeCandidates)
-            ->map(fn (string $label, string $themeKey): string => sprintf('%s (%s)', $themeKey, $label))
-            ->implode(', ');
+        return $this->packageSetComposer()->resolveThemeSelection(
+            themeOption: $this->option('theme'),
+            interactive: $this->input->isInteractive(),
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+            writeError: function (string $message): void {
+                $this->error($message);
+            },
+        );
     }
 
     /**
@@ -1425,36 +1336,16 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function includeSelectedThemePackage(Collection $selectedPackages, ?string $selectedThemeKey, bool $includeInstalledRequirements): array
     {
-        if ($selectedThemeKey === null || $selectedThemeKey === ThemePackageCandidates::NONE_KEY) {
-            return [$selectedPackages, []];
-        }
+        return $this->packageSetComposer()->includeSelectedThemePackage(
+            $selectedPackages,
+            $selectedThemeKey,
+            $includeInstalledRequirements,
+        );
+    }
 
-        $themeOptions = resolve(ThemePackageCandidates::class)
-            ->optionDataForCatalogue();
-        $packageName = $themeOptions[$selectedThemeKey]->packageName ?? null;
-
-        if ($packageName === null || $selectedPackages->has($packageName)) {
-            return [$selectedPackages, []];
-        }
-
-        if (! CapellCore::hasPackage($packageName)) {
-            return [$selectedPackages, [$packageName]];
-        }
-
-        $packageNames = $selectedPackages->keys()
-            ->push($packageName)
-            ->unique()
-            ->values()
-            ->all();
-
-        return [
-            resolve(PackageWorkflowPlanner::class)->expandAndOrder(
-                CapellCore::getPackages(sortByDependencies: true),
-                $packageNames,
-                $includeInstalledRequirements,
-            ),
-            [],
-        ];
+    private function packageSetComposer(): InstallPackageSetComposer
+    {
+        return resolve(InstallPackageSetComposer::class);
     }
 
     /**

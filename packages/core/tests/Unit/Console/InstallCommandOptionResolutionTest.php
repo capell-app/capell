@@ -14,6 +14,7 @@ it('normalizes php memory limit units for the installer floor', function (): voi
 });
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
@@ -211,7 +212,7 @@ it('covers non-interactive install command branch decisions and manual-change re
     expect(callInstallCommandMethod($allPackagesCommand, 'shouldIncludeDemoPackagesAfterSelection'))->toBeTrue()
         ->and(callInstallCommandMethod($developerToolingCommand, 'developerToolingOptionsForPlan'))->toBe([true, false])
         ->and(callInstallCommandMethod($invalidThemeCommand, 'resolveThemeSelection'))->toBe([null, SymfonyCommand::FAILURE])
-        ->and(callInstallCommandMethod($invalidThemeCommand, 'formatThemeCandidatesForConsole', [
+        ->and(resolve(InstallPackageSetComposer::class)->formatThemeCandidatesForConsole([
             'none' => 'No starter theme',
             'foundation' => 'Foundation Theme',
         ]))->toBe('none (No starter theme), foundation (Foundation Theme)');
