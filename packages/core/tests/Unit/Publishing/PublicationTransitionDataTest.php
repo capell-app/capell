@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User;
 
 it('defines every stable publication transition value', function (): void {
     expect(array_column(PublicationTransition::cases(), 'value'))->toBe([
+        'cancel-schedule',
         'publish-now',
         'revert-to-draft',
         'schedule-publish',

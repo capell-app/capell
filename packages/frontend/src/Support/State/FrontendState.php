@@ -7,10 +7,12 @@ namespace Capell\Frontend\Support\State;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendContext;
 
 final class FrontendState implements FrontendContextReader
 {
@@ -48,6 +50,20 @@ final class FrontendState implements FrontendContextReader
         $this->data = [];
 
         return $this;
+    }
+
+    public function snapshot(): FrontendContext
+    {
+        return new FrontendContext(
+            site: $this->site,
+            language: $this->language,
+            page: $this->page,
+            layout: $this->layout,
+            theme: $this->theme,
+            params: $this->params,
+            slug: $this->slug,
+            isError: $this->isError(),
+        );
     }
 
     public function site(): ?Site
@@ -88,7 +104,7 @@ final class FrontendState implements FrontendContextReader
 
     public function isError(): bool
     {
-        return $this->isError;
+        return $this->isError || ($this->page instanceof Page && $this->page->isErrorPage());
     }
 
     public function markAsError(bool $isError = true): self

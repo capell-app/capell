@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Kernel\Steps;
 
-use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Events\FrontendContextResolved;
 use Closure;
@@ -17,9 +16,7 @@ final class NotifySubscribersStep
     public function handle(FrontendWork $work, Closure $next): mixed
     {
         $context = $work->context();
-        if ($context instanceof FrontendContext) {
-            $this->events->dispatch(new FrontendContextResolved($context));
-        }
+        $this->events->dispatch(new FrontendContextResolved($context));
 
         return $next($work);
     }

@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Loader;
 
 use Aimeos\Nestedset\QueryBuilder;
 use BackedEnum;
+use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PageOrderEnum;
 use Capell\Core\Facades\CapellCore;
@@ -299,7 +300,7 @@ class PageLoader
 
         $url = CapellCore::rememberCache($key, function () use ($site, $language, $pageType, $pageId, $withEvents, &$fromCache): ?PageUrl {
             $fromCache = false;
-            $publicPageableMorphTypes = self::publicPageableMorphTypes();
+            $publicPageableMorphTypes = ResolvePublicPageableMorphTypesAction::run();
 
             if (! in_array($pageType, $publicPageableMorphTypes, true)) {
                 return null;
@@ -384,20 +385,6 @@ class PageLoader
         self::trackModelOrCollection($page);
 
         return $page;
-    }
-
-    /**
-     * @return list<class-string<Model>|string>
-     */
-    private static function publicPageableMorphTypes(): array
-    {
-        return array_values(collect(Relation::morphMap())
-            ->filter(fn (string $modelClass): bool => is_subclass_of($modelClass, Model::class)
-                && is_subclass_of($modelClass, Pageable::class))
-            ->flatMap(fn (string $modelClass, string $alias): array => [$alias, $modelClass])
-            ->unique()
-            ->values()
-            ->all());
     }
 
     /**

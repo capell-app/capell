@@ -45,10 +45,8 @@ Kernel registration:
     5. `PageResolveStep`
     6. `LayoutResolverStep`
     7. `ThemeResolverStep`
-    8. `BuildContextStep`
-    9. `CommitContextStep`
-    10. `RegisterThemeViewsStep`
-    11. `NotifySubscribersStep`
+    8. `RegisterThemeViewsStep`
+    9. `NotifySubscribersStep`
 
 Aux services:
 
@@ -73,10 +71,8 @@ Contributors receive the resolved `FrontendContextReader` and mutable `FrontendR
 - `PageResolveStep`: resolves the target page, supports wildcard routes, error page fallback, and returns 404 for bot user agents when no page is found.
 - `LayoutResolverStep`: chooses the layout for the resolved page.
 - `ThemeResolverStep`: chooses the theme for rendering.
-- `BuildContextStep`: builds the `FrontendContext`.
-- `CommitContextStep`: commits the context back into scoped `FrontendState`.
 - `RegisterThemeViewsStep`: registers theme view paths for Blade.
-- `NotifySubscribersStep`: emits `FrontendContextResolved` for listeners.
+- `NotifySubscribersStep`: emits `FrontendContextResolved` with an immutable snapshot of the scoped state.
 
 ## Error and redirect handling
 

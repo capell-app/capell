@@ -82,6 +82,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);
             $this->app->scoped(MarketplaceInstanceResolver::class);
             $this->app->scoped(BuildMarketplaceInstallOperationsSummaryAction::class);
+            $this->app->scoped(MarketplaceCatalogueRecordProvider::class);
 
             $this->app->bind(
                 'capell.marketplace.activation-verifier',

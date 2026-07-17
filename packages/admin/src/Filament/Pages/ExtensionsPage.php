@@ -8,17 +8,12 @@ use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
-use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
-use Capell\Admin\Actions\Extensions\FilterExtensionManagementEntriesAction;
-use Capell\Admin\Actions\ListExtensionManagementEntriesAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
-use Capell\Admin\Data\ExtensionManagementEntryData;
-use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
-use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
 use Capell\Admin\Filament\Concerns\CustomisesExtensionsDashboard;
+use Capell\Admin\Filament\Concerns\InteractsWithExtensionTableData;
 use Capell\Admin\Filament\Pages\Extensions\Concerns\PreservesExtensionTablePosition;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionsTable;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidget;
@@ -53,12 +48,11 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     use CustomisesExtensionsDashboard;
     use HasPageShield;
     use InteractsWithActions;
+    use InteractsWithExtensionTableData;
     use InteractsWithTable;
     use PreservesExtensionTablePosition;
 
     public const string MANAGE_PERMISSION = 'Manage:ExtensionsPage';
-
-    public ?string $activeProductGroup = null;
 
     #[Url]
     public ?string $manage = null;
@@ -77,8 +71,6 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     protected static ?int $navigationSort = PHP_INT_MIN;
 
     protected string $view = 'capell-admin::filament.pages.extensions';
-
-    private ?ExtensionOperationsSummaryData $operationsSummary = null;
 
     #[Override]
     public static function getNavigationLabel(): string
@@ -161,11 +153,6 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
         return __('capell-admin::generic.extensions_info');
     }
 
-    public function getOperationsSummary(): ExtensionOperationsSummaryData
-    {
-        return $this->operationsSummary ??= BuildExtensionOperationsSummaryAction::run();
-    }
-
     #[Override]
     public function content(Schema $schema): Schema
     {
@@ -204,51 +191,6 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     public function getWidgets(): array
     {
         return [];
-    }
-
-    /**
-     * @param  array<string, bool|string|null>  $filters
-     * @return list<array<string, mixed>>
-     */
-    public function getExtensionsData(?string $search = null, ?string $productGroup = null, array $filters = []): array
-    {
-        /** @var list<ExtensionManagementEntryData> $entries */
-        $entries = FilterExtensionManagementEntriesAction::run(
-            entries: ListExtensionManagementEntriesAction::run(),
-            search: $search,
-            productGroup: $productGroup ?? $this->activeProductGroup,
-            installedStatus: $filters['installedStatus'] ?? 'all',
-            price: $filters['price'] ?? null,
-            health: $filters['health'] ?? null,
-            sort: $filters['sort'] ?? 'latest',
-        );
-
-        $records = array_values(collect($entries)
-            ->map(fn (ExtensionManagementEntryData $entry): array => $entry->toTableRecord())
-            ->values()
-            ->all());
-
-        return $this->applyPinnedExtensionTablePosition(EnrichExtensionTableRecordsAction::run($records));
-    }
-
-    public function refreshExtensionOperations(): void
-    {
-        BuildExtensionOperationsSummaryAction::forgetRequestCache();
-        ListExtensionManagementEntriesAction::forgetRequestCache();
-
-        $this->operationsSummary = null;
-        $this->resetTable();
-    }
-
-    /** @return list<string> */
-    public function getProductGroups(): array
-    {
-        return array_values(collect($this->getOperationsSummary()->packages)
-            ->map(fn (ExtensionOperationPackageData $package): string => $package->productGroup)
-            ->unique()
-            ->sort()
-            ->values()
-            ->all());
     }
 
     /** @return array<int, Htmlable|string> */

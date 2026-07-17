@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Actions;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Filament\Actions\Action;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -42,7 +42,7 @@ final class OpenMarketplaceAction
                     ->view('capell-marketplace::filament.actions.open-marketplace-footer'),
             ])
             ->modalContent(function (mixed $livewire) use ($connection): View {
-                resolve(MarketplaceBrowser::class)->queueDefaultWarm();
+                resolve(MarketplaceCatalogueRecordProvider::class)->queueDefaultWarm();
 
                 return view('capell-marketplace::filament.actions.open-marketplace', [
                     'initialSearch' => $livewire instanceof ExtensionsPage

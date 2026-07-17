@@ -4,45 +4,35 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Controllers;
 
-use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Contracts\ProgressReporter;
-use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
-use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Jobs\RunCapellInstallJob;
-use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallPlan;
-use Capell\Core\Support\Install\ThemePackageCandidates;
-use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
 use Capell\Installer\Support\InstallerInstallationState;
+use Capell\Installer\Support\InstallerOptions;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Locale;
-use ResourceBundle;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 final class InstallController
@@ -51,6 +41,7 @@ final class InstallController
 
     public function __construct(
         private readonly InstallerSessionRepository $sessions,
+        private readonly InstallerOptions $options,
     ) {}
 
     public function show(Request $request): Response
@@ -99,7 +90,7 @@ final class InstallController
         $inputData = resolve(InstallInputFactory::class)->fromWebInput(
             $this->normaliseLanguageInput($validated),
             allowWelcomeRoute: true,
-            defaultPackageNames: $this->configuredDefaultPackageNames(),
+            defaultPackageNames: $this->options->configuredDefaultPackageNames(),
         );
 
         $installId = $validated['install_id'] ?? (string) Str::uuid();
@@ -666,13 +657,12 @@ final class InstallController
             return sprintf('%s <%s>', $inputData->newUser->name, $inputData->newUser->email);
         }
 
-        if ($inputData->userId === null || ! $this->usersTableExists()) {
+        if ($inputData->userId === null || ! $this->options->usersTableExists()) {
             return null;
         }
 
         try {
-            /** @var class-string<Model> $userModel */
-            $userModel = config('auth.providers.users.model');
+            $userModel = $this->options->userModel();
             $user = $userModel::query()->find($inputData->userId, ['id', 'name', 'email']);
 
             if (! $user instanceof Model) {
@@ -803,138 +793,6 @@ final class InstallController
             ->all();
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function fetchDownloadablePackages(): array
-    {
-        try {
-            return GetPluginsAction::run('download')
-                ->filter(fn (PackageData $package): bool => $this->composerPackageIsAvailable($package->name))
-                ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue())
-                ->reject(fn (PackageData $package): bool => $package->getThemeKey() !== null)
-                ->map(fn (PackageData $package): array => [
-                    'name' => $package->name,
-                    'label' => $package->getLabel(),
-                    'description' => $package->getDescription(),
-                    'requirements' => $package->getRequirements(),
-                    'core' => $package->isCore(),
-                    'defaultCore' => TrustedCorePackages::isDefaultInstallSelection($package->name),
-                    'defaultSelected' => $this->packageArrayIsDefaultSelected($package->toArray()),
-                    'kind' => $package->getKind(),
-                    'themeKey' => $package->getThemeKey(),
-                    'previewImageUrl' => $package->getPreviewImageUrl(),
-                ])
-                ->values()
-                ->all();
-        } catch (Throwable) {
-            return [];
-        }
-    }
-
-    /**
-     * @param  array<int, string>  $selectedPackageNames
-     * @param  array<int, string>  $extraPackageNames
-     * @return array<string, string>
-     */
-    private function themeOptionsForSelectedPackages(array $selectedPackageNames, array $extraPackageNames = []): array
-    {
-        return resolve(ThemePackageCandidates::class)
-            ->optionsForSelection($selectedPackageNames, $extraPackageNames)
-            + collect(resolve(ThemePackageCandidates::class)->optionDataForCatalogue())
-                ->mapWithKeys(fn (ThemeInstallOptionData $option): array => [$option->key => $option->name])
-                ->all();
-    }
-
-    /**
-     * @param  array<string, mixed>  $package
-     */
-    private function packageArrayIsDefaultSelected(array $package): bool
-    {
-        $packageName = (string) ($package['name'] ?? '');
-        if ($this->booleanValue($package['defaultSelected'] ?? false)) {
-            return true;
-        }
-
-        return $packageName !== '' && in_array($packageName, $this->configuredDefaultPackageNames(), true);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function configuredDefaultPackageNames(): array
-    {
-        $packageNames = config('capell-installer.default_packages', []);
-
-        if (! is_array($packageNames)) {
-            return [];
-        }
-
-        return collect($packageNames)
-            ->filter(fn (mixed $packageName): bool => is_string($packageName) && $packageName !== '')
-            ->map(fn (string $packageName): string => $packageName)
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    private function booleanValue(mixed $value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if (is_string($value) || is_int($value)) {
-            return filter_var($value, FILTER_VALIDATE_BOOLEAN);
-        }
-
-        return false;
-    }
-
-    private function composerPackageIsAvailable(string $packageName): bool
-    {
-        $cacheKey = 'capell.installer.package_installable.' . hash('sha256', $packageName);
-        $isTrustedCorePackage = TrustedCorePackages::contains($packageName);
-
-        $resolver = function () use ($packageName): bool {
-            $process = new Process(
-                [
-                    (string) config('capell-installer.composer_binary', 'composer'),
-                    'require',
-                    $packageName . ':*',
-                    '--dry-run',
-                    '--no-audit',
-                    '--no-interaction',
-                    '--no-progress',
-                    '--no-scripts',
-                    '--with-all-dependencies',
-                ],
-                base_path(),
-                ComposerProcessEnvironment::forInstall($_SERVER),
-            );
-            $process->setTimeout(120);
-            $process->run();
-
-            return $process->isSuccessful();
-        };
-
-        if (! $this->sessions->cacheStoreIsUsable()) {
-            return $isTrustedCorePackage && $resolver();
-        }
-
-        try {
-            if (! $isTrustedCorePackage && ! Cache::has($cacheKey)) {
-                return false;
-            }
-
-            return Cache::remember(
-                $cacheKey,
-                now()->addHour(),
-                $resolver,
-            );
-        } catch (Throwable) {
-            return $isTrustedCorePackage && $resolver();
-        }
-    }
-
     private function capellIsInstalled(): bool
     {
         return InstallerInstallationState::capellIsInstalled();
@@ -943,18 +801,18 @@ final class InstallController
     /** @return array<string, mixed> */
     private function validateInput(Request $request): array
     {
-        $input = $this->withDefaultAdminUserInput($request->all(), (string) $request->input('admin_user_mode', 'create'));
+        $input = $this->options->withDefaultAdminUserInput($request->all(), (string) $request->input('admin_user_mode', 'create'));
         $packageKeys = CapellCore::getPackages(sortByDependencies: true)->keys()->all();
-        $downloadablePackageKeys = collect($this->fetchDownloadablePackages())
+        $downloadablePackageKeys = collect($this->options->downloadablePackages())
             ->pluck('name')
             ->filter(fn (mixed $packageName): bool => is_string($packageName) && $packageName !== '')
             ->values()
             ->all();
-        $userRules = $this->adminUserValidationRules((string) ($input['admin_user_mode'] ?? 'create'));
+        $userRules = $this->options->adminUserValidationRules((string) ($input['admin_user_mode'] ?? 'create'));
 
         return Validator::make($input, [
             'site_url' => ['required', 'url'],
-            'language' => ['required', 'string', Rule::in(array_merge(array_keys($this->languageOptions()), ['__custom']))],
+            'language' => ['required', 'string', Rule::in(array_merge(array_keys($this->options->languageOptions()), ['__custom']))],
             'custom_language_code' => [
                 Rule::requiredIf(($input['language'] ?? null) === '__custom'),
                 'nullable',
@@ -967,7 +825,7 @@ final class InstallController
             'theme' => [
                 'nullable',
                 'string',
-                Rule::in(array_keys($this->themeOptionsForSelectedPackages(
+                Rule::in(array_keys($this->options->themeNamesForSelection(
                     (array) ($input['packages'] ?? []),
                     (array) ($input['extra_packages'] ?? []),
                 ))),
@@ -1005,55 +863,6 @@ final class InstallController
         ])->validate();
     }
 
-    /** @return array<string, string> */
-    private function languageOptions(): array
-    {
-        $defaultLocale = $this->normaliseLanguageCode(config('app.locale', 'en'));
-
-        return collect([$defaultLocale])
-            ->merge($this->availableLanguageCodes())
-            ->map(fn (string $code): string => $this->normaliseLanguageCode($code))
-            ->unique()
-            ->mapWithKeys(fn (string $code): array => [$code => $this->languageName($code)])
-            ->all();
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function availableLanguageCodes(): array
-    {
-        $bundle = ResourceBundle::create('en', 'ICUDATA-lang');
-        $languages = $bundle instanceof ResourceBundle ? $bundle->get('Languages') : null;
-
-        if (! $languages instanceof ResourceBundle) {
-            return ['en', 'fr', 'de', 'es', 'nl'];
-        }
-
-        return collect(iterator_to_array($languages))
-            ->keys()
-            ->filter(fn (string $code): bool => preg_match('/^[a-z]{2,3}$/', $code) === 1)
-            ->sortBy(fn (string $code): string => $this->languageName($code))
-            ->values()
-            ->all();
-    }
-
-    private function normaliseLanguageCode(string $code): string
-    {
-        return Str::of($code)
-            ->replace('_', '-')
-            ->before('-')
-            ->lower()
-            ->toString();
-    }
-
-    private function languageName(string $code): string
-    {
-        $name = Locale::getDisplayLanguage($code, 'en');
-
-        return $name !== false ? Str::headline($name) : Str::upper($code);
-    }
-
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
@@ -1064,115 +873,9 @@ final class InstallController
             return $validated;
         }
 
-        $validated['language'] = $this->normaliseLanguageCode((string) $validated['custom_language_code']);
+        $validated['language'] = $this->options->normaliseLanguageCode((string) $validated['custom_language_code']);
 
         return $validated;
-    }
-
-    /**
-     * @return array{
-     *     existing_user_id: array<int, mixed>,
-     *     new_user_name: array<int, mixed>,
-     *     new_user_email: array<int, mixed>,
-     *     new_user_password: array<int, mixed>
-     * }
-     */
-    private function adminUserValidationRules(string $mode): array
-    {
-        $creatingUser = $mode !== 'existing';
-        $usersTableExists = $this->usersTableExists();
-
-        $existingUserRules = ['nullable'];
-        if (! $creatingUser) {
-            $existingUserRules = ['required', 'integer'];
-
-            if ($usersTableExists) {
-                $existingUserRules[] = Rule::exists($this->userTable(), 'id');
-            } else {
-                $existingUserRules[] = function (string $attribute, mixed $value, callable $fail): void {
-                    $fail('No existing users are available yet. Create a new administrator account to continue.');
-                };
-            }
-        }
-
-        $emailRules = [$creatingUser ? 'required' : 'nullable', 'email', 'max:255'];
-        if ($creatingUser && $usersTableExists) {
-            $emailRules[] = Rule::unique($this->userTable(), 'email');
-        }
-
-        return [
-            'existing_user_id' => $existingUserRules,
-            'new_user_name' => [$creatingUser ? 'required' : 'nullable', 'string', 'max:255'],
-            'new_user_email' => $emailRules,
-            'new_user_password' => [$creatingUser ? 'required' : 'nullable', 'string', 'min:8'],
-        ];
-    }
-
-    private function usersTableExists(): bool
-    {
-        try {
-            return Schema::hasTable($this->userTable());
-        } catch (Throwable) {
-            return false;
-        }
-    }
-
-    private function userTable(): string
-    {
-        /** @var class-string<Model> $userModel */
-        $userModel = config('auth.providers.users.model');
-
-        return (new $userModel)->getTable();
-    }
-
-    /**
-     * @return array{name: string, email: string, password: string}
-     */
-    private function defaultAdminUser(): array
-    {
-        $configured = config('capell-installer.admin_user', []);
-
-        return [
-            'name' => $this->stringValue($configured['name'] ?? null),
-            'email' => $this->stringValue($configured['email'] ?? null),
-            'password' => $this->stringValue($configured['password'] ?? null),
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $input
-     * @return array<string, mixed>
-     */
-    private function withDefaultAdminUserInput(array $input, string $mode): array
-    {
-        if ($mode === 'existing') {
-            return $input;
-        }
-
-        $defaultAdminUser = $this->defaultAdminUser();
-
-        foreach ([
-            'new_user_name' => 'name',
-            'new_user_email' => 'email',
-            'new_user_password' => 'password',
-        ] as $inputKey => $defaultKey) {
-            if ($this->stringValue($input[$inputKey] ?? null) !== '') {
-                continue;
-            }
-
-            if ($defaultAdminUser[$defaultKey] === '') {
-                continue;
-            }
-
-            $input[$inputKey] = $defaultAdminUser[$defaultKey];
-        }
-
-        return $input;
-    }
-
-    private function stringValue(mixed $value): string
-    {
-        return is_string($value) ? trim($value) : '';
     }
 
     private function cacheStoreUnavailableResponse(Request $request): Response

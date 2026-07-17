@@ -187,7 +187,7 @@ $registrar->report(new ReportDefinitionData(
 ));
 ```
 
-Report keys must be stable and package-prefixed. Core uses keys such as `core.content_integrity`; extensions should use keys such as `seo.schema_coverage` or `media.orphan_media`.
+Report keys must be stable and package-prefixed. Core uses keys such as `core.publishing_readiness`; extensions should use keys such as `seo.schema_coverage` or `media.orphan_media`.
 
 ## Page Contract
 
@@ -202,7 +202,7 @@ Keep report data work in an Action or query object. The Filament page should com
 ```php
 [
     'editor' => [
-        'core.content_integrity' => false,
+        'core.publishing_readiness' => false,
     ],
 ]
 ```

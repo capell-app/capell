@@ -259,7 +259,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerMailMarkdownComponents()
             ->registerLocalAppThemeDiscovery()
             ->registerPackageMetadata()
-            ->registerDiscoveredPackageMetadata()
             ->registerMacros()
             ->registerOctaneStateReset()
             ->registerModels()
@@ -416,6 +415,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $registry->fill($manifests);
         $this->app->instance(CapellPackageRegistry::class, $registry);
+
+        foreach ($manifests as $manifest) {
+            CapellCore::registerManifestPackage(
+                $manifest,
+                CapellCore::getInstalledPrettyVersion($manifest->name),
+            );
+        }
 
         $packageLoader = new CapellPackageLoader($this->app, $registry);
         $packageLoader->loadProviders();
@@ -585,20 +591,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             version: CapellCore::getInstalledPrettyVersion(self::$packageName),
             setting: CoreSettings::class,
         );
-
-        return $this;
-    }
-
-    private function registerDiscoveredPackageMetadata(): self
-    {
-        $registry = $this->app->make(CapellPackageRegistry::class);
-
-        foreach ($registry->all() as $manifest) {
-            CapellCore::registerManifestPackage(
-                $manifest,
-                CapellCore::getInstalledPrettyVersion($manifest->name),
-            );
-        }
 
         return $this;
     }

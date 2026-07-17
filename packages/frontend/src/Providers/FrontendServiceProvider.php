@@ -118,8 +118,6 @@ use Capell\Frontend\Support\Fragments\EncryptedPublicFragmentReferenceCodec;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
-use Capell\Frontend\Support\Kernel\Steps\BuildContextStep;
-use Capell\Frontend\Support\Kernel\Steps\CommitContextStep;
 use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
 use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
@@ -353,8 +351,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 PageResolveStep::class,
                 LayoutResolverStep::class,
                 ThemeResolverStep::class,
-                BuildContextStep::class,
-                CommitContextStep::class,
                 RegisterThemeViewsStep::class,
                 NotifySubscribersStep::class,
             ]);
@@ -682,7 +678,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             serviceProviderClass: self::class,
             path: realpath(__DIR__ . '/../..'),
             version: CapellCore::getInstalledPrettyVersion(self::$packageName),
-            setting: FrontendSettings::class,
         );
 
         return $this;

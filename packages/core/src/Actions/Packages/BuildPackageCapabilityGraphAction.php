@@ -70,6 +70,10 @@ final class BuildPackageCapabilityGraphAction
     {
         $nodes = [];
 
+        if ($this->isFrontendPackage($manifest)) {
+            $nodes[] = $this->derived($manifest, PackageCapability::FrontendSurface, 'frontend surface or content contribution');
+        }
+
         if ($this->hasFrontendAssetContribution($manifest)) {
             $nodes[] = $this->derived($manifest, PackageCapability::FrontendAssets, 'frontend asset contribution');
         }

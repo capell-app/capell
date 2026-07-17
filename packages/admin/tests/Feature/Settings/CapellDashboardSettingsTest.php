@@ -35,7 +35,7 @@ it('loads report visibility settings as a plain nested array', function (): void
     $settings = AdminSettings::instance();
     $settings->enabled_reports_by_role = [
         'editor' => [
-            'core.content_integrity' => false,
+            'core.public_render_safety' => false,
         ],
     ];
     $settings->save();
@@ -45,10 +45,10 @@ it('loads report visibility settings as a plain nested array', function (): void
     expect($fresh->enabled_reports_by_role)
         ->toBe([
             'editor' => [
-                'core.content_integrity' => false,
+                'core.public_render_safety' => false,
             ],
         ])
-        ->and($fresh->isReportEnabledForRole('editor', 'core.content_integrity'))->toBeFalse();
+        ->and($fresh->isReportEnabledForRole('editor', 'core.public_render_safety'))->toBeFalse();
 });
 
 it('exposes sort order lookup with a high fallback', function (): void {

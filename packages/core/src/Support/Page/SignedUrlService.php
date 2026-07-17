@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Page;
 
+use Capell\Core\Support\Security\SignedUrlCanonicalizer;
 use Exception;
 
 class SignedUrlService
@@ -15,7 +16,7 @@ class SignedUrlService
         throw_if(! isset($urlParts['host']) || $urlParts['host'] === '', Exception::class, 'Invalid URL: ' . $url);
 
         $urlParts['path'] = ($urlParts['path'] ?? '') . '{' . $draftId . '}';
-        $unsignedUrl = self::canonicalUrl($urlParts);
+        $unsignedUrl = SignedUrlCanonicalizer::fromParts($urlParts);
         $signature = hash_hmac('sha256', $unsignedUrl, (string) config('app.key'));
 
         $separator = str_contains($unsignedUrl, '?') ? '&' : '?';
@@ -51,54 +52,5 @@ class SignedUrlService
         $expected = hash_hmac('sha256', $data, (string) config('app.key'));
 
         return hash_equals($expected, (string) $signature);
-    }
-
-    /**
-     * @param  array<string, mixed>  $urlParts
-     */
-    private static function canonicalUrl(array $urlParts): string
-    {
-        $scheme = is_string($urlParts['scheme'] ?? null) && $urlParts['scheme'] !== '' ? $urlParts['scheme'] : 'https';
-        $host = (string) ($urlParts['host'] ?? '');
-        $port = isset($urlParts['port']) && is_int($urlParts['port']) ? ':' . $urlParts['port'] : '';
-        $path = is_string($urlParts['path'] ?? null) ? $urlParts['path'] : '';
-
-        $query = [];
-        if (is_string($urlParts['query'] ?? null) && $urlParts['query'] !== '') {
-            $query = self::queryParametersWithoutSignature($urlParts['query']);
-            ksort($query);
-        }
-
-        $canonical = sprintf('%s://%s%s%s', $scheme, $host, $port, $path);
-        if ($query !== []) {
-            $canonical .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
-        }
-
-        return $canonical;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private static function queryParametersWithoutSignature(string $queryString): array
-    {
-        $query = [];
-
-        foreach (explode('&', $queryString) as $queryPart) {
-            if ($queryPart === '') {
-                continue;
-            }
-
-            [$encodedKey, $encodedValue] = array_pad(explode('=', $queryPart, 2), 2, '');
-            $key = rawurldecode(str_replace('+', ' ', $encodedKey));
-
-            if ($key === 'signature') {
-                continue;
-            }
-
-            $query[$key] = rawurldecode(str_replace('+', ' ', $encodedValue));
-        }
-
-        return $query;
     }
 }

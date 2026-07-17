@@ -8,7 +8,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Illuminate\Database\Eloquent\Model;
 use Override;
 
-final class VisibleUserSchemaExtenderTestRelationManager extends RelationManager
+final class VisibleUserResourceBridgeTestRelationManager extends RelationManager
 {
     #[Override]
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool

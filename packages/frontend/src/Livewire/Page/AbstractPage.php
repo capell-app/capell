@@ -16,8 +16,6 @@ use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\Kernel\Steps\BuildContextStep;
-use Capell\Frontend\Support\Kernel\Steps\CommitContextStep;
 use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
 use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
@@ -405,7 +403,6 @@ abstract class AbstractPage extends Component
     private function frontendContextResolutionSteps(): array
     {
         $excludedSteps = [
-            CommitContextStep::class,
             RegisterThemeViewsStep::class,
             NotifySubscribersStep::class,
         ];
@@ -419,8 +416,6 @@ abstract class AbstractPage extends Component
                 PageResolveStep::class,
                 LayoutResolverStep::class,
                 ThemeResolverStep::class,
-                BuildContextStep::class,
-                CommitContextStep::class,
                 RegisterThemeViewsStep::class,
                 NotifySubscribersStep::class,
             ]),

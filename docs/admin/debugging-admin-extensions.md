@@ -1,6 +1,5 @@
 # Debugging Admin Extensions
 
-
 Use this when an admin resource, page, widget, field, action, setting, or Extensions page contribution does not appear.
 
 ## Admin Resolution Flow
@@ -34,15 +33,15 @@ Use only the commands present in `php artisan list capell`.
 
 ## Symptom Table
 
-| Symptom                               | Likely cause                                                           | Check                                           | Fix                                                                                                                       |
-| ------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Page/resource missing from navigation | Not registered or permission denied                                    | AdminBridge registration and user permissions   | Register through `AdminBridgeRegistrar` and rerun admin install when permissions changed.                                 |
-| Form field missing                    | Wrong schema extender tag/hook or stale configurator cache             | Extender class, `supports()`, and tag constant  | Tag with `PageSchemaExtender::TAG`, `SiteSchemaExtender::TAG`, `LayoutSchemaExtender::TAG`, or `UserSchemaExtender::TAG`. |
-| Header action missing                 | Wrong action extender for the surface                                  | Page/site/resource resolver                     | Use `PageHeaderActionExtender`, `SiteHeaderActionExtender`, or `ResourceHeaderActionExtender`.                            |
-| Table query unchanged                 | Extender modifies the wrong query or returns a new builder incorrectly | `PageTableExtender::modifyQuery()` test         | Return the modified builder and cover the query with a fixture.                                                           |
-| Extensions page alert missing         | Extender not tagged or package unavailable                             | `ExtensionsPageExtender::TAG` and package state | Tag the extender and force package installed in tests.                                                                    |
-| Settings tab missing                  | Settings class/schema/metadata missing                                 | `SettingsSchemaRegistry`                        | Register settings class, schema, and metadata.                                                                            |
-| Works for super admin only            | Policy/permission missing for role                                     | Role permissions and policy methods             | Seed/register package permissions and test allowed/denied roles.                                                          |
+| Symptom                               | Likely cause                                                           | Check                                           | Fix                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Page/resource missing from navigation | Not registered or permission denied                                    | AdminBridge registration and user permissions   | Register through `AdminBridgeRegistrar` and rerun admin install when permissions changed.      |
+| Form field missing                    | Wrong schema hook/bridge context or stale configurator cache           | Extender or bridge class, `supports()`, and tag | Use the matching page/site/layout extender; use `UserResourceBridge` for user fields.          |
+| Header action missing                 | Wrong action extender for the surface                                  | Page/site/resource resolver                     | Use `PageHeaderActionExtender`, `SiteHeaderActionExtender`, or `ResourceHeaderActionExtender`. |
+| Table query unchanged                 | Extender modifies the wrong query or returns a new builder incorrectly | `PageTableExtender::modifyQuery()` test         | Return the modified builder and cover the query with a fixture.                                |
+| Extensions page alert missing         | Extender not tagged or package unavailable                             | `ExtensionsPageExtender::TAG` and package state | Tag the extender and force package installed in tests.                                         |
+| Settings tab missing                  | Settings class/schema/metadata missing                                 | `SettingsSchemaRegistry`                        | Register settings class, schema, and metadata.                                                 |
+| Works for super admin only            | Policy/permission missing for role                                     | Role permissions and policy methods             | Seed/register package permissions and test allowed/denied roles.                               |
 
 ## Test Recipes
 

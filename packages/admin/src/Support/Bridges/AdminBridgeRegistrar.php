@@ -6,10 +6,9 @@ namespace Capell\Admin\Support\Bridges;
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
-use Capell\Admin\Contracts\Extenders\UserFormExtender;
-use Capell\Admin\Contracts\Extenders\UserTableExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionQuickActionProvider;
@@ -173,24 +172,14 @@ final class AdminBridgeRegistrar
         app()->tag([$extenderClass], AdminPanelExtender::TAG);
     }
 
-    /**
-     * @param  class-string<UserFormExtender>  $extenderClass
-     */
-    public function userFormExtender(string $extenderClass, bool $scoped = true): void
+    /** @param class-string<UserResourceBridge> $bridgeClass */
+    public function userResourceBridge(string $bridgeClass, bool $scoped = true): void
     {
         if ($scoped) {
-            app()->scoped($extenderClass);
+            app()->scoped($bridgeClass);
         }
 
-        app()->tag([$extenderClass], UserFormExtender::TAG);
-    }
-
-    /**
-     * @param  class-string<UserTableExtender>  $extenderClass
-     */
-    public function userTableExtender(string $extenderClass): void
-    {
-        app()->tag([$extenderClass], UserTableExtender::TAG);
+        app()->tag([$bridgeClass], UserResourceBridge::TAG);
     }
 
     /**

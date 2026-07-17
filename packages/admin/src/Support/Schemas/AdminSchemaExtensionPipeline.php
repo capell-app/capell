@@ -13,7 +13,6 @@ use Capell\Admin\Contracts\Extenders\PageTitleWithSlugInputExtender;
 use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
 use Capell\Admin\Contracts\Extenders\SiteHeaderActionExtender;
 use Capell\Admin\Contracts\Extenders\SiteSchemaExtender;
-use Capell\Admin\Contracts\Extenders\UserSchemaExtender;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Enums\PageTranslationSchemaHookEnum;
 use Capell\Admin\Enums\SiteCreateWizardHookEnum;
@@ -292,19 +291,13 @@ final class AdminSchemaExtensionPipeline
     /** @return array<int, Component> */
     public function userComponentsForHook(Schema $schema, UserSchemaHookEnum $hook, UserSchemaContextData $context): array
     {
-        return [
-            ...$this->legacyUserComponentsForHook($schema, $hook, $context),
-            ...$this->userBridgeResolver->resolveComponentsForHook($schema, $hook, $context),
-        ];
+        return $this->userBridgeResolver->resolveComponentsForHook($schema, $hook, $context);
     }
 
     /** @return array<int, Component> */
     public function userSidebarComponents(Schema $schema, UserSchemaContextData $context): array
     {
-        return [
-            ...$this->legacyUserSidebarComponents($schema, $context),
-            ...$this->userBridgeResolver->resolveSidebarComponents($schema, $context),
-        ];
+        return $this->userBridgeResolver->resolveSidebarComponents($schema, $context);
     }
 
     /**
@@ -313,10 +306,6 @@ final class AdminSchemaExtensionPipeline
      */
     public function userRelationManagers(Model $record, array $relationManagers, UserSchemaContextData $context): array
     {
-        foreach ($this->supportedUserSchemaExtenders($context) as $extender) {
-            $relationManagers = $extender->extendRelationManagers($record, $relationManagers, $context);
-        }
-
         return $this->userBridgeResolver->resolveRelationManagers($record, $relationManagers, $context);
     }
 
@@ -369,38 +358,5 @@ final class AdminSchemaExtensionPipeline
     private function siteSchemaExtenders(): array
     {
         return $this->tagged(SiteSchemaExtender::TAG, SiteSchemaExtender::class);
-    }
-
-    /** @return array<int, Component> */
-    private function legacyUserComponentsForHook(Schema $schema, UserSchemaHookEnum $hook, UserSchemaContextData $context): array
-    {
-        $components = [];
-
-        foreach ($this->supportedUserSchemaExtenders($context) as $extender) {
-            $components = [...$components, ...$extender->extendComponentsForHook($schema, $hook, $context)];
-        }
-
-        return $components;
-    }
-
-    /** @return array<int, Component> */
-    private function legacyUserSidebarComponents(Schema $schema, UserSchemaContextData $context): array
-    {
-        $components = [];
-
-        foreach ($this->supportedUserSchemaExtenders($context) as $extender) {
-            $components = [...$components, ...$extender->extendSidebarComponents($schema, $context)];
-        }
-
-        return $components;
-    }
-
-    /** @return array<int, UserSchemaExtender> */
-    private function supportedUserSchemaExtenders(UserSchemaContextData $context): array
-    {
-        return array_values(array_filter(
-            $this->tagged(UserSchemaExtender::TAG, UserSchemaExtender::class),
-            fn (UserSchemaExtender $extender): bool => $extender->supports($context),
-        ));
     }
 }

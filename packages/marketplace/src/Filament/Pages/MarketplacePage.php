@@ -11,7 +11,7 @@ use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Actions\ConnectMarketplaceAccountAction;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Filament\Actions\RunMarketplaceHeartbeatAction;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
@@ -76,7 +76,7 @@ final class MarketplacePage extends Page implements HasActions
 
     public function mount(): void
     {
-        resolve(MarketplaceBrowser::class)->queueDefaultWarm(includeLocalExtensionState: ExtensionsPage::canAccess());
+        resolve(MarketplaceCatalogueRecordProvider::class)->queueDefaultWarm(includeLocalExtensionState: ExtensionsPage::canAccess());
     }
 
     #[Override]

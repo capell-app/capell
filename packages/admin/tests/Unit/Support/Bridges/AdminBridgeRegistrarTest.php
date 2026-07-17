@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
@@ -15,6 +16,7 @@ use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Tests\Fixtures\Activity\ActivityResourceLinkRecord;
 use Capell\Admin\Tests\Fixtures\Activity\AlternateActivityResourceLinkRecordResource;
+use Capell\Admin\Tests\Fixtures\Autoload\FullUserResourceBridgeForResolverTest;
 use Capell\Admin\Tests\Fixtures\Autoload\TestActivityChangeSetBuilderForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestActivityRevertHandlerForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestDashboardFilamentWidgetForRegistrar;
@@ -73,6 +75,16 @@ it('registers extension dashboard Filament widgets through the bridge convenienc
 
     expect(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Extensions))
         ->toContain(TestDashboardFilamentWidgetForRegistrar::class);
+});
+
+it('registers the unified user resource bridge through one scoped tag', function (): void {
+    $registrar = new AdminBridgeRegistrar;
+
+    $registrar->userResourceBridge(FullUserResourceBridgeForResolverTest::class);
+
+    expect(collect(app()->tagged(UserResourceBridge::TAG))->contains(
+        fn (object $bridge): bool => $bridge instanceof FullUserResourceBridgeForResolverTest,
+    ))->toBeTrue();
 });
 
 it('registers a dashboard page through the admin manager', function (): void {

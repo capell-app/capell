@@ -20,6 +20,13 @@ final class EvaluatePublicationTransitionAction
     use AsFake;
     use AsObject;
 
+    /**
+     * Reason key emitted when a transition is refused because the record is
+     * soft-deleted. Consumers that branch on this reason must reference this
+     * constant rather than duplicating the literal.
+     */
+    public const string REASON_DELETED = 'publication.transition.deleted';
+
     public function handle(PublicationTransitionRequestData $request): PublicationTransitionResultData
     {
         $beforeFrom = $this->date($request->record->getAttribute('visible_from'));
@@ -38,11 +45,12 @@ final class EvaluatePublicationTransitionAction
                 $beforeFrom,
                 $beforeUntil,
                 $request,
-                'publication.transition.deleted',
+                self::REASON_DELETED,
             );
         }
 
         [$visibleFrom, $visibleUntil, $invalidReason] = match ($request->transition) {
+            PublicationTransition::CancelSchedule => $this->cancelSchedule($request, $beforeFrom, $beforeUntil),
             PublicationTransition::PublishNow => $this->publishNow(
                 $request,
                 $beforeState,
@@ -115,6 +123,34 @@ final class EvaluatePublicationTransitionAction
             visibleUntil: $visibleUntil,
             reasonKey: $reasonKey,
         );
+    }
+
+    /**
+     * Cancelling a schedule drops any *pending* publish/unpublish dates and leaves
+     * anything already in effect alone. A future `visible_from` that is already the
+     * draft sentinel is left byte-identical, so cancelling nothing resolves to
+     * AlreadyCorrect via the caller's `same()` check rather than rewriting the
+     * sentinel to a fresh instant.
+     *
+     * @return array{?CarbonImmutable, ?CarbonImmutable, null}
+     */
+    private function cancelSchedule(
+        PublicationTransitionRequestData $request,
+        ?CarbonImmutable $visibleFrom,
+        ?CarbonImmutable $visibleUntil,
+    ): array {
+        $cancelledFrom = $visibleFrom instanceof CarbonImmutable
+            && $visibleFrom->greaterThan($request->now)
+            && ! PublishSentinel::isDraftValue($visibleFrom, $request->now)
+                ? PublishSentinel::draftValue($request->now)
+                : $visibleFrom;
+
+        $cancelledUntil = $visibleUntil instanceof CarbonImmutable
+            && $visibleUntil->greaterThan($request->now)
+                ? null
+                : $visibleUntil;
+
+        return [$cancelledFrom, $cancelledUntil, null];
     }
 
     /** @return array{?CarbonImmutable, ?CarbonImmutable, null} */
