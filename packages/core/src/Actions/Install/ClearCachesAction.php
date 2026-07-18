@@ -21,7 +21,7 @@ class ClearCachesAction
      *
      * @var array<string, array{command: string, message: string, optional: bool}>
      */
-    private const CACHE_COMMANDS = [
+    private const array CACHE_COMMANDS = [
         'page' => [
             'command' => 'capell:html-cache:clear',
             'message' => '✓ HTML cache cleared',

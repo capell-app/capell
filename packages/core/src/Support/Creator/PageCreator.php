@@ -32,7 +32,7 @@ class PageCreator implements PageCreatable
      *
      * @var array<int, string>
      */
-    protected const ERROR_PAGE_STATUSES = ['401', '402', '403', '404', '419', '429', '500', '503'];
+    protected const array ERROR_PAGE_STATUSES = ['401', '402', '403', '404', '419', '429', '500', '503'];
 
     protected LayoutCreator $layoutCreator;
 

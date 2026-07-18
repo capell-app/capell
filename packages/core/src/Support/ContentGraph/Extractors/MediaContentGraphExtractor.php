@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 class MediaContentGraphExtractor implements ContentGraphExtractor
 {
     /** @var string */
-    private const SOURCE_PACKAGE = 'capell-app/core';
+    private const string SOURCE_PACKAGE = 'capell-app/core';
 
     public static function sourceModel(): string
     {
