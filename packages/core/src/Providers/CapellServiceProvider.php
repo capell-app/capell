@@ -87,6 +87,7 @@ use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
 use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
@@ -114,6 +115,8 @@ use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Core\Support\Models\ModelInterceptorRegistry;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -376,6 +379,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(BackendResolver::class);
         $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
 
+        $this->app->singleton(CapellCacheManager::class);
+        $this->app->singleton(ModelInterceptorRegistry::class);
+        $this->app->singleton(CapellPackageRegistry::class);
         $this->app->singleton(CapellCoreManager::class, fn (): CapellCoreManager => new CapellCoreManager);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->tag([CapellCoreManager::class], Resettable::TAG);

@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 /** @extends AbstractKeyedRegistry<CapellManifestData> */
 final class CapellPackageRegistry extends AbstractKeyedRegistry
 {
+    use ManagesPackages;
+
     /** @var array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>}|null */
     private ?array $contractRegistry = null;
 
