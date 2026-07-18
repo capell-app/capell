@@ -181,6 +181,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('npm install --no-audit --no-fund')
         ->toContain('npm run build')
         ->toContain('artisan serve --no-reload')
+        ->not->toContain('--all-packages')
         ->not->toContain("'dev-main as ' . \$package['version']");
 
     expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
