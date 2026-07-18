@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\ConfiguratorInterface;
 use Capell\Admin\Filament\Components\Forms\Interactions\InteractionSettingsSchema;
+use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Illuminate\Console\Command;
 use Spatie\LaravelData\Data;
@@ -19,6 +20,10 @@ it('Admin package should be standalone')
         FrontendSettingsSchema::class,
         InteractionSettingsSchema::class,
     ]);
+
+arch('admin providers contribute settings through the package surface registrar')
+    ->expect('Capell\Admin\Providers')
+    ->not()->toUse(SettingsSchemaRegistry::class);
 
 arch()
     ->expect('Capell\Admin\Filament\Configurators')
