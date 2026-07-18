@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Theme;
 
+use Capell\Admin\Enums\HeaderShadowEnum;
 use Capell\Core\Enums\HeaderPositionEnum;
 use Capell\Core\Enums\MenuAlignmentEnum;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
@@ -63,10 +64,7 @@ class HeaderFieldset extends Fieldset
                                             ->options(MenuAlignmentEnum::class),
                                         Select::make('header_shadow')
                                             ->label(__('capell-admin::form.shadow'))
-                                            ->options([
-                                                'none' => __('capell-admin::generic.none'),
-                                                'subtle' => __('capell-admin::form.shadow_subtle'),
-                                            ])
+                                            ->options(HeaderShadowEnum::class)
                                             ->default('none'),
                                         Checkbox::make('header_over_hero')
                                             ->label(__('capell-admin::form.header_over_hero'))
