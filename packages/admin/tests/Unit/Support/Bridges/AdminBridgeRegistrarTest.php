@@ -6,6 +6,7 @@ use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Enums\DashboardEnum;
@@ -21,6 +22,7 @@ use Capell\Admin\Tests\Fixtures\Autoload\TestActivityChangeSetBuilderForRegistra
 use Capell\Admin\Tests\Fixtures\Autoload\TestActivityRevertHandlerForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestDashboardFilamentWidgetForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestPanelExtenderForRegistrar;
+use Capell\Admin\Tests\Fixtures\Autoload\TestResourceHeaderActionExtenderForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestSchemaExtenderForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestSettingsForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestSettingsSchemaForRegistrar;
@@ -66,6 +68,16 @@ it('registers dashboard Filament widgets through the admin manager', function ()
 
     expect(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::SystemHealth))
         ->toContain(TestDashboardFilamentWidgetForRegistrar::class);
+});
+
+it('registers resource header action extenders through the bridge registrar', function (): void {
+    $registrar = new AdminBridgeRegistrar;
+
+    $registrar->resourceHeaderActionExtender(TestResourceHeaderActionExtenderForRegistrar::class);
+
+    expect(collect(app()->tagged(ResourceHeaderActionExtender::TAG))->contains(
+        fn (object $extender): bool => $extender instanceof TestResourceHeaderActionExtenderForRegistrar,
+    ))->toBeTrue();
 });
 
 it('registers extension dashboard Filament widgets through the bridge convenience method', function (): void {

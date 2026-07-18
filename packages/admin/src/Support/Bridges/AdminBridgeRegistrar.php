@@ -9,6 +9,7 @@ use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionQuickActionProvider;
@@ -170,6 +171,12 @@ final class AdminBridgeRegistrar
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::panelExtender($extenderClass));
         app()->tag([$extenderClass], AdminPanelExtender::TAG);
+    }
+
+    /** @param class-string<ResourceHeaderActionExtender> $extenderClass */
+    public function resourceHeaderActionExtender(string $extenderClass): void
+    {
+        app()->tag([$extenderClass], ResourceHeaderActionExtender::TAG);
     }
 
     /** @param class-string<UserResourceBridge> $bridgeClass */
