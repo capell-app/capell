@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Support\Filesystem\DirectoryCreator;
 use RuntimeException;
 use Throwable;
 
@@ -69,7 +70,7 @@ final class WelcomeRouteInstaller
         $routesWebPath = $this->routesWebPath();
         $routesDirectory = dirname($routesWebPath);
 
-        throw_if(! is_dir($routesDirectory) && ! mkdir($routesDirectory, 0755, true) && ! is_dir($routesDirectory), RuntimeException::class, 'Unable to create routes directory.');
+        DirectoryCreator::ensure($routesDirectory, 0755, 'Unable to create routes directory.');
 
         $content = file_exists($routesWebPath) ? file_get_contents($routesWebPath) : null;
         if ($content === false || $content === null || trim($content) === '') {
