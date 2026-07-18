@@ -19,6 +19,31 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 
+it('assigns a uuid when creating a page without one', function (): void {
+    $page = new Page([
+        'blueprint_id' => 1,
+        'layout_id' => 1,
+    ]);
+
+    resolve(PageObserver::class)->creating($page);
+
+    expect($page->uuid)->toBeString()
+        ->and(Str::isUuid($page->uuid))->toBeTrue();
+});
+
+it('preserves an explicitly assigned uuid when creating a page', function (): void {
+    $uuid = Str::uuid()->toString();
+    $page = new Page([
+        'blueprint_id' => 1,
+        'layout_id' => 1,
+        'uuid' => $uuid,
+    ]);
+
+    resolve(PageObserver::class)->creating($page);
+
+    expect($page->uuid)->toBe($uuid);
+});
+
 it('flushes specific cache keys on saved/deleted/restored', function (): void {
     $site = Site::factory()->createOne();
     $lang = Language::factory()->createOne();

@@ -16,6 +16,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\CapellCoreHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class PageObserver
@@ -24,6 +25,10 @@ class PageObserver
 
     public function creating(Page $page): void
     {
+        if ($page->uuid === null || $page->uuid === '') {
+            $page->uuid = Str::uuid()->toString();
+        }
+
         if ($page->getAttribute('blueprint_id') === null) {
             $page->blueprint_id = Blueprint::query()->pageType()->default()->value('id');
             throw_unless($page->blueprint_id !== null, InvalidArgumentException::class, 'Unable to create page without a type.');

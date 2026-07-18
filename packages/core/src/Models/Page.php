@@ -56,7 +56,6 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Models\Activity;
@@ -608,16 +607,6 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     {
         return $this->hasMany(PageRevision::class, 'page_uuid', 'uuid')
             ->orderByDesc('version');
-    }
-
-    #[Override]
-    protected static function booted(): void
-    {
-        static::creating(function (self $page): void {
-            if ($page->uuid === null || $page->uuid === '') {
-                $page->uuid = Str::uuid()->toString();
-            }
-        });
     }
 
     /**
