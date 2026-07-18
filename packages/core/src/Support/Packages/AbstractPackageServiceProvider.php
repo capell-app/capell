@@ -110,7 +110,7 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
             type: static::getType(),
             serviceProviderClass: static::class,
             path: dirname($providerFile, 3),
-            version: CapellCore::getInstalledPrettyVersion(static::$packageName),
+            version: CapellCore::getInstalledPrettyVersion(static::$packageName) ?? 'dev',
             setting: $setting,
             setupCommand: $setupCommand,
             setupParams: $setupParams,
@@ -133,9 +133,15 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
      * @param  array<string, class-string>  $components
      * @param  array<string, string>|null  $namespace
      */
-    protected function registerLivewireComponents(array $components, ?array $namespace = null): static
+    protected function registerLivewireComponentDefinitions(array $components, ?array $namespace = null): static
     {
         if (! $this->app->bound('livewire.finder')) {
+            return $this;
+        }
+
+        $livewire = Livewire::getFacadeRoot();
+
+        if (! is_object($livewire) || ! method_exists($livewire, 'component')) {
             return $this;
         }
 
@@ -143,7 +149,7 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
             Livewire::component($name, $component);
         }
 
-        if ($namespace !== null && $this->isLivewireV3() === false) {
+        if ($namespace !== null && $this->isLivewireV3() === false && method_exists($livewire, 'addNamespace')) {
             Livewire::addNamespace(...$namespace);
         }
 

@@ -1,17 +1,5 @@
 # Service Providers
 
-## Consumer compatibility gate
-
-Changes to package service providers, shared provider base classes, package
-registration, or boot lifecycles are not complete when package tests alone
-pass. Refresh the local path-repository dependencies in
-`/Users/ben/Sites/capell-app`, clear the application caches, and verify that
-`https://capell.test/` returns a successful response.
-
-This consumer smoke test is mandatory because companion packages can load
-during application bootstrap. A parent/child provider API mismatch therefore
-fails the whole application before routes or package-level tests can run.
-
 Split service providers by runtime context. Providers should wire registrations, not contain business logic.
 
 ## Lifecycle Provider Buckets

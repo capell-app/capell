@@ -516,18 +516,18 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 continue;
             }
 
-            $this->registerLivewireComponents([$name => $component]);
+            $this->registerLivewireComponentDefinitions([$name => $component]);
         }
 
         if (class_exists(LayoutWidgetRegistry::class)) {
             $registry = resolve(LayoutWidgetRegistry::class);
 
             foreach ($registry->allForTarget(LayoutWidgetTarget::FrontendLivewire) as $name => $component) {
-                $this->registerLivewireComponents([$name => $component]);
+                $this->registerLivewireComponentDefinitions([$name => $component]);
             }
         }
 
-        return $this->registerLivewireComponents([], [
+        return $this->registerLivewireComponentDefinitions([], [
             'namespace' => 'capell',
             'classNamespace' => 'Capell\\Frontend\\Livewire',
             'classPath' => __DIR__ . '/../Livewire',

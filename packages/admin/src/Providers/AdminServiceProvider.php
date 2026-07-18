@@ -603,7 +603,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerAdminLivewireComponents(): self
     {
-        return $this->registerLivewireComponents([
+        return $this->registerLivewireComponentDefinitions([
             'capell-admin::header.admin-tools' => AdminTools::class,
             'capell-admin::header.navigation-tree' => NavigationTree::class,
             'capell-admin::info-banner' => InfoBanner::class,

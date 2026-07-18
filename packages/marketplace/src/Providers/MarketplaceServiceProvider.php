@@ -103,7 +103,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             return $this;
         }
 
-        return $this->registerLivewireComponents([
+        return $this->registerLivewireComponentDefinitions([
             'capell-marketplace.marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
             'capell-marketplace::marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
         ], [
