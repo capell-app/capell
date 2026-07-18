@@ -23,6 +23,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -35,7 +36,7 @@ use JsonException;
 use RuntimeException;
 use Throwable;
 
-final class RunMarketplaceInstallAttemptJob implements ShouldQueue
+final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -46,11 +47,24 @@ final class RunMarketplaceInstallAttemptJob implements ShouldQueue
 
     public int $timeout = 720;
 
-    public int $tries = 0;
+    public int $tries = 30;
+
+    public int $uniqueFor = 3600;
 
     public function __construct(
         private readonly int $installAttemptId,
     ) {}
+
+    /** @return array<int, int> */
+    public function backoff(): array
+    {
+        return [30, 60, 120, 300];
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->installAttemptId;
+    }
 
     public function handle(MarketplaceComposerRunner $composer): void
     {
