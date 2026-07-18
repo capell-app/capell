@@ -489,11 +489,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerPaginateRoute(): self
     {
-        $translationsPath = base_path('vendor/michaloravec/laravel-paginateroute/resources/lang');
-
-        if (is_dir($translationsPath)) {
-            $this->loadTranslationsFrom($translationsPath, 'paginateroute');
-        }
+        $this->loadTranslationsFrom(
+            base_path('vendor/michaloravec/laravel-paginateroute/resources/lang'),
+            'paginateroute',
+        );
 
         return $this;
     }
@@ -677,16 +676,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             $registry->reservePrefix($prefix);
         }
 
-        foreach (config('capell-frontend.route.reserved_prefixes', []) as $prefix) {
-            if (is_string($prefix)) {
-                $registry->reservePrefix($prefix);
-            }
+        foreach (array_filter((array) config('capell-frontend.route.reserved_prefixes', []), is_string(...)) as $prefix) {
+            $registry->reservePrefix($prefix);
         }
 
-        foreach (config('capell-frontend.route.reserved_exact_paths', []) as $path) {
-            if (is_string($path)) {
-                $registry->reserveExact($path);
-            }
+        foreach (array_filter((array) config('capell-frontend.route.reserved_exact_paths', []), is_string(...)) as $path) {
+            $registry->reserveExact($path);
         }
     }
 
@@ -694,10 +689,8 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         $registry = $this->app->make(ReservedFrontendDomainRegistry::class);
 
-        foreach (config('capell-frontend.route.reserved_domains', []) as $domain) {
-            if (is_string($domain)) {
-                $registry->reserve($domain);
-            }
+        foreach (array_filter((array) config('capell-frontend.route.reserved_domains', []), is_string(...)) as $domain) {
+            $registry->reserve($domain);
         }
     }
 }
