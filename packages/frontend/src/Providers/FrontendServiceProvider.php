@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Providers;
 
-use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\AssetComponentEnum;
@@ -175,12 +174,10 @@ use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
 use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
-use Composer\InstalledVersions;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
@@ -398,7 +395,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerAboutInfo()
             ->registerBladeComponents()
             ->registerBlazeComponents()
-            ->registerLivewireComponents()
+            ->registerFrontendLivewireComponents()
             ->registerBladeDirectives()
             ->registerPaginateRoute()
             ->configureVite()
@@ -478,17 +475,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         ]]);
     }
 
-    private function registerAboutInfo(): self
-    {
-        if ($this->app->runningInConsole() && (class_exists(AboutCommand::class) && class_exists(InstalledVersions::class))) {
-            AboutCommand::add('Capell', [
-                self::$name => fn (): ?string => CapellCore::getInstalledPrettyVersion(self::$packageName),
-            ]);
-        }
-
-        return $this;
-    }
-
     private function registerMiddlewareAliases(): self
     {
         Route::aliasMiddleware('frontend.etag', ETagMiddleware::class);
@@ -511,7 +497,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerLivewireComponents(): self
+    private function registerFrontendLivewireComponents(): self
     {
         if (! $this->app->bound('livewire.finder')) {
             return $this;
@@ -530,27 +516,23 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 continue;
             }
 
-            Livewire::component($name, $component);
+            $this->registerLivewireComponents([$name => $component]);
         }
 
         if (class_exists(LayoutWidgetRegistry::class)) {
             $registry = resolve(LayoutWidgetRegistry::class);
 
             foreach ($registry->allForTarget(LayoutWidgetTarget::FrontendLivewire) as $name => $component) {
-                Livewire::component($name, $component);
+                $this->registerLivewireComponents([$name => $component]);
             }
         }
 
-        if ($this->isLivewireV3() === false) {
-            Livewire::addNamespace(
-                namespace: 'capell',
-                classNamespace: 'Capell\\Frontend\\Livewire',
-                classPath: __DIR__ . '/../Livewire',
-                classViewPath: __DIR__ . '/../../resources/views/livewire',
-            );
-        }
-
-        return $this;
+        return $this->registerLivewireComponents([], [
+            'namespace' => 'capell',
+            'classNamespace' => 'Capell\\Frontend\\Livewire',
+            'classPath' => __DIR__ . '/../Livewire',
+            'classViewPath' => __DIR__ . '/../../resources/views/livewire',
+        ]);
     }
 
     private function registerBladeComponents(): self
@@ -582,9 +564,9 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerBlazeComponents(): self
     {
-        RegisterBlazeOptimizedViewsAction::run(__DIR__ . '/../../resources/views/components/layout/index.blade.php');
-
-        return $this;
+        return $this->registerBlazeOptimizedViews([
+            __DIR__ . '/../../resources/views/components/layout/index.blade.php',
+        ]);
     }
 
     private function registerBladeComponentAlias(string $name, string $component): void
@@ -645,19 +627,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 Log::warning('Invalid schedule frequency: ' . $schedulePageCleaner);
             }
         }
-
-        return $this;
-    }
-
-    private function registerPackageMetadata(): self
-    {
-        CapellCore::registerPackage(
-            self::$packageName,
-            type: self::getType(),
-            serviceProviderClass: self::class,
-            path: realpath(__DIR__ . '/../..'),
-            version: CapellCore::getInstalledPrettyVersion(self::$packageName),
-        );
 
         return $this;
     }

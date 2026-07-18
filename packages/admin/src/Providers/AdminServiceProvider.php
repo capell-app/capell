@@ -147,7 +147,6 @@ use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
-use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
@@ -171,7 +170,6 @@ use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
-use Composer\InstalledVersions;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
 use Filament\Facades\Filament;
@@ -191,7 +189,6 @@ use Illuminate\Contracts\Container\Container as ContainerContract;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Features\SupportTesting\Testable;
@@ -326,7 +323,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
 
         $this
-            ->registerPackageMetadata()
+            ->registerAdminPackageMetadata()
             ->registerMacros()
             ->registerAssets()
             ->registerNotificationGroups()
@@ -349,7 +346,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerWidgetComponents()
             ->registerBlazeComponents()
             ->registerServingEvents()
-            ->registerLivewireComponents()
+            ->registerAdminLivewireComponents()
             ->registerPublishCommands()
             ->registerSubscribers()
             ->registerModelInterceptors()
@@ -604,42 +601,21 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerLivewireComponents(): self
+    private function registerAdminLivewireComponents(): self
     {
-        if (! $this->app->bound('livewire.finder')) {
-            return $this;
-        }
-
-        Livewire::component('capell-admin::header.admin-tools', AdminTools::class);
-        Livewire::component('capell-admin::header.navigation-tree', NavigationTree::class);
-        Livewire::component('capell-admin::info-banner', InfoBanner::class);
-        // Plain alias (not the `capell-admin::` Livewire namespace, which resolves
-        // to Capell\Admin\Livewire and would shadow this class living under
-        // Capell\Admin\Filament\Livewire).
-        Livewire::component('capell-admin-publish-status-panel', PublishStatusPanel::class);
-
-        if ($this->isLivewireV3() === false) {
-            Livewire::addNamespace(
-                namespace: 'capell-admin',
-                classNamespace: 'Capell\\Admin\\Livewire',
-                viewPath: __DIR__ . '/../../resources/views/livewire',
-                classPath: __DIR__ . '/../Livewire',
-                classViewPath: __DIR__ . '/../../resources/views/livewire',
-            );
-        }
-
-        return $this;
-    }
-
-    private function registerAboutInfo(): self
-    {
-        if ($this->app->runningInConsole() && (class_exists(AboutCommand::class) && class_exists(InstalledVersions::class))) {
-            AboutCommand::add('Capell', [
-                self::$name => fn (): ?string => CapellCore::getInstalledPrettyVersion(static::$packageName),
-            ]);
-        }
-
-        return $this;
+        return $this->registerLivewireComponents([
+            'capell-admin::header.admin-tools' => AdminTools::class,
+            'capell-admin::header.navigation-tree' => NavigationTree::class,
+            'capell-admin::info-banner' => InfoBanner::class,
+            // Plain alias because the namespace resolves to Capell\Admin\Livewire.
+            'capell-admin-publish-status-panel' => PublishStatusPanel::class,
+        ], [
+            'namespace' => 'capell-admin',
+            'classNamespace' => 'Capell\\Admin\\Livewire',
+            'viewPath' => __DIR__ . '/../../resources/views/livewire',
+            'classPath' => __DIR__ . '/../Livewire',
+            'classViewPath' => __DIR__ . '/../../resources/views/livewire',
+        ]);
     }
 
     private function registerServingEvents(): self
@@ -839,19 +815,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerBlazeComponents(): self
     {
-        RegisterBlazeOptimizedViewsAction::run(__DIR__ . '/../../resources/views/components/alert.blade.php');
-
-        return $this;
+        return $this->registerBlazeOptimizedViews([
+            __DIR__ . '/../../resources/views/components/alert.blade.php',
+        ]);
     }
 
-    private function registerPackageMetadata(): self
+    private function registerAdminPackageMetadata(): self
     {
-        CapellCore::registerPackage(
-            static::$packageName,
-            type: static::getType(),
-            serviceProviderClass: static::class,
-            path: dirname(__DIR__, 2),
-            version: CapellCore::getInstalledPrettyVersion(static::$packageName),
+        return parent::registerPackageMetadata(
             setupCommand: 'capell:admin-setup',
             setupParams: [
                 'url',
@@ -870,8 +841,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 'force',
             ],
         );
-
-        return $this;
     }
 
     private function registerMacros(): self

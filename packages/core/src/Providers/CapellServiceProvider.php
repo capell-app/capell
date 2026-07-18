@@ -155,13 +155,11 @@ use Capell\Core\ThemeStudio\Theme\BookingEntryPointRegistry;
 use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
-use Composer\InstalledVersions;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
-use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -202,7 +200,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this
             ->registerPublishCommands()
             ->enforceMorphMapRequirement()
-            ->registerAboutInfo()
+            ->registerAboutInfo('capell-app/core')
             ->registerMorphMap()
             ->registerGatePolicyGuesser()
             ->registerTranslationEvents()
@@ -262,7 +260,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerPublicationTransitions()
             ->registerMailMarkdownComponents()
             ->registerLocalAppThemeDiscovery()
-            ->registerPackageMetadata()
+            ->registerPackageMetadata(setting: CoreSettings::class)
             ->registerMacros()
             ->registerOctaneStateReset()
             ->registerModels()
@@ -452,17 +450,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         }
     }
 
-    private function registerAboutInfo(): self
-    {
-        if ($this->app->runningInConsole() && (class_exists(AboutCommand::class) && class_exists(InstalledVersions::class))) {
-            AboutCommand::add('Capell', [
-                self::$name => fn (): ?string => CapellCore::getInstalledPrettyVersion('capell-app/core'),
-            ]);
-        }
-
-        return $this;
-    }
-
     private function enforceMorphMapRequirement(): self
     {
         if ((string) $this->app->environment() !== '') {
@@ -581,20 +568,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             PageUrlContentGraphExtractor::class,
             SiteContentGraphExtractor::class,
         ], ContentGraphRegistry::TAG);
-
-        return $this;
-    }
-
-    private function registerPackageMetadata(): self
-    {
-        CapellCore::registerPackage(
-            self::$packageName,
-            type: self::getType(),
-            serviceProviderClass: self::class,
-            path: dirname(__DIR__, 2),
-            version: CapellCore::getInstalledPrettyVersion(self::$packageName),
-            setting: CoreSettings::class,
-        );
 
         return $this;
     }

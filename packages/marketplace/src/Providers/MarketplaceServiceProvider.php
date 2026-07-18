@@ -13,7 +13,6 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
-use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\VerifyMarketplaceSignedActivationAction;
@@ -36,9 +35,7 @@ use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamen
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
-use Composer\InstalledVersions;
 use Filament\Actions\Action;
-use Livewire\Livewire;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
@@ -74,13 +71,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
     {
         parent::registeringPackage();
 
-        CapellCore::registerPackage(
-            static::$packageName,
-            type: static::getType(),
-            serviceProviderClass: static::class,
-            path: realpath(__DIR__ . '/../..'),
-            version: $this->getVersion(),
-        );
+        $this->registerPackageMetadata();
 
         if (config('capell-marketplace.enabled', true)) {
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);
@@ -112,42 +103,13 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             return $this;
         }
 
-        $livewire = Livewire::getFacadeRoot();
-
-        if (! is_object($livewire)) {
-            return $this;
-        }
-
-        if (! $this->app->bound('livewire.finder')) {
-            return $this;
-        }
-
-        if ($this->isLivewireV3() === false && method_exists($livewire, 'addNamespace')) {
-            Livewire::addNamespace(
-                namespace: 'capell-marketplace',
-                classNamespace: 'Capell\\Marketplace\\Filament\\Livewire',
-            );
-        }
-
-        if (method_exists($livewire, 'component')) {
-            Livewire::component('capell-marketplace.marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
-            Livewire::component('capell-marketplace::marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
-        }
-
-        return $this;
-    }
-
-    private function getVersion(): string
-    {
-        if (! class_exists(InstalledVersions::class)) {
-            return 'dev';
-        }
-
-        if (! InstalledVersions::isInstalled(static::$packageName)) {
-            return 'dev';
-        }
-
-        return InstalledVersions::getPrettyVersion(static::$packageName) ?? 'dev';
+        return $this->registerLivewireComponents([
+            'capell-marketplace.marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
+            'capell-marketplace::marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
+        ], [
+            'namespace' => 'capell-marketplace',
+            'classNamespace' => 'Capell\\Marketplace\\Filament\\Livewire',
+        ]);
     }
 
     private function registerExtensionsPageActions(): void

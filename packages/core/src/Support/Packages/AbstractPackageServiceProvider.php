@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Packages;
 
+use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\PackageServiceProvidable;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Composer\InstalledVersions;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Request;
+use Livewire\Livewire;
+use ReflectionClass;
 use RuntimeException;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -75,6 +79,75 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $version = InstalledVersions::getVersion('livewire/livewire');
 
         return $version !== null && version_compare($version, '4.0.0', '<');
+    }
+
+    protected function registerAboutInfo(?string $packageName = null): static
+    {
+        if ($this->app->runningInConsole()) {
+            AboutCommand::add('Capell', [
+                static::$name => fn (): ?string => CapellCore::getInstalledPrettyVersion($packageName ?? static::$packageName),
+            ]);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param  class-string|null  $setting
+     * @param  array<int, string>  $setupParams
+     */
+    protected function registerPackageMetadata(
+        ?string $setting = null,
+        ?string $setupCommand = null,
+        array $setupParams = [],
+    ): static {
+        $providerFile = new ReflectionClass(static::class)->getFileName();
+
+        throw_if($providerFile === false, RuntimeException::class, 'Package service provider file not found');
+
+        CapellCore::registerPackage(
+            static::$packageName,
+            type: static::getType(),
+            serviceProviderClass: static::class,
+            path: dirname($providerFile, 3),
+            version: CapellCore::getInstalledPrettyVersion(static::$packageName),
+            setting: $setting,
+            setupCommand: $setupCommand,
+            setupParams: $setupParams,
+        );
+
+        return $this;
+    }
+
+    /** @param array<int, string> $viewPaths */
+    protected function registerBlazeOptimizedViews(array $viewPaths): static
+    {
+        foreach ($viewPaths as $viewPath) {
+            RegisterBlazeOptimizedViewsAction::run($viewPath);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param  array<string, class-string>  $components
+     * @param  array<string, string>|null  $namespace
+     */
+    protected function registerLivewireComponents(array $components, ?array $namespace = null): static
+    {
+        if (! $this->app->bound('livewire.finder')) {
+            return $this;
+        }
+
+        foreach ($components as $name => $component) {
+            Livewire::component($name, $component);
+        }
+
+        if ($namespace !== null && $this->isLivewireV3() === false) {
+            Livewire::addNamespace(...$namespace);
+        }
+
+        return $this;
     }
 
     /**
