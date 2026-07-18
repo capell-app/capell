@@ -8,7 +8,7 @@ Capell's CI runs code-quality checks and divides the test suite with Pest's nati
 
 Run `composer test:shards` when the timing manifest needs refreshing. Pest writes `tests/.pest/shards.json` directly.
 
-Pest 4.7 requires a small namespace compatibility patch for this monorepo. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
+Pest 4.7 requires a small sharding compatibility patch for this monorepo. It supports package namespaces, preserves the discovery process memory limit, and prevents parallel-worker PHP options from leaking into PHPUnit test discovery. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
 
 ## Composer Refresh For Screenshot Fixtures
 
