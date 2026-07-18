@@ -62,11 +62,11 @@ it('flushes resettable services when an Octane operation terminates', function (
     $sandbox->instance('capell.test-octane-resettable', $resettable);
     $sandbox->tag(['capell.test-octane-resettable'], Resettable::TAG);
 
-    event(new class($baseApplication, $sandbox) implements OperationTerminated
+    event(new readonly class($baseApplication, $sandbox) implements OperationTerminated
     {
         public function __construct(
-            private readonly Application $application,
-            private readonly Application $sandbox,
+            private Application $application,
+            private Application $sandbox,
         ) {}
 
         public function app(): Application

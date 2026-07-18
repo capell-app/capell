@@ -22,7 +22,7 @@ final readonly class SettingsBootstrapper
 
     public function bootstrap(): void
     {
-        if (! ($this->app instanceof CachesConfiguration && $this->app->configurationIsCached())) {
+        if (! $this->app instanceof CachesConfiguration || ! $this->app->configurationIsCached()) {
             $providerFile = new ReflectionClass(LaravelSettingsServiceProvider::class)->getFileName();
 
             if ($providerFile !== false) {

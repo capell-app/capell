@@ -34,7 +34,7 @@ it('loads Spatie defaults and aggregates Capell settings when configuration is u
     CapellCore::swap($manager);
 
     try {
-        (new SettingsBootstrapper($app, $config))->bootstrap();
+        new SettingsBootstrapper($app, $config)->bootstrap();
     } finally {
         CapellCore::swap($originalManager);
     }
@@ -73,7 +73,7 @@ it('preserves cached Spatie config while aggregating Capell settings', function 
     CapellCore::swap($manager);
 
     try {
-        (new SettingsBootstrapper($app, $config))->bootstrap();
+        new SettingsBootstrapper($app, $config)->bootstrap();
     } finally {
         CapellCore::swap($originalManager);
     }

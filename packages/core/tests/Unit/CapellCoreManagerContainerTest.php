@@ -6,12 +6,12 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\CapellCoreManager;
 
 it('shares one manager instance across its class, public alias, and facade', function (): void {
-    $manager = app(CapellCoreManager::class);
+    $manager = resolve(CapellCoreManager::class);
 
     expect(app()->getBindings())
         ->toHaveKey(CapellCoreManager::class)
         ->and(app()->getBindings()[CapellCoreManager::class]['shared'])->toBeTrue()
-        ->and(app('capell-admin'))->toBe($manager)
+        ->and(resolve('capell-admin'))->toBe($manager)
         ->and(CapellCore::getFacadeRoot())->toBe($manager)
-        ->and(app(CapellCoreManager::class))->toBe($manager);
+        ->and(resolve(CapellCoreManager::class))->toBe($manager);
 });

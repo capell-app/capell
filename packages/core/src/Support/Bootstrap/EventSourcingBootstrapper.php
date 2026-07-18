@@ -37,7 +37,7 @@ final readonly class EventSourcingBootstrapper
         $this->app->singleton(RollbackValidatorRegistry::class);
         $this->app->singleton(StateDiffer::class);
 
-        if (! ($this->app instanceof CachesConfiguration && $this->app->configurationIsCached())) {
+        if (! $this->app instanceof CachesConfiguration || ! $this->app->configurationIsCached()) {
             $providerFile = new ReflectionClass(EventSourcingServiceProvider::class)->getFileName();
 
             if ($providerFile !== false) {
