@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallMemoryLimit;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
@@ -11,14 +12,11 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
-    $this->previousInstallerMemoryLimit = ini_get('memory_limit');
-    ini_set('memory_limit', '512M');
+    app()->instance(InstallMemoryLimit::class, new InstallMemoryLimit('512M'));
 });
 
 afterEach(function (): void {
-    if (is_string($this->previousInstallerMemoryLimit)) {
-        ini_set('memory_limit', $this->previousInstallerMemoryLimit);
-    }
+    app()->forgetInstance(InstallMemoryLimit::class);
 });
 
 /**
@@ -77,7 +75,7 @@ it('reports the current environment with remediation fields', function (): void 
 });
 
 it('blocks browser installation when the web php memory limit is below the floor', function (): void {
-    ini_set('memory_limit', '128M');
+    app()->instance(InstallMemoryLimit::class, new InstallMemoryLimit('128M'));
 
     $report = resolve(InstallerPreflight::class)->run();
     $memoryCheck = installerPreflightCheck($report, 'php-memory-limit');
@@ -94,7 +92,7 @@ it('blocks browser installation when the web php memory limit is below the floor
 });
 
 it('accepts unlimited web php memory', function (): void {
-    ini_set('memory_limit', '-1');
+    app()->instance(InstallMemoryLimit::class, new InstallMemoryLimit('-1'));
 
     $report = resolve(InstallerPreflight::class)->run();
 

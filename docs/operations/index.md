@@ -14,15 +14,15 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 
 ## First Checks
 
-| Symptom                         | Check                                                                                               |
-| ------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Public pages are stale          | Cache state, queue worker, optional HTML Cache package, CDN purge.                                  |
-| Admin is missing pages/settings | `php artisan optimize:clear`, permissions, package install state.                                   |
-| Install exhausts PHP memory     | Compare the web and CLI [`memory_limit`](troubleshooting.md#php-memory-limit).                       |
+| Symptom                         | Check                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Public pages are stale          | Cache state, queue worker, optional HTML Cache package, CDN purge.                                                  |
+| Admin is missing pages/settings | `php artisan optimize:clear`, permissions, package install state.                                                   |
+| Install exhausts PHP memory     | Compare the web and CLI [`memory_limit`](troubleshooting.md#php-memory-limit).                                      |
 | Jobs or scheduled work are idle | Check the [queue worker](troubleshooting.md#queue-worker) and [scheduler](troubleshooting.md#scheduler) separately. |
-| Install fails in CI             | Missing non-interactive flags or private Composer credentials.                                      |
-| Marketplace cannot install      | Account connection, Marketplace URL, webhook URL, package compatibility.                            |
-| Public output looks unsafe      | Search response HTML for authoring markers, model IDs, signed admin URLs, selectors, package names. |
+| Install fails in CI             | Missing non-interactive flags or private Composer credentials.                                                      |
+| Marketplace cannot install      | Account connection, Marketplace URL, webhook URL, package compatibility.                                            |
+| Public output looks unsafe      | Search response HTML for authoring markers, model IDs, signed admin URLs, selectors, package names.                 |
 
 ## Site Health
 
@@ -124,11 +124,11 @@ For deeper Marketplace incidents, use [Debugging Marketplace](debugging-marketpl
 | Published pages still show old content           | [Published pages still show old content](troubleshooting.md#published-pages-still-show-old-content)                                     |
 | Frontend shows Laravel's welcome page            | [Laravel's default welcome page](troubleshooting.md#the-frontend-shows-laravels-default-welcome-page)                                   |
 | Non-interactive install fails with `Required.`   | [`NonInteractiveValidationException: Required.`](troubleshooting.md#laravelpromptsexceptionsnoninteractivevalidationexception-required) |
-| Composer cannot find Capell packages             | [`composer require` cannot find the package](troubleshooting.md#composer-require-capell-appinstaller-cannot-find-the-package)              |
-| PHP runs out of memory during install            | [Check web and CLI PHP memory limits](troubleshooting.md#php-memory-limit)                           |
-| A queued install or task never starts            | [Configure and check the queue worker](troubleshooting.md#queue-worker)                              |
-| Scheduled tasks never run                        | [Configure Laravel's scheduler](troubleshooting.md#scheduler)                                        |
-| The visible error is too generic                 | [Find the installation logs](troubleshooting.md#installation-logs)                                   |
+| Composer cannot find Capell packages             | [`composer require` cannot find the package](troubleshooting.md#composer-require-capell-appinstaller-cannot-find-the-package)           |
+| PHP runs out of memory during install            | [Check web and CLI PHP memory limits](troubleshooting.md#php-memory-limit)                                                              |
+| A queued install or task never starts            | [Configure and check the queue worker](troubleshooting.md#queue-worker)                                                                 |
+| Scheduled tasks never run                        | [Configure Laravel's scheduler](troubleshooting.md#scheduler)                                                                           |
+| The visible error is too generic                 | [Find the installation logs](troubleshooting.md#installation-logs)                                                                      |
 | Vite cannot resolve package CSS imports          | [`Can't resolve 'swiper/...'` during `npm run build`](troubleshooting.md#cant-resolve-swiper-during-npm-run-build)                      |
 
 For the full list of error strings and fixes, see [Troubleshooting](troubleshooting.md).

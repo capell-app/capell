@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Core\Console\Commands\InstallCommand;
+use Capell\Core\Support\Install\InstallMemoryLimit;
 
 it('raises the effective cli memory limit before installation', function (): void {
     $previousLimit = ini_get('memory_limit');
-    ini_set('memory_limit', '128M');
+    $lowerLimit = memory_get_usage(true) + (64 * 1024 * 1024);
+
+    expect($lowerLimit)->toBeLessThan(InstallMemoryLimit::MINIMUM_BYTES);
+    ini_set('memory_limit', (string) $lowerLimit);
 
     try {
         callInstallCommandMethod(installCommandForOptions([]), 'ensureInstallationMemoryLimit');

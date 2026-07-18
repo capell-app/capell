@@ -10,8 +10,16 @@ final class InstallMemoryLimit
 
     public const string MINIMUM_DISPLAY = '512M';
 
+    public function __construct(
+        private readonly ?string $configuredLimit = null,
+    ) {}
+
     public function current(): string
     {
+        if ($this->configuredLimit !== null) {
+            return $this->configuredLimit;
+        }
+
         $configuredLimit = ini_get('memory_limit');
 
         return is_string($configuredLimit) ? $configuredLimit : '-1';

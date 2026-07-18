@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallMemoryLimit;
 use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
 
 beforeEach(function (): void {
-    $this->previousMemoryLimit = ini_get('memory_limit');
-    ini_set('memory_limit', '512M');
+    app()->instance(InstallMemoryLimit::class, new InstallMemoryLimit('512M'));
 });
 
 afterEach(function (): void {
-    if (is_string($this->previousMemoryLimit)) {
-        ini_set('memory_limit', $this->previousMemoryLimit);
-    }
+    app()->forgetInstance(InstallMemoryLimit::class);
 });
 
 it('runs environment checks before the install mutates the application', function (): void {
@@ -56,7 +54,7 @@ it('blocks installation when the site URL is invalid', function (): void {
 });
 
 it('reports the stable capell error when the effective memory limit remains too low', function (): void {
-    ini_set('memory_limit', '128M');
+    app()->instance(InstallMemoryLimit::class, new InstallMemoryLimit('128M'));
 
     expect(fn (): mixed => RunInstallPreflightChecksAction::run(
         new InstallInputData(

@@ -290,16 +290,16 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 
 ## Troubleshooting
 
-| Symptom                                         | First action                                                        |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer   |
-| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`              |
-| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build      |
-| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package |
-| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker) |
-| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler) |
+| Symptom                                         | First action                                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                        |
+| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                   |
+| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build                           |
+| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                      |
+| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)          |
+| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)            |
 | PHP reports `Allowed memory size ... exhausted` | Check the [web and CLI memory limits](../operations/troubleshooting.md#php-memory-limit) |
-| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`      |
+| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                           |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.
 

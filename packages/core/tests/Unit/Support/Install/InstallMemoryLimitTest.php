@@ -28,7 +28,10 @@ it('provides a stable searchable failure message', function (): void {
 
 it('raises a lower effective cli memory limit to the installation floor', function (): void {
     $previousLimit = ini_get('memory_limit');
-    ini_set('memory_limit', '128M');
+    $lowerLimit = memory_get_usage(true) + (64 * 1024 * 1024);
+
+    expect($lowerLimit)->toBeLessThan(InstallMemoryLimit::MINIMUM_BYTES);
+    ini_set('memory_limit', (string) $lowerLimit);
 
     try {
         $memoryLimit = new InstallMemoryLimit;

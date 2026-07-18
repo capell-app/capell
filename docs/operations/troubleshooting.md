@@ -15,13 +15,13 @@ Deeper runbooks:
 
 Start with the symptom you can see:
 
-| Symptom                                      | Start here                                  |
-| -------------------------------------------- | ------------------------------------------- |
-| Installer reports a low PHP memory limit     | [PHP memory limit](#php-memory-limit)       |
+| Symptom                                      | Start here                                          |
+| -------------------------------------------- | --------------------------------------------------- |
+| Installer reports a low PHP memory limit     | [PHP memory limit](#php-memory-limit)               |
 | Browser installation times out               | [Browser install timeout](#browser-install-timeout) |
-| An install or other job remains queued        | [Queue worker](#queue-worker)               |
-| Scheduled work never runs                    | [Scheduler](#scheduler)                     |
-| You need the useful error rather than the UI | [Installation logs](#installation-logs)     |
+| An install or other job remains queued       | [Queue worker](#queue-worker)                       |
+| Scheduled work never runs                    | [Scheduler](#scheduler)                             |
+| You need the useful error rather than the UI | [Installation logs](#installation-logs)             |
 
 ## Install and hosting
 
@@ -116,7 +116,7 @@ In production, configure one cron or hosting-panel scheduled task to run Laravel
 * * * * * cd /path/to/application && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-**You should see:** `php artisan schedule:list` shows the next run times, and Site Health no longer reports the scheduler as missing once the host has run it.
+**You should see:** `php artisan schedule:list` shows the next run times and the scheduled commands begin running. Site Health keeps this check amber because Capell cannot verify a recent scheduler heartbeat from local state; use it as an operational reminder.
 
 <a id="installation-logs"></a>
 
