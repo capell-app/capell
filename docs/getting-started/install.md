@@ -21,6 +21,15 @@ Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `sim
 
 Before changing an existing application, back up its database and media and confirm that the backup can be read. Capell page history is not a substitute for that backup.
 
+### Hosting checklist
+
+- Capell installation needs PHP `memory_limit=512M` or higher. CLI PHP and web PHP can load different configuration files; use the browser preflight report to check the web value.
+- Browser requests can time out during Composer or package setup on managed hosting. The CLI path `php -d memory_limit=512M artisan capell:install` is not limited by the browser request timeout.
+- A non-`sync` queue needs a persistent queue worker. Laravel's scheduler is separate and needs `php artisan schedule:run` every minute in production.
+- Keep `storage/` and `bootstrap/cache/` writable by the web and worker users, and know where the host records PHP and web-server errors.
+
+See [hosting and installation troubleshooting](../operations/troubleshooting.md#install-and-hosting) for the exact errors, checks, worker setup, scheduler command, and log locations.
+
 ## Fresh Laravel application
 
 ### 1. Create and configure Laravel
@@ -243,7 +252,9 @@ Do not copy package-specific Tailwind paths from an unrelated project. Use the g
 
 Choose optional themes only from a listing that states a released Composer path, compatible Capell line, screenshots, install command, support boundary, and removal path. Source-only examples and Labs packages are not part of this installation guide.
 
-## File permissions
+<a id="file-permissions"></a>
+
+## Install-time write permissions
 
 The install user needs write access to the paths selected by the plan. Common paths are:
 
@@ -285,7 +296,9 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 | Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`              |
 | Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build      |
 | Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package |
-| A queued task never finishes                    | Start the queue worker and inspect failed jobs                      |
+| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker) |
+| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler) |
+| PHP reports `Allowed memory size ... exhausted` | Check the [web and CLI memory limits](../operations/troubleshooting.md#php-memory-limit) |
 | Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`      |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.

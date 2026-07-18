@@ -13,7 +13,128 @@ Deeper runbooks:
 | Public output     | [Debugging public output](../frontend/debugging-public-output.md)         |
 | Marketplace       | [Debugging Marketplace](debugging-marketplace.md)                         |
 
-## `php artisan` says permission denied
+Start with the symptom you can see:
+
+| Symptom                                      | Start here                                  |
+| -------------------------------------------- | ------------------------------------------- |
+| Installer reports a low PHP memory limit     | [PHP memory limit](#php-memory-limit)       |
+| Browser installation times out               | [Browser install timeout](#browser-install-timeout) |
+| An install or other job remains queued        | [Queue worker](#queue-worker)               |
+| Scheduled work never runs                    | [Scheduler](#scheduler)                     |
+| You need the useful error rather than the UI | [Installation logs](#installation-logs)     |
+
+## Install and hosting
+
+<a id="php-memory-limit"></a>
+
+### Capell reports a PHP `memory_limit` below 512M
+
+Capell installation needs at least 512 MB of PHP memory. The browser and command-line PHP runtimes can load different configuration files, so a healthy CLI check does not prove that PHP-FPM or Apache has the same limit.
+
+The Capell preflight message includes the effective value. For a 128 MB host it is exactly:
+
+```text
+Capell installation requires PHP memory_limit of at least 512M; the current limit is 128M.
+```
+
+If PHP runs out of memory before Laravel can report the preflight failure, the host log may contain this standard fatal error. The byte counts vary, but the wording is the same:
+
+```text
+PHP Fatal error: Allowed memory size of 134217728 bytes exhausted (tried to allocate 4096 bytes)
+```
+
+**Check CLI PHP:**
+
+```bash
+php --ini
+php -r 'echo ini_get("memory_limit"), PHP_EOL;'
+```
+
+For the browser installer, download the installer report and check `environment.memoryLimit`. Change `memory_limit` to `512M` or higher in the PHP configuration used by the web server, then reload the PHP service through the host's normal control panel or process manager.
+
+If web PHP cannot be changed, run the command installer with an explicit limit:
+
+```bash
+php -d memory_limit=512M artisan capell:install
+```
+
+**You should see:** The `php-memory-limit` preflight check passes. A value of `-1` also passes because PHP treats it as unlimited.
+
+<a id="browser-install-timeout"></a>
+
+### The browser installer times out during a step
+
+The installer shows this exact message when the web server ends a long request:
+
+```text
+The web server timed out before the installer could finish this step. Use the command installer from the terminal so long-running package setup is not limited by the browser request timeout.
+```
+
+**Why:** PHP, PHP-FPM, a proxy, or the hosting platform stopped the request before Composer, migrations, package setup, or the frontend build completed.
+
+**Fix:** Use the CLI installer from the application directory. Increasing a public web timeout is not required when installation can run safely during deployment:
+
+```bash
+php -d memory_limit=512M artisan capell:install
+```
+
+**You should see:** The command continues in the terminal and finishes with the Capell health summary or a specific actionable failure.
+
+<a id="queue-worker"></a>
+
+### A queued install or task never starts
+
+**Why:** `QUEUE_CONNECTION=database`, `redis`, or another asynchronous connection stores work for a separate queue worker. A browser request does not process that work itself.
+
+**Check:**
+
+```bash
+php artisan config:show queue.default
+php artisan queue:failed
+php artisan queue:work
+```
+
+`queue:work` is a useful immediate check. In production, configure the host's process manager to keep the worker running and restart workers during deployment with `php artisan queue:restart`. If the database queue is selected but its table is missing, run `php artisan queue:table && php artisan migrate` once.
+
+**You should see:** Queued installation, publishing, cache, notification, and package jobs move from pending to completed. Retry a known safe failed job with `php artisan queue:retry <job-id>` only after fixing its reported cause.
+
+<a id="scheduler"></a>
+
+### Scheduled Capell tasks never run
+
+**Why:** Laravel's scheduler and its queue workers are separate processes. A queue worker cannot trigger scheduled commands, and the scheduler does not replace a worker for commands that dispatch jobs.
+
+**Check the registered schedule:**
+
+```bash
+php artisan schedule:list
+```
+
+In production, configure one cron or hosting-panel scheduled task to run Laravel every minute. Replace the example path with the application release path:
+
+```cron
+* * * * * cd /path/to/application && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**You should see:** `php artisan schedule:list` shows the next run times, and Site Health no longer reports the scheduler as missing once the host has run it.
+
+<a id="installation-logs"></a>
+
+### Find the installation error and logs
+
+Start with the browser installer's **Download log** report. It records the environment, preflight checks, selected plan, progress lines, and safe remediation text.
+
+The step-by-step browser installer also writes `storage/logs/capell-install-<install-id>.log`. Find recent install logs with:
+
+```bash
+find storage/logs -name 'capell-install-*.log' -type f -print
+```
+
+Laravel exceptions normally appear in `storage/logs/laravel.log`. Capell frontend diagnostics use `storage/logs/capell.log` when the `capell` Monolog channel is configured. A fatal memory error or web timeout can happen before Laravel writes either file, so also inspect the host's PHP-FPM, Apache, Nginx, or platform error log.
+
+Do not publish complete logs without reviewing them for paths, environment values, URLs, email addresses, tokens, or other customer data.
+
+### `php artisan` says permission denied
 
 **When it happens:** You cloned the project, copied files from another machine, or unpacked a deployment artifact.
 
@@ -26,7 +147,7 @@ chmod -R u+rwX storage bootstrap/cache
 
 **You should see:** `php artisan about` prints the Laravel environment summary.
 
-## `composer require capell-app/installer` cannot find the package
+### `composer require capell-app/installer` cannot find the package
 
 **Why:** Composer cannot resolve the package from Packagist. The foundation packages are public and need no credentials, so the usual causes are a stale Composer cache, a custom `repositories` entry shadowing Packagist, or a PHP platform requirement the application does not meet.
 
@@ -46,7 +167,9 @@ composer require capell-app/installer
 
 **You should see:** Composer resolves `capell-app/installer` and its `capell-app/core` dependency. The admin and frontend packages are added later by `php artisan capell:install`.
 
-## `/admin` returns 403 or will not let you log in
+## Admin access
+
+### `/admin` returns 403 or will not let you log in
 
 **Why:** The user exists, but Filament access or Capell roles were not assigned.
 
@@ -61,7 +184,7 @@ Replace `you@example.com` with the admin user email.
 
 **You should see:** The user can open `/admin` and reach the dashboard.
 
-## The dashboard loads, but Pages or Settings are missing
+### The dashboard loads, but Pages or Settings are missing
 
 **Why:** Package resources, permissions, or Filament navigation were not registered.
 
@@ -74,7 +197,9 @@ php artisan capell:admin-install
 
 **You should see:** The sidebar includes Capell resources such as Pages, Media, and Settings.
 
-## Published pages still show old content
+## Frontend and publishing
+
+### Published pages still show old content
 
 **Why:** You are looking at cached static HTML from the installed cache/static package.
 
@@ -94,7 +219,7 @@ php artisan queue:work
 
 **You should see:** The frontend updates after refresh.
 
-## Published pages never generate
+### Published pages never generate
 
 **Why:** The installed cache/static package dispatches static HTML generation through Laravel queues.
 
@@ -112,7 +237,7 @@ php artisan queue:work
 
 **You should see:** New or changed pages appear in the cache package's configured static artifact path.
 
-## The frontend shows Laravel's default welcome page
+### The frontend shows Laravel's default welcome page
 
 **Why:** The default `/` route is still taking priority.
 
@@ -132,7 +257,7 @@ php artisan optimize:clear
 
 **You should see:** Capell handles the homepage route.
 
-## `Can't resolve 'swiper/...'` during `npm run build`
+### `Can't resolve 'swiper/...'` during `npm run build`
 
 **Why:** A symlinked package imports Swiper through an export path that your Tailwind/Vite setup cannot resolve.
 
@@ -150,7 +275,7 @@ If it still fails, add Vite aliases as described in [Tailwind vendor CSS](../fro
 
 **You should see:** Vite finishes without unresolved Swiper imports.
 
-## Tailwind misses Capell admin styles
+### Tailwind misses Capell admin styles
 
 **Why:** Your Filament theme is not scanning Capell's Blade views.
 
@@ -163,7 +288,9 @@ php artisan optimize:clear
 
 **You should see:** Capell admin fields, tables, and widgets render with the expected styling.
 
-## `Laravel\Prompts\Exceptions\NonInteractiveValidationException: Required.`
+## Installation failures
+
+### `Laravel\Prompts\Exceptions\NonInteractiveValidationException: Required.`
 
 **Why:** A Capell command asked for interactive input while running in CI, Docker, or `--no-interaction`.
 
@@ -186,7 +313,7 @@ php artisan capell:install \
 
 **You should see:** The command either completes or prints the next missing option explicitly.
 
-## Browser installer reports `Preflight checks failed.`
+### Browser installer reports `Preflight checks failed.`
 
 **Why:** The `/install` browser flow runs `InstallerPreflight` before install steps. Blocking failures usually mean the web PHP runtime cannot do something the CLI can: load a required extension, run subprocesses, write to `storage` or `bootstrap/cache`, connect to the database, store cache state, or resolve selected Composer packages.
 
@@ -210,7 +337,7 @@ composer config repositories
 
 **You should see:** The preflight status changes from `fail` to `pass` or `warning`, and the browser installer can advance to install steps.
 
-## Browser installer progress says the install session expired
+### Browser installer progress says the install session expired
 
 **Why:** The browser installer stores progress under cache keys named `capell.install.{installId}.*` and protects concurrent installs with `capell.install.lock`. If cache is cleared, a volatile cache store restarts, or the install takes longer than the lock TTL, the progress route no longer has enough state to continue.
 
@@ -232,7 +359,7 @@ php artisan queue:work
 
 **You should see:** A new install ID and fresh progress page.
 
-## `/install` says Capell is already installed
+### `/install` says Capell is already installed
 
 **Why:** `EnsureNotInstalled` treats Capell as installed when the Admin package is installed, the `sites` table exists, and at least one site row exists. This protects real sites from exposing setup forms.
 
@@ -263,7 +390,7 @@ php artisan config:clear
 
 **You should see:** `/install` opens the setup form again only in that controlled environment.
 
-## `capell:install --developer-tooling` fails while cloning a Capell GitHub repository
+### `capell:install --developer-tooling` fails while cloning a Capell GitHub repository
 
 **Why:** The installer reached Composer, but Composer cannot access one of the configured Capell repositories. This is separate from installer option validation. It usually means the app is configured with private `vcs` repositories but the current machine does not have valid GitHub credentials, or local path repositories were removed from `composer.json`.
 
@@ -288,7 +415,9 @@ php artisan capell:install \
 
 **You should see:** Composer installs `capell-app/agent-bridge` and then the installer continues to package setup.
 
-## Marketplace connect account fails or returns an invalid session
+## Marketplace
+
+### Marketplace connect account fails or returns an invalid session
 
 **Why:** Marketplace account linking creates a short-lived session, sends the admin to Capell App, then validates the returned `state` and code on the admin callback route. Failures usually come from a missing `APP_URL` host, a stale approval URL, expired session, wrong Marketplace API URL, or an admin session that is no longer authenticated.
 
@@ -313,7 +442,7 @@ limit 5;
 
 **You should see:** A `marketplace_instances` row with an `instance_id`, account email, and `last_heartbeat_at`.
 
-## Marketplace domain verification cannot fetch the challenge
+### Marketplace domain verification cannot fetch the challenge
 
 **Why:** Capell App must fetch the exact public host and path recorded in `marketplace_registration_sessions`. A challenge can exist locally but still fail publicly because of host mismatch, auth middleware, redirects, CDN rules, maintenance mode, static-file routing, expired sessions, or page-cache rewrites.
 
@@ -336,7 +465,7 @@ curl -i https://your-domain/.well-known/capell/marketplace/chal_EXAMPLE
 
 **You should see:** `200 OK`, `Content-Type: text/plain`, and the challenge token body.
 
-## Marketplace catalogue loads but install is blocked
+### Marketplace catalogue loads but install is blocked
 
 **Why:** Browsing the catalogue only proves `/extensions` is reachable. Install authorization also needs the connected instance, licence/domain state, local compatibility checks, and any Marketplace policy required for that extension.
 
@@ -363,7 +492,7 @@ php artisan cache:clear
 
 **You should see:** The Marketplace primary action changes to the next valid state, such as activate licence, install, installed, or incompatible with a clear reason.
 
-## Marketplace heartbeat or update check fails
+### Marketplace heartbeat or update check fails
 
 **Why:** `PhoneHomeAction` requires a Marketplace API URL, a public callback URL, a known instance ID, and network access to `/instances/heartbeat`.
 
@@ -393,7 +522,9 @@ limit 5;
 
 **You should see:** `last_heartbeat_at` updates and a new `marketplace_update_advisory_snapshots` row appears.
 
-## `TypeError: ... __PHP_Incomplete_Class returned` from `SiteLoader::languages()`
+## Runtime and data errors
+
+### `TypeError: ... __PHP_Incomplete_Class returned` from `SiteLoader::languages()`
 
 **Why:** Older Capell builds could read a cached Eloquent collection before the Language model was loaded.
 
@@ -407,7 +538,7 @@ php artisan cache:clear
 
 **You should see:** The second request after cache warmup works normally.
 
-## `UrlMissingSiteDomainException: Site domain not found for page ID ...`
+### `UrlMissingSiteDomainException: Site domain not found for page ID ...`
 
 **When it happens:** `/admin` or a Livewire admin update fails while rendering a page table, dashboard Filament widget, relation manager, or URL column. The stack usually ends in `PageUrl::getFullUrlAttribute()` after a table column calls `$pageUrl->full_url`.
 
@@ -492,7 +623,9 @@ $query->with([
 
 **You should see:** Admin tables and widgets render normally, and public/frontend URL generation still fails loudly if a real page URL has no matching domain.
 
-## `php artisan test` fails with `plugins table not found` or `RouteNotFoundException`
+## Development and tests
+
+### `php artisan test` fails with `plugins table not found` or `RouteNotFoundException`
 
 **Why:** Tests booted routes before Capell migrations had created the expected tables.
 
@@ -514,7 +647,9 @@ composer test
 
 **You should see:** Routes register, and tests fail only on real assertions rather than missing install tables.
 
-## Add a new troubleshooting entry
+## Maintaining this page
+
+### Add a new troubleshooting entry
 
 Use this shape:
 
