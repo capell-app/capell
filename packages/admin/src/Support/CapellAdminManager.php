@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support;
 
-use Capell\Admin\Actions\UserMenu\ResolveUserMenuItemsAction;
 use Capell\Admin\Concerns\HasAdminAssets;
 use Capell\Admin\Concerns\HasEvents;
 use Capell\Admin\Concerns\HasMigrations;
@@ -15,7 +14,6 @@ use Capell\Admin\Concerns\HasWidgets;
 use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\Bridges\AdminBridgeContextData;
-use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Data\Dashboard\CapellOverviewStatDefinitionData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\MarketingStudioActionData;
@@ -31,9 +29,13 @@ use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
+use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
+use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
+use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
+use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Core\Facades\CapellCore;
 use Closure;
 use Exception;
@@ -45,8 +47,6 @@ use Filament\Widgets\Widget;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Traits\Macroable;
 use ReflectionClass;
 use RuntimeException;
 use Throwable;
@@ -60,37 +60,39 @@ class CapellAdminManager
     use HasPaletteCommands;
     use HasWelcomeTours;
     use HasWidgets;
-    use Macroable;
-
-    private AdminSurfaceContributionRegistry $adminSurfaceRegistry;
-
-    private ReportRegistry $reportRegistry;
 
     /** @var array<string, true> */
     private array $bootedAdminBridges = [];
 
-    /** @var array<string, list<class-string<Widget>>> */
-    private array $filamentDashboardWidgets = [];
-
-    /** @var array<string, UserMenuItemData> */
-    private array $userMenuItems = [];
-
-    /** @var array<string, array<string, Action>> */
-    private array $resolvedUserMenuItems = [];
-
-    /** @var array<string, CapellOverviewStatDefinitionData> */
-    private array $overviewStats = [];
-
-    /** @var array<string, MarketingStudioActionData> */
-    private array $marketingStudioActions = [];
-
     /** @var class-string<Page> */
     private string $dashboardPage = CapellDashboard::class;
 
-    public function __construct()
-    {
-        $this->adminSurfaceRegistry = new AdminSurfaceContributionRegistry;
-        $this->reportRegistry = new ReportRegistry;
+    private readonly AdminSurfaceContributionRegistry $adminSurfaceRegistry;
+
+    private readonly ReportRegistry $reportRegistry;
+
+    private readonly DashboardFilamentWidgetRegistry $dashboardWidgetRegistry;
+
+    private readonly MarketingStudioActionRegistry $marketingStudioActionRegistry;
+
+    private readonly UserMenuItemRegistry $userMenuItemRegistry;
+
+    private readonly OverviewStatRegistry $overviewStatRegistry;
+
+    public function __construct(
+        ?AdminSurfaceContributionRegistry $adminSurfaceRegistry = null,
+        ?ReportRegistry $reportRegistry = null,
+        ?DashboardFilamentWidgetRegistry $dashboardWidgetRegistry = null,
+        ?MarketingStudioActionRegistry $marketingStudioActionRegistry = null,
+        ?UserMenuItemRegistry $userMenuItemRegistry = null,
+        ?OverviewStatRegistry $overviewStatRegistry = null,
+    ) {
+        $this->adminSurfaceRegistry = $adminSurfaceRegistry ?? new AdminSurfaceContributionRegistry;
+        $this->reportRegistry = $reportRegistry ?? new ReportRegistry;
+        $this->dashboardWidgetRegistry = $dashboardWidgetRegistry ?? new DashboardFilamentWidgetRegistry;
+        $this->marketingStudioActionRegistry = $marketingStudioActionRegistry ?? new MarketingStudioActionRegistry;
+        $this->userMenuItemRegistry = $userMenuItemRegistry ?? new UserMenuItemRegistry;
+        $this->overviewStatRegistry = $overviewStatRegistry ?? new OverviewStatRegistry;
     }
 
     /** @return list<string>|list<FilamentWidgetEnum> */
@@ -145,20 +147,12 @@ class CapellAdminManager
      */
     public function registerDashboardFilamentWidget(string $widgetClass, DashboardEnum ...$dashboards): void
     {
-        foreach ($dashboards as $dashboard) {
-            if (! in_array($widgetClass, $this->filamentDashboardWidgets[$dashboard->value] ?? [], true)) {
-                $this->filamentDashboardWidgets[$dashboard->value][] = $widgetClass;
-            }
-        }
+        $this->dashboardWidgetRegistry->register($widgetClass, ...$dashboards);
     }
 
     public function registerMarketingStudioAction(MarketingStudioActionData $action): void
     {
-        if ($action->key === '') {
-            return;
-        }
-
-        $this->marketingStudioActions[$action->key] = $action;
+        $this->marketingStudioActionRegistry->register($action);
     }
 
     /**
@@ -166,16 +160,7 @@ class CapellAdminManager
      */
     public function getMarketingStudioActions(): array
     {
-        return collect($this->marketingStudioActions)
-            ->filter(fn (MarketingStudioActionData $action): bool => $action->isVisible())
-            ->sortBy([
-                fn (MarketingStudioActionData $action): int => $action->section->caseOrdinal(),
-                fn (MarketingStudioActionData $action): int => $action->sort,
-                fn (MarketingStudioActionData $action): string => $action->resolvedLabel(),
-            ])
-            ->groupBy(fn (MarketingStudioActionData $action): string => $action->section->value)
-            ->map(fn (Collection $actions): array => array_values($actions->values()->all()))
-            ->all();
+        return $this->marketingStudioActionRegistry->groupedVisibleActions();
     }
 
     public function registerUserMenuItem(
@@ -189,13 +174,7 @@ class CapellAdminManager
         int $sort = 100,
         ?string $group = null,
     ): void {
-        if ($key === '') {
-            return;
-        }
-
-        $this->resolvedUserMenuItems = [];
-
-        $this->userMenuItems[$key] = new UserMenuItemData(
+        $this->userMenuItemRegistry->register(new UserMenuItemData(
             key: $key,
             label: $label,
             icon: $icon,
@@ -205,37 +184,26 @@ class CapellAdminManager
             visible: $visible,
             sort: $sort,
             group: $group,
-        );
+        ));
     }
 
     /** @return array<string, UserMenuItemData> */
     public function getUserMenuItemDefinitions(): array
     {
-        return $this->userMenuItems;
+        return $this->userMenuItemRegistry->definitions();
     }
 
     /** @return array<string, Action> */
     public function getUserMenuItems(?Authenticatable $user = null): array
     {
         $user ??= auth()->user();
-        $cacheKey = $this->userMenuCacheKey($user);
 
-        if (isset($this->resolvedUserMenuItems[$cacheKey])) {
-            return $this->resolvedUserMenuItems[$cacheKey];
-        }
-
-        $this->resolvedUserMenuItems[$cacheKey] = ResolveUserMenuItemsAction::run(
-            definitions: $this->userMenuItems,
-            user: $user,
-        );
-
-        return $this->resolvedUserMenuItems[$cacheKey];
+        return $this->userMenuItemRegistry->resolved($user);
     }
 
     public function clearUserMenuItems(): void
     {
-        $this->userMenuItems = [];
-        $this->resolvedUserMenuItems = [];
+        $this->userMenuItemRegistry->clear();
     }
 
     public function registerOverviewStat(
@@ -252,11 +220,7 @@ class CapellAdminManager
         null|string|Closure $settingsLabel = null,
         null|string|Closure $settingsDescription = null,
     ): void {
-        if ($key === '' || isset($this->overviewStats[$key])) {
-            return;
-        }
-
-        $this->overviewStats[$key] = new CapellOverviewStatDefinitionData(
+        $this->overviewStatRegistry->register(new CapellOverviewStatDefinitionData(
             key: $key,
             label: $label,
             value: $value,
@@ -269,22 +233,13 @@ class CapellAdminManager
             settingsKey: $settingsKey,
             settingsLabel: $settingsLabel,
             settingsDescription: $settingsDescription,
-        );
+        ));
     }
 
     /** @return list<CapellOverviewStatData> */
     public function getOverviewStats(bool $onlyEnabled = true): array
     {
-        return array_values(collect($this->overviewStats)
-            ->filter(fn (CapellOverviewStatDefinitionData $stat): bool => ! $onlyEnabled || $this->isOverviewStatEnabled($stat))
-            ->map(fn (CapellOverviewStatDefinitionData $stat): CapellOverviewStatData => $stat->resolve())
-            ->sortBy([
-                ['sort', 'asc'],
-                ['group', 'asc'],
-                ['label', 'asc'],
-            ])
-            ->values()
-            ->all());
+        return $this->overviewStatRegistry->resolved($onlyEnabled);
     }
 
     /**
@@ -292,43 +247,25 @@ class CapellAdminManager
      */
     public function getOverviewStatSettings(): array
     {
-        return array_values(collect($this->overviewStats)
-            ->map(fn (CapellOverviewStatDefinitionData $stat): array => $stat->settingsEntry())
-            ->values()
-            ->all());
+        return $this->overviewStatRegistry->settings();
     }
 
     /** @return list<string> */
     public function getDefaultEnabledOverviewStatKeys(): array
     {
-        return array_values(collect($this->overviewStats)
-            ->filter(fn (CapellOverviewStatDefinitionData $stat): bool => $stat->defaultEnabled)
-            ->map(fn (CapellOverviewStatDefinitionData $stat): string => $stat->settingsKey())
-            ->unique()
-            ->values()
-            ->all());
+        return $this->overviewStatRegistry->defaultEnabledKeys();
     }
 
     /** @return list<string> */
     public function getOverviewStatKeys(): array
     {
-        return array_values(collect($this->overviewStats)
-            ->map(fn (CapellOverviewStatDefinitionData $stat): string => $stat->settingsKey())
-            ->unique()
-            ->values()
-            ->all());
+        return $this->overviewStatRegistry->keys();
     }
 
     /** @return list<class-string<Widget>> */
     public function getDashboardFilamentWidgets(DashboardEnum $dashboard): array
     {
-        return array_values(collect($this->filamentDashboardWidgets[$dashboard->value] ?? [])
-            ->sort(fn (string $firstWidgetClass, string $secondWidgetClass): int => $this->compareDashboardFilamentWidgets(
-                $firstWidgetClass,
-                $secondWidgetClass,
-            ))
-            ->values()
-            ->all());
+        return $this->dashboardWidgetRegistry->forDashboard($dashboard);
     }
 
     /**
@@ -546,15 +483,6 @@ class CapellAdminManager
         return resolve($settingsClass);
     }
 
-    private function userMenuCacheKey(?Authenticatable $user): string
-    {
-        if (! $user instanceof Authenticatable) {
-            return 'guest';
-        }
-
-        return (string) $user->getAuthIdentifier();
-    }
-
     /**
      * @param  class-string<Page>  $page
      */
@@ -580,129 +508,6 @@ class CapellAdminManager
             $reflectionProperty->setValue(null, false);
         } catch (Throwable) {
             return;
-        }
-    }
-
-    private function compareDashboardFilamentWidgets(string $firstWidgetClass, string $secondWidgetClass): int
-    {
-        $pinnedComparison = $this->comparePinnedDashboardFilamentWidgets($firstWidgetClass, $secondWidgetClass);
-
-        if ($pinnedComparison !== null) {
-            return $pinnedComparison;
-        }
-
-        $firstConfiguredSort = $this->configuredDashboardFilamentWidgetSort($firstWidgetClass);
-        $secondConfiguredSort = $this->configuredDashboardFilamentWidgetSort($secondWidgetClass);
-
-        if ($firstConfiguredSort !== null && $secondConfiguredSort !== null) {
-            $configuredComparison = $firstConfiguredSort <=> $secondConfiguredSort;
-
-            if ($configuredComparison !== 0) {
-                return $configuredComparison;
-            }
-
-            return $this->compareDashboardFilamentWidgetDefaults($firstWidgetClass, $secondWidgetClass);
-        }
-
-        if ($firstConfiguredSort !== null) {
-            return -1;
-        }
-
-        if ($secondConfiguredSort !== null) {
-            return 1;
-        }
-
-        return $this->compareDashboardFilamentWidgetDefaults($firstWidgetClass, $secondWidgetClass);
-    }
-
-    private function comparePinnedDashboardFilamentWidgets(string $firstWidgetClass, string $secondWidgetClass): ?int
-    {
-        $firstDefaultSort = $this->filamentDashboardWidgetDefaultSort($firstWidgetClass);
-        $secondDefaultSort = $this->filamentDashboardWidgetDefaultSort($secondWidgetClass);
-        $firstIsPinned = $firstDefaultSort < 0;
-        $secondIsPinned = $secondDefaultSort < 0;
-
-        if (! $firstIsPinned && ! $secondIsPinned) {
-            return null;
-        }
-
-        if ($firstIsPinned !== $secondIsPinned) {
-            return $firstIsPinned ? -1 : 1;
-        }
-
-        $defaultComparison = $firstDefaultSort <=> $secondDefaultSort;
-
-        if ($defaultComparison !== 0) {
-            return $defaultComparison;
-        }
-
-        return $firstWidgetClass <=> $secondWidgetClass;
-    }
-
-    private function compareDashboardFilamentWidgetDefaults(string $firstWidgetClass, string $secondWidgetClass): int
-    {
-        $defaultComparison = $this->filamentDashboardWidgetDefaultSort($firstWidgetClass) <=> $this->filamentDashboardWidgetDefaultSort($secondWidgetClass);
-
-        if ($defaultComparison !== 0) {
-            return $defaultComparison;
-        }
-
-        return $firstWidgetClass <=> $secondWidgetClass;
-    }
-
-    private function configuredDashboardFilamentWidgetSort(string $widgetClass): ?int
-    {
-        $settingsKey = $this->filamentDashboardWidgetSettingsKey($widgetClass);
-
-        if ($settingsKey === '') {
-            return null;
-        }
-
-        try {
-            $settings = resolve(AdminSettings::class);
-        } catch (Throwable) {
-            return null;
-        }
-
-        if (! array_key_exists($settingsKey, $settings->widget_order)) {
-            return null;
-        }
-
-        return $settings->sortOrderFor($settingsKey);
-    }
-
-    private function filamentDashboardWidgetDefaultSort(string $widgetClass): int
-    {
-        if (is_callable([$widgetClass, 'getSort'])) {
-            $sort = forward_static_call([$widgetClass, 'getSort']);
-
-            return is_int($sort) ? $sort : PHP_INT_MAX;
-        }
-
-        return PHP_INT_MAX;
-    }
-
-    private function filamentDashboardWidgetSettingsKey(string $widgetClass): string
-    {
-        if (! class_exists($widgetClass) || ! method_exists($widgetClass, 'settingsKey')) {
-            return '';
-        }
-
-        try {
-            $settingsKey = $widgetClass::settingsKey();
-        } catch (Throwable) {
-            return '';
-        }
-
-        return is_string($settingsKey) ? $settingsKey : '';
-    }
-
-    private function isOverviewStatEnabled(CapellOverviewStatDefinitionData $stat): bool
-    {
-        try {
-            return resolve(AdminSettings::class)->isWidgetEnabled($stat->settingsKey());
-        } catch (Throwable) {
-            return $stat->defaultEnabled;
         }
     }
 

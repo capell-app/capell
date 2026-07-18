@@ -111,16 +111,19 @@ use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
 use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminResourceResolver;
+use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
+use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
 use Capell\Admin\Support\Dashboard\DefaultSiteStatsDataProvider;
 use Capell\Admin\Support\Dashboard\NullContentHealthDataProvider;
 use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
 use Capell\Admin\Support\Dashboard\NullRecentlyPublishedDataProvider;
+use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
@@ -139,15 +142,18 @@ use Capell\Admin\Support\Interceptors\Blueprints\Pages\SystemPageBlueprintInterc
 use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
+use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Media\AdminSpatieMediaFieldFactory;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
+use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
+use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
@@ -262,7 +268,20 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
         $this->app->singleton(ActivityResourceLinkRegistry::class);
-        $this->app->singleton(CapellAdminManager::class, fn (): CapellAdminManager => new CapellAdminManager);
+        $this->app->singleton(AdminSurfaceContributionRegistry::class);
+        $this->app->singleton(ReportRegistry::class);
+        $this->app->singleton(DashboardFilamentWidgetRegistry::class);
+        $this->app->singleton(MarketingStudioActionRegistry::class);
+        $this->app->singleton(UserMenuItemRegistry::class);
+        $this->app->singleton(OverviewStatRegistry::class);
+        $this->app->singleton(CapellAdminManager::class, fn (): CapellAdminManager => new CapellAdminManager(
+            adminSurfaceRegistry: $this->app->make(AdminSurfaceContributionRegistry::class),
+            reportRegistry: $this->app->make(ReportRegistry::class),
+            dashboardWidgetRegistry: $this->app->make(DashboardFilamentWidgetRegistry::class),
+            marketingStudioActionRegistry: $this->app->make(MarketingStudioActionRegistry::class),
+            userMenuItemRegistry: $this->app->make(UserMenuItemRegistry::class),
+            overviewStatRegistry: $this->app->make(OverviewStatRegistry::class),
+        ));
         $this->app->singleton(AdminResourceResolverContract::class, AdminResourceResolver::class);
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminBridgeRegistry::class);
