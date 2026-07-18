@@ -15,6 +15,7 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Upgrade\NullUpgradeReporter;
+use Capell\Core\Support\Upgrade\UpgradePipelineIo;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -33,57 +34,57 @@ final class RunCapellUpgradeAction
 
     public function handle(UpgradeRunOptions $options, ?UpgradeReporter $reporter = null): int
     {
-        $reporter ??= new NullUpgradeReporter;
+        $io = new UpgradePipelineIo($reporter ?? new NullUpgradeReporter);
 
         $lock = Cache::lock(CacheEnum::UpgradeLock->value, self::UPGRADE_LOCK_SECONDS);
 
         if ($lock->get() === false) {
-            $reporter->error(sprintf('Another upgrade is running (cache lock "%s" held). Aborting. If no upgrade is active, retry after the lock TTL expires, up to 25 minutes after a hard process kill.', CacheEnum::UpgradeLock->value));
+            $io->error(sprintf('Another upgrade is running (cache lock "%s" held). Aborting. If no upgrade is active, retry after the lock TTL expires, up to 25 minutes after a hard process kill.', CacheEnum::UpgradeLock->value));
 
             return self::UPGRADE_LOCKED;
         }
 
         try {
-            return $this->runPipeline($options, $reporter);
+            return $this->runPipeline($options, $io);
         } finally {
             $lock->release();
         }
     }
 
-    private function runPipeline(UpgradeRunOptions $options, UpgradeReporter $reporter): int
+    private function runPipeline(UpgradeRunOptions $options, UpgradePipelineIo $io): int
     {
-        $this->printHeader($options, $reporter);
+        $this->printHeader($options, $io);
 
         $plan = BuildUpgradePlanAction::run(dryRun: $options->dryRun);
 
-        if (! $this->validateAudit($plan->versionAudit, $options, $reporter)) {
+        if (! $this->validateAudit($plan->versionAudit, $options, $io)) {
             return Command::FAILURE;
         }
 
         $doMigrations = ! $options->skipMigrations && ! $options->onlySteps;
         $doSteps = ! $options->skipSteps && ! $options->onlyMigrations;
 
-        if (! $this->validateForcedStepIds($plan, $options->forceStepIds, $reporter)) {
+        if (! $this->validateForcedStepIds($plan, $options->forceStepIds, $io)) {
             return Command::FAILURE;
         }
 
-        if ($doMigrations && ! $this->runMigrationPhase($options->dryRun, $reporter)) {
-            $reporter->error('Migration phase failed.');
+        if ($doMigrations && ! $this->runMigrationPhase($options->dryRun, $io)) {
+            $io->error('Migration phase failed.');
 
             return Command::FAILURE;
         }
 
         $stepsDeclined = false;
 
-        if ($doSteps && ! $this->runUpgradeStepsPhase($plan, $options, $reporter, $stepsDeclined)) {
-            $reporter->error('One or more upgrade steps failed.');
+        if ($doSteps && ! $this->runUpgradeStepsPhase($plan, $options, $io, $stepsDeclined)) {
+            $io->error('One or more upgrade steps failed.');
 
             return Command::FAILURE;
         }
 
         if (! $options->dryRun && ! $options->onlyMigrations && ! $options->onlySteps
-            && ! $this->runPerPackageUpgradeCommandsPhase($reporter)) {
-            $reporter->error('One or more per-package upgrade commands failed.');
+            && ! $this->runPerPackageUpgradeCommandsPhase($io)) {
+            $io->error('One or more per-package upgrade commands failed.');
 
             return Command::FAILURE;
         }
@@ -91,57 +92,57 @@ final class RunCapellUpgradeAction
         $versionLedgerSkipReason = $this->versionLedgerSkipReason($options, $stepsDeclined);
 
         if ($versionLedgerSkipReason === null) {
-            $this->recordVersions($plan, $options->dryRun, $reporter);
+            $this->recordVersions($plan, $options->dryRun, $io);
         } else {
-            $this->skipVersionLedger($versionLedgerSkipReason, $reporter);
+            $this->skipVersionLedger($versionLedgerSkipReason, $io);
         }
 
-        if (! $options->dryRun && ! $options->noClearCache && ! $this->cacheClearMenu($options, $reporter)) {
-            $reporter->error('One or more cache clear commands failed.');
+        if (! $options->dryRun && ! $options->noClearCache && ! $this->cacheClearMenu($options, $io)) {
+            $io->error('One or more cache clear commands failed.');
 
             return Command::FAILURE;
         }
 
-        $reporter->newLine();
-        $reporter->stage(UpgradeStage::Complete, 'Upgrade pipeline completed.');
-        $reporter->info($options->dryRun ? 'Dry run complete — no changes were made.' : 'Upgrade complete!');
+        $io->newLine();
+        $io->stage(UpgradeStage::Complete, 'Upgrade pipeline completed.');
+        $io->info($options->dryRun ? 'Dry run complete — no changes were made.' : 'Upgrade complete!');
 
         return Command::SUCCESS;
     }
 
-    private function printHeader(UpgradeRunOptions $options, UpgradeReporter $reporter): void
+    private function printHeader(UpgradeRunOptions $options, UpgradePipelineIo $io): void
     {
         if ($options->dryRun) {
-            $reporter->warn('=== DRY RUN — no changes will be made ===');
+            $io->warn('=== DRY RUN — no changes will be made ===');
         }
 
-        $reporter->info('Capell upgrade starting...');
-        $reporter->newLine();
+        $io->info('Capell upgrade starting...');
+        $io->newLine();
     }
 
-    private function validateAudit(VersionAudit $audit, UpgradeRunOptions $options, UpgradeReporter $reporter): bool
+    private function validateAudit(VersionAudit $audit, UpgradeRunOptions $options, UpgradePipelineIo $io): bool
     {
         if (! $audit->hasIssues()) {
             return true;
         }
 
-        $reporter->line('<fg=blue;options=bold>Version audit</>');
+        $io->line('<fg=blue;options=bold>Version audit</>');
         foreach ($audit->composerOnly as $package) {
-            $reporter->line(sprintf('  <fg=yellow>+</> %s — new in Composer, no ledger row yet', $package));
+            $io->line(sprintf('  <fg=yellow>+</> %s — new in Composer, no ledger row yet', $package));
         }
 
         foreach ($audit->ledgerOnly as $package) {
-            $reporter->line(sprintf('  <fg=yellow>−</> %s — in ledger but no longer in Composer', $package));
+            $io->line(sprintf('  <fg=yellow>−</> %s — in ledger but no longer in Composer', $package));
         }
 
         foreach ($audit->downgrades as $package => $range) {
-            $reporter->line(sprintf('  <fg=red>↓</> %s — downgrade (%s → %s)', $package, $range['from'], $range['to']));
+            $io->line(sprintf('  <fg=red>↓</> %s — downgrade (%s → %s)', $package, $range['from'], $range['to']));
         }
 
-        $reporter->newLine();
+        $io->newLine();
 
         if ($audit->downgrades !== [] && ! $options->forceDowngrade && ! $options->dryRun) {
-            $reporter->error('Downgrade detected. Re-run with --force-downgrade to proceed.');
+            $io->error('Downgrade detected. Re-run with --force-downgrade to proceed.');
 
             return false;
         }
@@ -149,38 +150,38 @@ final class RunCapellUpgradeAction
         return true;
     }
 
-    private function runMigrationPhase(bool $dryRun, UpgradeReporter $reporter): bool
+    private function runMigrationPhase(bool $dryRun, UpgradePipelineIo $io): bool
     {
-        $reporter->stage(UpgradeStage::Migrations, 'Migration phase started.');
+        $io->stage(UpgradeStage::Migrations, 'Migration phase started.');
 
         $lockFile = $this->migrationLockFile();
 
         try {
             throw_unless(flock($lockFile, LOCK_EX), RuntimeException::class, 'Could not lock Capell database migrations.');
 
-            return $this->runLockedMigrationPhase($dryRun, $reporter);
+            return $this->runLockedMigrationPhase($dryRun, $io);
         } finally {
             flock($lockFile, LOCK_UN);
             fclose($lockFile);
         }
     }
 
-    private function runLockedMigrationPhase(bool $dryRun, UpgradeReporter $reporter): bool
+    private function runLockedMigrationPhase(bool $dryRun, UpgradePipelineIo $io): bool
     {
-        $reporter->line('<fg=blue;options=bold>Phase 1: Migrations</>');
+        $io->line('<fg=blue;options=bold>Phase 1: Migrations</>');
         $published = PublishPendingMigrationsAction::run(dryRun: $dryRun);
-        $reporter->line(sprintf(
+        $io->line(sprintf(
             '  Published schema=%s settings=%s',
             $published->schemaPublished ? 'yes' : 'no',
             $published->settingsPublished ? 'yes' : 'no',
         ));
 
         $schema = RunDatabaseMigrationsAction::run(dryRun: $dryRun);
-        $reporter->line(sprintf('  migrate exit=%d', $schema->exitCode));
+        $io->line(sprintf('  migrate exit=%d', $schema->exitCode));
 
         $settings = RunSettingsMigrationsAction::run(dryRun: $dryRun);
-        $reporter->line(sprintf('  settings:migrate exit=%d', $settings->exitCode));
-        $reporter->newLine();
+        $io->line(sprintf('  settings:migrate exit=%d', $settings->exitCode));
+        $io->newLine();
 
         if ($dryRun) {
             return true;
@@ -210,31 +211,31 @@ final class RunCapellUpgradeAction
     private function runUpgradeStepsPhase(
         UpgradePlanData $plan,
         UpgradeRunOptions $options,
-        UpgradeReporter $reporter,
+        UpgradePipelineIo $io,
         bool &$stepsDeclined,
     ): bool {
         $stepsDeclined = false;
 
-        $reporter->stage(UpgradeStage::UpgradeSteps, 'Upgrade steps phase started.');
-        $reporter->line('<fg=blue;options=bold>Phase 2: Upgrade steps</>');
+        $io->stage(UpgradeStage::UpgradeSteps, 'Upgrade steps phase started.');
+        $io->line('<fg=blue;options=bold>Phase 2: Upgrade steps</>');
 
         $pending = $this->stepsForRun($plan, $options->forceStepIds);
 
         if ($pending === [] && $options->forceStepIds === []) {
-            $reporter->line('  No pending upgrade steps.');
-            $reporter->newLine();
+            $io->line('  No pending upgrade steps.');
+            $io->newLine();
 
             return true;
         }
 
         foreach ($pending as $step) {
-            $reporter->line(sprintf('  <fg=yellow>→</> [%s] %s (priority %d)', $step->id(), $step->label(), $step->priority()));
+            $io->line(sprintf('  <fg=yellow>→</> [%s] %s (priority %d)', $step->id(), $step->label(), $step->priority()));
         }
 
         if (! $options->dryRun && ! $options->force && $options->interactive
-            && ! $reporter->confirm('Run the above upgrade steps?', default: true)) {
-            $reporter->info('  Skipped by user.');
-            $reporter->newLine();
+            && ! $io->confirm('Run the above upgrade steps?', default: true)) {
+            $io->info('  Skipped by user.');
+            $io->newLine();
             $stepsDeclined = true;
 
             return true;
@@ -244,17 +245,17 @@ final class RunCapellUpgradeAction
 
         foreach ($pending as $step) {
             $force = in_array($step->id(), $options->forceStepIds, true);
-            $reporter->line(sprintf('  Running: %s', $step->label()));
+            $io->line(sprintf('  Running: %s', $step->label()));
             $result = RunUpgradeStepAction::run($step, $plan->context, force: $force);
 
             $status = UpgradeStepStatus::tryFrom($result->status);
 
             match ($status) {
-                UpgradeStepStatus::Success => $reporter->line('    <fg=green>✓ Done</>'),
-                UpgradeStepStatus::Skipped => $reporter->line(sprintf('    <fg=yellow>— Skipped</> (%s)', $result->output ?? '')),
-                UpgradeStepStatus::DryRun => $reporter->line('    <fg=cyan>… Dry run (would execute)</>'),
-                UpgradeStepStatus::Failed => $reporter->line(sprintf('    <fg=red>✗ Failed</> %s', $result->output ?? '')),
-                default => $reporter->line(sprintf('    %s', $result->status)),
+                UpgradeStepStatus::Success => $io->line('    <fg=green>✓ Done</>'),
+                UpgradeStepStatus::Skipped => $io->line(sprintf('    <fg=yellow>— Skipped</> (%s)', $result->output ?? '')),
+                UpgradeStepStatus::DryRun => $io->line('    <fg=cyan>… Dry run (would execute)</>'),
+                UpgradeStepStatus::Failed => $io->line(sprintf('    <fg=red>✗ Failed</> %s', $result->output ?? '')),
+                default => $io->line(sprintf('    %s', $result->status)),
             };
 
             if ($status?->completedUpgradeRun() !== true) {
@@ -262,7 +263,7 @@ final class RunCapellUpgradeAction
             }
         }
 
-        $reporter->newLine();
+        $io->newLine();
 
         return $allPassed;
     }
@@ -301,7 +302,7 @@ final class RunCapellUpgradeAction
     /**
      * @param  list<string>  $forcedIds
      */
-    private function validateForcedStepIds(UpgradePlanData $plan, array $forcedIds, UpgradeReporter $reporter): bool
+    private function validateForcedStepIds(UpgradePlanData $plan, array $forcedIds, UpgradePipelineIo $io): bool
     {
         if ($forcedIds === []) {
             return true;
@@ -327,7 +328,7 @@ final class RunCapellUpgradeAction
                 continue;
             }
 
-            $reporter->error(sprintf('Unknown forced step id: %s', $forcedId));
+            $io->error(sprintf('Unknown forced step id: %s', $forcedId));
 
             return false;
         }
@@ -335,21 +336,21 @@ final class RunCapellUpgradeAction
         return true;
     }
 
-    private function runPerPackageUpgradeCommandsPhase(UpgradeReporter $reporter): bool
+    private function runPerPackageUpgradeCommandsPhase(UpgradePipelineIo $io): bool
     {
-        $reporter->stage(UpgradeStage::LegacyPackageCommands, 'Legacy per-package command phase started.');
-        $reporter->line('<fg=blue;options=bold>Phase 3: Per-package commands</>');
+        $io->stage(UpgradeStage::LegacyPackageCommands, 'Legacy per-package command phase started.');
+        $io->line('<fg=blue;options=bold>Phase 3: Per-package commands</>');
 
         $passed = true;
 
-        CapellCore::getPackages()->each(function (PackageData $package) use (&$passed, $reporter): void {
+        CapellCore::getPackages()->each(function (PackageData $package) use (&$passed, $io): void {
             $command = $package->getUpgradeCommand();
 
             if (in_array($command, [null, '', '0'], true)) {
                 return;
             }
 
-            $reporter->warn(sprintf(
+            $io->warn(sprintf(
                 'Package %s uses legacy manifest upgrade command "%s"; prefer a tagged UpgradeStepContract.',
                 $package->name,
                 $command,
@@ -357,8 +358,8 @@ final class RunCapellUpgradeAction
 
             $commandName = str($command)->before(' ')->trim()->toString();
 
-            if (! $reporter->commandExists($commandName)) {
-                $reporter->warn(sprintf(
+            if (! $io->commandExists($commandName)) {
+                $io->warn(sprintf(
                     'Package %s legacy upgrade command "%s" is not registered; skipping.',
                     $package->name,
                     $commandName,
@@ -367,31 +368,31 @@ final class RunCapellUpgradeAction
                 return;
             }
 
-            $reporter->line(sprintf('  Running %s (%s)', $package->name, $command));
+            $io->line(sprintf('  Running %s (%s)', $package->name, $command));
 
-            $exitCode = $reporter->callCommand($command);
+            $exitCode = $io->callCommand($command);
 
             if ($exitCode !== Command::SUCCESS) {
-                $reporter->error(sprintf('  %s failed with exit code %d', $command, $exitCode));
+                $io->error(sprintf('  %s failed with exit code %d', $command, $exitCode));
                 $passed = false;
             }
         });
 
-        $reporter->newLine();
+        $io->newLine();
 
         return $passed;
     }
 
-    private function recordVersions(UpgradePlanData $plan, bool $dryRun, UpgradeReporter $reporter): void
+    private function recordVersions(UpgradePlanData $plan, bool $dryRun, UpgradePipelineIo $io): void
     {
-        $reporter->stage(UpgradeStage::VersionLedger, 'Version ledger phase started.');
-        $reporter->line('<fg=blue;options=bold>Phase 4: Record versions</>');
+        $io->stage(UpgradeStage::VersionLedger, 'Version ledger phase started.');
+        $io->line('<fg=blue;options=bold>Phase 4: Record versions</>');
 
         $composerVersions = $plan->context->composerVersions;
 
         if ($composerVersions === []) {
-            $reporter->line('  No packages to record.');
-            $reporter->newLine();
+            $io->line('  No packages to record.');
+            $io->newLine();
 
             return;
         }
@@ -399,10 +400,10 @@ final class RunCapellUpgradeAction
         RecordVersionSnapshotAction::run($composerVersions, dryRun: $dryRun);
 
         foreach ($composerVersions as $package => $version) {
-            $reporter->line(sprintf('  %s => %s%s', $package, $version, $dryRun ? ' [dry-run]' : ''));
+            $io->line(sprintf('  %s => %s%s', $package, $version, $dryRun ? ' [dry-run]' : ''));
         }
 
-        $reporter->newLine();
+        $io->newLine();
     }
 
     private function versionLedgerSkipReason(UpgradeRunOptions $options, bool $stepsDeclined): ?string
@@ -422,24 +423,24 @@ final class RunCapellUpgradeAction
         return null;
     }
 
-    private function skipVersionLedger(string $reason, UpgradeReporter $reporter): void
+    private function skipVersionLedger(string $reason, UpgradePipelineIo $io): void
     {
-        $reporter->stage(UpgradeStage::VersionLedger, 'Version ledger phase skipped.');
-        $reporter->line('<fg=blue;options=bold>Phase 4: Record versions</>');
-        $reporter->line(sprintf('  %s', $reason));
-        $reporter->newLine();
+        $io->stage(UpgradeStage::VersionLedger, 'Version ledger phase skipped.');
+        $io->line('<fg=blue;options=bold>Phase 4: Record versions</>');
+        $io->line(sprintf('  %s', $reason));
+        $io->newLine();
     }
 
-    private function cacheClearMenu(UpgradeRunOptions $options, UpgradeReporter $reporter): bool
+    private function cacheClearMenu(UpgradeRunOptions $options, UpgradePipelineIo $io): bool
     {
-        $reporter->stage(UpgradeStage::CacheClear, 'Cache clear phase started.');
+        $io->stage(UpgradeStage::CacheClear, 'Cache clear phase started.');
 
         if ($options->caches !== []) {
             $selected = $options->caches;
         } elseif ($options->force) {
             $selected = ['all'];
         } else {
-            $reporter->line('No cache selection provided; skipping cache clearing. Use --force to clear all caches or --caches=page,config,views to choose specific caches.');
+            $io->line('No cache selection provided; skipping cache clearing. Use --force to clear all caches or --caches=page,config,views to choose specific caches.');
 
             return true;
         }
@@ -448,39 +449,39 @@ final class RunCapellUpgradeAction
 
         if (in_array('all', $selected, true)) {
             if ($this->shouldSkipOptimizeClearForTestbench()) {
-                $reporter->line('Skipped optimize:clear; Testbench package manifests are shared across parallel tests');
+                $io->line('Skipped optimize:clear; Testbench package manifests are shared across parallel tests');
             } else {
-                $passed = $this->clearCache($reporter, 'optimize:clear');
+                $passed = $this->clearCache($io, 'optimize:clear');
             }
 
             return $passed;
         }
 
         if (in_array('page', $selected, true)) {
-            if ($reporter->commandExists('capell:html-cache:clear')) {
-                $passed = $this->clearCache($reporter, 'capell:html-cache:clear');
+            if ($io->commandExists('capell:html-cache:clear')) {
+                $passed = $this->clearCache($io, 'capell:html-cache:clear');
             } else {
-                $reporter->line('Skipped capell:html-cache:clear; command is not available');
+                $io->line('Skipped capell:html-cache:clear; command is not available');
             }
         }
 
         if (in_array('config', $selected, true)) {
-            $passed = $this->clearCache($reporter, 'config:clear') && $passed;
+            $passed = $this->clearCache($io, 'config:clear') && $passed;
         }
 
         if (in_array('views', $selected, true)) {
-            return $this->clearCache($reporter, 'view:clear') && $passed;
+            return $this->clearCache($io, 'view:clear') && $passed;
         }
 
         return $passed;
     }
 
-    private function clearCache(UpgradeReporter $reporter, string $command): bool
+    private function clearCache(UpgradePipelineIo $io, string $command): bool
     {
-        $exitCode = $reporter->callCommand($command);
+        $exitCode = $io->callCommand($command);
 
         if ($exitCode !== Command::SUCCESS) {
-            $reporter->error(sprintf('%s failed with exit code %d.', $command, $exitCode));
+            $io->error(sprintf('%s failed with exit code %d.', $command, $exitCode));
 
             return false;
         }
