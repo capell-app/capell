@@ -8,7 +8,9 @@ use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\PackageServiceProvidable;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Closure;
 use Composer\InstalledVersions;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Request;
 use Livewire\Livewire;
@@ -164,5 +166,13 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
     protected function surface(): PackageSurfaceRegistrar
     {
         return $this->app->make(PackageSurfaceRegistrar::class);
+    }
+
+    /** @param Closure(Schedule): void $callback */
+    protected function registerSchedule(Closure $callback): static
+    {
+        $this->callAfterResolving(Schedule::class, $callback);
+
+        return $this;
     }
 }

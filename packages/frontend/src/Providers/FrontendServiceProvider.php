@@ -27,7 +27,6 @@ use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Actions\ResolveThemeRuntimeAction;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
@@ -320,7 +319,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(FrontendAssetDirective::class);
         $this->app->scoped(WireNavigateDirective::class);
 
-        $this->app->afterResolving(FrontendRuleConditionRegistry::class, function (FrontendRuleConditionRegistry $registry): void {
+        $this->callAfterResolving(FrontendRuleConditionRegistry::class, function (FrontendRuleConditionRegistry $registry): void {
             $registry->register(AuthStateCondition::class);
             $registry->register(CampaignParameterCondition::class);
             $registry->register(CookieCondition::class);
@@ -339,7 +338,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             $registry->register(SiteCondition::class);
         });
 
-        $this->app->afterResolving(
+        $this->callAfterResolving(
             FrontendResponseRendererRegistry::class,
             function (FrontendResponseRendererRegistry $registry): void {
                 $registry->registerClass(FrontendRuntime::Blade, BladeFrontendResponseRenderer::class);
@@ -401,7 +400,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->configureVite()
             ->registerEventListeners()
             ->registerFrontendCacheInvalidationObservers()
-            ->scheduleSiteCheck()
+            ->registerSiteCheckSchedule()
             ->registerSettingsSchemas()
             ->registerViewComposers();
     }
@@ -583,7 +582,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function scheduleSiteCheck(): self
+    private function registerSiteCheckSchedule(): self
     {
         $schedulePageCleaner = config('capell-frontend.schedule_page_cleaner', 'daily');
 
@@ -596,7 +595,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ];
 
             if (in_array($schedulePageCleaner, $validFrequencies, true)) {
-                $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($schedulePageCleaner): void {
+                $this->registerSchedule(function (Schedule $schedule) use ($schedulePageCleaner): void {
                     $method = $schedulePageCleaner;
                     // Use explicit method calls to avoid dynamic invocation
                     $event = $schedule->command('capell:frontend-site-check');
@@ -692,7 +691,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerThemeRuntime(): self
     {
-        $this->app->afterResolving(
+        $this->callAfterResolving(
             RenderHookRegistry::class,
             function (RenderHookRegistry $registry): void {
                 $registry->register(
@@ -765,10 +764,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerSettingsSchemas(): self
     {
-        $registry = resolve(SettingsSchemaRegistry::class);
+        $surface = $this->surface();
 
-        $registry->registerSettingsClass('frontend', FrontendSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
+        $surface->settingsClass('frontend', FrontendSettings::class);
+        $surface->settingsMetadata(new SettingsGroupMetadata(
             group: 'frontend',
             label: 'capell-admin::generic.frontend_settings',
             icon: Heroicon::OutlinedGlobeAlt,
@@ -776,7 +775,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             navigationSort: 92,
             packageName: self::$packageName,
         ));
-        $registry->register('frontend', FrontendSettingsSchema::class);
+        $surface->settingsSchema('frontend', FrontendSettingsSchema::class);
 
         return $this;
     }

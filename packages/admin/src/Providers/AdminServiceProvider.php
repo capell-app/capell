@@ -167,7 +167,6 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
@@ -299,13 +298,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->reserveAdminFrontendPath();
         $this->reserveAdminFrontendDomain();
 
-        $this->app->afterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
+        $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));
             $registry->register($this->app->make(AdminConfiguratorMaker::class));
             $registry->register($this->app->make(FilamentWidgetMaker::class));
         });
 
-        $this->app->afterResolving(ImportEntryRegistry::class, function (ImportEntryRegistry $registry): void {
+        $this->callAfterResolving(ImportEntryRegistry::class, function (ImportEntryRegistry $registry): void {
             $registry->register(new ImportEntryData(
                 key: 'redirects.csv',
                 labelKey: 'capell-admin::exchanger.import.redirects',
@@ -380,11 +379,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             return;
         }
 
-        if ($this->app->bound($reservedFrontendPathRegistry)) {
-            $this->reserveFrontendPathPrefix($this->app->make($reservedFrontendPathRegistry), $adminPath);
-        }
-
-        $this->app->afterResolving(
+        $this->callAfterResolving(
             $reservedFrontendPathRegistry,
             function (object $registry) use ($adminPath): void {
                 $this->reserveFrontendPathPrefix($registry, $adminPath);
@@ -421,11 +416,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             return;
         }
 
-        if ($this->app->bound($reservedFrontendDomainRegistry)) {
-            $this->reserveFrontendDomain($this->app->make($reservedFrontendDomainRegistry), $adminDomain);
-        }
-
-        $this->app->afterResolving(
+        $this->callAfterResolving(
             $reservedFrontendDomainRegistry,
             function (object $registry) use ($adminDomain): void {
                 $this->reserveFrontendDomain($registry, $adminDomain);
@@ -456,7 +447,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerNotificationGroups(): self
     {
-        $this->app->afterResolving(AdminNotificationGroupRegistry::class, function (AdminNotificationGroupRegistry $registry): void {
+        $this->callAfterResolving(AdminNotificationGroupRegistry::class, function (AdminNotificationGroupRegistry $registry): void {
             $registry->register(
                 key: AdminNotificationGroupEnum::PackageOperations,
                 label: AdminNotificationGroupEnum::PackageOperations->label(),
@@ -926,10 +917,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerSettingsSchemas(): self
     {
-        $registry = resolve(SettingsSchemaRegistry::class);
+        $surface = $this->surface();
 
-        $registry->registerSettingsClass('core', CoreSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
+        $surface->settingsClass('core', CoreSettings::class);
+        $surface->settingsMetadata(new SettingsGroupMetadata(
             group: 'core',
             label: 'capell-admin::generic.core',
             icon: Heroicon::OutlinedCog6Tooth,
@@ -937,10 +928,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             navigationSort: 90,
             packageName: CapellServiceProvider::$packageName,
         ));
-        $registry->register('core', CoreSettingsSchema::class);
+        $surface->settingsSchema('core', CoreSettingsSchema::class);
 
-        $registry->registerSettingsClass('admin', AdminSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
+        $surface->settingsClass('admin', AdminSettings::class);
+        $surface->settingsMetadata(new SettingsGroupMetadata(
             group: 'admin',
             label: 'capell-admin::generic.admin_settings',
             icon: Heroicon::OutlinedWrenchScrewdriver,
@@ -948,11 +939,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             navigationSort: 91,
             packageName: static::$packageName,
         ));
-        $registry->register('admin', AdminSettingsSchema::class);
-        $registry->register('admin', DashboardSettingsSchema::class);
+        $surface->settingsSchema('admin', AdminSettingsSchema::class);
+        $surface->settingsSchema('admin', DashboardSettingsSchema::class);
 
-        $registry->registerSettingsClass('theme_studio', ThemeStudioSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
+        $surface->settingsClass('theme_studio', ThemeStudioSettings::class);
+        $surface->settingsMetadata(new SettingsGroupMetadata(
             group: 'theme_studio',
             label: 'capell-admin::generic.theme_studio',
             icon: Heroicon::OutlinedSwatch,
@@ -960,7 +951,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             navigationSort: 92,
             packageName: CapellServiceProvider::$packageName,
         ));
-        $registry->register('theme_studio', ThemeStudioSettingsSchema::class);
+        $surface->settingsSchema('theme_studio', ThemeStudioSettingsSchema::class);
 
         return $this;
     }
@@ -973,7 +964,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $frequency = config('capell-admin.upgrades.notifications.frequency', 'weekly');
 
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($frequency): void {
+        $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
             $event = $schedule
                 ->command('capell:admin-upgrade-summary-email')
                 ->withoutOverlapping()
@@ -995,7 +986,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
      */
     private function registerContentRetentionSchedule(): self
     {
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+        $this->registerSchedule(function (Schedule $schedule): void {
             $schedule->command('capell:purge-soft-deleted-media')
                 ->dailyAt('03:00')
                 ->withoutOverlapping()

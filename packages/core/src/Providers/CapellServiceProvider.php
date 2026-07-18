@@ -541,7 +541,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerMakers(): self
     {
-        $this->app->afterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
+        $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             foreach ([
                 ActionMaker::class,
                 DataMaker::class,
@@ -777,23 +777,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ThemePreviewContext::class, fn (): ThemePreviewContext => ThemePreviewContext::none());
         $this->app->singleton(InstallProfileRepository::class);
 
-        $registerSettingsClass = function (SettingsSchemaRegistry $registry): void {
-            $registry->registerSettingsClass(ThemeStudioSettings::group(), ThemeStudioSettings::class);
-        };
+        $this->surface()->settingsClass(ThemeStudioSettings::group(), ThemeStudioSettings::class);
 
-        $this->app->afterResolving(SettingsSchemaRegistry::class, $registerSettingsClass);
-
-        if ($this->app->resolved(SettingsSchemaRegistry::class)) {
-            $registerSettingsClass($this->app->make(SettingsSchemaRegistry::class));
-        }
-
-        $this->app->afterResolving(Router::class, function (Router $router): void {
+        $this->callAfterResolving(Router::class, function (Router $router): void {
             $this->registerThemePreviewMiddleware($router);
         });
-
-        if ($this->app->resolved(Router::class)) {
-            $this->registerThemePreviewMiddleware($this->app->make(Router::class));
-        }
 
         return $this;
     }

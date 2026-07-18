@@ -114,7 +114,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
 
     private function registerExtensionsPageActions(): void
     {
-        $this->app->afterResolving(ExtensionsPageActionRegistry::class, function (ExtensionsPageActionRegistry $registry): void {
+        $this->callAfterResolving(ExtensionsPageActionRegistry::class, function (ExtensionsPageActionRegistry $registry): void {
             $registry->registerHeaderAction(
                 fn (): Action => OpenMarketplaceAction::make(resolve(MarketplaceConnectionFormModel::class)),
                 'capell-marketplace.open-marketplace',
