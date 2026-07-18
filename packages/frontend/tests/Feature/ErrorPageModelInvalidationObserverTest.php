@@ -62,6 +62,22 @@ it('dispatches for an error page update', function (): void {
     $errorPage->save();
 });
 
+it('dispatches for an error page update through a third-party page subclass', function (): void {
+    ['site' => $site, 'errorPage' => $errorPage] = makeErrorPageSite();
+    $thirdPartyPage = ThirdPartyErrorPage::query()->findOrFail($errorPage->id);
+    ParentPageUpdateObserver::$handled = false;
+    Page::observe(ParentPageUpdateObserver::class);
+
+    RegenerateSiteErrorPagesAction::shouldRun()
+        ->once()
+        ->with($site->id);
+
+    $thirdPartyPage->name = 'Updated extension error page';
+    $thirdPartyPage->save();
+
+    expect(ParentPageUpdateObserver::$handled)->toBeFalse();
+});
+
 it('dispatches for a site-level translation update', function (): void {
     ['site' => $site] = makeErrorPageSite();
 
@@ -158,3 +174,15 @@ it('does not dispatch for a timestamp-only update', function (): void {
 
     $site->touch();
 });
+
+final class ThirdPartyErrorPage extends Page {}
+
+final class ParentPageUpdateObserver
+{
+    public static bool $handled = false;
+
+    public function updated(Page $page): void
+    {
+        self::$handled = true;
+    }
+}

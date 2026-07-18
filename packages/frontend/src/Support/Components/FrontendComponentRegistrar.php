@@ -12,7 +12,7 @@ use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
 use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Blade;
-use Livewire\Livewire;
+use Livewire\Component;
 
 final readonly class FrontendComponentRegistrar
 {
@@ -43,21 +43,14 @@ final readonly class FrontendComponentRegistrar
         }
     }
 
-    public function registerLivewireComponents(): void
+    /** @return array<string, class-string> */
+    public function livewireComponents(): array
     {
-        if (! $this->application->bound('livewire.finder')) {
-            return;
-        }
-
-        Livewire::component(LivewirePageComponentEnum::Default->value, Page::class);
-
-        foreach ($this->stringMap(config('capell-frontend.livewire_components', [])) as $name => $component) {
-            Livewire::component($name, $component);
-        }
-
-        foreach ($this->layoutWidgets('FrontendLivewire') as $name => $component) {
-            Livewire::component($name, $component);
-        }
+        return $this->livewireComponentMap(array_merge(
+            [LivewirePageComponentEnum::Default->value => Page::class],
+            $this->stringMap(config('capell-frontend.livewire_components', [])),
+            $this->layoutWidgets('FrontendLivewire'),
+        ));
     }
 
     /** @return array<string, string> */
@@ -71,6 +64,18 @@ final readonly class FrontendComponentRegistrar
             $configured,
             static fn (mixed $value, mixed $key): bool => is_string($key) && is_string($value),
             ARRAY_FILTER_USE_BOTH,
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $components
+     * @return array<string, class-string<Component>>
+     */
+    private function livewireComponentMap(array $components): array
+    {
+        return array_filter(
+            $components,
+            static fn (string $component): bool => is_a($component, Component::class, true),
         );
     }
 

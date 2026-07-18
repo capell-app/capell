@@ -500,14 +500,14 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerFrontendLivewireComponents(): self
     {
-        $this->app->make(FrontendComponentRegistrar::class)->registerLivewireComponents();
-
-        return $this->registerLivewireComponentDefinitions([], [
-            'namespace' => 'capell',
-            'classNamespace' => 'Capell\\Frontend\\Livewire',
-            'classPath' => __DIR__ . '/../Livewire',
-            'classViewPath' => __DIR__ . '/../../resources/views/livewire',
-        ]);
+        return $this->registerLivewireComponentDefinitions($this->app
+            ->make(FrontendComponentRegistrar::class)
+            ->livewireComponents(), [
+                'namespace' => 'capell',
+                'classNamespace' => 'Capell\\Frontend\\Livewire',
+                'classPath' => __DIR__ . '/../Livewire',
+                'classViewPath' => __DIR__ . '/../../resources/views/livewire',
+            ]);
     }
 
     private function registerBladeComponents(): self
