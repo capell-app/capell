@@ -14,8 +14,10 @@ use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\SchemaExtenderEnum;
 use Capell\Admin\Enums\ThemeContainerWidthEnum;
 use Capell\Admin\Enums\ThemeEditorColorModeEnum;
+use Capell\Admin\Enums\ThemeEditorHeaderPositionEnum;
 use Capell\Admin\Enums\ThemeEditorPreviewDeviceEnum;
 use Capell\Admin\Enums\ThemeStudioCardDensityEnum;
+use Capell\Admin\Enums\ThemeStudioRadiusEnum;
 use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\IconPicker;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
@@ -165,13 +167,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(debounce: 400),
                 Select::make('radius')
                     ->label(__('capell-admin::theme-editor.fields.radius'))
-                    ->options([
-                        'none' => __('capell-admin::generic.none'),
-                        'sm' => __('capell-admin::generic.sm'),
-                        'md' => __('capell-admin::generic.md'),
-                        'lg' => __('capell-admin::generic.lg'),
-                        'xl' => 'XL',
-                    ])
+                    ->options(ThemeStudioRadiusEnum::options())
                     ->default('md')
                     ->live(),
                 TextInput::make('headingFont')
@@ -198,11 +194,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(),
                 Select::make('position')
                     ->label(__('capell-admin::theme-editor.fields.position'))
-                    ->options([
-                        'static' => __('capell-admin::theme-editor.options.static'),
-                        'sticky' => __('capell-admin::theme-editor.options.sticky'),
-                        'fixed' => __('capell-admin::theme-editor.options.fixed'),
-                    ])
+                    ->options(ThemeEditorHeaderPositionEnum::options())
                     ->live(),
                 Checkbox::make('overHero')
                     ->label(__('capell-admin::theme-editor.fields.over_hero'))

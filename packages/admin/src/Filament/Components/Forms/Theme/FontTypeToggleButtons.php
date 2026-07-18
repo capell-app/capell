@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Theme;
 
-use Capell\Core\Enums\FontTypeEnum;
+use Capell\Admin\Enums\ThemeFontTypeEnum;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Utilities\Set;
 
@@ -16,11 +16,8 @@ class FontTypeToggleButtons extends ToggleButtons
 
         $this->label(__('capell-admin::form.font_type'))
             ->grouped()
-            ->default(FontTypeEnum::Url->value)
-            ->options([
-                FontTypeEnum::Url->value => __('capell-admin::form.font_type_url'),
-                FontTypeEnum::Local->value => __('capell-admin::form.font_type_local'),
-            ])
+            ->default(ThemeFontTypeEnum::Url->value)
+            ->options(ThemeFontTypeEnum::options())
             ->afterStateUpdated(function (Set $set): void {
                 $set('url', null);
                 $set('files', null);

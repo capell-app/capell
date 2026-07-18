@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\PageUrls\Tables;
 
+use Capell\Admin\Enums\PageUrlTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
@@ -69,11 +70,7 @@ class PageUrlsTable implements TableConfigurator
             ->filters([
                 SelectFilter::make('type')
                     ->label(__('capell-admin::table.type'))
-                    ->options([
-                        'default' => __('capell-admin::generic.default'),
-                        'alias' => __('capell-admin::generic.alias'),
-                        'redirect' => __('capell-admin::generic.redirect'),
-                    ])
+                    ->options(PageUrlTypeEnum::options())
                     ->indicateUsing(
                         fn (array $data): ?string => match ($data['value']) {
                             'default' => self::translationString('capell-admin::generic.default'),
