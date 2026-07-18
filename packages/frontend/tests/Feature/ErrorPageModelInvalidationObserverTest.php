@@ -175,7 +175,15 @@ it('does not dispatch for a timestamp-only update', function (): void {
     $site->touch();
 });
 
-final class ThirdPartyErrorPage extends Page {}
+final class ThirdPartyErrorPage extends Page
+{
+    protected $table = 'pages';
+
+    public function getMorphClass(): string
+    {
+        return (new Page)->getMorphClass();
+    }
+}
 
 final class ParentPageUpdateObserver
 {
