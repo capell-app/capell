@@ -25,11 +25,8 @@ final class MakerRegistry extends AbstractKeyedRegistry implements MakerRegistry
 
     public function get(string $key): Maker
     {
-        if (! $this->has($key)) {
-            throw new InvalidArgumentException(sprintf('Maker [%s] is not registered.', $key));
-        }
-
-        return $this->getItem($key);
+        return $this->getItem($key)
+            ?? throw new InvalidArgumentException(sprintf('Maker [%s] is not registered.', $key));
     }
 
     public function all(): Collection

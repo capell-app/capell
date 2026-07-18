@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
-final class PageCreator implements PageCreatable
+class PageCreator implements PageCreatable
 {
     /**
      * HTTP error statuses seeded with per-status copy on the error page.
@@ -323,6 +323,36 @@ final class PageCreator implements PageCreatable
         return $page;
     }
 
+    protected function getLayout(LayoutEnum|string $key): Layout
+    {
+        if ($key instanceof LayoutEnum) {
+            $key = $key->value;
+        }
+
+        $layout = $this->layoutModel::query()->firstWhere('key', $key);
+
+        if ($layout !== null) {
+            return $layout;
+        }
+
+        return $this->layoutCreator->create($key);
+    }
+
+    protected function getPageType(string|PageTypeEnum $key): Blueprint
+    {
+        $type = $this->typeQuery()->where('key', $key)->pageType()->first();
+
+        if ($type !== null) {
+            return $type;
+        }
+
+        if ($key instanceof PageTypeEnum) {
+            $key = $key->value;
+        }
+
+        return $this->typeCreator->createPageType($key);
+    }
+
     /**
      * Per-status headline + description defaults keyed by HTTP status.
      *
@@ -345,42 +375,12 @@ final class PageCreator implements PageCreatable
         return $copy;
     }
 
-    private function getLayout(LayoutEnum|string $key): Layout
-    {
-        if ($key instanceof LayoutEnum) {
-            $key = $key->value;
-        }
-
-        $layout = $this->layoutModel::query()->firstWhere('key', $key);
-
-        if ($layout !== null) {
-            return $layout;
-        }
-
-        return $this->layoutCreator->create($key);
-    }
-
     /**
      * @return Builder<Blueprint>
      */
     private function typeQuery(): Builder
     {
         return $this->typeModel::query();
-    }
-
-    private function getPageType(string|PageTypeEnum $key): Blueprint
-    {
-        $type = $this->typeQuery()->where('key', $key)->pageType()->first();
-
-        if ($type !== null) {
-            return $type;
-        }
-
-        if ($key instanceof PageTypeEnum) {
-            $key = $key->value;
-        }
-
-        return $this->typeCreator->createPageType($key);
     }
 
     /**

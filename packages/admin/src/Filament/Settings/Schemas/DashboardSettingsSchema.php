@@ -128,7 +128,12 @@ final class DashboardSettingsSchema implements HasSchema
                 'key' => $entry['key'],
                 'label' => $entry['label'],
                 'group' => $entry['group'],
-                'description' => self::descriptionFor($entry, $widgetClassesByKey[$entry['key']] ?? null),
+                'description' => self::descriptionFor([
+                    'key' => $entry['key'],
+                    'label' => $entry['label'],
+                    'group' => $entry['group'],
+                    'description' => $entry['description'] ?? null,
+                ], $widgetClassesByKey[$entry['key']] ?? null),
             ])
             ->values()
             ->all());

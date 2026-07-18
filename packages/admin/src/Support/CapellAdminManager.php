@@ -14,6 +14,7 @@ use Capell\Admin\Concerns\HasWidgets;
 use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\Bridges\AdminBridgeContextData;
+use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Data\Dashboard\CapellOverviewStatDefinitionData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\MarketingStudioActionData;
@@ -79,6 +80,8 @@ class CapellAdminManager
 
     private readonly OverviewStatRegistry $overviewStatRegistry;
 
+    private readonly AdminBridgeRegistry $adminBridgeRegistry;
+
     public function __construct(
         ?AdminSurfaceContributionRegistry $adminSurfaceRegistry = null,
         ?ReportRegistry $reportRegistry = null,
@@ -86,6 +89,7 @@ class CapellAdminManager
         ?MarketingStudioActionRegistry $marketingStudioActionRegistry = null,
         ?UserMenuItemRegistry $userMenuItemRegistry = null,
         ?OverviewStatRegistry $overviewStatRegistry = null,
+        ?AdminBridgeRegistry $adminBridgeRegistry = null,
     ) {
         $this->adminSurfaceRegistry = $adminSurfaceRegistry ?? new AdminSurfaceContributionRegistry;
         $this->reportRegistry = $reportRegistry ?? new ReportRegistry;
@@ -93,6 +97,7 @@ class CapellAdminManager
         $this->marketingStudioActionRegistry = $marketingStudioActionRegistry ?? new MarketingStudioActionRegistry;
         $this->userMenuItemRegistry = $userMenuItemRegistry ?? new UserMenuItemRegistry;
         $this->overviewStatRegistry = $overviewStatRegistry ?? new OverviewStatRegistry;
+        $this->adminBridgeRegistry = $adminBridgeRegistry ?? new AdminBridgeRegistry;
     }
 
     /** @return list<string>|list<FilamentWidgetEnum> */
@@ -343,16 +348,15 @@ class CapellAdminManager
      */
     public function registerAdminBridge(string $packageName, string $bridgeClass): void
     {
-        resolve(AdminBridgeRegistrar::class)->bridge($packageName, $bridgeClass);
+        $this->adminBridgeRegistry->register($packageName, $bridgeClass);
     }
 
     public function bootAdminBridges(string $packageName): void
     {
         $context = AdminBridgeContextData::forPackage($packageName);
         $registrar = resolve(AdminBridgeRegistrar::class);
-        $registry = resolve(AdminBridgeRegistry::class);
 
-        foreach ($registry->enabledBridges($context) as $bridge) {
+        foreach ($this->adminBridgeRegistry->enabledBridges($context) as $bridge) {
             $bootKey = $packageName . ':' . $bridge::class;
 
             if (isset($this->bootedAdminBridges[$bootKey])) {
@@ -363,6 +367,11 @@ class CapellAdminManager
 
             $this->bootedAdminBridges[$bootKey] = true;
         }
+    }
+
+    public function getAdminBridgeRegistry(): AdminBridgeRegistry
+    {
+        return $this->adminBridgeRegistry;
     }
 
     public function hasResource(string $group, string $name = 'default'): bool

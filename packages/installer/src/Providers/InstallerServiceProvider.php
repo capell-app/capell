@@ -78,8 +78,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
     {
         // The installer is the pre-install runtime, so its booted lifecycle must
         // remain available before Capell can record this package as installed.
-
-        $this->registerPackageMetadata();
+        parent::registeringPackage();
 
         $this->booted(function (): void {
             $this->registerPatches();

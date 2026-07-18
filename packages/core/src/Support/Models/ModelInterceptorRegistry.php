@@ -203,7 +203,7 @@ final class ModelInterceptorRegistry
     /**
      * @param  class-string<object>  $interceptorClass
      */
-    protected function resolveModelInterceptor(string $interceptorClass, string $interceptorInterface): object
+    private function resolveModelInterceptor(string $interceptorClass, string $interceptorInterface): object
     {
         /** @var Container $container */
         $container = App::getFacadeRoot();

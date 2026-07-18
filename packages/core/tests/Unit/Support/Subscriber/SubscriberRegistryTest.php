@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Unit\Support\Subscriber;
 use Capell\Core\Contracts\EventSubscriber;
 use Capell\Core\Support\Subscriber\Contracts\Subscriber;
 use Capell\Core\Support\Subscriber\Contracts\ValidatingSubscriber;
+use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Tests\Unit\Support\Subscriber\Fixtures\SubscriberRegistryTestEvent;
 use InvalidArgumentException;
@@ -43,6 +44,10 @@ function subscriberManagerRecorder(): SubscriberRegistryRecorder
 
     return $recorder;
 }
+
+it('resolves the legacy manager name to the shared subscriber registry', function (): void {
+    expect(resolve(SubscriberManager::class))->toBe(resolve(SubscriberRegistry::class));
+});
 
 beforeEach(function (): void {
     $recorder = subscriberManagerRecorder();

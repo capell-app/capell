@@ -18,7 +18,6 @@ final readonly class FrontendComponentRegistrar
 {
     public function __construct(
         private Application $application,
-        private LayoutWidgetRegistry $layoutWidgetRegistry,
     ) {}
 
     public function registerCoreComponents(FrontendComponentRegistryInterface $registry): void
@@ -39,7 +38,7 @@ final readonly class FrontendComponentRegistrar
             Blade::component($component, $name);
         }
 
-        foreach ($this->layoutWidgetRegistry->allForTarget(LayoutWidgetTarget::FrontendBlade) as $name => $component) {
+        foreach ($this->layoutWidgets('FrontendBlade') as $name => $component) {
             Blade::component($component, $name);
         }
     }
@@ -56,7 +55,7 @@ final readonly class FrontendComponentRegistrar
             Livewire::component($name, $component);
         }
 
-        foreach ($this->layoutWidgetRegistry->allForTarget(LayoutWidgetTarget::FrontendLivewire) as $name => $component) {
+        foreach ($this->layoutWidgets('FrontendLivewire') as $name => $component) {
             Livewire::component($name, $component);
         }
     }
@@ -73,5 +72,21 @@ final readonly class FrontendComponentRegistrar
             static fn (mixed $value, mixed $key): bool => is_string($key) && is_string($value),
             ARRAY_FILTER_USE_BOTH,
         );
+    }
+
+    /** @return array<string, string> */
+    private function layoutWidgets(string $target): array
+    {
+        if (! class_exists(LayoutWidgetRegistry::class) || ! enum_exists(LayoutWidgetTarget::class)) {
+            return [];
+        }
+
+        $layoutWidgetTarget = $target === 'FrontendBlade'
+            ? LayoutWidgetTarget::FrontendBlade
+            : LayoutWidgetTarget::FrontendLivewire;
+
+        return $this->application
+            ->make(LayoutWidgetRegistry::class)
+            ->allForTarget($layoutWidgetTarget);
     }
 }

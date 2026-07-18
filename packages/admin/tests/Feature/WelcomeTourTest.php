@@ -48,7 +48,7 @@ it('registers visible welcome tour steps in sort order', function (): void {
 });
 
 it('lets package admin bridges register welcome tour steps', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->welcomeTourStep(
         key: 'example-package.introduction',

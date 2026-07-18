@@ -22,15 +22,16 @@ final readonly class PackageRegistryBootstrapper
 
     public function bootstrap(): void
     {
-        $registry = new CapellPackageRegistry;
+        $registry = $this->app->make(CapellPackageRegistry::class);
         $cachePath = $this->app->bootstrapPath('cache/capell-package-manifests.php');
         $manifests = file_exists($cachePath)
             ? $this->cachedManifests($cachePath)
             : $this->manifestLoader->discover();
 
-        $registry->fill($manifests);
-        $this->app->instance(CapellPackageRegistry::class, $registry);
-
+        $registry->fill([
+            ...$registry->all(),
+            ...$manifests,
+        ]);
         foreach ($manifests as $manifest) {
             CapellCore::registerManifestPackage(
                 $manifest,

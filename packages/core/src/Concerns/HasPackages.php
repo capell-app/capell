@@ -10,9 +10,16 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Closure;
 use Illuminate\Support\Collection;
+use Illuminate\Support\ServiceProvider;
 
 trait HasPackages
 {
+    /**
+     * @param  class-string<ServiceProvider>|null  $serviceProviderClass
+     * @param  array<int, string>  $permissions
+     * @param  array<int, string>  $setupParams
+     * @param  array<int, string>  $installParams
+     */
     public function registerPackage(
         string $name,
         PackageTypeEnum $type = PackageTypeEnum::Plugin,
@@ -40,6 +47,7 @@ trait HasPackages
         return $this;
     }
 
+    /** @return Collection<string, PackageData> */
     public function getPackages(bool $withoutCore = true, bool $sortByDependencies = false): Collection
     {
         return resolve(CapellPackageRegistry::class)->getPackages($withoutCore, $sortByDependencies);
@@ -70,21 +78,25 @@ trait HasPackages
         return resolve(CapellPackageRegistry::class)->isPackageAvailable($name);
     }
 
+    /** @return Collection<string, PackageData> */
     public function getInstalledPackages(): Collection
     {
         return resolve(CapellPackageRegistry::class)->getInstalledPackages();
     }
 
+    /** @return Collection<string, Collection<int, PackageData>> */
     public function getPackagesGroupedByProductGroup(?string $tier = null, bool $withoutCore = true): Collection
     {
         return resolve(CapellPackageRegistry::class)->getPackagesGroupedByProductGroup($tier, $withoutCore);
     }
 
+    /** @return list<string> */
     public function getPackageRequirements(string $name): array
     {
         return resolve(CapellPackageRegistry::class)->getPackageRequirements($name);
     }
 
+    /** @return list<string> */
     public function getMissingRequirements(string $name): array
     {
         return resolve(CapellPackageRegistry::class)->getMissingRequirements($name);
@@ -95,6 +107,7 @@ trait HasPackages
         return resolve(CapellPackageRegistry::class)->canInstallPackage($name);
     }
 
+    /** @return Collection<string, PackageData> */
     public function getDependentInstalledPackages(string $name): Collection
     {
         return resolve(CapellPackageRegistry::class)->getDependentInstalledPackages($name);
@@ -135,6 +148,7 @@ trait HasPackages
         resolve(CapellPackageRegistry::class)->markPackageUninstalled($name);
     }
 
+    /** @param array<int, string> $requirements */
     public function arePackageRequirementsInstalled(array $requirements): bool
     {
         return resolve(CapellPackageRegistry::class)->arePackageRequirementsInstalled($requirements);
@@ -150,6 +164,7 @@ trait HasPackages
         resolve(CapellPackageRegistry::class)->clearExtensionCache();
     }
 
+    /** @return array<int, string> */
     public function getInstalledExtensionNames(): array
     {
         return resolve(CapellPackageRegistry::class)->getInstalledExtensionNames();

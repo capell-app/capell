@@ -179,7 +179,21 @@ final class CapellCacheManager
         $this->localCache = [];
     }
 
-    protected function getCacheInstance(): CacheRepository
+    public function incrementCacheKey(string $key): int
+    {
+        $normalizedKey = $this->normalizeCacheKey($key);
+
+        unset($this->localCache[$normalizedKey]);
+
+        $cache = $this->getCacheInstance();
+
+        return $this->withCacheIncrementLock(
+            'normalized:' . $normalizedKey,
+            fn (): int => $this->incrementRepositoryKey($cache, $normalizedKey),
+        );
+    }
+
+    private function getCacheInstance(): CacheRepository
     {
         if (! $this->configuredCacheStoreIsAvailable()) {
             return new Repository(new ArrayStore);
@@ -190,7 +204,7 @@ final class CapellCacheManager
             : Cache::store();
     }
 
-    protected function configuredCacheStoreIsAvailable(): bool
+    private function configuredCacheStoreIsAvailable(): bool
     {
         $storeName = config('cache.default');
 
@@ -213,12 +227,12 @@ final class CapellCacheManager
         return resolve(RuntimeSchemaState::class)->hasTable($table);
     }
 
-    protected function getCacheSentinel(): string
+    private function getCacheSentinel(): string
     {
         return '__capell_null__';
     }
 
-    protected function getCacheTtl(Closure|DateTimeInterface|DateInterval|int|null $ttl = null): DateTimeInterface|DateInterval|int
+    private function getCacheTtl(Closure|DateTimeInterface|DateInterval|int|null $ttl = null): DateTimeInterface|DateInterval|int
     {
         if ($ttl instanceof Closure) {
             $ttl = $ttl();
@@ -231,7 +245,7 @@ final class CapellCacheManager
         return $ttl;
     }
 
-    protected function saveToCache(CacheRepository $cache, string $key, mixed $value, DateTimeInterface|DateInterval|int $ttl, string $sentinel): void
+    private function saveToCache(CacheRepository $cache, string $key, mixed $value, DateTimeInterface|DateInterval|int $ttl, string $sentinel): void
     {
         if ($ttl === 0) { // 0 indicates forever storage when explicitly provided as int
             $cache->forever($key, $value ?? $sentinel);
@@ -250,14 +264,14 @@ final class CapellCacheManager
      * Normalize cache key to fit storage constraints.
      * Always hash keys using sha256 for consistency and backend safety.
      */
-    protected function normalizeCacheKey(string $key): string
+    private function normalizeCacheKey(string $key): string
     {
         // Hash long/complex keys to ensure backend compatibility (indexes, length,
         // allowed characters) and keep a consistent fixed-length key.
         return hash('sha256', $this->cacheNamespaceGeneration() . '|' . $key);
     }
 
-    protected function cacheNamespaceGeneration(): int
+    private function cacheNamespaceGeneration(): int
     {
         if (! $this->configuredCacheStoreIsAvailable()) {
             return 0;
@@ -283,7 +297,7 @@ final class CapellCacheManager
         return $generation;
     }
 
-    protected function bumpCacheNamespaceGeneration(): void
+    private function bumpCacheNamespaceGeneration(): void
     {
         $this->flushLocalCache();
         if (! $this->configuredCacheStoreIsAvailable()) {
@@ -301,26 +315,12 @@ final class CapellCacheManager
         }
     }
 
-    protected function cacheNamespaceGenerationKey(): string
+    private function cacheNamespaceGenerationKey(): string
     {
         return 'capell.cache.generation.' . config('capell-core.cache_tag', 'capell-app');
     }
 
-    protected function incrementCacheKey(string $key): int
-    {
-        $normalizedKey = $this->normalizeCacheKey($key);
-
-        unset($this->localCache[$normalizedKey]);
-
-        $cache = $this->getCacheInstance();
-
-        return $this->withCacheIncrementLock(
-            'normalized:' . $normalizedKey,
-            fn (): int => $this->incrementRepositoryKey($cache, $normalizedKey),
-        );
-    }
-
-    protected function incrementRawCacheKey(string $key): int
+    private function incrementRawCacheKey(string $key): int
     {
         return $this->withCacheIncrementLock(
             'raw:' . $key,
@@ -335,7 +335,7 @@ final class CapellCacheManager
      *  - array of regex patterns (prefixed and suffixed with '/')
      *  - array of wildcards using '*' (e.g., 'page-*')
      */
-    protected function isCacheSaveDisabledForKey(string $key): bool
+    private function isCacheSaveDisabledForKey(string $key): bool
     {
         $rules = config('capell-core.disable_cache_save_keys', []);
 

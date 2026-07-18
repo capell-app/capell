@@ -39,7 +39,15 @@ final readonly class SettingsBootstrapper
         }
 
         foreach (CapellCore::getPackages() as $package) {
-            if ($package->setting === null || $package->setting === '' || in_array($package->setting, $settings, true)) {
+            if ($package->setting === null) {
+                continue;
+            }
+
+            if ($package->setting === '') {
+                continue;
+            }
+
+            if (in_array($package->setting, $settings, true)) {
                 continue;
             }
 

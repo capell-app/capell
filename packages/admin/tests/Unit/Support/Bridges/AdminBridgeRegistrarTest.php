@@ -36,7 +36,7 @@ beforeEach(function (): void {
 });
 
 it('registers admin surface contributions through existing registries', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->page(SettingsPage::class);
     $registrar->resource(SettingsPage::class, 'AdminBridgeRegistrarTest', 'settings');
@@ -60,7 +60,7 @@ it('registers admin surface contributions through existing registries', function
 });
 
 it('registers dashboard Filament widgets through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->filamentDashboardWidget(TestDashboardFilamentWidgetForRegistrar::class, DashboardEnum::SystemHealth);
 
@@ -69,7 +69,7 @@ it('registers dashboard Filament widgets through the admin manager', function ()
 });
 
 it('registers extension dashboard Filament widgets through the bridge convenience method', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->extensionDashboardFilamentWidget(TestDashboardFilamentWidgetForRegistrar::class);
 
@@ -78,7 +78,7 @@ it('registers extension dashboard Filament widgets through the bridge convenienc
 });
 
 it('registers the unified user resource bridge through one scoped tag', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->userResourceBridge(FullUserResourceBridgeForResolverTest::class);
 
@@ -88,7 +88,7 @@ it('registers the unified user resource bridge through one scoped tag', function
 });
 
 it('registers a dashboard page through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->dashboardPage(CapellDashboard::class);
 
@@ -96,7 +96,7 @@ it('registers a dashboard page through the admin manager', function (): void {
 });
 
 it('registers user menu item definitions through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->userMenuItem(
         key: 'capell-test.bridge',
@@ -125,7 +125,7 @@ it('registers user menu item definitions through the admin manager', function ()
 it('registers welcome tour steps through the admin manager', function (): void {
     CapellAdmin::clearWelcomeTourSteps();
 
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->welcomeTourStep(
         key: 'registrar-test.welcome',
@@ -142,7 +142,7 @@ it('registers welcome tour steps through the admin manager', function (): void {
 });
 
 it('registers activity extension handlers through Laravel tags', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->activityChangeSetBuilder(TestActivityChangeSetBuilderForRegistrar::class);
     $registrar->activityRevertHandler(TestActivityRevertHandlerForRegistrar::class);
@@ -157,7 +157,7 @@ it('registers activity extension handlers through Laravel tags', function (): vo
 });
 
 it('registers activity resource links through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->activityResourceLink(
         subjectClass: ActivityResourceLinkRecord::class,
@@ -180,7 +180,7 @@ it('registers activity resource links through the admin manager', function (): v
 
 it('registers settings schemas through the settings schema registry', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->settingsSchema('admin-bridge-registrar-test', TestSettingsSchemaForRegistrar::class, 'bridge-test');
 
@@ -189,7 +189,7 @@ it('registers settings schemas through the settings schema registry', function (
 
 it('registers settings classes and metadata through the settings schema registry', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
     $metadata = new SettingsGroupMetadata(
         group: 'admin-bridge-registrar-test',
         label: 'Admin bridge registrar test',

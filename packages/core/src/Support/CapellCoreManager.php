@@ -52,6 +52,7 @@ class CapellCoreManager implements Resettable
     {
         resolve(CapellCacheManager::class)->flushLocalCache();
         resolve(CapellPackageRegistry::class)->flushRuntimeState();
+
         $this->defaultPages = null;
     }
 

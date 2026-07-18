@@ -53,7 +53,7 @@ it('allows companion providers to retain a private livewire registration method'
 
     expect($provider->registerDefinitions())->toBe($provider)
         ->and($provider->registerPrivateDefinitions())->toBe($provider)
-        ->and((new ReflectionMethod($provider, 'registerLivewireComponents'))->isPrivate())->toBeTrue();
+        ->and(new ReflectionMethod($provider, 'registerLivewireComponents')->isPrivate())->toBeTrue();
 });
 
 it('does not resolve the livewire facade when the finder is unbound', function (): void {

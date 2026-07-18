@@ -52,6 +52,7 @@ use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
+use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
@@ -116,6 +117,7 @@ use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
@@ -150,6 +152,7 @@ use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Pipeline\Pipeline;
@@ -159,10 +162,11 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Vite;
+use Illuminate\View\FileViewFinder;
 use Override;
+use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
@@ -195,6 +199,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FrontendComponentRegistryInterface::class, FrontendComponentRegistry::class);
         $this->app->singleton(FrontendComponentRegistrar::class);
         $this->app->singleton(PublicRouteAliasRegistry::class);
+        $this->app->singleton(RenderableDynamicDataRegistry::class);
         $this->registerCoreFrontendComponents();
         $this->app->singleton(FrontendSettingsReaderInterface::class, FrontendSettingsReader::class);
         $this->app->singleton(SettingsMigrationProviderInterface::class, FrontendSettingsMigrationProvider::class);
@@ -258,7 +263,13 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             );
         });
 
-        $this->app->singleton(ThemeViewRegistrar::class);
+        $this->app->singleton(ThemeViewRegistrar::class, function (Application $app): ThemeViewRegistrar {
+            $finder = $app->make('view.finder');
+
+            throw_unless($finder instanceof FileViewFinder, RuntimeException::class, 'The configured view finder must support theme namespaces.');
+
+            return new ThemeViewRegistrar($finder);
+        });
         $this->app->singleton(ThemeChainResolver::class);
         $this->app->singleton(FrontendCachePolicy::class);
         $this->app->singleton(FrontendRouteMiddlewareRegistry::class);
@@ -571,7 +582,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             function (): void {
                 $this->app->make(FrontendHookRegistrar::class)->contribute(
                     RenderHookLocation::HeadClose,
-                    ThemeTokenHeadCloseHook::class,
+                    $this->app->make(ThemeTokenHeadCloseHook::class),
                     owner: self::$packageName,
                     key: 'theme-token-css',
                 );

@@ -8,6 +8,7 @@ use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\PackageServiceProvidable;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Closure;
 use Composer\InstalledVersions;
 use Illuminate\Console\Scheduling\Schedule;
@@ -38,6 +39,9 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
 
     public function registeringPackage(): void
     {
+        $this->app->singletonIf(CapellPackageRegistry::class);
+        $this->registerPackageMetadata();
+
         $this->booted(function (): void {
             $this->bootPackage();
 

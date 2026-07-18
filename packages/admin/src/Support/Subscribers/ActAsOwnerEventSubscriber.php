@@ -31,7 +31,7 @@ final class ActAsOwnerEventSubscriber
 
     public function subscribe(Dispatcher $events): void
     {
-        $events->listen(EnterImpersonation::class, self::class . '@handleEnterImpersonation');
-        $events->listen(LeaveImpersonation::class, self::class . '@handleLeaveImpersonation');
+        $events->listen(EnterImpersonation::class, $this->handleEnterImpersonation(...));
+        $events->listen(LeaveImpersonation::class, $this->handleLeaveImpersonation(...));
     }
 }

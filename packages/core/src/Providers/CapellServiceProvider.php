@@ -131,6 +131,7 @@ use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
@@ -154,6 +155,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Override;
+use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 
@@ -381,16 +383,21 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->singleton(CapellCacheManager::class);
         $this->app->singleton(ModelInterceptorRegistry::class);
-        $this->app->singleton(CapellPackageRegistry::class);
-        $this->app->singleton(CapellCoreManager::class, fn (): CapellCoreManager => new CapellCoreManager);
+        $this->app->singletonIf(CapellPackageRegistry::class);
+
+        $manager = CapellCore::getFacadeRoot();
+        throw_unless($manager instanceof CapellCoreManager, RuntimeException::class, 'The Capell core facade must resolve its manager.');
+        $this->app->instance(CapellCoreManager::class, $manager);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->tag([CapellCoreManager::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
+        $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
         $this->app->singleton(PackageSurfaceRegistrar::class, fn ($app): PackageSurfaceRegistrar => new PackageSurfaceRegistrar(
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
         ));
         $this->app->singleton(SubscriberRegistry::class);
+        $this->app->alias(SubscriberRegistry::class, SubscriberManager::class);
         $this->app->singleton(RenderableRegistry::class);
         $this->app->singleton(LinkableContentRegistry::class);
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));

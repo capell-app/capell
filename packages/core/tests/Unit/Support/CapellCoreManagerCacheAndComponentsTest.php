@@ -32,18 +32,7 @@ it('caches values, null sentinels, disabled saves, and cache increments through 
         ],
     ]);
 
-    $manager = new class extends CapellCoreManager
-    {
-        public function incrementPublicCacheKey(string $key): int
-        {
-            return $this->incrementCacheKey($key);
-        }
-
-        public function incrementPublicRawCacheKey(string $key): int
-        {
-            return $this->incrementRawCacheKey($key);
-        }
-    };
+    $manager = new CapellCoreManager;
 
     $callbackRuns = 0;
     $firstValue = $manager->rememberCache(CacheEnum::Site, function () use (&$callbackRuns): string {
@@ -72,9 +61,8 @@ it('caches values, null sentinels, disabled saves, and cache increments through 
 
     expect($manager->getFromCache('forever-key'))->toBe('persisted')
         ->and($manager->cacheExists('forever-key'))->toBeTrue()
-        ->and($manager->incrementPublicCacheKey('counter'))->toBe(1)
-        ->and($manager->incrementPublicCacheKey('counter'))->toBe(2)
-        ->and($manager->incrementPublicRawCacheKey('raw-counter'))->toBe(1);
+        ->and($manager->incrementCacheKey('counter'))->toBe(1)
+        ->and($manager->incrementCacheKey('counter'))->toBe(2);
 
     $manager->removeCacheKey('forever-key');
 
@@ -118,13 +106,7 @@ it('respects ttl callbacks and namespace bumps on cache stores without tag suppo
         'cache.stores.file.path' => $cachePath,
     ]);
 
-    $manager = new class extends CapellCoreManager
-    {
-        public function configuredStoreIsAvailable(): bool
-        {
-            return $this->configuredCacheStoreIsAvailable();
-        }
-    };
+    $manager = new CapellCoreManager;
 
     try {
         $value = $manager->rememberCache('file-backed-key', fn (): string => 'stored', fn (): DateInterval => new DateInterval('PT60S'));
@@ -139,15 +121,6 @@ it('respects ttl callbacks and namespace bumps on cache stores without tag suppo
         expect(Cache::store()->get('capell.cache.generation.capell-app'))->toBe(1)
             ->and($manager->rememberCache('file-backed-key', fn (): string => 'fresh'))->toBe('fresh');
 
-        config(['cache.default' => '']);
-        expect($manager->configuredStoreIsAvailable())->toBeTrue();
-
-        config([
-            'cache.default' => 'database',
-            'cache.stores.database.driver' => 'database',
-            'cache.stores.database.table' => '',
-        ]);
-        expect($manager->configuredStoreIsAvailable())->toBeTrue();
     } finally {
         File::deleteDirectory($cachePath);
     }

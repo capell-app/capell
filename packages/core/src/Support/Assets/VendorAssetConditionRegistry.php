@@ -37,6 +37,7 @@ final class VendorAssetConditionRegistry extends AbstractKeyedRegistry
         if (! $callback instanceof Closure) {
             return false;
         }
+
         $parameterCount = new ReflectionFunction($callback)->getNumberOfParameters();
 
         return $callback(...array_slice($arguments, 0, $parameterCount));

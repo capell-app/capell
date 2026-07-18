@@ -40,6 +40,11 @@ trait HasCache
         resolve(CapellCacheManager::class)->removeCacheKey($key);
     }
 
+    public function incrementCacheKey(string $key): int
+    {
+        return resolve(CapellCacheManager::class)->incrementCacheKey($key);
+    }
+
     public function flushCache(): void
     {
         resolve(CapellCacheManager::class)->flushCache();

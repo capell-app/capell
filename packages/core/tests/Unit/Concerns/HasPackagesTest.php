@@ -10,6 +10,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Illuminate\Support\Facades\DB;
 
@@ -361,9 +362,10 @@ it('memoizes package ordering for all filtering and sorting parameter combinatio
         ->and($withCoreBySort->keys()->all())->toContain('capell-app/capell')
         ->and($withCoreByDependencies->keys()->all())->toContain('capell-app/capell');
 
-    $packagesCache = new ReflectionProperty(CapellCore::getFacadeRoot(), 'packagesCache');
+    $registry = resolve(CapellPackageRegistry::class);
+    $packagesCache = new ReflectionProperty($registry, 'packagesCache');
 
-    expect($packagesCache->getValue(CapellCore::getFacadeRoot()))->toHaveCount(4);
+    expect($packagesCache->getValue($registry))->toHaveCount(4);
 
     $withoutCoreBySort->forget('vendor/first');
     $withoutCoreByDependencies->forget('vendor/second');
@@ -398,13 +400,14 @@ it('invalidates memoized package collections when package state changes', functi
 
     expect($afterManifestRegistration->keys()->all())->toContain('vendor/manifest-package');
 
-    $packagesCache = new ReflectionProperty(CapellCore::getFacadeRoot(), 'packagesCache');
+    $registry = resolve(CapellPackageRegistry::class);
+    $packagesCache = new ReflectionProperty($registry, 'packagesCache');
 
-    expect($packagesCache->getValue(CapellCore::getFacadeRoot()))->not->toBeEmpty();
+    expect($packagesCache->getValue($registry))->not->toBeEmpty();
 
     CapellCore::clearExtensionCache();
 
-    expect($packagesCache->getValue(CapellCore::getFacadeRoot()))->toBeEmpty();
+    expect($packagesCache->getValue($registry))->toBeEmpty();
 
     $afterExtensionCacheClear = CapellCore::getPackages();
 
@@ -423,17 +426,18 @@ it('memoizes normalized uninstalled extension names until extension caches are c
         123,
     ]), ttl: 0);
 
-    $getUninstalledExtensionNames = new ReflectionMethod(CapellCore::getFacadeRoot(), 'getUninstalledExtensionNames');
+    $registry = resolve(CapellPackageRegistry::class);
+    $getUninstalledExtensionNames = new ReflectionMethod($registry, 'getUninstalledExtensionNames');
 
-    expect($getUninstalledExtensionNames->invoke(CapellCore::getFacadeRoot()))->toBe(['vendor/first']);
+    expect($getUninstalledExtensionNames->invoke($registry))->toBe(['vendor/first']);
 
     CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, ['vendor/second'], ttl: 0);
 
-    expect($getUninstalledExtensionNames->invoke(CapellCore::getFacadeRoot()))->toBe(['vendor/first']);
+    expect($getUninstalledExtensionNames->invoke($registry))->toBe(['vendor/first']);
 
     CapellCore::clearExtensionCache();
 
-    expect($getUninstalledExtensionNames->invoke(CapellCore::getFacadeRoot()))->toBe(['vendor/second']);
+    expect($getUninstalledExtensionNames->invoke($registry))->toBe(['vendor/second']);
 });
 
 it('does not enable a paid marketplace package when its runtime gate is blocked', function (): void {

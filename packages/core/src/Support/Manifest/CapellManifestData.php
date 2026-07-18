@@ -314,25 +314,25 @@ final class CapellManifestData
     /** @return class-string|null */
     public function installAction(): ?string
     {
-        return self::classString($this->actions['install'] ?? null);
+        return $this->classString($this->actions['install'] ?? null);
     }
 
     /** @return class-string|null */
     public function uninstallAction(): ?string
     {
-        return self::classString($this->actions['uninstall'] ?? null);
+        return $this->classString($this->actions['uninstall'] ?? null);
     }
 
     /** @return class-string|null */
     public function setupAction(): ?string
     {
-        return self::classString($this->actions['setup'] ?? null);
+        return $this->classString($this->actions['setup'] ?? null);
     }
 
     /** @return class-string|null */
     public function afterInstallAction(): ?string
     {
-        return self::classString($this->actions['afterInstall'] ?? null);
+        return $this->classString($this->actions['afterInstall'] ?? null);
     }
 
     /** @return class-string<ServiceProvider>|null */
@@ -346,19 +346,6 @@ final class CapellManifestData
 
         /** @var class-string<ServiceProvider> $provider */
         return $provider;
-    }
-
-    /** @return class-string|null */
-    private static function classString(mixed $value): ?string
-    {
-        $class = self::stringValue($value);
-
-        if ($class === null || ! class_exists($class)) {
-            return null;
-        }
-
-        /** @var class-string $class */
-        return $class;
     }
 
     private static function stringValue(mixed $value): ?string
@@ -403,5 +390,18 @@ final class CapellManifestData
         }
 
         return array_values(array_filter($value, is_array(...)));
+    }
+
+    /** @return class-string|null */
+    private function classString(mixed $value): ?string
+    {
+        $class = self::stringValue($value);
+
+        if ($class === null || ! class_exists($class)) {
+            return null;
+        }
+
+        /** @var class-string $class */
+        return $class;
     }
 }
