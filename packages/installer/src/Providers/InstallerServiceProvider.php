@@ -73,18 +73,18 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PatchRegistry::class, fn (): PatchRegistry => new PatchRegistry);
     }
 
+    /**
+     * The installer is the pre-install runtime, so this work must remain
+     * available before Capell can record the package as installed.
+     */
     #[Override]
-    public function registeringPackage(): void
+    protected function bootPackage(): self
     {
-        // The installer is the pre-install runtime, so its booted lifecycle must
-        // remain available before Capell can record this package as installed.
-        parent::registeringPackage();
+        $this->registerPatches();
+        $this->registerInstallPatches();
+        $this->registerFilamentIntegration();
 
-        $this->booted(function (): void {
-            $this->registerPatches();
-            $this->registerInstallPatches();
-            $this->registerFilamentIntegration();
-        });
+        return $this;
     }
 
     /**

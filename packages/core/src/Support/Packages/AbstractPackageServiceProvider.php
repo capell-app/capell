@@ -45,11 +45,9 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $this->booted(function (): void {
             $this->bootPackage();
 
-            if ($this->isDiscoveringPackages() || ! $this->isPackageInstalled()) {
-                return;
-            }
-
-            $this->bootInstalledPackage();
+            $this->bootWhenInstalled(function (): void {
+                $this->bootInstalledPackage();
+            });
         });
     }
 
@@ -66,6 +64,15 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
     protected function bootInstalledPackage(): self
     {
         return $this;
+    }
+
+    protected function bootWhenInstalled(callable $callback): void
+    {
+        if ($this->isDiscoveringPackages() || ! $this->isPackageInstalled()) {
+            return;
+        }
+
+        $callback();
     }
 
     protected function isDiscoveringPackages(): bool
