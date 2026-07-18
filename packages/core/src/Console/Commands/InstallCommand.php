@@ -38,6 +38,7 @@ use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Core\Support\Install\InstallMemoryLimit;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
@@ -64,8 +65,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     use DescribesCommandOptions;
     use HasPackageSelection;
     use PromptsWithOptionFallback;
-
-    private const int MinimumMemoryLimitBytes = 536_870_912;
 
     private const string INSTALL_PERMISSIONS_DOC_URL = 'https://docs.capell.app/getting-started/install/#install-time-write-permissions';
 
@@ -755,27 +754,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private function ensureInstallationMemoryLimit(): void
     {
-        $configuredLimit = ini_get('memory_limit');
-
-        if (! is_string($configuredLimit) || $configuredLimit === '-1') {
-            return;
-        }
-
-        if ($this->memoryLimitInBytes($configuredLimit) < self::MinimumMemoryLimitBytes) {
-            ini_set('memory_limit', '512M');
-        }
-    }
-
-    private function memoryLimitInBytes(string $configuredLimit): int
-    {
-        $multiplier = match (strtolower(substr($configuredLimit, -1))) {
-            'g' => 1024 ** 3,
-            'm' => 1024 ** 2,
-            'k' => 1024,
-            default => 1,
-        };
-
-        return (int) $configuredLimit * $multiplier;
+        resolve(InstallMemoryLimit::class)->ensureMinimum();
     }
 
     /**
