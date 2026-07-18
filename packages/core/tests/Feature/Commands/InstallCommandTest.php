@@ -364,8 +364,14 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
     app()->instance(ProcessFactoryInterface::class, $factory);
 }
 
-function bindInstallCommandPreflightProcessFactory(bool $successful = true, string $output = 'Dry run ok', string $errorOutput = '', ?Closure $beforeRun = null): void
-{
+/** @param array<int, string> $packages */
+function bindInstallCommandPreflightProcessFactory(
+    bool $successful = true,
+    string $output = 'Dry run ok',
+    string $errorOutput = '',
+    ?Closure $beforeRun = null,
+    array $packages = ['capell-app/admin'],
+): void {
     $process = Mockery::mock(SymfonyProcess::class);
     $process
         ->shouldReceive('setTimeout')
@@ -399,7 +405,10 @@ function bindInstallCommandPreflightProcessFactory(bool $successful = true, stri
                 '--no-interaction',
                 '--prefer-dist',
                 '--with-all-dependencies',
-                app()->isLocal() ? 'capell-app/admin:*' : 'capell-app/admin',
+                ...array_map(
+                    fn (string $package): string => app()->isLocal() ? $package . ':*' : $package,
+                    $packages,
+                ),
             ]),
             Mockery::type('string'),
             Mockery::type('array'),
@@ -1252,6 +1261,10 @@ it('selects every registered package when --all-packages is given', function ():
     ]);
     $user = createTestUser();
     $fake = bindFakeRunInstallAction();
+    bindInstallCommandPreflightProcessFactory(packages: [
+        'capell-app/marketplace',
+        'capell-app/welcome-tour',
+    ]);
 
     artisanCommand('capell:install', [
         '--all-packages' => true,
