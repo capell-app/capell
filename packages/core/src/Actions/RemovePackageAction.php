@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -188,7 +189,7 @@ class RemovePackageAction
 
         ksort($require);
         $composer['require'] = $require;
-        $encoded = json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+        $encoded = JsonCodec::encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
         $this->files->replace($composerPath, $encoded);
 
         return ['complete' => false, 'update_members' => $bundleWasDirect ? [] : $promoted];

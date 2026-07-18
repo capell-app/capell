@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Scaffolding;
 
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\File;
 use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -27,7 +28,7 @@ final class ScaffoldThemePackageAction
 
         File::put(
             $input->targetPath . '/composer.json',
-            json_encode($this->composerJson($input), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL,
+            JsonCodec::encode($this->composerJson($input), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
         );
 
         $this->renderStubDirectory($input);

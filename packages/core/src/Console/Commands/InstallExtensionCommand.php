@@ -11,6 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -68,7 +69,7 @@ class InstallExtensionCommand extends Command
                 $this->line(sprintf(
                     'Would install %s%s',
                     $package->name,
-                    $arguments === [] ? '' : ' with ' . json_encode($arguments, JSON_THROW_ON_ERROR),
+                    $arguments === [] ? '' : ' with ' . JsonCodec::encode($arguments),
                 ));
 
                 return;

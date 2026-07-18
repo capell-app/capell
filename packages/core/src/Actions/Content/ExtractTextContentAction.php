@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Content;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -39,8 +40,8 @@ class ExtractTextContentAction
         }
 
         if (is_string($content)) {
-            $decoded = json_decode($content, true);
-            if (is_array($decoded) && isset($decoded['content'])) {
+            $decoded = JsonCodec::decodeArray($content);
+            if (isset($decoded['content'])) {
                 return $this->extract($decoded['content']);
             }
 

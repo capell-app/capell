@@ -19,6 +19,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
@@ -465,7 +466,7 @@ final class BuildDoctorReportAction
         }
 
         try {
-            $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
+            $manifest = JsonCodec::decodeArray((string) file_get_contents($manifestPath));
         } catch (Throwable) {
             $manifest = null;
         }

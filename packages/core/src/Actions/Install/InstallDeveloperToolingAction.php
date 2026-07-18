@@ -8,6 +8,7 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -177,8 +178,7 @@ class InstallDeveloperToolingAction
         $boostConfig = [];
 
         if (is_file($boostJsonPath)) {
-            $decodedConfig = json_decode((string) file_get_contents($boostJsonPath), true);
-            $boostConfig = is_array($decodedConfig) ? $decodedConfig : [];
+            $boostConfig = JsonCodec::decodeArray((string) file_get_contents($boostJsonPath));
         }
 
         $configuredPackages = $boostConfig['packages'] ?? [];
@@ -225,13 +225,13 @@ class InstallDeveloperToolingAction
             'config',
             '--json',
             'repositories.capell-agent-bridge',
-            json_encode([
+            JsonCodec::encode([
                 'type' => 'path',
                 'url' => $agentBridgePath,
                 'options' => [
                     'symlink' => true,
                 ],
-            ], JSON_THROW_ON_ERROR),
+            ]),
         ], $reporter, 120);
     }
 
