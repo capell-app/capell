@@ -27,6 +27,7 @@ use Capell\Core\Observers\BlueprintObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -356,49 +357,57 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
         $query->where('type', $type);
     }
 
-    protected function getContentStructureAttribute(): ?ContentStructure
+    protected function contentStructure(): Attribute
     {
-        if (! isset($this->meta['content_structure'])) {
-            return null;
-        }
-
-        return ContentStructure::from($this->meta['content_structure'] ?? '');
-    }
-
-    protected function getCacheTimeAttribute(): ?CacheTime
-    {
-        if (! isset($this->meta['cache_time'])) {
-            return null;
-        }
-
-        return CacheTime::from($this->meta['cache_time'] ?? '');
-    }
-
-    protected function setMetaAttribute(mixed $value): void
-    {
-        if (is_string($value)) {
-            $value = json_decode($value, true);
-        }
-
-        if (! is_array($value)) {
-            $this->attributes['meta'] = $value === null ? null : json_encode($value);
-
-            return;
-        }
-
-        foreach (['component', 'component_item', 'view_file'] as $column) {
-            if (array_key_exists($column, $value)) {
-                $this->attributes[$column] = $this->nullableComponentString($value[$column]);
-                unset($value[$column]);
+        return Attribute::make(get: function (): ?ContentStructure {
+            if (! isset($this->meta['content_structure'])) {
+                return null;
             }
-        }
 
-        if (array_key_exists('livewire', $value)) {
-            $this->attributes['is_livewire'] = (bool) $value['livewire'];
-            unset($value['livewire']);
-        }
+            return ContentStructure::from($this->meta['content_structure'] ?? '');
+        });
+    }
 
-        $this->attributes['meta'] = $value === [] ? null : json_encode($value);
+    protected function cacheTime(): Attribute
+    {
+        return Attribute::make(get: function (): ?CacheTime {
+            if (! isset($this->meta['cache_time'])) {
+                return null;
+            }
+
+            return CacheTime::from($this->meta['cache_time'] ?? '');
+        });
+    }
+
+    protected function meta(): Attribute
+    {
+        return Attribute::make(set: function (mixed $value): array {
+            if (is_string($value)) {
+                $value = json_decode($value, true);
+            }
+
+            if (! is_array($value)) {
+                return ['meta' => $value === null ? null : json_encode($value)];
+            }
+
+            $attributes = [];
+
+            foreach (['component', 'component_item', 'view_file'] as $column) {
+                if (array_key_exists($column, $value)) {
+                    $attributes[$column] = $this->nullableComponentString($value[$column]);
+                    unset($value[$column]);
+                }
+            }
+
+            if (array_key_exists('livewire', $value)) {
+                $attributes['is_livewire'] = (bool) $value['livewire'];
+                unset($value['livewire']);
+            }
+
+            $attributes['meta'] = $value === [] ? null : json_encode($value);
+
+            return $attributes;
+        });
     }
 
     #[Override]
