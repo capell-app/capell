@@ -9,9 +9,11 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
+use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 it('registerPackage does not accept manifest-backed params', function (): void {
@@ -352,6 +354,21 @@ it('memoizes package ordering for all filtering and sorting parameter combinatio
     CapellCore::registerPackage('vendor/first');
     CapellCore::registerPackage('vendor/second');
 
+    $planner = new class
+    {
+        public int $sorts = 0;
+
+        /** @param Collection<string, PackageData> $packages */
+        public function order(Collection $packages): Collection
+        {
+            $this->sorts++;
+
+            return $packages->sortKeys();
+        }
+    };
+
+    app()->instance(PackageWorkflowPlanner::class, $planner);
+
     $withoutCoreBySort = CapellCore::getPackages();
     $withoutCoreByDependencies = CapellCore::getPackages(sortByDependencies: true);
     $withCoreBySort = CapellCore::getPackages(withoutCore: false);
@@ -362,18 +379,15 @@ it('memoizes package ordering for all filtering and sorting parameter combinatio
         ->and($withCoreBySort->keys()->all())->toContain('capell-app/capell')
         ->and($withCoreByDependencies->keys()->all())->toContain('capell-app/capell');
 
-    $registry = resolve(CapellPackageRegistry::class);
-    $packagesCache = new ReflectionProperty($registry, 'packagesCache');
-
-    expect($packagesCache->getValue($registry))->toHaveCount(4);
-
     $withoutCoreBySort->forget('vendor/first');
     $withoutCoreByDependencies->forget('vendor/second');
 
-    expect(CapellCore::getPackages()->keys()->all())->toContain('vendor/first', 'vendor/second')
+    expect($planner->sorts)->toBe(2)
+        ->and(CapellCore::getPackages()->keys()->all())->toContain('vendor/first', 'vendor/second')
         ->and(CapellCore::getPackages(sortByDependencies: true)->keys()->all())->toContain('vendor/first', 'vendor/second')
         ->and(CapellCore::getPackages())->not->toBe($withoutCoreBySort)
-        ->and(CapellCore::getPackages(sortByDependencies: true))->not->toBe($withoutCoreByDependencies);
+        ->and(CapellCore::getPackages(sortByDependencies: true))->not->toBe($withoutCoreByDependencies)
+        ->and($planner->sorts)->toBe(2);
 });
 
 it('invalidates memoized package ordering when forcing an unknown package state', function (): void {
@@ -392,6 +406,10 @@ it('invalidates memoized package collections when package state changes', functi
 
     CapellCore::getPackages();
 
+    CapellCore::registerPackage('vendor/runtime-package');
+
+    expect(CapellCore::getPackages()->keys()->all())->toContain('vendor/runtime-package');
+
     CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/manifest-package',
     )));
@@ -400,14 +418,7 @@ it('invalidates memoized package collections when package state changes', functi
 
     expect($afterManifestRegistration->keys()->all())->toContain('vendor/manifest-package');
 
-    $registry = resolve(CapellPackageRegistry::class);
-    $packagesCache = new ReflectionProperty($registry, 'packagesCache');
-
-    expect($packagesCache->getValue($registry))->not->toBeEmpty();
-
     CapellCore::clearExtensionCache();
-
-    expect($packagesCache->getValue($registry))->toBeEmpty();
 
     $afterExtensionCacheClear = CapellCore::getPackages();
 
@@ -438,6 +449,34 @@ it('memoizes normalized uninstalled extension names until extension caches are c
     CapellCore::clearExtensionCache();
 
     expect($getUninstalledExtensionNames->invoke($registry))->toBe(['vendor/second']);
+});
+
+it('invalidates memoized uninstalled extension names when packages mutate or are cleared', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, ['vendor/first'], ttl: 0);
+    CapellCore::registerPackage('vendor/first');
+    CapellCore::forcePackageInstalled('vendor/first');
+
+    expect(CapellCore::isPackageInstalled('vendor/first'))->toBeFalse();
+
+    CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, [], ttl: 0);
+    CapellCore::registerPackage('vendor/first');
+
+    expect(CapellCore::isPackageInstalled('vendor/first'))->toBeTrue();
+
+    CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, ['vendor/first'], ttl: 0);
+    CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/second',
+    )));
+
+    expect(CapellCore::isPackageInstalled('vendor/first'))->toBeFalse();
+
+    CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, ['vendor/first'], ttl: 0);
+    CapellCore::clearPackages();
+    CapellCore::registerPackage('vendor/first');
+    CapellCore::forcePackageInstalled('vendor/first');
+
+    expect(CapellCore::isPackageInstalled('vendor/first'))->toBeFalse();
 });
 
 it('does not enable a paid marketplace package when its runtime gate is blocked', function (): void {
