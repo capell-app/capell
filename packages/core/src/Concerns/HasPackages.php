@@ -137,20 +137,20 @@ trait HasPackages
             name: $manifest->name,
             type: $this->packageTypeFromManifestKind($manifest->kind),
             scopes: array_map(PackageScopeEnum::from(...), $manifest->scopes),
-            serviceProviderClass: $existing->serviceProviderClass ?? $this->serviceProviderClassFromManifest($manifest),
+            serviceProviderClass: $existing->serviceProviderClass ?? $manifest->serviceProviderClass(),
             path: $existing->path ?? $manifest->installPath,
             shortName: $manifest->displayName,
             description: $manifest->description,
             sort: $manifest->order,
-            installCommand: is_string($manifest->commands['install'] ?? null) ? $manifest->commands['install'] : null,
-            installAction: $this->classStringFromManifest($manifest->actions['install'] ?? null),
-            installParams: is_array($manifest->commands['installParams'] ?? null) ? array_values($manifest->commands['installParams']) : [],
-            uninstallAction: $this->classStringFromManifest($manifest->actions['uninstall'] ?? null),
-            setupCommand: is_string($manifest->commands['setup'] ?? null) ? $manifest->commands['setup'] : null,
-            setupAction: $this->classStringFromManifest($manifest->actions['setup'] ?? null),
-            setupParams: is_array($manifest->commands['setupParams'] ?? null) ? array_values($manifest->commands['setupParams']) : [],
-            demoCommand: is_string($manifest->commands['demo'] ?? null) ? $manifest->commands['demo'] : null,
-            demoParams: is_array($manifest->commands['demoParams'] ?? null) ? array_values($manifest->commands['demoParams']) : [],
+            installCommand: $manifest->installCommand(),
+            installAction: $manifest->installAction(),
+            installParams: $manifest->installParams(),
+            uninstallAction: $manifest->uninstallAction(),
+            setupCommand: $manifest->setupCommand(),
+            setupAction: $manifest->setupAction(),
+            setupParams: $manifest->setupParams(),
+            demoCommand: $manifest->demoCommand(),
+            demoParams: $manifest->demoParams(),
             setting: $manifest->settings[0] ?? null,
             version: $version ?? $existing->version ?? $manifest->version,
             requirements: $manifest->requires,
@@ -160,9 +160,9 @@ trait HasPackages
             core: TrustedCorePackages::contains($manifest->name),
             defaultSelected: $manifest->defaultSelected,
             demo: $manifest->demo,
-            afterInstallCommand: is_string($manifest->commands['afterInstall'] ?? null) ? $manifest->commands['afterInstall'] : null,
-            afterInstallAction: $this->classStringFromManifest($manifest->actions['afterInstall'] ?? null),
-            afterInstallParams: is_array($manifest->commands['afterInstallParams'] ?? null) ? array_values($manifest->commands['afterInstallParams']) : [],
+            afterInstallCommand: $manifest->afterInstallCommand(),
+            afterInstallAction: $manifest->afterInstallAction(),
+            afterInstallParams: $manifest->afterInstallParams(),
             kind: $manifest->kind,
             themeKey: $manifest->themeKey,
             extendsPackage: $manifest->extends,
@@ -587,21 +587,6 @@ trait HasPackages
         return $names;
     }
 
-    /**
-     * @return class-string<ServiceProvider>|null
-     */
-    private function serviceProviderClassFromManifest(CapellManifestData $manifest): ?string
-    {
-        $provider = $manifest->providers->all()[0] ?? null;
-
-        if (! is_string($provider) || ! is_subclass_of($provider, ServiceProvider::class)) {
-            return null;
-        }
-
-        /** @var class-string<ServiceProvider> $provider */
-        return $provider;
-    }
-
     private function manifestFromPackagePath(?string $packagePath, string $packageName): ?CapellManifestData
     {
         $manifestPath = $packagePath !== null ? $packagePath . '/capell.json' : null;
@@ -622,19 +607,6 @@ trait HasPackages
         }
 
         return CapellManifestData::fromArray($manifest, realpath($packagePath) ?: $packagePath);
-    }
-
-    /**
-     * @return class-string|null
-     */
-    private function classStringFromManifest(mixed $class): ?string
-    {
-        if (! is_string($class) || ! class_exists($class)) {
-            return null;
-        }
-
-        /** @var class-string $class */
-        return $class;
     }
 
     private function extensionLifecycle(): ExtensionLifecycleRepository

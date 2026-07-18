@@ -13,4 +13,14 @@ enum AssetComponentEnum: string
     case Page = 'capell.asset.page';
 
     case Tile = 'capell.asset.tile';
+
+    public function bladeView(): string
+    {
+        return match ($this) {
+            self::Card => 'capell::asset.index',
+            self::Media => 'capell::media.asset',
+            self::Page => 'capell::page.asset',
+            self::Tile => 'capell::asset.tile',
+        };
+    }
 }

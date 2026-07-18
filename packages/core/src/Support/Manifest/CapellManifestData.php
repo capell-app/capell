@@ -14,6 +14,7 @@ use Capell\Core\Data\Manifest\ExtensionScreenshotData;
 use Capell\Core\Data\Manifest\ExtensionSecurityData;
 use Capell\Core\Enums\ExtensionManifestVersion;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
+use Illuminate\Support\ServiceProvider;
 
 final class CapellManifestData
 {
@@ -264,6 +265,100 @@ final class CapellManifestData
         }
 
         return null;
+    }
+
+    public function installCommand(): ?string
+    {
+        return self::stringValue($this->commands['install'] ?? null);
+    }
+
+    /** @return list<string> */
+    public function installParams(): array
+    {
+        return self::stringList($this->commands['installParams'] ?? null);
+    }
+
+    public function setupCommand(): ?string
+    {
+        return self::stringValue($this->commands['setup'] ?? null);
+    }
+
+    /** @return list<string> */
+    public function setupParams(): array
+    {
+        return self::stringList($this->commands['setupParams'] ?? null);
+    }
+
+    public function demoCommand(): ?string
+    {
+        return self::stringValue($this->commands['demo'] ?? null);
+    }
+
+    /** @return list<string> */
+    public function demoParams(): array
+    {
+        return self::stringList($this->commands['demoParams'] ?? null);
+    }
+
+    public function afterInstallCommand(): ?string
+    {
+        return self::stringValue($this->commands['afterInstall'] ?? null);
+    }
+
+    /** @return list<string> */
+    public function afterInstallParams(): array
+    {
+        return self::stringList($this->commands['afterInstallParams'] ?? null);
+    }
+
+    /** @return class-string|null */
+    public function installAction(): ?string
+    {
+        return self::classString($this->actions['install'] ?? null);
+    }
+
+    /** @return class-string|null */
+    public function uninstallAction(): ?string
+    {
+        return self::classString($this->actions['uninstall'] ?? null);
+    }
+
+    /** @return class-string|null */
+    public function setupAction(): ?string
+    {
+        return self::classString($this->actions['setup'] ?? null);
+    }
+
+    /** @return class-string|null */
+    public function afterInstallAction(): ?string
+    {
+        return self::classString($this->actions['afterInstall'] ?? null);
+    }
+
+    /** @return class-string<ServiceProvider>|null */
+    public function serviceProviderClass(): ?string
+    {
+        $provider = $this->providers->all()[0] ?? null;
+
+        if (! is_string($provider) || ! is_subclass_of($provider, ServiceProvider::class)) {
+            return null;
+        }
+
+        /** @var class-string<ServiceProvider> $provider */
+        return $provider;
+    }
+
+    /** @return class-string|null */
+    private static function classString(mixed $value): ?string
+    {
+        $class = self::stringValue($value);
+
+        if ($class === null || ! class_exists($class)) {
+            return null;
+        }
+
+        /** @var class-string $class */
+        return $class;
     }
 
     private static function stringValue(mixed $value): ?string

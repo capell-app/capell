@@ -57,16 +57,6 @@ use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\ServingCapell;
-use Capell\Core\EventSourcing\Aggregates\PageAggregate;
-use Capell\Core\EventSourcing\Listeners\RecordPageRevision;
-use Capell\Core\EventSourcing\Projectors\PageProjector;
-use Capell\Core\EventSourcing\Reactors\PageWorkflowReactor;
-use Capell\Core\EventSourcing\Rollback\RollbackValidatorRegistry;
-use Capell\Core\EventSourcing\Rollback\Support\StateDiffer;
-use Capell\Core\EventSourcing\Rollback\Validators\PageReferentialIntegrityRollbackValidator;
-use Capell\Core\EventSourcing\Rollback\Validators\PageUrlUniquenessRollbackValidator;
-use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
-use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
@@ -94,6 +84,9 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
+use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
+use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
+use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
@@ -116,17 +109,11 @@ use Capell\Core\Support\Makers\BuiltIn\PageBladeComponentMaker;
 use Capell\Core\Support\Makers\BuiltIn\PageLivewireComponentMaker;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Makers\MakerSafety;
-use Capell\Core\Support\Manifest\CapellManifestData;
-use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
-use Capell\Core\Support\Manifest\ManifestLoader;
-use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
-use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
-use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -157,7 +144,6 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Routing\Router;
@@ -166,12 +152,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Override;
-use ReflectionClass;
-use Spatie\EventSourcing\EventSourcingServiceProvider;
 use Spatie\LaravelPackageTools\Package;
-use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
-use Throwable;
 
 class CapellServiceProvider extends AbstractPackageServiceProvider
 {
@@ -190,7 +172,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         config(['media-library.media_model' => Media::class]);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::$name);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-core');
-        $this->bootCapellPackageRegistry();
+        $this->app->make(PackageRegistryBootstrapper::class)->bootstrap();
 
         parent::registeringPackage();
     }
@@ -199,7 +181,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         $this
             ->registerPublishCommands()
-            ->enforceMorphMapRequirement()
             ->registerAboutInfo('capell-app/core')
             ->registerMorphMap()
             ->registerGatePolicyGuesser()
@@ -271,7 +252,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerCoreRenderables()
             ->registerTypes()
             ->registerAssets()
-            ->registerUserMorphMap()
             ->registerDiscoverableComponents()
             ->registerMakers()
             ->registerContentGraphExtractors()
@@ -302,7 +282,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
      */
     private function bootEventSourcing(): self
     {
-        Event::listen(PageSaved::class, [RecordPageRevision::class, 'handle']);
+        $this->app->make(EventSourcingBootstrapper::class)->boot();
 
         return $this;
     }
@@ -315,58 +295,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
      */
     private function registerEventSourcing(): self
     {
-        $this->app->singleton(EventSourcedRegistry::class);
-        $this->app->singleton(RollbackValidatorRegistry::class);
-        $this->app->singleton(StateDiffer::class);
-
-        // Guarantee Spatie's full event-sourcing config defaults are present
-        // (stored_event_repository, serializers, …) regardless of provider boot
-        // order or whether the host merged the package config itself.
-        $eventSourcingProviderFile = new ReflectionClass(EventSourcingServiceProvider::class)->getFileName();
-
-        if ($eventSourcingProviderFile !== false) {
-            $this->mergeConfigFrom(
-                dirname($eventSourcingProviderFile, 2) . '/config/event-sourcing.php',
-                'event-sourcing',
-            );
-        }
-
-        // Register the projector/reactor via config (read lazily when Spatie
-        // builds the Projectionist) rather than the facade, so wiring is
-        // independent of provider boot order. Auto-discovery is disabled: Capell
-        // registers its handlers explicitly and never scans an app path.
-        config([
-            'event-sourcing.projectors' => array_values(array_unique([
-                ...(array) config('event-sourcing.projectors', []),
-                PageProjector::class,
-            ])),
-            'event-sourcing.reactors' => array_values(array_unique([
-                ...(array) config('event-sourcing.reactors', []),
-                PageWorkflowReactor::class,
-            ])),
-            'event-sourcing.auto_discover_projectors_and_reactors' => [],
-            // Order replay/rollback reads by aggregate_version, not the default
-            // autoincrement id: per-aggregate reconstitution then uses the
-            // (aggregate_uuid, aggregate_version) index instead of filesorting
-            // wide jsonb payload rows.
-            'event-sourcing.aggregate_event_order_column' => 'aggregate_version',
-        ]);
-
-        $this->app->make(EventSourcedRegistry::class)->register(
-            Page::class,
-            PageAggregate::class,
-            PageStateSerializer::class,
-        );
-
-        $this->app->make(RollbackValidatorRegistry::class)->register(
-            Page::class,
-            PageUrlUniquenessRollbackValidator::class,
-        );
-
-        $this->app->make(RollbackValidatorRegistry::class)->register(
-            Page::class,
-            PageReferentialIntegrityRollbackValidator::class,
-        );
+        $this->app->make(EventSourcingBootstrapper::class)->register();
 
         return $this;
     }
@@ -406,66 +335,18 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function bootCapellPackageRegistry(): void
-    {
-        $registry = new CapellPackageRegistry;
-        $cachePath = $this->app->bootstrapPath('cache/capell-package-manifests.php');
-
-        $loader = new ManifestLoader(new ManifestValidator);
-
-        $manifests = file_exists($cachePath) ? $this->hydrateCachedPackageManifests($cachePath, $loader) : $loader->discover();
-
-        $registry->fill($manifests);
-        $this->app->instance(CapellPackageRegistry::class, $registry);
-
-        foreach ($manifests as $manifest) {
-            CapellCore::registerManifestPackage(
-                $manifest,
-                CapellCore::getInstalledPrettyVersion($manifest->name),
-            );
-        }
-
-        $packageLoader = new CapellPackageLoader($this->app, $registry);
-        $packageLoader->loadProviders();
-    }
-
-    /**
-     * @return array<string, CapellManifestData>
-     */
-    private function hydrateCachedPackageManifests(string $cachePath, ManifestLoader $loader): array
-    {
-        try {
-            $cached = require $cachePath;
-
-            throw_unless(is_array($cached), InvalidManifestException::class, 'Cached Capell package manifest must return an array.');
-
-            return array_map(
-                CapellManifestData::fromArray(...),
-                $cached,
-            );
-        } catch (Throwable) {
-            @unlink($cachePath);
-
-            return $loader->discover();
-        }
-    }
-
-    private function enforceMorphMapRequirement(): self
-    {
-        if ((string) $this->app->environment() !== '') {
-            Relation::requireMorphMap();
-        }
-
-        return $this;
-    }
-
     private function registerMorphMap(): self
     {
-        Relation::morphMap(
-            collect(CapellCore::getModels())
-                ->mapWithKeys(fn (string $modelClass, string $name): array => [Str::snake($name) => $modelClass])
-                ->all(),
-        );
+        $morphMap = collect(CapellCore::getModels())
+            ->mapWithKeys(fn (string $modelClass, string $name): array => [Str::snake($name) => $modelClass])
+            ->all();
+
+        if (! array_key_exists('User', Relation::morphMap())) {
+            $morphMap['User'] = config('auth.providers.users.model');
+        }
+
+        Relation::morphMap($morphMap);
+        Relation::requireMorphMap();
 
         return $this;
     }
@@ -488,8 +369,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function bindManagers(): self
     {
-        $this->app->scoped('capell-admin', fn (): CapellCoreManager => new CapellCoreManager);
-
         $this->app->bind(
             BladeComponentResolverInterface::class,
             BladeComponentFacadeResolver::class,
@@ -499,6 +378,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
 
         $this->app->singleton(CapellCoreManager::class, fn (): CapellCoreManager => new CapellCoreManager);
+        $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->tag([CapellCoreManager::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
         $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
@@ -625,12 +505,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $registry->register(new RenderableDefinitionData(
                 key: $assetComponent->value,
                 type: RenderableTypeEnum::Asset,
-                blade: match ($assetComponent) {
-                    AssetComponentEnum::Card => 'capell::asset.index',
-                    AssetComponentEnum::Media => 'capell::media.asset',
-                    AssetComponentEnum::Page => 'capell::page.asset',
-                    AssetComponentEnum::Tile => 'capell::asset.tile',
-                },
+                blade: $assetComponent->bladeView(),
             ));
         }
 
@@ -641,10 +516,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         foreach (BlueprintSubjectEnum::cases() as $type) {
             $model = $type->getModel();
-
-            if (! is_subclass_of($model, Model::class)) {
-                continue;
-            }
 
             // Labels must be registered as plain strings (not closures) because
             // PageTypeData is stored in CapellCoreManager and may be serialised
@@ -681,16 +552,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerUserMorphMap(): self
-    {
-        $userModelKey = 'User';
-        if (! array_key_exists($userModelKey, Relation::morphMap())) {
-            Relation::morphMap([$userModelKey => config('auth.providers.users.model')]);
-        }
-
-        return $this;
-    }
-
     private function registerDiscoverableComponents(): self
     {
         CapellCore::registerDiscoverableComponents(in: resource_path('views/components/capell'), for: 'capell');
@@ -716,48 +577,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerConfigSettings(): self
     {
-        $settingsProviderPath = new ReflectionClass(LaravelSettingsServiceProvider::class)->getFileName();
-
-        if (is_string($settingsProviderPath)) {
-            $settingsConfigPath = dirname($settingsProviderPath) . '/../config/settings.php';
-
-            if (is_file($settingsConfigPath)) {
-                config()->set('settings', array_merge(
-                    require $settingsConfigPath,
-                    config('settings', []),
-                ));
-            }
-        }
-
-        $settings = config('settings.settings', []);
-
-        if (! in_array(CoreSettings::class, $settings, true)) {
-            $settings[] = CoreSettings::class;
-        }
-
-        if (! in_array(ThemeStudioSettings::class, $settings, true)) {
-            $settings[] = ThemeStudioSettings::class;
-        }
-
-        $packages = CapellCore::getPackages();
-
-        foreach ($packages as $package) {
-            if ($package->setting === null) {
-                continue;
-            }
-
-            if ($package->setting === '') {
-                continue;
-            }
-
-            if (in_array($package->setting, $settings, true)) {
-                continue;
-            }
-
-            $settings[] = $package->setting;
-        }
-
-        config(['settings.settings' => $settings]);
+        $this->app->make(SettingsBootstrapper::class)->bootstrap();
 
         return $this;
     }
@@ -822,12 +642,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $redirectResolverContract = RedirectResolver::class;
 
-        if (interface_exists($redirectResolverContract)) {
-            $this->app->singleton(
-                $redirectResolverContract,
-                PageUrlRedirectResolver::class,
-            );
-        }
+        $this->app->singleton(
+            $redirectResolverContract,
+            PageUrlRedirectResolver::class,
+        );
 
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
 
