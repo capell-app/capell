@@ -10,6 +10,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -59,7 +60,7 @@ final class ResolvePublicFragmentContentVersionAction
             'ownerContext' => $ownerContext,
         ]);
 
-        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        return hash('sha256', JsonCodec::encode($payload));
     }
 
     /**

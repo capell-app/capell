@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Fragments;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
 use Capell\Frontend\Exceptions\PublicFragmentReferenceInvalid;
@@ -41,7 +42,7 @@ final class EncryptedPublicFragmentReferenceCodec implements PublicFragmentRefer
         try {
             $this->assertValidPayload($payload);
 
-            return $this->toUrlSafeToken(Crypt::encryptString(json_encode($payload, JSON_THROW_ON_ERROR)));
+            return $this->toUrlSafeToken(Crypt::encryptString(JsonCodec::encode($payload)));
         } catch (Throwable) {
             throw new PublicFragmentReferenceInvalid;
         }

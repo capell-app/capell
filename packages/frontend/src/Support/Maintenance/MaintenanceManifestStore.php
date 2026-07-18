@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Maintenance;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\File;
 
 final class MaintenanceManifestStore
@@ -20,13 +21,7 @@ final class MaintenanceManifestStore
             return $this->defaults();
         }
 
-        $decoded = json_decode(File::get($this->path()), true);
-
-        if (! is_array($decoded)) {
-            return $this->defaults();
-        }
-
-        return array_replace_recursive($this->defaults(), $decoded);
+        return array_replace_recursive($this->defaults(), JsonCodec::decodeArray(File::get($this->path())));
     }
 
     /** @param array<string, mixed> $manifest */
