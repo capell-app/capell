@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(Site $site, Translation $translation, string $parentUrl = '')
  */
-final class UpdatePageUrlAction
+class UpdatePageUrlAction
 {
     use AsFake;
     use AsObject;

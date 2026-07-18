@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(PackageData $package)
  */
-final class EnablePackageAction
+class EnablePackageAction
 {
     use AsFake;
     use AsObject;

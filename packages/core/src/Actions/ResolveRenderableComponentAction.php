@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static string run(RenderableTypeEnum|string $type, string $key, string $implementation = 'blade')
  */
-final class ResolveRenderableComponentAction
+class ResolveRenderableComponentAction
 {
     use AsFake;
     use AsObject;

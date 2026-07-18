@@ -80,7 +80,8 @@ it('makes core actions data and support classes final by default', function (): 
     ])->filter(function (SplFileInfo $file): bool {
         $contents = (string) file_get_contents($file->getPathname());
 
-        return preg_match('/^class\s+\w+/m', $contents) === 1;
+        return preg_match('/^class\s+\w+/m', $contents) === 1
+            && preg_match('/\buse\s+AsFake\s*;/', $contents) !== 1;
     })->map(fn (SplFileInfo $file): string => str_replace($sourcePath . '/', '', $file->getPathname()))
         ->reject(fn (string $path): bool => in_array($path, $extensionPoints, true))
         ->values()

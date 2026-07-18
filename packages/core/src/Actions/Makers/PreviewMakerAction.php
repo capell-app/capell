@@ -10,7 +10,7 @@ use Capell\Core\Data\Makers\MakerPreviewData;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class PreviewMakerAction
+class PreviewMakerAction
 {
     use AsFake;
     use AsObject;

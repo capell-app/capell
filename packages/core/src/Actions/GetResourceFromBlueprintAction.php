@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static string run(?Blueprint $type = null)
  */
-final class GetResourceFromBlueprintAction
+class GetResourceFromBlueprintAction
 {
     use AsFake;
     use AsObject;

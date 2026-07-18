@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
-final class RunDatabaseMigrationsAction
+class RunDatabaseMigrationsAction
 {
     use AsFake;
     use AsObject;

@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static array{errors: list<string>, warnings: list<string>} run(string $sourceUrl, string $targetUrl, int $siteId, int $languageId, ?int $excludeId = null, ?int $statusCode = null, bool $validateDuplicateSource = true)
  */
-final class ValidateRedirectAction
+class ValidateRedirectAction
 {
     use AsFake;
     use AsObject;

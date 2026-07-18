@@ -9,7 +9,7 @@ use Capell\Core\Models\UpgradeLogEntry;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class AuditInstalledVersionsAction
+class AuditInstalledVersionsAction
 {
     use AsFake;
     use AsObject;

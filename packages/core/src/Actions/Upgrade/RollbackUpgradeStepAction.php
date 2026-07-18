@@ -14,7 +14,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
-final class RollbackUpgradeStepAction
+class RollbackUpgradeStepAction
 {
     use AsFake;
     use AsObject;

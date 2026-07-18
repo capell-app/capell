@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class RunSettingsMigrationsAction
+class RunSettingsMigrationsAction
 {
     use AsFake;
     use AsObject;

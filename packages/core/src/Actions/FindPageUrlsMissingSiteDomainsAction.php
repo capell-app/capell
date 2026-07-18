@@ -14,7 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static Collection<int, PageUrl> run()
  */
-final class FindPageUrlsMissingSiteDomainsAction
+class FindPageUrlsMissingSiteDomainsAction
 {
     use AsFake;
     use AsObject;

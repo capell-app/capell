@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class CreateAutomaticRedirectAction
+class CreateAutomaticRedirectAction
 {
     use AsFake;
     use AsObject;

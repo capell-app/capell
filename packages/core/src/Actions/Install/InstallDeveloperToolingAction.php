@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
-final class InstallDeveloperToolingAction
+class InstallDeveloperToolingAction
 {
     use AsFake;
     use AsObject;

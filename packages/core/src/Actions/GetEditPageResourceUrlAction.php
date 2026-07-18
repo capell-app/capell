@@ -12,7 +12,7 @@ use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class GetEditPageResourceUrlAction
+class GetEditPageResourceUrlAction
 {
     use AsFake;
     use AsObject;

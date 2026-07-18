@@ -23,7 +23,7 @@ use RuntimeException;
 /**
  * @method static Site run(Site $source, array<string, mixed> $formData = [])
  */
-final class SiteReplicatedAction
+class SiteReplicatedAction
 {
     use AsFake;
     use AsObject;

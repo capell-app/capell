@@ -8,7 +8,7 @@ use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class ExtractTextContentAction
+class ExtractTextContentAction
 {
     use AsFake;
     use AsObject;

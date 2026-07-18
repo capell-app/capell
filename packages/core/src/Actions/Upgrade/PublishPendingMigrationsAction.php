@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class PublishPendingMigrationsAction
+class PublishPendingMigrationsAction
 {
     use AsFake;
     use AsObject;

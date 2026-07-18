@@ -17,7 +17,7 @@ use Throwable;
 /**
  * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name, ?callable $finalize = null)
  */
-final class RemovePackageAction
+class RemovePackageAction
 {
     use AsFake;
     use AsObject;

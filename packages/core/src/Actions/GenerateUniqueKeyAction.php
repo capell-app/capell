@@ -10,7 +10,7 @@ use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class GenerateUniqueKeyAction
+class GenerateUniqueKeyAction
 {
     use AsFake;
     use AsObject;

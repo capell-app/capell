@@ -16,7 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(string $url, ?int $pageId = null)
  */
-final class VisitUrlAction implements ShouldBeUnique
+class VisitUrlAction implements ShouldBeUnique
 {
     use AsFake;
     use AsJob;

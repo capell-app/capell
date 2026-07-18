@@ -10,7 +10,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static array{r: int, g: int, b: int}|string|null run(string|array<string, mixed> $color, array<string, mixed> $override = [], bool $extract = false)
  */
-final class UpdateRgbColorAction
+class UpdateRgbColorAction
 {
     use AsFake;
     use AsObject;

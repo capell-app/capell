@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class RebuildContentGraphForModelAction
+class RebuildContentGraphForModelAction
 {
     use AsFake;
     use AsObject;

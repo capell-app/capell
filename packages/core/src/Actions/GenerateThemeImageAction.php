@@ -20,7 +20,7 @@ use Throwable;
  * @method static void dispatch(int $themeId, string $signature)
  * @method static void run(int $themeId, string $signature)
  */
-final class GenerateThemeImageAction
+class GenerateThemeImageAction
 {
     use AsFake;
     use AsJob;

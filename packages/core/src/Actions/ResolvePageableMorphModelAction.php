@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static ?Model run(string $pageableType, int|string $pageableId, array<int, string> $columns = ['*'])
  */
-final class ResolvePageableMorphModelAction
+class ResolvePageableMorphModelAction
 {
     use AsFake;
     use AsObject;

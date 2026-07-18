@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class PruneContentGraphEdgesAction
+class PruneContentGraphEdgesAction
 {
     use AsFake;
     use AsObject;

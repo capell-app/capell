@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static Theme run(string $key = 'default', ?string $name = null, array<mixed> $assets = [], ?string $assetsPath = null, bool $defaultColors = false, ?bool $default = null, ?string $activePreset = null)
  */
-final class CreateThemeAction
+class CreateThemeAction
 {
     use AsFake;
     use AsObject;

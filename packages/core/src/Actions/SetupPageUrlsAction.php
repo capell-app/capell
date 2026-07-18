@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class SetupPageUrlsAction
+class SetupPageUrlsAction
 {
     use AsFake;
     use AsObject;

@@ -11,7 +11,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static Language run(bool $default = true)
  */
-final class CreateDefaultLanguageAction
+class CreateDefaultLanguageAction
 {
     use AsFake;
     use AsObject;

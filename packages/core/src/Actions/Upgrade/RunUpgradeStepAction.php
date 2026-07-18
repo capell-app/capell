@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
-final class RunUpgradeStepAction
+class RunUpgradeStepAction
 {
     use AsFake;
     use AsObject;

@@ -14,7 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static Collection<int, Language> run(array<int, string> $codes)
  */
-final class CreateDefaultLanguagesAction
+class CreateDefaultLanguagesAction
 {
     use AsFake;
     use AsObject;

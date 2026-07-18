@@ -24,7 +24,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static PublicPageResolutionData run(Site $site, Language $language, string $url, ?int $revisionPageId = null, ?PageUrl $resolvedPageUrl = null)
  */
-final class ResolvePublicPageByUrlAction
+class ResolvePublicPageByUrlAction
 {
     use AsFake;
     use AsObject;

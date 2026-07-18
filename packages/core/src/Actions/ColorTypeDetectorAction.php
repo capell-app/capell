@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *
  * @method static string run(string $color)
  */
-final class ColorTypeDetectorAction
+class ColorTypeDetectorAction
 {
     use AsFake;
     use AsObject;

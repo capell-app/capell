@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(Site $site, array<string, mixed> $formData)
  */
-final class SiteCreatedAction
+class SiteCreatedAction
 {
     use AsFake;
     use AsObject;

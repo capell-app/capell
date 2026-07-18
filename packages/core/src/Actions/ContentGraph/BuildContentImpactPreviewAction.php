@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class BuildContentImpactPreviewAction
+class BuildContentImpactPreviewAction
 {
     use AsFake;
     use AsObject;

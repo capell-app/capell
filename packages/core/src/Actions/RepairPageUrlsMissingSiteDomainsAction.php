@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static int run()
  */
-final class RepairPageUrlsMissingSiteDomainsAction
+class RepairPageUrlsMissingSiteDomainsAction
 {
     use AsFake;
     use AsObject;
