@@ -197,6 +197,7 @@ use Illuminate\Support\Facades\Gate;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 use STS\FilamentImpersonate\Events\EnterImpersonation;
 use STS\FilamentImpersonate\Events\LeaveImpersonation;
@@ -244,6 +245,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         );
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         parent::registeringPackage();
@@ -334,18 +336,31 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerWidgets()
             ->registerDashboardFilamentWidgets()
             ->registerOverviewStats();
+    }
 
-        $this->booted(function (): void {
-            if ($this->isDiscoveringPackages()) {
-                return;
-            }
+    #[Override]
+    protected function bootInstalledPackage(): self
+    {
+        FilamentClearCache::addCommand('capell:admin-clear-cache');
 
-            if (! $this->isPackageInstalled()) {
-                return;
-            }
-
-            $this->bootInstalledPackage();
-        });
+        return $this
+            ->registerAboutInfo()
+            ->bootAdminBridges()
+            ->registerWidgetComponents()
+            ->registerBlazeComponents()
+            ->registerServingEvents()
+            ->registerLivewireComponents()
+            ->registerPublishCommands()
+            ->registerSubscribers()
+            ->registerModelInterceptors()
+            ->registerAdminEventSystem()
+            ->registerActAsOwnerAuditing()
+            ->registerEventSourcingBridges()
+            ->registerPolicies()
+            ->registerSettingsSchemas()
+            ->registerUpgradeNotificationSchedule()
+            ->registerContentRetentionSchedule()
+            ->registerModelObservers();
     }
 
     private function reserveAdminFrontendPath(): void
@@ -640,30 +655,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
 
         return $this;
-    }
-
-    private function bootInstalledPackage(): self
-    {
-        FilamentClearCache::addCommand('capell:admin-clear-cache');
-
-        return $this
-            ->registerAboutInfo()
-            ->bootAdminBridges()
-            ->registerWidgetComponents()
-            ->registerBlazeComponents()
-            ->registerServingEvents()
-            ->registerLivewireComponents()
-            ->registerPublishCommands()
-            ->registerSubscribers()
-            ->registerModelInterceptors()
-            ->registerAdminEventSystem()
-            ->registerActAsOwnerAuditing()
-            ->registerEventSourcingBridges()
-            ->registerPolicies()
-            ->registerSettingsSchemas()
-            ->registerUpgradeNotificationSchedule()
-            ->registerContentRetentionSchedule()
-            ->registerModelObservers();
     }
 
     private function registerActAsOwnerAuditing(): self

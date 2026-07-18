@@ -42,6 +42,7 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Schema;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 use Throwable;
 
@@ -73,9 +74,11 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PatchRegistry::class, fn (): PatchRegistry => new PatchRegistry);
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
-        parent::registeringPackage();
+        // The installer is the pre-install runtime, so its booted lifecycle must
+        // remain available before Capell can record this package as installed.
 
         $this->registerPackageMetadata();
 

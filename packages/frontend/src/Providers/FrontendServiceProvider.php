@@ -195,6 +195,7 @@ use Illuminate\Support\Facades\Vite;
 use Illuminate\View\FileViewFinder;
 use Illuminate\View\ViewFinderInterface;
 use Livewire\Livewire;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
@@ -202,24 +203,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
-
-    public function bootInstalledPackage(): void
-    {
-        $this
-            ->registerPublishCommands()
-            ->registerTailwindAssets()
-            ->registerAboutInfo()
-            ->registerBladeComponents()
-            ->registerBlazeComponents()
-            ->registerBladeDirectives()
-            ->registerPaginateRoute()
-            ->configureVite()
-            ->registerEventListeners()
-            ->registerFrontendCacheInvalidationObservers()
-            ->scheduleSiteCheck()
-            ->registerSettingsSchemas()
-            ->registerViewComposers();
-    }
 
     public function packageRegistered(): void
     {
@@ -397,26 +380,38 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->hasViews('capell');
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         parent::registeringPackage();
 
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
+    }
 
-        $this->booted(function (): void {
-            $this->registerLivewireComponents();
+    #[Override]
+    protected function bootInstalledPackage(): self
+    {
+        return $this
+            ->registerPublishCommands()
+            ->registerTailwindAssets()
+            ->registerAboutInfo()
+            ->registerBladeComponents()
+            ->registerBlazeComponents()
+            ->registerBladeDirectives()
+            ->registerPaginateRoute()
+            ->configureVite()
+            ->registerEventListeners()
+            ->registerFrontendCacheInvalidationObservers()
+            ->scheduleSiteCheck()
+            ->registerSettingsSchemas()
+            ->registerViewComposers();
+    }
 
-            if ($this->isDiscoveringPackages()) {
-                return;
-            }
-
-            if (! $this->isPackageInstalled()) {
-                return;
-            }
-
-            $this->bootInstalledPackage();
-        });
+    #[Override]
+    protected function bootPackage(): self
+    {
+        return $this->registerLivewireComponents();
     }
 
     private function registerAssetOptimizationBindings(): void

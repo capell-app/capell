@@ -167,6 +167,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
+use Override;
 use ReflectionClass;
 use Spatie\EventSourcing\EventSourcingServiceProvider;
 use Spatie\LaravelPackageTools\Package;
@@ -182,6 +183,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private bool $themePreviewMiddlewareRegistered = false;
 
+    #[Override]
     public function registeringPackage(): void
     {
         $this->app->scoped(RuntimeSchemaState::class);

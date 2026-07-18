@@ -30,6 +30,29 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         return static::$type;
     }
 
+    public function registeringPackage(): void
+    {
+        $this->booted(function (): void {
+            $this->bootPackage();
+
+            if ($this->isDiscoveringPackages() || ! $this->isPackageInstalled()) {
+                return;
+            }
+
+            $this->bootInstalledPackage();
+        });
+    }
+
+    protected function bootPackage(): self
+    {
+        return $this;
+    }
+
+    protected function bootInstalledPackage(): self
+    {
+        return $this;
+    }
+
     protected function isDiscoveringPackages(): bool
     {
         $arguments = Request::server('argv') ?? [];

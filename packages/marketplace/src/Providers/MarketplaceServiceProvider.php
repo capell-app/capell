@@ -39,6 +39,7 @@ use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 use Composer\InstalledVersions;
 use Filament\Actions\Action;
 use Livewire\Livewire;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 class MarketplaceServiceProvider extends AbstractPackageServiceProvider
@@ -68,6 +69,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             ]);
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         CapellCore::registerPackage(
@@ -101,6 +103,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         }
     }
 
+    #[Override]
     public function packageBooted(): void
     {
         $livewire = Livewire::getFacadeRoot();
@@ -124,6 +127,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             Livewire::component('capell-marketplace.marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
             Livewire::component('capell-marketplace::marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
         }
+
     }
 
     private function getVersion(): string
