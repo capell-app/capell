@@ -7,6 +7,7 @@ namespace Capell\Core\EventSourcing\Support;
 use Capell\Core\EventSourcing\Aggregates\CapellAggregateRoot;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\EventSourcing\Exceptions\EventSourcingException;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Database\Eloquent\Model;
 
 use function resolve;
@@ -17,13 +18,9 @@ use function resolve;
  * lets packages (and future adopters such as Layout/Blueprint) register their
  * own aggregates without touching core.
  */
-final class EventSourcedRegistry
+/** @extends AbstractKeyedRegistry<array{aggregate: class-string<CapellAggregateRoot>, serializer: class-string<EventSourcedStateSerializer>}, class-string> */
+final class EventSourcedRegistry extends AbstractKeyedRegistry
 {
-    /**
-     * @var array<class-string<Model>, array{aggregate: class-string<CapellAggregateRoot>, serializer: class-string<EventSourcedStateSerializer>}>
-     */
-    private array $registrations = [];
-
     /**
      * @param  class-string<Model>  $modelClass
      * @param  class-string<CapellAggregateRoot>  $aggregateClass
@@ -31,10 +28,10 @@ final class EventSourcedRegistry
      */
     public function register(string $modelClass, string $aggregateClass, string $serializerClass): void
     {
-        $this->registrations[$modelClass] = [
+        $this->setItem($modelClass, [
             'aggregate' => $aggregateClass,
             'serializer' => $serializerClass,
-        ];
+        ]);
     }
 
     /**
@@ -42,7 +39,7 @@ final class EventSourcedRegistry
      */
     public function isRegistered(Model|string $model): bool
     {
-        return array_key_exists($this->normalise($model), $this->registrations);
+        return $this->hasItem($this->normalise($model));
     }
 
     /**
@@ -63,11 +60,11 @@ final class EventSourcedRegistry
     }
 
     /**
-     * @return list<class-string<Model>>
+     * @return list<class-string>
      */
     public function registeredModels(): array
     {
-        return array_keys($this->registrations);
+        return array_keys($this->allItems());
     }
 
     /**
@@ -78,14 +75,16 @@ final class EventSourcedRegistry
     {
         $modelClass = $this->normalise($model);
 
-        if (! array_key_exists($modelClass, $this->registrations)) {
+        $registration = $this->getItem($modelClass);
+
+        if ($registration === null) {
             throw new EventSourcingException(sprintf(
                 'Model [%s] is not registered for event sourcing.',
                 $modelClass,
             ));
         }
 
-        return $this->registrations[$modelClass];
+        return $registration;
     }
 
     /**
