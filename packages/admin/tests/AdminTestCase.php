@@ -26,6 +26,7 @@ use Filament\Tables\TablesServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Guava\IconPicker\IconPickerServiceProvider;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
 use LaraZeus\SpatieTranslatable\SpatieTranslatableServiceProvider;
 use Livewire\LivewireServiceProvider;
@@ -120,6 +121,8 @@ class AdminTestCase extends AbstractTestCase
         parent::getEnvironmentSetUp($app);
 
         CapellCore::forcePackageInstalled(AdminServiceProvider::$packageName);
+        Config::set('capell-admin.upgrades.notifications.enabled', true);
+        Config::set('capell-admin.upgrades.notifications.frequency', 'weekly');
 
         // Shield's super_admin Gate::before bypass is normally registered by FilamentShieldPlugin.
         // Since AdminPanelProvider does not include that plugin, we register the bypass here so
