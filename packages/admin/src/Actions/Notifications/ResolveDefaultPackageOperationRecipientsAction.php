@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Notifications;
 
-use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -30,8 +29,6 @@ final class ResolveDefaultPackageOperationRecipientsAction
         $model = new $userModel;
         $query = $model->newQuery()->orderBy($model->qualifyColumn($model->getKeyName()));
 
-        $globalAdminsScope = [$model, 'scopeGlobalAdmins'];
-
         if (
             is_string($role)
             && method_exists($model, 'roles')
@@ -39,11 +36,9 @@ final class ResolveDefaultPackageOperationRecipientsAction
             && method_exists($model, 'scopeGlobalAdmins')
             && method_exists($model, 'isGlobalAdmin')
         ) {
-            $applyGlobalAdminsScope = Closure::fromCallable($globalAdminsScope);
-
             return $query
-                ->where(static function (Builder $query) use ($applyGlobalAdminsScope, $role): void {
-                    $applyGlobalAdminsScope($query);
+                ->where(static function (Builder $query) use ($role): void {
+                    $query->getModel()->callNamedScope('globalAdmins', [$query]);
                     $query->orWhereHas('roles', static fn (Builder $roleQuery): Builder => $roleQuery->where('name', $role));
                 })
                 ->get();

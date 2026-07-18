@@ -25,7 +25,7 @@ it('queries and returns both global and configured admins in user order for role
     $createUser = static function (): PackageOperationRecipientRoleAwareUser {
         $user = UserFactory::new()->createOne();
 
-        return PackageOperationRecipientRoleAwareUser::query()->findOrFail($user->getKey());
+        return PackageOperationRecipientRoleAwareUser::query()->whereKey($user->getKey())->firstOrFail();
     };
 
     $firstAdmin = $createUser()->assignRole('shield-admin');
@@ -75,7 +75,7 @@ it('does not optimize scope-only models or allow their scope to broaden recipien
     $createUser = static function (): PackageOperationRecipientScopeOnlyUser {
         $user = UserFactory::new()->createOne();
 
-        return PackageOperationRecipientScopeOnlyUser::query()->findOrFail($user->getKey());
+        return PackageOperationRecipientScopeOnlyUser::query()->whereKey($user->getKey())->firstOrFail();
     };
 
     $firstAdmin = $createUser()->assignRole('capell-admin');
