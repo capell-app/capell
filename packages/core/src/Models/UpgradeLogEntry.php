@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
 /**
  * @property string $type
@@ -34,12 +35,6 @@ class UpgradeLogEntry extends Model
         'status',
         'ran_at',
         'meta',
-    ];
-
-    /** @var array<string, string> */
-    protected $casts = [
-        'ran_at' => 'immutable_datetime',
-        'meta' => 'array',
     ];
 
     public function metaGet(string $path, mixed $default = null): mixed
@@ -72,5 +67,17 @@ class UpgradeLogEntry extends Model
     protected function scopeSuccessful(Builder $query): Builder
     {
         return $query->where('status', UpgradeStepStatus::Success->value);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Override]
+    protected function casts(): array
+    {
+        return [
+            'ran_at' => 'immutable_datetime',
+            'meta' => 'array',
+        ];
     }
 }
