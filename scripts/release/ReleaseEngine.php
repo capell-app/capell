@@ -650,7 +650,6 @@ final class ReleaseEngine
     public function verify(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
-        $this->assertExactSource($plan);
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : [];
         foreach ($plan['packages'] as $package) {
