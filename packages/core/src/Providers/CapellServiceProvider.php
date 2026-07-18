@@ -155,7 +155,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Override;
-use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 
@@ -170,6 +169,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
+        $this->app->singleton(CapellCoreManager::class);
+        $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->scoped(RuntimeSchemaState::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);
@@ -385,10 +386,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
 
-        $manager = CapellCore::getFacadeRoot();
-        throw_unless($manager instanceof CapellCoreManager, RuntimeException::class, 'The Capell core facade must resolve its manager.');
-        $this->app->instance(CapellCoreManager::class, $manager);
-        $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->tag([CapellCoreManager::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
         $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
