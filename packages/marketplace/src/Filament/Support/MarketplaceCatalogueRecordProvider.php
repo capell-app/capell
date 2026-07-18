@@ -817,20 +817,19 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     private function ratingStars(?float $ratingAverage): array
     {
         $roundedRating = $ratingAverage === null ? 0.0 : round($ratingAverage * 2) / 2;
+        $stars = [];
 
-        return array_values(collect(range(1, 5))
-            ->map(function (int $starPosition) use ($roundedRating): string {
-                if ($roundedRating >= $starPosition) {
-                    return 'full';
-                }
+        foreach (range(1, 5) as $starPosition) {
+            if ($roundedRating >= $starPosition) {
+                $stars[] = 'full';
 
-                if ($roundedRating >= $starPosition - 0.5) {
-                    return 'half';
-                }
+                continue;
+            }
 
-                return 'empty';
-            })
-            ->all());
+            $stars[] = $roundedRating >= $starPosition - 0.5 ? 'half' : 'empty';
+        }
+
+        return $stars;
     }
 
     private function ratingsCountLabel(int $ratingsCount): string
@@ -860,10 +859,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
      */
     private function categoryLabels(array $categories): array
     {
-        return array_values(collect($categories)
-            ->map(fn (string $category): string => MarketplaceExtensionCategory::tryFrom($category)?->getLabel() ?? Str::headline($category))
-            ->values()
-            ->all());
+        return array_map(
+            fn (string $category): string => MarketplaceExtensionCategory::tryFrom($category)?->getLabel() ?? Str::headline($category),
+            $categories,
+        );
     }
 
     /**
@@ -872,10 +871,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
      */
     private function capabilityLabels(array $capabilities): array
     {
-        return array_values(collect($this->capabilitySlugs($capabilities))
-            ->map(fn (string $capability): string => MarketplaceExtensionCapability::tryFrom($capability)?->getLabel() ?? Str::headline($capability))
-            ->values()
-            ->all());
+        return array_map(
+            fn (string $capability): string => MarketplaceExtensionCapability::tryFrom($capability)?->getLabel() ?? Str::headline($capability),
+            $this->capabilitySlugs($capabilities),
+        );
     }
 
     /**
@@ -884,10 +883,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
      */
     private function stateLabels(array $states): array
     {
-        return array_values(collect($states)
-            ->map(fn (string $state): string => Str::of($state)->replace(['-', '_'], ' ')->headline()->toString())
-            ->values()
-            ->all());
+        return array_map(
+            fn (string $state): string => Str::of($state)->replace(['-', '_'], ' ')->headline()->toString(),
+            $states,
+        );
     }
 
     /**

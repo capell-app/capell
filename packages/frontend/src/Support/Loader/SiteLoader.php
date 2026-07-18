@@ -56,10 +56,6 @@ class SiteLoader
      */
     public static function getSites(): Collection
     {
-        // Prime the autoloader for the resolved (possibly user-overridden) Site
-        // class before the cache read. See the comment on languages() for why.
-        class_exists(Site::class);
-
         if (! Schema::hasTable((new Site)->getTable())) {
             return (new Site)->newCollection();
         }
@@ -115,10 +111,6 @@ class SiteLoader
 
     public static function loadSite(Site $site, Language $language): ?Site
     {
-        // Prime the autoloader for the resolved (possibly user-overridden) Site
-        // class before the cache read. See the comment on languages() for why.
-        class_exists(Site::class);
-
         $key = CacheEnum::site($site->id, $language->id);
 
         $fromCache = true;
@@ -235,10 +227,6 @@ class SiteLoader
      */
     public static function related(Site $site, Language $language): Collection
     {
-        // Prime the autoloader for the resolved (possibly user-overridden) Site
-        // class before the cache read. See the comment on languages() for why.
-        class_exists(Site::class);
-
         $key = CacheEnum::siteRelated($site->id, $language->id);
 
         $fromCache = true;
