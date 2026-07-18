@@ -77,7 +77,7 @@ class InteractionSettingsSchema
                         ->placeholder('heroicon-o-play'),
                     Select::make('style')
                         ->label(__('capell-admin::form.style'))
-                        ->options(InteractionStyleEnum::class)
+                        ->options(InteractionStyleEnum::options())
                         ->default('primary'),
                 ]),
             Grid::make(['md' => 3])
@@ -96,7 +96,7 @@ class InteractionSettingsSchema
                         ->visible(fn (Get $get): bool => $get('target_type') !== InteractionTargetType::Url->value),
                     Select::make('modal_size')
                         ->label(__('capell-admin::form.modal_size'))
-                        ->options(InteractionModalSizeEnum::class)
+                        ->options(InteractionModalSizeEnum::options())
                         ->placeholder(__('capell-admin::generic.default'))
                         ->visible(fn (Get $get): bool => in_array($get('behavior'), [InteractionBehavior::Modal->value, InteractionBehavior::SlideOver->value], true)),
                 ]),

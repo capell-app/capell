@@ -41,7 +41,7 @@ class CapellDashboard extends Dashboard
     {
         return $schema->components([
             ToggleButtons::make('date_range')
-                ->options(DashboardDateRangeEnum::class)
+                ->options(DashboardDateRangeEnum::options())
                 ->columnSpanFull()
                 ->default('this_week')
                 ->extraAttributes([

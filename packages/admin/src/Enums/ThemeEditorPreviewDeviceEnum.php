@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Enums;
 
+use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
 enum ThemeEditorPreviewDeviceEnum: string implements HasLabel
 {
+    use HasEnumOptions;
+
     case Desktop = 'desktop';
     case Tablet = 'tablet';
     case Mobile = 'mobile';

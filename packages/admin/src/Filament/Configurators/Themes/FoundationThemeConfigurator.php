@@ -88,13 +88,13 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                                 ->schema([
                                     Select::make('admin.editor.preview.device')
                                         ->label(__('capell-admin::theme-editor.fields.preview_device'))
-                                        ->options(ThemeEditorPreviewDeviceEnum::class)
+                                        ->options(ThemeEditorPreviewDeviceEnum::options())
                                         ->default('desktop')
                                         ->live()
                                         ->native(false),
                                     Select::make('admin.editor.preview.colorMode')
                                         ->label(__('capell-admin::theme-editor.fields.preview_color_mode'))
-                                        ->options(ThemeEditorColorModeEnum::class)
+                                        ->options(ThemeEditorColorModeEnum::options())
                                         ->default('light')
                                         ->live()
                                         ->native(false),
@@ -232,7 +232,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(debounce: 400),
                 Select::make('container')
                     ->label(__('capell-admin::form.container'))
-                    ->options(ThemeContainerWidthEnum::class)
+                    ->options(ThemeContainerWidthEnum::options())
                     ->default('lg')
                     ->live(),
                 Select::make('cardDensity')

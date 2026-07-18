@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Enums;
 
+use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
 enum InteractionStyleEnum: string implements HasLabel
 {
+    use HasEnumOptions;
+
     case Primary = 'primary';
     case Secondary = 'secondary';
     case Subtle = 'subtle';

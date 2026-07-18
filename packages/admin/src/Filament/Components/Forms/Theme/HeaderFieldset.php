@@ -64,7 +64,7 @@ class HeaderFieldset extends Fieldset
                                             ->options(MenuAlignmentEnum::class),
                                         Select::make('header_shadow')
                                             ->label(__('capell-admin::form.shadow'))
-                                            ->options(HeaderShadowEnum::class)
+                                            ->options(HeaderShadowEnum::options())
                                             ->default('none'),
                                         Checkbox::make('header_over_hero')
                                             ->label(__('capell-admin::form.header_over_hero'))

@@ -40,7 +40,7 @@ class ContentFilamentWidget implements FilamentWidget
 
                 Select::make('mediaOrdering')
                     ->label(__('capell-admin::widget.content_media_ordering'))
-                    ->options(ContentMediaOrderingEnum::class)
+                    ->options(ContentMediaOrderingEnum::options())
                     ->default('before')
                     ->native(false),
             ]);

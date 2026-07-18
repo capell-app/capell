@@ -122,7 +122,7 @@ class RedirectsTable implements TableConfigurator
             TrashedFilter::make(),
             SelectFilter::make('hit_count_bucket')
                 ->label(__('capell-admin::table.hit_count_bucket'))
-                ->options(RedirectHitCountBucketEnum::class)
+                ->options(RedirectHitCountBucketEnum::options())
                 ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
                     'none' => $query->where('hit_count', 0),
                     'any' => $query->where('hit_count', '>', 0),

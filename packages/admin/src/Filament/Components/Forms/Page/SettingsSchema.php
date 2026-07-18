@@ -139,7 +139,7 @@ class SettingsSchema
             Select::make('meta.hero_style')
                 ->label(__('capell-admin::form.hero_style'))
                 ->helperText(__('capell-admin::form.hero_style_helper'))
-                ->options(PageHeroStyleEnum::class)
+                ->options(PageHeroStyleEnum::options())
                 ->default('default'),
             TextInput::make('meta.hero_height')
                 ->label(__('capell-admin::form.hero_height'))
@@ -149,7 +149,7 @@ class SettingsSchema
             Select::make('meta.hero_asset_source')
                 ->label(__('capell-admin::form.hero_asset_source'))
                 ->helperText(__('capell-admin::form.hero_asset_source_helper'))
-                ->options(PageHeroAssetSourceEnum::class)
+                ->options(PageHeroAssetSourceEnum::options())
                 ->default('element'),
         ];
     }

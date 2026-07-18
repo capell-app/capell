@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Enums;
 
+use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
 enum ThemeEditorColorModeEnum: string implements HasLabel
 {
+    use HasEnumOptions;
+
     case Light = 'light';
     case Dark = 'dark';
 

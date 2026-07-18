@@ -46,7 +46,7 @@ class FooterFieldset extends Fieldset
                                     ->autoFormat(),
                                 Select::make('footer_spacing')
                                     ->label(__('capell-admin::form.spacing'))
-                                    ->options(FooterSpacingEnum::class)
+                                    ->options(FooterSpacingEnum::options())
                                     ->default('compact'),
                             ]),
                         Section::make(__('capell-admin::form.advanced_footer_options'))

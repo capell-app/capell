@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Enums;
 
+use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
 enum RedirectHitCountBucketEnum: string implements HasLabel
 {
+    use HasEnumOptions;
+
     case None = 'none';
     case Any = 'any';
     case TenPlus = 'ten_plus';
