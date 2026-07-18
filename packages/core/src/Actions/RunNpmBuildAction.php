@@ -10,7 +10,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
-class RunNpmBuildAction
+final class RunNpmBuildAction
 {
     use AsFake;
     use AsObject;

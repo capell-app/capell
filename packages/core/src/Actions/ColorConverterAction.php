@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static ?string run(?string $color, string $format = 'rgba')
  */
-class ColorConverterAction
+final class ColorConverterAction
 {
     use AsFake;
     use AsObject;

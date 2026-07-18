@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class MigrationPublishResult extends Data
+final class MigrationPublishResult extends Data
 {
     public function __construct(
         public readonly bool $schemaPublished,

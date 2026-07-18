@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
-class RunMakerAction
+final class RunMakerAction
 {
     use AsFake;
     use AsObject;

@@ -9,7 +9,7 @@ use Illuminate\Database\Query\JoinClause;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class RecordVersionSnapshotAction
+final class RecordVersionSnapshotAction
 {
     use AsFake;
     use AsObject;

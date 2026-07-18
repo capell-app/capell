@@ -17,7 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static Collection<string, PackageData> run(?string $filter = null)
  */
-class GetPluginsAction
+final class GetPluginsAction
 {
     use AsFake;
     use AsObject;

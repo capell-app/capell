@@ -21,7 +21,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(PackageData $package, bool $delete = false, bool $deleteData = false)
  */
-class UninstallPackageAction
+final class UninstallPackageAction
 {
     use AsFake;
     use AsObject;

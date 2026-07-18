@@ -17,7 +17,7 @@ use Illuminate\Support\Arr;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class ResolvePresentationSettingsAction
+final class ResolvePresentationSettingsAction
 {
     use AsFake;
     use AsObject;

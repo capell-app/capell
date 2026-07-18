@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
-class CapellCoreHelper
+final class CapellCoreHelper
 {
     /** @param array<string, mixed>|object|string|null $typeFilter */
     public static function getBlueprint(null|int|string $typeId = null, array|object|string|null $typeFilter = null): ?Blueprint

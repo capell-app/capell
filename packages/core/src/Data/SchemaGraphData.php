@@ -7,7 +7,7 @@ namespace Capell\Core\Data;
 use Capell\Core\Support\Json\JsonCodec;
 use Spatie\LaravelData\Data;
 
-class SchemaGraphData extends Data
+final class SchemaGraphData extends Data
 {
     /**
      * @param  array<int, array<string, mixed>>  $nodes

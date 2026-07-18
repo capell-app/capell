@@ -9,7 +9,7 @@ use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
-class MakerRegistry implements MakerRegistryInterface
+final class MakerRegistry implements MakerRegistryInterface
 {
     /** @var array<string, Maker> */
     private array $makers = [];

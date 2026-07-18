@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class RedirectDecisionData extends Data
+final class RedirectDecisionData extends Data
 {
     public function __construct(
         public string $targetUrl,

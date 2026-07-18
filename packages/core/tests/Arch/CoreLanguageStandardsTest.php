@@ -52,6 +52,42 @@ it('types every core class constant', function (): void {
     expect($untypedConstants)->toBe([]);
 });
 
+it('makes core actions data and support classes final by default', function (): void {
+    $extensionPoints = [
+        'Actions/GetComponentViewPathAction.php',
+        'Actions/Install/ClearCachesAction.php',
+        'Actions/Install/RunInstallAction.php',
+        'Actions/InstallPackageAction.php',
+        'Actions/RequirePackageAction.php',
+        'Support/CapellCoreManager.php',
+        'Support/Dataset/DatasetPublisher.php',
+        'Support/Install/DeveloperToolingInstallationState.php',
+        'Support/Makers/MakerSafety.php',
+        'Support/Media/CustomPathGenerator.php',
+        'Support/Plugins/PluginPackagesFetcher.php',
+        'Support/Settings/SettingsSchemaRegistry.php',
+        'Support/Subscriber/SubscriberRegistry.php',
+    ];
+    $sourcePath = realpath(__DIR__ . '/../../src');
+
+    expect($sourcePath)->toBeString();
+
+    $nonFinalClasses = collect([
+        ...corePhpFiles($sourcePath . '/Actions'),
+        ...corePhpFiles($sourcePath . '/Data'),
+        ...corePhpFiles($sourcePath . '/Support'),
+    ])->filter(function (SplFileInfo $file): bool {
+        $contents = (string) file_get_contents($file->getPathname());
+
+        return preg_match('/^class\s+\w+/m', $contents) === 1;
+    })->map(fn (SplFileInfo $file): string => str_replace((string) $sourcePath . '/', '', $file->getPathname()))
+        ->reject(fn (string $path): bool => in_array($path, $extensionPoints, true))
+        ->values()
+        ->all();
+
+    expect($nonFinalClasses)->toBe([]);
+});
+
 /**
  * @return Collection<int, SplFileInfo>
  */

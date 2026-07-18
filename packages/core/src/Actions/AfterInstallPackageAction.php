@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(PackageData $package, array<string, mixed> $arguments = [], ?ProgressReporter $reporter = null, bool $allowLegacyCommand = true)
  */
-class AfterInstallPackageAction
+final class AfterInstallPackageAction
 {
     use AsFake;
     use AsObject;

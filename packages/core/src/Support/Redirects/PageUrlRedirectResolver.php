@@ -13,7 +13,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
 
-class PageUrlRedirectResolver implements RedirectResolver
+final class PageUrlRedirectResolver implements RedirectResolver
 {
     public function __construct(
         private readonly PageUrlRedirectHitRecorder $redirectRecorder,

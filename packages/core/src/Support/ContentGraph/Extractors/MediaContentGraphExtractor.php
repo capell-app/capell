@@ -14,7 +14,7 @@ use Capell\Core\Models\Media;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
-class MediaContentGraphExtractor implements ContentGraphExtractor
+final class MediaContentGraphExtractor implements ContentGraphExtractor
 {
     /** @var string */
     private const string SOURCE_PACKAGE = 'capell-app/core';

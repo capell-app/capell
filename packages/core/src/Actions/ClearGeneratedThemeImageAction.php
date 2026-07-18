@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(Theme $theme)
  */
-class ClearGeneratedThemeImageAction
+final class ClearGeneratedThemeImageAction
 {
     use AsFake;
     use AsObject;

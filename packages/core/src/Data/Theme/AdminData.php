@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class AdminData extends Data
+final class AdminData extends Data
 {
     public function __construct(
         public ?string $icon = null,

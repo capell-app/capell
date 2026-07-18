@@ -11,7 +11,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static void run(list<string> $classes)
  */
-class UpdateTailwindClassesFileAction
+final class UpdateTailwindClassesFileAction
 {
     use AsFake;
     use AsObject;

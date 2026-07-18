@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class RefreshRedirectHealthSnapshotsAction
+final class RefreshRedirectHealthSnapshotsAction
 {
     use AsFake;
     use AsObject;

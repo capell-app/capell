@@ -9,7 +9,7 @@ use Capell\Core\Models\RedirectHealthSnapshot;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class RefreshRedirectHealthSnapshotAction
+final class RefreshRedirectHealthSnapshotAction
 {
     use AsFake;
     use AsObject;

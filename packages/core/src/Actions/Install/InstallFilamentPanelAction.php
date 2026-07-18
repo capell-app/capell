@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
-class InstallFilamentPanelAction
+final class InstallFilamentPanelAction
 {
     use AsFake;
     use AsObject;

@@ -13,7 +13,7 @@ use RecursiveIteratorIterator;
 /**
  * @method static array<int, string> run()
  */
-class GetResourceAssetsAction
+final class GetResourceAssetsAction
 {
     use AsFake;
     use AsObject;

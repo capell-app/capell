@@ -15,7 +15,7 @@ use Illuminate\Support\Arr;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class ResolveInteractionTriggersAction
+final class ResolveInteractionTriggersAction
 {
     use AsFake;
     use AsObject;

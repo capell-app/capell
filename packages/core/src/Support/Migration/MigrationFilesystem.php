@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Migration;
 
-class MigrationFilesystem implements MigrationFilesystemInterface
+final class MigrationFilesystem implements MigrationFilesystemInterface
 {
     public function fileExists(string $path): bool
     {

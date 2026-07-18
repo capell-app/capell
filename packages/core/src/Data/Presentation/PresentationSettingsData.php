@@ -12,7 +12,7 @@ use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Core\Enums\PresentationWidthMode;
 use Spatie\LaravelData\Data;
 
-class PresentationSettingsData extends Data
+final class PresentationSettingsData extends Data
 {
     private const int MAX_CUSTOM_WIDTH_LENGTH = 80;
 

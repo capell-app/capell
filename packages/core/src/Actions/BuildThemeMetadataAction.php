@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static array<string, mixed> run(string $themeKey, array<string, mixed> $existingMeta = [], array<string, mixed> $data = [], array<int, string> $assets = [], ?string $assetsPath = null, bool $defaultColors = false, ?string $activePreset = null)
  */
-class BuildThemeMetadataAction
+final class BuildThemeMetadataAction
 {
     use AsFake;
     use AsObject;

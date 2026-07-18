@@ -12,7 +12,7 @@ use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class AddRedirectUrlAction
+final class AddRedirectUrlAction
 {
     use AsFake;
     use AsObject;

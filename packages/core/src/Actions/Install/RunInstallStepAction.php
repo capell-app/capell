@@ -11,7 +11,7 @@ use Capell\Core\Support\Install\InstallStepExecutor;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class RunInstallStepAction
+final class RunInstallStepAction
 {
     use AsFake;
     use AsObject;

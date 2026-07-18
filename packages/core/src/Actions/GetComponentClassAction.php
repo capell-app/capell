@@ -16,7 +16,7 @@ use Throwable;
  *
  * @method static string run(string $component, bool $livewire = false)
  */
-class GetComponentClassAction
+final class GetComponentClassAction
 {
     use AsFake;
     use AsObject;

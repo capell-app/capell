@@ -9,7 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class PageUrlRedirectHitRecorder
+final class PageUrlRedirectHitRecorder
 {
     public function recordHit(PageUrl $pageUrl): void
     {

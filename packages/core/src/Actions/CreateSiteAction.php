@@ -16,7 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static Site run(string $name, ?string $url, Language $language, ?Collection<int, Language> $languages = null, ?Theme $theme = null)
  */
-class CreateSiteAction
+final class CreateSiteAction
 {
     use AsFake;
     use AsObject;

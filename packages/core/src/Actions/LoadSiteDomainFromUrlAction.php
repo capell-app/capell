@@ -14,7 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static array{0: SiteDomain, 1: string}|null run(string $url, ?Collection<int, Site> $sites = null)
  */
-class LoadSiteDomainFromUrlAction
+final class LoadSiteDomainFromUrlAction
 {
     use AsFake;
     use AsObject;

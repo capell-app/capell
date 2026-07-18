@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Presentation;
 
 use Capell\Core\Data\Presentation\PresentationPresetData;
 
-class PresentationPresetRegistry
+final class PresentationPresetRegistry
 {
     /** @var array<string, PresentationPresetData> */
     private array $presets = [];

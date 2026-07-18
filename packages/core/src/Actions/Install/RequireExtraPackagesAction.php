@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
-class RequireExtraPackagesAction
+final class RequireExtraPackagesAction
 {
     use AsFake;
     use AsObject;

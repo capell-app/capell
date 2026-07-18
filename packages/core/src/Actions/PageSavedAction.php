@@ -9,7 +9,7 @@ use Capell\Core\Events\PageSaved;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class PageSavedAction
+final class PageSavedAction
 {
     use AsFake;
     use AsObject;

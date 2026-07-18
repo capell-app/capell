@@ -8,7 +8,7 @@ use Composer\InstalledVersions;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class ResolveInstalledComposerVersionsAction
+final class ResolveInstalledComposerVersionsAction
 {
     use AsFake;
     use AsObject;

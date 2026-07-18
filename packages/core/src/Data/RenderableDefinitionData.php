@@ -9,7 +9,7 @@ use Capell\Core\Support\Renderables\RenderableViewDataContext;
 use Capell\Core\Support\Renderables\RenderableViewDataResolver;
 use Spatie\LaravelData\Data;
 
-class RenderableDefinitionData extends Data
+final class RenderableDefinitionData extends Data
 {
     /**
      * @param  class-string<RenderableViewDataResolver>|null  $viewDataResolver

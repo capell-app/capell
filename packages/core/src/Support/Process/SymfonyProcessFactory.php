@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Process;
 
 use Symfony\Component\Process\Process;
 
-class SymfonyProcessFactory implements ProcessFactoryInterface
+final class SymfonyProcessFactory implements ProcessFactoryInterface
 {
     /**
      * @param  list<string>|string  $command

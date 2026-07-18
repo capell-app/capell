@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Makers;
 
 use Spatie\LaravelData\Data;
 
-class MakerDefinitionData extends Data
+final class MakerDefinitionData extends Data
 {
     public function __construct(
         public string $key,

@@ -10,7 +10,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class LayoutData extends Data
+final class LayoutData extends Data
 {
     /**
      * @param  array<int, string>  $secondaryContainers

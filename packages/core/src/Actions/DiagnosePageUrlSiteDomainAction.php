@@ -14,7 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * @method static PageUrlSiteDomainDiagnosticData run(PageUrl $pageUrl, ?string $caller = null)
  */
-class DiagnosePageUrlSiteDomainAction
+final class DiagnosePageUrlSiteDomainAction
 {
     use AsFake;
     use AsObject;

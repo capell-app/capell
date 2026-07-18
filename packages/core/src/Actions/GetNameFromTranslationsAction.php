@@ -17,7 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *
  * @method static ?string run(Collection<int|string, T> $translations, Site $site)
  */
-class GetNameFromTranslationsAction
+final class GetNameFromTranslationsAction
 {
     use AsFake;
     use AsObject;

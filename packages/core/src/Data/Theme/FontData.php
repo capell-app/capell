@@ -10,7 +10,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class FontData extends Data
+final class FontData extends Data
 {
     /**
      * @param  array<int, string>|null  $files

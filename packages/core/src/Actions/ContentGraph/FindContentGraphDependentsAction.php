@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class FindContentGraphDependentsAction
+final class FindContentGraphDependentsAction
 {
     use AsFake;
     use AsObject;

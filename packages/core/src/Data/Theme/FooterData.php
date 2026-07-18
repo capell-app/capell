@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class FooterData extends Data
+final class FooterData extends Data
 {
     public function __construct(
         public bool $enabled = true,

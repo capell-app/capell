@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class MigrationRunResult extends Data
+final class MigrationRunResult extends Data
 {
     public function __construct(
         public readonly int $exitCode,

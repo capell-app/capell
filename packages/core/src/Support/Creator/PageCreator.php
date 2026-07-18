@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
-class PageCreator implements PageCreatable
+final class PageCreator implements PageCreatable
 {
     /**
      * HTTP error statuses seeded with per-status copy on the error page.

@@ -9,7 +9,7 @@ use Capell\Core\Events\PageDeleted;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class PageDeletedAction
+final class PageDeletedAction
 {
     use AsFake;
     use AsObject;

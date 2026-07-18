@@ -13,7 +13,7 @@ use Illuminate\Database\Query\JoinClause;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class BuildUpgradePlanAction
+final class BuildUpgradePlanAction
 {
     use AsFake;
     use AsObject;

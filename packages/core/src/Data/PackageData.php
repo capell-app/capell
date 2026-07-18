@@ -18,7 +18,7 @@ use Closure;
 use Illuminate\Support\ServiceProvider;
 use Spatie\LaravelData\Data;
 
-class PackageData extends Data
+final class PackageData extends Data
 {
     private ?Closure $descriptionResolver = null;
 

@@ -9,7 +9,7 @@ use Capell\Core\Data\LinkableContentData;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
-class LinkableContentRegistry
+final class LinkableContentRegistry
 {
     /**
      * @var array<string, LinkableContent>

@@ -7,7 +7,7 @@ namespace Capell\Core\Data;
 use Capell\Core\Contracts\UpgradeStepContract;
 use Spatie\LaravelData\Data;
 
-class UpgradePlanData extends Data
+final class UpgradePlanData extends Data
 {
     /**
      * @param  array<int, UpgradeStepContract>  $pendingSteps

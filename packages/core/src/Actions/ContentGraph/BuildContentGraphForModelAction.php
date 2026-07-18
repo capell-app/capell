@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-class BuildContentGraphForModelAction
+final class BuildContentGraphForModelAction
 {
     use AsFake;
     use AsObject;

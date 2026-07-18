@@ -17,7 +17,7 @@ use Symfony\Component\Process\Process;
 /**
  * @method static void run(PackageData $package, array<string, mixed> $arguments = [], ?ProgressReporter $reporter = null)
  */
-class DemoPackageAction
+final class DemoPackageAction
 {
     use AsFake;
     use AsObject;
