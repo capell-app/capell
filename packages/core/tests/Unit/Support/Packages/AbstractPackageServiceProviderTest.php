@@ -85,7 +85,8 @@ it('uses the legacy development version when composer has no pretty version', fu
 
     $provider->registerMetadata();
 
-    expect(CapellCore::getPackage($provider::$packageName)->version)->toBe('dev');
+    expect(CapellCore::getPackage($provider::$packageName)->version)->toBe('dev')
+        ->and(CapellCore::getPackage($provider::$packageName)->path)->toBe(realpath(dirname(__DIR__, 4)));
 });
 
 final class InstalledLifecycleTestServiceProvider extends AbstractPackageServiceProvider
