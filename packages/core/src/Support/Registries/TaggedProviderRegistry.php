@@ -11,19 +11,22 @@ use Illuminate\Contracts\Foundation\Application;
  */
 class TaggedProviderRegistry
 {
-    /** @var iterable<mixed> */
-    private readonly iterable $providers;
-
     /**
-     * @param  non-empty-string  $tag
+     * @param  iterable<mixed>  $providers
      * @param  class-string<TProvider>  $providerContract
      */
     public function __construct(
-        Application $application,
-        string $tag,
+        private readonly iterable $providers,
         private readonly string $providerContract,
-    ) {
-        $this->providers = $application->tagged($tag);
+    ) {}
+
+    /**
+     * @param  non-empty-string  $tag
+     * @return iterable<mixed>
+     */
+    public static function tagged(Application $application, string $tag): iterable
+    {
+        return $application->tagged($tag);
     }
 
     /** @return list<TProvider> */

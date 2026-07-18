@@ -7,19 +7,15 @@ namespace Capell\Frontend\Support\Cache;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Registries\TaggedProviderRegistry;
 use Capell\Frontend\Contracts\Cache\TranslationCacheDependencyResolver;
-use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 
 /** @extends TaggedProviderRegistry<TranslationCacheDependencyResolver> */
 final class TranslationCacheDependencyRegistry extends TaggedProviderRegistry
 {
-    public function __construct(Application $application)
+    /** @param iterable<TranslationCacheDependencyResolver> $resolvers */
+    public function __construct(iterable $resolvers)
     {
-        parent::__construct(
-            $application,
-            TranslationCacheDependencyResolver::TAG,
-            TranslationCacheDependencyResolver::class,
-        );
+        parent::__construct($resolvers, TranslationCacheDependencyResolver::class);
     }
 
     /** @return list<Model> */

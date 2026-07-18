@@ -15,7 +15,7 @@ final class ThemeEditorExtensionRegistry extends TaggedProviderRegistry
 {
     public function __construct(Application $application)
     {
-        parent::__construct($application, ThemeEditorExtension::TAG, ThemeEditorExtension::class);
+        parent::__construct(self::tagged($application, ThemeEditorExtension::TAG), ThemeEditorExtension::class);
     }
 
     /**

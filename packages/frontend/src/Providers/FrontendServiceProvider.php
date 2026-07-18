@@ -12,6 +12,7 @@ use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Registries\TaggedProviderRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
@@ -426,7 +427,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             MediaTranslationCacheDependencyResolver::class,
             SiteTranslationCacheDependencyResolver::class,
         ], TranslationCacheDependencyResolver::TAG);
-        $this->app->scoped(TranslationCacheDependencyRegistry::class);
+        $this->app->scoped(
+            TranslationCacheDependencyRegistry::class,
+            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
+                TaggedProviderRegistry::tagged($app, TranslationCacheDependencyResolver::TAG),
+            ),
+        );
         $this->app->scoped(CacheInvalidationRegistry::class);
     }
 
