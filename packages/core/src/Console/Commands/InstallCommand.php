@@ -17,11 +17,13 @@ use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
@@ -264,25 +266,21 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 developerToolingInstalled: resolve(DeveloperToolingInstallationState::class)->isInstalled(),
             );
 
-            $inputData = resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
+            $inputData = $this->buildInstallInput(
                 siteUrl: $siteUrl,
-                packages: $packages->keys()->all(),
+                packages: $packages,
                 languages: $languages,
-                demoContent: $demo,
-                cachesToClear: [],
-                generateSitemap: $generateSitemap,
-                generateStaticSite: false,
-                demoSites: $demo ? $siteOptions : null,
-                demoLanguages: $demo ? $languages : null,
+                demo: $demo,
+                siteOptions: $siteOptions,
                 newUser: $newUser,
                 seedDefaultData: $seedDefaultData,
                 seedDatabase: $seedDatabase,
                 freshInstall: $freshInstall,
                 installWelcomeRoute: $installWelcomeRoute,
-                installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
-                configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
-                selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
+                developerToolingChoice: $developerToolingChoice,
+                selectedThemeKey: $selectedThemeKey,
                 extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
+                generateSitemap: $generateSitemap,
             );
 
             $this->outputPlan($inputData);
@@ -356,27 +354,23 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'remove_installer_package' => $removeInstallerPackage,
         ]);
 
-        $inputData = resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
+        $inputData = $this->buildInstallInput(
             siteUrl: $siteUrl,
-            packages: $packages->keys()->all(),
+            packages: $packages,
             languages: $languages,
-            demoContent: $demo,
-            cachesToClear: [],
-            generateSitemap: $generateSitemap,
-            generateStaticSite: false,
-            demoSites: $demo ? $siteOptions : null,
-            demoLanguages: $demo ? $languages : null,
+            demo: $demo,
+            siteOptions: $siteOptions,
             userId: $userId,
             newUser: $resolvedNewUser,
             seedDefaultData: $seedDefaultData,
             seedDatabase: $seedDatabase,
             freshInstall: $freshInstall,
             installWelcomeRoute: $installWelcomeRoute,
-            installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
-            configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
+            developerToolingChoice: $developerToolingChoice,
             additionalUsers: $additionalUsers,
-            selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
+            selectedThemeKey: $selectedThemeKey,
             extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
+            generateSitemap: $generateSitemap,
         );
 
         $this->orchestratedSeedDefaultData = $seedDefaultData;
@@ -566,6 +560,55 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $packages
             ->keys()
             ->all();
+    }
+
+    /**
+     * @param  Collection<string, PackageData>  $packages
+     * @param  array<string>  $languages
+     * @param  array<string>  $siteOptions
+     * @param  array<NewUserData>  $additionalUsers
+     * @param  array<string>  $extraPackages
+     */
+    private function buildInstallInput(
+        string $siteUrl,
+        Collection $packages,
+        array $languages,
+        bool $demo,
+        array $siteOptions,
+        ?NewUserData $newUser,
+        bool $seedDefaultData,
+        bool $seedDatabase,
+        bool $freshInstall,
+        bool $installWelcomeRoute,
+        DeveloperToolingChoiceData $developerToolingChoice,
+        ?string $selectedThemeKey,
+        array $extraPackages,
+        bool $generateSitemap,
+        ?int $userId = null,
+        array $additionalUsers = [],
+    ): InstallInputData {
+        return resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
+            siteUrl: $siteUrl,
+            packages: $packages->keys()->all(),
+            languages: $languages,
+            demoContent: $demo,
+            cachesToClear: [],
+            generateSitemap: $generateSitemap,
+            generateStaticSite: false,
+            demoSites: $demo ? $siteOptions : null,
+            demoLanguages: $demo ? $languages : null,
+            userId: $userId,
+            newUser: $newUser,
+            seedDefaultData: $seedDefaultData,
+            seedDatabase: $seedDatabase,
+            freshInstall: $freshInstall,
+            installWelcomeRoute: $installWelcomeRoute,
+            installDeveloperTooling: $developerToolingChoice->installDeveloperTooling,
+            configureBoostDeveloperTooling: $developerToolingChoice->configureBoostDeveloperTooling,
+            additionalUsers: $additionalUsers,
+            selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
+            extraPackages: $extraPackages,
+        );
     }
 
     private function bootInstallCommand(): ?int
