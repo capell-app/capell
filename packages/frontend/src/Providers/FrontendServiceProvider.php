@@ -220,7 +220,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ErrorPagePathResolver::class);
         $this->app->singleton(ErrorPageFallbackManifestStore::class);
         $this->app->singleton(ErrorPageRegenerationQueue::class);
-        $this->app->scoped(FrontendResponseRendererRegistry::class);
+        $this->app->singleton(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->singleton(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
@@ -276,8 +276,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FragmentCache::class, fn (Application $app): FragmentCache => new FragmentCache($app->make(Repository::class)));
         $this->app->alias(FragmentCache::class, 'capell-frontend.fragment-cache');
         $this->app->tag([
-            CacheInvalidationRegistry::class,
-            FragmentCacheDirective::class,
             ThemeViewRegistrar::class,
         ], Resettable::TAG);
 

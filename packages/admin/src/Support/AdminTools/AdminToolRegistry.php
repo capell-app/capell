@@ -5,12 +5,20 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\AdminTools;
 
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
+use Capell\Core\Support\Registries\TaggedProviderRegistry;
+use Illuminate\Contracts\Foundation\Application;
 
-class AdminToolRegistry
+/** @extends TaggedProviderRegistry<AdminToolItem> */
+final class AdminToolRegistry extends TaggedProviderRegistry
 {
-    /** @return iterable<AdminToolItem> */
-    public function all(): iterable
+    public function __construct(Application $application)
     {
-        return app()->tagged(AdminToolItem::TAG);
+        parent::__construct($application->tagged(AdminToolItem::TAG), AdminToolItem::class);
+    }
+
+    /** @return list<AdminToolItem> */
+    public function all(): array
+    {
+        return $this->providers();
     }
 }

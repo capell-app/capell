@@ -64,8 +64,6 @@ class CapellAdminManager
 
     private AdminSurfaceContributionRegistry $adminSurfaceRegistry;
 
-    private AdminBridgeRegistry $adminBridgeRegistry;
-
     private ReportRegistry $reportRegistry;
 
     /** @var array<string, true> */
@@ -92,7 +90,6 @@ class CapellAdminManager
     public function __construct()
     {
         $this->adminSurfaceRegistry = new AdminSurfaceContributionRegistry;
-        $this->adminBridgeRegistry = new AdminBridgeRegistry;
         $this->reportRegistry = new ReportRegistry;
     }
 
@@ -409,20 +406,16 @@ class CapellAdminManager
      */
     public function registerAdminBridge(string $packageName, string $bridgeClass): void
     {
-        $this->adminBridgeRegistry->register($packageName, $bridgeClass);
-    }
-
-    public function getAdminBridgeRegistry(): AdminBridgeRegistry
-    {
-        return $this->adminBridgeRegistry;
+        resolve(AdminBridgeRegistrar::class)->bridge($packageName, $bridgeClass);
     }
 
     public function bootAdminBridges(string $packageName): void
     {
         $context = AdminBridgeContextData::forPackage($packageName);
         $registrar = resolve(AdminBridgeRegistrar::class);
+        $registry = resolve(AdminBridgeRegistry::class);
 
-        foreach ($this->adminBridgeRegistry->enabledBridges($context) as $bridge) {
+        foreach ($registry->enabledBridges($context) as $bridge) {
             $bootKey = $packageName . ':' . $bridge::class;
 
             if (isset($this->bootedAdminBridges[$bootKey])) {

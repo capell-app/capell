@@ -258,17 +258,17 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(FlagIconRendererContract::class, FlagIconRenderer::class);
         $this->app->singletonIf(PageTableStatusResolver::class, DefaultPageTableStatusResolver::class);
 
-        $this->app->singleton(ExtensionPageRegistry::class, fn (): ExtensionPageRegistry => new ExtensionPageRegistry);
-        $this->app->singleton(AdminNotificationGroupRegistry::class, fn (): AdminNotificationGroupRegistry => new AdminNotificationGroupRegistry);
+        $this->app->singleton(ExtensionPageRegistry::class);
+        $this->app->singleton(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
         $this->app->singleton(ActivityResourceLinkRegistry::class);
         $this->app->singleton(CapellAdminManager::class, fn (): CapellAdminManager => new CapellAdminManager);
         $this->app->singleton(AdminResourceResolverContract::class, AdminResourceResolver::class);
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
-        $this->app->singleton(AdminBridgeRegistrar::class, fn (): AdminBridgeRegistrar => new AdminBridgeRegistrar);
-        $this->app->singleton(AdminBridgeRegistry::class, fn (): AdminBridgeRegistry => CapellAdmin::getAdminBridgeRegistry());
+        $this->app->singleton(AdminBridgeRegistry::class);
+        $this->app->singleton(AdminBridgeRegistrar::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
-        $this->app->singleton(ImportEntryRegistry::class, fn (): ImportEntryRegistry => new ImportEntryRegistry);
+        $this->app->singleton(ImportEntryRegistry::class);
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
@@ -289,9 +289,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(PageExporter::class, NullPageExporter::class);
         $this->app->singletonIf(RedirectUrlRecorder::class, PageUrlRedirectUrlRecorder::class);
         $this->app->singleton(RegistryInspectorInterface::class, RegistryInspector::class);
-        $this->app->singleton(ExtensionManagementSurfaceRegistry::class, fn (): ExtensionManagementSurfaceRegistry => new ExtensionManagementSurfaceRegistry);
+        $this->app->singleton(ExtensionManagementSurfaceRegistry::class);
         $this->app->scoped(ExtensionOperationsRequestCache::class);
-        $this->app->singleton(ExtensionsPageActionRegistry::class, fn (): ExtensionsPageActionRegistry => new ExtensionsPageActionRegistry);
+        $this->app->singleton(ExtensionsPageActionRegistry::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
         $this->reserveAdminFrontendPath();
@@ -693,7 +693,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerAdminEventSystem(): self
     {
-        $this->app->singleton(AdminEventRegistry::class, static fn (): AdminEventRegistry => new AdminEventRegistry);
+        $this->app->singleton(AdminEventRegistry::class);
 
         $this->app->singleton(
             AdminEventRouter::class,

@@ -381,26 +381,25 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->tag([CapellCoreManager::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
-        $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
         $this->app->singleton(PackageSurfaceRegistrar::class, fn ($app): PackageSurfaceRegistrar => new PackageSurfaceRegistrar(
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
         ));
-        $this->app->singleton(SubscriberRegistry::class, fn (): SubscriberRegistry => new SubscriberRegistry);
-        $this->app->singleton(RenderableRegistry::class, fn (): RenderableRegistry => new RenderableRegistry);
-        $this->app->singleton(LinkableContentRegistry::class, fn (): LinkableContentRegistry => new LinkableContentRegistry);
+        $this->app->singleton(SubscriberRegistry::class);
+        $this->app->singleton(RenderableRegistry::class);
+        $this->app->singleton(LinkableContentRegistry::class);
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
-        $this->app->singleton(ThemeChromeRegistry::class, fn (): ThemeChromeRegistry => new ThemeChromeRegistry);
-        $this->app->singleton(ThemeInstallDefaultsRegistry::class, fn (): ThemeInstallDefaultsRegistry => new ThemeInstallDefaultsRegistry);
-        $this->app->singleton(InstallPatchRegistry::class, fn (): InstallPatchRegistry => new InstallPatchRegistry);
-        $this->app->singleton(PresentationPresetRegistry::class, fn (): PresentationPresetRegistry => new PresentationPresetRegistry);
-        $this->app->singleton(VendorAssetConditionRegistry::class, fn (): VendorAssetConditionRegistry => new VendorAssetConditionRegistry);
+        $this->app->singleton(ThemeChromeRegistry::class);
+        $this->app->singleton(ThemeInstallDefaultsRegistry::class);
+        $this->app->singleton(InstallPatchRegistry::class);
+        $this->app->singleton(PresentationPresetRegistry::class);
+        $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
             $app->make(SqliteDatabaseBackupDriver::class),
             $app->make(MySqlDatabaseBackupDriver::class),
             $app->make(PostgresDatabaseBackupDriver::class),
         ]));
-        $this->app->singleton(MakerRegistryInterface::class, fn (): MakerRegistry => new MakerRegistry);
+        $this->app->singleton(MakerRegistryInterface::class, MakerRegistry::class);
         $this->app->singleton(MakerSafety::class, fn (): MakerSafety => new MakerSafety);
         $this->app->singleton(PluginPackagesFetcher::class);
         $this->app->singleton(MigrationFilesystemInterface::class, MigrationFilesystem::class);
@@ -670,8 +669,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->singleton(
             SettingsSchemaBootstrapper::class,
-            fn (): SettingsSchemaBootstrapper => new SettingsSchemaBootstrapper(
-                resolve(SettingsSchemaRegistry::class),
+            fn (Application $application): SettingsSchemaBootstrapper => new SettingsSchemaBootstrapper(
+                $application->make(SettingsSchemaRegistry::class),
             ),
         );
 

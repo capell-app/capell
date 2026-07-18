@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Bridges;
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
@@ -34,6 +35,19 @@ use Illuminate\View\View;
 
 final class AdminBridgeRegistrar
 {
+    public function __construct(
+        private readonly AdminBridgeRegistry $bridges,
+        private readonly SettingsSchemaRegistry $settings,
+    ) {}
+
+    /**
+     * @param  class-string<AdminBridge>  $bridgeClass
+     */
+    public function bridge(string $packageName, string $bridgeClass): void
+    {
+        $this->bridges->register($packageName, $bridgeClass);
+    }
+
     /** @param class-string $pageClass */
     public function page(string $pageClass): void
     {
@@ -246,7 +260,7 @@ final class AdminBridgeRegistrar
      */
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): void
     {
-        resolve(SettingsSchemaRegistry::class)->register($group, $schemaClass, $key);
+        $this->settings->register($group, $schemaClass, $key);
     }
 
     /**
@@ -254,11 +268,11 @@ final class AdminBridgeRegistrar
      */
     public function settingsClass(string $group, string $settingsClass): void
     {
-        resolve(SettingsSchemaRegistry::class)->registerSettingsClass($group, $settingsClass);
+        $this->settings->registerSettingsClass($group, $settingsClass);
     }
 
     public function settingsMetadata(SettingsGroupMetadata $metadata): void
     {
-        resolve(SettingsSchemaRegistry::class)->registerMetadata($metadata);
+        $this->settings->registerMetadata($metadata);
     }
 }

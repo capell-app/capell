@@ -4,23 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Media;
 
-use Capell\Core\Octane\Resettable;
 use Capell\Core\Settings\CoreSettings;
 use Illuminate\Support\Str;
 use Throwable;
 
-final class ImageUrlPolicy implements Resettable
+final class ImageUrlPolicy
 {
     /** @var list<string>|null */
     private ?array $allowedDomains = null;
 
     private ?bool $allowRelativeUrls = null;
-
-    public function flushOctaneState(): void
-    {
-        $this->allowedDomains = null;
-        $this->allowRelativeUrls = null;
-    }
 
     /**
      * @param  list<string>|null  $allowedDomains

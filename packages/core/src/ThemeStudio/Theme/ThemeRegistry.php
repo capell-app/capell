@@ -36,9 +36,4 @@ class ThemeRegistry
     {
         return isset($this->definitions[$themeKey]);
     }
-
-    public function reset(): void
-    {
-        $this->definitions = [];
-    }
 }
