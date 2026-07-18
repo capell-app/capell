@@ -426,12 +426,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             MediaTranslationCacheDependencyResolver::class,
             SiteTranslationCacheDependencyResolver::class,
         ], TranslationCacheDependencyResolver::TAG);
-        $this->app->scoped(
-            TranslationCacheDependencyRegistry::class,
-            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
-                $app->tagged(TranslationCacheDependencyResolver::TAG),
-            ),
-        );
+        $this->app->scoped(TranslationCacheDependencyRegistry::class);
         $this->app->scoped(CacheInvalidationRegistry::class);
     }
 

@@ -13,7 +13,7 @@ final class AdminToolRegistry extends TaggedProviderRegistry
 {
     public function __construct(Application $application)
     {
-        parent::__construct($application->tagged(AdminToolItem::TAG), AdminToolItem::class);
+        parent::__construct($application, AdminToolItem::TAG, AdminToolItem::class);
     }
 
     /** @return list<AdminToolItem> */
