@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use Livewire\Component;
@@ -116,6 +117,12 @@ it('uses the legacy development version when composer has no pretty version', fu
     expect(CapellCore::getPackage($provider::$packageName)->version)->toBe('dev');
 });
 
+it('exposes the shared package surface registrar as the canonical provider contribution path', function (): void {
+    $provider = new LivewireCompatibilityTestServiceProvider(app());
+
+    expect($provider->packageSurface())->toBe(resolve(PackageSurfaceRegistrar::class));
+});
+
 final class InstalledLifecycleTestServiceProvider extends AbstractPackageServiceProvider
 {
     public static string $name = 'installed-lifecycle-test';
@@ -214,6 +221,11 @@ final class LivewireCompatibilityTestServiceProvider extends AbstractPackageServ
     public function registerMetadata(): self
     {
         return $this->registerPackageMetadata();
+    }
+
+    public function packageSurface(): PackageSurfaceRegistrar
+    {
+        return $this->surface();
     }
 
     public function registerPrivateDefinitions(): self
