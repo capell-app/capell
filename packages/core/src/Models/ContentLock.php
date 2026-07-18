@@ -64,7 +64,7 @@ final class ContentLock extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeForModel(Builder $query, Model $model): Builder
+    protected function scopeForModel(Builder $query, Model $model): Builder
     {
         return $query
             ->where('model_type', $model->getMorphClass())

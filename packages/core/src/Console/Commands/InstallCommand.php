@@ -357,17 +357,17 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             languages: $languages,
             demo: $demo,
             siteOptions: $siteOptions,
-            userId: $userId,
             newUser: $resolvedNewUser,
             seedDefaultData: $seedDefaultData,
             seedDatabase: $seedDatabase,
             freshInstall: $freshInstall,
             installWelcomeRoute: $installWelcomeRoute,
             developerToolingChoice: $developerToolingChoice,
-            additionalUsers: $additionalUsers,
             selectedThemeKey: $selectedThemeKey,
             extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
             generateSitemap: $generateSitemap,
+            userId: $userId,
+            additionalUsers: $additionalUsers,
         );
 
         return $this->runInstallOrchestration(

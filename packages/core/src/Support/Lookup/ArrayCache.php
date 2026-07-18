@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Cache;
 
 final class ArrayCache
 {
-    /** @var string */
     private const string REGISTRY_KEY = 'capell-core-cache-keys';
 
     public function remember(string $key, callable $resolver, bool $asBool = false): mixed

@@ -32,7 +32,7 @@ final class PageCreator implements PageCreatable
      *
      * @var array<int, string>
      */
-    protected const array ERROR_PAGE_STATUSES = ['401', '402', '403', '404', '419', '429', '500', '503'];
+    private const array ERROR_PAGE_STATUSES = ['401', '402', '403', '404', '419', '429', '500', '503'];
 
     protected LayoutCreator $layoutCreator;
 
@@ -331,7 +331,7 @@ final class PageCreator implements PageCreatable
      *
      * @return array<int, array{headline: string, description: string}>
      */
-    protected function errorStatusCopyDefaults(): array
+    private function errorStatusCopyDefaults(): array
     {
         $copy = [];
 
@@ -345,7 +345,7 @@ final class PageCreator implements PageCreatable
         return $copy;
     }
 
-    protected function getLayout(LayoutEnum|string $key): Layout
+    private function getLayout(LayoutEnum|string $key): Layout
     {
         if ($key instanceof LayoutEnum) {
             $key = $key->value;
@@ -363,12 +363,12 @@ final class PageCreator implements PageCreatable
     /**
      * @return Builder<Blueprint>
      */
-    protected function typeQuery(): Builder
+    private function typeQuery(): Builder
     {
         return $this->typeModel::query();
     }
 
-    protected function getPageType(string|PageTypeEnum $key): Blueprint
+    private function getPageType(string|PageTypeEnum $key): Blueprint
     {
         $type = $this->typeQuery()->where('key', $key)->pageType()->first();
 

@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Log;
 
 class PluginPackagesFetcher
 {
-    /** @var int */
     private const int MAX_RESPONSE_BYTES = 1048576;
 
     /** @return Collection<int, array<string, mixed>> */

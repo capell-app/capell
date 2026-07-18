@@ -5,7 +5,7 @@ use Illuminate\Support\Collection;
 
 it('uses strict types throughout core production code', function (): void {
     $nonStrictFiles = corePhpFiles()
-        ->filter(fn (SplFileInfo $file): bool => ! str_contains((string) file_get_contents($file->getPathname()), 'declare(strict_types=1);'))
+        ->reject(fn (SplFileInfo $file): bool => str_contains((string) file_get_contents($file->getPathname()), 'declare(strict_types=1);'))
         ->map(fn (SplFileInfo $file): string => $file->getPathname())
         ->values()
         ->all();
@@ -81,7 +81,7 @@ it('makes core actions data and support classes final by default', function (): 
         $contents = (string) file_get_contents($file->getPathname());
 
         return preg_match('/^class\s+\w+/m', $contents) === 1;
-    })->map(fn (SplFileInfo $file): string => str_replace((string) $sourcePath . '/', '', $file->getPathname()))
+    })->map(fn (SplFileInfo $file): string => str_replace($sourcePath . '/', '', $file->getPathname()))
         ->reject(fn (string $path): bool => in_array($path, $extensionPoints, true))
         ->values()
         ->all();

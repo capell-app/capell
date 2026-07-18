@@ -45,7 +45,7 @@ final class GetComponentClassAction
         return $this->bladeCompiler->componentClass($component);
     }
 
-    protected function classExists(string $class): bool
+    private function classExists(string $class): bool
     {
         return class_exists($class);
     }
