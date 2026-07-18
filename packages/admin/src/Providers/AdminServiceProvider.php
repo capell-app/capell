@@ -429,14 +429,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerResources(): self
     {
-        foreach (ResourceEnum::cases() as $resourceEnum) {
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(
+        return $this->registerAdminSurfaceCases(
+            ResourceEnum::cases(),
+            static fn (ResourceEnum $resourceEnum): AdminSurfaceContributionData => AdminSurfaceContributionData::resource(
                 class: $resourceEnum->value,
                 group: $resourceEnum->name,
-            ));
-        }
-
-        return $this;
+            ),
+        );
     }
 
     private function registerNotificationGroups(): self
@@ -459,11 +458,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerPages(): self
     {
-        foreach (PageEnum::cases() as $pageEnum) {
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page($pageEnum->value));
-        }
-
-        return $this;
+        return $this->registerAdminSurfaceCases(
+            PageEnum::cases(),
+            static fn (PageEnum $pageEnum): AdminSurfaceContributionData => AdminSurfaceContributionData::page($pageEnum->value),
+        );
     }
 
     private function registerCoreReports(): self
@@ -534,8 +532,22 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerWidgets(): self
     {
-        foreach (FilamentWidgetEnum::cases() as $widgetEnum) {
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget($widgetEnum->value));
+        return $this->registerAdminSurfaceCases(
+            FilamentWidgetEnum::cases(),
+            static fn (FilamentWidgetEnum $widgetEnum): AdminSurfaceContributionData => AdminSurfaceContributionData::widget($widgetEnum->value),
+        );
+    }
+
+    /**
+     * @template TCase
+     *
+     * @param  list<TCase>  $cases
+     * @param  callable(TCase): AdminSurfaceContributionData  $makeContribution
+     */
+    private function registerAdminSurfaceCases(array $cases, callable $makeContribution): self
+    {
+        foreach ($cases as $case) {
+            CapellAdmin::contributeToAdminSurface($makeContribution($case));
         }
 
         return $this;
