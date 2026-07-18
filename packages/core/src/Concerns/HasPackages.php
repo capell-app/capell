@@ -18,6 +18,7 @@ use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\OptionalCompanions;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Illuminate\Support\Collection;
@@ -255,6 +256,19 @@ trait HasPackages
         }
 
         return $this->isPackageEnabled($name);
+    }
+
+    /**
+     * @param  list<class-string>  $requiredClasses
+     */
+    public function companionInstalled(string $package, array $requiredClasses = []): bool
+    {
+        return resolve(OptionalCompanions::class)->installed($package, $requiredClasses);
+    }
+
+    public function companionService(string $contract): ?object
+    {
+        return resolve(OptionalCompanions::class)->service($contract);
     }
 
     public function isPackageEnabled(string $name): bool
