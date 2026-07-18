@@ -142,6 +142,8 @@ final class AdminBridgeRegistrar
         ?string $iconColor = null,
         int $sort = 100,
         bool|Closure $visible = true,
+        ?string $chapter = 'dashboard',
+        ?string $route = null,
     ): void {
         CapellAdmin::registerWelcomeTourStep(
             key: $key,
@@ -152,6 +154,8 @@ final class AdminBridgeRegistrar
             iconColor: $iconColor,
             sort: $sort,
             visible: $visible,
+            chapter: $chapter,
+            route: $route,
         );
     }
 
