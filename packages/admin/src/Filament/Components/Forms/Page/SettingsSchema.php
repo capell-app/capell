@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Enums\PageHeroAssetSourceEnum;
+use Capell\Admin\Enums\PageHeroStyleEnum;
 use Capell\Core\Contracts\Pageable;
 use Closure;
 use Filament\Forms\Components\Checkbox;
@@ -137,12 +139,7 @@ class SettingsSchema
             Select::make('meta.hero_style')
                 ->label(__('capell-admin::form.hero_style'))
                 ->helperText(__('capell-admin::form.hero_style_helper'))
-                ->options([
-                    'default' => __('capell-admin::form.hero_style_default'),
-                    'editorial' => __('capell-admin::form.hero_style_editorial'),
-                    'immersive' => __('capell-admin::form.hero_style_immersive'),
-                    'compact' => __('capell-admin::form.hero_style_compact'),
-                ])
+                ->options(PageHeroStyleEnum::class)
                 ->default('default'),
             TextInput::make('meta.hero_height')
                 ->label(__('capell-admin::form.hero_height'))
@@ -152,11 +149,7 @@ class SettingsSchema
             Select::make('meta.hero_asset_source')
                 ->label(__('capell-admin::form.hero_asset_source'))
                 ->helperText(__('capell-admin::form.hero_asset_source_helper'))
-                ->options([
-                    'element' => __('capell-admin::form.hero_asset_source_element'),
-                    'page' => __('capell-admin::form.hero_asset_source_page'),
-                    'mixed' => __('capell-admin::form.hero_asset_source_mixed'),
-                ])
+                ->options(PageHeroAssetSourceEnum::class)
                 ->default('element'),
         ];
     }

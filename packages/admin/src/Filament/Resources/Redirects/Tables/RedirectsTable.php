@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Redirects\Tables;
 
+use Capell\Admin\Enums\RedirectHitCountBucketEnum;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
@@ -121,11 +122,7 @@ class RedirectsTable implements TableConfigurator
             TrashedFilter::make(),
             SelectFilter::make('hit_count_bucket')
                 ->label(__('capell-admin::table.hit_count_bucket'))
-                ->options([
-                    'none' => __('capell-admin::table.hit_count_bucket_none'),
-                    'any' => __('capell-admin::table.hit_count_bucket_any'),
-                    'ten_plus' => __('capell-admin::table.hit_count_bucket_ten_plus'),
-                ])
+                ->options(RedirectHitCountBucketEnum::class)
                 ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
                     'none' => $query->where('hit_count', 0),
                     'any' => $query->where('hit_count', '>', 0),

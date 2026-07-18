@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets;
 
 use Capell\Admin\Contracts\Widgets\FilamentWidget;
+use Capell\Admin\Enums\ContentMediaOrderingEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\ContentEditor;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
@@ -39,10 +40,7 @@ class ContentFilamentWidget implements FilamentWidget
 
                 Select::make('mediaOrdering')
                     ->label(__('capell-admin::widget.content_media_ordering'))
-                    ->options([
-                        'before' => __('capell-admin::widget.content_media_before'),
-                        'after' => __('capell-admin::widget.content_media_after'),
-                    ])
+                    ->options(ContentMediaOrderingEnum::class)
                     ->default('before')
                     ->native(false),
             ]);
