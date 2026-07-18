@@ -21,10 +21,16 @@ use Capell\Core\Contracts\Extensions\RegistersExtensionSection;
 use Capell\Core\Contracts\Extensions\RegistersExtensionSetting;
 use Capell\Core\Contracts\Extensions\RunsExtensionMigration;
 use Capell\Core\Contracts\Extensions\RunsScheduledExtensionJob;
+use Capell\Core\Contracts\ManifestSectionValidator;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\ExtensionManifestVersion;
 use Capell\Core\Enums\ExtensionSurface;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
+use Capell\Core\Support\Manifest\Validation\CommercialSectionValidator;
+use Capell\Core\Support\Manifest\Validation\ManifestValidationRules;
+use Capell\Core\Support\Manifest\Validation\MarketplaceSectionValidator;
+use Capell\Core\Support\Manifest\Validation\PerformanceSectionValidator;
+use Capell\Core\Support\Manifest\Validation\SecuritySectionValidator;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Support\ServiceProvider;
 
@@ -41,24 +47,6 @@ final class ManifestValidator
 
     /** @var list<string> */
     private const array VALID_PROVIDER_BUCKETS = ['metadata', 'install', 'runtime', 'auth', 'admin', 'frontend'];
-
-    /** @var list<string> */
-    private const array COMMERCIAL_PROPOSAL_FIELDS = [
-        'proposedLicense',
-        'requestedCertification',
-        'supportPolicy',
-        'privateDocsRequested',
-    ];
-
-    /** @var list<string> */
-    private const array SECURITY_FIELDS = [
-        'riskTier',
-        'publicSurface',
-        'sensitiveData',
-        'publicOutput',
-        'externalHttpClients',
-        'adminSurface',
-    ];
 
     /** @var list<string> */
     private const array TRUSTED_PLATFORM_NAMESPACE_PREFIXES = [
@@ -109,6 +97,22 @@ final class ManifestValidator
         'documentationUrl',
     ];
 
+    private readonly ManifestValidationRules $rules;
+
+    /** @var list<ManifestSectionValidator> */
+    private readonly array $sectionValidators;
+
+    public function __construct()
+    {
+        $this->rules = new ManifestValidationRules;
+        $this->sectionValidators = [
+            new SecuritySectionValidator($this->rules),
+            new PerformanceSectionValidator($this->rules),
+            new CommercialSectionValidator,
+            new MarketplaceSectionValidator($this->rules),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>|null  $composerJson
@@ -133,7 +137,7 @@ final class ManifestValidator
             }
         }
 
-        $this->validateRequiredStrings($data, [
+        $this->rules->requiredStrings($data, [
             'name',
             'slug',
             'displayName',
@@ -166,10 +170,10 @@ final class ManifestValidator
         $this->validateProduct($data);
         $this->validateDependencies($data);
         $this->validateProviders($data);
-        $this->validateStringList($data, 'surfaces');
-        $this->validateStringList($data, 'settings', required: false);
-        $this->validateStringList($data, 'permissions', required: false);
-        $this->validateStringList($data, 'capabilities', required: false);
+        $this->rules->stringList($data, 'surfaces');
+        $this->rules->stringList($data, 'settings', required: false);
+        $this->rules->stringList($data, 'permissions', required: false);
+        $this->rules->stringList($data, 'capabilities', required: false);
 
         foreach ($data['surfaces'] as $surface) {
             if (! in_array($surface, ExtensionSurface::values(), strict: true)) {
@@ -182,26 +186,17 @@ final class ManifestValidator
 
         $this->validateClassList($data['providers'], $namespacePrefixes, $isTrustedCore, ServiceProvider::class);
         $this->validateContributions($data, $namespacePrefixes, $isTrustedCore);
-        $this->validateSecurity($data);
-        $this->validatePerformance($data);
+        $this->sectionValidators[0]->validate($data);
+        $this->sectionValidators[1]->validate($data);
         $this->validateHealthChecks($data, $namespacePrefixes, $isTrustedCore);
-        $this->validateCommercial($data);
-        $this->validateMarketplace($data);
+        $this->sectionValidators[2]->validate($data);
+        $this->sectionValidators[3]->validate($data);
     }
 
     /**
      * @param  array<string, mixed>  $data
      * @param  list<string>  $fields
      */
-    private function validateRequiredStrings(array $data, array $fields): void
-    {
-        foreach ($fields as $field) {
-            if (! is_string($data[$field] ?? null) || $data[$field] === '') {
-                throw InvalidManifestException::missingField($field);
-            }
-        }
-    }
-
     /** @param array<string, mixed> $data */
     private function validateProduct(array $data): void
     {
@@ -209,7 +204,7 @@ final class ManifestValidator
             throw InvalidManifestException::missingField('product');
         }
 
-        $this->validateRequiredStrings($data['product'], ['group', 'tier']);
+        $this->rules->requiredStrings($data['product'], ['group', 'tier']);
     }
 
     /** @param array<string, mixed> $data */
@@ -220,7 +215,7 @@ final class ManifestValidator
         }
 
         foreach (['requires', 'supports', 'conflicts'] as $field) {
-            $this->validateStringList($data['dependencies'], $field);
+            $this->rules->stringList($data['dependencies'], $field);
         }
     }
 
@@ -243,35 +238,11 @@ final class ManifestValidator
         }
 
         foreach (self::VALID_PROVIDER_BUCKETS as $bucket) {
-            $this->validateStringList(
+            $this->rules->stringList(
                 $data['providers'],
                 $bucket,
                 required: in_array($bucket, self::REQUIRED_PROVIDER_BUCKETS, true),
             );
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function validateStringList(array $data, string $field, bool $required = true): void
-    {
-        if (! array_key_exists($field, $data)) {
-            if ($required) {
-                throw InvalidManifestException::missingField($field);
-            }
-
-            return;
-        }
-
-        if (! is_array($data[$field]) || ! array_is_list($data[$field])) {
-            throw InvalidManifestException::invalidField($field, 'must be a list');
-        }
-
-        foreach ($data[$field] as $value) {
-            if (! is_string($value) || $value === '') {
-                throw InvalidManifestException::invalidField($field, 'must contain non-empty strings');
-            }
         }
     }
 
@@ -351,130 +322,6 @@ final class ManifestValidator
         }
     }
 
-    /** @param array<string, mixed> $data */
-    private function validateSecurity(array $data): void
-    {
-        if (! array_key_exists('security', $data)) {
-            return;
-        }
-
-        if (! is_array($data['security'])) {
-            throw InvalidManifestException::invalidField('security', 'must be an object');
-        }
-
-        $security = $data['security'];
-
-        foreach (array_keys($security) as $field) {
-            if (! in_array($field, self::SECURITY_FIELDS, true)) {
-                throw InvalidManifestException::invalidField('security.' . $field, 'is not part of manifest v3 security metadata');
-            }
-        }
-
-        if (array_key_exists('riskTier', $security) && (! is_string($security['riskTier']) || $security['riskTier'] === '')) {
-            throw InvalidManifestException::invalidField('security.riskTier', 'must be a non-empty string');
-        }
-
-        $this->validateSecurityObject($security, 'publicSurface');
-        $this->validateSecurityObject($security, 'sensitiveData');
-        $this->validateSecurityObject($security, 'publicOutput');
-        $this->validateSecurityObject($security, 'externalHttpClients');
-        $this->validateSecurityObject($security, 'adminSurface');
-
-        if (is_array($security['publicSurface'] ?? null)) {
-            $publicSurface = $security['publicSurface'];
-
-            foreach (['routeNames', 'csrfExemptRoutes', 'signedRoutes', 'tokenizedRoutes', 'webhookRoutes', 'throttledRoutes'] as $field) {
-                $this->validateStringList($publicSurface, $field, required: false);
-            }
-
-            if (array_key_exists('auth', $publicSurface) && (! is_string($publicSurface['auth']) || $publicSurface['auth'] === '')) {
-                throw InvalidManifestException::invalidField('security.publicSurface.auth', 'must be a non-empty string');
-            }
-        }
-
-        if (is_array($security['sensitiveData'] ?? null)) {
-            foreach (['encryptedFields', 'hashedTokenFields', 'redactedOutputClasses', 'plaintextJustifications'] as $field) {
-                $this->validateStringList($security['sensitiveData'], $field, required: false);
-            }
-        }
-
-        if (is_array($security['publicOutput'] ?? null)) {
-            foreach (['cacheSafe', 'forbidAuthoringSurface', 'forbidSecrets', 'forbidPublicBladeQueries'] as $field) {
-                if (array_key_exists($field, $security['publicOutput']) && ! is_bool($security['publicOutput'][$field])) {
-                    throw InvalidManifestException::invalidField('security.publicOutput.' . $field, 'must be a boolean');
-                }
-            }
-        }
-
-        if (is_array($security['externalHttpClients'] ?? null)) {
-            foreach (['requiresTimeouts', 'requiresSecretRedaction'] as $field) {
-                if (array_key_exists($field, $security['externalHttpClients']) && ! is_bool($security['externalHttpClients'][$field])) {
-                    throw InvalidManifestException::invalidField('security.externalHttpClients.' . $field, 'must be a boolean');
-                }
-            }
-
-            $this->validateStringList($security['externalHttpClients'], 'clients', required: false);
-        }
-
-        if (is_array($security['adminSurface'] ?? null)) {
-            if (array_key_exists('authorization', $security['adminSurface']) && (! is_string($security['adminSurface']['authorization']) || $security['adminSurface']['authorization'] === '')) {
-                throw InvalidManifestException::invalidField('security.adminSurface.authorization', 'must be a non-empty string');
-            }
-
-            $this->validateStringList($security['adminSurface'], 'permissions', required: false);
-        }
-    }
-
-    /** @param array<string, mixed> $data */
-    private function validateSecurityObject(array $data, string $field): void
-    {
-        if (array_key_exists($field, $data) && ! is_array($data[$field])) {
-            throw InvalidManifestException::invalidField('security.' . $field, 'must be an object');
-        }
-    }
-
-    /** @param array<string, mixed> $data */
-    private function validatePerformance(array $data): void
-    {
-        if (! is_array($data['performance'] ?? null)) {
-            throw InvalidManifestException::missingField('performance');
-        }
-
-        $performance = $data['performance'];
-        $this->validateStringList($performance, 'cacheTags');
-
-        if (! is_array($performance['cacheSafety'] ?? null)) {
-            throw InvalidManifestException::missingField('cacheSafety');
-        }
-
-        $cacheSafety = $performance['cacheSafety'];
-
-        foreach (['cacheable', 'sensitiveOutput', 'queueInvalidation'] as $field) {
-            if (! array_key_exists($field, $cacheSafety) || ! is_bool($cacheSafety[$field])) {
-                throw InvalidManifestException::invalidField('cacheSafety.' . $field, 'must be explicit boolean metadata');
-            }
-        }
-
-        $this->validateStringList($cacheSafety, 'variesBy');
-
-        if (! array_key_exists('invalidationSources', $cacheSafety) || ! is_array($cacheSafety['invalidationSources']) || ! array_is_list($cacheSafety['invalidationSources'])) {
-            throw InvalidManifestException::invalidField('cacheSafety.invalidationSources', 'must be a list');
-        }
-
-        foreach ($cacheSafety['invalidationSources'] as $index => $source) {
-            if (! is_array($source)) {
-                throw InvalidManifestException::invalidField('cacheSafety.invalidationSources.' . $index, 'must be an object');
-            }
-
-            $this->validateRequiredStrings($source, ['model']);
-            $this->validateStringList($source, 'events');
-        }
-
-        if ($cacheSafety['cacheable'] && $cacheSafety['invalidationSources'] === []) {
-            throw InvalidManifestException::invalidField('cacheSafety.invalidationSources', 'cacheable frontend surfaces need invalidation metadata');
-        }
-    }
-
     /**
      * @param  array<string, mixed>  $data
      * @param  list<string>  $namespacePrefixes
@@ -490,60 +337,8 @@ final class ManifestValidator
                 throw InvalidManifestException::invalidField('healthChecks.' . $index, 'must be an object');
             }
 
-            $this->validateRequiredStrings($healthCheck, ['key', 'label', 'class']);
+            $this->rules->requiredStrings($healthCheck, ['key', 'label', 'class']);
             $this->validateClass((string) $healthCheck['class'], $namespacePrefixes, $isTrustedCore, ChecksExtensionHealth::class);
-        }
-    }
-
-    /** @param array<string, mixed> $data */
-    private function validateCommercial(array $data): void
-    {
-        if (! is_array($data['commercial'] ?? null)) {
-            throw InvalidManifestException::missingField('commercial');
-        }
-
-        foreach (array_keys($data['commercial']) as $field) {
-            if (! in_array($field, self::COMMERCIAL_PROPOSAL_FIELDS, true)) {
-                throw InvalidManifestException::invalidField('commercial.' . $field, 'commercial manifest data is author proposal metadata only');
-            }
-        }
-
-        if (! array_key_exists('privateDocsRequested', $data['commercial']) || ! is_bool($data['commercial']['privateDocsRequested'])) {
-            throw InvalidManifestException::invalidField('commercial.privateDocsRequested', 'must be explicit boolean proposal metadata');
-        }
-    }
-
-    /** @param array<string, mixed> $data */
-    private function validateMarketplace(array $data): void
-    {
-        if (! is_array($data['marketplace'] ?? null)) {
-            throw InvalidManifestException::missingField('marketplace');
-        }
-
-        $marketplace = $data['marketplace'];
-        $this->validateRequiredStrings($marketplace, ['summary']);
-        $this->validateStringList($marketplace, 'categories');
-
-        if (array_key_exists('hidden', $marketplace) && ! is_bool($marketplace['hidden'])) {
-            throw InvalidManifestException::invalidField('marketplace.hidden', 'must be a boolean');
-        }
-
-        if (! is_array($marketplace['screenshots'] ?? null) || ! array_is_list($marketplace['screenshots'])) {
-            throw InvalidManifestException::missingField('marketplace.screenshots');
-        }
-
-        foreach ($marketplace['screenshots'] as $index => $screenshot) {
-            if (! is_array($screenshot)) {
-                throw InvalidManifestException::invalidField('marketplace.screenshots.' . $index, 'must be an object');
-            }
-
-            $this->validateRequiredStrings($screenshot, ['path', 'alt', 'caption']);
-
-            foreach (['alt', 'caption'] as $field) {
-                if (mb_strlen(trim((string) $screenshot[$field])) < 12) {
-                    throw InvalidManifestException::invalidField(sprintf('marketplace.screenshots.%d.%s', $index, $field), 'must be usable descriptive text');
-                }
-            }
         }
     }
 
