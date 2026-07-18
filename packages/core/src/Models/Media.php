@@ -310,6 +310,7 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
      * whether deleting an image will break N pages — the most common
      * "I deleted it by accident, now everything's missing" footgun.
      */
+    /** @return Attribute<int, never> */
     protected function usageCount(): Attribute
     {
         return Attribute::make(get: fn (): int => AssetAttachment::query()

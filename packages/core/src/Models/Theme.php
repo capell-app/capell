@@ -239,6 +239,7 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
             ->orderBy($this->qualifyColumn('name'));
     }
 
+    /** @return Attribute<bool|null, never> */
     protected function darkModeToggle(): Attribute
     {
         return Attribute::make(get: fn (): ?bool => match ($this->getMeta('dark_mode_toggle', false)) {
@@ -248,23 +249,26 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
         });
     }
 
+    /** @return Attribute<bool, never> */
     protected function stickyHeader(): Attribute
     {
         return Attribute::make(get: fn (): bool => $this->getMeta('header_position') === 'sticky');
     }
 
+    /** @return Attribute<bool, never> */
     protected function fixedHeader(): Attribute
     {
         return Attribute::make(get: fn (): bool => $this->getMeta('header_position') === 'fixed');
     }
 
+    /** @return Attribute<bool, never> */
     protected function scrollUpHeader(): Attribute
     {
         return Attribute::make(get: fn (): bool => $this->getMeta('header_position') === 'scroll_up');
     }
 
     /**
-     * @return list<string>
+     * @return Attribute<list<string>, never>
      */
     protected function secondaryContainers(): Attribute
     {
@@ -272,13 +276,14 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
     }
 
     /**
-     * @return array<string, mixed>
+     * @return Attribute<array<string, mixed>, never>
      */
     protected function colors(): Attribute
     {
         return Attribute::make(get: fn (): array => (array) ($this->getMeta('colors') ?? []));
     }
 
+    /** @return Attribute<bool, never> */
     protected function withDarkMode(): Attribute
     {
         return Attribute::make(get: fn (): bool => $this->dark_mode_toggle !== false);

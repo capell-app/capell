@@ -50,10 +50,7 @@ class CapellCoreManager implements Resettable
     {
         $this->localCache = [];
         $this->installedExtensionNamesCache = null;
-        $this->extensionStatusCache = [];
-        $this->extensionRuntimeGateCache = [];
-        $this->extensionRecordCache = [];
-        $this->extensionRecordsPreloaded = false;
+        $this->extensionLifecycle()->clear();
         $this->defaultPages = null;
     }
 

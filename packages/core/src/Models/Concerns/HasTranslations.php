@@ -69,6 +69,7 @@ trait HasTranslations
         return $model;
     }
 
+    /** @return Attribute<string|null, never> */
     protected function title(): Attribute
     {
         return Attribute::make(get: fn (): ?string => $this->translation?->title);

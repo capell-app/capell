@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Filament\Resources\Redirects\Schemas\RedirectForm;
 use Capell\Admin\Filament\Resources\Redirects\Tables\RedirectsTable;
 use Capell\Admin\Support\SiteScope;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -51,7 +52,7 @@ class RedirectResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->redirects()
+            ->where('type', UrlTypeEnum::Redirect)
             ->with([
                 'language',
                 'site',

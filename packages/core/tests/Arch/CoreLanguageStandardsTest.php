@@ -59,6 +59,7 @@ it('makes core actions data and support classes final by default', function (): 
         'Actions/Install/RunInstallAction.php',
         'Actions/InstallPackageAction.php',
         'Actions/RequirePackageAction.php',
+        'Data/PackageData.php',
         'Support/CapellCoreManager.php',
         'Support/Dataset/DatasetPublisher.php',
         'Support/Install/DeveloperToolingInstallationState.php',

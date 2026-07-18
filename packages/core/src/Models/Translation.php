@@ -190,6 +190,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
             ->where('collection_name', MediaCollectionEnum::BackgroundImage->value);
     }
 
+    /** @return Attribute<string|null, never> */
     protected function label(): Attribute
     {
         return Attribute::make(get: function (): ?string {
@@ -205,6 +206,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
         });
     }
 
+    /** @return Attribute<string|null, never> */
     protected function linkText(): Attribute
     {
         return Attribute::make(get: function (): ?string {
@@ -218,11 +220,13 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
         });
     }
 
+    /** @return Attribute<string|null, never> */
     protected function slug(): Attribute
     {
         return Attribute::make(get: fn (): ?string => $this->meta['slug'] ?? null);
     }
 
+    /** @return Attribute<string|null, never> */
     protected function summary(): Attribute
     {
         return Attribute::make(get: function (): ?string {
@@ -238,6 +242,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
         });
     }
 
+    /** @return Attribute<string, never> */
     protected function metaDescription(): Attribute
     {
         return Attribute::make(get: function (): string {
@@ -252,6 +257,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
         });
     }
 
+    /** @return Attribute<string, never> */
     protected function metaKeywords(): Attribute
     {
         return Attribute::make(get: function (): string {
@@ -266,6 +272,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
         });
     }
 
+    /** @return Attribute<string, never> */
     protected function metaTitle(): Attribute
     {
         return Attribute::make(get: function (): string {

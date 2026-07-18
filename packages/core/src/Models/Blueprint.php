@@ -357,6 +357,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
         $query->where('type', $type);
     }
 
+    /** @return Attribute<ContentStructure|null, never> */
     protected function contentStructure(): Attribute
     {
         return Attribute::make(get: function (): ?ContentStructure {
@@ -368,6 +369,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
         });
     }
 
+    /** @return Attribute<CacheTime|null, never> */
     protected function cacheTime(): Attribute
     {
         return Attribute::make(get: function (): ?CacheTime {
@@ -379,6 +381,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
         });
     }
 
+    /** @return Attribute<never, mixed> */
     protected function meta(): Attribute
     {
         return Attribute::make(set: function (mixed $value): array {

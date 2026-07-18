@@ -46,7 +46,7 @@ trait HasPublishDates
 
     public function getPublishStatus(): PublishStatusEnum
     {
-        return $this->getPublishStatusAttribute();
+        return PublishStatusEnum::fromModel($this);
     }
 
     /**
@@ -185,6 +185,7 @@ trait HasPublishDates
         $builder->onlyTrashed();
     }
 
+    /** @return Attribute<PublishStatusEnum, never> */
     protected function publishStatus(): Attribute
     {
         return Attribute::make(get: fn (): PublishStatusEnum => PublishStatusEnum::fromModel($this));

@@ -151,30 +151,35 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
         return $this->belongsTo(Site::class);
     }
 
+    /** @return Attribute<string, never> */
     protected function fullUrl(): Attribute
     {
         return Attribute::make(get: fn (): string => $this->root_url . $this->path);
     }
 
+    /** @return Attribute<string, never> */
     protected function rootUrl(): Attribute
     {
         return Attribute::make(get: fn (): string => $this->scheme . '://' . $this->getResolvedDomain());
     }
 
+    /** @return Attribute<string, never> */
     protected function name(): Attribute
     {
         return Attribute::make(get: fn (): string => $this->getResolvedDomain() . $this->url);
     }
 
+    /** @return Attribute<string, never> */
     protected function scheme(): Attribute
     {
-        return Attribute::make(get: function (): ?string {
+        return Attribute::make(get: function (): string {
             $scheme = $this->attributes['scheme'] ?? config('capell-frontend.default_scheme');
 
             return is_string($scheme) && $scheme !== '' ? $scheme : request()->getScheme();
         });
     }
 
+    /** @return Attribute<string, never> */
     protected function url(): Attribute
     {
         return Attribute::make(get: fn (): string => $this->path ?? '/');

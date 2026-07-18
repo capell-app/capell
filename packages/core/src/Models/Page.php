@@ -618,6 +618,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
      * page's Blueprint default. Use this anywhere admin routing, form
      * rendering, or rendering cares about the active authoring mode.
      */
+    /** @return Attribute<ContentStructure|null, never> */
     protected function contentStructure(): Attribute
     {
         return Attribute::make(get: function (): ?ContentStructure {
@@ -664,6 +665,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             );
     }
 
+    /** @return Attribute<bool, never> */
     protected function hasTitleOrContent(): Attribute
     {
         return Attribute::make(get: function (): bool {
@@ -675,6 +677,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         });
     }
 
+    /** @return Attribute<array<mixed>|null, never> */
     protected function urlParams(): Attribute
     {
         return Attribute::make(get: function (): ?array {

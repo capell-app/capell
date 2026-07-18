@@ -56,6 +56,10 @@ class RedirectExporter extends Exporter
         ];
     }
 
+    /**
+     * @param  Builder<PageUrl>  $query
+     * @return Builder<PageUrl>
+     */
     #[Override]
     public static function modifyQuery(Builder $query): Builder
     {
