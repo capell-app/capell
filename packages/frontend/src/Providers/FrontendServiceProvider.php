@@ -281,52 +281,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ThemePreviewRendererInterface::class, FrontendThemePreviewRenderer::class);
         $this->app->scoped(PublicFrontendAssetUrl::class);
 
-        // Asset optimization
-        $this->app->singleton(FrontendResourceRegistry::class);
-        $this->app->singleton(FrontendPackageDependencyRegistry::class);
-        $this->app->singleton(FrontendViteInputRegistry::class);
-        $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
-            ->mapWithKeys(fn (FrontendResourceGroupData $group, string $key): array => [
-                $key => $group->label,
-            ])
-            ->all());
-        $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
-        $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
-        $this->app->scoped(ThemeMetaAssetContributor::class);
-        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
+        $this->registerAssetOptimizationBindings();
+        $this->registerCacheInvalidationBindings();
 
-        // Cache invalidation
-        $this->app->scoped(CacheInvalidationExecutor::class);
-        $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
-        $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
-        $this->app->scoped(SiteTranslationCacheDependencyResolver::class);
-        $this->app->tag([
-            PageableTranslationCacheDependencyResolver::class,
-            MediaTranslationCacheDependencyResolver::class,
-            SiteTranslationCacheDependencyResolver::class,
-        ], TranslationCacheDependencyResolver::TAG);
-        $this->app->scoped(
-            TranslationCacheDependencyRegistry::class,
-            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
-                $app->tagged(TranslationCacheDependencyResolver::TAG),
-            ),
-        );
-        $this->app->scoped(CacheInvalidationRegistry::class);
-
-        // Admin access checker: can be faked in tests
-        $this->app->singleton(AdminAccessCheckerInterface::class, FilamentAdminAccessChecker::class);
-
-        $this->app->scoped(FrontendState::class, fn (): FrontendState => new FrontendState);
-        $this->app->scoped(FrontendContextReader::class, fn (Application $app): FrontendState => $app->make(FrontendState::class));
-        $this->app->scopedIf(RenderedModelTracker::class, fn (): RenderedModelTracker => new NullRenderedModelTracker);
-        $this->app->alias(RenderedModelTracker::class, 'capell.frontend.retrieved-model-store');
-        $this->app->scoped(
-            'capell.frontend.layout-container-width-resolver',
-            fn (): callable => GetLayoutContainerWidthAction::run(...),
-        );
-
-        $this->registerDefaultReservedFrontendPaths();
-        $this->registerDefaultReservedFrontendDomains();
+        $this->registerFrontendContextBindings();
 
         // Ensure FileViewFinder resolves to the framework's configured view finder
         $this->app->alias('view.finder', ViewFinderInterface::class);
@@ -459,6 +417,58 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
             $this->bootInstalledPackage();
         });
+    }
+
+    private function registerAssetOptimizationBindings(): void
+    {
+        $this->app->singleton(FrontendResourceRegistry::class);
+        $this->app->singleton(FrontendPackageDependencyRegistry::class);
+        $this->app->singleton(FrontendViteInputRegistry::class);
+        $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
+            ->mapWithKeys(fn (FrontendResourceGroupData $group, string $key): array => [
+                $key => $group->label,
+            ])
+            ->all());
+        $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
+        $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
+        $this->app->scoped(ThemeMetaAssetContributor::class);
+        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
+    }
+
+    private function registerCacheInvalidationBindings(): void
+    {
+        $this->app->scoped(CacheInvalidationExecutor::class);
+        $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
+        $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
+        $this->app->scoped(SiteTranslationCacheDependencyResolver::class);
+        $this->app->tag([
+            PageableTranslationCacheDependencyResolver::class,
+            MediaTranslationCacheDependencyResolver::class,
+            SiteTranslationCacheDependencyResolver::class,
+        ], TranslationCacheDependencyResolver::TAG);
+        $this->app->scoped(
+            TranslationCacheDependencyRegistry::class,
+            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
+                $app->tagged(TranslationCacheDependencyResolver::TAG),
+            ),
+        );
+        $this->app->scoped(CacheInvalidationRegistry::class);
+    }
+
+    private function registerFrontendContextBindings(): void
+    {
+        $this->app->singleton(AdminAccessCheckerInterface::class, FilamentAdminAccessChecker::class);
+        $this->app->scoped(FrontendState::class, fn (): FrontendState => new FrontendState);
+        $this->app->scoped(FrontendContextReader::class, fn (Application $app): FrontendState => $app->make(FrontendState::class));
+        $this->app->scopedIf(RenderedModelTracker::class, fn (): RenderedModelTracker => new NullRenderedModelTracker);
+        $this->app->alias(RenderedModelTracker::class, 'capell.frontend.retrieved-model-store');
+        $this->app->scoped(
+            'capell.frontend.layout-container-width-resolver',
+            fn (): callable => GetLayoutContainerWidthAction::run(...),
+        );
+
+        $this->registerDefaultReservedFrontendPaths();
+        $this->registerDefaultReservedFrontendDomains();
     }
 
     /**
