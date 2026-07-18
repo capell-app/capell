@@ -7,7 +7,6 @@ namespace Capell\Core\Actions;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
-use Exception;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -19,9 +18,6 @@ class UpdatePageUrlAction
     use AsFake;
     use AsObject;
 
-    /**
-     * @throws Exception
-     */
     public function handle(Site $site, Translation $translation, string $parentUrl = ''): void
     {
         if (! str_starts_with($parentUrl, '/')) {
@@ -31,9 +27,6 @@ class UpdatePageUrlAction
         $this->updateTranslation($site, $translation, $parentUrl);
     }
 
-    /**
-     * @throws Exception
-     */
     private function updateTranslation(Site $site, Translation $translation, string $url): void
     {
         $slug = $translation->slug;
