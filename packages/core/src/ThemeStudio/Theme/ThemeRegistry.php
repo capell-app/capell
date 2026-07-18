@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Core\ThemeStudio\Theme;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Exceptions\ThemeNotFoundException;
 
-class ThemeRegistry
+/** @extends AbstractKeyedRegistry<ThemeDefinitionData> */
+class ThemeRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, ThemeDefinitionData> */
-    private array $definitions = [];
-
     public function register(ThemeDefinitionData $definition): void
     {
-        $this->definitions[$definition->key] = $definition;
+        $this->setItem($definition->key, $definition);
     }
 
     /**
@@ -22,23 +21,24 @@ class ThemeRegistry
      */
     public function definitions(): array
     {
-        ksort($this->definitions);
+        $definitions = $this->allItems();
+        ksort($definitions);
 
-        return $this->definitions;
+        return $definitions;
     }
 
     public function definition(string $themeKey): ThemeDefinitionData
     {
-        return $this->definitions[$themeKey] ?? throw ThemeNotFoundException::forKey($themeKey);
+        return $this->getItem($themeKey) ?? throw ThemeNotFoundException::forKey($themeKey);
     }
 
     public function has(string $themeKey): bool
     {
-        return isset($this->definitions[$themeKey]);
+        return $this->hasItem($themeKey);
     }
 
     public function reset(): void
     {
-        $this->definitions = [];
+        $this->clearItems();
     }
 }
