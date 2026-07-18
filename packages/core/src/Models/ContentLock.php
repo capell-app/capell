@@ -34,6 +34,8 @@ final class ContentLock extends Model
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 
+    public const int DEFAULT_TTL_MINUTES = 15;
+
     /** @var list<string> */
     protected $fillable = [
         'user_id',
@@ -56,6 +58,17 @@ final class ContentLock extends Model
     public function isOwnedBy(Authenticatable $user): bool
     {
         return (string) $this->user_id === (string) $user->getAuthIdentifier();
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeForModel(Builder $query, Model $model): Builder
+    {
+        return $query
+            ->where('model_type', $model->getMorphClass())
+            ->where('model_id', $model->getKey());
     }
 
     /**
