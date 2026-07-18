@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace Capell\Admin\Support;
 
 use Capell\Admin\Data\ImportEntryData;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 
-final class ImportEntryRegistry
+/** @extends AbstractKeyedRegistry<ImportEntryData> */
+final class ImportEntryRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, ImportEntryData> */
-    private array $entries = [];
-
     public function register(ImportEntryData $entry): void
     {
-        $this->entries[$entry->key] = $entry;
+        $this->setItem($entry->key, $entry);
     }
 
     /**
@@ -35,7 +34,7 @@ final class ImportEntryRegistry
      */
     public function registeredForPage(string $pageClass): array
     {
-        return array_values(collect($this->entries)
+        return array_values(collect($this->allItems())
             ->filter(fn (ImportEntryData $entry): bool => $entry->pageClasses === [] || in_array($pageClass, $entry->pageClasses, true))
             ->values()
             ->all());

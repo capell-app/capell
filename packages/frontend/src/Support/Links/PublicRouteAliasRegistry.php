@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Links;
 
-final class PublicRouteAliasRegistry
-{
-    /** @var array<string, callable(): string> */
-    private array $aliases = [];
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 
+/** @extends AbstractKeyedRegistry<callable(): string> */
+final class PublicRouteAliasRegistry extends AbstractKeyedRegistry
+{
     public function register(string $alias, callable $resolver): void
     {
         $alias = trim($alias);
@@ -17,12 +17,12 @@ final class PublicRouteAliasRegistry
             return;
         }
 
-        $this->aliases[$alias] = $resolver;
+        $this->setItem($alias, $resolver);
     }
 
     public function has(string $alias): bool
     {
-        return array_key_exists($alias, $this->aliases);
+        return $this->hasItem($alias);
     }
 
     public function resolve(string $alias): ?string
@@ -31,7 +31,13 @@ final class PublicRouteAliasRegistry
             return null;
         }
 
-        $url = ($this->aliases[$alias])();
+        $resolver = $this->getItem($alias);
+
+        if ($resolver === null) {
+            return null;
+        }
+
+        $url = $resolver();
 
         return is_string($url) && $url !== '' ? $url : null;
     }

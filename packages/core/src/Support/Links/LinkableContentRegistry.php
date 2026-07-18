@@ -6,23 +6,20 @@ namespace Capell\Core\Support\Links;
 
 use Capell\Core\Contracts\LinkableContent;
 use Capell\Core\Data\LinkableContentData;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
-final class LinkableContentRegistry
+/** @extends AbstractKeyedRegistry<LinkableContent> */
+final class LinkableContentRegistry extends AbstractKeyedRegistry
 {
-    /**
-     * @var array<string, LinkableContent>
-     */
-    private array $providers = [];
-
     public function register(LinkableContent $provider): self
     {
         $key = $provider->key();
 
         throw_if($key === '', InvalidArgumentException::class, 'Linkable content provider keys cannot be empty.');
 
-        $this->providers[$key] = $provider;
+        $this->setItem($key, $provider);
 
         return $this;
     }
@@ -31,7 +28,12 @@ final class LinkableContentRegistry
     {
         throw_if($key === '', InvalidArgumentException::class, 'Linkable content provider keys cannot be empty.');
 
-        return $this->providers[$key] ?? null;
+        return $this->getItem($key);
+    }
+
+    public function has(string $key): bool
+    {
+        return $this->hasItem($key);
     }
 
     /**
@@ -39,7 +41,7 @@ final class LinkableContentRegistry
      */
     public function all(): Collection
     {
-        return collect($this->providers);
+        return collect($this->allItems());
     }
 
     /**
@@ -52,5 +54,10 @@ final class LinkableContentRegistry
                 fn (LinkableContent $provider): Collection => $provider->options($siteId, $languageId),
             )
             ->values();
+    }
+
+    public function clear(): void
+    {
+        $this->clearItems();
     }
 }
