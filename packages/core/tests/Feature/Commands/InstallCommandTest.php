@@ -2047,6 +2047,10 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     ClearCachesAction::shouldRun()
         ->once()
         ->withArgs(fn (array $cachesToClear): bool => $cachesToClear === ['all']);
+    bindInstallCommandPreflightProcessFactory(packages: [
+        'capell-app/marketplace',
+        'capell-app/welcome-tour',
+    ]);
 
     artisanCommand('capell:install', [
         '--fresh' => true,
