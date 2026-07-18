@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models\Concerns;
 
 use Capell\Core\Models\Site;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
@@ -138,6 +139,37 @@ trait HasSitePermissions
         $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
 
         return $this->hasGlobalRole($superAdminRole);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeGlobalAdmins(Builder $query): Builder
+    {
+        $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
+        $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
+
+        return $this->scopeGlobalRole($query, $superAdminRole);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    private function scopeGlobalRole(Builder $query, string $role): Builder
+    {
+        $tableNames = config('permission.table_names', []);
+        $modelHasRolesTable = is_array($tableNames) && is_string($tableNames['model_has_roles'] ?? null)
+            ? $tableNames['model_has_roles']
+            : 'model_has_roles';
+        $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
+        $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
+
+        return $query->whereHas('roles', static fn (Builder $roleQuery): Builder => $roleQuery
+            ->where('roles.name', $role)
+            ->where('roles.guard_name', 'web')
+            ->whereNull($modelHasRolesTable . '.' . $teamColumn));
     }
 
     private function hasGlobalRole(string|Role $role): bool
