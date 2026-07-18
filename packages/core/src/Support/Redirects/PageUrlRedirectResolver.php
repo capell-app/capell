@@ -61,7 +61,7 @@ class PageUrlRedirectResolver implements RedirectResolver
             ->where('site_id', $site->getKey())
             ->where('language_id', $language->getKey())
             ->where('url', $url)
-            ->where('status', true)
+            ->enabled()
             ->when($pageId, fn (Builder $query): Builder => $query->where('pageable_id', $pageId))
             ->first();
     }
@@ -72,8 +72,7 @@ class PageUrlRedirectResolver implements RedirectResolver
             ->where('site_id', $site->getKey())
             ->where('language_id', $language->getKey())
             ->where('url', '/*')
-            ->where('type', UrlTypeEnum::Redirect)
-            ->where('status', true)
+            ->activeRedirects()
             ->whereNotNull('target_url')
             ->where('target_url', '!=', '')
             ->first();
@@ -86,7 +85,7 @@ class PageUrlRedirectResolver implements RedirectResolver
             ->where('language_id', $language->getKey())
             ->where('pageable_type', $redirectPageUrl->pageable_type)
             ->where('pageable_id', $redirectPageUrl->pageable_id)
-            ->where('status', true)
+            ->enabled()
             ->where(function (Builder $query): void {
                 $query
                     ->whereNull('type')

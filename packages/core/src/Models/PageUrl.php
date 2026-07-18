@@ -282,6 +282,14 @@ class PageUrl extends Model implements Statusable, Userstampable
     }
 
     /**
+     * @param  Builder<PageUrl>  $query
+     */
+    protected function scopeActiveRedirects(Builder $query): void
+    {
+        $query->redirects()->enabled();
+    }
+
+    /**
      * @throws UrlMissingSiteDomainException
      */
     protected function getFullUrlAttribute(): string

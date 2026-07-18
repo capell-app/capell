@@ -115,7 +115,7 @@ class RedirectsTable implements TableConfigurator
                 ->trueLabel(__('capell-admin::generic.active'))
                 ->falseLabel(__('capell-admin::generic.disabled'))
                 ->queries(
-                    true: fn (Builder $query): Builder => $query->where('status', true),
+                    true: fn (Builder $query): Builder => $query->enabled(),
                     false: fn (Builder $query): Builder => $query->where('status', false),
                     blank: fn (Builder $query): Builder => $query,
                 ),
