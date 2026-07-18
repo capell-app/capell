@@ -161,6 +161,8 @@ trait HasModelInterceptors
     /**
      * @param  array<string, string|int|float|bool|BackedEnum>|string|BackedEnum  $key
      * @return array<int, class-string<object>> Ordered by priority (ascending).
+     *
+     * @internal
      */
     public function getInterceptorsForModelAndKey(string $model, null|array|string|BackedEnum $key): array
     {
@@ -181,6 +183,8 @@ trait HasModelInterceptors
      * @param  array<string, mixed>  $defaults
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
+     *
+     * @internal
      */
     public function mergeModelInterceptorData(array $defaults, array $data): array
     {

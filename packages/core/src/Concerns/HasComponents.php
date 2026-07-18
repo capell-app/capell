@@ -239,6 +239,7 @@ trait HasComponents
         $this->clearCachedFilamentComponents();
     }
 
+    /** @internal */
     public function getComponentCachePath(): string
     {
         return config('capell.cache_path', base_path('bootstrap/cache/capell')) . DIRECTORY_SEPARATOR . 'components.php';

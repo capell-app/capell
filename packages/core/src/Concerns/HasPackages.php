@@ -385,6 +385,7 @@ trait HasPackages
         return $this->getDependentInstalledPackages($name)->isEmpty();
     }
 
+    /** @internal */
     public function forcePackageInstalled(string $name, bool $installed = true): void
     {
         $this->forcedPackageInstallStates[$name] = $installed;

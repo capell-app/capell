@@ -173,6 +173,7 @@ trait HasCache
         $this->bumpCacheNamespaceGeneration();
     }
 
+    /** @internal */
     public function flushLocalCache(): void
     {
         $this->localCache = [];
