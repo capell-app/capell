@@ -16,10 +16,10 @@ enum MediaAlignment: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Top => 'Top (full width)',
-            self::Bottom => 'Bottom (full width)',
-            self::Left => 'Left (one third)',
-            self::Right => 'Right (one third)',
+            self::Top => __('capell::media.alignment.top'),
+            self::Bottom => __('capell::media.alignment.bottom'),
+            self::Left => __('capell::media.alignment.left'),
+            self::Right => __('capell::media.alignment.right'),
         };
     }
 }
