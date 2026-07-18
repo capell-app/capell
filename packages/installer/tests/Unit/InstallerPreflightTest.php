@@ -105,6 +105,17 @@ it('accepts unlimited web php memory', function (): void {
         ]);
 });
 
+it('accepts the minimum web php memory limit', function (): void {
+    $report = resolve(InstallerPreflight::class)->run();
+
+    expect(installerPreflightCheck($report, 'php-memory-limit'))
+        ->toMatchArray([
+            'status' => 'pass',
+            'message' => 'PHP memory_limit=512M is available for Capell installation.',
+        ])
+        ->and($report['environment']['memoryLimit'])->toBe('512M');
+});
+
 it('accepts the documented minimum PHP version', function (): void {
     $report = resolve(InstallerPreflight::class)->run();
     $phpVersionCheck = installerPreflightCheck($report, 'php-version');
