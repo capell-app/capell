@@ -45,6 +45,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -617,17 +618,19 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
      * page's Blueprint default. Use this anywhere admin routing, form
      * rendering, or rendering cares about the active authoring mode.
      */
-    protected function getContentStructureAttribute(): ?ContentStructure
+    protected function contentStructure(): Attribute
     {
-        $override = $this->getAttributeFromArray('content_structure_override');
-        if (is_string($override) && $override !== '') {
-            $cast = ContentStructure::tryFrom($override);
-            if ($cast !== null) {
-                return $cast;
+        return Attribute::make(get: function (): ?ContentStructure {
+            $override = $this->getAttributeFromArray('content_structure_override');
+            if (is_string($override) && $override !== '') {
+                $cast = ContentStructure::tryFrom($override);
+                if ($cast !== null) {
+                    return $cast;
+                }
             }
-        }
 
-        return $this->blueprint->content_structure;
+            return $this->blueprint->content_structure;
+        });
     }
 
     /**
@@ -661,23 +664,26 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             );
     }
 
-    protected function getHasTitleOrContentAttribute(): bool
+    protected function hasTitleOrContent(): Attribute
     {
-        if ($this->translation === null) {
-            return false;
-        }
+        return Attribute::make(get: function (): bool {
+            if ($this->translation === null) {
+                return false;
+            }
 
-        return (is_string($this->translation->title) && $this->translation->title !== '') || (is_string($this->translation->content) && $this->translation->content !== '');
+            return (is_string($this->translation->title) && $this->translation->title !== '') || (is_string($this->translation->content) && $this->translation->content !== '');
+        });
     }
 
-    /** @return array<string, mixed>|null */
-    protected function getUrlParamsAttribute(): ?array
+    protected function urlParams(): Attribute
     {
-        if (! $this->relationLoaded('blueprint')) {
-            return null;
-        }
+        return Attribute::make(get: function (): ?array {
+            if (! $this->relationLoaded('blueprint')) {
+                return null;
+            }
 
-        return $this->blueprint?->meta['url_params'] ?? null;
+            return $this->blueprint?->meta['url_params'] ?? null;
+        });
     }
 
     #[Override]

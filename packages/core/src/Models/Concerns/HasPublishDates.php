@@ -11,6 +11,7 @@ use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -184,9 +185,9 @@ trait HasPublishDates
         $builder->onlyTrashed();
     }
 
-    protected function getPublishStatusAttribute(): PublishStatusEnum
+    protected function publishStatus(): Attribute
     {
-        return PublishStatusEnum::fromModel($this);
+        return Attribute::make(get: fn (): PublishStatusEnum => PublishStatusEnum::fromModel($this));
     }
 
     /**
