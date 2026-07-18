@@ -34,6 +34,12 @@ trait HasPackages
     /** @var array<int, string>|null */
     private ?array $installedExtensionNamesCache = null;
 
+    /** @var array<string, array<string, PackageData>> */
+    private array $packagesCache = [];
+
+    /** @var array<int, string>|null */
+    private ?array $uninstalledExtensionNamesCache = null;
+
     private ?ExtensionLifecycleRepository $extensionLifecycleRepository = null;
 
     /**
@@ -59,6 +65,8 @@ trait HasPackages
         array $installParams = [],
         bool $defaultSelected = false,
     ): static {
+        $this->packagesCache = [];
+
         $manifest = $this->hasPackage($name)
             ? null
             : $this->manifestFromPackagePath($path, $name);
@@ -119,6 +127,9 @@ trait HasPackages
 
     public function registerManifestPackage(CapellManifestData $manifest, ?string $version = null): static
     {
+        $this->packagesCache = [];
+        $this->uninstalledExtensionNamesCache = null;
+
         $existing = $this->packages[$manifest->name] ?? null;
         $installed = $existing->installed ?? $this->forcedPackageInstallStates[$manifest->name] ?? null;
 
@@ -183,26 +194,30 @@ trait HasPackages
      */
     public function getPackages(bool $withoutCore = true, bool $sortByDependencies = false): Collection
     {
-        $sorted = collect($this->packages)
-            ->when($withoutCore, fn (Collection $collection): Collection => $collection->reject(
-                fn (PackageData $package): bool => $package->name === CapellServiceProvider::$packageName,
-            ));
+        $cacheKey = sprintf('%d:%d', (int) $withoutCore, (int) $sortByDependencies);
 
-        if ($sortByDependencies) {
-            $sorted = resolve(PackageWorkflowPlanner::class)->order($sorted);
-        } else {
-            $sorted = $sorted
-                ->sortBy(fn (PackageData $package): int => $package->getSort())
-                ->values();
+        if (isset($this->packagesCache[$cacheKey])) {
+            return new Collection($this->packagesCache[$cacheKey]);
         }
 
-        $sortedArray = $sorted->all();
+        /** @var array<string, PackageData> $packages */
+        $packages = collect($this->packages)
+            ->when($withoutCore, fn (Collection $collection): Collection => $collection->reject(
+                fn (PackageData $package): bool => $package->name === CapellServiceProvider::$packageName,
+            ))
+            ->when(
+                $sortByDependencies,
+                fn (Collection $collection): Collection => resolve(PackageWorkflowPlanner::class)->order($collection),
+                fn (Collection $collection): Collection => $collection
+                    ->sortBy(fn (PackageData $package): int => $package->getSort())
+                    ->values(),
+            )
+            ->keyBy(fn (PackageData $package): string => $package->name)
+            ->all();
 
-        /** @var Collection<string, PackageData> $result */
-        $result = collect($sortedArray)
-            ->keyBy(fn (PackageData $package): string => $package->name);
+        $this->packagesCache[$cacheKey] = $packages;
 
-        return $result;
+        return new Collection($packages);
     }
 
     public function hasPackage(string $name): bool
@@ -378,6 +393,7 @@ trait HasPackages
         $this->forcedPackageInstallStates[$name] = $installed;
 
         if (! $this->hasPackage($name)) {
+            $this->packagesCache = [];
             $this->packages[$name] = new PackageData(
                 name: $name,
                 type: PackageTypeEnum::Plugin,
@@ -519,6 +535,8 @@ trait HasPackages
         $this->packages = [];
         $this->forcedPackageInstallStates = [];
         $this->installedExtensionNamesCache = null;
+        $this->packagesCache = [];
+        $this->uninstalledExtensionNamesCache = null;
         $this->extensionLifecycle()->clear();
     }
 
@@ -535,6 +553,8 @@ trait HasPackages
         }
 
         $this->installedExtensionNamesCache = null;
+        $this->packagesCache = [];
+        $this->uninstalledExtensionNamesCache = null;
         $this->extensionLifecycle()->clear();
     }
 
@@ -657,8 +677,12 @@ trait HasPackages
      */
     private function getUninstalledExtensionNames(): array
     {
+        if ($this->uninstalledExtensionNamesCache !== null) {
+            return $this->uninstalledExtensionNamesCache;
+        }
+
         if (! app()->bound('cache')) {
-            return [];
+            return $this->uninstalledExtensionNamesCache = [];
         }
 
         $names = $this->getFromCache(CacheEnum::ExtensionUninstalledNames->value);
@@ -667,7 +691,7 @@ trait HasPackages
             $names = $names->toArray();
         }
 
-        return is_array($names)
+        return $this->uninstalledExtensionNamesCache = is_array($names)
             ? array_values(array_filter($names, fn (mixed $name): bool => is_string($name) && $name !== ''))
             : [];
     }
@@ -677,7 +701,10 @@ trait HasPackages
      */
     private function setUninstalledExtensionNames(array $names): void
     {
-        $this->setToCache(CacheEnum::ExtensionUninstalledNames->value, array_values($names), ttl: 0);
+        $names = array_values($names);
+
+        $this->setToCache(CacheEnum::ExtensionUninstalledNames->value, $names, ttl: 0);
+        $this->uninstalledExtensionNamesCache = $names;
     }
 
     private function packageTypeFromManifestKind(string $kind): PackageTypeEnum

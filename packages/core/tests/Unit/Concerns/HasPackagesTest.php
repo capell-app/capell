@@ -345,6 +345,97 @@ it('packages expose product grouping metadata from capell manifests', function (
         ->and(CapellCore::getPackagesGroupedByProductGroup(tier: 'premium')->keys()->all())->toBe(['Capell FormBuilder']);
 });
 
+it('memoizes package ordering for all filtering and sorting parameter combinations', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::registerPackage('capell-app/capell');
+    CapellCore::registerPackage('vendor/first');
+    CapellCore::registerPackage('vendor/second');
+
+    $withoutCoreBySort = CapellCore::getPackages();
+    $withoutCoreByDependencies = CapellCore::getPackages(sortByDependencies: true);
+    $withCoreBySort = CapellCore::getPackages(withoutCore: false);
+    $withCoreByDependencies = CapellCore::getPackages(withoutCore: false, sortByDependencies: true);
+
+    expect($withoutCoreBySort->keys()->all())->not->toContain('capell-app/capell')
+        ->and($withoutCoreByDependencies->keys()->all())->not->toContain('capell-app/capell')
+        ->and($withCoreBySort->keys()->all())->toContain('capell-app/capell')
+        ->and($withCoreByDependencies->keys()->all())->toContain('capell-app/capell');
+
+    $packagesCache = new ReflectionProperty(CapellCore::getFacadeRoot(), 'packagesCache');
+
+    expect($packagesCache->getValue(CapellCore::getFacadeRoot()))->toHaveCount(4);
+
+    $withoutCoreBySort->forget('vendor/first');
+    $withoutCoreByDependencies->forget('vendor/second');
+
+    expect(CapellCore::getPackages()->keys()->all())->toContain('vendor/first', 'vendor/second')
+        ->and(CapellCore::getPackages(sortByDependencies: true)->keys()->all())->toContain('vendor/first', 'vendor/second')
+        ->and(CapellCore::getPackages())->not->toBe($withoutCoreBySort)
+        ->and(CapellCore::getPackages(sortByDependencies: true))->not->toBe($withoutCoreByDependencies);
+});
+
+it('invalidates memoized package ordering when forcing an unknown package state', function (): void {
+    CapellCore::clearPackages();
+
+    CapellCore::getPackages();
+
+    CapellCore::forcePackageInstalled('vendor/forced-package');
+
+    expect(CapellCore::getPackages()->keys()->all())->toBe(['vendor/forced-package']);
+});
+
+it('invalidates memoized package collections when package state changes', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::registerPackage('vendor/initial');
+
+    CapellCore::getPackages();
+
+    CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/manifest-package',
+    )));
+
+    $afterManifestRegistration = CapellCore::getPackages();
+
+    expect($afterManifestRegistration->keys()->all())->toContain('vendor/manifest-package');
+
+    $packagesCache = new ReflectionProperty(CapellCore::getFacadeRoot(), 'packagesCache');
+
+    expect($packagesCache->getValue(CapellCore::getFacadeRoot()))->not->toBeEmpty();
+
+    CapellCore::clearExtensionCache();
+
+    expect($packagesCache->getValue(CapellCore::getFacadeRoot()))->toBeEmpty();
+
+    $afterExtensionCacheClear = CapellCore::getPackages();
+
+    expect($afterExtensionCacheClear->keys()->all())->toBe($afterManifestRegistration->keys()->all());
+
+    CapellCore::clearPackages();
+
+    expect(CapellCore::getPackages())->toBeEmpty();
+});
+
+it('memoizes normalized uninstalled extension names until extension caches are cleared', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, collect([
+        'vendor/first',
+        '',
+        123,
+    ]), ttl: 0);
+
+    $getUninstalledExtensionNames = new ReflectionMethod(CapellCore::getFacadeRoot(), 'getUninstalledExtensionNames');
+
+    expect($getUninstalledExtensionNames->invoke(CapellCore::getFacadeRoot()))->toBe(['vendor/first']);
+
+    CapellCore::setToCache(CacheEnum::ExtensionUninstalledNames->value, ['vendor/second'], ttl: 0);
+
+    expect($getUninstalledExtensionNames->invoke(CapellCore::getFacadeRoot()))->toBe(['vendor/first']);
+
+    CapellCore::clearExtensionCache();
+
+    expect($getUninstalledExtensionNames->invoke(CapellCore::getFacadeRoot()))->toBe(['vendor/second']);
+});
+
 it('does not enable a paid marketplace package when its runtime gate is blocked', function (): void {
     $composerName = 'capell-app/blocked-paid-' . bin2hex(random_bytes(4));
 
