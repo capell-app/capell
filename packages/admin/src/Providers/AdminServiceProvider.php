@@ -176,8 +176,6 @@ use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
-use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
-use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
@@ -390,7 +388,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         $this->reserveAdminFrontendValue(
-            ReservedFrontendPathRegistry::class,
+            'Capell\\Frontend\\Support\\Routing\\ReservedFrontendPathRegistry',
             'reservePrefix',
             $adminPath,
         );
@@ -405,7 +403,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         $this->reserveAdminFrontendValue(
-            ReservedFrontendDomainRegistry::class,
+            'Capell\\Frontend\\Support\\Routing\\ReservedFrontendDomainRegistry',
             'reserve',
             $adminDomain,
         );
@@ -414,16 +412,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     /** @param class-string $registryClass */
     private function reserveAdminFrontendValue(string $registryClass, string $method, string $value): void
     {
+        // Frontend is an optional package, so do not make its registry classes
+        // a static Admin dependency or register callbacks for absent services.
         if (! class_exists($registryClass)) {
             return;
         }
 
         $this->callAfterResolving($registryClass, static function (object $registry) use ($method, $value): void {
-            $callback = [$registry, $method];
-
-            if (is_callable($callback)) {
-                $callback($value);
-            }
+            $registry->{$method}($value);
         });
     }
 
