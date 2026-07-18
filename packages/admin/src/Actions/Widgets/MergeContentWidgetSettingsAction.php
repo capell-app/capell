@@ -35,7 +35,7 @@ final class MergeContentWidgetSettingsAction
                 continue;
             }
 
-            $settings = $this->stripBlankValues($settings);
+            $settings = PruneBlankWidgetSettingsAction::run($settings);
 
             if ($settings !== []) {
                 $capellState[$settingsKey] = $settings;
@@ -51,28 +51,5 @@ final class MergeContentWidgetSettingsAction
         $widgetData['__capell'] = $capellState;
 
         return $widgetData;
-    }
-
-    /**
-     * @param  array<int|string, mixed>  $state
-     * @return array<int|string, mixed>
-     */
-    private function stripBlankValues(array $state): array
-    {
-        foreach ($state as $key => $value) {
-            if (is_array($value)) {
-                $value = $this->stripBlankValues($value);
-            }
-
-            if (blank($value)) {
-                unset($state[$key]);
-
-                continue;
-            }
-
-            $state[$key] = $value;
-        }
-
-        return $state;
     }
 }
