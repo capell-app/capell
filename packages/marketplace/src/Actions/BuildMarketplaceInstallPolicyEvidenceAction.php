@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Carbon\CarbonImmutable;
@@ -29,7 +30,7 @@ final class BuildMarketplaceInstallPolicyEvidenceAction
         ksort($dependencyMaturity);
 
         return new MarketplaceInstallPolicyEvidenceData(
-            listingFingerprint: hash('sha256', json_encode($listing->toArray(), JSON_THROW_ON_ERROR)),
+            listingFingerprint: hash('sha256', JsonCodec::encode($listing->toArray())),
             listingFetchedAt: $fetchedAt ?? CarbonImmutable::now(),
             selectedMaturity: $listing->maturity,
             dependencyMaturity: $dependencyMaturity,
