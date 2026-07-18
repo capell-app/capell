@@ -97,7 +97,7 @@ it('registers livewire aliases and version-supported namespaces', function (): v
         'classNamespace' => 'Capell\\Tests\\Livewire',
     ]);
 
-    $classComponents = (new ReflectionProperty($finder, 'classComponents'))->getValue($finder);
+    $classComponents = new ReflectionProperty($finder, 'classComponents')->getValue($finder);
 
     expect($finder->resolveClassComponentClassName('capell-test.component'))
         ->toBe(LivewireCompatibilityTestComponent::class)
