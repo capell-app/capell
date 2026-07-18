@@ -7,6 +7,8 @@ use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Security\LockdownStore;
+use Illuminate\Foundation\Application;
+use Laravel\Octane\Contracts\OperationTerminated;
 
 it('flushes tagged resettable services', function (): void {
     $resettable = new class implements Resettable
@@ -42,4 +44,42 @@ it('registers every request-caching core service for Octane reset', function ():
     expect($resettableServices->contains(fn (object $service): bool => $service instanceof CapellCoreManager))->toBeTrue()
         ->and($resettableServices->contains(fn (object $service): bool => $service instanceof ImageUrlPolicy))->toBeTrue()
         ->and($resettableServices->contains(fn (object $service): bool => $service instanceof LockdownStore))->toBeTrue();
+});
+
+it('flushes resettable services when an Octane operation terminates', function (): void {
+    $baseApplication = app();
+    $sandbox = clone $baseApplication;
+    $resettable = new class implements Resettable
+    {
+        public int $flushes = 0;
+
+        public function flushOctaneState(): void
+        {
+            $this->flushes++;
+        }
+    };
+
+    $sandbox->instance('capell.test-octane-resettable', $resettable);
+    $sandbox->tag(['capell.test-octane-resettable'], Resettable::TAG);
+
+    event(new class($baseApplication, $sandbox) implements OperationTerminated
+    {
+        public function __construct(
+            private readonly Application $application,
+            private readonly Application $sandbox,
+        ) {}
+
+        public function app(): Application
+        {
+            return $this->application;
+        }
+
+        public function sandbox(): Application
+        {
+            return $this->sandbox;
+        }
+    });
+
+    expect($resettable->flushes)->toBe(1)
+        ->and(collect($baseApplication->tagged(Resettable::TAG))->contains($resettable))->toBeFalse();
 });
