@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Concerns;
 
-use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
-use Capell\Core\Data\ExtensionRuntimeGateData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
-use Capell\Core\Models\CapellExtension;
 use Capell\Core\Providers\CapellServiceProvider;
-use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
@@ -23,7 +20,6 @@ use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
-use Throwable;
 
 trait HasPackages
 {
@@ -38,16 +34,7 @@ trait HasPackages
     /** @var array<int, string>|null */
     private ?array $installedExtensionNamesCache = null;
 
-    /** @var array<string, ExtensionStatusEnum|null> */
-    private array $extensionStatusCache = [];
-
-    /** @var array<string, ExtensionRuntimeGateData|null> */
-    private array $extensionRuntimeGateCache = [];
-
-    /** @var array<string, CapellExtension|null> */
-    private array $extensionRecordCache = [];
-
-    private bool $extensionRecordsPreloaded = false;
+    private ?ExtensionLifecycleRepository $extensionLifecycleRepository = null;
 
     /**
      * Attach runtime provider metadata or register a manifest-less test package.
@@ -242,7 +229,7 @@ trait HasPackages
             return false;
         }
 
-        if ($this->extensionStatus($name) === ExtensionStatusEnum::Uninstalled) {
+        if ($this->extensionLifecycle()->status($name, collect($this->packages)) === ExtensionStatusEnum::Uninstalled) {
             return false;
         }
 
@@ -273,7 +260,7 @@ trait HasPackages
             return false;
         }
 
-        $extensionStatus = $this->extensionStatus($name);
+        $extensionStatus = $this->extensionLifecycle()->status($name, collect($this->packages));
 
         if (in_array($extensionStatus, [
             ExtensionStatusEnum::Disabled,
@@ -284,7 +271,7 @@ trait HasPackages
         }
 
         if ($extensionStatus === ExtensionStatusEnum::Enabled) {
-            return $this->extensionRuntimeGateAllows($name) !== false;
+            return $this->extensionLifecycle()->runtimeGateAllows($name, collect($this->packages)) !== false;
         }
 
         if ($package->installed !== null) {
@@ -412,13 +399,13 @@ trait HasPackages
                     ->values()
                     ->all(),
             );
-            $this->deletePackageLifecycleRecord($name);
+            $this->extensionLifecycle()->delete($name);
             $this->clearExtensionCache();
 
             return;
         }
 
-        $this->recordPackageInstalled($name);
+        $this->extensionLifecycle()->recordInstalled($name, $this->packageOrNull($name));
         $this->clearExtensionCache();
 
         $this->setUninstalledExtensionNames(
@@ -439,7 +426,7 @@ trait HasPackages
             return;
         }
 
-        $this->recordPackageLifecycle($name, ExtensionStatusEnum::Installing);
+        $this->extensionLifecycle()->recordLifecycle($name, ExtensionStatusEnum::Installing, $this->packageOrNull($name));
         $this->clearExtensionCache();
         $this->forcePackageInstalled($name, false);
     }
@@ -452,7 +439,7 @@ trait HasPackages
             return;
         }
 
-        $this->recordPackageLifecycle($name, ExtensionStatusEnum::Failed, ['install_error' => $message]);
+        $this->extensionLifecycle()->recordLifecycle($name, ExtensionStatusEnum::Failed, $this->packageOrNull($name), ['install_error' => $message]);
         $this->clearExtensionCache();
         $this->forcePackageInstalled($name, false);
     }
@@ -465,7 +452,7 @@ trait HasPackages
             return;
         }
 
-        $this->recordPackageLifecycle($name, ExtensionStatusEnum::Disabled);
+        $this->extensionLifecycle()->recordLifecycle($name, ExtensionStatusEnum::Disabled, $this->packageOrNull($name));
         $this->clearExtensionCache();
         $this->forcePackageInstalled($name, false);
     }
@@ -473,7 +460,7 @@ trait HasPackages
     public function markPackageUninstalled(string $name): void
     {
         if ($this->isCorePackageName($name)) {
-            $this->recordPackageLifecycle($name, ExtensionStatusEnum::Uninstalled);
+            $this->extensionLifecycle()->recordLifecycle($name, ExtensionStatusEnum::Uninstalled, $this->packageOrNull($name));
 
             $names = collect($this->getUninstalledExtensionNames())
                 ->push($name)
@@ -487,7 +474,7 @@ trait HasPackages
             return;
         }
 
-        $this->recordPackageUninstalled($name);
+        $this->extensionLifecycle()->delete($name);
         $this->clearExtensionCache();
 
         $names = collect($this->getUninstalledExtensionNames())
@@ -532,11 +519,7 @@ trait HasPackages
         $this->packages = [];
         $this->forcedPackageInstallStates = [];
         $this->installedExtensionNamesCache = null;
-        $this->extensionStatusCache = [];
-        $this->extensionRuntimeGateCache = [];
-        $this->extensionRecordCache = [];
-        $this->extensionRecordsPreloaded = false;
-        resolve(RuntimeSchemaState::class)->forgetTable('capell_extensions');
+        $this->extensionLifecycle()->clear();
     }
 
     /**
@@ -552,11 +535,7 @@ trait HasPackages
         }
 
         $this->installedExtensionNamesCache = null;
-        $this->extensionStatusCache = [];
-        $this->extensionRuntimeGateCache = [];
-        $this->extensionRecordCache = [];
-        $this->extensionRecordsPreloaded = false;
-        resolve(RuntimeSchemaState::class)->forgetTable('capell_extensions');
+        $this->extensionLifecycle()->clear();
     }
 
     /**
@@ -638,204 +617,14 @@ trait HasPackages
         return $class;
     }
 
-    private function recordPackageInstalled(string $name): void
+    private function extensionLifecycle(): ExtensionLifecycleRepository
     {
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists(refresh: true)) {
-            return;
-        }
-
-        $package = $this->hasPackage($name) ? $this->getPackage($name) : null;
-        $existingExtension = CapellExtension::query()
-            ->where('composer_name', $name)
-            ->first();
-
-        CapellExtension::query()->updateOrCreate(
-            ['composer_name' => $name],
-            [
-                'name' => $package?->getShortName(),
-                'description' => $package?->getDescription(),
-                'version' => $package?->version,
-                'source' => $package?->path !== null ? 'local' : 'composer',
-                'status' => ExtensionStatusEnum::Enabled,
-                'enabled_at' => $existingExtension->enabled_at ?? now(),
-                'disabled_at' => null,
-                'failed_at' => null,
-                'installed_at' => $existingExtension->installed_at ?? now(),
-                'metadata' => [
-                    'product_group' => $package?->getProductGroup(),
-                    'tier' => $package?->getTier(),
-                    'kind' => $package?->getKind(),
-                ],
-            ],
-        );
+        return $this->extensionLifecycleRepository ??= resolve(ExtensionLifecycleRepository::class);
     }
 
-    private function extensionStatus(string $name): ?ExtensionStatusEnum
+    private function packageOrNull(string $name): ?PackageData
     {
-        if (array_key_exists($name, $this->extensionStatusCache)) {
-            return $this->extensionStatusCache[$name];
-        }
-
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists()) {
-            return null;
-        }
-
-        $extension = $this->extensionRecord($name);
-
-        if (! $extension instanceof CapellExtension) {
-            return null;
-        }
-
-        return $this->extensionStatusCache[$name] = $extension->status;
-    }
-
-    private function extensionRuntimeGateAllows(string $name): ?bool
-    {
-        if (array_key_exists($name, $this->extensionRuntimeGateCache)) {
-            return $this->extensionRuntimeGateCache[$name]?->allowed;
-        }
-
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists()) {
-            $this->extensionRuntimeGateCache[$name] = null;
-
-            return null;
-        }
-
-        $extension = $this->extensionRecord($name);
-
-        if (! $extension instanceof CapellExtension) {
-            $this->extensionRuntimeGateCache[$name] = null;
-
-            return null;
-        }
-
-        $this->extensionRuntimeGateCache[$name] = ResolveExtensionRuntimeGateAction::run($extension);
-
-        return $this->extensionRuntimeGateCache[$name]?->allowed;
-    }
-
-    private function extensionRecord(string $name): ?CapellExtension
-    {
-        if (array_key_exists($name, $this->extensionRecordCache)) {
-            return $this->extensionRecordCache[$name];
-        }
-
-        $this->preloadExtensionRecords();
-
-        if (array_key_exists($name, $this->extensionRecordCache)) {
-            return $this->extensionRecordCache[$name];
-        }
-
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists()) {
-            return null;
-        }
-
-        try {
-            return $this->extensionRecordCache[$name] = CapellExtension::query()
-                ->where('composer_name', $name)
-                ->first();
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private function preloadExtensionRecords(): void
-    {
-        if ($this->extensionRecordsPreloaded) {
-            return;
-        }
-
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists()) {
-            return;
-        }
-
-        $packageNames = collect($this->packages)
-            ->reject(fn (PackageData $package): bool => $package->isCore())
-            ->map(fn (PackageData $package): string => $package->name)
-            ->values()
-            ->all();
-
-        if ($packageNames === []) {
-            return;
-        }
-
-        try {
-            $extensions = CapellExtension::query()
-                ->whereIn('composer_name', $packageNames)
-                ->get()
-                ->keyBy('composer_name');
-
-            foreach ($packageNames as $packageName) {
-                $extension = $extensions->get($packageName);
-                $this->extensionRecordCache[$packageName] = $extension instanceof CapellExtension ? $extension : null;
-            }
-
-            $this->extensionRecordsPreloaded = true;
-        } catch (Throwable) {
-            $this->extensionRecordCache = [];
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $metadata
-     */
-    private function recordPackageLifecycle(string $name, ExtensionStatusEnum $status, array $metadata = []): void
-    {
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists(refresh: true)) {
-            return;
-        }
-
-        $package = $this->hasPackage($name) ? $this->getPackage($name) : null;
-        $existingExtension = CapellExtension::query()
-            ->where('composer_name', $name)
-            ->first();
-
-        $existingMetadata = is_array($existingExtension?->metadata) ? $existingExtension->metadata : [];
-
-        CapellExtension::query()->updateOrCreate(
-            ['composer_name' => $name],
-            [
-                'name' => $package?->getShortName(),
-                'description' => $package?->getDescription(),
-                'version' => $package?->version,
-                'source' => $package?->path !== null ? 'local' : 'composer',
-                'status' => $status,
-                'enabled_at' => null,
-                'disabled_at' => $status === ExtensionStatusEnum::Disabled ? now() : null,
-                'failed_at' => $status === ExtensionStatusEnum::Failed ? now() : null,
-                'installed_at' => $existingExtension?->installed_at,
-                'metadata' => array_merge($existingMetadata, [
-                    'product_group' => $package?->getProductGroup(),
-                    'tier' => $package?->getTier(),
-                    'kind' => $package?->getKind(),
-                ], $metadata),
-            ],
-        );
-    }
-
-    private function recordPackageUninstalled(string $name): void
-    {
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists(refresh: true)) {
-            return;
-        }
-
-        $this->deletePackageLifecycleRecord($name);
-    }
-
-    private function deletePackageLifecycleRecord(string $name): void
-    {
-        if (! app()->bound('db') || ! $this->capellExtensionsTableExists(refresh: true)) {
-            return;
-        }
-
-        CapellExtension::query()
-            ->where('composer_name', $name)
-            ->delete();
-    }
-
-    private function capellExtensionsTableExists(bool $refresh = false): bool
-    {
-        return resolve(RuntimeSchemaState::class)->hasTable('capell_extensions', refresh: $refresh);
+        return $this->hasPackage($name) ? $this->getPackage($name) : null;
     }
 
     private function isCorePackageName(string $name): bool
