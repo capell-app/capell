@@ -6,16 +6,19 @@ namespace Capell\Marketplace\Jobs;
 
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-final class SendMarketplaceInstallTelemetryJob implements ShouldQueue
+final class SendMarketplaceInstallTelemetryJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
     public int $tries = 5;
+
+    public int $uniqueFor = 3600;
 
     public function __construct(private readonly int $installAttemptId) {}
 
@@ -23,6 +26,11 @@ final class SendMarketplaceInstallTelemetryJob implements ShouldQueue
     public function backoff(): array
     {
         return [60, 300, 900, 1800];
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->installAttemptId;
     }
 
     public function handle(MarketplaceClient $marketplace): void
