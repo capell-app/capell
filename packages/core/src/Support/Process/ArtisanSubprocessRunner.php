@@ -16,8 +16,10 @@ final readonly class ArtisanSubprocessRunner
      */
     public function run(array $arguments, callable $onLine, ?float $timeout = 120): int
     {
+        $memoryLimit = ini_get('memory_limit');
+        $memoryLimit = is_string($memoryLimit) && $memoryLimit !== '' ? $memoryLimit : '512M';
         $process = $this->processFactory->make(
-            [PHP_BINARY, 'artisan', ...$arguments],
+            [PHP_BINARY, '-d', "memory_limit={$memoryLimit}", 'artisan', ...$arguments],
             base_path(),
             ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
         );

@@ -499,6 +499,8 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
         ->with(
             Mockery::on(fn (array|string $command): bool => $command === [
                 PHP_BINARY,
+                '-d',
+                'memory_limit=' . ini_get('memory_limit'),
                 'artisan',
                 'capell:admin-sync-permissions',
                 '--mode=install',
@@ -510,7 +512,7 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
         ->andReturn($process);
     $factory->shouldReceive('make')
         ->once()
-        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->withArgs(fn (array $command): bool => in_array('capell:doctor', $command, true))
         ->andReturn($doctorProcess);
 
     app()->instance(ProcessFactoryInterface::class, $factory);
