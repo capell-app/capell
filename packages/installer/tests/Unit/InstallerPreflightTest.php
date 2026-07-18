@@ -10,6 +10,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
+beforeEach(function (): void {
+    $this->previousInstallerMemoryLimit = ini_get('memory_limit');
+    ini_set('memory_limit', '512M');
+});
+
+afterEach(function (): void {
+    if (is_string($this->previousInstallerMemoryLimit)) {
+        ini_set('memory_limit', $this->previousInstallerMemoryLimit);
+    }
+});
+
 /**
  * @param  array<string, mixed>  $report
  * @return array<string, mixed>
@@ -53,7 +64,7 @@ it('reports the current environment with remediation fields', function (): void 
         ->toHaveKeys(['status', 'checks', 'groups', 'environment', 'generatedAt'])
         ->and($report['checks'])->toBeArray()->not->toBeEmpty()
         ->and($report['groups'])->toHaveKeys(['blocking', 'advisory'])
-        ->and($report['environment'])->toHaveKeys(['php', 'laravel', 'os', 'sapi', 'paths'])
+        ->and($report['environment'])->toHaveKeys(['php', 'memoryLimit', 'laravel', 'os', 'sapi', 'paths'])
         ->and($report['checks'][0])->toHaveKeys(['key', 'label', 'status', 'severity', 'message', 'remediation']);
 
     if (InstalledVersions::isInstalled('filament/filament')) {
@@ -63,6 +74,35 @@ it('reports the current environment with remediation fields', function (): void 
     if (InstalledVersions::isInstalled('livewire/livewire')) {
         expect($report['environment'])->toHaveKey('livewire');
     }
+});
+
+it('blocks browser installation when the web php memory limit is below the floor', function (): void {
+    ini_set('memory_limit', '128M');
+
+    $report = resolve(InstallerPreflight::class)->run();
+    $memoryCheck = installerPreflightCheck($report, 'php-memory-limit');
+
+    expect($memoryCheck)
+        ->toMatchArray([
+            'label' => 'PHP memory limit',
+            'status' => 'fail',
+            'message' => 'Capell installation requires PHP memory_limit of at least 512M; the current limit is 128M.',
+        ])
+        ->and($memoryCheck['remediation'])->toContain('php -d memory_limit=512M artisan capell:install')
+        ->and($report['environment']['memoryLimit'])->toBe('128M')
+        ->and(InstallerPreflight::hasBlockingFailures($report['checks']))->toBeTrue();
+});
+
+it('accepts unlimited web php memory', function (): void {
+    ini_set('memory_limit', '-1');
+
+    $report = resolve(InstallerPreflight::class)->run();
+
+    expect(installerPreflightCheck($report, 'php-memory-limit'))
+        ->toMatchArray([
+            'status' => 'pass',
+            'message' => 'PHP memory_limit=-1 is available for Capell installation.',
+        ]);
 });
 
 it('accepts the documented minimum PHP version', function (): void {
