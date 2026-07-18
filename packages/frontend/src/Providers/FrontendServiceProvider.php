@@ -598,7 +598,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             function (): void {
                 $this->app->make(FrontendHookRegistrar::class)->contribute(
                     RenderHookLocation::HeadClose,
-                    $this->app->make(ThemeTokenHeadCloseHook::class),
+                    ThemeTokenHeadCloseHook::class,
                     owner: self::$packageName,
                     key: 'theme-token-css',
                 );
