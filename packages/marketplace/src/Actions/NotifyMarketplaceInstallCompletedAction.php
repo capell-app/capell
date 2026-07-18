@@ -25,7 +25,7 @@ final class NotifyMarketplaceInstallCompletedAction
 
     public function handle(MarketplaceInstallAttempt $attempt): void
     {
-        $user = $this->requestingUser($attempt);
+        $user = ResolveMarketplaceInstallAttemptUserAction::run($attempt);
 
         if (! $user instanceof Authenticatable && ! $user instanceof Model) {
             return;
@@ -56,31 +56,6 @@ final class NotifyMarketplaceInstallCompletedAction
         if (Schema::hasTable('notifications')) {
             $notification->sendToDatabase($user);
         }
-    }
-
-    private function requestingUser(MarketplaceInstallAttempt $attempt): Model|Authenticatable|null
-    {
-        if ($attempt->user_id === null || $attempt->user_id === '') {
-            return null;
-        }
-
-        $userModel = config('auth.providers.users.model');
-
-        if (! is_string($userModel) || ! class_exists($userModel)) {
-            return null;
-        }
-
-        $user = new $userModel;
-
-        if (! $user instanceof Model) {
-            return null;
-        }
-
-        $foundUser = $user->newQuery()->whereKey($attempt->user_id)->first();
-
-        return $foundUser instanceof Model || $foundUser instanceof Authenticatable
-            ? $foundUser
-            : null;
     }
 
     private function extensionManagementUrl(string $composerName): ?string
