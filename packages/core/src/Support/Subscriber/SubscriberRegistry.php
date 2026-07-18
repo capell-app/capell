@@ -12,7 +12,7 @@ use InvalidArgumentException;
 /**
  * @template TContract of object
  */
-class SubscriberManager
+class SubscriberRegistry
 {
     /** @var array<class-string<TContract>, class-string<TContract>> */
     protected array $subscribers = [];

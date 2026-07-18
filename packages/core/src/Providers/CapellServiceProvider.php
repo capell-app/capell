@@ -134,14 +134,14 @@ use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
-use Capell\Core\Support\Redirects\PageUrlRedirectRecorder;
+use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
-use Capell\Core\Support\Subscriber\SubscriberManager;
+use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
@@ -515,7 +515,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
         ));
-        $this->app->singleton(SubscriberManager::class, fn (): SubscriberManager => new SubscriberManager);
+        $this->app->singleton(SubscriberRegistry::class, fn (): SubscriberRegistry => new SubscriberRegistry);
         $this->app->singleton(RenderableRegistry::class, fn (): RenderableRegistry => new RenderableRegistry);
         $this->app->singleton(LinkableContentRegistry::class, fn (): LinkableContentRegistry => new LinkableContentRegistry);
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
@@ -853,7 +853,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerRedirectBehavior(): self
     {
-        $this->app->singleton(PageUrlRedirectRecorder::class);
+        $this->app->singleton(PageUrlRedirectHitRecorder::class);
 
         $redirectResolverContract = RedirectResolver::class;
 

@@ -7,12 +7,12 @@ namespace Capell\Core\Tests\Unit\Support\Subscriber;
 use Capell\Core\Contracts\EventSubscriber;
 use Capell\Core\Support\Subscriber\Contracts\Subscriber;
 use Capell\Core\Support\Subscriber\Contracts\ValidatingSubscriber;
-use Capell\Core\Support\Subscriber\SubscriberManager;
-use Capell\Core\Tests\Unit\Support\Subscriber\Fixtures\SubscriberManagerTestEvent;
+use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Capell\Core\Tests\Unit\Support\Subscriber\Fixtures\SubscriberRegistryTestEvent;
 use InvalidArgumentException;
 use stdClass;
 
-final class SubscriberManagerRecorder
+final class SubscriberRegistryRecorder
 {
     /** @var array<int, array{event: string, context: object, source: string}> */
     public array $handled = [];
@@ -33,12 +33,12 @@ final class SubscriberManagerRecorder
  * what they observed. Each subscriber FQCN identifies its own source label
  * via the $labels map below.
  */
-function subscriberManagerRecorder(): SubscriberManagerRecorder
+function subscriberManagerRecorder(): SubscriberRegistryRecorder
 {
     static $recorder = null;
 
     if ($recorder === null) {
-        $recorder = new SubscriberManagerRecorder;
+        $recorder = new SubscriberRegistryRecorder;
     }
 
     return $recorder;
@@ -77,7 +77,7 @@ it('notifies subscribers in subscription order with the resolved event name', fu
         }
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($firstSubscriberClass);
     $manager->subscribe($secondSubscriberClass);
 
@@ -105,9 +105,9 @@ it('unwraps backed enum events to their string value when notifying', function (
         }
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($subscriberClass);
-    $manager->notifySubscribers(SubscriberManagerTestEvent::Published, (object) []);
+    $manager->notifySubscribers(SubscriberRegistryTestEvent::Published, (object) []);
 
     $handled = subscriberManagerRecorder()->handled;
     expect($handled)->toHaveCount(1);
@@ -115,7 +115,7 @@ it('unwraps backed enum events to their string value when notifying', function (
 });
 
 it('does nothing when notifying with no subscribers registered', function (): void {
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->notifySubscribers('page.saved', (object) []);
 
     expect(subscriberManagerRecorder()->handled)->toBe([]);
@@ -154,7 +154,7 @@ it('returns true from validateWithSubscribers when every subscriber accepts', fu
         }
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($alphaSubscriberClass);
     $manager->subscribe($betaSubscriberClass);
 
@@ -175,7 +175,7 @@ it('unsubscribes by class-string', function (): void {
         }
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($firstSubscriberClass);
     $manager->unsubscribe($firstSubscriberClass);
 
@@ -190,7 +190,7 @@ it('subscribing the same class twice yields one entry', function (): void {
         public function handle(string $event, object $context): void {}
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($firstSubscriberClass);
     $manager->subscribe($firstSubscriberClass);
 
@@ -203,7 +203,7 @@ it('exposes hasSubscriber for membership checks', function (): void {
         public function handle(string $event, object $context): void {}
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($firstSubscriberClass);
 
     expect($manager->hasSubscriber($firstSubscriberClass))->toBeTrue()
@@ -259,7 +259,7 @@ it('short-circuits validateWithSubscribers as soon as one subscriber returns fal
         }
     })::class;
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($firstSubscriberClass);
     $manager->subscribe($blockingSubscriberClass);
     $manager->subscribe($thirdSubscriberClass);
@@ -291,7 +291,7 @@ it('resolves subscribers via the container so they can use constructor DI', func
 
     app()->bind($subscriberClassName, fn (): object => new $subscriberClassName(resolve('subscriber.dep')));
 
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
     $manager->subscribe($subscriberClassName);
     $manager->notifySubscribers('event.fired', new stdClass);
 
@@ -299,7 +299,7 @@ it('resolves subscribers via the container so they can use constructor DI', func
 });
 
 it('validateWithSubscribers ignores plain Subscriber instances and consults only ValidatingSubscriber implementers', function (): void {
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
 
     $plain = new class implements Subscriber
     {
@@ -337,7 +337,7 @@ it('validateWithSubscribers ignores plain Subscriber instances and consults only
 });
 
 it('subscribe rejects classes that do not implement the configured contract', function (): void {
-    $manager = new class extends SubscriberManager
+    $manager = new class extends SubscriberRegistry
     {
         protected function subscriberContract(): string
         {
@@ -354,7 +354,7 @@ it('subscribe rejects classes that do not implement the configured contract', fu
 })->throws(InvalidArgumentException::class);
 
 it('default subscriberContract is Subscriber and accepts any Subscriber implementation', function (): void {
-    $manager = new SubscriberManager;
+    $manager = new SubscriberRegistry;
 
     $plain = new class implements Subscriber
     {

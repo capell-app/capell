@@ -12,7 +12,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Json\JsonCodec;
-use Capell\Core\Support\Lookup\ArrayCacheRegistry;
+use Capell\Core\Support\Lookup\ArrayCache;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -63,7 +63,7 @@ class CapellCoreHelper
             : (is_object($typeFilter) ? spl_object_hash($typeFilter) : (string) $typeFilter);
         $cacheKey = CacheEnum::typeKey($typeId, $filterKey);
 
-        resolve(ArrayCacheRegistry::class)->forget($cacheKey);
+        resolve(ArrayCache::class)->forget($cacheKey);
     }
 
     public static function hasSiteType(): bool
@@ -324,12 +324,12 @@ class CapellCoreHelper
             );
         }
 
-        return resolve(ArrayCacheRegistry::class)->flush($prefixes);
+        return resolve(ArrayCache::class)->flush($prefixes);
     }
 
     private static function getCached(string $key, callable $resolver, bool $asBool = false): mixed
     {
-        return resolve(ArrayCacheRegistry::class)->remember($key, $resolver, $asBool);
+        return resolve(ArrayCache::class)->remember($key, $resolver, $asBool);
     }
 
     /** @param array<mixed> $value */

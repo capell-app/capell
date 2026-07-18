@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Core\Concerns;
 
-use Capell\Core\Support\Subscriber\SubscriberManager;
+use Capell\Core\Support\Subscriber\SubscriberRegistry;
 
 trait HasListeners
 {
     /**
-     * @return SubscriberManager<object>
+     * @return SubscriberRegistry<object>
      */
-    public function subscriberManager(): SubscriberManager
+    public function subscriberManager(): SubscriberRegistry
     {
-        return resolve(SubscriberManager::class);
+        return resolve(SubscriberRegistry::class);
     }
 }

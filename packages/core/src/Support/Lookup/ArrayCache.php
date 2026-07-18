@@ -7,7 +7,7 @@ namespace Capell\Core\Support\Lookup;
 use BackedEnum;
 use Illuminate\Support\Facades\Cache;
 
-final class ArrayCacheRegistry
+final class ArrayCache
 {
     /** @var string */
     private const string REGISTRY_KEY = 'capell-core-cache-keys';

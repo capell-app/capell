@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 class PageUrlRedirectResolver implements RedirectResolver
 {
     public function __construct(
-        private readonly PageUrlRedirectRecorder $redirectRecorder,
+        private readonly PageUrlRedirectHitRecorder $redirectRecorder,
     ) {}
 
     public function resolve(Site $site, Language $language, string $url, ?int $pageId = null, ?PageUrl $pageUrl = null): ?RedirectDecisionData

@@ -14,7 +14,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Observers\PageObserver;
-use Capell\Core\Support\Lookup\ArrayCacheRegistry;
+use Capell\Core\Support\Lookup\ArrayCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
@@ -57,7 +57,7 @@ it('flushes specific cache keys on saved/deleted/restored', function (): void {
     $key1 = CacheEnum::relationExistsKey($page, 'translations');
     $key2 = CacheEnum::FirstPageByTypeForSite->value;
 
-    $registryCache = resolve(ArrayCacheRegistry::class);
+    $registryCache = resolve(ArrayCache::class);
     $registryCache->remember($key1, fn (): bool => true, asBool: true);
     $registryCache->remember($key2, fn (): bool => true, asBool: true);
 

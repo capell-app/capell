@@ -10,7 +10,7 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Core\Models\Blueprint;
-use Capell\Core\Support\Subscriber\SubscriberManager;
+use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -78,7 +78,7 @@ trait BlueprintValidation
             return false;
         }
 
-        return resolve(SubscriberManager::class)
+        return resolve(SubscriberRegistry::class)
             ->validateWithSubscribers(ListenerEnum::ValidateCustomType, $record);
     }
 }
