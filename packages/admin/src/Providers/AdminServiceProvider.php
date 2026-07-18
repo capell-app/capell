@@ -365,7 +365,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerAboutInfo()
             ->bootAdminBridges()
             ->registerWidgetComponents()
-            ->registerBlazeComponents()
+            ->registerBlazeOptimizedComponentViews()
             ->registerServingEvents()
             ->registerAdminLivewireComponents()
             ->registerPublishCommands()
@@ -742,7 +742,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerBlazeComponents(): self
+    private function registerBlazeOptimizedComponentViews(): self
     {
         return $this->registerBlazeOptimizedViews([
             __DIR__ . '/../../resources/views/components/alert.blade.php',

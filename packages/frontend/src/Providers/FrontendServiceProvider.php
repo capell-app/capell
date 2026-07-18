@@ -366,7 +366,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerTailwindAssets()
             ->registerAboutInfo()
             ->registerBladeComponents()
-            ->registerBlazeComponents()
+            ->registerBlazeOptimizedComponentViews()
             ->registerFrontendLivewireComponents()
             ->registerBladeDirectives()
             ->registerPaginateRoute()
@@ -495,7 +495,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerBlazeComponents(): self
+    private function registerBlazeOptimizedComponentViews(): self
     {
         return $this->registerBlazeOptimizedViews([
             __DIR__ . '/../../resources/views/components/layout/index.blade.php',
