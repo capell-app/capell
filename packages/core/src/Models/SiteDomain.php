@@ -17,6 +17,7 @@ use Capell\Core\Observers\SiteDomainObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -150,31 +151,33 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
         return $this->belongsTo(Site::class);
     }
 
-    protected function getFullUrlAttribute(): string
+    protected function fullUrl(): Attribute
     {
-        return $this->root_url . $this->path;
+        return Attribute::make(get: fn (): string => $this->root_url . $this->path);
     }
 
-    protected function getRootUrlAttribute(): string
+    protected function rootUrl(): Attribute
     {
-        return $this->scheme . '://' . $this->getResolvedDomain();
+        return Attribute::make(get: fn (): string => $this->scheme . '://' . $this->getResolvedDomain());
     }
 
-    protected function getNameAttribute(): string
+    protected function name(): Attribute
     {
-        return $this->getResolvedDomain() . $this->url;
+        return Attribute::make(get: fn (): string => $this->getResolvedDomain() . $this->url);
     }
 
-    protected function getSchemeAttribute(): ?string
+    protected function scheme(): Attribute
     {
-        $scheme = $this->attributes['scheme'] ?? config('capell-frontend.default_scheme');
+        return Attribute::make(get: function (): ?string {
+            $scheme = $this->attributes['scheme'] ?? config('capell-frontend.default_scheme');
 
-        return is_string($scheme) && $scheme !== '' ? $scheme : request()->getScheme();
+            return is_string($scheme) && $scheme !== '' ? $scheme : request()->getScheme();
+        });
     }
 
-    protected function getUrlAttribute(): string
+    protected function url(): Attribute
     {
-        return $this->path ?? '/';
+        return Attribute::make(get: fn (): string => $this->path ?? '/');
     }
 
     /**
