@@ -7,6 +7,7 @@ namespace Capell\Frontend\Jobs;
 use Capell\Frontend\Support\Cache\SurrogateKeyNormalizer;
 use Exception;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -14,12 +15,16 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class PurgeCdnCacheJob implements ShouldQueue
+class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+
+    public int $tries = 3;
+
+    public int $uniqueFor = 300;
 
     /**
      * @param  array<string>  $surrogateKeys
@@ -37,6 +42,20 @@ class PurgeCdnCacheJob implements ShouldQueue
     public static function hasConfiguredProvider(): bool
     {
         return self::configuredProvider() !== null;
+    }
+
+    /** @return array<int, int> */
+    public function backoff(): array
+    {
+        return [10, 30, 60];
+    }
+
+    public function uniqueId(): string
+    {
+        $surrogateKeys = $this->surrogateKeys;
+        sort($surrogateKeys);
+
+        return hash('sha256', implode("\0", $surrogateKeys));
     }
 
     /**
