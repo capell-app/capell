@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Backup\Drivers;
 
 use Capell\Core\Contracts\Backup\DatabaseBackupDriver;
+use Capell\Core\Support\Filesystem\DirectoryCreator;
 use Illuminate\Contracts\Config\Repository;
 use InvalidArgumentException;
 use PDO;
@@ -57,7 +58,7 @@ final readonly class SqliteDatabaseBackupDriver implements DatabaseBackupDriver
 
         throw_if($scratchDirectory === '', RuntimeException::class, 'The SQLite scratch directory is not configured.');
 
-        throw_if(! is_dir($scratchDirectory) && ! mkdir($scratchDirectory, 0700, true) && ! is_dir($scratchDirectory), RuntimeException::class, 'Unable to create the SQLite scratch directory.');
+        DirectoryCreator::ensure($scratchDirectory, 0700, 'Unable to create the SQLite scratch directory.');
 
         $destination = rtrim($scratchDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $scratchDatabase . '.sqlite';
 

@@ -16,12 +16,13 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Support\Upgrade\DatabaseUpgradeReporter;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use RuntimeException;
 use Throwable;
 
-final class RunCapellUpgradeJob implements ShouldQueue
+final class RunCapellUpgradeJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
@@ -31,9 +32,22 @@ final class RunCapellUpgradeJob implements ShouldQueue
 
     public int $timeout = 1200;
 
+    public int $uniqueFor = RunCapellUpgradeAction::UPGRADE_LOCK_SECONDS;
+
     public function __construct(
         private readonly int $upgradeRunId,
     ) {}
+
+    /** @return array<int, int> */
+    public function backoff(): array
+    {
+        return [60, 120, 300];
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->upgradeRunId;
+    }
 
     public function upgradeRunId(): int
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Models\Concerns;
 
 use Capell\Admin\Enums\CapellPermission;
+use ReflectionMethod;
 
 trait HasImpersonation
 {
@@ -31,7 +32,16 @@ trait HasImpersonation
             return true;
         }
 
-        return method_exists($this, 'authorProfile')
-            && $this->authorProfile()->exists();
+        if (! in_array('authorProfile', get_class_methods($this), true)) {
+            return false;
+        }
+
+        $authorProfile = new ReflectionMethod($this, 'authorProfile')->invoke($this);
+
+        if (! is_object($authorProfile) || ! method_exists($authorProfile, 'exists')) {
+            return false;
+        }
+
+        return new ReflectionMethod($authorProfile, 'exists')->invoke($authorProfile) === true;
     }
 }

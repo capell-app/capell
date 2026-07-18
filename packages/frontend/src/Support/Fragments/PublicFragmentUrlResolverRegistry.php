@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Fragments;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
 use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
 use Capell\Frontend\Exceptions\DuplicatePublicFragmentOwner;
 use Capell\Frontend\Exceptions\PublicFragmentReferenceInvalid;
 use InvalidArgumentException;
 
-final class PublicFragmentUrlResolverRegistry
+/** @extends AbstractKeyedRegistry<PublicFragmentUrlResolver> */
+final class PublicFragmentUrlResolverRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, PublicFragmentUrlResolver> */
-    private array $resolvers = [];
-
     /**
      * @param  iterable<PublicFragmentUrlResolver>  $resolvers
      */
@@ -25,31 +24,31 @@ final class PublicFragmentUrlResolverRegistry
 
             throw_if(preg_match('/^[a-z0-9][a-z0-9._-]*$/', $owner) !== 1, InvalidArgumentException::class, 'Public fragment resolver owners must use lowercase stable identifiers.');
 
-            throw_if(array_key_exists($owner, $this->resolvers), DuplicatePublicFragmentOwner::class, $owner);
+            throw_if($this->hasItem($owner), DuplicatePublicFragmentOwner::class, $owner);
 
-            $this->resolvers[$owner] = $resolver;
+            $this->setItem($owner, $resolver);
         }
     }
 
     /** @return list<string> */
     public function owners(): array
     {
-        return array_keys($this->resolvers);
+        return array_keys($this->allItems());
     }
 
     public function hasResolvers(): bool
     {
-        return $this->resolvers !== [];
+        return $this->allItems() !== [];
     }
 
     public function has(string $owner): bool
     {
-        return array_key_exists($owner, $this->resolvers);
+        return $this->hasItem($owner);
     }
 
     public function url(PublicFragmentReferenceData $reference): string
     {
-        $resolver = $this->resolvers[$reference->owner] ?? null;
+        $resolver = $this->getItem($reference->owner);
 
         throw_unless($resolver instanceof PublicFragmentUrlResolver, PublicFragmentReferenceInvalid::class);
 

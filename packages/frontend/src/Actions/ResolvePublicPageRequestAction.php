@@ -141,7 +141,7 @@ final class ResolvePublicPageRequestAction
             ->where('site_id', $site->getKey())
             ->where('language_id', $language->getKey())
             ->where('url', $normalizedUrl)
-            ->where('status', true)
+            ->enabled()
             ->first();
     }
 

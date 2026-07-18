@@ -10,7 +10,7 @@ use Capell\Core\Data\Makers\MakerPreviewData;
 use Capell\Core\Support\Makers\AbstractFileMaker;
 use Illuminate\Support\Str;
 
-class AssetBladeComponentMaker extends AbstractFileMaker
+final class AssetBladeComponentMaker extends AbstractFileMaker
 {
     public function definition(): MakerDefinitionData
     {

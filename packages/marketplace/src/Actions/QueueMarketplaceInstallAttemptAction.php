@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -265,7 +266,7 @@ final class QueueMarketplaceInstallAttemptAction
 
         return [
             ...$context,
-            'composer_auth_encrypted' => Crypt::encryptString(json_encode($composerAuth, JSON_THROW_ON_ERROR)),
+            'composer_auth_encrypted' => Crypt::encryptString(JsonCodec::encode($composerAuth)),
         ];
     }
 

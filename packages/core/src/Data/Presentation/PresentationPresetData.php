@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Presentation;
 
 use Spatie\LaravelData\Data;
 
-class PresentationPresetData extends Data
+final class PresentationPresetData extends Data
 {
     /**
      * @param  array<string, mixed>  $settings

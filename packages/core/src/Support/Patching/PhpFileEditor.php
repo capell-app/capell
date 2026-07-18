@@ -23,7 +23,7 @@ use PhpParser\Token;
 use RuntimeException;
 use Throwable;
 
-class PhpFileEditor
+final class PhpFileEditor
 {
     private Parser $parser;
 

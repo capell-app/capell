@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Presentation;
 
 use Capell\Core\Data\Presentation\PresentationPresetData;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 
-class PresentationPresetRegistry
+/** @extends AbstractKeyedRegistry<PresentationPresetData> */
+final class PresentationPresetRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, PresentationPresetData> */
-    private array $presets = [];
-
     public function __construct()
     {
         $this->register(new PresentationPresetData(
@@ -23,7 +22,7 @@ class PresentationPresetRegistry
 
     public function register(PresentationPresetData $preset): void
     {
-        $this->presets[$preset->key] = $preset;
+        $this->setItem($preset->key, $preset);
     }
 
     public function get(?string $key): ?PresentationPresetData
@@ -32,7 +31,12 @@ class PresentationPresetRegistry
             return null;
         }
 
-        return $this->presets[$key] ?? null;
+        return $this->getItem($key);
+    }
+
+    public function has(string $key): bool
+    {
+        return $this->hasItem($key);
     }
 
     /**
@@ -40,6 +44,11 @@ class PresentationPresetRegistry
      */
     public function all(): array
     {
-        return $this->presets;
+        return $this->allItems();
+    }
+
+    public function clear(): void
+    {
+        $this->clearItems();
     }
 }

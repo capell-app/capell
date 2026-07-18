@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
 use Capell\Frontend\Actions\ResolveFrontendDependencyPlanAction;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
@@ -150,7 +151,7 @@ final class AfterInstallCommand extends Command
             mkdir($directory, 0755, true);
         }
 
-        file_put_contents($path, json_encode(['inputs' => $inputs], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        file_put_contents($path, JsonCodec::encode(['inputs' => $inputs], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
         $this->line('Generated Vite input manifest: bootstrap/cache/capell-vite-inputs.json');
     }
 

@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class LlmsTxtEntryData extends Data
+final class LlmsTxtEntryData extends Data
 {
     public function __construct(
         public string $title,

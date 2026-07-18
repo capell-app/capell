@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Exports;
 
 use Capell\Admin\Support\SiteScope;
-use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
@@ -57,11 +56,15 @@ class RedirectExporter extends Exporter
         ];
     }
 
+    /**
+     * @param  Builder<PageUrl>  $query
+     * @return Builder<PageUrl>
+     */
     #[Override]
     public static function modifyQuery(Builder $query): Builder
     {
         return $query
-            ->where('type', UrlTypeEnum::Redirect)
+            ->redirects()
             ->tap(fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query))
             ->with(['site', 'language']);
     }

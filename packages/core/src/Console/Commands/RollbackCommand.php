@@ -8,6 +8,7 @@ use Capell\Core\Actions\Upgrade\BuildUpgradePlanAction;
 use Capell\Core\Actions\Upgrade\RollbackUpgradeStepAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Contracts\UpgradeStepContract;
+use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -57,7 +58,7 @@ class RollbackCommand extends Command
             return Command::SUCCESS;
         }
 
-        $lock = Cache::lock('capell:upgrade', 600);
+        $lock = Cache::lock(CacheEnum::UpgradeLock->value, 600);
         if ($lock->get() === false) {
             $this->error('Another upgrade is running. Aborting.');
 

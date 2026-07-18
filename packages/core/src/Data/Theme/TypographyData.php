@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class TypographyData extends Data
+final class TypographyData extends Data
 {
     /**
      * @param  array<int, FontData>  $fonts

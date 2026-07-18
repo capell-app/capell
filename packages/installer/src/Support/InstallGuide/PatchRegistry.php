@@ -5,23 +5,15 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\InstallGuide;
 
 use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Collection;
 
-class PatchRegistry
+/** @extends AbstractKeyedRegistry<Patch> */
+class PatchRegistry extends AbstractKeyedRegistry
 {
-    /**
-     * @var Collection<string, Patch>
-     */
-    private readonly Collection $patches;
-
-    public function __construct()
-    {
-        $this->patches = collect();
-    }
-
     public function register(Patch $patch): self
     {
-        $this->patches->put($patch->id(), $patch);
+        $this->setItem($patch->id(), $patch);
 
         return $this;
     }
@@ -31,11 +23,12 @@ class PatchRegistry
      */
     public function all(): Collection
     {
-        return $this->patches->sortBy(static fn (Patch $patch): string => $patch->group());
+        return collect($this->allItems())
+            ->sortBy(static fn (Patch $patch): string => $patch->group());
     }
 
     public function get(string $patchId): ?Patch
     {
-        return $this->patches->get($patchId);
+        return $this->getItem($patchId);
     }
 }

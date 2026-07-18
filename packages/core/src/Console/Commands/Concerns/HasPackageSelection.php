@@ -21,13 +21,13 @@ use function Laravel\Prompts\multiselect;
 trait HasPackageSelection
 {
     /** @var 'core' */
-    private const PACKAGE_MODE_CORE = 'core';
+    private const string PACKAGE_MODE_CORE = 'core';
 
     /** @var 'all' */
-    private const PACKAGE_MODE_ALL = 'all';
+    private const string PACKAGE_MODE_ALL = 'all';
 
     /** @var 'custom' */
-    private const PACKAGE_MODE_CUSTOM = 'custom';
+    private const string PACKAGE_MODE_CUSTOM = 'custom';
 
     protected function shouldInstallAllPackages(): bool
     {

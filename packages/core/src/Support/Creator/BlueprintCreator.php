@@ -12,7 +12,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
 use Exception;
 
-class BlueprintCreator
+final class BlueprintCreator
 {
     /**
      * @var class-string<Blueprint>

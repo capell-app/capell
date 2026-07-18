@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 return [
+    'alignment' => [
+        'bottom' => 'Bottom (full width)',
+        'left' => 'Left (one third)',
+        'right' => 'Right (one third)',
+        'top' => 'Top (full width)',
+    ],
     'image_source' => [
         'curator_media' => 'Curator media',
         'media' => 'Media library',

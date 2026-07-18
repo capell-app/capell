@@ -13,6 +13,7 @@ use Capell\Core\Enums\Upgrade\UpgradeReadinessResult;
 use Capell\Core\Enums\Upgrade\UpgradeRunStatus;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -21,6 +22,15 @@ use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
+
+it('guards queued upgrade runs by run id and uses bounded retry backoff', function (): void {
+    $job = new RunCapellUpgradeJob(42);
+
+    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+        ->and($job->uniqueId())->toBe('42')
+        ->and($job->tries)->toBe(10)
+        ->and($job->backoff())->toBe([60, 120, 300]);
+});
 
 it('is registered in the admin page enum', function (): void {
     expect(array_map(fn (PageEnum $page): string => $page->value, PageEnum::cases()))

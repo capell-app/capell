@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Backup;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemManager;
@@ -82,7 +83,7 @@ final readonly class BackupArtifactStore
      */
     public function putManifest(string $snapshotId, array $manifest): void
     {
-        $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $json = JsonCodec::encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         throw_unless($this->disk()->put($this->snapshotPath($snapshotId, 'manifest.json'), $json . PHP_EOL), RuntimeException::class, 'Unable to write the backup manifest.');
     }

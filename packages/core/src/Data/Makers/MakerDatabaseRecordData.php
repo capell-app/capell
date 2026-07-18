@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Makers;
 
 use Spatie\LaravelData\Data;
 
-class MakerDatabaseRecordData extends Data
+final class MakerDatabaseRecordData extends Data
 {
     /**
      * @param  array<string, mixed>  $attributes

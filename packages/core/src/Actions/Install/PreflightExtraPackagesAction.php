@@ -80,18 +80,20 @@ final class PreflightExtraPackagesAction
      */
     private function snapshotComposerFiles(): array
     {
-        return collect([
-            base_path('composer.json'),
-            base_path('composer.lock'),
-        ])->mapWithKeys(function (string $path): array {
+        $contentsByPath = [];
+
+        foreach ([base_path('composer.json'), base_path('composer.lock')] as $path) {
             if (! is_file($path)) {
-                return [$path => null];
+                $contentsByPath[$path] = null;
+
+                continue;
             }
 
             $contents = file_get_contents($path);
+            $contentsByPath[$path] = is_string($contents) ? $contents : null;
+        }
 
-            return [$path => is_string($contents) ? $contents : null];
-        })->all();
+        return $contentsByPath;
     }
 
     /**

@@ -4,10 +4,21 @@ declare(strict_types=1);
 
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Frontend\Jobs\PurgeCdnCacheJob;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+
+it('deduplicates equivalent CDN purge jobs and retries transient failures', function (): void {
+    $job = new PurgeCdnCacheJob(['site-1', 'page-2', 'site-1']);
+    $equivalentJob = new PurgeCdnCacheJob(['page-2', 'site-1']);
+
+    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+        ->and($job->uniqueId())->toBe($equivalentJob->uniqueId())
+        ->and($job->tries)->toBe(3)
+        ->and($job->backoff())->toBe([10, 30, 60]);
+});
 
 it('dispatches a purge job when frontend surrogate keys are invalidated', function (): void {
     config(['capell-frontend.cdn_provider' => 'fastly']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\DiagnosePageUrlSiteDomainAction;
 use Capell\Core\Actions\FindPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Actions\RepairPageUrlsMissingSiteDomainsAction;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Exceptions\UrlMissingSiteDomainException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -13,6 +14,18 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Facades\Log;
+
+it('keeps active redirect scope SQL equivalent to the explicit predicates', function (): void {
+    $scoped = PageUrl::query()->activeRedirects();
+    $explicit = PageUrl::query()
+        ->where('type', UrlTypeEnum::Redirect)
+        ->where('status', true);
+
+    $normalizedScopedSql = str_replace('"page_urls"."status"', '"status"', $scoped->toSql());
+
+    expect($normalizedScopedSql)->toBe($explicit->toSql())
+        ->and($scoped->getBindings())->toBe($explicit->getBindings());
+});
 
 it('belongs to a site', function (): void {
     Site::factory()->createOne();

@@ -7,7 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Illuminate\Support\Facades\Blade;
 
-class BladeComponentFacadeResolver implements BladeComponentResolverInterface
+final class BladeComponentFacadeResolver implements BladeComponentResolverInterface
 {
     public function getClassComponentAliases(): array
     {

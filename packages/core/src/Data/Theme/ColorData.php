@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Theme;
 
 use Spatie\LaravelData\Data;
 
-class ColorData extends Data
+final class ColorData extends Data
 {
     public function __construct(
         public string $name,

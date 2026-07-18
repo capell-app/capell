@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Http\Controllers;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
@@ -139,7 +140,7 @@ JS;
 
         $script = str_replace(
             ['__ENDPOINT__', '__LABELS__'],
-            [json_encode($endpoint, JSON_THROW_ON_ERROR), json_encode($labels, JSON_THROW_ON_ERROR)],
+            [json_encode($endpoint, JSON_THROW_ON_ERROR), JsonCodec::encode($labels)],
             $script,
         );
 

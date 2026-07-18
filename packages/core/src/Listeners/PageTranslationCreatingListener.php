@@ -6,6 +6,7 @@ namespace Capell\Core\Listeners;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Model;
 
 final class PageTranslationCreatingListener
@@ -27,7 +28,7 @@ final class PageTranslationCreatingListener
         $slug = $translation->slug;
 
         if ($slug === null) {
-            $slug = str($translation->title)->slug()->toString();
+            $slug = SlugGenerator::slug($translation->title);
         }
 
         $meta['slug'] = $slug !== '/' ? trim($slug, '/') : $slug;

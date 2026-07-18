@@ -17,9 +17,7 @@ class SubscriberManager
     /** @var array<class-string<TContract>, class-string<TContract>> */
     protected array $subscribers = [];
 
-    /**
-     * @param  class-string<TContract>  $subscriber
-     */
+    /** @param class-string<TContract> $subscriber */
     public function subscribe(string $subscriber): void
     {
         $contract = $this->subscriberContract();
@@ -33,25 +31,19 @@ class SubscriberManager
         $this->subscribers[$subscriber] = $subscriber;
     }
 
-    /**
-     * @param  class-string<TContract>  $subscriber
-     */
+    /** @param class-string<TContract> $subscriber */
     public function unsubscribe(string $subscriber): void
     {
         unset($this->subscribers[$subscriber]);
     }
 
-    /**
-     * @return array<int, class-string<TContract>>
-     */
+    /** @return array<int, class-string<TContract>> */
     public function getSubscribers(): array
     {
         return array_values($this->subscribers);
     }
 
-    /**
-     * @param  class-string<TContract>  $subscriber
-     */
+    /** @param class-string<TContract> $subscriber */
     public function hasSubscriber(string $subscriber): bool
     {
         return isset($this->subscribers[$subscriber]);

@@ -97,37 +97,12 @@ final class NotifyMarketplaceInstallOperationFailureAction
             ->filter(fn (Model $recipient): bool => $recipient instanceof Authenticatable)
             ->keyBy(fn (Model $recipient): string => $recipient::class . ':' . $recipient->getKey());
 
-        $requestingUser = $this->requestingUser($attempt);
+        $requestingUser = ResolveMarketplaceInstallAttemptUserAction::run($attempt);
 
         if ($requestingUser instanceof Model && $requestingUser instanceof Authenticatable) {
             $resolvedRecipients->put($requestingUser::class . ':' . $requestingUser->getKey(), $requestingUser);
         }
 
         return $resolvedRecipients->values()->all();
-    }
-
-    private function requestingUser(MarketplaceInstallAttempt $attempt): Model|Authenticatable|null
-    {
-        if ($attempt->user_id === null || $attempt->user_id === '') {
-            return null;
-        }
-
-        $userModel = config('auth.providers.users.model');
-
-        if (! is_string($userModel) || ! class_exists($userModel)) {
-            return null;
-        }
-
-        $user = new $userModel;
-
-        if (! $user instanceof Model) {
-            return null;
-        }
-
-        $foundUser = $user->newQuery()->whereKey($attempt->user_id)->first();
-
-        return $foundUser instanceof Model || $foundUser instanceof Authenticatable
-            ? $foundUser
-            : null;
     }
 }

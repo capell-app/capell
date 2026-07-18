@@ -34,10 +34,13 @@ $originalPattern = "preg_match_all('/ - (?:P\\\\\\\\)?(Tests\\\\\\\\[^:]+)::/', 
 $patchedPattern = "preg_match_all('/ - (?:P\\\\\\\\)?([^:\\\\r\\\\n]+)::/', \$output, \$matches);";
 $originalProcess = "        \$output = (new Process([\n            'php',";
 $patchedProcess = "        \$output = (new Process([\n            PHP_BINARY,\n            '-d',\n            'memory_limit=' . ini_get('memory_limit'),";
+$originalParallelFilter = "        return array_filter(\$arguments, fn (string \$argument): bool => ! in_array(\$argument, ['--parallel', '-p'], strict: true));";
+$patchedParallelFilter = "        return array_filter(\$arguments, fn (string \$argument): bool => ! in_array(\$argument, ['--parallel', '-p'], strict: true)\n            && ! str_starts_with(\$argument, '--passthru-php'));";
 $namespaceReady = str_contains($contents, $patchedPattern);
 $memoryReady = str_contains($contents, $patchedProcess);
+$parallelFilterReady = str_contains($contents, $patchedParallelFilter);
 
-if ($namespaceReady && $memoryReady) {
+if ($namespaceReady && $memoryReady && $parallelFilterReady) {
     echo "Pest shard compatibility is present.\n";
 
     return;
@@ -61,8 +64,15 @@ if (! $memoryReady && ! str_contains($contents, $originalProcess)) {
     throw new RuntimeException('Unexpected Pest shard process implementation.');
 }
 
+if (! $parallelFilterReady && ! str_contains($contents, $originalParallelFilter)) {
+    fwrite(STDERR, "Pest shard parallel option patch could not find the expected source line.\n");
+
+    throw new RuntimeException('Unexpected Pest shard parallel option implementation.');
+}
+
 $contents = str_replace($originalPattern, $patchedPattern, $contents);
 $contents = str_replace($originalProcess, $patchedProcess, $contents);
+$contents = str_replace($originalParallelFilter, $patchedParallelFilter, $contents);
 
 file_put_contents($shardPluginPath, $contents);
 

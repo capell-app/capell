@@ -205,11 +205,11 @@ it('merges nested interceptor payloads and fails fast on invalid lifecycle contr
     {
         use HasModelInterceptors;
     };
-    $badReturnTrait->registerModelInterceptor(InMemoryUserModel::class, BadReturnCreateModelInterceptor::class, 'page');
+    $badReturnTrait->registerModelInterceptor(InMemoryUserModel::class, BadReturnCreateModelInterceptor::class, 'bad-return');
 
     expect(fn (): object => $badReturnTrait->createModel(
         InMemoryUserModel::class,
-        'page',
+        'bad-return',
         fn (array $data): InMemoryUserModel => new InMemoryUserModel($data),
         BadReturnCreateModelInterceptor::class,
     ))->toThrow(InvalidArgumentException::class, 'beforeCreate must return an array');

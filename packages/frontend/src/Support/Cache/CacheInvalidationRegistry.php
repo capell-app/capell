@@ -13,13 +13,12 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
-use Capell\Core\Octane\Resettable;
 use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 
-final class CacheInvalidationRegistry implements Resettable
+final class CacheInvalidationRegistry
 {
     private array $modelDependencies = [
         Site::class => ['sites', 'site-*', 'site-related-*'],
@@ -97,14 +96,6 @@ final class CacheInvalidationRegistry implements Resettable
             $this->modelDependencies[$modelClass] ?? [],
             $patterns,
         );
-    }
-
-    public function flushOctaneState(): void
-    {
-        // This class only stores boot-time configuration (class dependencies and cache patterns).
-        // The defaults are populated at class instantiation, which happens once per Octane worker.
-        // registerDependency() is only called during bootstrap, never during request handling.
-        // Therefore, there is no per-request state to reset, and this method is a no-op.
     }
 
     private function isSiteLogoMedia(Media $media): bool

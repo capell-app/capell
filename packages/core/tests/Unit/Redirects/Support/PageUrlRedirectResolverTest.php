@@ -9,7 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
-use Capell\Core\Support\Redirects\PageUrlRedirectRecorder;
+use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -43,7 +43,7 @@ it('returns manual target urls with configured status code', function (): void {
         ])
         ->create();
 
-    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectRecorder::class));
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
 
     $decision = expectPresent($resolver->resolve($site, $language, '/old', pageUrl: $redirect));
 
@@ -73,7 +73,7 @@ it('returns current page url for automatic redirects', function (): void {
         ->state(['url' => '/old'])
         ->create();
 
-    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectRecorder::class));
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
 
     $decision = expectPresent($resolver->resolve($site, $language, '/old', pageUrl: $redirect));
 
@@ -96,7 +96,7 @@ it('returns null for non redirect page urls', function (): void {
         ->state(['url' => '/page'])
         ->create();
 
-    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectRecorder::class));
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
 
     expect($resolver->resolve($site, $language, '/page', pageUrl: $pageUrl))->toBeNull()
         ->and($pageUrl->refresh()->hit_count)->toBe(0);
@@ -119,7 +119,7 @@ it('uses the wildcard home redirect as a fallback and preserves the requested pa
         ])
         ->create();
 
-    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectRecorder::class));
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
 
     $decision = expectPresent($resolver->resolve($site, $language, '/deep/path'));
 
@@ -153,7 +153,7 @@ it('prefers an exact redirect over the wildcard home redirect', function (): voi
         ])
         ->create();
 
-    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectRecorder::class));
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
 
     $decision = expectPresent($resolver->resolve($site, $language, '/deep/path'));
 

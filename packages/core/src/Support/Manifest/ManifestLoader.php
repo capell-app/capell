@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Manifest;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Composer\Autoload\ClassLoader;
 use Composer\InstalledVersions;
@@ -306,7 +307,7 @@ final class ManifestLoader
             return;
         }
 
-        $registrationKey = hash('sha256', json_encode($prefixes, JSON_THROW_ON_ERROR));
+        $registrationKey = hash('sha256', JsonCodec::encode($prefixes));
 
         if (isset(self::$registeredManifestAutoloadPaths[$registrationKey])) {
             return;

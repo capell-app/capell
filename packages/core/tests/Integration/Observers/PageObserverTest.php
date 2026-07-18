@@ -14,10 +14,35 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Observers\PageObserver;
-use Capell\Core\Support\Lookup\ArrayCacheRegistry;
+use Capell\Core\Support\Lookup\ArrayCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+
+it('assigns a uuid when creating a page without one', function (): void {
+    $page = new Page([
+        'blueprint_id' => 1,
+        'layout_id' => 1,
+    ]);
+
+    resolve(PageObserver::class)->creating($page);
+
+    expect($page->uuid)->toBeString()
+        ->and(Str::isUuid($page->uuid))->toBeTrue();
+});
+
+it('preserves an explicitly assigned uuid when creating a page', function (): void {
+    $uuid = Str::uuid()->toString();
+    $page = new Page([
+        'blueprint_id' => 1,
+        'layout_id' => 1,
+        'uuid' => $uuid,
+    ]);
+
+    resolve(PageObserver::class)->creating($page);
+
+    expect($page->uuid)->toBe($uuid);
+});
 
 it('flushes specific cache keys on saved/deleted/restored', function (): void {
     $site = Site::factory()->createOne();
@@ -32,7 +57,7 @@ it('flushes specific cache keys on saved/deleted/restored', function (): void {
     $key1 = CacheEnum::relationExistsKey($page, 'translations');
     $key2 = CacheEnum::FirstPageByTypeForSite->value;
 
-    $registryCache = resolve(ArrayCacheRegistry::class);
+    $registryCache = resolve(ArrayCache::class);
     $registryCache->remember($key1, fn (): bool => true, asBool: true);
     $registryCache->remember($key2, fn (): bool => true, asBool: true);
 

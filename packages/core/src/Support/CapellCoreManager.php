@@ -24,6 +24,8 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Composer\InstalledVersions;
 use RuntimeException;
 
@@ -48,12 +50,9 @@ class CapellCoreManager implements Resettable
 
     public function flushOctaneState(): void
     {
-        $this->localCache = [];
-        $this->installedExtensionNamesCache = null;
-        $this->extensionStatusCache = [];
-        $this->extensionRuntimeGateCache = [];
-        $this->extensionRecordCache = [];
-        $this->extensionRecordsPreloaded = false;
+        resolve(CapellCacheManager::class)->flushLocalCache();
+        resolve(CapellPackageRegistry::class)->flushRuntimeState();
+
         $this->defaultPages = null;
     }
 

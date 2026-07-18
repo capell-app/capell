@@ -9,7 +9,6 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Core\Enums\PackageTypeEnum;
-use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
@@ -42,6 +41,7 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Schema;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 use Throwable;
 
@@ -73,11 +73,12 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PatchRegistry::class, fn (): PatchRegistry => new PatchRegistry);
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
+        // The installer is the pre-install runtime, so its booted lifecycle must
+        // remain available before Capell can record this package as installed.
         parent::registeringPackage();
-
-        $this->registerPackageMetadata();
 
         $this->booted(function (): void {
             $this->registerPatches();
@@ -206,17 +207,6 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
             static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
                 ? new ViteThemeInputPatch
                 : null,
-        );
-    }
-
-    private function registerPackageMetadata(): void
-    {
-        CapellCore::registerPackage(
-            static::$packageName,
-            type: static::getType(),
-            serviceProviderClass: static::class,
-            path: realpath(__DIR__ . '/../..'),
-            version: CapellCore::getInstalledPrettyVersion(static::$packageName),
         );
     }
 }

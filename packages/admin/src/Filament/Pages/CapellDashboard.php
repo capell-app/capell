@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
+use Capell\Admin\Enums\DashboardDateRangeEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Providers\AdminServiceProvider;
@@ -40,13 +41,7 @@ class CapellDashboard extends Dashboard
     {
         return $schema->components([
             ToggleButtons::make('date_range')
-                ->options([
-                    'today' => __('capell-admin::dashboard.filter_today'),
-                    'this_week' => __('capell-admin::dashboard.filter_this_week'),
-                    'this_month' => __('capell-admin::dashboard.filter_this_month'),
-                    'last_30_days' => __('capell-admin::dashboard.filter_last_30_days'),
-                    'this_year' => __('capell-admin::dashboard.filter_this_year'),
-                ])
+                ->options(DashboardDateRangeEnum::options())
                 ->columnSpanFull()
                 ->default('this_week')
                 ->extraAttributes([

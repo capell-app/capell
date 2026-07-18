@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Data\Assets\ExternalResourceSourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
@@ -71,7 +72,7 @@ final class ResolveFrontendResourcePlanAction
                 aliases: [],
                 diagnostics: [$diagnostic],
                 cspOrigins: ['script-src' => [], 'style-src' => [], 'connect-src' => [], 'font-src' => []],
-                fingerprint: hash('sha256', json_encode($diagnostic, JSON_THROW_ON_ERROR)),
+                fingerprint: hash('sha256', JsonCodec::encode($diagnostic)),
             );
         }
     }
@@ -134,7 +135,7 @@ final class ResolveFrontendResourcePlanAction
         $bodyEnd = array_values(array_filter($resolved, static fn (ResolvedFrontendResourceData $resource): bool => isset($eagerCanonicalHandles[$aliases[$expandedParents[$resource->handle]] ?? $expandedParents[$resource->handle]]) && $resource->placement === FrontendResourcePlacement::BodyEnd));
         $lazyActivationGraphs = $this->lazyActivationGraphs($activations, $declarations, $resolvedByHandle, $aliases, $eagerHandles, $expandedResourcesByParent);
         $cspOrigins = $this->cspOrigins($resolved, $hints);
-        $fingerprint = hash('sha256', json_encode([
+        $fingerprint = hash('sha256', JsonCodec::encode([
             'resources' => array_map($this->fingerprintResource(...), $resolved),
             'activations' => array_map(static fn (FrontendResourceActivationPlanData $activation): array => [
                 $activation->target,
@@ -144,7 +145,7 @@ final class ResolveFrontendResourcePlanAction
             'hints' => array_map(static fn (FrontendResourceHintData $hint): array => $hint->toArray(), $hints),
             'aliases' => $aliases,
             'csp' => $cspOrigins,
-        ], JSON_THROW_ON_ERROR));
+        ]));
 
         return new FrontendResourcePlanData($head, $bodyEnd, $lazyActivationGraphs, $hints, $aliases, $diagnostics, $cspOrigins, $fingerprint);
     }
@@ -585,7 +586,7 @@ final class ResolveFrontendResourcePlanAction
 
     private function compatibilitySignature(ResolvedFrontendResourceData $resource): string
     {
-        return hash('sha256', json_encode([
+        return hash('sha256', JsonCodec::encode([
             $resource->integrity,
             $resource->crossOrigin?->value,
             $resource->referrerPolicy?->value,
@@ -593,7 +594,7 @@ final class ResolveFrontendResourcePlanAction
             $resource->executionMode?->value,
             $resource->defer,
             $resource->async,
-        ], JSON_THROW_ON_ERROR));
+        ]));
     }
 
     /**

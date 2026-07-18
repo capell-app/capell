@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Redirects;
 
-use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -23,8 +22,7 @@ class RefreshRedirectHealthSnapshotsAction
         $refreshed = 0;
 
         PageUrl::query()
-            ->where('type', UrlTypeEnum::Redirect)
-            ->where('status', true)
+            ->activeRedirects()
             ->orderBy('id')
             ->chunkById($chunkSize, function (Collection $redirects) use (&$refreshed): void {
                 $redirects->each(function (PageUrl $redirect) use (&$refreshed): void {

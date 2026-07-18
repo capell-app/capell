@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class LinkableContentData extends Data
+final class LinkableContentData extends Data
 {
     public function __construct(
         public string $type,

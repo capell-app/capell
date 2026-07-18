@@ -7,7 +7,7 @@ namespace Capell\Core\Data;
 use Closure;
 use Spatie\LaravelData\Data;
 
-class DefaultPageData extends Data
+final class DefaultPageData extends Data
 {
     public function __construct(
         public string $key,

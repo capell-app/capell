@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class AssetsData extends Data
+final class AssetsData extends Data
 {
     /**
      * @param  array<int, AssetEntryData>  $assets

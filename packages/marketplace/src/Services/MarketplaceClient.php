@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Services;
 
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Marketplace\Actions\BuildMarketplaceConnectionContextAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
@@ -144,7 +145,7 @@ final class MarketplaceClient
     ): MarketplaceCataloguePageData {
         $marketplaceContext = $this->marketplaceContext();
         $cachePayload = $query->toCachePayload($marketplaceContext);
-        $cacheKey = 'capell-marketplace.marketplace.extensions-page.' . hash('xxh3', json_encode($cachePayload, JSON_THROW_ON_ERROR));
+        $cacheKey = 'capell-marketplace.marketplace.extensions-page.' . hash('xxh3', JsonCodec::encode($cachePayload));
         $staleCacheKey = $cacheKey . '.stale';
 
         if (! $forceRefresh && Cache::has($cacheKey)) {
@@ -216,7 +217,7 @@ final class MarketplaceClient
             'context' => $marketplaceContext,
             'max_pages' => $maxPages,
         ];
-        $cacheKey = 'capell-marketplace.marketplace.extensions.' . hash('xxh3', json_encode($cachePayload, JSON_THROW_ON_ERROR));
+        $cacheKey = 'capell-marketplace.marketplace.extensions.' . hash('xxh3', JsonCodec::encode($cachePayload));
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
 
         $items = Cache::remember($cacheKey, $ttl, function () use ($search, $kind, $freeOnly, $sort, $priceMinCents, $priceMaxCents, $capellVersion, $laravelVersion, $livewireVersion, $filamentVersion, $category, $capabilities, $author, $marketplaceContext, $maxPages): array {
@@ -312,7 +313,7 @@ final class MarketplaceClient
             'filament_version' => $filamentVersion,
             'context' => $marketplaceContext,
         ];
-        $cacheKey = 'capell-marketplace.marketplace.extensions-by-composer.' . hash('xxh3', json_encode($cachePayload, JSON_THROW_ON_ERROR));
+        $cacheKey = 'capell-marketplace.marketplace.extensions-by-composer.' . hash('xxh3', JsonCodec::encode($cachePayload));
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
 
         $fetchExtensions = function () use ($composerNames, $kind, $capellVersion, $laravelVersion, $livewireVersion, $filamentVersion, $marketplaceContext): array {
@@ -368,10 +369,10 @@ final class MarketplaceClient
     {
         $path = $this->extensionPath($slug);
         $marketplaceContext = $this->marketplaceContext();
-        $cacheKey = 'capell-marketplace.marketplace.extension.' . hash('xxh3', json_encode([
+        $cacheKey = 'capell-marketplace.marketplace.extension.' . hash('xxh3', JsonCodec::encode([
             'slug' => $slug,
             'context' => $marketplaceContext,
-        ], JSON_THROW_ON_ERROR));
+        ]));
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
 
         $fetchExtension = fn (): ?array => $this->fetchExtensionData($path, $marketplaceContext);
@@ -385,10 +386,10 @@ final class MarketplaceClient
     {
         $path = $this->extensionPath($slug);
         $marketplaceContext = $this->marketplaceContext();
-        $cacheKey = 'capell-marketplace.marketplace.extension-detail.' . hash('xxh3', json_encode([
+        $cacheKey = 'capell-marketplace.marketplace.extension-detail.' . hash('xxh3', JsonCodec::encode([
             'slug' => $slug,
             'context' => $marketplaceContext,
-        ], JSON_THROW_ON_ERROR));
+        ]));
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
 
         $data = Cache::remember(
@@ -759,7 +760,7 @@ final class MarketplaceClient
         throw_if(! is_string($instanceId) || $instanceId === '' || ! is_string($signingSecret) || $signingSecret === '', RuntimeException::class, self::INSTANCE_NOT_REGISTERED_MESSAGE);
 
         $payload = $this->signedMarketplacePayload($payload, $marketplaceInstance, $instanceId, $signingSecret, $path);
-        $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
+        $jsonPayload = JsonCodec::encode($payload);
         $signature = $payload['signature'];
 
         throw_if(! is_string($signature) || $signature === '', RuntimeException::class, 'Unable to sign marketplace request payload.');

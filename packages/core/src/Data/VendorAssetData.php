@@ -7,7 +7,7 @@ namespace Capell\Core\Data;
 use Capell\Core\Enums\VendorAssetEnum;
 use Spatie\LaravelData\Data;
 
-class VendorAssetData extends Data
+final class VendorAssetData extends Data
 {
     public function __construct(
         public VendorAssetEnum $type,

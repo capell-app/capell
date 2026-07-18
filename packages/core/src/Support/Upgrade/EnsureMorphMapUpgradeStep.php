@@ -9,7 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 
-class EnsureMorphMapUpgradeStep extends AbstractUpgradeStep
+final class EnsureMorphMapUpgradeStep extends AbstractUpgradeStep
 {
     public function id(): string
     {

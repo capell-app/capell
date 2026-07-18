@@ -246,3 +246,8 @@ it('creates a custom page with translated metadata and preserves creator user st
             'slug' => 'a-propos',
         ]);
 });
+it('remains extensible for companion package creators', function (): void {
+    $creator = new class extends PageCreator {};
+
+    expect($creator)->toBeInstanceOf(PageCreator::class);
+});

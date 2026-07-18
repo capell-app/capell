@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class PageUrlSiteDomainDiagnosticData extends Data
+final class PageUrlSiteDomainDiagnosticData extends Data
 {
     public function __construct(
         public ?int $pageUrlId,

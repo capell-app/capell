@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\ThemeStudio\Preview;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\Date;
 
 class ThemePreviewSigner
@@ -21,12 +22,12 @@ class ThemePreviewSigner
     public function generate(string $themeKey, string $presetKey, int $expiresInMinutes = 60): string
     {
         $issuedAt = Date::now()->getTimestamp();
-        $payload = json_encode([
+        $payload = JsonCodec::encode([
             'theme' => $themeKey,
             'preset' => $presetKey,
             'iat' => $issuedAt,
             'exp' => $issuedAt + ($expiresInMinutes * 60),
-        ], JSON_THROW_ON_ERROR);
+        ]);
 
         return base64_encode($payload) . '.' . hash_hmac('sha256', $payload, $this->secretKey);
     }
@@ -54,9 +55,9 @@ class ThemePreviewSigner
             return ThemePreviewContext::none();
         }
 
-        $data = json_decode($payload, true);
+        $data = JsonCodec::decodeArray($payload);
 
-        if (! is_array($data) || ($data['exp'] ?? 0) < Date::now()->getTimestamp()) {
+        if (($data['exp'] ?? 0) < Date::now()->getTimestamp()) {
             return ThemePreviewContext::none();
         }
 

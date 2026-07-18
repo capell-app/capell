@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -45,9 +46,9 @@ final class BuildMarketplaceInstallDiagnosticBundleAction
             ])->values()->all(),
         ];
 
-        return json_encode(
+        return JsonCodec::encode(
             RedactMarketplaceDiagnosticContextAction::run($payload),
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
         );
     }
 }

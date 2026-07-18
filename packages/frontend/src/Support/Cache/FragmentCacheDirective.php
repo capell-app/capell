@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
-use Capell\Core\Octane\Resettable;
-
-final class FragmentCacheDirective implements Resettable
+final class FragmentCacheDirective
 {
     /**
      * Stack of "(ttl, surrogateKeys)" parameter tuples captured by `@cache`,
@@ -44,10 +42,5 @@ final class FragmentCacheDirective implements Resettable
         $tail = array_pop($this->tailStack) ?? ', 3600, []';
 
         return sprintf('<?php return ob_get_clean(); }%s); ?>', $tail);
-    }
-
-    public function flushOctaneState(): void
-    {
-        $this->tailStack = [];
     }
 }

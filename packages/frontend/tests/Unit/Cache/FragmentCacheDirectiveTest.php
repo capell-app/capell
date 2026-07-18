@@ -13,7 +13,7 @@ it('compiles paired cache directives with ttl and surrogate keys', function (): 
         ->toBe("<?php return ob_get_clean(); }, (int) 120, ['site-1']); ?>");
 });
 
-it('uses defaults and clears nested directive state', function (): void {
+it('uses defaults and isolates nested directive state between scoped instances', function (): void {
     $directive = new FragmentCacheDirective;
 
     $directive->compile("'outer', 60, ['outer']");
@@ -21,7 +21,7 @@ it('uses defaults and clears nested directive state', function (): void {
 
     expect($directive->compileEnd())->toBe("<?php return ob_get_clean(); }, (int) 30, ['inner']); ?>");
 
-    $directive->flushOctaneState();
+    $directive = new FragmentCacheDirective;
 
     expect($directive->compileEnd())->toBe('<?php return ob_get_clean(); }, 3600, []); ?>');
 });

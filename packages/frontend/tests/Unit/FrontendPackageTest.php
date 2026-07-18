@@ -35,16 +35,14 @@ it('registers the owner-aware public fragment services', function (): void {
         ->and(app()->bound(PublicFragmentUrlResolverRegistry::class))->toBeTrue();
 });
 
-it('tags frontend request state services for octane resets', function (): void {
+it('only tags singleton frontend state for octane resets', function (): void {
     $resettableServices = collect(app()->tagged(Resettable::TAG))
         ->map(fn (object $service): string => $service::class)
         ->all();
 
-    expect($resettableServices)->toContain(
-        CacheInvalidationRegistry::class,
-        FragmentCacheDirective::class,
-        ThemeViewRegistrar::class,
-    );
+    expect($resettableServices)
+        ->toContain(ThemeViewRegistrar::class)
+        ->not->toContain(CacheInvalidationRegistry::class, FragmentCacheDirective::class);
 });
 
 it('registers frontend css for generated tailwind assets', function (): void {

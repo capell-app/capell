@@ -8,7 +8,7 @@ Capell's CI runs code-quality checks and divides the test suite with Pest's nati
 
 Run `composer test:shards` when the timing manifest needs refreshing. Pest writes `tests/.pest/shards.json` directly.
 
-Pest 4.7 requires a small namespace compatibility patch for this monorepo. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
+Pest 4.7 requires a small sharding compatibility patch for this monorepo. It supports package namespaces, preserves the discovery process memory limit, and prevents parallel-worker PHP options from leaking into PHPUnit test discovery. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
 
 ## Composer Refresh For Screenshot Fixtures
 
@@ -29,6 +29,15 @@ composer preflight:all
 ```
 
 `preflight:all` applies repository-wide Rector transformations and Pint formatting automatically, then runs Prettier in check mode. It also runs documentation checks, the root-doc guard, PHPStan baseline growth protection, and Pest. Review and commit any generated changes before pushing; CI asserts that the command leaves a clean checkout, so uncommitted transformations still fail the build.
+
+Preflight runs every selected gate and prints a per-stage summary at the end, even when an earlier independent gate fails. Pest also runs without fail-fast flags so one integrated run reports the complete test failure set. To rerun only named failing gates, pass their stage names after `--`:
+
+```bash
+composer preflight -- phpstan tests
+composer preflight:all -- docs-links phpstan-baseline
+```
+
+An unknown stage exits with the available names. The final preflight exit remains non-zero when any selected gate fails.
 
 To apply Rector, Pint, and Prettier changes before rerunning the same checks, use:
 

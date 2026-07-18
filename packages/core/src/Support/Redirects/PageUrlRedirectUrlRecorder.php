@@ -12,7 +12,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 
-class PageUrlRedirectUrlRecorder implements RedirectUrlRecorder
+final class PageUrlRedirectUrlRecorder implements RedirectUrlRecorder
 {
     public function record(Pageable $pageable, Language $language, string $url): void
     {

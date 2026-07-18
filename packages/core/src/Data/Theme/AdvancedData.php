@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class AdvancedData extends Data
+final class AdvancedData extends Data
 {
     public function __construct(
         public bool $roundedImages = false,

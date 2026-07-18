@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Components\Forms\Editor;
 
 use Capell\Admin\Actions\Widgets\MergeContentWidgetSettingsAction;
 use Capell\Admin\Actions\Widgets\NormalizeContentWidgetStateAction;
+use Capell\Admin\Actions\Widgets\PruneBlankWidgetSettingsAction;
 use Capell\Admin\Actions\Widgets\RegenerateContentWidgetIdentitiesAction;
 use Capell\Admin\Exceptions\ContentWidgetStateTraversalLimitExceeded;
 use Capell\Admin\Facades\CapellAdmin;
@@ -521,7 +522,7 @@ class ContentBuilder extends Builder
                 continue;
             }
 
-            $value = $this->stripBlankValues($value);
+            $value = PruneBlankWidgetSettingsAction::run($value);
 
             if ($value === []) {
                 unset($capellState[$optionalSettingsKey]);
@@ -533,28 +534,5 @@ class ContentBuilder extends Builder
         }
 
         return $capellState;
-    }
-
-    /**
-     * @param  array<int|string, mixed>  $state
-     * @return array<int|string, mixed>
-     */
-    private function stripBlankValues(array $state): array
-    {
-        foreach ($state as $key => $value) {
-            if (is_array($value)) {
-                $value = $this->stripBlankValues($value);
-            }
-
-            if (blank($value)) {
-                unset($state[$key]);
-
-                continue;
-            }
-
-            $state[$key] = $value;
-        }
-
-        return $state;
     }
 }

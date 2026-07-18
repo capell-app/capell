@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Widgets;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use JsonException;
@@ -15,7 +16,7 @@ final class OpaqueWidgetReference
      */
     public static function encode(array $data): string
     {
-        return Crypt::encryptString(json_encode($data, JSON_THROW_ON_ERROR));
+        return Crypt::encryptString(JsonCodec::encode($data));
     }
 
     /**

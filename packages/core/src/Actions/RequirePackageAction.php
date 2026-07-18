@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
+use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -157,7 +158,7 @@ class RequirePackageAction
             }
 
             return [
-                'COMPOSER_AUTH' => json_encode($auth, JSON_THROW_ON_ERROR),
+                'COMPOSER_AUTH' => JsonCodec::encode($auth),
             ];
         }
 
@@ -184,7 +185,7 @@ class RequirePackageAction
         }
 
         return [
-            'COMPOSER_AUTH' => json_encode($auth, JSON_THROW_ON_ERROR),
+            'COMPOSER_AUTH' => JsonCodec::encode($auth),
         ];
     }
 

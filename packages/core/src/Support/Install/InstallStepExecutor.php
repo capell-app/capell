@@ -26,9 +26,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
-use Capell\Core\Support\Composer\ComposerProcessEnvironment;
-use Capell\Core\Support\Process\ArtisanProcessEnvironment;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
@@ -379,28 +377,17 @@ final class InstallStepExecutor
 
     private function runDoctorSummaryInFreshProcess(InstallRunState $state): int
     {
-        $process = resolve(ProcessFactoryInterface::class)->make(
+        return resolve(ArtisanSubprocessRunner::class)->run(
             [
-                PHP_BINARY,
-                'artisan',
                 'capell:doctor',
                 '--install-summary',
                 '--skip-package-doctors',
                 '--no-interaction',
             ],
-            base_path(),
-            ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
+            function (string $line) use ($state): void {
+                $state->reporter->report($line);
+            },
         );
-        $process->setTimeout(120);
-        $process->run(function (string $type, string $buffer) use ($state): void {
-            foreach (explode("\n", trim($buffer)) as $line) {
-                if ($line !== '') {
-                    $state->reporter->report($line);
-                }
-            }
-        });
-
-        return $process->getExitCode() ?? 1;
     }
 
     private function syncAdminPermissions(InstallRunState $state): void
@@ -440,27 +427,19 @@ final class InstallStepExecutor
 
     private function runAdminPermissionSyncInFreshProcess(InstallRunState $state): bool
     {
-        $process = resolve(ProcessFactoryInterface::class)->make(
+        $exitCode = resolve(ArtisanSubprocessRunner::class)->run(
             [
-                PHP_BINARY,
-                'artisan',
                 'capell:admin-sync-permissions',
                 '--mode=install',
                 '--no-interaction',
             ],
-            base_path(),
-            ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
+            function (string $line) use ($state): void {
+                $state->reporter->report($line);
+            },
+            timeout: null,
         );
-        $process->setTimeout(null);
-        $process->run(function (string $type, string $buffer) use ($state): void {
-            foreach (explode("\n", trim($buffer)) as $line) {
-                if ($line !== '') {
-                    $state->reporter->report($line);
-                }
-            }
-        });
 
-        throw_if(($process->getExitCode() ?? 1) !== 0, RuntimeException::class, 'Capell admin permission sync failed in a fresh process during install.');
+        throw_if($exitCode !== 0, RuntimeException::class, 'Capell admin permission sync failed in a fresh process during install.');
 
         return true;
     }

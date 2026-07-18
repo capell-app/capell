@@ -6,16 +6,15 @@ namespace Capell\Admin\Support\Notifications;
 
 use Capell\Admin\Data\Notifications\AdminNotificationGroupData;
 use Capell\Admin\Enums\AdminNotificationGroupEnum;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
-final class AdminNotificationGroupRegistry
+/** @extends AbstractKeyedRegistry<AdminNotificationGroupData> */
+final class AdminNotificationGroupRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, AdminNotificationGroupData> */
-    private array $groups = [];
-
     /**
      * @param  Closure(): Collection<int, Model>  $defaultRecipients
      */
@@ -29,12 +28,12 @@ final class AdminNotificationGroupRegistry
 
         throw_if(trim($resolvedKey) === '', InvalidArgumentException::class, 'Notification group key must not be empty.');
 
-        $this->groups[$resolvedKey] = new AdminNotificationGroupData(
+        $this->setItem($resolvedKey, new AdminNotificationGroupData(
             key: $resolvedKey,
             label: $label,
             description: $description,
             defaultRecipients: $defaultRecipients,
-        );
+        ));
 
         return $this;
     }
@@ -43,7 +42,7 @@ final class AdminNotificationGroupRegistry
     {
         $resolvedKey = $key instanceof AdminNotificationGroupEnum ? $key->value : $key;
 
-        return $this->groups[$resolvedKey] ?? null;
+        return $this->getItem($resolvedKey);
     }
 
     /**
@@ -51,12 +50,14 @@ final class AdminNotificationGroupRegistry
      */
     public function all(): array
     {
+        $groups = $this->allItems();
+
         uasort(
-            $this->groups,
+            $groups,
             static fn (AdminNotificationGroupData $first, AdminNotificationGroupData $second): int => strnatcasecmp($first->label, $second->label),
         );
 
-        return $this->groups;
+        return $groups;
     }
 
     /**

@@ -7,7 +7,7 @@ namespace Capell\Core\Data\Interactions;
 use Capell\Core\Enums\InteractionTargetType;
 use Spatie\LaravelData\Data;
 
-class InteractionTargetData extends Data
+final class InteractionTargetData extends Data
 {
     /**
      * @param  array<string, mixed>  $widgetData

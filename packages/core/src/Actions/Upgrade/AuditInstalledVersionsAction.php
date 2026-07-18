@@ -17,7 +17,7 @@ class AuditInstalledVersionsAction
     /**
      * @var array<int, string>
      */
-    private const RETIRED_LEDGER_PACKAGES = [
+    private const array RETIRED_LEDGER_PACKAGES = [
         'capell-app/installer',
         'capell-app/url-manager',
     ];

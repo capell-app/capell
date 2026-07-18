@@ -7,7 +7,7 @@ namespace Capell\Core\Support\Page;
 use Capell\Core\Support\Security\SignedUrlCanonicalizer;
 use Exception;
 
-class SignedUrlService
+final class SignedUrlService
 {
     public static function signedDraft(string $url, ?int $draftId): string
     {

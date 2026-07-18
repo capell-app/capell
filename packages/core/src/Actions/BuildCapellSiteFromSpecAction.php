@@ -10,6 +10,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\PageCreator;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -141,6 +142,6 @@ final class BuildCapellSiteFromSpecAction
         };
         $sort($payload);
 
-        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        return hash('sha256', JsonCodec::encode($payload));
     }
 }

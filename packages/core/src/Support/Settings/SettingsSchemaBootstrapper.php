@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Settings;
 
 use Closure;
 
-class SettingsSchemaBootstrapper
+final class SettingsSchemaBootstrapper
 {
     /** @var array<Closure> */
     private array $callbacks = [];

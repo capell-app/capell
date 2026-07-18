@@ -85,13 +85,14 @@ function bindRunInstallTestConsoleKernel(array $commands = ['capell:doctor' => t
     Artisan::clearResolvedInstances();
 
     $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->with(120)->andReturnSelf();
+    $process->shouldReceive('setTimeout')->withArgs(fn (?int $timeout): bool => in_array($timeout, [null, 120], true))->andReturnSelf();
     $process->shouldReceive('run')->andReturn(0);
+    $process->shouldReceive('isSuccessful')->andReturnTrue();
     $process->shouldReceive('getExitCode')->andReturn(0);
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->withArgs(fn (array $command): bool => in_array($command[2] ?? null, ['capell:admin-install', 'capell:doctor'], true))
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
 

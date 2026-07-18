@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Backup;
 
+use Capell\Core\Support\Filesystem\DirectoryCreator;
 use RuntimeException;
 
 final class BackupTemporaryFiles
@@ -22,7 +23,7 @@ final class BackupTemporaryFiles
     {
         $directory = $this->directory !== '' ? $this->directory : sys_get_temp_dir();
 
-        throw_if(! is_dir($directory) && ! mkdir($directory, 0700, true) && ! is_dir($directory), RuntimeException::class, 'Unable to create the backup temporary directory.');
+        DirectoryCreator::ensure($directory, 0700, 'Unable to create the backup temporary directory.');
 
         throw_if(preg_match('/\A[A-Za-z0-9_-]+\z/', $prefix) !== 1, RuntimeException::class, 'The backup temporary file prefix is invalid.');
 

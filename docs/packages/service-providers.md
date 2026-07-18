@@ -17,6 +17,8 @@ Do not put Filament resources, dashboard Filament widgets, render hooks, fronten
 
 Use the runtime provider for models, config, routes shared across enabled contexts, and container bindings. Normal package metadata belongs in `capell.json`; provider-side `CapellCore::registerPackage()` is only for trusted first-party bootstrap and compatibility paths.
 
+Providers extending `AbstractPackageServiceProvider` should put ordinary package registrations in `bootInstalledPackage()`. `bootPackage()` is ungated and is reserved for work genuinely needed before installation or during discovery.
+
 ```php
 <?php
 
@@ -42,10 +44,11 @@ final class ExampleServiceProvider extends AbstractPackageServiceProvider
             ->hasViews(self::$name);
     }
 
-    public function registeringPackage(): void
+    protected function bootInstalledPackage(): self
     {
-        // Bind runtime services and register package-owned model metadata here.
-        // Do not duplicate normal capell.json metadata in provider code.
+        // Bind runtime services and register installed package surfaces here.
+
+        return $this;
     }
 }
 ```
@@ -101,6 +104,12 @@ public function boot(): void
 
 - Keep providers small.
 - Call Actions for derived setup work.
-- Guard installed-only behavior with `CapellCore::isPackageInstalled()` or `CapellCore::isPackageEnabled()` when needed.
+- Use `bootInstalledPackage()` for installed-only behavior; do not repeat that lifecycle gate in each provider.
+- Use contract `TAG` constants for focused contributors and `AdminBridgeRegistry` / `AdminBridgeRegistrar` for grouped admin integration.
+- Register package-owned settings through `surface()` / `PackageSurfaceRegistrar`; register settings supplied by an external admin integration through `AdminBridgeRegistrar`.
+- Choose singleton or scoped bindings from the state lifetime. Mutable singletons must implement and be tagged as `Resettable`.
 - Do not load frontend render code on admin-only packages.
 - Do not register Filament pages from metadata or install providers.
+- Do not require a `capell.test` hostname or testing-only environment gate for normal provider wiring.
+
+For registry APIs, helper naming, lifetime rules, and examples, see [Package provider conventions](../development/package-provider-conventions.md).

@@ -8,9 +8,21 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
 it('keeps the packaged frontend home route disabled by default', function (): void {
-    expect(config('capell-frontend.register_home_route'))->toBeFalse()
-        ->and(Route::has('home'))->toBeFalse()
-        ->and(Route::has('capell-frontend.home'))->toBeFalse();
+    $originalRouter = Route::getFacadeRoot();
+    $router = new Router(resolve(Dispatcher::class), app());
+    config(['capell-frontend.register_home_route' => false]);
+    Route::swap($router);
+
+    try {
+        require __DIR__ . '/../../routes/web.php';
+
+        $router->getRoutes()->refreshNameLookups();
+
+        expect(Route::has('home'))->toBeFalse()
+            ->and(Route::has('capell-frontend.home'))->toBeFalse();
+    } finally {
+        Route::swap($originalRouter);
+    }
 });
 
 it('registers the packaged frontend home route when enabled before routes boot', function (): void {

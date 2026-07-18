@@ -13,7 +13,6 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
-use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\VerifyMarketplaceSignedActivationAction;
@@ -36,9 +35,8 @@ use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamen
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
-use Composer\InstalledVersions;
 use Filament\Actions\Action;
-use Livewire\Livewire;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 class MarketplaceServiceProvider extends AbstractPackageServiceProvider
@@ -68,15 +66,12 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             ]);
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
-        CapellCore::registerPackage(
-            static::$packageName,
-            type: static::getType(),
-            serviceProviderClass: static::class,
-            path: realpath(__DIR__ . '/../..'),
-            version: $this->getVersion(),
-        );
+        parent::registeringPackage();
+
+        $this->registerPackageMetadata();
 
         if (config('capell-marketplace.enabled', true)) {
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);
@@ -101,47 +96,25 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         }
     }
 
-    public function packageBooted(): void
+    #[Override]
+    protected function bootInstalledPackage(): self
     {
-        $livewire = Livewire::getFacadeRoot();
-
-        if (! is_object($livewire)) {
-            return;
+        if (! config('capell-marketplace.enabled', true)) {
+            return $this;
         }
 
-        if (! $this->app->bound('livewire.finder')) {
-            return;
-        }
-
-        if ($this->isLivewireV3() === false && method_exists($livewire, 'addNamespace')) {
-            Livewire::addNamespace(
-                namespace: 'capell-marketplace',
-                classNamespace: 'Capell\\Marketplace\\Filament\\Livewire',
-            );
-        }
-
-        if (method_exists($livewire, 'component')) {
-            Livewire::component('capell-marketplace.marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
-            Livewire::component('capell-marketplace::marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
-        }
-    }
-
-    private function getVersion(): string
-    {
-        if (! class_exists(InstalledVersions::class)) {
-            return 'dev';
-        }
-
-        if (! InstalledVersions::isInstalled(static::$packageName)) {
-            return 'dev';
-        }
-
-        return InstalledVersions::getPrettyVersion(static::$packageName) ?? 'dev';
+        return $this->registerLivewireComponentDefinitions([
+            'capell-marketplace.marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
+            'capell-marketplace::marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
+        ], [
+            'namespace' => 'capell-marketplace',
+            'classNamespace' => 'Capell\\Marketplace\\Filament\\Livewire',
+        ]);
     }
 
     private function registerExtensionsPageActions(): void
     {
-        $this->app->afterResolving(ExtensionsPageActionRegistry::class, function (ExtensionsPageActionRegistry $registry): void {
+        $this->callAfterResolving(ExtensionsPageActionRegistry::class, function (ExtensionsPageActionRegistry $registry): void {
             $registry->registerHeaderAction(
                 fn (): Action => OpenMarketplaceAction::make(resolve(MarketplaceConnectionFormModel::class)),
                 'capell-marketplace.open-marketplace',

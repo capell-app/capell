@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Assets;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
 use InvalidArgumentException;
 
-final class FrontendResourceRegistry
+/** @extends AbstractKeyedRegistry<FrontendResourceGroupData> */
+final class FrontendResourceRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, FrontendResourceGroupData> */
-    private array $groups = [];
-
     /** @var array<string, FrontendResourceData> */
     private array $resources = [];
 
     public function register(FrontendResourceGroupData $group): void
     {
-        if (isset($this->groups[$group->key])) {
+        if ($this->hasItem($group->key)) {
             throw new InvalidArgumentException(sprintf('Frontend resource group [%s] is already registered.', $group->key));
         }
 
@@ -28,7 +27,7 @@ final class FrontendResourceRegistry
             }
         }
 
-        $this->groups[$group->key] = $group;
+        $this->setItem($group->key, $group);
 
         foreach ($group->resources as $resource) {
             $this->resources[$resource->handle] = $resource;
@@ -37,12 +36,12 @@ final class FrontendResourceRegistry
 
     public function has(string $key): bool
     {
-        return isset($this->groups[$key]);
+        return $this->hasItem($key);
     }
 
     public function get(string $key): ?FrontendResourceGroupData
     {
-        return $this->groups[$key] ?? null;
+        return $this->getItem($key);
     }
 
     public function resource(string $handle): ?FrontendResourceData
@@ -53,6 +52,6 @@ final class FrontendResourceRegistry
     /** @return array<string, FrontendResourceGroupData> */
     public function all(): array
     {
-        return $this->groups;
+        return $this->allItems();
     }
 }

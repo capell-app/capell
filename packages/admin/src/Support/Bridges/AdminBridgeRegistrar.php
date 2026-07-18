@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Bridges;
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
@@ -34,6 +35,19 @@ use Illuminate\View\View;
 
 final class AdminBridgeRegistrar
 {
+    public function __construct(
+        private readonly ?AdminBridgeRegistry $bridges = null,
+        private readonly ?SettingsSchemaRegistry $settings = null,
+    ) {}
+
+    /**
+     * @param  class-string<AdminBridge>  $bridgeClass
+     */
+    public function bridge(string $packageName, string $bridgeClass): void
+    {
+        ($this->bridges ?? resolve(AdminBridgeRegistry::class))->register($packageName, $bridgeClass);
+    }
+
     /** @param class-string $pageClass */
     public function page(string $pageClass): void
     {
@@ -142,6 +156,8 @@ final class AdminBridgeRegistrar
         ?string $iconColor = null,
         int $sort = 100,
         bool|Closure $visible = true,
+        ?string $chapter = 'dashboard',
+        ?string $route = null,
     ): void {
         CapellAdmin::registerWelcomeTourStep(
             key: $key,
@@ -152,6 +168,8 @@ final class AdminBridgeRegistrar
             iconColor: $iconColor,
             sort: $sort,
             visible: $visible,
+            chapter: $chapter,
+            route: $route,
         );
     }
 
@@ -242,7 +260,7 @@ final class AdminBridgeRegistrar
      */
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): void
     {
-        resolve(SettingsSchemaRegistry::class)->register($group, $schemaClass, $key);
+        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->register($group, $schemaClass, $key);
     }
 
     /**
@@ -250,11 +268,11 @@ final class AdminBridgeRegistrar
      */
     public function settingsClass(string $group, string $settingsClass): void
     {
-        resolve(SettingsSchemaRegistry::class)->registerSettingsClass($group, $settingsClass);
+        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerSettingsClass($group, $settingsClass);
     }
 
     public function settingsMetadata(SettingsGroupMetadata $metadata): void
     {
-        resolve(SettingsSchemaRegistry::class)->registerMetadata($metadata);
+        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerMetadata($metadata);
     }
 }

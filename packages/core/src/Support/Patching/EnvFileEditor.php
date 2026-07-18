@@ -7,7 +7,7 @@ namespace Capell\Core\Support\Patching;
 use Illuminate\Support\Facades\Date;
 use RuntimeException;
 
-class EnvFileEditor
+final class EnvFileEditor
 {
     private readonly string $filePath;
 

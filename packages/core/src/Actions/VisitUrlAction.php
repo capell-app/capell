@@ -68,7 +68,7 @@ class VisitUrlAction implements ShouldBeUnique
     {
         if (SiteDomain::query()
             ->where('domain', $host)
-            ->where('status', true)
+            ->enabled()
             ->exists()) {
             return true;
         }
@@ -78,7 +78,7 @@ class VisitUrlAction implements ShouldBeUnique
         return $host === $appUrlHost
             && SiteDomain::query()
                 ->whereNull('domain')
-                ->where('status', true)
+                ->enabled()
                 ->exists();
     }
 

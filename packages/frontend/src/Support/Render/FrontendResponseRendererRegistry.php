@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Render;
 
 use Capell\Core\Enums\FrontendRuntime;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 
-final class FrontendResponseRendererRegistry
+/** @extends AbstractKeyedRegistry<class-string<FrontendResponseRenderer>|FrontendResponseRenderer> */
+final class FrontendResponseRendererRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, class-string<FrontendResponseRenderer>|FrontendResponseRenderer> */
-    private array $renderers = [];
-
     public function register(FrontendResponseRenderer $renderer): void
     {
-        $this->renderers[$renderer->runtime()->value] = $renderer;
+        $this->setItem($renderer->runtime()->value, $renderer);
     }
 
     /**
@@ -22,12 +21,12 @@ final class FrontendResponseRendererRegistry
      */
     public function registerClass(FrontendRuntime $runtime, string $renderer): void
     {
-        $this->renderers[$runtime->value] = $renderer;
+        $this->setItem($runtime->value, $renderer);
     }
 
     public function forRuntime(FrontendRuntime $runtime): ?FrontendResponseRenderer
     {
-        $renderer = $this->renderers[$runtime->value] ?? null;
+        $renderer = $this->getItem($runtime->value);
 
         if (is_string($renderer)) {
             return resolve($renderer);

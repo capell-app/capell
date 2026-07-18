@@ -103,7 +103,9 @@ class ColorConverterAction
                         trim(...),
                         explode(',', $inside),
                     );
-                } else {
+                }
+
+                if (! str_contains($inside, ',')) {
                     $inside = preg_replace('/\\s+/', ' ', $inside);
                     $parts = array_filter(
                         explode(' ', (string) $inside),
@@ -122,13 +124,19 @@ class ColorConverterAction
                         $percent = (float) $percentMatch[1];
                         throw_if($percent < 0 || $percent > 100, InvalidArgumentException::class, 'Invalid color format: ' . $color);
                         $rgb[] = (int) round($percent * 255 / 100);
-                    } elseif (preg_match('/^(\\d{1,3})(?:\\.\\d+)?$/', $channel, $intMatch)) {
+
+                        continue;
+                    }
+
+                    if (preg_match('/^(\\d{1,3})(?:\\.\\d+)?$/', $channel, $intMatch)) {
                         $value = (int) $intMatch[1];
                         throw_if($value < 0 || $value > 255, InvalidArgumentException::class, 'Invalid color format: ' . $color);
                         $rgb[] = $value;
-                    } else {
-                        throw new InvalidArgumentException('Invalid color format: ' . $color);
+
+                        continue;
                     }
+
+                    throw new InvalidArgumentException('Invalid color format: ' . $color);
                 }
 
                 // If alpha is not set from slash, check for 4th channel (comma/space separated)

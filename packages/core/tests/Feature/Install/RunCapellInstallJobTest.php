@@ -8,6 +8,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
@@ -25,7 +26,14 @@ it('is queued when dispatched', function (): void {
         newUser: new NewUserData('Test', 'test@example.com', 'password'),
     );
 
-    dispatch(new RunCapellInstallJob($inputData, 'test-uuid'));
+    $job = new RunCapellInstallJob($inputData, 'test-uuid');
+
+    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+        ->and($job->uniqueId())->toBe('test-uuid')
+        ->and($job->tries)->toBe(3)
+        ->and($job->backoff())->toBe([30, 60]);
+
+    dispatch($job);
 
     Queue::assertPushed(RunCapellInstallJob::class);
 });

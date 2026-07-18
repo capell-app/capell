@@ -2,6 +2,8 @@
 
 Use this page when you know what you want to extend and need the exact contract, registration point, and fallback behavior. Start with [Extension point chooser](extension-point-chooser.md) if you are still deciding.
 
+Registration uses two complementary mechanisms: contract tags for focused contributors, and `AdminBridgeRegistry` / `AdminBridgeRegistrar` for grouped admin integration. See [Package provider conventions](../development/package-provider-conventions.md) before adding provider wiring or a new registry.
+
 Machine-readable stability and ownership are defined by the [extension surface catalogue](extension-surface-catalog.md). Use its stable IDs in compatibility decisions and package contract failures.
 
 ## Reading The Tables

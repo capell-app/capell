@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class PublicPageFieldsData extends Data
+final class PublicPageFieldsData extends Data
 {
     /**
      * @param  string|array<string, mixed>|null  $content
