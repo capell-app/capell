@@ -17,6 +17,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -295,7 +296,7 @@ class PageCreator implements PageCreatable
             }
 
             if (! isset($meta['slug'])) {
-                $meta['slug'] = $translation_data['slug'] ?? str($data['name'])->slug()->toString();
+                $meta['slug'] = $translation_data['slug'] ?? SlugGenerator::slug($data['name']);
             }
 
             $attributes = [

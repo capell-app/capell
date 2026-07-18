@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -19,7 +20,7 @@ class GenerateUniqueKeyAction
         $name = $model->getAttribute($var);
         throw_unless($name, InvalidArgumentException::class, sprintf('Model must have a %s to generate a unique key.', $var));
 
-        $base = str($name)->slug()->toString();
+        $base = SlugGenerator::slug((string) $name);
         $key = $base;
 
         while ($model->newQuery()->where('key', $key)->exists()) {

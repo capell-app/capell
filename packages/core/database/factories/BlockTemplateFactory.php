@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Database\Factories;
 
 use Capell\Core\Models\BlockTemplate;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,7 +24,7 @@ class BlockTemplateFactory extends Factory
         $name = is_array($words) ? implode(' ', $words) : $words;
 
         return [
-            'key' => str($name)->slug()->toString(),
+            'key' => SlugGenerator::slug($name),
             'name' => str($name)->title()->toString(),
             'description' => $this->faker->sentence(),
             'blocks' => [
