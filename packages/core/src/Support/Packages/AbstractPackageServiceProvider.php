@@ -43,6 +43,11 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         });
     }
 
+    /**
+     * Boot work required before installation or during package discovery.
+     *
+     * Ordinary package boot work belongs in bootInstalledPackage().
+     */
     protected function bootPackage(): self
     {
         return $this;

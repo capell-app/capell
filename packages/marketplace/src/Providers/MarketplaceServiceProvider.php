@@ -72,6 +72,8 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
+        parent::registeringPackage();
+
         CapellCore::registerPackage(
             static::$packageName,
             type: static::getType(),
@@ -104,16 +106,20 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
     }
 
     #[Override]
-    public function packageBooted(): void
+    protected function bootInstalledPackage(): self
     {
+        if (! config('capell-marketplace.enabled', true)) {
+            return $this;
+        }
+
         $livewire = Livewire::getFacadeRoot();
 
         if (! is_object($livewire)) {
-            return;
+            return $this;
         }
 
         if (! $this->app->bound('livewire.finder')) {
-            return;
+            return $this;
         }
 
         if ($this->isLivewireV3() === false && method_exists($livewire, 'addNamespace')) {
@@ -128,6 +134,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             Livewire::component('capell-marketplace::marketplace-extensions-browser', MarketplaceExtensionsBrowser::class);
         }
 
+        return $this;
     }
 
     private function getVersion(): string

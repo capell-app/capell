@@ -193,6 +193,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::$name);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-core');
         $this->bootCapellPackageRegistry();
+
+        parent::registeringPackage();
     }
 
     public function bootingPackage(): void

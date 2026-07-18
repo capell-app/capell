@@ -398,6 +398,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerAboutInfo()
             ->registerBladeComponents()
             ->registerBlazeComponents()
+            ->registerLivewireComponents()
             ->registerBladeDirectives()
             ->registerPaginateRoute()
             ->configureVite()
@@ -406,12 +407,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->scheduleSiteCheck()
             ->registerSettingsSchemas()
             ->registerViewComposers();
-    }
-
-    #[Override]
-    protected function bootPackage(): self
-    {
-        return $this->registerLivewireComponents();
     }
 
     private function registerAssetOptimizationBindings(): void
