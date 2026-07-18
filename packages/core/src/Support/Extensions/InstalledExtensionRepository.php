@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Extensions;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Composer\InstalledVersions;
 use Throwable;
 
@@ -57,10 +58,9 @@ final class InstalledExtensionRepository
                 return false;
             }
 
-            $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+            $decoded = JsonCodec::decodeArray($contents);
 
-            return is_array($decoded)
-                && ($decoded['name'] ?? null) === $composerName;
+            return ($decoded['name'] ?? null) === $composerName;
         } catch (Throwable) {
             return false;
         }

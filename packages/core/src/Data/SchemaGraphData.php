@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Spatie\LaravelData\Data;
 
 class SchemaGraphData extends Data
@@ -28,10 +29,9 @@ class SchemaGraphData extends Data
 
     public function toJsonLdScript(): string
     {
-        $json = json_encode(
+        $json = JsonCodec::encode(
             $this->toJsonLd(),
-            JSON_THROW_ON_ERROR
-            | JSON_UNESCAPED_SLASHES
+            JSON_UNESCAPED_SLASHES
             | JSON_UNESCAPED_UNICODE
             | JSON_HEX_TAG
             | JSON_HEX_AMP

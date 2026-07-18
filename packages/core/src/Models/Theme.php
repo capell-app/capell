@@ -18,6 +18,7 @@ use Capell\Core\Models\Contracts\Defaultable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\ThemeObserver;
+use Capell\Core\Support\Json\JsonCodec;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -194,12 +195,12 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
     {
         $admin = is_array($this->admin) ? $this->admin : [];
 
-        return hash('sha256', json_encode([
+        return hash('sha256', JsonCodec::encode([
             'name' => $this->name,
             'key' => $this->key,
             'colors' => $this->colors,
             'icon' => $admin['icon'] ?? null,
-        ], JSON_THROW_ON_ERROR));
+        ]));
     }
 
     public function readyGeneratedImage(): ?string
@@ -312,13 +313,10 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
         }
 
         if (is_string($meta) && $meta !== '') {
-            $decodedMeta = json_decode($meta, true);
+            $decodedMeta = JsonCodec::decodeArray($meta);
+            $rawColors = $decodedMeta['colors'] ?? [];
 
-            if (is_array($decodedMeta)) {
-                $rawColors = $decodedMeta['colors'] ?? [];
-
-                return is_array($rawColors) ? $rawColors : [];
-            }
+            return is_array($rawColors) ? $rawColors : [];
         }
 
         return [];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Security;
 
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Support\Json\JsonCodec;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Filesystem\Filesystem;
@@ -121,7 +122,7 @@ final class LockdownStore implements Resettable
             $this->files->makeDirectory($directory, 0755, true);
         }
 
-        $this->files->put($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        $this->files->put($path, JsonCodec::encode($payload, JSON_PRETTY_PRINT));
         $this->cachedData = $payload;
     }
 

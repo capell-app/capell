@@ -11,6 +11,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Lookup\ArrayCacheRegistry;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -334,6 +335,6 @@ class CapellCoreHelper
     /** @param array<mixed> $value */
     private static function hashArray(array $value): string
     {
-        return hash('sha256', json_encode($value, JSON_THROW_ON_ERROR));
+        return hash('sha256', JsonCodec::encode($value));
     }
 }
