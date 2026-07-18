@@ -18,6 +18,7 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\BroadcastNotification;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
@@ -28,6 +29,15 @@ uses(CreatesAdminUser::class);
 
 beforeEach(function (): void {
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
+});
+
+it('guards each install attempt and bounds lock-contention retries', function (): void {
+    $job = new RunMarketplaceInstallAttemptJob(42);
+
+    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+        ->and($job->uniqueId())->toBe('42')
+        ->and($job->tries)->toBe(30)
+        ->and($job->backoff())->toBe([30, 60, 120, 300]);
 });
 
 it('marks composer failures without sending the old failure notification', function (): void {

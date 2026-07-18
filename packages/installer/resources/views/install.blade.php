@@ -714,49 +714,12 @@
                                         data-package-list
                                     >
                                         @foreach ($visibleCorePackages as $package)
-                                            @php
-                                                $reqs = $package['requirements'] ?? [];
-                                            @endphp
-
-                                            <label
-                                                class="checkbox-row package-option"
-                                                data-package-row="{{ $package['name'] }}"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    name="packages[]"
-                                                    value="{{ $package['name'] }}"
-                                                    data-package-checkbox="{{ $package['name'] }}"
-                                                    data-package-core="true"
-                                                    data-package-default-core="true"
-                                                    data-package-extension="false"
-                                                    @checked(in_array($package['name'], old('packages', $defaultPackageNames), true))
-                                                />
-                                                <span class="text">
-                                                    <strong>
-                                                        {{ $package['label'] }}
-                                                    </strong>
-                                                    @if ($package['description'])
-                                                        <span>
-                                                            {{ $package['description'] }}
-                                                        </span>
-                                                    @endif
-
-                                                    @if (! empty($reqs))
-                                                        <span
-                                                            class="package-meta"
-                                                        >
-                                                            {{ __('capell-installer::installer.requires') }}:
-                                                            {{ implode(', ', $reqs) }}
-                                                        </span>
-                                                    @endif
-
-                                                    <span
-                                                        class="required-badge"
-                                                        data-required-badge="{{ $package['name'] }}"
-                                                    ></span>
-                                                </span>
-                                            </label>
+                                            <x-capell-installer::package-option
+                                                :package="$package"
+                                                :selected="old('packages', $defaultPackageNames)"
+                                                :core="true"
+                                                :extension="false"
+                                            />
                                         @endforeach
                                     </div>
                                 </section>
@@ -819,50 +782,10 @@
                                         data-package-list
                                     >
                                         @foreach ($installedPackages as $package)
-                                            @php
-                                                $reqs = $package['requirements'] ?? [];
-                                            @endphp
-
-                                            <label
-                                                class="checkbox-row package-option"
-                                                data-package-row="{{ $package['name'] }}"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    name="packages[]"
-                                                    value="{{ $package['name'] }}"
-                                                    data-package-checkbox="{{ $package['name'] }}"
-                                                    data-package-core="{{ ($package['defaultCore'] ?? false) ? 'true' : 'false' }}"
-                                                    data-package-default-core="{{ ($package['defaultCore'] ?? false) ? 'true' : 'false' }}"
-                                                    data-package-default="{{ ($package['defaultSelected'] ?? false) ? 'true' : 'false' }}"
-                                                    data-package-extension="true"
-                                                    @checked(in_array($package['name'], old('packages', $defaultPackageNames), true))
-                                                />
-                                                <span class="text">
-                                                    <strong>
-                                                        {{ $package['label'] }}
-                                                    </strong>
-                                                    @if ($package['description'])
-                                                        <span>
-                                                            {{ $package['description'] }}
-                                                        </span>
-                                                    @endif
-
-                                                    @if (! empty($reqs))
-                                                        <span
-                                                            class="package-meta"
-                                                        >
-                                                            {{ __('capell-installer::installer.requires') }}:
-                                                            {{ implode(', ', $reqs) }}
-                                                        </span>
-                                                    @endif
-
-                                                    <span
-                                                        class="required-badge"
-                                                        data-required-badge="{{ $package['name'] }}"
-                                                    ></span>
-                                                </span>
-                                            </label>
+                                            <x-capell-installer::package-option
+                                                :package="$package"
+                                                :selected="old('packages', $defaultPackageNames)"
+                                            />
                                         @endforeach
                                     </div>
                                 </section>
@@ -891,50 +814,11 @@
                                         data-package-list
                                     >
                                         @foreach ($downloadablePackages as $package)
-                                            @php
-                                                $reqs = $package['requirements'] ?? [];
-                                            @endphp
-
-                                            <label
-                                                class="checkbox-row package-option"
-                                                data-package-row="{{ $package['name'] }}"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    name="extra_packages[]"
-                                                    value="{{ $package['name'] }}"
-                                                    data-package-checkbox="{{ $package['name'] }}"
-                                                    data-package-core="{{ ($package['defaultCore'] ?? false) ? 'true' : 'false' }}"
-                                                    data-package-default-core="{{ ($package['defaultCore'] ?? false) ? 'true' : 'false' }}"
-                                                    data-package-default="{{ ($package['defaultSelected'] ?? false) ? 'true' : 'false' }}"
-                                                    data-package-extension="true"
-                                                    @checked(in_array($package['name'], old('extra_packages', $installableExtraPackageNames), true))
-                                                />
-                                                <span class="text">
-                                                    <strong>
-                                                        {{ $package['label'] }}
-                                                    </strong>
-                                                    @if ($package['description'])
-                                                        <span>
-                                                            {{ $package['description'] }}
-                                                        </span>
-                                                    @endif
-
-                                                    @if (! empty($reqs))
-                                                        <span
-                                                            class="package-meta"
-                                                        >
-                                                            {{ __('capell-installer::installer.requires') }}:
-                                                            {{ implode(', ', $reqs) }}
-                                                        </span>
-                                                    @endif
-
-                                                    <span
-                                                        class="required-badge"
-                                                        data-required-badge="{{ $package['name'] }}"
-                                                    ></span>
-                                                </span>
-                                            </label>
+                                            <x-capell-installer::package-option
+                                                :package="$package"
+                                                input-name="extra_packages[]"
+                                                :selected="old('extra_packages', $installableExtraPackageNames)"
+                                            />
                                         @endforeach
                                     </div>
                                 </section>
@@ -1526,8 +1410,16 @@
             @php
                 $installerProviderClass = 'Capell\\Installer\\Providers\\InstallerServiceProvider';
                 $installerPackagePath = dirname((new ReflectionClass($installerProviderClass))->getFileName(), 3);
-                $installerScriptPath = $installerPackagePath . '/resources/js/install.js';
-                $installerScript = is_file($installerScriptPath) ? file_get_contents($installerScriptPath) : '';
+                $installerScriptFiles = [
+                    'install/support.js',
+                    'install/wizard.js',
+                    'install/packages.js',
+                    'install/form-options.js',
+                    'install/progress.js',
+                    'install/csrf.js',
+                    'install/runner.js',
+                    'install.js',
+                ];
                 $installerConfig = [
                     'requirementsMap' => $requirementsMap,
                     'themePackageNames' => $themePackageNames ?? [],
@@ -1575,9 +1467,11 @@
             >
                 {!! Js::encode($installerConfig) !!}
             </script>
-            <script>
-                {!! $installerScript !!}
-            </script>
+            @foreach ($installerScriptFiles as $installerScriptFile)
+                <script data-installer-module="{{ $installerScriptFile }}">
+                    {!! file_get_contents($installerPackagePath . '/resources/js/' . $installerScriptFile) !!}
+                </script>
+            @endforeach
         @endif
     </main>
 @endsection

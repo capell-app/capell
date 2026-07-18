@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Upgrade;
 use Capell\Core\Data\MigrationPublishResult;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Migration\MigrationFileScanner;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -86,34 +87,12 @@ class PublishPendingMigrationsAction
             return true;
         }
 
-        $items = $this->migrationNames($path);
+        $items = MigrationFileScanner::names($path);
 
         if ($items === []) {
             return true;
         }
 
         return $this->publish($type, $items, $path);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function migrationNames(string $path): array
-    {
-        $migrationPaths = array_merge(
-            File::glob($path . '/*.php') ?: [],
-            File::glob($path . '/*.php.stub') ?: [],
-        );
-
-        sort($migrationPaths);
-
-        return array_values(array_unique(array_map(
-            static fn (string $migrationPath): string => str($migrationPath)
-                ->basename()
-                ->replaceEnd('.php.stub', '')
-                ->replaceEnd('.php', '')
-                ->toString(),
-            $migrationPaths,
-        )));
     }
 }

@@ -20,8 +20,7 @@ final class FindConflictingContentLockAction
     {
         /** @var ContentLock|null $lock */
         $lock = ContentLock::query()
-            ->where('model_type', $model->getMorphClass())
-            ->where('model_id', $model->getKey())
+            ->forModel($model)
             ->where('expires_at', '>', Date::now())
             ->first();
 

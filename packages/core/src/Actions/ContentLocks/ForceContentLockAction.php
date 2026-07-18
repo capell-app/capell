@@ -16,13 +16,10 @@ final class ForceContentLockAction
     use AsFake;
     use AsObject;
 
-    private const int DEFAULT_TTL_MINUTES = 15;
-
-    public function handle(Model $model, Authenticatable $user, int $ttlMinutes = self::DEFAULT_TTL_MINUTES): ContentLock
+    public function handle(Model $model, Authenticatable $user, int $ttlMinutes = ContentLock::DEFAULT_TTL_MINUTES): ContentLock
     {
         ContentLock::query()
-            ->where('model_type', $model->getMorphClass())
-            ->where('model_id', $model->getKey())
+            ->forModel($model)
             ->delete();
 
         return ContentLock::query()->create([

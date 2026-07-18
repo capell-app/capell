@@ -9,7 +9,7 @@ use Capell\Core\Models\AssetAttachment;
 use Closure;
 use Spatie\LaravelData\Data;
 
-class AssetData extends Data
+final class AssetData extends Data
 {
     public function __construct(
         public string $name,

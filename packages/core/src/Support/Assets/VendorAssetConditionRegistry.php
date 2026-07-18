@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Assets;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Closure;
 use ReflectionFunction;
 
-final class VendorAssetConditionRegistry
+/** @extends AbstractKeyedRegistry<Closure> */
+final class VendorAssetConditionRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, Closure> */
-    private array $conditions = [];
-
     public function register(string $name, callable $condition): void
     {
         $name = trim($name);
@@ -20,7 +19,7 @@ final class VendorAssetConditionRegistry
             return;
         }
 
-        $this->conditions[$name] = $condition(...);
+        $this->setItem($name, $condition(...));
     }
 
     public function passes(?string $condition, mixed ...$arguments): bool
@@ -29,11 +28,16 @@ final class VendorAssetConditionRegistry
             return true;
         }
 
-        if (! isset($this->conditions[$condition])) {
+        if (! $this->hasItem($condition)) {
             return false;
         }
 
-        $callback = $this->conditions[$condition];
+        $callback = $this->getItem($condition);
+
+        if (! $callback instanceof Closure) {
+            return false;
+        }
+
         $parameterCount = new ReflectionFunction($callback)->getNumberOfParameters();
 
         return $callback(...array_slice($arguments, 0, $parameterCount));

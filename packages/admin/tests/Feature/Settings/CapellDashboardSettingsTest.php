@@ -35,7 +35,7 @@ it('loads report visibility settings as a plain nested array', function (): void
     $settings = AdminSettings::instance();
     $settings->enabled_reports_by_role = [
         'editor' => [
-            'core.content_integrity' => false,
+            'core.public_render_safety' => false,
         ],
     ];
     $settings->save();
@@ -45,10 +45,10 @@ it('loads report visibility settings as a plain nested array', function (): void
     expect($fresh->enabled_reports_by_role)
         ->toBe([
             'editor' => [
-                'core.content_integrity' => false,
+                'core.public_render_safety' => false,
             ],
         ])
-        ->and($fresh->isReportEnabledForRole('editor', 'core.content_integrity'))->toBeFalse();
+        ->and($fresh->isReportEnabledForRole('editor', 'core.public_render_safety'))->toBeFalse();
 });
 
 it('exposes sort order lookup with a high fallback', function (): void {
@@ -69,16 +69,17 @@ it('exposes numeric tuning defaults', function (): void {
 });
 
 it('publishes admin settings migrations', function (): void {
-    expect(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_05_10_190834_01_add_admin_settings.php'))
-        ->not->toContain('admin.widget_spans')
-        ->toContain('admin.form_action_position')
-        ->toContain('admin.ai_orchestrator_spend_window_days')
-        ->and(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_05_28_000001_01_add_header_navigation_tree_admin_setting.php'))
-        ->toContain('admin.enable_header_navigation_tree')
-        ->and(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_06_01_000001_01_add_configurator_path_hint_admin_setting.php'))
-        ->toContain('admin.show_configurator_path_hints')
-        ->and(file_get_contents(dirname(__DIR__, 3) . '/database/settings/2026_06_05_000001_01_add_report_visibility_admin_setting.php'))
-        ->toContain('admin.enabled_reports_by_role')
+    $settings = AdminSettings::instance();
+
+    expect($settings)
+        ->toHaveProperties([
+            'form_action_position',
+            'ai_orchestrator_spend_window_days',
+            'enable_header_navigation_tree',
+            'show_configurator_path_hints',
+            'enabled_reports_by_role',
+        ])
+        ->not->toHaveProperty('widget_spans')
         ->and(CapellAdmin::getSettingMigrations())
         ->toBe([
             '2026_05_10_190834_01_add_admin_settings',

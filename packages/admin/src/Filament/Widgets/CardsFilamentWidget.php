@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Widgets;
 use Capell\Admin\Contracts\Widgets\FilamentWidget;
 use Capell\Admin\Filament\Components\Forms\Editor\RichEditor;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
+use Capell\Core\Enums\MenuAlignmentEnum;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
@@ -39,9 +40,9 @@ class CardsFilamentWidget implements FilamentWidget
 
                         Select::make('alignment')
                             ->options([
-                                'left' => __('capell-admin::generic.left'),
-                                'right' => __('capell-admin::generic.right'),
-                                'center' => __('capell-admin::generic.center'),
+                                MenuAlignmentEnum::Left->value => MenuAlignmentEnum::Left->getLabel(),
+                                MenuAlignmentEnum::Right->value => MenuAlignmentEnum::Right->getLabel(),
+                                MenuAlignmentEnum::Center->value => MenuAlignmentEnum::Center->getLabel(),
                             ]),
                     ]),
             ]);

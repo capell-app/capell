@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Resources\BlockTemplates;
 use BackedEnum;
 use Capell\Admin\Filament\Resources\BlockTemplates\Pages\ManageBlockTemplates;
 use Capell\Core\Models\BlockTemplate;
+use Capell\Core\Support\Json\JsonCodec;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CodeEditor;
@@ -21,7 +22,6 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use JsonException;
 use Override;
 
 final class BlockTemplateResource extends Resource
@@ -152,7 +152,7 @@ final class BlockTemplateResource extends Resource
             ];
         }
 
-        return json_encode($state, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+        return JsonCodec::encode($state, JSON_PRETTY_PRINT);
     }
 
     /**
@@ -168,12 +168,6 @@ final class BlockTemplateResource extends Resource
             return [];
         }
 
-        try {
-            $decoded = json_decode($state, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return [];
-        }
-
-        return is_array($decoded) ? array_values($decoded) : [];
+        return array_values(JsonCodec::decodeArray($state));
     }
 }

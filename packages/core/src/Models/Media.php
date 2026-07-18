@@ -15,6 +15,7 @@ use Capell\Core\Support\Media\LocalizedMediaMetadata;
 use Capell\Core\Support\Media\LocalizedMediaMetadataResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -309,12 +310,13 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
      * whether deleting an image will break N pages — the most common
      * "I deleted it by accident, now everything's missing" footgun.
      */
-    protected function getUsageCountAttribute(): int
+    /** @return Attribute<int, never> */
+    protected function usageCount(): Attribute
     {
-        return AssetAttachment::query()
+        return Attribute::make(get: fn (): int => AssetAttachment::query()
             ->where('asset_type', $this->getMorphClass())
             ->where('asset_id', (string) $this->getKey())
-            ->count();
+            ->count());
     }
 
     private function normalizePercentage(mixed $value): int

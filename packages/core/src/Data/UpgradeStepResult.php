@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class UpgradeStepResult extends Data
+final class UpgradeStepResult extends Data
 {
     public function __construct(
         public readonly string $stepId,

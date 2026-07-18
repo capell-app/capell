@@ -33,18 +33,14 @@ final class PublishSentinel
     /**
      * Years past "now" beyond which a future `visible_from` is treated as a
      * draft placeholder rather than a genuine scheduled publish date.
-     *
-     * @var int
      */
-    public const DRAFT_BOUNDARY_YEARS = 50;
+    public const int DRAFT_BOUNDARY_YEARS = 50;
 
     /**
      * Extra years added on top of the boundary when *writing* the draft
      * sentinel, so a reverted record sits comfortably clear of the cut-off.
-     *
-     * @var int
      */
-    private const DRAFT_WRITE_OFFSET_YEARS = 50;
+    private const int DRAFT_WRITE_OFFSET_YEARS = 50;
 
     /**
      * The far-future `visible_from` value written to mark a record as draft.

@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Components;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Data\FrontendComponentData;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
-class FrontendComponentRegistry implements FrontendComponentRegistryInterface
+/** @extends AbstractKeyedRegistry<FrontendComponentData> */
+class FrontendComponentRegistry extends AbstractKeyedRegistry implements FrontendComponentRegistryInterface
 {
-    /** @var array<string, FrontendComponentData> */
-    private array $components = [];
-
     /** @var array<string, string> */
     private array $references = [];
 
@@ -30,7 +29,7 @@ class FrontendComponentRegistry implements FrontendComponentRegistryInterface
             props: array_values(array_unique($props)),
         );
 
-        $this->components[$key] = $data;
+        $this->setItem($key, $data);
 
         foreach ($data->references() as $reference) {
             $this->references[$reference] = $key;
@@ -42,7 +41,7 @@ class FrontendComponentRegistry implements FrontendComponentRegistryInterface
     public function resolve(string $component, ?string $default = null): string
     {
         if (isset($this->references[$component])) {
-            return $this->components[$this->references[$component]]->component;
+            return $this->get($this->references[$component])->component;
         }
 
         if ($default !== null) {
@@ -54,14 +53,16 @@ class FrontendComponentRegistry implements FrontendComponentRegistryInterface
 
     public function get(string $key): FrontendComponentData
     {
-        throw_unless(isset($this->components[$key]), InvalidArgumentException::class, sprintf('Frontend component [%s] is not registered.', $key));
+        $component = $this->getItem($key);
 
-        return $this->components[$key];
+        throw_unless($component instanceof FrontendComponentData, InvalidArgumentException::class, sprintf('Frontend component [%s] is not registered.', $key));
+
+        return $component;
     }
 
     public function has(string $key): bool
     {
-        return isset($this->components[$key]);
+        return $this->hasItem($key);
     }
 
     public function hasReference(string $component): bool
@@ -72,6 +73,6 @@ class FrontendComponentRegistry implements FrontendComponentRegistryInterface
     /** @return Collection<string, FrontendComponentData> */
     public function all(): Collection
     {
-        return collect($this->components);
+        return collect($this->allItems());
     }
 }

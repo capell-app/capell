@@ -84,6 +84,7 @@ Optional-package commands such as `capell:static-site`, `capell:xml-sitemap`, an
 | Measure Blade view test coverage        | [Blade view coverage](blade-view-coverage.md)          |
 | Look up config keys and env vars        | [Configuration reference](configuration.md)            |
 | Create package authoring surfaces       | [Package authoring](../platform/package-authoring.md)  |
+| Follow package provider conventions     | [Package provider conventions](package-provider-conventions.md) |
 | Diagnose environment or registry state  | [Diagnostics](diagnostics.md)                          |
 | Decide where docs belong                | [Docs ownership rules](docs-ownership.md)              |
 | Avoid unsafe extension/package patterns | [Do not do this](do-not-do-this.md)                    |

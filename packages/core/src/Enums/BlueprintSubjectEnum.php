@@ -9,6 +9,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Filament\Support\Contracts\HasLabel;
+use Illuminate\Database\Eloquent\Model;
 
 enum BlueprintSubjectEnum: string implements HasLabel
 {
@@ -34,6 +35,8 @@ enum BlueprintSubjectEnum: string implements HasLabel
 
     /**
      * Corresponding model enum.
+     *
+     * @return class-string<Model>
      */
     public function getModel(): string
     {

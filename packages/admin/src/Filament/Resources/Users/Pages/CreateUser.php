@@ -8,7 +8,7 @@ use Capell\Admin\Actions\Users\ResolveUserSchemaTypeAction;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Concerns\HasConfigurableFormActionPosition;
-use Capell\Admin\Filament\Resources\Users\Pages\Concerns\InteractsWithUserFormExtenders;
+use Capell\Admin\Filament\Resources\Users\Pages\Concerns\InteractsWithUserResourceBridges;
 use Capell\Admin\Filament\Resources\Users\Schemas\UserForm;
 use Capell\Admin\Filament\Resources\Users\UserResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
@@ -21,7 +21,7 @@ use Override;
 class CreateUser extends CreateRecord
 {
     use HasConfigurableFormActionPosition;
-    use InteractsWithUserFormExtenders;
+    use InteractsWithUserResourceBridges;
 
     /** @return class-string<UserResource> */
     #[Override]

@@ -12,7 +12,7 @@ use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
-class PageLinkableContentProvider implements LinkableContent
+final class PageLinkableContentProvider implements LinkableContent
 {
     public function key(): string
     {

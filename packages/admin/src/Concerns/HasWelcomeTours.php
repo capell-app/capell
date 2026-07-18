@@ -23,6 +23,8 @@ trait HasWelcomeTours
         ?string $iconColor = null,
         int $sort = 100,
         bool|Closure $visible = true,
+        ?string $chapter = 'dashboard',
+        ?string $route = null,
     ): void {
         if ($key === '') {
             return;
@@ -37,6 +39,8 @@ trait HasWelcomeTours
             iconColor: $iconColor,
             sort: $sort,
             visible: $visible,
+            chapter: $chapter,
+            route: $route,
         );
     }
 

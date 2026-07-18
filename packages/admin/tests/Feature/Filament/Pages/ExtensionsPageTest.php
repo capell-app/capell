@@ -1015,7 +1015,8 @@ it('shows uninstall actions for trusted package entries', function (): void {
 
     expect($extensionRecord['core'] ?? null)->toBeTrue()
         ->and($extensionRecord['installed'] ?? null)->toBeTrue()
-        ->and($extensionRecord['enabled'] ?? null)->toBeTrue();
+        ->and($extensionRecord['enabled'] ?? null)->toBeTrue()
+        ->and(CapellCore::getDependentInstalledPackages('capell-app/frontend')->pluck('name')->all())->toBe([]);
 
     $component
         ->callTableAction('uninstallExtension', record: 'capell-app/frontend')

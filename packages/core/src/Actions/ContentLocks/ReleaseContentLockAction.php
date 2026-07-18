@@ -19,8 +19,7 @@ final class ReleaseContentLockAction
     {
         return ContentLock::query()
             ->where('user_id', $user->getAuthIdentifier())
-            ->where('model_type', $model->getMorphClass())
-            ->where('model_id', $model->getKey())
+            ->forModel($model)
             ->delete();
     }
 }

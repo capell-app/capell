@@ -6,6 +6,7 @@ use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessUnionReturnDocblockRector;
 use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
 use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
@@ -13,6 +14,7 @@ use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\Php83\Rector\ClassConst\AddTypeToConstRector;
 use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
 use Rector\Privatization\Rector\Property\PrivatizeFinalClassPropertyRector;
+use Rector\TypeDeclaration\Rector\ClassMethod\NarrowObjectReturnTypeRector;
 use RectorLaravel\Rector\ArrayDimFetch\EnvVariableToEnvHelperRector;
 use RectorLaravel\Rector\ArrayDimFetch\ServerVariableToRequestFacadeRector;
 use RectorLaravel\Rector\ClassMethod\MakeModelAttributesAndScopesProtectedRector;
@@ -91,6 +93,12 @@ return RectorConfig::configure()
         ],
         RemoveUselessUnionReturnDocblockRector::class => [
             __DIR__ . '/packages/admin/src/Filament/Pages/UpgradePage.php',
+        ],
+        RemoveUselessReturnTagRector::class => [
+            __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',
+        ],
+        NarrowObjectReturnTypeRector::class => [
+            __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',
         ],
         AbortIfRector::class => [
             __DIR__ . '/packages/frontend/src/Livewire/Page/Sitemap.php',

@@ -2,12 +2,24 @@
 
 declare(strict_types=1);
 
+use Composer\InstalledVersions;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
 $shardPluginPath = dirname(__DIR__) . '/vendor/pestphp/pest/src/Plugins/Shard.php';
+$checkOnly = in_array('--check', $argv, true);
+$version = InstalledVersions::getPrettyVersion('pestphp/pest');
+
+if (! is_string($version) || preg_match('/^v?4\.7\./', $version) !== 1) {
+    fwrite(STDERR, "Pest shard compatibility patch only supports Pest 4.7.x; review whether it can now be deleted.\n");
+
+    throw new RuntimeException('Unsupported Pest version.');
+}
 
 if (! file_exists($shardPluginPath)) {
     echo "Pest shard plugin not found at {$shardPluginPath}; skipping shard patch.\n";
 
-    exit(0);
+    return;
 }
 
 $contents = file_get_contents($shardPluginPath);
@@ -15,24 +27,53 @@ $contents = file_get_contents($shardPluginPath);
 if (! is_string($contents)) {
     fwrite(STDERR, "Unable to read Pest shard plugin at {$shardPluginPath}.\n");
 
-    exit(1);
+    throw new RuntimeException('Unable to read Pest shard plugin.');
 }
 
 $originalPattern = "preg_match_all('/ - (?:P\\\\\\\\)?(Tests\\\\\\\\[^:]+)::/', \$output, \$matches);";
 $patchedPattern = "preg_match_all('/ - (?:P\\\\\\\\)?([^:\\\\r\\\\n]+)::/', \$output, \$matches);";
+$originalProcess = "        \$output = (new Process([\n            'php',";
+$patchedProcess = "        \$output = (new Process([\n            PHP_BINARY,\n            '-d',\n            'memory_limit=' . ini_get('memory_limit'),";
+$originalParallelFilter = "        return array_filter(\$arguments, fn (string \$argument): bool => ! in_array(\$argument, ['--parallel', '-p'], strict: true));";
+$patchedParallelFilter = "        return array_filter(\$arguments, fn (string \$argument): bool => ! in_array(\$argument, ['--parallel', '-p'], strict: true)\n            && ! str_starts_with(\$argument, '--passthru-php'));";
+$namespaceReady = str_contains($contents, $patchedPattern);
+$memoryReady = str_contains($contents, $patchedProcess);
+$parallelFilterReady = str_contains($contents, $patchedParallelFilter);
 
-if (str_contains($contents, $patchedPattern)) {
-    echo "Pest shard namespace patch already applied.\n";
+if ($namespaceReady && $memoryReady && $parallelFilterReady) {
+    echo "Pest shard compatibility is present.\n";
 
-    exit(0);
+    return;
 }
 
-if (! str_contains($contents, $originalPattern)) {
+if ($checkOnly) {
+    fwrite(STDERR, "Pest shard compatibility patch is missing; run composer patch:pest-shards.\n");
+
+    throw new RuntimeException('Pest shard compatibility patch is missing.');
+}
+
+if (! $namespaceReady && ! str_contains($contents, $originalPattern)) {
     fwrite(STDERR, "Pest shard namespace patch could not find the expected source line.\n");
 
-    exit(1);
+    throw new RuntimeException('Unexpected Pest shard namespace implementation.');
 }
 
-file_put_contents($shardPluginPath, str_replace($originalPattern, $patchedPattern, $contents));
+if (! $memoryReady && ! str_contains($contents, $originalProcess)) {
+    fwrite(STDERR, "Pest shard memory patch could not find the expected process definition.\n");
 
-echo "Pest shard namespace patch applied.\n";
+    throw new RuntimeException('Unexpected Pest shard process implementation.');
+}
+
+if (! $parallelFilterReady && ! str_contains($contents, $originalParallelFilter)) {
+    fwrite(STDERR, "Pest shard parallel option patch could not find the expected source line.\n");
+
+    throw new RuntimeException('Unexpected Pest shard parallel option implementation.');
+}
+
+$contents = str_replace($originalPattern, $patchedPattern, $contents);
+$contents = str_replace($originalProcess, $patchedProcess, $contents);
+$contents = str_replace($originalParallelFilter, $patchedParallelFilter, $contents);
+
+file_put_contents($shardPluginPath, $contents);
+
+echo "Pest shard compatibility patch applied.\n";

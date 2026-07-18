@@ -27,7 +27,7 @@ class PageUrlObserver
             ->where('site_id', $pageUrl->site_id)
             ->where('language_id', $pageUrl->language_id)
             ->where('url', $pageUrl->url)
-            ->where('status', true)
+            ->enabled()
             ->when($pageUrl->exists, fn (Builder $query): Builder => $query->whereKeyNot($pageUrl->getKey()))
             ->exists();
 

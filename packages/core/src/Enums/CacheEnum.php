@@ -24,6 +24,8 @@ enum CacheEnum: string
 
     case ExtensionUninstalledNames = 'extension_uninstalled_names';
 
+    case UpgradeLock = 'capell:upgrade';
+
     // Resource / predicate keys (renamed to PascalCase; string values preserved)
     case Type = 'type';
 

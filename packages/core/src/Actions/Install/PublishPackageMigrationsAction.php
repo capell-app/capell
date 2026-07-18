@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Actions\PublishMigrationsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Support\Migration\MigrationFileScanner;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -83,7 +84,7 @@ final class PublishPackageMigrationsAction
             return;
         }
 
-        $migrationNames = $this->migrationNames($migrationsPath);
+        $migrationNames = MigrationFileScanner::names($migrationsPath);
 
         if ($migrationNames === []) {
             if ($requireMigrationFiles) {
@@ -116,27 +117,5 @@ final class PublishPackageMigrationsAction
         foreach ($result->lines as $line) {
             $reporter->report($line);
         }
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function migrationNames(string $migrationsPath): array
-    {
-        $migrationPaths = array_merge(
-            File::glob($migrationsPath . '/*.php'),
-            File::glob($migrationsPath . '/*.php.stub'),
-        );
-
-        sort($migrationPaths);
-
-        return array_values(array_unique(array_map(
-            fn (string $migrationPath): string => str($migrationPath)
-                ->basename()
-                ->replaceEnd('.php.stub', '')
-                ->replaceEnd('.php', '')
-                ->toString(),
-            $migrationPaths,
-        )));
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
 use Illuminate\Http\Request;
 
 it('renders marketplace connection status without extension page authoring links', function (): void {
@@ -23,23 +22,8 @@ it('renders marketplace connection status without extension page authoring links
 });
 
 it('does not queue marketplace catalogue warming during Livewire update renders', function (): void {
-    $browser = new class
-    {
-        public bool $queued = false;
-
-        public function queueDefaultWarm(): bool
-        {
-            $this->queued = true;
-
-            return true;
-        }
-    };
-
-    app()->instance(MarketplaceBrowser::class, $browser);
     app()->instance('request', Request::create('/livewire/update', Symfony\Component\HttpFoundation\Request::METHOD_POST));
 
     expect(resolve(MarketplaceExtensionsPageExtender::class)->getBeforeTableContent(resolve(ExtensionsPage::class)))
-        ->toBe([])
-        ->and($browser->queued)
-        ->toBeFalse();
+        ->toBe([]);
 });

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
-use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -364,8 +364,14 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
     app()->instance(ProcessFactoryInterface::class, $factory);
 }
 
-function bindInstallCommandPreflightProcessFactory(bool $successful = true, string $output = 'Dry run ok', string $errorOutput = '', ?Closure $beforeRun = null): void
-{
+/** @param array<int, string> $packages */
+function bindInstallCommandPreflightProcessFactory(
+    bool $successful = true,
+    string $output = 'Dry run ok',
+    string $errorOutput = '',
+    ?Closure $beforeRun = null,
+    array $packages = ['capell-app/admin'],
+): void {
     $process = Mockery::mock(SymfonyProcess::class);
     $process
         ->shouldReceive('setTimeout')
@@ -399,7 +405,10 @@ function bindInstallCommandPreflightProcessFactory(bool $successful = true, stri
                 '--no-interaction',
                 '--prefer-dist',
                 '--with-all-dependencies',
-                app()->isLocal() ? 'capell-app/admin:*' : 'capell-app/admin',
+                ...array_map(
+                    fn (string $package): string => app()->isLocal() ? $package . ':*' : $package,
+                    $packages,
+                ),
             ]),
             Mockery::type('string'),
             Mockery::type('array'),
@@ -1252,6 +1261,10 @@ it('selects every registered package when --all-packages is given', function ():
     ]);
     $user = createTestUser();
     $fake = bindFakeRunInstallAction();
+    bindInstallCommandPreflightProcessFactory(packages: [
+        'capell-app/marketplace',
+        'capell-app/welcome-tour',
+    ]);
 
     artisanCommand('capell:install', [
         '--all-packages' => true,
@@ -2034,6 +2047,10 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     ClearCachesAction::shouldRun()
         ->once()
         ->withArgs(fn (array $cachesToClear): bool => $cachesToClear === ['all']);
+    bindInstallCommandPreflightProcessFactory(packages: [
+        'capell-app/marketplace',
+        'capell-app/welcome-tour',
+    ]);
 
     artisanCommand('capell:install', [
         '--fresh' => true,
@@ -2199,10 +2216,7 @@ it('defaults interactive developer tooling to disabled', function (): void {
 });
 
 it('defaults interactive cache clearing to every specific cache option', function (): void {
-    $reflection = new ReflectionClass(InstallCommand::class);
-    $method = $reflection->getMethod('defaultCacheKeys');
-
-    expect($method->invoke(new InstallCommand))->toBe([
+    expect(InstallCacheOptionCatalog::defaultKeys())->toBe([
         'page',
         'config',
         'views',

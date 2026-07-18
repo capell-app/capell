@@ -1,6 +1,5 @@
 # Admin Bridges
 
-
 Admin bridges are package-level integration classes for registering admin surface contributions in one place.
 
 Use a bridge when a package needs to contribute several admin concerns together, such as settings schemas, pages, resources, widgets, panel extenders, user resource panels, relation managers, form lifecycle hooks, or table actions.
@@ -49,8 +48,6 @@ CapellAdmin::registerAdminBridge('vendor/package', PackageAdminBridge::class);
 CapellAdmin::bootAdminBridges('vendor/package');
 ```
 
-Packages that still support older admin versions should guard bridge registration and keep their previous direct registration as the fallback.
-
 ## User Resource Bridges
 
 Use `UserResourceBridge` when a package contributes to the Capell user resource. Prefer extending `AbstractUserResourceBridge` so new bridge methods can be added safely in later Capell versions.
@@ -83,4 +80,5 @@ final class PackageUserResourceBridge extends AbstractUserResourceBridge
 }
 ```
 
-Existing `UserSchemaExtender`, `UserFormExtender`, and `UserTableExtender` registrations continue to work. New package code should prefer bridge classes when the integration spans multiple admin concerns or should be discoverable from a single file.
+Register the bridge from `AdminBridge::register()` with
+`$registrar->userResourceBridge(PackageUserResourceBridge::class)`.

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\LaravelData\Attributes\Hidden;
 use Spatie\LaravelData\Data;
 
-class PublicPageResolutionData extends Data
+final class PublicPageResolutionData extends Data
 {
     /**
      * @param  Pageable<Model>|null  $page

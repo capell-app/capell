@@ -6,10 +6,10 @@ namespace Capell\Admin\Support\Bridges;
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\Bridges\AdminBridge;
+use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
-use Capell\Admin\Contracts\Extenders\UserFormExtender;
-use Capell\Admin\Contracts\Extenders\UserTableExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionQuickActionProvider;
@@ -35,6 +35,19 @@ use Illuminate\View\View;
 
 final class AdminBridgeRegistrar
 {
+    public function __construct(
+        private readonly ?AdminBridgeRegistry $bridges = null,
+        private readonly ?SettingsSchemaRegistry $settings = null,
+    ) {}
+
+    /**
+     * @param  class-string<AdminBridge>  $bridgeClass
+     */
+    public function bridge(string $packageName, string $bridgeClass): void
+    {
+        ($this->bridges ?? resolve(AdminBridgeRegistry::class))->register($packageName, $bridgeClass);
+    }
+
     /** @param class-string $pageClass */
     public function page(string $pageClass): void
     {
@@ -143,6 +156,8 @@ final class AdminBridgeRegistrar
         ?string $iconColor = null,
         int $sort = 100,
         bool|Closure $visible = true,
+        ?string $chapter = 'dashboard',
+        ?string $route = null,
     ): void {
         CapellAdmin::registerWelcomeTourStep(
             key: $key,
@@ -153,6 +168,8 @@ final class AdminBridgeRegistrar
             iconColor: $iconColor,
             sort: $sort,
             visible: $visible,
+            chapter: $chapter,
+            route: $route,
         );
     }
 
@@ -173,24 +190,14 @@ final class AdminBridgeRegistrar
         app()->tag([$extenderClass], AdminPanelExtender::TAG);
     }
 
-    /**
-     * @param  class-string<UserFormExtender>  $extenderClass
-     */
-    public function userFormExtender(string $extenderClass, bool $scoped = true): void
+    /** @param class-string<UserResourceBridge> $bridgeClass */
+    public function userResourceBridge(string $bridgeClass, bool $scoped = true): void
     {
         if ($scoped) {
-            app()->scoped($extenderClass);
+            app()->scoped($bridgeClass);
         }
 
-        app()->tag([$extenderClass], UserFormExtender::TAG);
-    }
-
-    /**
-     * @param  class-string<UserTableExtender>  $extenderClass
-     */
-    public function userTableExtender(string $extenderClass): void
-    {
-        app()->tag([$extenderClass], UserTableExtender::TAG);
+        app()->tag([$bridgeClass], UserResourceBridge::TAG);
     }
 
     /**
@@ -253,7 +260,7 @@ final class AdminBridgeRegistrar
      */
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): void
     {
-        resolve(SettingsSchemaRegistry::class)->register($group, $schemaClass, $key);
+        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->register($group, $schemaClass, $key);
     }
 
     /**
@@ -261,11 +268,11 @@ final class AdminBridgeRegistrar
      */
     public function settingsClass(string $group, string $settingsClass): void
     {
-        resolve(SettingsSchemaRegistry::class)->registerSettingsClass($group, $settingsClass);
+        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerSettingsClass($group, $settingsClass);
     }
 
     public function settingsMetadata(SettingsGroupMetadata $metadata): void
     {
-        resolve(SettingsSchemaRegistry::class)->registerMetadata($metadata);
+        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerMetadata($metadata);
     }
 }

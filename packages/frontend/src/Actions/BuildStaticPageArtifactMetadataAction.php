@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\PublicPageRenderData;
@@ -119,7 +120,7 @@ class BuildStaticPageArtifactMetadataAction
      */
     private function fingerprint(array $data): array
     {
-        $encoded = json_encode($data, JSON_THROW_ON_ERROR);
+        $encoded = JsonCodec::encode($data);
 
         return [
             'count' => count($data),

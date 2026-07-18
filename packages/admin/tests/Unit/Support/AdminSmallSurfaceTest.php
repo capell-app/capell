@@ -11,6 +11,7 @@ use Capell\Admin\Data\Dashboard\SiteStatsData;
 use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
 use Capell\Admin\Data\Themes\ThemeInstallIntentCardData;
 use Capell\Admin\Data\Upgrade\UpgradeSummaryData;
+use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Filament\Components\Forms\NameInput;
 use Capell\Admin\Filament\Components\Forms\ThemeSelect;
 use Capell\Admin\Filament\Resources\Sites\Schemas\DefaultSiteForm;
@@ -18,10 +19,17 @@ use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidge
 use Capell\Admin\Models\FailedJob;
 use Capell\Admin\Notifications\UpgradeSummaryNotification;
 use Capell\Admin\Support\Dashboard\DefaultSiteStatsDataProvider;
+use Filament\Events\ServingFilament;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
+use Livewire\Features\SupportAutoInjectedAssets\SupportAutoInjectedAssets;
+
+afterEach(function (): void {
+    SupportAutoInjectedAssets::$forceAssetInjection = false;
+});
 
 it('runs update checks before sending upgrade summary notification emails', function (): void {
     $checkUpdates = bindFakeAction(CheckForUpdatesAction::class);
@@ -54,11 +62,13 @@ it('uses the configured queue failed job table name', function (): void {
 });
 
 it('forces livewire asset injection while serving admin pages', function (): void {
-    $provider = file_get_contents(dirname(__DIR__, 3) . '/src/Providers/AdminServiceProvider.php');
+    SupportAutoInjectedAssets::$forceAssetInjection = false;
+    Event::fake([ServingAdmin::class]);
 
-    expect($provider)->toContain('Filament::serving')
-        ->and($provider)->toContain('Livewire::forceAssetInjection();')
-        ->and($provider)->toContain('event(new ServingAdmin);');
+    event(new ServingFilament);
+
+    expect(SupportAutoInjectedAssets::$forceAssetInjection)->toBeTrue();
+    Event::assertDispatched(ServingAdmin::class);
 });
 
 it('builds the default site form schema from upstream form components', function (): void {

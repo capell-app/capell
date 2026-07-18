@@ -10,7 +10,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -1130,7 +1130,7 @@ it('fills the first marketplace browser page after local hidden extensions are r
         ]);
     });
 
-    $records = resolve(MarketplaceBrowser::class)->records();
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     expect($records)->toHaveCount(9)
         ->and(collect($records)->pluck('name')->all())->toContain('Visible One', 'Visible Page Two 5')
@@ -1405,7 +1405,7 @@ it('builds marketplace table records from filtered marketplace listings', functi
         ]),
     ]);
 
-    $records = resolve(MarketplaceBrowser::class)->records(
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records(
         search: 'seo',
         filters: [
             'kind' => ['value' => 'tool'],
@@ -1488,9 +1488,10 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
     ]);
 
     $unavailableDescription = __('capell-marketplace::marketplace.filters.unavailable_description') . ' ' . __('capell-marketplace::marketplace.filters.unavailable_reason', ['reason' => 'Unavailable']);
+    $provider = resolve(MarketplaceCatalogueRecordProvider::class);
     $catalogueTable = resolve(MarketplaceCatalogueTable::class);
 
-    $records = $catalogueTable->records(
+    $records = $provider->records(
         search: ' seo ',
         filters: [
             'kind' => ['value' => 'invalid-kind'],
@@ -1505,7 +1506,7 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
     );
 
     expect($records)->toBeEmpty()
-        ->and($catalogueTable->marketplaceBrowseUnavailable())->toBeTrue()
+        ->and($provider->marketplaceBrowseUnavailable())->toBeTrue()
         ->and($catalogueTable->marketplaceEmptyStateHeading())->toBe(__('capell-marketplace::marketplace.filters.unavailable_heading'))
         ->and($catalogueTable->marketplaceEmptyStateDescription())->toBe($unavailableDescription);
 });
@@ -1537,7 +1538,7 @@ it('marks installed marketplace records with update and compatibility state', fu
         ]),
     ]);
 
-    $installedRecords = resolve(MarketplaceBrowser::class)->records(
+    $installedRecords = resolve(MarketplaceCatalogueRecordProvider::class)->records(
         filters: [
             'installed_status' => ['value' => true],
         ],
@@ -1579,7 +1580,7 @@ it('can build marketplace records and table filters for a locked browser kind', 
         ]),
     ]);
 
-    $records = resolve(MarketplaceBrowser::class)->records(
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records(
         filters: [
             'kind' => ['value' => 'tool'],
         ],
@@ -1632,7 +1633,7 @@ it('does not expose per-extension marketplace install actions', function (): voi
         ]),
     ]);
 
-    resolve(MarketplaceBrowser::class)->records();
+    resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     expect(new ReflectionClass(MarketplaceCatalogueTable::class)->hasMethod('getMarketplaceTableActions'))
         ->toBeFalse();

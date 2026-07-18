@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
-use Capell\Core\Models\Page;
+use Capell\Admin\Actions\Publishing\RunBulkPublicationTransitionAction;
+use Capell\Admin\Support\Publishing\PublicationSkipReason;
+use Capell\Core\Enums\Publishing\PublicationTransition;
 use Carbon\CarbonImmutable;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\DateTimePicker;
@@ -12,17 +14,18 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Override;
 
 /**
  * Schedule a batch of pages to publish at a specific future date.
  *
- * Different from BulkPublishPagesBulkAction (which publishes immediately),
- * this action takes a target datetime from the confirmation modal and writes
- * it to visible_from on each authorized page. Skips pages where the actor
- * lacks Update permission, with structured per-page feedback.
+ * Different from BulkPublishPagesBulkAction (which publishes immediately), this
+ * action takes a target datetime from the confirmation modal and delegates to the
+ * Core publication state machine via RunBulkPublicationTransitionAction.
+ *
+ * Authorization, trashed-record rejection and date validation all happen inside
+ * Core and surface as typed outcomes; the notification's skip reasons are mapped
+ * from those outcomes rather than re-derived here.
  */
 class BulkSchedulePagesBulkAction extends BulkAction
 {
@@ -50,43 +53,32 @@ class BulkSchedulePagesBulkAction extends BulkAction
                 $actor = auth()->user();
 
                 $publishAt = CarbonImmutable::parse((string) $data['publish_at']);
-                $scheduled = 0;
-                $skipped = 0;
+
+                $preview = RunBulkPublicationTransitionAction::run(
+                    records: $records,
+                    actor: $actor,
+                    transition: PublicationTransition::SchedulePublish,
+                    now: CarbonImmutable::now(),
+                    requestedTime: $publishAt,
+                );
+
+                $scheduled = $preview->changed();
+                $skipped = $preview->blocked() + $preview->unchanged();
                 $skippedPages = [];
 
-                DB::transaction(function () use ($records, $actor, $publishAt, &$scheduled, &$skipped, &$skippedPages): void {
-                    foreach ($records as $page) {
-                        if (! $page instanceof Page) {
-                            continue;
-                        }
+                foreach ($preview->records as $record) {
+                    $reason = PublicationSkipReason::for($record['result'], 'already_scheduled');
 
-                        if ($page->trashed()) {
-                            $skipped++;
-                            $skippedPages[] = [
-                                'id' => (int) $page->getKey(),
-                                'name' => (string) $page->getAttribute('name'),
-                                'reason' => 'trashed',
-                            ];
-
-                            continue;
-                        }
-
-                        if (! Gate::forUser($actor)->allows('update', $page)) {
-                            $skipped++;
-                            $skippedPages[] = [
-                                'id' => (int) $page->getKey(),
-                                'name' => (string) $page->getAttribute('name'),
-                                'reason' => 'unauthorized',
-                            ];
-
-                            continue;
-                        }
-
-                        $page->visible_from = $publishAt;
-                        $page->save();
-                        $scheduled++;
+                    if ($reason === null) {
+                        continue;
                     }
-                });
+
+                    $skippedPages[] = [
+                        'id' => (int) $record['id'],
+                        'name' => $record['label'],
+                        'reason' => $reason,
+                    ];
+                }
 
                 $notification = Notification::make()
                     ->title(__('capell-admin::bulk_actions.schedule_pages_done', [

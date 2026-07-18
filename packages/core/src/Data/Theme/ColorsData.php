@@ -10,7 +10,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 #[MapName(SnakeCaseMapper::class)]
-class ColorsData extends Data
+final class ColorsData extends Data
 {
     /**
      * @param  array<int, ColorData>  $palette

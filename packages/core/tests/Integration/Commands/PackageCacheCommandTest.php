@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Models\Theme;
-use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Frontend\Support\View\ThemeChainResolver;
@@ -54,7 +54,7 @@ it('capell:package-cache writes package and theme chain cache files', function (
     }
 });
 
-it('CapellServiceProvider uses capell-package-manifests.php when present', function (): void {
+it('PackageRegistryBootstrapper uses capell-package-manifests.php when present', function (): void {
     $cachePath = base_path('bootstrap/cache/capell-package-manifests.php');
 
     file_put_contents(
@@ -67,15 +67,23 @@ it('CapellServiceProvider uses capell-package-manifests.php when present', funct
         ], return: true) . ';',
     );
 
-    $provider = new CapellServiceProvider(app());
-    $method = new ReflectionMethod($provider, 'bootCapellPackageRegistry');
-    $method->invoke($provider);
+    resolve(PackageRegistryBootstrapper::class)->bootstrap();
 
     $registry = resolve(CapellPackageRegistry::class);
 
     @unlink($cachePath);
 
     expect($registry->has('vendor/cached-package'))->toBeTrue();
+});
+
+it('PackageRegistryBootstrapper preserves packages registered before core boots', function (): void {
+    $registry = resolve(CapellPackageRegistry::class);
+    $registry->registerPackage('vendor/early-package');
+
+    resolve(PackageRegistryBootstrapper::class)->bootstrap();
+
+    expect(resolve(CapellPackageRegistry::class))->toBe($registry)
+        ->and($registry->getPackage('vendor/early-package')->name)->toBe('vendor/early-package');
 });
 
 it('ThemeChainResolver uses capell-theme-chain.php when present', function (): void {
@@ -178,10 +186,9 @@ it('falls back to discovery when package cache returns invalid data', function (
 
     file_put_contents($cachePath, '<?php return "not an array";');
 
-    $provider = new CapellServiceProvider(app());
-    $method = new ReflectionMethod($provider, 'bootCapellPackageRegistry');
-
-    expect(fn (): mixed => $method->invoke($provider))->not->toThrow(Throwable::class)
+    expect(function (): void {
+        resolve(PackageRegistryBootstrapper::class)->bootstrap();
+    })->not->toThrow(Throwable::class)
         ->and(file_exists($cachePath))->toBeFalse();
 });
 
@@ -190,10 +197,9 @@ it('falls back to discovery when package cache contains invalid php', function (
 
     file_put_contents($cachePath, '<?php this is not valid php');
 
-    $provider = new CapellServiceProvider(app());
-    $method = new ReflectionMethod($provider, 'bootCapellPackageRegistry');
-
-    expect(fn (): mixed => $method->invoke($provider))->not->toThrow(Throwable::class)
+    expect(function (): void {
+        resolve(PackageRegistryBootstrapper::class)->bootstrap();
+    })->not->toThrow(Throwable::class)
         ->and(file_exists($cachePath))->toBeFalse();
 });
 

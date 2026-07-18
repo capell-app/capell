@@ -10,10 +10,9 @@ use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlChanged;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
 use Capell\Frontend\Actions\PurgeCdnCacheByPageAction;
-use Capell\Frontend\Jobs\PurgeCdnCacheJob;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
-use Capell\Frontend\Support\Cache\FragmentCache;
 
 class PurgeCdnCacheOnPageChangeListener
 {
@@ -54,22 +53,6 @@ class PurgeCdnCacheOnPageChangeListener
 
     public function handleSurrogateKeys(FrontendSurrogateKeysInvalidated $event): void
     {
-        if ($event->surrogateKeys === []) {
-            return;
-        }
-
-        $fragmentCache = resolve(FragmentCache::class);
-        foreach ($event->surrogateKeys as $surrogateKey) {
-            $fragmentCache->invalidateBySurrogateKey($surrogateKey);
-        }
-
-        if (! PurgeCdnCacheJob::hasConfiguredProvider()) {
-            return;
-        }
-
-        $queue = config('capell-frontend.purge_queue', 'default');
-
-        dispatch(new PurgeCdnCacheJob($event->surrogateKeys))
-            ->onQueue(is_string($queue) ? $queue : 'default');
+        InvalidateFrontendSurrogateKeysAction::run($event->surrogateKeys);
     }
 }

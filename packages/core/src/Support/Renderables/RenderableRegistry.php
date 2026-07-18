@@ -8,7 +8,7 @@ use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Enums\RenderableTypeEnum;
 use InvalidArgumentException;
 
-class RenderableRegistry
+final class RenderableRegistry
 {
     /** @var array<string, array<string, RenderableDefinitionData>> */
     private array $definitions = [];

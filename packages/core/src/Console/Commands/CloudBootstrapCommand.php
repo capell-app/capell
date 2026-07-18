@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\ThemePackageCandidates;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\RequestException;
@@ -232,7 +233,7 @@ class CloudBootstrapCommand extends Command
     /** @param array<string, mixed> $siteSpec */
     private function createTemporarySiteSpec(array $siteSpec): string
     {
-        $contents = json_encode($siteSpec, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $contents = JsonCodec::encode($siteSpec, JSON_UNESCAPED_SLASHES);
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'capell-site-spec-' . bin2hex(random_bytes(16));

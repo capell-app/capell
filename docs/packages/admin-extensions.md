@@ -145,26 +145,25 @@ $this->app->tag([ExamplePageSchemaExtender::class], PageSchemaExtender::TAG);
 
 Common tags:
 
-| Need                                                            | Tag or registry                                     |
-| --------------------------------------------------------------- | --------------------------------------------------- |
-| Page form fields, tabs, sidebar components, relation managers   | `PageSchemaExtender::TAG`                           |
-| Site form fields, tabs, create wizard fields, relation managers | `SiteSchemaExtender::TAG`                           |
-| Layout tabs and relation managers                               | `LayoutSchemaExtender::TAG`                         |
-| User fields, sidebar components, relation managers              | `UserSchemaExtender::TAG` or a `UserResourceBridge` |
-| User table columns, filters, record actions, toolbar actions    | `UserTableExtender::TAG`                            |
-| Page table columns, filters, bulk actions, query changes        | `PageTableExtender::TAG`                            |
-| Page header actions                                             | `PageHeaderActionExtender::TAG`                     |
-| Site header actions                                             | `SiteHeaderActionExtender::TAG`                     |
-| Site table row actions                                          | `SiteRecordActionExtender::TAG`                     |
-| Header actions on arbitrary resource pages                      | `ResourceHeaderActionExtender::TAG`                 |
-| Page title/slug field actions or after-label schema             | `PageTitleWithSlugInputExtender::TAG`               |
-| Page edit form actions or header widgets                        | `PageEditExtender::TAG`                             |
-| Page/site export modal fields and options                       | `PageExportExtender::TAG`                           |
-| Publish panel sections                                          | `PublishPanelExtender::TAG`                         |
-| Media edit header actions                                       | `MediaEditActionExtender::TAG`                      |
-| Extensions page status content                                  | `ExtensionsPageExtender::TAG`                       |
-| Filament panel configuration                                    | `AdminPanelExtender::TAG`                           |
-| Admin header tools                                              | `AdminToolItem::TAG`                                |
+| Need                                                            | Tag or registry                       |
+| --------------------------------------------------------------- | ------------------------------------- |
+| Page form fields, tabs, sidebar components, relation managers   | `PageSchemaExtender::TAG`             |
+| Site form fields, tabs, create wizard fields, relation managers | `SiteSchemaExtender::TAG`             |
+| Layout tabs and relation managers                               | `LayoutSchemaExtender::TAG`           |
+| User fields, lifecycle, relation managers, and table additions  | `UserResourceBridge::TAG`             |
+| Page table columns, filters, bulk actions, query changes        | `PageTableExtender::TAG`              |
+| Page header actions                                             | `PageHeaderActionExtender::TAG`       |
+| Site header actions                                             | `SiteHeaderActionExtender::TAG`       |
+| Site table row actions                                          | `SiteRecordActionExtender::TAG`       |
+| Header actions on arbitrary resource pages                      | `ResourceHeaderActionExtender::TAG`   |
+| Page title/slug field actions or after-label schema             | `PageTitleWithSlugInputExtender::TAG` |
+| Page edit form actions or header widgets                        | `PageEditExtender::TAG`               |
+| Page/site export modal fields and options                       | `PageExportExtender::TAG`             |
+| Publish panel sections                                          | `PublishPanelExtender::TAG`           |
+| Media edit header actions                                       | `MediaEditActionExtender::TAG`        |
+| Extensions page status content                                  | `ExtensionsPageExtender::TAG`         |
+| Filament panel configuration                                    | `AdminPanelExtender::TAG`             |
+| Admin header tools                                              | `AdminToolItem::TAG`                  |
 
 Prefer extenders over modifying admin resources directly.
 
@@ -172,7 +171,7 @@ Use the abstract schema extenders when possible:
 
 - `AbstractPageSchemaExtender`
 - `AbstractSiteSchemaExtender`
-- `AbstractUserSchemaExtender`
+- `AbstractUserResourceBridge`
 
 They provide no-op defaults so a package only overrides the hooks it needs. See [Schema Hooks](../../packages/admin/docs/schemas/hooks.md) for method signatures, hook enums, and resolver debugging.
 

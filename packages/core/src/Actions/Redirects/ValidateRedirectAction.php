@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Redirects;
 
 use Capell\Core\Enums\RedirectStatusCodeEnum;
-use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -138,7 +137,7 @@ class ValidateRedirectAction
             ->where('url', $sourceUrl)
             ->where('site_id', $siteId)
             ->where('language_id', $languageId)
-            ->where('status', true)
+            ->enabled()
             ->when($excludeId, fn (Builder $query) => $query->where('id', '!=', $excludeId))
             ->exists();
 
@@ -171,8 +170,7 @@ class ValidateRedirectAction
                 ->where('url', $current)
                 ->where('site_id', $siteId)
                 ->where('language_id', $languageId)
-                ->where('type', UrlTypeEnum::Redirect)
-                ->where('status', true)
+                ->activeRedirects()
                 ->value('target_url');
 
             if ($next === null) {
@@ -197,8 +195,7 @@ class ValidateRedirectAction
             ->where('url', $targetUrl)
             ->where('site_id', $siteId)
             ->where('language_id', $languageId)
-            ->where('type', UrlTypeEnum::Redirect)
-            ->where('status', true)
+            ->activeRedirects()
             ->value('target_url');
 
         if ($chainTarget !== null) {
@@ -222,7 +219,7 @@ class ValidateRedirectAction
             ->where('url', $sourceUrl)
             ->where('site_id', $siteId)
             ->where('language_id', $languageId)
-            ->where('type', UrlTypeEnum::Redirect)
+            ->redirects()
             ->where('is_manual', false)
             ->when($excludeId, fn (Builder $query) => $query->where('id', '!=', $excludeId))
             ->exists();

@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Rules;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Contracts\FrontendRuleCondition;
 use InvalidArgumentException;
 
-final class FrontendRuleConditionRegistry
+/** @extends AbstractKeyedRegistry<FrontendRuleCondition|class-string<FrontendRuleCondition>> */
+final class FrontendRuleConditionRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, FrontendRuleCondition|class-string<FrontendRuleCondition>> */
-    private array $conditions = [];
-
     /**
      * @param  FrontendRuleCondition|class-string<FrontendRuleCondition>  $condition
      */
@@ -21,12 +20,12 @@ final class FrontendRuleConditionRegistry
 
         throw_unless($resolvedCondition instanceof FrontendRuleCondition, InvalidArgumentException::class, 'Frontend rule conditions must implement FrontendRuleCondition.');
 
-        $this->conditions[$resolvedCondition->key()] = $condition;
+        $this->setItem($resolvedCondition->key(), $condition);
     }
 
     public function get(string $key): ?FrontendRuleCondition
     {
-        $condition = $this->conditions[$key] ?? null;
+        $condition = $this->getItem($key);
 
         if ($condition === null) {
             return null;

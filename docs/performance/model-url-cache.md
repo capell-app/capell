@@ -31,8 +31,6 @@ The job stores model short names and IDs under the current full URL. This keeps 
 
 When a cacheable model changes, admin actions scan the map for matching model short name and ID. Every matching URL has its cached HTML file deleted through the installed cache package's invalidator, and the URL entry is removed from the map.
 
-![Capell URL health report](../images/generated/admin/url-health-report.png)
-
 Site records also get a URL-domain fallback. If a site setting changes, Capell treats cached URLs under that site's configured domains as affected, even when the retrieved-model index does not explicitly contain a `Site` entry.
 
 This catches important root URLs such as the homepage, where global site title, metadata, theme, language, logo, and contact settings often shape the rendered HTML.

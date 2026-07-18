@@ -8,7 +8,7 @@ use Capell\Core\Enums\InteractionBehavior;
 use Capell\Core\Enums\InteractionTriggerEvent;
 use Spatie\LaravelData\Data;
 
-class InteractionTriggerData extends Data
+final class InteractionTriggerData extends Data
 {
     public function __construct(
         public string $key,

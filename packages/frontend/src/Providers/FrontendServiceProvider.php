@@ -4,35 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Providers;
 
-use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
-use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\FrontendRuntime;
-use Capell\Core\Enums\LivewirePageComponentEnum;
-use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
-use Capell\Core\Events\PageDeleted as PageDeletedEvent;
-use Capell\Core\Events\PageSaved as PageSavedEvent;
-use Capell\Core\Events\PageUrlChanged;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Models\Language;
-use Capell\Core\Models\Layout;
-use Capell\Core\Models\Media;
-use Capell\Core\Models\PageUrl;
-use Capell\Core\Models\Site;
-use Capell\Core\Models\SiteDomain;
-use Capell\Core\Models\Theme;
-use Capell\Core\Models\Translation;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
-use Capell\Core\ThemeStudio\Actions\ResolveThemeRuntimeAction;
-use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
-use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
-use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
@@ -64,7 +44,6 @@ use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Contracts\UrlSignatureVerifierInterface;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
 use Capell\Frontend\Enums\RenderHookLocation;
-use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Capell\Frontend\Http\Middleware\ETagMiddleware;
 use Capell\Frontend\Http\Middleware\NullWorkspaceContextMiddleware;
@@ -74,9 +53,6 @@ use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
-use Capell\Frontend\Listeners\PurgeCdnCacheOnPageChangeListener;
-use Capell\Frontend\Livewire\Page\Page;
-use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
@@ -92,11 +68,11 @@ use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
 use Capell\Frontend\Support\Blade\BuildAssetDirective;
 use Capell\Frontend\Support\Blade\FrontendAssetDirective;
 use Capell\Frontend\Support\Blade\WireNavigateDirective;
+use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
 use Capell\Frontend\Support\Cache\CacheInvalidationExecutor;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCache;
 use Capell\Frontend\Support\Cache\FragmentCacheDirective;
-use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
 use Capell\Frontend\Support\Cache\FrontendCachePolicy;
 use Capell\Frontend\Support\Cache\PageCacheInvalidator;
 use Capell\Frontend\Support\Cache\PageHydrator;
@@ -107,7 +83,7 @@ use Capell\Frontend\Support\Cache\Resolvers\MediaTranslationCacheDependencyResol
 use Capell\Frontend\Support\Cache\Resolvers\PageableTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\SiteTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\TranslationCacheDependencyRegistry;
-use Capell\Frontend\Support\CapellFrontendContext;
+use Capell\Frontend\Support\Components\FrontendComponentRegistrar;
 use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
@@ -118,8 +94,6 @@ use Capell\Frontend\Support\Fragments\EncryptedPublicFragmentReferenceCodec;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
-use Capell\Frontend\Support\Kernel\Steps\BuildContextStep;
-use Capell\Frontend\Support\Kernel\Steps\CommitContextStep;
 use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
 use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
@@ -168,36 +142,31 @@ use Capell\Frontend\Support\Rules\Conditions\SiteCondition;
 use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
 use Capell\Frontend\Support\Security\FilamentAdminAccessChecker;
 use Capell\Frontend\Support\Security\FrontendUrlSignatureService;
-use Capell\Frontend\Support\Security\HeadContentSanitizer;
 use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Support\Tailwind\TailwindAssetsGenerator;
 use Capell\Frontend\Support\Themes\FrontendThemePreviewRenderer;
+use Capell\Frontend\Support\Themes\ThemeTokenHeadCloseHook;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
-use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
-use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
-use Composer\InstalledVersions;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\View\FileViewFinder;
-use Illuminate\View\ViewFinderInterface;
-use Livewire\Livewire;
+use Override;
+use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
@@ -205,25 +174,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
-
-    public function bootInstalledPackage(): void
-    {
-        $this
-            ->bootOptionalFrontendBridges()
-            ->registerPublishCommands()
-            ->registerTailwindAssets()
-            ->registerAboutInfo()
-            ->registerBladeComponents()
-            ->registerBlazeComponents()
-            ->registerBladeDirectives()
-            ->registerPaginateRoute()
-            ->configureVite()
-            ->registerEventListeners()
-            ->registerFrontendCacheInvalidationObservers()
-            ->scheduleSiteCheck()
-            ->registerSettingsSchemas()
-            ->registerViewComposers();
-    }
 
     public function packageRegistered(): void
     {
@@ -247,6 +197,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         ));
         $this->app->alias('capell.tailwind.generator', TailwindAssetsGenerator::class);
         $this->app->singleton(FrontendComponentRegistryInterface::class, FrontendComponentRegistry::class);
+        $this->app->singleton(FrontendComponentRegistrar::class);
         $this->app->singleton(PublicRouteAliasRegistry::class);
         $this->app->singleton(RenderableDynamicDataRegistry::class);
         $this->registerCoreFrontendComponents();
@@ -272,11 +223,13 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ErrorPagePathResolver::class);
         $this->app->singleton(ErrorPageFallbackManifestStore::class);
         $this->app->singleton(ErrorPageRegenerationQueue::class);
-        $this->app->scoped(FrontendResponseRendererRegistry::class);
+        $this->app->singleton(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->singleton(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
         $this->app->singleton(FrontendHookRegistrar::class);
+        $this->app->scoped(ThemeTokenHeadCloseHook::class);
+        $this->app->singleton(FrontendEventBootstrapper::class);
         $this->app->singleton(FrontendRuleConditionRegistry::class);
         $this->app->singleton(ReservedFrontendPathRegistry::class);
         $this->app->singleton(ReservedFrontendDomainRegistry::class);
@@ -285,64 +238,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ThemePreviewRendererInterface::class, FrontendThemePreviewRenderer::class);
         $this->app->scoped(PublicFrontendAssetUrl::class);
 
-        $this->app->scoped(CapellFrontendContext::class, fn (Application $app): CapellFrontendContext => new CapellFrontendContext($app->make(FrontendContextReader::class)));
-        $this->app->alias(CapellFrontendContext::class, 'capell.frontend.context');
+        $this->registerAssetOptimizationBindings();
+        $this->registerCacheInvalidationBindings();
 
-        // Asset optimization
-        $this->app->singleton(FrontendResourceRegistry::class);
-        $this->app->singleton(FrontendPackageDependencyRegistry::class);
-        $this->app->singleton(FrontendViteInputRegistry::class);
-        $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
-            ->mapWithKeys(fn (FrontendResourceGroupData $group, string $key): array => [
-                $key => $group->label,
-            ])
-            ->all());
-        $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
-        $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
-        $this->app->scoped(ThemeMetaAssetContributor::class);
-        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
-
-        // Cache invalidation
-        $this->app->scoped(CacheInvalidationExecutor::class);
-        $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
-        $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
-        $this->app->scoped(SiteTranslationCacheDependencyResolver::class);
-        $this->app->tag([
-            PageableTranslationCacheDependencyResolver::class,
-            MediaTranslationCacheDependencyResolver::class,
-            SiteTranslationCacheDependencyResolver::class,
-        ], TranslationCacheDependencyResolver::TAG);
-        $this->app->scoped(
-            TranslationCacheDependencyRegistry::class,
-            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
-                $app->tagged(TranslationCacheDependencyResolver::TAG),
-            ),
-        );
-        $this->app->scoped(CacheInvalidationRegistry::class);
-
-        // Admin access checker: can be faked in tests
-        $this->app->singleton(AdminAccessCheckerInterface::class, FilamentAdminAccessChecker::class);
-
-        $this->app->scoped(FrontendState::class, fn (): FrontendState => new FrontendState);
-        $this->app->scoped(FrontendContextReader::class, fn (Application $app): FrontendState => $app->make(FrontendState::class));
-        $this->app->scopedIf(RenderedModelTracker::class, fn (): RenderedModelTracker => new NullRenderedModelTracker);
-        $this->app->alias(RenderedModelTracker::class, 'capell.frontend.retrieved-model-store');
-        $this->app->scoped(
-            'capell.frontend.layout-container-width-resolver',
-            fn (): callable => GetLayoutContainerWidthAction::run(...),
-        );
-
-        $this->registerDefaultReservedFrontendPaths();
-        $this->registerDefaultReservedFrontendDomains();
-
-        // Ensure FileViewFinder resolves to the framework's configured view finder
-        $this->app->alias('view.finder', ViewFinderInterface::class);
-        $this->app->bind(FileViewFinder::class, function (Application $app): FileViewFinder {
-            /** @var FileViewFinder $finder */
-            $finder = $app->make('view.finder');
-
-            return $finder;
-        });
+        $this->registerFrontendContextBindings();
 
         $this->app->scoped(FrontendKernelInterface::class, function (Application $app): FrontendKernelInterface {
             $steps = config('frontend.kernel.steps', [
@@ -353,8 +252,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 PageResolveStep::class,
                 LayoutResolverStep::class,
                 ThemeResolverStep::class,
-                BuildContextStep::class,
-                CommitContextStep::class,
                 RegisterThemeViewsStep::class,
                 NotifySubscribersStep::class,
             ]);
@@ -366,7 +263,13 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             );
         });
 
-        $this->app->singleton(ThemeViewRegistrar::class);
+        $this->app->singleton(ThemeViewRegistrar::class, function (Application $app): ThemeViewRegistrar {
+            $finder = $app->make('view.finder');
+
+            throw_unless($finder instanceof FileViewFinder, RuntimeException::class, 'The configured view finder must support theme namespaces.');
+
+            return new ThemeViewRegistrar($finder);
+        });
         $this->app->singleton(ThemeChainResolver::class);
         $this->app->singleton(FrontendCachePolicy::class);
         $this->app->singleton(FrontendRouteMiddlewareRegistry::class);
@@ -382,8 +285,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FragmentCache::class, fn (Application $app): FragmentCache => new FragmentCache($app->make(Repository::class)));
         $this->app->alias(FragmentCache::class, 'capell-frontend.fragment-cache');
         $this->app->tag([
-            CacheInvalidationRegistry::class,
-            FragmentCacheDirective::class,
             ThemeViewRegistrar::class,
         ], Resettable::TAG);
 
@@ -391,7 +292,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(FrontendAssetDirective::class);
         $this->app->scoped(WireNavigateDirective::class);
 
-        $this->app->afterResolving(FrontendRuleConditionRegistry::class, function (FrontendRuleConditionRegistry $registry): void {
+        $this->callAfterResolving(FrontendRuleConditionRegistry::class, function (FrontendRuleConditionRegistry $registry): void {
             $registry->register(AuthStateCondition::class);
             $registry->register(CampaignParameterCondition::class);
             $registry->register(CookieCondition::class);
@@ -410,7 +311,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             $registry->register(SiteCondition::class);
         });
 
-        $this->app->afterResolving(
+        $this->callAfterResolving(
             FrontendResponseRendererRegistry::class,
             function (FrontendResponseRendererRegistry $registry): void {
                 $registry->registerClass(FrontendRuntime::Blade, BladeFrontendResponseRenderer::class);
@@ -448,26 +349,84 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->hasViews('capell');
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         parent::registeringPackage();
 
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
+    }
 
-        $this->booted(function (): void {
-            $this->registerLivewireComponents();
+    #[Override]
+    protected function bootInstalledPackage(): self
+    {
+        return $this
+            ->registerPublishCommands()
+            ->registerTailwindAssets()
+            ->registerAboutInfo()
+            ->registerBladeComponents()
+            ->registerBlazeComponents()
+            ->registerFrontendLivewireComponents()
+            ->registerBladeDirectives()
+            ->registerPaginateRoute()
+            ->configureVite()
+            ->bootstrapFrontendEvents()
+            ->registerSiteCheckSchedule()
+            ->registerSettingsSchemas()
+            ->registerViewComposers();
+    }
 
-            if ($this->isDiscoveringPackages()) {
-                return;
-            }
+    private function registerAssetOptimizationBindings(): void
+    {
+        $this->app->singleton(FrontendResourceRegistry::class);
+        $this->app->singleton(FrontendPackageDependencyRegistry::class);
+        $this->app->singleton(FrontendViteInputRegistry::class);
+        $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
+            ->mapWithKeys(fn (FrontendResourceGroupData $group, string $key): array => [
+                $key => $group->label,
+            ])
+            ->all());
+        $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
+        $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
+        $this->app->scoped(ThemeMetaAssetContributor::class);
+        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
+    }
 
-            if (! $this->isPackageInstalled()) {
-                return;
-            }
+    private function registerCacheInvalidationBindings(): void
+    {
+        $this->app->scoped(CacheInvalidationExecutor::class);
+        $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
+        $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
+        $this->app->scoped(SiteTranslationCacheDependencyResolver::class);
+        $this->app->tag([
+            PageableTranslationCacheDependencyResolver::class,
+            MediaTranslationCacheDependencyResolver::class,
+            SiteTranslationCacheDependencyResolver::class,
+        ], TranslationCacheDependencyResolver::TAG);
+        $this->app->scoped(
+            TranslationCacheDependencyRegistry::class,
+            fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
+                $app->tagged(TranslationCacheDependencyResolver::TAG),
+            ),
+        );
+        $this->app->scoped(CacheInvalidationRegistry::class);
+    }
 
-            $this->bootInstalledPackage();
-        });
+    private function registerFrontendContextBindings(): void
+    {
+        $this->app->singleton(AdminAccessCheckerInterface::class, FilamentAdminAccessChecker::class);
+        $this->app->scoped(FrontendState::class, fn (): FrontendState => new FrontendState);
+        $this->app->scoped(FrontendContextReader::class, fn (Application $app): FrontendState => $app->make(FrontendState::class));
+        $this->app->scopedIf(RenderedModelTracker::class, fn (): RenderedModelTracker => new NullRenderedModelTracker);
+        $this->app->alias(RenderedModelTracker::class, 'capell.frontend.retrieved-model-store');
+        $this->app->scoped(
+            'capell.frontend.layout-container-width-resolver',
+            fn (): callable => GetLayoutContainerWidthAction::run(...),
+        );
+
+        $this->registerDefaultReservedFrontendPaths();
+        $this->registerDefaultReservedFrontendDomains();
     }
 
     /**
@@ -481,37 +440,16 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
      */
     private function registerErrorViewFallbackPath(): void
     {
-        config(['view.paths' => [
-            ...config('view.paths', []),
-            __DIR__ . '/../../resources/views',
-        ]]);
-    }
+        $frontendViews = __DIR__ . '/../../resources/views';
 
-    private function bootOptionalFrontendBridges(): self
-    {
-        $this->bootOptionalFrontendBridge('Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheFrontendBridge');
-
-        return $this;
-    }
-
-    private function bootOptionalFrontendBridge(string $bridgeClass): void
-    {
-        if (! class_exists($bridgeClass) || ! method_exists($bridgeClass, 'register')) {
+        if (! is_dir($frontendViews)) {
             return;
         }
 
-        call_user_func([$bridgeClass, 'register'], $this->app);
-    }
-
-    private function registerAboutInfo(): self
-    {
-        if ($this->app->runningInConsole() && (class_exists(AboutCommand::class) && class_exists(InstalledVersions::class))) {
-            AboutCommand::add('Capell', [
-                self::$name => fn (): ?string => CapellCore::getInstalledPrettyVersion(self::$packageName),
-            ]);
-        }
-
-        return $this;
+        config(['view.paths' => [
+            ...config('view.paths', []),
+            $frontendViews,
+        ]]);
     }
 
     private function registerMiddlewareAliases(): self
@@ -529,92 +467,39 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerPaginateRoute(): self
     {
-        // get vendor
-        $vendor = base_path('vendor');
-        $this->loadTranslationsFrom($vendor . '/michaloravec/laravel-paginateroute/resources/lang', 'paginateroute');
+        $translationsPath = base_path('vendor/michaloravec/laravel-paginateroute/resources/lang');
+
+        if (is_dir($translationsPath)) {
+            $this->loadTranslationsFrom($translationsPath, 'paginateroute');
+        }
 
         return $this;
     }
 
-    private function registerLivewireComponents(): self
+    private function registerFrontendLivewireComponents(): self
     {
-        if (! $this->app->bound('livewire.finder')) {
-            return $this;
-        }
+        $this->app->make(FrontendComponentRegistrar::class)->registerLivewireComponents();
 
-        $this->registerDefaultPageLivewireComponent();
-
-        $configuredComponents = config('capell-frontend.livewire_components', []);
-
-        foreach ($configuredComponents as $name => $component) {
-            if (! is_string($name)) {
-                continue;
-            }
-
-            if (! is_string($component)) {
-                continue;
-            }
-
-            Livewire::component($name, $component);
-        }
-
-        if (class_exists(LayoutWidgetRegistry::class)) {
-            $registry = resolve(LayoutWidgetRegistry::class);
-
-            foreach ($registry->allForTarget(LayoutWidgetTarget::FrontendLivewire) as $name => $component) {
-                Livewire::component($name, $component);
-            }
-        }
-
-        if ($this->isLivewireV3() === false) {
-            Livewire::addNamespace(
-                namespace: 'capell',
-                classNamespace: 'Capell\\Frontend\\Livewire',
-                classPath: __DIR__ . '/../Livewire',
-                classViewPath: __DIR__ . '/../../resources/views/livewire',
-            );
-        }
-
-        return $this;
+        return $this->registerLivewireComponentDefinitions([], [
+            'namespace' => 'capell',
+            'classNamespace' => 'Capell\\Frontend\\Livewire',
+            'classPath' => __DIR__ . '/../Livewire',
+            'classViewPath' => __DIR__ . '/../../resources/views/livewire',
+        ]);
     }
 
     private function registerBladeComponents(): self
     {
-        $configuredComponents = config('capell-frontend.blade_components', []);
-
-        foreach ($configuredComponents as $name => $component) {
-            if (! is_string($name)) {
-                continue;
-            }
-
-            if (! is_string($component)) {
-                continue;
-            }
-
-            $this->registerBladeComponentAlias($name, $component);
-        }
-
-        if (class_exists(LayoutWidgetRegistry::class)) {
-            $registry = resolve(LayoutWidgetRegistry::class);
-
-            foreach ($registry->allForTarget(LayoutWidgetTarget::FrontendBlade) as $name => $component) {
-                $this->registerBladeComponentAlias($name, $component);
-            }
-        }
+        $this->app->make(FrontendComponentRegistrar::class)->registerBladeComponents();
 
         return $this;
     }
 
     private function registerBlazeComponents(): self
     {
-        RegisterBlazeOptimizedViewsAction::run(__DIR__ . '/../../resources/views/components/layout/index.blade.php');
-
-        return $this;
-    }
-
-    private function registerBladeComponentAlias(string $name, string $component): void
-    {
-        Blade::component($component, $name);
+        return $this->registerBlazeOptimizedViews([
+            __DIR__ . '/../../resources/views/components/layout/index.blade.php',
+        ]);
     }
 
     private function configureVite(): self
@@ -626,64 +511,33 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function scheduleSiteCheck(): self
+    private function registerSiteCheckSchedule(): self
     {
-        $schedulePageCleaner = config('capell-frontend.schedule_page_cleaner', 'daily');
-
-        if (is_string($schedulePageCleaner) && $schedulePageCleaner !== '') {
-            $validFrequencies = [
-                'everyMinute', 'everyTwoMinutes', 'everyThreeMinutes', 'everyFourMinutes', 'everyFiveMinutes',
-                'everyTenMinutes', 'everyFifteenMinutes', 'everyThirtyMinutes', 'hourly', 'everyTwoHours',
-                'everyThreeHours', 'everyFourHours', 'everySixHours', 'daily', 'twiceDaily', 'weekly',
-                'monthly', 'quarterly', 'yearly',
-            ];
-
-            if (in_array($schedulePageCleaner, $validFrequencies, true)) {
-                $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($schedulePageCleaner): void {
-                    $method = $schedulePageCleaner;
-                    // Use explicit method calls to avoid dynamic invocation
-                    $event = $schedule->command('capell:frontend-site-check');
-                    match ($method) {
-                        'everyMinute' => $event->everyMinute(),
-                        'everyTwoMinutes' => $event->everyTwoMinutes(),
-                        'everyThreeMinutes' => $event->everyThreeMinutes(),
-                        'everyFourMinutes' => $event->everyFourMinutes(),
-                        'everyFiveMinutes' => $event->everyFiveMinutes(),
-                        'everyTenMinutes' => $event->everyTenMinutes(),
-                        'everyFifteenMinutes' => $event->everyFifteenMinutes(),
-                        'everyThirtyMinutes' => $event->everyThirtyMinutes(),
-                        'hourly' => $event->hourly(),
-                        'everyTwoHours' => $event->everyTwoHours(),
-                        'everyThreeHours' => $event->everyThreeHours(),
-                        'everyFourHours' => $event->everyFourHours(),
-                        'everySixHours' => $event->everySixHours(),
-                        'daily' => $event->daily(),
-                        'twiceDaily' => $event->twiceDaily(),
-                        'weekly' => $event->weekly(),
-                        'monthly' => $event->monthly(),
-                        'quarterly' => $event->quarterly(),
-                        'yearly' => $event->yearly(),
-                        default => Log::warning('Invalid schedule method: ' . $method),
-                    };
-                });
-            } else {
-                Log::warning('Invalid schedule frequency: ' . $schedulePageCleaner);
-            }
+        if (! $this->app->runningInConsole()) {
+            return $this;
         }
 
-        return $this;
-    }
+        $frequency = config('capell-frontend.schedule_page_cleaner', 'daily');
+        $frequencies = array_fill_keys([
+            'everyMinute', 'everyTwoMinutes', 'everyThreeMinutes', 'everyFourMinutes', 'everyFiveMinutes',
+            'everyTenMinutes', 'everyFifteenMinutes', 'everyThirtyMinutes', 'hourly', 'everyTwoHours',
+            'everyThreeHours', 'everyFourHours', 'everySixHours', 'daily', 'twiceDaily', 'weekly',
+            'monthly', 'quarterly', 'yearly',
+        ], true);
 
-    private function registerPackageMetadata(): self
-    {
-        CapellCore::registerPackage(
-            self::$packageName,
-            type: self::getType(),
-            serviceProviderClass: self::class,
-            path: realpath(__DIR__ . '/../..'),
-            version: CapellCore::getInstalledPrettyVersion(self::$packageName),
-            setting: FrontendSettings::class,
-        );
+        if (! is_string($frequency) || $frequency === '') {
+            return $this;
+        }
+
+        if (! isset($frequencies[$frequency])) {
+            Log::warning('Invalid schedule frequency: ' . $frequency);
+
+            return $this;
+        }
+
+        $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
+            $schedule->command('capell:frontend-site-check')->{$frequency}();
+        });
 
         return $this;
     }
@@ -714,105 +568,23 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerEventListeners(): self
+    private function bootstrapFrontendEvents(): self
     {
-        Event::listen(FrontendContextResolved::class, [OnFrontendContextResolved::class, 'handle']);
-        Event::listen(PageSavedEvent::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSaved']);
-        Event::listen(PageDeletedEvent::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleDeleted']);
-        Event::listen(PageUrlChanged::class, [PurgeCdnCacheOnPageChangeListener::class, 'handlePageUrlChanged']);
-        Event::listen(FrontendSurrogateKeysInvalidated::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSurrogateKeys']);
-
-        Event::listen('eloquent.created: *', [ErrorPageModelInvalidationObserver::class, 'createdFromEvent']);
-        Event::listen('eloquent.updated: *', [ErrorPageModelInvalidationObserver::class, 'updatedFromEvent']);
-        Event::listen('eloquent.deleted: *', [ErrorPageModelInvalidationObserver::class, 'deletedFromEvent']);
-
-        return $this;
-    }
-
-    private function registerFrontendCacheInvalidationObservers(): self
-    {
-        foreach ([
-            Language::class,
-            Layout::class,
-            Media::class,
-            PageUrl::class,
-            Site::class,
-            SiteDomain::class,
-            Theme::class,
-            Translation::class,
-        ] as $modelClass) {
-            $modelClass::observe(FrontendCacheInvalidationObserver::class);
-        }
+        $this->app->make(FrontendEventBootstrapper::class)->boot();
 
         return $this;
     }
 
     private function registerThemeRuntime(): self
     {
-        $this->app->afterResolving(
+        $this->callAfterResolving(
             RenderHookRegistry::class,
-            function (RenderHookRegistry $registry): void {
-                $registry->register(
+            function (): void {
+                $this->app->make(FrontendHookRegistrar::class)->contribute(
                     RenderHookLocation::HeadClose,
-                    function (): string {
-                        if (! $this->app->bound(ThemeRuntimeSettings::class)) {
-                            return '';
-                        }
-
-                        $settings = $this->app->make(ThemeRuntimeSettings::class);
-                        $theme = $this->app->bound(FrontendContextReader::class)
-                            ? $this->app->make(FrontendContextReader::class)->theme()
-                            : null;
-                        $activeTheme = $theme instanceof Theme
-                            ? $theme->key
-                            : $settings->activeTheme();
-                        $activePreset = $theme instanceof Theme
-                            ? data_get($theme->meta, 'editor.preset.active', $settings->activePreset())
-                            : $settings->activePreset();
-                        $themeOverrides = $settings->themeOverrides();
-
-                        if ($theme instanceof Theme) {
-                            $savedTokens = data_get($theme->meta, 'editor.tokens', []);
-
-                            if (is_array($savedTokens)) {
-                                $themeOverrides[$theme->key] = [
-                                    ...($themeOverrides[$theme->key] ?? []),
-                                    ...collect($savedTokens)
-                                        ->filter(fn (mixed $value, mixed $key): bool => is_string($key) && is_string($value))
-                                        ->all(),
-                                ];
-                            }
-                        }
-
-                        if (! is_string($activePreset) || $activePreset === '') {
-                            $activePreset = $settings->activePreset();
-                        }
-
-                        if (! $this->app->make(ThemeRegistry::class)->has($activeTheme)) {
-                            return '';
-                        }
-
-                        $runtime = ResolveThemeRuntimeAction::run(
-                            activeTheme: $activeTheme,
-                            activePreset: $activePreset,
-                            brand: $settings->brandProfile(),
-                            themeOverrides: $themeOverrides,
-                        );
-
-                        if ($runtime->tokenCssPath === null) {
-                            return '';
-                        }
-
-                        if (is_file($runtime->tokenCssPath) && is_readable($runtime->tokenCssPath)) {
-                            $css = file_get_contents($runtime->tokenCssPath);
-
-                            if (is_string($css) && $css !== '') {
-                                return '<style data-capell-theme-tokens>' . HeadContentSanitizer::css($css) . '</style>';
-                            }
-                        }
-
-                        return '<link rel="stylesheet" href="' . e($this->app->make(ThemeTokenStore::class)->publicUrl($runtime->tokenCssPath)) . '">';
-                    },
+                    $this->app->make(ThemeTokenHeadCloseHook::class),
+                    owner: self::$packageName,
+                    key: 'theme-token-css',
                 );
             },
         );
@@ -822,10 +594,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerSettingsSchemas(): self
     {
-        $registry = resolve(SettingsSchemaRegistry::class);
+        $surface = $this->surface();
 
-        $registry->registerSettingsClass('frontend', FrontendSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
+        $surface->settingsClass('frontend', FrontendSettings::class);
+        $surface->settingsMetadata(new SettingsGroupMetadata(
             group: 'frontend',
             label: 'capell-admin::generic.frontend_settings',
             icon: Heroicon::OutlinedGlobeAlt,
@@ -833,7 +605,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             navigationSort: 92,
             packageName: self::$packageName,
         ));
-        $registry->register('frontend', FrontendSettingsSchema::class);
+        $surface->settingsSchema('frontend', FrontendSettingsSchema::class);
 
         return $this;
     }
@@ -877,27 +649,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerCoreFrontendComponents(): void
     {
         $this->callAfterResolving(FrontendComponentRegistryInterface::class, function (FrontendComponentRegistryInterface $registry): void {
-            $registry
-                ->register(
-                    key: AssetComponentEnum::Card->value,
-                    component: 'capell::asset.index',
-                    aliases: ['capell::asset.index'],
-                )
-                ->register(
-                    key: AssetComponentEnum::Media->value,
-                    component: 'capell::media.asset',
-                    aliases: ['capell::media.asset'],
-                )
-                ->register(
-                    key: AssetComponentEnum::Page->value,
-                    component: 'capell::page.asset',
-                    aliases: ['capell::page.asset'],
-                )
-                ->register(
-                    key: AssetComponentEnum::Tile->value,
-                    component: 'capell::asset.tile',
-                    aliases: ['capell::asset.tile'],
-                );
+            $this->app->make(FrontendComponentRegistrar::class)->registerCoreComponents($registry);
         });
     }
 
@@ -931,10 +683,5 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 $registry->reserve($domain);
             }
         }
-    }
-
-    private function registerDefaultPageLivewireComponent(): void
-    {
-        Livewire::component(LivewirePageComponentEnum::Default->value, Page::class);
     }
 }

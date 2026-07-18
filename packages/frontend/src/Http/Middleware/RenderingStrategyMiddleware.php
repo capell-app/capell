@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Frontend\Http\Middleware;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
-use Capell\Frontend\Support\Context\FrontendContext;
 use Closure;
 use Exception;
 use Illuminate\Http\Request;
@@ -14,13 +14,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RenderingStrategyMiddleware
 {
+    public function __construct(private readonly FrontendContextReader $context) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 
         try {
-            $context = FrontendContext::current();
-            $page = $context->page();
+            $page = $this->context->page();
 
             if (! $page instanceof Pageable) {
                 return $response;

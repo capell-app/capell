@@ -30,7 +30,7 @@ Do not use render hooks to add authoring buttons, hidden model IDs, field paths,
 
 Register package Tailwind sources or imports through Capell asset registries when package views contain classes that must be compiled.
 
-Use `TailwindAssetsRegistry` for source files, imports, plugins, and theme colors. Use `FrontendResourceRegistry` groups or tagged `FrontendAssetContributor` implementations for runtime CSS, JavaScript, preload, and lazy asset delivery.
+Use `TailwindAssetsRegistry` for source files, imports, plugins, and theme colors. Use `FrontendResourceRegistry` groups or tagged `FrontendResourceContributor` implementations for runtime CSS, JavaScript, preload, and lazy asset delivery.
 
 ```php
 use Capell\Core\Support\Tailwind\TailwindAssetsRegistry;
@@ -298,7 +298,11 @@ Use areas for header, footer, announcement, campaign, or product chrome slots th
 
 ## Themes
 
-Theme packages use `kind: "theme"` in `capell.json`. First-party child themes use runtime inheritance (`extends: "default"` in their theme definition) and depend on `capell-app/frontend` for the built-in fallback.
+Theme packages use `kind: "theme"` in `capell.json`. First-party child themes
+declare `extends: "default"` in that manifest; it drives public view-chain
+resolution when the child package and parent definition are registered and
+available. `ThemeDefinitionData::$extends` remains supported metadata for local
+providers and admin diagnostics, but does not select the public view chain.
 
 Themes own presentation. Shared rendering infrastructure and the minimal `default` theme key belong in `capell-app/frontend`. Premium or client themes can override any section while inheriting the built-in default views when a section is missing.
 
@@ -309,7 +313,7 @@ Use a stable `themeKey` in the manifest:
     "name": "vendor/theme-client",
     "kind": "theme",
     "themeKey": "client",
-    "extends": null,
+    "extends": "default",
     "requires": ["capell-app/frontend"]
 }
 ```

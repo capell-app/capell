@@ -16,7 +16,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Illuminate\Database\Eloquent\Model;
 
-class LayoutContentGraphExtractor implements ContentGraphExtractor
+final class LayoutContentGraphExtractor implements ContentGraphExtractor
 {
     private const string SOURCE_PACKAGE = 'capell-app/core';
 

@@ -15,7 +15,7 @@ use Spatie\EventSourcing\EventHandlers\Reactors\Reactor;
 use Spatie\EventSourcing\StoredEvents\ShouldBeStored;
 
 /**
- * Bridges editorial workflow + rollback events to the SubscriberManager so
+ * Bridges editorial workflow + rollback events to the SubscriberRegistry so
  * other packages can react (evict caches, rebuild redirects, refresh the
  * beacon) without importing event-sourcing internals — honouring the Package
  * Independence boundary in the cross-package direction.

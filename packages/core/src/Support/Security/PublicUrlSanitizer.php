@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Security;
 
 use Illuminate\Support\Str;
 
-class PublicUrlSanitizer
+final class PublicUrlSanitizer
 {
     /**
      * @var array<int, string>

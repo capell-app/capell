@@ -10,6 +10,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Loader\SiteLoader;
@@ -62,10 +63,7 @@ it('returns a real Collection on back-to-back cache-hit reads', function (): voi
 
     // Simulate a fresh request: clear the per-request in-memory cache on the
     // CapellCore manager so the next call deserializes from the backing store.
-    $manager = CapellCore::getFacadeRoot();
-    $reflection = new ReflectionClass($manager);
-    $property = $reflection->getProperty('localCache');
-    $property->setValue($manager, []);
+    resolve(CapellCacheManager::class)->flushLocalCache();
 
     // This is the call that used to crash with TypeError.
     $languages = SiteLoader::languages();
@@ -238,10 +236,7 @@ it('tracks site, domain, and translation models when getSites runs from cache', 
     SiteLoader::getSites();
 
     // Clear the in-memory cache to force cache hit on next call
-    $manager = CapellCore::getFacadeRoot();
-    $managerReflection = new ReflectionClass($manager);
-    $cacheProperty = $managerReflection->getProperty('localCache');
-    $cacheProperty->setValue($manager, []);
+    resolve(CapellCacheManager::class)->flushLocalCache();
 
     $store = new class implements RenderedModelTracker
     {
@@ -286,10 +281,7 @@ it('ignores null loaded model relations when loadSite runs from cache', function
     $cachedSite->setRelation('blueprint', null);
     CapellCore::setToCache(CacheEnum::site($site->id, $english->id), $cachedSite);
 
-    $manager = CapellCore::getFacadeRoot();
-    $managerReflection = new ReflectionClass($manager);
-    $cacheProperty = $managerReflection->getProperty('localCache');
-    $cacheProperty->setValue($manager, []);
+    resolve(CapellCacheManager::class)->flushLocalCache();
 
     $store = new class implements RenderedModelTracker
     {
@@ -339,10 +331,7 @@ it('tracks cached site media theme media and loaded relations while preserving d
 
     CapellCore::setToCache(CacheEnum::site($site->id, $english->id), $cachedSite);
 
-    $manager = CapellCore::getFacadeRoot();
-    $managerReflection = new ReflectionClass($manager);
-    $cacheProperty = $managerReflection->getProperty('localCache');
-    $cacheProperty->setValue($manager, []);
+    resolve(CapellCacheManager::class)->flushLocalCache();
 
     $store = new class implements RenderedModelTracker
     {

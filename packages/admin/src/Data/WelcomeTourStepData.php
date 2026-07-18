@@ -20,6 +20,8 @@ final class WelcomeTourStepData extends Data
         public readonly ?string $iconColor = null,
         public readonly int $sort = 100,
         public readonly bool|Closure $visible = true,
+        public readonly ?string $chapter = 'dashboard',
+        public readonly ?string $route = null,
     ) {}
 
     public function isVisible(): bool

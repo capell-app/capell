@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Assets;
 
 use Capell\Core\Models\Theme;
-use Capell\Frontend\Support\CapellFrontendContext;
-use Capell\Frontend\Support\Context\FrontendContext;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Closure;
 use Exception;
 use Illuminate\Http\Request;
@@ -14,6 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AssetOptimizationMiddleware
 {
+    public function __construct(private readonly FrontendContextReader $context) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
@@ -23,8 +24,7 @@ class AssetOptimizationMiddleware
         }
 
         try {
-            $context = FrontendContext::current();
-            $this->injectAssetHints($response, $context);
+            $this->injectAssetHints($response, $this->context);
         } catch (Exception) {
             // Context unavailable; skip optimization
         }
@@ -38,7 +38,7 @@ class AssetOptimizationMiddleware
             && str_contains($response->headers->get('Content-Type') ?? '', 'text/html');
     }
 
-    private function injectAssetHints(Response $response, CapellFrontendContext $context): void
+    private function injectAssetHints(Response $response, FrontendContextReader $context): void
     {
         $content = (string) $response->getContent();
 

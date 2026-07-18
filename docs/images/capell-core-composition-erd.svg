@@ -65,7 +65,7 @@
   <g id="asset-relations">
     <rect class="entity entity-compose" x="1110" y="150" width="240" height="166"/>
     <text class="header" x="1132" y="183">asset_relations</text>
-    <text class="table" x="1132" y="205">AssetRelation</text>
+    <text class="table" x="1132" y="205">AssetAttachment</text>
     <text class="field" x="1132" y="234">PK id</text>
     <text class="field" x="1132" y="256">MORPH related</text>
     <text class="field" x="1132" y="278">MORPH asset</text>

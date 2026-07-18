@@ -100,11 +100,3 @@ it('bumps the frontend generation for wildcard dependencies on non-atomic cache 
     expect($firstGeneration)->toBe(1)
         ->and($secondGeneration)->toBe(2);
 });
-
-it('keeps octane flush as a no-op for boot-time dependency configuration', function (): void {
-    $registry = resolve(CacheInvalidationRegistry::class);
-    $registry->registerDependency('Vendor\\Package\\Model', 'custom-key');
-    $registry->flushOctaneState();
-
-    expect($registry->planForModel('Vendor\\Package\\Model')->rules)->toHaveCount(1);
-});

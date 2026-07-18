@@ -21,23 +21,33 @@ final class EnrichExtensionTableRecordsAction
      */
     public function handle(array $records): array
     {
-        $composerNames = array_values(array_filter(array_map(
-            $this->composerName(...),
-            $records,
-        )));
-        $metadata = $this->catalogueMetadata(array_values(array_unique($composerNames)));
+        $composerNames = [];
 
-        return array_values(array_map(function (array $record) use ($metadata): array {
+        foreach ($records as $record) {
+            $composerName = $this->composerName($record);
+
+            if ($composerName !== null) {
+                $composerNames[$composerName] = $composerName;
+            }
+        }
+
+        $metadata = $this->catalogueMetadata(array_values($composerNames));
+
+        foreach ($records as &$record) {
             $composerName = $this->composerName($record);
             $catalogueMetadata = $composerName !== null
                 ? ($metadata[$composerName] ?? new ExtensionCatalogueMetadataData)
                 : new ExtensionCatalogueMetadataData;
 
-            return [
+            $record = [
                 ...$record,
                 ...$catalogueMetadata->toTableRecord(),
             ];
-        }, $records));
+        }
+
+        unset($record);
+
+        return $records;
     }
 
     /**

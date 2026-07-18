@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Date;
 use RecursiveDirectoryIterator;
@@ -43,7 +44,7 @@ final class LockdownStaticCacheSwitcher
         }
 
         $state = $this->state($root, $preservedRoot, alreadyActive: false);
-        $this->files->put($this->markerPath($root), json_encode($state, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        $this->files->put($this->markerPath($root), JsonCodec::encode($state, JSON_PRETTY_PRINT));
 
         return $state;
     }

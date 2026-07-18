@@ -9,7 +9,7 @@ use Filament\Support\Contracts\HasLabel;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\LaravelData\Data;
 
-class PageTypeData extends Data implements HasLabel
+final class PageTypeData extends Data implements HasLabel
 {
     public function __construct(
         public string $name,

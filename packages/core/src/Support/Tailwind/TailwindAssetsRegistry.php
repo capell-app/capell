@@ -18,7 +18,7 @@ use Illuminate\Support\Collection;
  * - theme_colors are keyed by color name; later registrations override earlier ones (last-wins).
  * - Origins are kept for reporting via toReport().
  */
-class TailwindAssetsRegistry
+final class TailwindAssetsRegistry
 {
     /** @var array<int, array{value: string, origin: string|null}> */
     private array $sources = [];

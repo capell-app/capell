@@ -10,7 +10,7 @@ use Capell\Core\Data\Makers\MakerPreviewData;
 use Capell\Core\Support\Makers\AbstractFileMaker;
 use Illuminate\Support\Str;
 
-class ExtenderMaker extends AbstractFileMaker
+final class ExtenderMaker extends AbstractFileMaker
 {
     /** @var array<string, string> */
     private array $validHooks = [

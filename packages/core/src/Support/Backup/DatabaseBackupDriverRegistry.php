@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Backup;
 
 use Capell\Core\Contracts\Backup\DatabaseBackupDriver;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use InvalidArgumentException;
 use LogicException;
 
-final class DatabaseBackupDriverRegistry
+/** @extends AbstractKeyedRegistry<DatabaseBackupDriver> */
+final class DatabaseBackupDriverRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<non-empty-string, DatabaseBackupDriver> */
-    private array $drivers = [];
-
     /**
      * @param  iterable<DatabaseBackupDriver>  $drivers
      */
@@ -30,11 +29,11 @@ final class DatabaseBackupDriverRegistry
 
             throw_if($name === '', LogicException::class, 'Database backup drivers must declare a non-empty driver name.');
 
-            if (isset($this->drivers[$name])) {
+            if ($this->hasItem($name)) {
                 throw new LogicException(sprintf('Database backup driver [%s] is already registered.', $name));
             }
 
-            $this->drivers[$name] = $driver;
+            $this->setItem($name, $driver);
         }
 
         return $this;
@@ -44,7 +43,7 @@ final class DatabaseBackupDriverRegistry
     {
         $driver = strtolower(trim($driver));
 
-        return $this->drivers[$driver]
+        return $this->getItem($driver)
             ?? throw new InvalidArgumentException(sprintf('Unsupported database backup driver [%s].', $driver));
     }
 }

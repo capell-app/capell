@@ -5,10 +5,9 @@ declare(strict_types=1);
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
-use Capell\Admin\Filament\Pages\Reports\CacheFreshnessReport;
-use Capell\Admin\Filament\Pages\Reports\ContentIntegrityReport;
+use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
+use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
-use Capell\Admin\Filament\Pages\Reports\SiteLanguageCoverageReport;
 use Capell\Admin\Support\Reports\ReportRegistry;
 
 uses()
@@ -18,25 +17,25 @@ it('replaces duplicate report keys with the latest definition', function (): voi
     $registry = new ReportRegistry;
 
     $registry->register(new ReportDefinitionData(
-        key: 'core.content_integrity',
+        key: 'core.public_render_safety',
         label: 'Original',
         description: 'Original report',
         package: 'capell-app/admin',
         category: 'Content',
-        pageClass: ContentIntegrityReport::class,
+        pageClass: PublicRenderSafetyReport::class,
     ));
 
     $registry->register(new ReportDefinitionData(
-        key: 'core.content_integrity',
+        key: 'core.public_render_safety',
         label: 'Replacement',
         description: 'Replacement report',
         package: 'capell-app/admin',
         category: 'Content',
-        pageClass: SiteLanguageCoverageReport::class,
+        pageClass: PublishingReadinessReport::class,
     ));
 
-    expect($registry->get('core.content_integrity')?->label)->toBe('Replacement')
-        ->and($registry->pageClasses())->toBe([SiteLanguageCoverageReport::class]);
+    expect($registry->get('core.public_render_safety')?->label)->toBe('Replacement')
+        ->and($registry->pageClasses())->toBe([PublishingReadinessReport::class]);
 });
 
 it('sorts reports and extracts unique page classes', function (): void {
@@ -48,7 +47,7 @@ it('sorts reports and extracts unique page classes', function (): void {
         description: 'Ignored report',
         package: 'capell-app/admin',
         category: 'Content',
-        pageClass: ContentIntegrityReport::class,
+        pageClass: PublicRenderSafetyReport::class,
     ));
 
     $registry->register(new ReportDefinitionData(
@@ -57,7 +56,7 @@ it('sorts reports and extracts unique page classes', function (): void {
         description: 'Extension cache report',
         package: 'capell-app/extension',
         category: 'Operations',
-        pageClass: CacheFreshnessReport::class,
+        pageClass: PackageReadinessReport::class,
         navigationSort: 10,
     ));
 
@@ -77,7 +76,7 @@ it('sorts reports and extracts unique page classes', function (): void {
         description: 'Content report',
         package: 'capell-app/admin',
         category: 'Content',
-        pageClass: ContentIntegrityReport::class,
+        pageClass: PublicRenderSafetyReport::class,
         navigationSort: 50,
     ));
 
@@ -87,7 +86,7 @@ it('sorts reports and extracts unique page classes', function (): void {
         description: 'Content report with the same page class',
         package: 'capell-app/admin',
         category: 'Content',
-        pageClass: ContentIntegrityReport::class,
+        pageClass: PublicRenderSafetyReport::class,
         navigationSort: 60,
     ));
 
@@ -97,9 +96,9 @@ it('sorts reports and extracts unique page classes', function (): void {
         'admin.content',
         'admin.content_later',
     ])->and($registry->pageClasses())->toBe([
-        CacheFreshnessReport::class,
+        PackageReadinessReport::class,
         PublishingReadinessReport::class,
-        ContentIntegrityReport::class,
+        PublicRenderSafetyReport::class,
     ]);
 
     $registry->clear();
@@ -110,12 +109,12 @@ it('sorts reports and extracts unique page classes', function (): void {
 
 it('resolves report definition labels and snapshot state', function (): void {
     $translatedDefinition = new ReportDefinitionData(
-        key: 'core.content_integrity',
-        label: 'capell-admin::reports.content_integrity_label',
-        description: 'capell-admin::reports.content_integrity_description',
+        key: 'core.public_render_safety',
+        label: 'capell-admin::reports.public_render_safety_label',
+        description: 'capell-admin::reports.public_render_safety_description',
         package: 'capell-app/admin',
         category: 'Content',
-        pageClass: ContentIntegrityReport::class,
+        pageClass: PublicRenderSafetyReport::class,
     );
 
     $literalDefinition = new ReportDefinitionData(
@@ -124,7 +123,7 @@ it('resolves report definition labels and snapshot state', function (): void {
         description: 'Literal description.',
         package: 'capell-app/test',
         category: 'Test',
-        pageClass: CacheFreshnessReport::class,
+        pageClass: PackageReadinessReport::class,
         capabilityTags: ['cache', 'operations'],
     );
 
@@ -136,9 +135,9 @@ it('resolves report definition labels and snapshot state', function (): void {
         ],
     );
 
-    expect($translatedDefinition->settingsKey())->toBe('core.content_integrity')
-        ->and($translatedDefinition->resolvedLabel())->toBe('Content Integrity')
-        ->and($translatedDefinition->resolvedDescription())->toBe(__('capell-admin::reports.content_integrity_description'))
+    expect($translatedDefinition->settingsKey())->toBe('core.public_render_safety')
+        ->and($translatedDefinition->resolvedLabel())->toBe('Public Render Safety')
+        ->and($translatedDefinition->resolvedDescription())->toBe(__('capell-admin::reports.public_render_safety_description'))
         ->and($literalDefinition->resolvedLabel())->toBe('Literal Report')
         ->and($literalDefinition->resolvedDescription())->toBe('Literal description.')
         ->and($literalDefinition->capabilityTags)->toBe(['cache', 'operations'])

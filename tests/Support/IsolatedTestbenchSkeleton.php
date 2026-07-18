@@ -85,8 +85,7 @@ final class IsolatedTestbenchSkeleton
     /**
      * The parallel process identifier.
      *
-     * scripts/run-pest-shards.php sets TEST_TOKEN=shard-N; Paratest (used by the
-     * `pest --parallel` runner behind composer test:all) sets TEST_TOKEN=N. Both are covered.
+     * Paratest, used by Pest's parallel runner, sets TEST_TOKEN for each worker.
      */
     private static function token(): ?string
     {

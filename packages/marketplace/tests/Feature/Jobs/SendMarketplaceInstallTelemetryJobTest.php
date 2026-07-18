@@ -6,7 +6,17 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Http;
+
+it('coalesces telemetry dispatches for the same install attempt', function (): void {
+    $job = new SendMarketplaceInstallTelemetryJob(42);
+
+    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+        ->and($job->uniqueId())->toBe('42')
+        ->and($job->tries)->toBe(5)
+        ->and($job->backoff())->toBe([60, 300, 900, 1800]);
+});
 
 it('keeps free install telemetry pending when marketplace is unavailable', function (): void {
     config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);

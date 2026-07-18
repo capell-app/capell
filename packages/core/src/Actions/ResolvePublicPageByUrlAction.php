@@ -94,7 +94,7 @@ class ResolvePublicPageByUrlAction
 
     private function resolvePageUrl(Site $site, Language $language, string $url): ?PageUrl
     {
-        $publicPageableMorphTypes = $this->publicPageableMorphTypes();
+        $publicPageableMorphTypes = ResolvePublicPageableMorphTypesAction::run();
 
         if ($publicPageableMorphTypes === []) {
             return null;
@@ -117,20 +117,6 @@ class ResolvePublicPageByUrlAction
                 fn (BuilderContract $pageableQuery): BuilderContract => $this->applyPublicPageConstraints($pageableQuery, $site),
             )
             ->first();
-    }
-
-    /**
-     * @return list<class-string<Model>|string>
-     */
-    private function publicPageableMorphTypes(): array
-    {
-        return array_values(collect(Relation::morphMap())
-            ->filter(fn (string $modelClass): bool => is_subclass_of($modelClass, Model::class)
-                && is_subclass_of($modelClass, Pageable::class))
-            ->flatMap(fn (string $modelClass, string $alias): array => [$alias, $modelClass])
-            ->unique()
-            ->values()
-            ->all());
     }
 
     /**

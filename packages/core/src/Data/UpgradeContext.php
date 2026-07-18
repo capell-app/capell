@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class UpgradeContext extends Data
+final class UpgradeContext extends Data
 {
     /**
      * @param  array<string, string>  $composerVersions

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
@@ -15,6 +16,7 @@ use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Tests\Fixtures\Activity\ActivityResourceLinkRecord;
 use Capell\Admin\Tests\Fixtures\Activity\AlternateActivityResourceLinkRecordResource;
+use Capell\Admin\Tests\Fixtures\Autoload\FullUserResourceBridgeForResolverTest;
 use Capell\Admin\Tests\Fixtures\Autoload\TestActivityChangeSetBuilderForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestActivityRevertHandlerForRegistrar;
 use Capell\Admin\Tests\Fixtures\Autoload\TestDashboardFilamentWidgetForRegistrar;
@@ -34,7 +36,7 @@ beforeEach(function (): void {
 });
 
 it('registers admin surface contributions through existing registries', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->page(SettingsPage::class);
     $registrar->resource(SettingsPage::class, 'AdminBridgeRegistrarTest', 'settings');
@@ -58,7 +60,7 @@ it('registers admin surface contributions through existing registries', function
 });
 
 it('registers dashboard Filament widgets through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->filamentDashboardWidget(TestDashboardFilamentWidgetForRegistrar::class, DashboardEnum::SystemHealth);
 
@@ -67,7 +69,7 @@ it('registers dashboard Filament widgets through the admin manager', function ()
 });
 
 it('registers extension dashboard Filament widgets through the bridge convenience method', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->extensionDashboardFilamentWidget(TestDashboardFilamentWidgetForRegistrar::class);
 
@@ -75,8 +77,18 @@ it('registers extension dashboard Filament widgets through the bridge convenienc
         ->toContain(TestDashboardFilamentWidgetForRegistrar::class);
 });
 
+it('registers the unified user resource bridge through one scoped tag', function (): void {
+    $registrar = resolve(AdminBridgeRegistrar::class);
+
+    $registrar->userResourceBridge(FullUserResourceBridgeForResolverTest::class);
+
+    expect(collect(app()->tagged(UserResourceBridge::TAG))->contains(
+        fn (object $bridge): bool => $bridge instanceof FullUserResourceBridgeForResolverTest,
+    ))->toBeTrue();
+});
+
 it('registers a dashboard page through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->dashboardPage(CapellDashboard::class);
 
@@ -84,7 +96,7 @@ it('registers a dashboard page through the admin manager', function (): void {
 });
 
 it('registers user menu item definitions through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->userMenuItem(
         key: 'capell-test.bridge',
@@ -113,7 +125,7 @@ it('registers user menu item definitions through the admin manager', function ()
 it('registers welcome tour steps through the admin manager', function (): void {
     CapellAdmin::clearWelcomeTourSteps();
 
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->welcomeTourStep(
         key: 'registrar-test.welcome',
@@ -130,7 +142,7 @@ it('registers welcome tour steps through the admin manager', function (): void {
 });
 
 it('registers activity extension handlers through Laravel tags', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->activityChangeSetBuilder(TestActivityChangeSetBuilderForRegistrar::class);
     $registrar->activityRevertHandler(TestActivityRevertHandlerForRegistrar::class);
@@ -145,7 +157,7 @@ it('registers activity extension handlers through Laravel tags', function (): vo
 });
 
 it('registers activity resource links through the admin manager', function (): void {
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->activityResourceLink(
         subjectClass: ActivityResourceLinkRecord::class,
@@ -168,7 +180,7 @@ it('registers activity resource links through the admin manager', function (): v
 
 it('registers settings schemas through the settings schema registry', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
 
     $registrar->settingsSchema('admin-bridge-registrar-test', TestSettingsSchemaForRegistrar::class, 'bridge-test');
 
@@ -177,7 +189,7 @@ it('registers settings schemas through the settings schema registry', function (
 
 it('registers settings classes and metadata through the settings schema registry', function (): void {
     $registry = resolve(SettingsSchemaRegistry::class);
-    $registrar = new AdminBridgeRegistrar;
+    $registrar = resolve(AdminBridgeRegistrar::class);
     $metadata = new SettingsGroupMetadata(
         group: 'admin-bridge-registrar-test',
         label: 'Admin bridge registrar test',

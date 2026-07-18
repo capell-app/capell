@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Providers;
 
 use Capell\Admin\Actions\CreateDefaultPagesAction;
-use Capell\Admin\Actions\Users\RecordActAsOwnerActivityAction;
+use Capell\Admin\Actions\Notifications\ResolveDefaultPackageOperationRecipientsAction;
 use Capell\Admin\Console\Commands\CacheConfiguratorsCommand;
 use Capell\Admin\Console\Commands\CacheWidgetsCommand;
 use Capell\Admin\Console\Commands\ClearCacheCommand;
@@ -20,7 +20,6 @@ use Capell\Admin\Console\Commands\SyncPermissionsCommand;
 use Capell\Admin\Console\Commands\UpgradeCommand;
 use Capell\Admin\Console\Commands\ValidateThemesCommand;
 use Capell\Admin\Contracts\Backup\PageExporter;
-use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Dashboard\ContentHealthDataProvider;
 use Capell\Admin\Contracts\Dashboard\MyWorkQueueDataProvider;
@@ -51,18 +50,10 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Filament\Pages\Reports\AccessibilityReadinessReport;
-use Capell\Admin\Filament\Pages\Reports\BlueprintSchemaDriftReport;
-use Capell\Admin\Filament\Pages\Reports\CacheFreshnessReport;
-use Capell\Admin\Filament\Pages\Reports\ContentIntegrityReport;
 use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
-use Capell\Admin\Filament\Pages\Reports\LayoutWidgetUsageReport;
-use Capell\Admin\Filament\Pages\Reports\NavigationCoverageReport;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
-use Capell\Admin\Filament\Pages\Reports\PermissionsAccessSurfaceReport;
 use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
-use Capell\Admin\Filament\Pages\Reports\SiteLanguageCoverageReport;
-use Capell\Admin\Filament\Pages\Reports\UrlHealthReport;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
 use Capell\Admin\Filament\Settings\AdminSettingsSchema;
@@ -93,6 +84,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilame
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
+use Capell\Admin\Macros\Database\BuilderMacros;
 use Capell\Admin\Macros\Filament\ActionMacros;
 use Capell\Admin\Macros\Filament\ColorPickerMacro;
 use Capell\Admin\Macros\Filament\ColumnMacros;
@@ -119,16 +111,19 @@ use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
 use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminResourceResolver;
+use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
+use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
 use Capell\Admin\Support\Dashboard\DefaultSiteStatsDataProvider;
 use Capell\Admin\Support\Dashboard\NullContentHealthDataProvider;
 use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
 use Capell\Admin\Support\Dashboard\NullRecentlyPublishedDataProvider;
+use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
@@ -147,16 +142,19 @@ use Capell\Admin\Support\Interceptors\Blueprints\Pages\SystemPageBlueprintInterc
 use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
+use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Media\AdminSpatieMediaFieldFactory;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
+use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
+use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
-use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
@@ -177,10 +175,10 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
+use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
+use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
-use Composer\InstalledVersions;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
 use Filament\Facades\Filament;
@@ -200,15 +198,14 @@ use Illuminate\Contracts\Container\Container as ContainerContract;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
+use Override;
+use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
-use STS\FilamentImpersonate\Events\EnterImpersonation;
-use STS\FilamentImpersonate\Events\LeaveImpersonation;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
@@ -253,6 +250,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         );
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         parent::registeringPackage();
@@ -270,17 +268,30 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(FlagIconRendererContract::class, FlagIconRenderer::class);
         $this->app->singletonIf(PageTableStatusResolver::class, DefaultPageTableStatusResolver::class);
 
-        $this->app->singleton(ExtensionPageRegistry::class, fn (): ExtensionPageRegistry => new ExtensionPageRegistry);
-        $this->app->singleton(AdminNotificationGroupRegistry::class, fn (): AdminNotificationGroupRegistry => new AdminNotificationGroupRegistry);
+        $this->app->singletonIf(ExtensionPageRegistry::class);
+        $this->app->singletonIf(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
-        $this->app->singleton(ActivityResourceLinkRegistry::class);
-        $this->app->singleton(CapellAdminManager::class, fn (): CapellAdminManager => new CapellAdminManager);
+        $this->app->singletonIf(ActivityResourceLinkRegistry::class);
+        $this->app->singletonIf(AdminSurfaceContributionRegistry::class);
+        $this->app->singletonIf(ReportRegistry::class);
+        $this->app->singletonIf(DashboardFilamentWidgetRegistry::class);
+        $this->app->singletonIf(MarketingStudioActionRegistry::class);
+        $this->app->singletonIf(UserMenuItemRegistry::class);
+        $this->app->singletonIf(OverviewStatRegistry::class);
+        $this->app->singletonIf(AdminBridgeRegistry::class);
+        $this->app->singletonIf(AdminBridgeRegistrar::class);
+
+        $manager = CapellAdmin::getFacadeRoot();
+        throw_unless($manager instanceof CapellAdminManager, RuntimeException::class, 'The Capell admin facade must resolve its manager.');
+
+        $this->app->instance(CapellAdminManager::class, $manager);
+        $this->app->instance(AdminSurfaceContributionRegistry::class, $manager->getAdminSurfaceRegistry());
+        $this->app->instance(ReportRegistry::class, $manager->getReportRegistry());
+        $this->app->instance(AdminBridgeRegistry::class, $manager->getAdminBridgeRegistry());
         $this->app->singleton(AdminResourceResolverContract::class, AdminResourceResolver::class);
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
-        $this->app->singleton(AdminBridgeRegistrar::class, fn (): AdminBridgeRegistrar => new AdminBridgeRegistrar);
-        $this->app->singleton(AdminBridgeRegistry::class, fn (): AdminBridgeRegistry => CapellAdmin::getAdminBridgeRegistry());
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
-        $this->app->singleton(ImportEntryRegistry::class, fn (): ImportEntryRegistry => new ImportEntryRegistry);
+        $this->app->singleton(ImportEntryRegistry::class);
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
@@ -301,21 +312,21 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(PageExporter::class, NullPageExporter::class);
         $this->app->singletonIf(RedirectUrlRecorder::class, PageUrlRedirectUrlRecorder::class);
         $this->app->singleton(RegistryInspectorInterface::class, RegistryInspector::class);
-        $this->app->singleton(ExtensionManagementSurfaceRegistry::class, fn (): ExtensionManagementSurfaceRegistry => new ExtensionManagementSurfaceRegistry);
+        $this->app->singleton(ExtensionManagementSurfaceRegistry::class);
         $this->app->scoped(ExtensionOperationsRequestCache::class);
-        $this->app->singleton(ExtensionsPageActionRegistry::class, fn (): ExtensionsPageActionRegistry => new ExtensionsPageActionRegistry);
+        $this->app->singleton(ExtensionsPageActionRegistry::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
         $this->reserveAdminFrontendPath();
         $this->reserveAdminFrontendDomain();
 
-        $this->app->afterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
+        $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));
             $registry->register($this->app->make(AdminConfiguratorMaker::class));
             $registry->register($this->app->make(FilamentWidgetMaker::class));
         });
 
-        $this->app->afterResolving(ImportEntryRegistry::class, function (ImportEntryRegistry $registry): void {
+        $this->callAfterResolving(ImportEntryRegistry::class, function (ImportEntryRegistry $registry): void {
             $registry->register(new ImportEntryData(
                 key: 'redirects.csv',
                 labelKey: 'capell-admin::exchanger.import.redirects',
@@ -333,29 +344,41 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
 
         $this
-            ->registerPackageMetadata()
+            ->registerAdminPackageMetadata()
             ->registerMacros()
             ->registerAssets()
             ->registerNotificationGroups()
             ->registerPages()
             ->registerCoreReports()
             ->registerResources()
-            ->registerOptionalAdminBridges()
             ->registerWidgets()
             ->registerDashboardFilamentWidgets()
             ->registerOverviewStats();
+    }
 
-        $this->booted(function (): void {
-            if ($this->isDiscoveringPackages()) {
-                return;
-            }
+    #[Override]
+    protected function bootInstalledPackage(): self
+    {
+        FilamentClearCache::addCommand('capell:admin-clear-cache');
 
-            if (! $this->isPackageInstalled()) {
-                return;
-            }
-
-            $this->bootInstalledPackage();
-        });
+        return $this
+            ->registerAboutInfo()
+            ->bootAdminBridges()
+            ->registerWidgetComponents()
+            ->registerBlazeComponents()
+            ->registerServingEvents()
+            ->registerAdminLivewireComponents()
+            ->registerPublishCommands()
+            ->registerSubscribers()
+            ->registerModelInterceptors()
+            ->registerAdminEventSystem()
+            ->registerActAsOwnerAuditing()
+            ->registerEventSourcingBridges()
+            ->registerPolicies()
+            ->registerSettingsSchemas()
+            ->registerUpgradeNotificationSchedule()
+            ->registerContentRetentionSchedule()
+            ->registerModelObservers();
     }
 
     private function reserveAdminFrontendPath(): void
@@ -366,37 +389,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             return;
         }
 
-        $reservedFrontendPathRegistry = implode('\\', [
-            'Capell',
-            'Frontend',
-            'Support',
-            'Routing',
-            'ReservedFrontendPathRegistry',
-        ]);
-
-        if (! class_exists($reservedFrontendPathRegistry)) {
-            return;
-        }
-
-        if ($this->app->bound($reservedFrontendPathRegistry)) {
-            $this->reserveFrontendPathPrefix($this->app->make($reservedFrontendPathRegistry), $adminPath);
-        }
-
-        $this->app->afterResolving(
-            $reservedFrontendPathRegistry,
-            function (object $registry) use ($adminPath): void {
-                $this->reserveFrontendPathPrefix($registry, $adminPath);
-            },
+        $this->reserveAdminFrontendValue(
+            ReservedFrontendPathRegistry::class,
+            'reservePrefix',
+            $adminPath,
         );
-    }
-
-    private function reserveFrontendPathPrefix(object $registry, string $prefix): void
-    {
-        $callback = [$registry, 'reservePrefix'];
-
-        if (is_callable($callback)) {
-            $callback($prefix);
-        }
     }
 
     private function reserveAdminFrontendDomain(): void
@@ -407,37 +404,27 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             return;
         }
 
-        $reservedFrontendDomainRegistry = implode('\\', [
-            'Capell',
-            'Frontend',
-            'Support',
-            'Routing',
-            'ReservedFrontendDomainRegistry',
-        ]);
-
-        if (! class_exists($reservedFrontendDomainRegistry)) {
-            return;
-        }
-
-        if ($this->app->bound($reservedFrontendDomainRegistry)) {
-            $this->reserveFrontendDomain($this->app->make($reservedFrontendDomainRegistry), $adminDomain);
-        }
-
-        $this->app->afterResolving(
-            $reservedFrontendDomainRegistry,
-            function (object $registry) use ($adminDomain): void {
-                $this->reserveFrontendDomain($registry, $adminDomain);
-            },
+        $this->reserveAdminFrontendValue(
+            ReservedFrontendDomainRegistry::class,
+            'reserve',
+            $adminDomain,
         );
     }
 
-    private function reserveFrontendDomain(object $registry, string $domain): void
+    /** @param class-string $registryClass */
+    private function reserveAdminFrontendValue(string $registryClass, string $method, string $value): void
     {
-        $callback = [$registry, 'reserve'];
-
-        if (is_callable($callback)) {
-            $callback($domain);
+        if (! class_exists($registryClass)) {
+            return;
         }
+
+        $this->callAfterResolving($registryClass, static function (object $registry) use ($method, $value): void {
+            $callback = [$registry, $method];
+
+            if (is_callable($callback)) {
+                $callback($value);
+            }
+        });
     }
 
     private function registerResources(): self
@@ -454,56 +441,20 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerNotificationGroups(): self
     {
-        $this->app->afterResolving(AdminNotificationGroupRegistry::class, function (AdminNotificationGroupRegistry $registry): void {
-            $registry->register(
-                key: AdminNotificationGroupEnum::PackageOperations,
-                label: AdminNotificationGroupEnum::PackageOperations->label(),
-                description: AdminNotificationGroupEnum::PackageOperations->description(),
-                defaultRecipients: fn (): Collection => $this->defaultPackageOperationRecipients(),
-            );
+        $this->callAfterResolving(AdminNotificationGroupRegistry::class, static function (AdminNotificationGroupRegistry $registry): void {
+            foreach (AdminNotificationGroupEnum::cases() as $group) {
+                $registry->register(
+                    key: $group,
+                    label: $group->label(),
+                    description: $group->description(),
+                    defaultRecipients: ResolveDefaultPackageOperationRecipientsAction::run(...),
+                );
+            }
         });
 
         $this->app->tag([AdminNotificationPreferencesUserResourceBridge::class], UserResourceBridge::TAG);
 
         return $this;
-    }
-
-    /** @return Collection<int, Model> */
-    private function defaultPackageOperationRecipients(): Collection
-    {
-        $userModel = config('auth.providers.users.model');
-
-        if (! is_string($userModel) || ! is_a($userModel, Model::class, true)) {
-            return new Collection;
-        }
-
-        return $userModel::query()
-            ->get()
-            ->filter(function (Model $user): bool {
-                if (method_exists($user, 'isGlobalAdmin') && $user->isGlobalAdmin()) {
-                    return true;
-                }
-
-                return method_exists($user, 'hasRole')
-                    && $user->hasRole(config('capell.roles.super_admin', 'super_admin'));
-            })
-            ->values();
-    }
-
-    private function registerOptionalAdminBridges(): self
-    {
-        $this->registerOptionalAdminBridge('Capell\\HtmlCache\\Support\\Bridges\\HtmlCacheAdminBridge');
-
-        return $this;
-    }
-
-    private function registerOptionalAdminBridge(string $bridgeClass): void
-    {
-        if (! is_subclass_of($bridgeClass, AdminBridge::class)) {
-            return;
-        }
-
-        CapellAdmin::registerAdminBridge(static::$packageName, $bridgeClass);
     }
 
     private function registerPages(): self
@@ -527,138 +478,58 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     /** @return list<ReportDefinitionData> */
     private function coreReports(): array
     {
-        return [
-            new ReportDefinitionData(
-                key: ContentIntegrityReport::REPORT_KEY,
-                label: 'capell-admin::reports.content_integrity_label',
-                description: 'capell-admin::reports.content_integrity_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_content',
-                pageClass: ContentIntegrityReport::class,
-                navigationSort: 10,
-                capabilityTags: ['content', 'integrity'],
-            ),
-            new ReportDefinitionData(
-                key: SiteLanguageCoverageReport::REPORT_KEY,
-                label: 'capell-admin::reports.site_language_coverage_label',
-                description: 'capell-admin::reports.site_language_coverage_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_content',
-                pageClass: SiteLanguageCoverageReport::class,
-                navigationSort: 20,
-                capabilityTags: ['sites', 'languages'],
-            ),
-            new ReportDefinitionData(
-                key: UrlHealthReport::REPORT_KEY,
-                label: 'capell-admin::reports.url_health_label',
-                description: 'capell-admin::reports.url_health_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_content',
-                pageClass: UrlHealthReport::class,
-                navigationSort: 30,
-                capabilityTags: ['urls', 'health'],
-            ),
-            new ReportDefinitionData(
-                key: AccessibilityReadinessReport::REPORT_KEY,
-                label: 'capell-admin::reports.accessibility_readiness_label',
-                description: 'capell-admin::reports.accessibility_readiness_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_content',
-                pageClass: AccessibilityReadinessReport::class,
-                navigationSort: 35,
-                capabilityTags: ['accessibility', 'languages', 'media'],
-            ),
-            new ReportDefinitionData(
-                key: LayoutWidgetUsageReport::REPORT_KEY,
-                label: 'capell-admin::reports.layout_widget_usage_label',
-                description: 'capell-admin::reports.layout_widget_usage_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_structure',
-                pageClass: LayoutWidgetUsageReport::class,
-                navigationSort: 40,
-                capabilityTags: ['layouts', 'widgets'],
-            ),
-            new ReportDefinitionData(
-                key: BlueprintSchemaDriftReport::REPORT_KEY,
-                label: 'capell-admin::reports.blueprint_schema_drift_label',
-                description: 'capell-admin::reports.blueprint_schema_drift_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_structure',
-                pageClass: BlueprintSchemaDriftReport::class,
-                navigationSort: 50,
-                capabilityTags: ['blueprints', 'schemas'],
-            ),
-            new ReportDefinitionData(
-                key: PublishingReadinessReport::REPORT_KEY,
-                label: 'capell-admin::reports.publishing_readiness_label',
-                description: 'capell-admin::reports.publishing_readiness_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_workflow',
-                pageClass: PublishingReadinessReport::class,
-                navigationSort: 60,
-                capabilityTags: ['publishing', 'workflow'],
-            ),
-            new ReportDefinitionData(
-                key: CacheFreshnessReport::REPORT_KEY,
-                label: 'capell-admin::reports.cache_freshness_label',
-                description: 'capell-admin::reports.cache_freshness_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_operations',
-                pageClass: CacheFreshnessReport::class,
-                navigationSort: 70,
-                capabilityTags: ['cache', 'freshness'],
-            ),
-            new ReportDefinitionData(
-                key: NavigationCoverageReport::REPORT_KEY,
-                label: 'capell-admin::reports.navigation_coverage_label',
-                description: 'capell-admin::reports.navigation_coverage_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_structure',
-                pageClass: NavigationCoverageReport::class,
-                navigationSort: 80,
-                capabilityTags: ['navigation', 'coverage'],
-            ),
-            new ReportDefinitionData(
-                key: PermissionsAccessSurfaceReport::REPORT_KEY,
-                label: 'capell-admin::reports.permissions_access_surface_label',
-                description: 'capell-admin::reports.permissions_access_surface_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_security',
-                pageClass: PermissionsAccessSurfaceReport::class,
-                navigationSort: 90,
-                capabilityTags: ['permissions', 'security'],
-            ),
-            new ReportDefinitionData(
-                key: DemoInstallHealthReport::REPORT_KEY,
-                label: 'capell-admin::reports.demo_install_health_label',
-                description: 'capell-admin::reports.demo_install_health_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_operations',
-                pageClass: DemoInstallHealthReport::class,
-                navigationSort: 100,
-                capabilityTags: ['demo', 'install'],
-            ),
-            new ReportDefinitionData(
-                key: PackageReadinessReport::REPORT_KEY,
-                label: 'capell-admin::reports.package_readiness_label',
-                description: 'capell-admin::reports.package_readiness_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_operations',
-                pageClass: PackageReadinessReport::class,
-                navigationSort: 110,
-                capabilityTags: ['packages', 'readiness'],
-            ),
-            new ReportDefinitionData(
-                key: PublicRenderSafetyReport::REPORT_KEY,
-                label: 'capell-admin::reports.public_render_safety_label',
-                description: 'capell-admin::reports.public_render_safety_description',
-                package: static::$packageName,
-                category: 'capell-admin::reports.category_security',
-                pageClass: PublicRenderSafetyReport::class,
-                navigationSort: 120,
-                capabilityTags: ['frontend', 'security'],
-            ),
+        $reports = [
+            AccessibilityReadinessReport::class => [
+                'label' => 'capell-admin::reports.accessibility_readiness_label',
+                'description' => 'capell-admin::reports.accessibility_readiness_description',
+                'category' => 'capell-admin::reports.category_content',
+                'navigationSort' => 35,
+                'capabilityTags' => ['accessibility', 'languages', 'media'],
+            ],
+            PublishingReadinessReport::class => [
+                'label' => 'capell-admin::reports.publishing_readiness_label',
+                'description' => 'capell-admin::reports.publishing_readiness_description',
+                'category' => 'capell-admin::reports.category_workflow',
+                'navigationSort' => 60,
+                'capabilityTags' => ['publishing', 'workflow'],
+            ],
+            DemoInstallHealthReport::class => [
+                'label' => 'capell-admin::reports.demo_install_health_label',
+                'description' => 'capell-admin::reports.demo_install_health_description',
+                'category' => 'capell-admin::reports.category_operations',
+                'navigationSort' => 100,
+                'capabilityTags' => ['demo', 'install'],
+            ],
+            PackageReadinessReport::class => [
+                'label' => 'capell-admin::reports.package_readiness_label',
+                'description' => 'capell-admin::reports.package_readiness_description',
+                'category' => 'capell-admin::reports.category_operations',
+                'navigationSort' => 110,
+                'capabilityTags' => ['packages', 'readiness'],
+            ],
+            PublicRenderSafetyReport::class => [
+                'label' => 'capell-admin::reports.public_render_safety_label',
+                'description' => 'capell-admin::reports.public_render_safety_description',
+                'category' => 'capell-admin::reports.category_security',
+                'navigationSort' => 120,
+                'capabilityTags' => ['frontend', 'security'],
+            ],
         ];
+
+        return array_map(
+            fn (string $pageClass, array $definition): ReportDefinitionData => new ReportDefinitionData(
+                key: $pageClass::REPORT_KEY,
+                label: $definition['label'],
+                description: $definition['description'],
+                package: static::$packageName,
+                category: $definition['category'],
+                pageClass: $pageClass,
+                navigationSort: $definition['navigationSort'],
+                capabilityTags: $definition['capabilityTags'],
+            ),
+            array_keys($reports),
+            array_values($reports),
+        );
     }
 
     private function registerWidgets(): self
@@ -695,42 +566,21 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerLivewireComponents(): self
+    private function registerAdminLivewireComponents(): self
     {
-        if (! $this->app->bound('livewire.finder')) {
-            return $this;
-        }
-
-        Livewire::component('capell-admin::header.admin-tools', AdminTools::class);
-        Livewire::component('capell-admin::header.navigation-tree', NavigationTree::class);
-        Livewire::component('capell-admin::info-banner', InfoBanner::class);
-        // Plain alias (not the `capell-admin::` Livewire namespace, which resolves
-        // to Capell\Admin\Livewire and would shadow this class living under
-        // Capell\Admin\Filament\Livewire).
-        Livewire::component('capell-admin-publish-status-panel', PublishStatusPanel::class);
-
-        if ($this->isLivewireV3() === false) {
-            Livewire::addNamespace(
-                namespace: 'capell-admin',
-                classNamespace: 'Capell\\Admin\\Livewire',
-                viewPath: __DIR__ . '/../../resources/views/livewire',
-                classPath: __DIR__ . '/../Livewire',
-                classViewPath: __DIR__ . '/../../resources/views/livewire',
-            );
-        }
-
-        return $this;
-    }
-
-    private function registerAboutInfo(): self
-    {
-        if ($this->app->runningInConsole() && (class_exists(AboutCommand::class) && class_exists(InstalledVersions::class))) {
-            AboutCommand::add('Capell', [
-                self::$name => fn (): ?string => CapellCore::getInstalledPrettyVersion(static::$packageName),
-            ]);
-        }
-
-        return $this;
+        return $this->registerLivewireComponentDefinitions([
+            'capell-admin::header.admin-tools' => AdminTools::class,
+            'capell-admin::header.navigation-tree' => NavigationTree::class,
+            'capell-admin::info-banner' => InfoBanner::class,
+            // Plain alias because the namespace resolves to Capell\Admin\Livewire.
+            'capell-admin-publish-status-panel' => PublishStatusPanel::class,
+        ], [
+            'namespace' => 'capell-admin',
+            'classNamespace' => 'Capell\\Admin\\Livewire',
+            'viewPath' => __DIR__ . '/../../resources/views/livewire',
+            'classPath' => __DIR__ . '/../Livewire',
+            'classViewPath' => __DIR__ . '/../../resources/views/livewire',
+        ]);
     }
 
     private function registerServingEvents(): self
@@ -748,53 +598,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function bootInstalledPackage(): self
-    {
-        FilamentClearCache::addCommand('capell:admin-clear-cache');
-
-        return $this
-            ->registerAboutInfo()
-            ->bootAdminBridges()
-            ->registerWidgetComponents()
-            ->registerBlazeComponents()
-            ->registerServingEvents()
-            ->registerLivewireComponents()
-            ->registerPublishCommands()
-            ->registerSubscribers()
-            ->registerModelInterceptors()
-            ->registerAdminEventSystem()
-            ->registerActAsOwnerAuditing()
-            ->registerEventSourcingBridges()
-            ->registerPolicies()
-            ->registerSettingsSchemas()
-            ->registerUpgradeNotificationSchedule()
-            ->registerContentRetentionSchedule()
-            ->registerModelObservers();
-    }
-
     private function registerActAsOwnerAuditing(): self
     {
-        Event::listen(
-            EnterImpersonation::class,
-            static function (EnterImpersonation $event): void {
-                RecordActAsOwnerActivityAction::run(
-                    supportUser: $event->impersonator,
-                    ownerUser: $event->impersonated,
-                    event: RecordActAsOwnerActivityAction::EVENT_STARTED,
-                );
-            },
-        );
-
-        Event::listen(
-            LeaveImpersonation::class,
-            static function (LeaveImpersonation $event): void {
-                RecordActAsOwnerActivityAction::run(
-                    supportUser: $event->impersonator,
-                    ownerUser: $event->impersonated,
-                    event: RecordActAsOwnerActivityAction::EVENT_STOPPED,
-                );
-            },
-        );
+        Event::subscribe(ActAsOwnerEventSubscriber::class);
 
         return $this;
     }
@@ -822,81 +628,65 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerDashboardFilamentWidgets(): self
     {
-        CapellAdmin::registerDashboardFilamentWidget(CapellAccountFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(CapellInfoFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(ListPagesFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(RecentActivityFilamentWidget::class, DashboardEnum::Main);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioQuickActionsFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioWorkQueueFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioLaunchReadinessFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioTimelineFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(MarketingStudioAdvancedFilamentWidget::class, DashboardEnum::MarketingStudio);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionStatsOverviewFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionHealthFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionDiagnosticsFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionUpdateReadinessFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionDependencyGraphFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionRuntimeCompatibilityFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(ExtensionActionsFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(RecentlyChangedExtensionsFilamentWidget::class, DashboardEnum::Extensions);
-        CapellAdmin::registerDashboardFilamentWidget(InstalledExtensionsFilamentWidget::class, DashboardEnum::Extensions);
+        $widgets = [
+            DashboardEnum::Main->value => [
+                CapellAccountFilamentWidget::class,
+                CapellInfoFilamentWidget::class,
+                ListPagesFilamentWidget::class,
+                RecentActivityFilamentWidget::class,
+            ],
+            DashboardEnum::MarketingStudio->value => [
+                MarketingStudioQuickActionsFilamentWidget::class,
+                MarketingStudioWorkQueueFilamentWidget::class,
+                MarketingStudioLaunchReadinessFilamentWidget::class,
+                MarketingStudioTimelineFilamentWidget::class,
+                MarketingStudioAdvancedFilamentWidget::class,
+            ],
+            DashboardEnum::Extensions->value => [
+                ExtensionStatsOverviewFilamentWidget::class,
+                ExtensionHealthFilamentWidget::class,
+                ExtensionDiagnosticsFilamentWidget::class,
+                ExtensionUpdateReadinessFilamentWidget::class,
+                ExtensionDependencyGraphFilamentWidget::class,
+                ExtensionRuntimeCompatibilityFilamentWidget::class,
+                ExtensionActionsFilamentWidget::class,
+                RecentlyChangedExtensionsFilamentWidget::class,
+                InstalledExtensionsFilamentWidget::class,
+            ],
+        ];
+
+        foreach ($widgets as $dashboard => $widgetClasses) {
+            foreach ($widgetClasses as $widgetClass) {
+                CapellAdmin::registerDashboardFilamentWidget($widgetClass, DashboardEnum::from($dashboard));
+            }
+        }
 
         return $this;
     }
 
     private function registerOverviewStats(): self
     {
-        CapellAdmin::registerOverviewStat(
-            key: 'capell_overview.pages',
-            label: fn (): string => __('capell-admin::dashboard.stat_total_pages'),
-            value: fn (): int => Page::query()->count(),
-            group: fn (): string => __('capell-admin::dashboard.overview_group_core'),
-            description: fn (): string => __('capell-admin::dashboard.overview_stat_pages_description'),
-            sort: 10,
-            defaultEnabled: true,
-            settingsKey: 'page_status',
-            settingsLabel: fn (): string => __('capell-admin::dashboard.widget_capell_overview'),
-            settingsDescription: fn (): string => __('capell-admin::dashboard.widget_page_status_description'),
-        );
+        $stats = [
+            'pages' => ['label' => 'stat_total_pages', 'sort' => 10, 'value' => fn (): int => Page::query()->count()],
+            'sites' => ['label' => 'stat_sites', 'sort' => 20, 'value' => fn (): int => Site::query()->count()],
+            'languages' => ['label' => 'stat_languages', 'sort' => 30, 'value' => fn (): int => Language::query()->count()],
+            'page_types' => ['label' => 'stat_page_types', 'sort' => 40, 'value' => fn (): int => Blueprint::query()->pageType()->count()],
+        ];
 
-        CapellAdmin::registerOverviewStat(
-            key: 'capell_overview.sites',
-            label: fn (): string => __('capell-admin::dashboard.stat_sites'),
-            value: fn (): int => Site::query()->count(),
-            group: fn (): string => __('capell-admin::dashboard.overview_group_core'),
-            description: fn (): string => __('capell-admin::dashboard.overview_stat_sites_description'),
-            sort: 20,
-            defaultEnabled: true,
-            settingsKey: 'page_status',
-            settingsLabel: fn (): string => __('capell-admin::dashboard.widget_capell_overview'),
-            settingsDescription: fn (): string => __('capell-admin::dashboard.widget_page_status_description'),
-        );
-
-        CapellAdmin::registerOverviewStat(
-            key: 'capell_overview.languages',
-            label: fn (): string => __('capell-admin::dashboard.stat_languages'),
-            value: fn (): int => Language::query()->count(),
-            group: fn (): string => __('capell-admin::dashboard.overview_group_core'),
-            description: fn (): string => __('capell-admin::dashboard.overview_stat_languages_description'),
-            sort: 30,
-            defaultEnabled: true,
-            settingsKey: 'page_status',
-            settingsLabel: fn (): string => __('capell-admin::dashboard.widget_capell_overview'),
-            settingsDescription: fn (): string => __('capell-admin::dashboard.widget_page_status_description'),
-        );
-
-        CapellAdmin::registerOverviewStat(
-            key: 'capell_overview.page_types',
-            label: fn (): string => __('capell-admin::dashboard.stat_page_types'),
-            value: fn (): int => Blueprint::query()->pageType()->count(),
-            group: fn (): string => __('capell-admin::dashboard.overview_group_core'),
-            description: fn (): string => __('capell-admin::dashboard.overview_stat_page_types_description'),
-            sort: 40,
-            defaultEnabled: true,
-            settingsKey: 'page_status',
-            settingsLabel: fn (): string => __('capell-admin::dashboard.widget_capell_overview'),
-            settingsDescription: fn (): string => __('capell-admin::dashboard.widget_page_status_description'),
-        );
+        foreach ($stats as $key => $stat) {
+            CapellAdmin::registerOverviewStat(
+                key: 'capell_overview.' . $key,
+                label: fn (): string => __(sprintf('capell-admin::dashboard.%s', $stat['label'])),
+                value: $stat['value'],
+                group: fn (): string => __('capell-admin::dashboard.overview_group_core'),
+                description: fn (): string => __(sprintf('capell-admin::dashboard.overview_stat_%s_description', $key)),
+                sort: $stat['sort'],
+                defaultEnabled: true,
+                settingsKey: 'page_status',
+                settingsLabel: fn (): string => __('capell-admin::dashboard.widget_capell_overview'),
+                settingsDescription: fn (): string => __('capell-admin::dashboard.widget_page_status_description'),
+            );
+        }
 
         return $this;
     }
@@ -926,7 +716,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerAdminEventSystem(): self
     {
-        $this->app->singleton(AdminEventRegistry::class, static fn (): AdminEventRegistry => new AdminEventRegistry);
+        $this->app->singleton(AdminEventRegistry::class);
 
         $this->app->singleton(
             AdminEventRouter::class,
@@ -954,20 +744,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerBlazeComponents(): self
     {
-        RegisterBlazeOptimizedViewsAction::run(__DIR__ . '/../../resources/views/components/alert.blade.php');
-
-        return $this;
+        return $this->registerBlazeOptimizedViews([
+            __DIR__ . '/../../resources/views/components/alert.blade.php',
+        ]);
     }
 
-    private function registerPackageMetadata(): self
+    private function registerAdminPackageMetadata(): self
     {
-        CapellCore::registerPackage(
-            static::$packageName,
-            type: static::getType(),
-            serviceProviderClass: static::class,
-            path: dirname(__DIR__, 2),
-            version: CapellCore::getInstalledPrettyVersion(static::$packageName),
-            setting: AdminSettings::class,
+        return parent::registerPackageMetadata(
             setupCommand: 'capell:admin-setup',
             setupParams: [
                 'url',
@@ -986,8 +770,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 'force',
             ],
         );
-
-        return $this;
     }
 
     private function registerMacros(): self
@@ -1004,16 +786,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         Textarea::mixin(new HelperCountTextMacro);
         TextInput::mixin(new TextInputMacro);
         TextInput::mixin(new HelperCountTextMacro);
-
-        Builder::macro(
-            'whereNullOr',
-            function (string $column, string $operator, mixed $value = null) {
-                /** @var Builder $this */
-                return $this->where(
-                    fn (Builder $query) => $query->whereNull($column)->orWhere($column, $operator, $value),
-                );
-            },
-        );
+        Builder::mixin(new BuilderMacros);
 
         return $this;
     }
@@ -1023,91 +796,73 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         /** @var class-string<Blueprint> $blueprintModel */
         $blueprintModel = Blueprint::class;
 
-        CapellCore::registerModelInterceptor(
-            $blueprintModel,
-            interceptorClass: DefaultPageBlueprintInterceptor::class,
-            key: [
-                'key' => PageTypeEnum::Default->value,
-                'type' => BlueprintSubjectEnum::Page,
-            ],
-        );
+        $interceptors = [
+            PageTypeEnum::Default->value => DefaultPageBlueprintInterceptor::class,
+            PageTypeEnum::NotFound->value => NotFoundPageBlueprintInterceptor::class,
+            PageTypeEnum::Home->value => HomePageBlueprintInterceptor::class,
+            PageTypeEnum::Maintenance->value => MaintenancePageBlueprintInterceptor::class,
+            PageTypeEnum::System->value => SystemPageBlueprintInterceptor::class,
+        ];
 
-        CapellCore::registerModelInterceptor(
-            $blueprintModel,
-            interceptorClass: NotFoundPageBlueprintInterceptor::class,
-            key: [
-                'key' => PageTypeEnum::NotFound->value,
-                'type' => BlueprintSubjectEnum::Page,
-            ],
-        );
-
-        CapellCore::registerModelInterceptor(
-            $blueprintModel,
-            interceptorClass: HomePageBlueprintInterceptor::class,
-            key: [
-                'key' => PageTypeEnum::Home->value,
-                'type' => BlueprintSubjectEnum::Page,
-            ],
-        );
-
-        CapellCore::registerModelInterceptor(
-            $blueprintModel,
-            interceptorClass: MaintenancePageBlueprintInterceptor::class,
-            key: [
-                'key' => PageTypeEnum::Maintenance->value,
-                'type' => BlueprintSubjectEnum::Page,
-            ],
-        );
-
-        CapellCore::registerModelInterceptor(
-            $blueprintModel,
-            interceptorClass: SystemPageBlueprintInterceptor::class,
-            key: [
-                'key' => PageTypeEnum::System->value,
-                'type' => BlueprintSubjectEnum::Page,
-            ],
-        );
+        foreach ($interceptors as $pageType => $interceptorClass) {
+            CapellCore::registerModelInterceptor(
+                $blueprintModel,
+                interceptorClass: $interceptorClass,
+                key: [
+                    'key' => $pageType,
+                    'type' => BlueprintSubjectEnum::Page,
+                ],
+            );
+        }
 
         return $this;
     }
 
     private function registerSettingsSchemas(): self
     {
-        $registry = resolve(SettingsSchemaRegistry::class);
+        $surface = $this->surface();
+        $settingsGroups = [
+            'core' => [
+                'class' => CoreSettings::class,
+                'label' => 'capell-admin::generic.core',
+                'icon' => Heroicon::OutlinedCog6Tooth,
+                'sort' => 90,
+                'package' => CapellServiceProvider::$packageName,
+                'schemas' => [CoreSettingsSchema::class],
+            ],
+            'admin' => [
+                'class' => AdminSettings::class,
+                'label' => 'capell-admin::generic.admin_settings',
+                'icon' => Heroicon::OutlinedWrenchScrewdriver,
+                'sort' => 91,
+                'package' => static::$packageName,
+                'schemas' => [AdminSettingsSchema::class, DashboardSettingsSchema::class],
+            ],
+            'theme_studio' => [
+                'class' => ThemeStudioSettings::class,
+                'label' => 'capell-admin::generic.theme_studio',
+                'icon' => Heroicon::OutlinedSwatch,
+                'sort' => 92,
+                'package' => CapellServiceProvider::$packageName,
+                'schemas' => [ThemeStudioSettingsSchema::class],
+            ],
+        ];
 
-        $registry->registerSettingsClass('core', CoreSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
-            group: 'core',
-            label: 'capell-admin::generic.core',
-            icon: Heroicon::OutlinedCog6Tooth,
-            navigationGroup: 'capell-admin::navigation.group_system',
-            navigationSort: 90,
-            packageName: CapellServiceProvider::$packageName,
-        ));
-        $registry->register('core', CoreSettingsSchema::class);
+        foreach ($settingsGroups as $group => $settings) {
+            $surface->settingsClass($group, $settings['class']);
+            $surface->settingsMetadata(new SettingsGroupMetadata(
+                group: $group,
+                label: $settings['label'],
+                icon: $settings['icon'],
+                navigationGroup: 'capell-admin::navigation.group_system',
+                navigationSort: $settings['sort'],
+                packageName: $settings['package'],
+            ));
 
-        $registry->registerSettingsClass('admin', AdminSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
-            group: 'admin',
-            label: 'capell-admin::generic.admin_settings',
-            icon: Heroicon::OutlinedWrenchScrewdriver,
-            navigationGroup: 'capell-admin::navigation.group_system',
-            navigationSort: 91,
-            packageName: static::$packageName,
-        ));
-        $registry->register('admin', AdminSettingsSchema::class);
-        $registry->register('admin', DashboardSettingsSchema::class);
-
-        $registry->registerSettingsClass('theme_studio', ThemeStudioSettings::class);
-        $registry->registerMetadata(new SettingsGroupMetadata(
-            group: 'theme_studio',
-            label: 'capell-admin::generic.theme_studio',
-            icon: Heroicon::OutlinedSwatch,
-            navigationGroup: 'capell-admin::navigation.group_system',
-            navigationSort: 92,
-            packageName: CapellServiceProvider::$packageName,
-        ));
-        $registry->register('theme_studio', ThemeStudioSettingsSchema::class);
+            foreach ($settings['schemas'] as $schema) {
+                $surface->settingsSchema($group, $schema);
+            }
+        }
 
         return $this;
     }
@@ -1120,7 +875,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $frequency = config('capell-admin.upgrades.notifications.frequency', 'weekly');
 
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($frequency): void {
+        $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
             $event = $schedule
                 ->command('capell:admin-upgrade-summary-email')
                 ->withoutOverlapping()
@@ -1142,7 +897,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
      */
     private function registerContentRetentionSchedule(): self
     {
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+        $this->registerSchedule(function (Schedule $schedule): void {
             $schedule->command('capell:purge-soft-deleted-media')
                 ->dailyAt('03:00')
                 ->withoutOverlapping()

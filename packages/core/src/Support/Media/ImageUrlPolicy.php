@@ -16,12 +16,6 @@ final class ImageUrlPolicy implements Resettable
 
     private ?bool $allowRelativeUrls = null;
 
-    public function flushOctaneState(): void
-    {
-        $this->allowedDomains = null;
-        $this->allowRelativeUrls = null;
-    }
-
     /**
      * @param  list<string>|null  $allowedDomains
      */
@@ -111,6 +105,12 @@ final class ImageUrlPolicy implements Resettable
         } catch (Throwable) {
             return $this->allowRelativeUrls = true;
         }
+    }
+
+    public function flushOctaneState(): void
+    {
+        $this->allowedDomains = null;
+        $this->allowRelativeUrls = null;
     }
 
     private function isRelativeUrl(string $url): bool

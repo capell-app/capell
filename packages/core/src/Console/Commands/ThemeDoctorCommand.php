@@ -9,6 +9,7 @@ use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
@@ -37,7 +38,7 @@ final class ThemeDoctorCommand extends Command
         );
 
         if ($this->option('json')) {
-            $this->line(json_encode($report->toArray(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+            $this->line(JsonCodec::encode($report->toArray(), JSON_PRETTY_PRINT));
 
             return $report->passed() ? CommandAlias::SUCCESS : CommandAlias::FAILURE;
         }

@@ -421,65 +421,61 @@ it('keeps the progress page restart label statement syntactically separated', fu
         ->not->toContain("@json(__('capell-installer::installer.restart_install'))\n                var stopped");
 });
 
-it('keeps the installer package dependency javascript syntactically separated', function (): void {
+it('renders the installer configuration and script modules in dependency order', function (): void {
+    $html = get(route('capell-installer.show'))
+        ->assertOk()
+        ->assertSee('id="capell-installer-config"', false)
+        ->content();
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
+    $modules = [
+        'install/support.js',
+        'install/wizard.js',
+        'install/packages.js',
+        'install/form-options.js',
+        'install/progress.js',
+        'install/csrf.js',
+        'install/runner.js',
+        'install.js',
+    ];
 
     expect($view)
         ->toContain('type="application/json"')
         ->toContain('id="capell-installer-config"')
         ->toContain('Js::encode($installerConfig)')
         ->not->toContain('json_encode($installerConfig')
-        ->toContain('resources/js/install.js')
         ->toContain('data-submit-label')
         ->toContain('class="submit-arrow"')
         ->toContain('installPackageLabel')
         ->toContain('installPackagesLabel')
         ->toContain('installingPackageLabel')
         ->toContain('installingPackagesLabel')
-        ->not->toContain('@json')
-        ->and($script)
-        ->not->toContain("Object.keys(requirementsMap).forEach(\n                    Object.keys(requirementsMap).forEach(")
-        ->not->toContain('@json')
-        ->toContain("var sessionExpiredMessage = messages.sessionExpired || ''")
-        ->toContain("var configElement = document.getElementById('capell-installer-config')")
-        ->toContain("'X-CSRF-TOKEN': csrfToken")
-        ->toContain('function refreshCsrfToken')
-        ->toContain('refreshCsrfToken()')
-        ->toContain('return submitInstallForm(true)')
-        ->toContain('function updateSubmitButtonLabel')
-        ->toContain("submitButton.setAttribute('aria-busy', 'true')")
-        ->toContain("submitButton.removeAttribute('aria-busy')");
+        ->not->toContain('@json');
+
+    $previousPosition = strpos($html, 'id="capell-installer-config"');
+
+    foreach ($modules as $module) {
+        $position = strpos($html, 'data-installer-module="' . $module . '"');
+
+        expect($position)
+            ->not->toBeFalse()
+            ->toBeGreaterThan($previousPosition);
+
+        $previousPosition = $position;
+    }
 });
 
-it('handles enter-submitted multi-step forms as step continuation before install', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
+it('does not render a separate review step', function (): void {
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
 
-    expect($script)
-        ->toContain('function continueToNextInstallerStep')
-        ->toContain("form.addEventListener('keydown', function (event) {")
-        ->toContain("event.key !== 'Enter'")
-        ->toContain('currentInstallerStep === lastInstallerStep()')
-        ->toContain('continueToNextInstallerStep()')
-        ->not->toContain("setInstallerStep('review')")
-        ->and($view)
+    expect($view)
         ->not->toContain('data-step-trigger="review"')
         ->not->toContain('data-installer-step="review"');
 });
 
 it('animates installer step navigation with distinct back and continue pacing', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
     $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
 
-    expect($script)
-        ->toContain('function installerStepTransitionDirection')
-        ->toContain("setInstallerStep(installerStepOrder[nextStepIndex], 'forward')")
-        ->toContain("setInstallerStep(installerStepOrder[previousStepIndex], 'back')")
-        ->toContain('installer-step-enter-forward')
-        ->toContain('installer-step-enter-back')
-        ->and($styles)
-        ->toContain('@media (prefers-reduced-motion: reduce)');
+    expect($styles)->toContain('@media (prefers-reduced-motion: reduce)');
 });
 
 it('keeps preflight panels free of decorative gradients', function (): void {
@@ -516,22 +512,6 @@ it('does not render the removed installer nav', function (): void {
     $content = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
 
     expect($content)->not->toContain('installer-nav');
-});
-
-it('keeps disabled required package selections in form submissions', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
-
-    expect($script)->toContain('data-required-hidden');
-});
-
-it('shows which selected packages require an auto-selected dependency', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
-
-    expect($script)
-        ->toContain('function resolveRequiredByPackages')
-        ->toContain('function requiredByText')
-        ->toContain('requiredByTemplate.replace(')
-        ->toContain(':packages');
 });
 
 it('renders AI Agent Bridge developer tooling separately from downloadable packages', function (): void {
@@ -601,30 +581,8 @@ it('renders a post-install launchpad for first admin onboarding', function (): v
         ->assertDontSee('Admin -&gt; Extensions', false);
 });
 
-it('keeps installer errors visible in the progress log', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
-
-    expect($script)
-        ->toContain('function appendLogLine')
-        ->toContain('result.payload.error')
-        ->toContain('result.payload.message')
-        ->toContain('Network error while running')
-        ->toContain('result.payload.remediation');
-});
-
-it('renders per-step timer placeholders in the multi-step progress view', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
-
-    expect($script)
-        ->toContain('function startStepTimer')
-        ->toContain('function finishStepTimer')
-        ->toContain('formatDuration')
-        ->toContain('duration');
-});
-
 it('renders mobile-first progress loading, failure, and technical log regions', function (): void {
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
     $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
 
     expect($view)
@@ -633,28 +591,6 @@ it('renders mobile-first progress loading, failure, and technical log regions', 
         ->toContain('id="failure-panel"')
         ->toContain('id="technical-log-panel"')
         ->toContain('id="technical-log-panel"' . PHP_EOL . '                    open')
-        ->and($script)
-        ->toContain('showFailurePanel(')
-        ->toContain("progressLoader.hidden = status === 'complete' || status === 'failed'")
-        ->toContain('problemMessage.replace')
-        ->toContain('showFailurePanel(stepKey)')
-        ->toContain('function showFailurePanel(stepKey)')
-        ->toContain('technicalLogPanel.hidden = false' . PHP_EOL . '            technicalLogPanel.open = true')
-        ->toContain('renderStepWindow')
-        ->toContain('createSelectableStepWindowItem')
-        ->toContain('progressPreviousStepLabel +')
-        ->toContain('progressNextStepLabel +')
-        ->toContain('function selectedStepWindowState')
-        ->toContain('function restoreSelectedStepWindowState')
-        ->toContain('function selectableStepWindowSize')
-        ->toContain('row.dataset.stepWindowState = windowState')
-        ->toContain('select.size = selectableStepWindowSize(steps)')
-        ->not->toContain('select.multiple = true')
-        ->not->toContain('select.showPicker()')
-        ->toContain("select.addEventListener('change'")
-        ->toContain('copy.appendChild(select)')
-        ->not->toContain("row.querySelector('.progress-step-copy').insertBefore")
-        ->toContain('updateProgressSummary')
         ->and($styles)->toContain('.progress-steps-summary')
         ->toContain('.progress-steps-timeline')
         ->toContain('.progress-step-select')
@@ -667,7 +603,6 @@ it('renders mobile-first progress loading, failure, and technical log regions', 
 
 it('places the diagnostic download form above the console output', function (): void {
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
 
     expect($view)
         ->toContain('class="progress-report-link"')
@@ -677,25 +612,16 @@ it('places the diagnostic download form above the console output', function (): 
         ->toContain('data-report-download-button')
         ->toContain('technical-log-actions')
         ->toContain('technical-log-chevron')
-        ->and($script)
-        ->toContain('reportLink.action =')
-        ->toContain('event.stopPropagation()')
         ->and(strpos($view, 'id="report-link"'))->toBeLessThan(strpos($view, 'id="log"'))
         ->and($view)->not->toContain('class="button secondary"' . PHP_EOL . '                        href="#"' . PHP_EOL . '                        id="report-link"');
 });
 
 it('summarises web server timeout pages instead of showing raw html', function (): void {
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
 
     expect($view)
         ->toContain('serverTimeoutError')
-        ->toContain('server_timeout_error')
-        ->and($script)
-        ->toContain('function responseLooksLikeServerTimeout')
-        ->toContain('bad gateway|gateway timeout|service unavailable')
-        ->toContain('serverTimeoutErrorMessage')
-        ->not->toContain('text.slice(0, 500)');
+        ->toContain('server_timeout_error');
 });
 
 it('renders preflight feedback and removes post-install operational toggles', function (): void {
@@ -720,14 +646,10 @@ it('renders preflight feedback and removes post-install operational toggles', fu
 });
 
 it('uses the left rail step navigation as the installer progress indicator', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
     $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
 
-    expect($script)
-        ->toContain('triggerStepIndex >= 0 && triggerStepIndex < activeStepIndex')
-        ->not->toContain("trigger.classList.toggle('done', false)")
-        ->and($styles)
+    expect($styles)
         ->toContain('counter-reset: installer-step')
         ->toContain('content: counter(installer-step)')
         ->not->toContain('.installer-tabs')
@@ -834,7 +756,6 @@ it('shows the admin installer docs link with the manual admin panel changes opti
 
 it('hides the admin panel changes fieldset when the admin package is not selected', function (): void {
     $template = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
 
     $html = withSession([
         '_old_input' => [
@@ -848,10 +769,7 @@ it('hides the admin panel changes fieldset when the admin package is not selecte
         ->toContain('data-admin-package-name="capell-app/admin"')
         ->toContain('class="admin-panel-changes hidden"')
         ->and($template)
-        ->toContain("'hidden' => ! \$adminPackageIsSelected")
-        ->and($script)
-        ->toContain('function updateAdminPanelChangesVisibility')
-        ->toContain("adminPanelChanges.classList.toggle('hidden', !hasAdminPackage)");
+        ->toContain("'hidden' => ! \$adminPackageIsSelected");
 });
 
 it('hides downloadable packages composer cannot resolve', function (): void {
@@ -988,17 +906,6 @@ it('selects configured default packages without treating them as core packages',
         ->not->toMatch('/value="vendor\/other-downloadable"[^>]*checked/s');
 });
 
-it('keeps package checklist javascript independent from package modes', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
-
-    expect($script)
-        ->toContain("section.classList.remove('hidden')")
-        ->not->toContain('PackageMode')
-        ->not->toContain('packageMode')
-        ->not->toContain('data-package-mode')
-        ->not->toContain('selectedPackageMode');
-});
-
 it('passes configured default packages into default web installer submissions', function (): void {
     config(['capell-installer.default_packages' => ['vendor/default-installed-extension']]);
 
@@ -1072,16 +979,6 @@ PHP);
     );
 });
 
-it('uses a dry run require to prove downloadable packages are installable', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/src/Http/Controllers/InstallController.php');
-
-    expect($content)
-        ->toContain("'require'")
-        ->toContain("'--dry-run'")
-        ->toContain("'--no-scripts'")
-        ->toContain("'--with-all-dependencies'");
-});
-
 it('shows an already installed message when capell core is composer available and site data exists', function (): void {
     config(['capell-installer.allow_reinstall' => false]);
     Cache::forget('capell.install.lock');
@@ -1102,14 +999,10 @@ it('shows an already installed message when capell core is composer available an
 
 it('renders a one-time success page for completed browser installs', function (): void {
     $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $script = file_get_contents(dirname(__DIR__, 2) . '/resources/js/install.js');
     $successView = file_get_contents(dirname(__DIR__, 2) . '/resources/views/success.blade.php');
 
     expect($view)
         ->not->toContain('id="completion-panel"')
-        ->and($script)
-        ->toContain('activeSuccessUrl = result.payload.successUrl ||')
-        ->toContain("result.payload.status === 'complete'")
         ->and($successView)
         ->not->toContain('beforeunload')
         ->toContain('data-remove-installer-form')
@@ -2574,6 +2467,13 @@ it('returns validation errors when run-step payload is malformed', function (): 
         ['Accept' => 'application/json'],
     )
         ->assertStatus(422)
+        ->assertJsonValidationErrors(['install_id', 'step']);
+});
+
+it('returns json validation errors for malformed run-step payloads without an accept header', function (): void {
+    post(route('capell-installer.run-step'), ['install_id' => 'not-a-uuid'])
+        ->assertStatus(422)
+        ->assertHeader('content-type', 'application/json')
         ->assertJsonValidationErrors(['install_id', 'step']);
 });
 

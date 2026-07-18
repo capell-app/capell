@@ -75,7 +75,7 @@ it('warns when a legacy manifest upgrade command is missing', function (): void 
     config(['queue.default' => 'array']);
 
     CapellCore::registerPackage(
-        name: 'vendor/missing-upgrade-command',
+        name: 'test',
         path: realpath(__DIR__ . '/../../../../../../tests/fixtures/upgrade-package'),
     );
 

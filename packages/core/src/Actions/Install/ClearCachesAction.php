@@ -21,7 +21,7 @@ class ClearCachesAction
      *
      * @var array<string, array{command: string, message: string, optional: bool}>
      */
-    private const CACHE_COMMANDS = [
+    private const array CACHE_COMMANDS = [
         'page' => [
             'command' => 'capell:html-cache:clear',
             'message' => '✓ HTML cache cleared',
@@ -45,6 +45,11 @@ class ClearCachesAction
         'components' => [
             'command' => 'capell:clear-components-cache',
             'message' => '✓ Capell components cache cleared',
+            'optional' => true,
+        ],
+        'widgets' => [
+            'command' => 'capell:admin-clear-widgets-cache',
+            'message' => '✓ Capell widgets cache cleared',
             'optional' => true,
         ],
         'configurators' => [

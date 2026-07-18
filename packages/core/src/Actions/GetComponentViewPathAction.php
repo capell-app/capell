@@ -28,6 +28,10 @@ class GetComponentViewPathAction
     public function handle(string $component, bool $livewire = false): string
     {
         try {
+            if (! $livewire) {
+                $view = resolve(ComponentTagCompiler::class)->componentClass($component);
+            }
+
             if ($livewire) {
                 // Livewire v4
                 if (class_exists(Finder::class) && app()->bound('livewire.finder')) {
@@ -42,8 +46,6 @@ class GetComponentViewPathAction
                 throw_if($componentClass === null || ! class_exists($componentClass), ComponentNotFoundException::class, $component . ' component class not found.');
 
                 $view = $componentClass::getViewName();
-            } else {
-                $view = resolve(ComponentTagCompiler::class)->componentClass($component);
             }
         } catch (InvalidArgumentException) {
             throw new ComponentNotFoundException($component . ' component not found.');

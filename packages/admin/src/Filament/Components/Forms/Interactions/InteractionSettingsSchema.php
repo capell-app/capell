@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Interactions;
 
+use Capell\Admin\Enums\InteractionModalSizeEnum;
+use Capell\Admin\Enums\InteractionStyleEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\Presentation\PresentationSettingsSchema;
 use Capell\Core\Enums\InteractionBehavior;
@@ -75,11 +77,7 @@ class InteractionSettingsSchema
                         ->placeholder('heroicon-o-play'),
                     Select::make('style')
                         ->label(__('capell-admin::form.style'))
-                        ->options([
-                            'primary' => __('capell-admin::generic.primary'),
-                            'secondary' => __('capell-admin::generic.secondary'),
-                            'subtle' => __('capell-admin::generic.subtle'),
-                        ])
+                        ->options(InteractionStyleEnum::options())
                         ->default('primary'),
                 ]),
             Grid::make(['md' => 3])
@@ -98,13 +96,7 @@ class InteractionSettingsSchema
                         ->visible(fn (Get $get): bool => $get('target_type') !== InteractionTargetType::Url->value),
                     Select::make('modal_size')
                         ->label(__('capell-admin::form.modal_size'))
-                        ->options([
-                            'sm' => __('capell-admin::generic.small'),
-                            'md' => __('capell-admin::generic.medium'),
-                            'lg' => __('capell-admin::generic.large'),
-                            'xl' => __('capell-admin::generic.extra_large'),
-                            'screen' => __('capell-admin::generic.full_screen'),
-                        ])
+                        ->options(InteractionModalSizeEnum::options())
                         ->placeholder(__('capell-admin::generic.default'))
                         ->visible(fn (Get $get): bool => in_array($get('behavior'), [InteractionBehavior::Modal->value, InteractionBehavior::SlideOver->value], true)),
                 ]),

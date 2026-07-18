@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Backup\InspectBackupHealthAction;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
@@ -19,7 +20,7 @@ final class BackupHealthCommand extends Command
         $report = InspectBackupHealthAction::run();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($report->toArray(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+            $this->line(JsonCodec::encode($report->toArray(), JSON_PRETTY_PRINT));
 
             return $report->passed() ? CommandAlias::SUCCESS : CommandAlias::FAILURE;
         }

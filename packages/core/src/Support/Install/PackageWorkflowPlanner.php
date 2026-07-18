@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
 final class PackageWorkflowPlanner
 {
     /** @var list<string> */
-    private const FINAL_PACKAGE_NAMES = [
+    private const array FINAL_PACKAGE_NAMES = [
         'capell-app/publishing-studio',
         'capell-app/worktree',
     ];

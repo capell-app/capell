@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCacheDirective;
@@ -23,7 +24,7 @@ it('frontend package has frontend scope', function (): void {
 });
 
 it('registers core-safe extension services', function (): void {
-    expect(app()->bound('capell.frontend.context'))->toBeTrue()
+    expect(app()->bound(FrontendContextReader::class))->toBeTrue()
         ->and(app()->bound('capell.frontend.retrieved-model-store'))->toBeTrue()
         ->and(app()->bound('capell.frontend.layout-container-width-resolver'))->toBeTrue()
         ->and(resolve('capell.frontend.layout-container-width-resolver'))->toBeCallable();
@@ -34,16 +35,14 @@ it('registers the owner-aware public fragment services', function (): void {
         ->and(app()->bound(PublicFragmentUrlResolverRegistry::class))->toBeTrue();
 });
 
-it('tags frontend request state services for octane resets', function (): void {
+it('only tags singleton frontend state for octane resets', function (): void {
     $resettableServices = collect(app()->tagged(Resettable::TAG))
         ->map(fn (object $service): string => $service::class)
         ->all();
 
-    expect($resettableServices)->toContain(
-        CacheInvalidationRegistry::class,
-        FragmentCacheDirective::class,
-        ThemeViewRegistrar::class,
-    );
+    expect($resettableServices)
+        ->toContain(ThemeViewRegistrar::class)
+        ->not->toContain(CacheInvalidationRegistry::class, FragmentCacheDirective::class);
 });
 
 it('registers frontend css for generated tailwind assets', function (): void {

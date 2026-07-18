@@ -11,7 +11,7 @@ use Capell\Core\Data\PageTypeData;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
-use Capell\Core\Support\Subscriber\SubscriberManager;
+use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -97,9 +97,9 @@ final class PackageSurfaceRegistrar
     }
 
     /**
-     * @return SubscriberManager<object>
+     * @return SubscriberRegistry<object>
      */
-    public function subscriberManager(): SubscriberManager
+    public function subscriberManager(): SubscriberRegistry
     {
         return $this->core->subscriberManager();
     }

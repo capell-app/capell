@@ -17,7 +17,7 @@ use Spatie\LaravelData\Data;
  * Pass this Data object across the Livewire boundary instead of the raw enum.
  * Labels are resolved eagerly at construction time, before dehydration occurs.
  */
-class BlueprintSubjectDescriptorData extends Data
+final class BlueprintSubjectDescriptorData extends Data
 {
     public function __construct(
         public readonly string $value,

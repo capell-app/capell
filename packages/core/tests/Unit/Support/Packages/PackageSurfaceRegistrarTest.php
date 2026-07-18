@@ -6,14 +6,14 @@ use Capell\Core\Data\PageTypeData;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
-use Capell\Core\Support\Subscriber\SubscriberManager;
+use Capell\Core\Support\Subscriber\SubscriberRegistry;
 
 it('delegates core surfaces to the core manager and returns itself for chaining', function (): void {
     $pageType = new PageTypeData(name: 'widget', model: stdClass::class);
 
     $core = Mockery::mock(CapellCoreManager::class);
     $settings = Mockery::mock(SettingsSchemaRegistry::class);
-    $subscribers = Mockery::mock(SubscriberManager::class);
+    $subscribers = Mockery::mock(SubscriberRegistry::class);
 
     $core->shouldReceive('registerPageType')->once()->with($pageType);
     $core->shouldReceive('registerComponent')->once()->with('page', 'hero', 'hero-component');

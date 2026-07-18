@@ -9,7 +9,7 @@ use Lorisleiva\Actions\Action;
 /**
  * Increments a trailing number in a string, or appends one if absent.
  */
-class IncrementNameAction extends Action
+final class IncrementNameAction extends Action
 {
     public function handle(string $name, string $separator = ' '): string
     {

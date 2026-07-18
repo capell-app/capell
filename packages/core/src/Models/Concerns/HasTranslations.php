@@ -10,6 +10,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -68,9 +69,10 @@ trait HasTranslations
         return $model;
     }
 
-    protected function getTitleAttribute(): ?string
+    /** @return Attribute<string|null, never> */
+    protected function title(): Attribute
     {
-        return $this->translation?->title;
+        return Attribute::make(get: fn (): ?string => $this->translation?->title);
     }
 
     /**

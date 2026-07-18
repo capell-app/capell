@@ -17,11 +17,9 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Data\FrontendRuleContextData;
 use Capell\Frontend\Enums\CacheEnum;
-use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtmlCacheable;
 use Capell\Frontend\Jobs\PurgeCdnCacheJob;
 use Capell\Frontend\Support\Cache\FragmentCache;
-use Capell\Frontend\Support\CapellFrontendContext;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
 use Capell\Frontend\Support\Rules\Conditions\QueryParameterCondition;
@@ -331,7 +329,7 @@ it('renders cacheable frontend GET requests anonymously even when Laravel has a 
             return $key === null ? $this->data : ($this->data[$key] ?? null);
         }
     };
-    Frontend::swap(new CapellFrontendContext($reader));
+    app()->instance(FrontendContextReader::class, $reader);
 
     $request = Request::create('/cacheable', Symfony\Component\HttpFoundation\Request::METHOD_GET);
     $request->setUserResolver(fn (): object => (object) ['id' => 1]);

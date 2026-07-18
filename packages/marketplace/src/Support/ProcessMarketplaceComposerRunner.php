@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Support;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
@@ -87,7 +88,7 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         $path = $composerHome . '/auth.json';
         $written = @file_put_contents(
             $path,
-            json_encode($composerAuth, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            JsonCodec::encode($composerAuth, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
         );
 
         throw_if($written === false, RuntimeException::class, 'Unable to write Composer authentication file.');

@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Makers;
 
 use Spatie\LaravelData\Data;
 
-class MakerInputData extends Data
+final class MakerInputData extends Data
 {
     /**
      * @param  array<string, mixed>  $values

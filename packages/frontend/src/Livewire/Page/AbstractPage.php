@@ -12,12 +12,11 @@ use Capell\Core\Models\Page as PageRecord;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\Kernel\Steps\BuildContextStep;
-use Capell\Frontend\Support\Kernel\Steps\CommitContextStep;
 use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
 use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
@@ -255,11 +254,11 @@ abstract class AbstractPage extends Component
             return;
         }
 
-        $this->stateToken = Crypt::encryptString(json_encode([
+        $this->stateToken = Crypt::encryptString(JsonCodec::encode([
             'page_model' => $page->getMorphClass(),
             'page_id' => (int) $page->getKey(),
             'url' => $this->frontendContextUrl($page),
-        ], JSON_THROW_ON_ERROR));
+        ]));
     }
 
     private function frontendContextUrl(Pageable&Model $page): string
@@ -405,7 +404,6 @@ abstract class AbstractPage extends Component
     private function frontendContextResolutionSteps(): array
     {
         $excludedSteps = [
-            CommitContextStep::class,
             RegisterThemeViewsStep::class,
             NotifySubscribersStep::class,
         ];
@@ -419,8 +417,6 @@ abstract class AbstractPage extends Component
                 PageResolveStep::class,
                 LayoutResolverStep::class,
                 ThemeResolverStep::class,
-                BuildContextStep::class,
-                CommitContextStep::class,
                 RegisterThemeViewsStep::class,
                 NotifySubscribersStep::class,
             ]),

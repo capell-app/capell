@@ -23,8 +23,7 @@ class NullRedirectResolver implements RedirectResolver
                 ->where('site_id', $site->getKey())
                 ->where('language_id', $language->getKey())
                 ->where('url', '/*')
-                ->where('type', UrlTypeEnum::Redirect)
-                ->where('status', true)
+                ->activeRedirects()
                 ->whereNotNull('target_url')
                 ->where('target_url', '!=', '')
                 ->first();

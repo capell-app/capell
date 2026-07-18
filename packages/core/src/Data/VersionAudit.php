@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-class VersionAudit extends Data
+final class VersionAudit extends Data
 {
     /**
      * @param  array<int, string>  $composerOnly

@@ -1,7 +1,5 @@
 # Page Cache Architecture
 
-![Capell cache freshness report](../images/generated/admin/cache-freshness-report.png)
-
 Capell's frontend cache is split into three decoupled layers. This document explains why the split exists, what each layer stores, how keys are generated, how invalidation works, and how the layers compose at runtime.
 
 ---

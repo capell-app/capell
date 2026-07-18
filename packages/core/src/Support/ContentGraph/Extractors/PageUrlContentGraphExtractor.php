@@ -16,7 +16,7 @@ use Capell\Core\Models\Site;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
-class PageUrlContentGraphExtractor implements ContentGraphExtractor
+final class PageUrlContentGraphExtractor implements ContentGraphExtractor
 {
     private const string SOURCE_PACKAGE = 'capell-app/core';
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Theme;
 
+use Capell\Admin\Enums\FooterSpacingEnum;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\ColorPicker;
@@ -45,11 +46,7 @@ class FooterFieldset extends Fieldset
                                     ->autoFormat(),
                                 Select::make('footer_spacing')
                                     ->label(__('capell-admin::form.spacing'))
-                                    ->options([
-                                        'compact' => __('capell-admin::form.spacing_compact'),
-                                        'default' => __('capell-admin::generic.default'),
-                                        'comfortable' => __('capell-admin::form.spacing_comfortable'),
-                                    ])
+                                    ->options(FooterSpacingEnum::options())
                                     ->default('compact'),
                             ]),
                         Section::make(__('capell-admin::form.advanced_footer_options'))

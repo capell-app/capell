@@ -18,6 +18,7 @@ use Capell\Core\Models\Concerns\HasUserstamps;
 use Capell\Core\Models\Contracts\Userstampable;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -189,82 +190,101 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
             ->where('collection_name', MediaCollectionEnum::BackgroundImage->value);
     }
 
-    protected function getLabelAttribute(): ?string
+    /** @return Attribute<string|null, never> */
+    protected function label(): Attribute
     {
-        $label = $this->meta['label'] ?? null;
+        return Attribute::make(get: function (): ?string {
+            $label = $this->meta['label'] ?? null;
 
-        if (! is_string($label) || $label === '') {
-            $title = $this->attributes['title'] ?? null;
+            if (! is_string($label) || $label === '') {
+                $title = $this->attributes['title'] ?? null;
 
-            return is_string($title) ? $title : null;
-        }
+                return is_string($title) ? $title : null;
+            }
 
-        return $label;
+            return $label;
+        });
     }
 
-    protected function getLinkTextAttribute(): ?string
+    /** @return Attribute<string|null, never> */
+    protected function linkText(): Attribute
     {
-        $linkText = $this->meta['link_text'] ?? null;
+        return Attribute::make(get: function (): ?string {
+            $linkText = $this->meta['link_text'] ?? null;
 
-        if ($linkText === null || $linkText === '') {
-            return $this->label;
-        }
+            if ($linkText === null || $linkText === '') {
+                return $this->label;
+            }
 
-        return $linkText;
+            return $linkText;
+        });
     }
 
-    protected function getSlugAttribute(): ?string
+    /** @return Attribute<string|null, never> */
+    protected function slug(): Attribute
     {
-        return $this->meta['slug'] ?? null;
+        return Attribute::make(get: fn (): ?string => $this->meta['slug'] ?? null);
     }
 
-    protected function getSummaryAttribute(): ?string
+    /** @return Attribute<string|null, never> */
+    protected function summary(): Attribute
     {
-        if (($this->meta['summary'] ?? null) !== null && $this->meta['summary'] !== '') {
-            return $this->meta['summary'];
-        }
+        return Attribute::make(get: function (): ?string {
+            if (($this->meta['summary'] ?? null) !== null && $this->meta['summary'] !== '') {
+                return $this->meta['summary'];
+            }
 
-        if ($this->content !== null && $this->content !== '') {
-            return str($this->content)->stripTags()->words(200)->toString();
-        }
+            if ($this->content !== null && $this->content !== '') {
+                return str($this->content)->stripTags()->words(200)->toString();
+            }
 
-        return null;
+            return null;
+        });
     }
 
-    protected function getMetaDescriptionAttribute(): string
+    /** @return Attribute<string, never> */
+    protected function metaDescription(): Attribute
     {
-        $meta = (array) $this->meta;
-        $description = $meta['description'] ?? null;
+        return Attribute::make(get: function (): string {
+            $meta = (array) $this->meta;
+            $description = $meta['description'] ?? null;
 
-        if ($description !== null && $description !== '') {
-            return $description;
-        }
+            if ($description !== null && $description !== '') {
+                return $description;
+            }
 
-        return ExtractTextContentAction::run($this->content, 120) ?? '';
+            return ExtractTextContentAction::run($this->content, 120) ?? '';
+        });
     }
 
-    protected function getMetaKeywordsAttribute(): string
+    /** @return Attribute<string, never> */
+    protected function metaKeywords(): Attribute
     {
-        $meta = (array) $this->meta;
-        $keywords = $meta['keywords'] ?? null;
+        return Attribute::make(get: function (): string {
+            $meta = (array) $this->meta;
+            $keywords = $meta['keywords'] ?? null;
 
-        if ($keywords !== null && $keywords !== '') {
-            return $keywords;
-        }
+            if ($keywords !== null && $keywords !== '') {
+                return $keywords;
+            }
 
-        return '';
+            return '';
+        });
     }
 
-    protected function getMetaTitleAttribute(): string
+    /** @return Attribute<string, never> */
+    protected function metaTitle(): Attribute
     {
-        $meta = (array) $this->meta;
-        $title = $meta['title'] ?? null;
+        return Attribute::make(get: function (): string {
+            $meta = (array) $this->meta;
+            $title = $meta['title'] ?? null;
 
-        if ($title !== null && $title !== '') {
-            return $title;
-        }
+            if ($title !== null && $title !== '') {
+                return $title;
+            }
 
-        return '';
+            return '';
+        });
     }
 
     /**

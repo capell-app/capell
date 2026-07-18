@@ -18,7 +18,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
-use Capell\Marketplace\Filament\Support\MarketplaceBrowser;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
@@ -145,7 +145,7 @@ it('builds marketplace table records from filtered marketplace listings', functi
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records(
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records(
         search: 'seo',
         filters: [
             'kind' => ['value' => 'tool'],
@@ -350,7 +350,7 @@ it('normalizes relative marketplace extension image paths to marketplace urls', 
         ]),
     ]);
 
-    $records = resolve(MarketplaceCatalogueTable::class)->records();
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     expect($records[0]['image_url'])->toBe('https://capell.app/docs/assets/marketplace/extension-card.jpg');
     expect($records[0]['image_urls'])->toBe([
@@ -374,7 +374,7 @@ it('uses next links to keep marketplace pagination visible when total meta is mi
         ]),
     ]);
 
-    $records = resolve(MarketplaceCatalogueTable::class)->paginatedRecords(
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->paginatedRecords(
         page: 1,
         perPage: 18,
     );
@@ -415,7 +415,7 @@ it('caps first page backfill requests when installed marketplace records are hid
         ]);
     });
 
-    $records = resolve(MarketplaceCatalogueTable::class)->records();
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     expect($records)->toBeEmpty();
 
@@ -427,9 +427,10 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
         'https://marketplace.test/api/extensions*' => Http::response(['message' => 'Unavailable'], 503),
     ]);
 
-    $page = resolve(MarketplaceCatalogueTable::class);
+    $provider = resolve(MarketplaceCatalogueRecordProvider::class);
+    $table = resolve(MarketplaceCatalogueTable::class);
 
-    $records = $page->records(
+    $records = $provider->records(
         search: ' seo ',
         filters: [
             'kind' => ['value' => 'invalid-kind'],
@@ -444,9 +445,9 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
     );
 
     expect($records)->toBeEmpty()
-        ->and($page->marketplaceBrowseUnavailable())->toBeTrue()
-        ->and($page->marketplaceEmptyStateHeading())->toBe(__('capell-marketplace::marketplace.filters.unavailable_heading'))
-        ->and($page->marketplaceEmptyStateDescription())->toBe(
+        ->and($provider->marketplaceBrowseUnavailable())->toBeTrue()
+        ->and($table->marketplaceEmptyStateHeading())->toBe(__('capell-marketplace::marketplace.filters.unavailable_heading'))
+        ->and($table->marketplaceEmptyStateDescription())->toBe(
             __('capell-marketplace::marketplace.filters.unavailable_description')
             . ' '
             . __('capell-marketplace::marketplace.filters.unavailable_reason', ['reason' => 'Unavailable']),
@@ -475,22 +476,24 @@ it('shows marketplace validation details when catalogue browsing fails', functio
         ], 422),
     ]);
 
-    $page = resolve(MarketplaceCatalogueTable::class);
+    $provider = resolve(MarketplaceCatalogueRecordProvider::class);
+    $table = resolve(MarketplaceCatalogueTable::class);
 
-    $records = $page->records();
+    $records = $provider->records();
 
     expect($records)->toBeEmpty()
-        ->and($page->marketplaceBrowseUnavailable())->toBeTrue()
-        ->and($page->marketplaceBrowseUnavailableReason())->toBe('The instance id field must be a valid UUID.')
-        ->and($page->marketplaceEmptyStateDescription())->toContain('The instance id field must be a valid UUID.');
+        ->and($provider->marketplaceBrowseUnavailable())->toBeTrue()
+        ->and($provider->marketplaceBrowseUnavailableReason())->toBe('The instance id field must be a valid UUID.')
+        ->and($table->marketplaceEmptyStateDescription())->toContain('The instance id field must be a valid UUID.');
 });
 
 it('uses the generic empty state when marketplace browsing is available', function (): void {
-    $page = resolve(MarketplaceCatalogueTable::class);
+    $provider = resolve(MarketplaceCatalogueRecordProvider::class);
+    $table = resolve(MarketplaceCatalogueTable::class);
 
-    expect($page->marketplaceBrowseUnavailable())->toBeFalse()
-        ->and($page->marketplaceEmptyStateHeading())->toBe(__('capell-marketplace::marketplace.filters.empty_heading'))
-        ->and($page->marketplaceEmptyStateDescription())->toBe(__('capell-marketplace::marketplace.filters.empty_available'));
+    expect($provider->marketplaceBrowseUnavailable())->toBeFalse()
+        ->and($table->marketplaceEmptyStateHeading())->toBe(__('capell-marketplace::marketplace.filters.empty_heading'))
+        ->and($table->marketplaceEmptyStateDescription())->toBe(__('capell-marketplace::marketplace.filters.empty_available'));
 });
 
 it('does not send an installed status filter to marketplace by default', function (): void {
@@ -510,7 +513,7 @@ it('does not send an installed status filter to marketplace by default', functio
         ]),
     ]);
 
-    $records = resolve(MarketplaceCatalogueTable::class)->records();
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     expect($records)
         ->toHaveCount(1)
@@ -549,7 +552,7 @@ it('shows downloaded extensions from available marketplace records as non-instal
         ]),
     ]);
 
-    $records = resolve(MarketplaceCatalogueTable::class)->records();
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     expect($records)
         ->toHaveCount(2)
@@ -587,7 +590,7 @@ it('shows extensions with an active install operation from available marketplace
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records();
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records();
 
     expect($records)
         ->toHaveCount(1)
@@ -612,7 +615,7 @@ it('omits the installed status parameter when all marketplace extensions are sel
         ]),
     ]);
 
-    resolve(MarketplaceCatalogueTable::class)->records(filters: [
+    resolve(MarketplaceCatalogueRecordProvider::class)->records(filters: [
         'installed_status' => ['value' => ''],
     ]);
 
@@ -651,7 +654,7 @@ it('does not expose local extension state without an authenticated admin context
         ]),
     ]);
 
-    resolve(MarketplaceCatalogueTable::class)->records();
+    resolve(MarketplaceCatalogueRecordProvider::class)->records();
 
     Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
         && ! array_key_exists('installed_status', $request->data())
@@ -688,7 +691,7 @@ it('loads browse extensions while hiding package metadata marketplace entries', 
         ]),
     ]);
 
-    $extensions = (resolve(MarketplaceCatalogueTable::class))->getBrowseExtensions();
+    $extensions = (resolve(MarketplaceCatalogueRecordProvider::class))->browseExtensions();
 
     expect($extensions)->toHaveCount(1)
         ->and($extensions[0]->slug)->toBe('visible-tool');
@@ -723,7 +726,7 @@ it('hides marketplace entries flagged by package metadata', function (): void {
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records();
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records();
 
     expect($records)->toHaveCount(1)
         ->and($records[0]['slug'])->toBe('visible-tool');
@@ -749,7 +752,7 @@ it('hides marketplace entries that are still in progress', function (): void {
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records();
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records();
 
     expect($records)->toHaveCount(1)
         ->and($records[0]['slug'])->toBe('visible-tool');
@@ -774,7 +777,7 @@ it('uses marketplace api pagination for table records', function (): void {
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->paginatedRecords(
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->paginatedRecords(
         page: 2,
         perPage: 18,
     );
@@ -802,7 +805,7 @@ it('clamps marketplace table pagination values before querying the api', functio
         ]),
     ]);
 
-    (resolve(MarketplaceCatalogueTable::class))->paginatedRecords(
+    (resolve(MarketplaceCatalogueRecordProvider::class))->paginatedRecords(
         page: 999,
         perPage: 1899,
     );
@@ -836,7 +839,7 @@ it('adjusts marketplace totals when package metadata hidden extensions are filte
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->paginatedRecords();
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->paginatedRecords();
 
     expect($records->total())->toBe(1)
         ->and($records->items())->toHaveCount(1)
@@ -870,7 +873,7 @@ it('does not expose local extension inventory or marketplace context when local 
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records(includeLocalExtensionState: false);
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records(includeLocalExtensionState: false);
 
     expect($records[0])->toMatchArray([
         'slug' => 'installed-suite',
@@ -906,14 +909,14 @@ it('queues a background refresh when serving stale marketplace table results', f
         ]),
     ]);
 
-    $table = resolve(MarketplaceCatalogueTable::class);
-    $table->paginatedRecords();
+    $provider = resolve(MarketplaceCatalogueRecordProvider::class);
+    $provider->paginatedRecords();
     CarbonImmutable::setTestNow(CarbonImmutable::now()->addSeconds(2));
 
     try {
         Bus::fake();
 
-        $records = $table->paginatedRecords();
+        $records = $provider->paginatedRecords();
 
         expect($records->items()[0]['slug'])->toBe('cached-suite');
 
@@ -969,7 +972,7 @@ it('marks installed marketplace records with update and compatibility state', fu
         ]),
     ]);
 
-    $installedRecords = (resolve(MarketplaceCatalogueTable::class))->records(
+    $installedRecords = (resolve(MarketplaceCatalogueRecordProvider::class))->records(
         filters: [
             'installed_status' => ['value' => 'installed'],
         ],
@@ -1023,7 +1026,7 @@ it('trusts server-owned marketplace install state before local paid purchase fal
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records();
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records();
 
     expect($records)->toHaveCount(1)
         ->and($records[0])->toMatchArray([
@@ -1086,7 +1089,7 @@ it('drops untrusted remote marketplace urls before rendering records or purchase
         ]),
     ]);
 
-    $records = (resolve(MarketplaceCatalogueTable::class))->records();
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records();
 
     expect($records[0]['documentation_url'])->toBeNull()
         ->and($records[0]['purchase_url'])->toBeNull();
@@ -1460,7 +1463,7 @@ it('can build marketplace records for a locked theme browser', function (): void
         ]),
     ]);
 
-    $records = resolve(MarketplaceBrowser::class)->records(
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records(
         filters: [],
         lockedKind: 'theme',
     );
@@ -1488,7 +1491,7 @@ it('locks marketplace catalogue records and filters to the configured extension 
         ]),
     ]);
 
-    $records = resolve(MarketplaceCatalogueTable::class)->records(
+    $records = resolve(MarketplaceCatalogueRecordProvider::class)->records(
         filters: [
             'kind' => ['value' => 'tool'],
         ],

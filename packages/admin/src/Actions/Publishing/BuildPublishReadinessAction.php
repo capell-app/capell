@@ -80,7 +80,7 @@ final class BuildPublishReadinessAction
             $blockers[] = 'publishing.translation.missing';
         }
 
-        if ($record->exists && ! $record->pageUrls()->where('status', true)->exists()) {
+        if ($record->exists && ! $record->pageUrls()->enabled()->exists()) {
             $blockers[] = 'publishing.url.active-missing';
         }
 

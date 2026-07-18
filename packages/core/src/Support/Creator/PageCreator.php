@@ -17,6 +17,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -31,7 +32,7 @@ class PageCreator implements PageCreatable
      *
      * @var array<int, string>
      */
-    protected const ERROR_PAGE_STATUSES = ['401', '402', '403', '404', '419', '429', '500', '503'];
+    private const array ERROR_PAGE_STATUSES = ['401', '402', '403', '404', '419', '429', '500', '503'];
 
     protected LayoutCreator $layoutCreator;
 
@@ -295,7 +296,7 @@ class PageCreator implements PageCreatable
             }
 
             if (! isset($meta['slug'])) {
-                $meta['slug'] = $translation_data['slug'] ?? str($data['name'])->slug()->toString();
+                $meta['slug'] = $translation_data['slug'] ?? SlugGenerator::slug($data['name']);
             }
 
             $attributes = [
@@ -322,28 +323,6 @@ class PageCreator implements PageCreatable
         return $page;
     }
 
-    /**
-     * Per-status headline + description defaults keyed by HTTP status.
-     *
-     * Note: numeric-string status keys are coerced to integer array keys by PHP,
-     * so consumers must look them up as integers (e.g. $copy[500]).
-     *
-     * @return array<int, array{headline: string, description: string}>
-     */
-    protected function errorStatusCopyDefaults(): array
-    {
-        $copy = [];
-
-        foreach (self::ERROR_PAGE_STATUSES as $status) {
-            $copy[$status] = [
-                'headline' => (string) __(sprintf('capell::generic.error_%s_headline', $status)),
-                'description' => (string) __(sprintf('capell::generic.error_%s_description', $status)),
-            ];
-        }
-
-        return $copy;
-    }
-
     protected function getLayout(LayoutEnum|string $key): Layout
     {
         if ($key instanceof LayoutEnum) {
@@ -359,14 +338,6 @@ class PageCreator implements PageCreatable
         return $this->layoutCreator->create($key);
     }
 
-    /**
-     * @return Builder<Blueprint>
-     */
-    protected function typeQuery(): Builder
-    {
-        return $this->typeModel::query();
-    }
-
     protected function getPageType(string|PageTypeEnum $key): Blueprint
     {
         $type = $this->typeQuery()->where('key', $key)->pageType()->first();
@@ -380,6 +351,36 @@ class PageCreator implements PageCreatable
         }
 
         return $this->typeCreator->createPageType($key);
+    }
+
+    /**
+     * Per-status headline + description defaults keyed by HTTP status.
+     *
+     * Note: numeric-string status keys are coerced to integer array keys by PHP,
+     * so consumers must look them up as integers (e.g. $copy[500]).
+     *
+     * @return array<int, array{headline: string, description: string}>
+     */
+    private function errorStatusCopyDefaults(): array
+    {
+        $copy = [];
+
+        foreach (self::ERROR_PAGE_STATUSES as $status) {
+            $copy[$status] = [
+                'headline' => (string) __(sprintf('capell::generic.error_%s_headline', $status)),
+                'description' => (string) __(sprintf('capell::generic.error_%s_description', $status)),
+            ];
+        }
+
+        return $copy;
+    }
+
+    /**
+     * @return Builder<Blueprint>
+     */
+    private function typeQuery(): Builder
+    {
+        return $this->typeModel::query();
     }
 
     /**

@@ -92,6 +92,7 @@ enum PackageCapability: string
     case FormBuilderAdmin = 'form-builder-admin';
     case FormBuilderFrontend = 'form-builder-frontend';
     case FrontendAssets = 'frontend-assets';
+    case FrontendSurface = 'frontend-surface';
     case FrontendOptimizer = 'frontend-optimizer';
     case FrontendOptimizerFrontend = 'frontend-optimizer-frontend';
     case FrontendRendering = 'frontend-rendering';

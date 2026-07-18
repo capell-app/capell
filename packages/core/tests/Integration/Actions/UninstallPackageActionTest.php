@@ -314,7 +314,8 @@ it('handles uninstall failures', function (): void {
 it('fails if dependents exist', function (): void {
     // Register and install a package and a dependent
     CapellCore::registerPackage('vendor/package', PackageTypeEnum::Plugin, version: '^1.0');
-    CapellCore::registerPackage('dependent/package', PackageTypeEnum::Plugin, path: realpath(__DIR__ . '/../../../../../tests/fixtures/dependent-package'), version: '^1.0');
+    CapellCore::registerPackage('dependent/package', PackageTypeEnum::Plugin, version: '^1.0');
+    CapellCore::getPackage('dependent/package')->requirements = ['vendor/package'];
     CapellCore::forcePackageInstalled('vendor/package');
     CapellCore::forcePackageInstalled('dependent/package');
 

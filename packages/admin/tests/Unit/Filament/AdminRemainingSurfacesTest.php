@@ -81,16 +81,6 @@ it('selects dashboard Filament widgets from install state and available sites', 
         ->toContain($filamentInfoWidget);
 });
 
-it('registers extracted admin package bridges as optional integrations', function (): void {
-    $reflection = new ReflectionClass(AdminServiceProvider::class);
-    $source = file_get_contents((string) $reflection->getFileName());
-
-    expect($source)
-        ->toContain('Capell\\\\HtmlCache\\\\Support\\\\Bridges\\\\HtmlCacheAdminBridge')
-        ->and($source)
-        ->toContain('CapellAdmin::registerAdminBridge(static::$packageName, $bridgeClass);');
-});
-
 it('returns default page relation managers based on available counts', function (): void {
     $parent = Page::factory()->createOne();
     $pageWithChildren = Page::factory()->parent($parent)->children()->create();

@@ -12,6 +12,12 @@ use Capell\Admin\Data\Themes\ThemeEditorContextData;
 use Capell\Admin\Data\Themes\ThemeEditorTokenData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\SchemaExtenderEnum;
+use Capell\Admin\Enums\ThemeContainerWidthEnum;
+use Capell\Admin\Enums\ThemeEditorColorModeEnum;
+use Capell\Admin\Enums\ThemeEditorHeaderPositionEnum;
+use Capell\Admin\Enums\ThemeEditorPreviewDeviceEnum;
+use Capell\Admin\Enums\ThemeStudioCardDensityEnum;
+use Capell\Admin\Enums\ThemeStudioRadiusEnum;
 use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\IconPicker;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
@@ -84,20 +90,13 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                                 ->schema([
                                     Select::make('admin.editor.preview.device')
                                         ->label(__('capell-admin::theme-editor.fields.preview_device'))
-                                        ->options([
-                                            'desktop' => __('capell-admin::theme-editor.options.desktop'),
-                                            'tablet' => __('capell-admin::theme-editor.options.tablet'),
-                                            'mobile' => __('capell-admin::theme-editor.options.mobile'),
-                                        ])
+                                        ->options(ThemeEditorPreviewDeviceEnum::options())
                                         ->default('desktop')
                                         ->live()
                                         ->native(false),
                                     Select::make('admin.editor.preview.colorMode')
                                         ->label(__('capell-admin::theme-editor.fields.preview_color_mode'))
-                                        ->options([
-                                            'light' => __('capell-admin::theme-editor.options.light'),
-                                            'dark' => __('capell-admin::theme-editor.options.dark'),
-                                        ])
+                                        ->options(ThemeEditorColorModeEnum::options())
                                         ->default('light')
                                         ->live()
                                         ->native(false),
@@ -168,13 +167,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(debounce: 400),
                 Select::make('radius')
                     ->label(__('capell-admin::theme-editor.fields.radius'))
-                    ->options([
-                        'none' => __('capell-admin::generic.none'),
-                        'sm' => __('capell-admin::generic.sm'),
-                        'md' => __('capell-admin::generic.md'),
-                        'lg' => __('capell-admin::generic.lg'),
-                        'xl' => 'XL',
-                    ])
+                    ->options(ThemeStudioRadiusEnum::options())
                     ->default('md')
                     ->live(),
                 TextInput::make('headingFont')
@@ -201,11 +194,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(),
                 Select::make('position')
                     ->label(__('capell-admin::theme-editor.fields.position'))
-                    ->options([
-                        'static' => __('capell-admin::theme-editor.options.static'),
-                        'sticky' => __('capell-admin::theme-editor.options.sticky'),
-                        'fixed' => __('capell-admin::theme-editor.options.fixed'),
-                    ])
+                    ->options(ThemeEditorHeaderPositionEnum::options())
                     ->live(),
                 Checkbox::make('overHero')
                     ->label(__('capell-admin::theme-editor.fields.over_hero'))
@@ -235,18 +224,14 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(debounce: 400),
                 Select::make('container')
                     ->label(__('capell-admin::form.container'))
-                    ->options([
-                        'sm' => __('capell-admin::generic.sm'),
-                        'md' => __('capell-admin::generic.md'),
-                        'lg' => __('capell-admin::generic.lg'),
-                    ])
+                    ->options(ThemeContainerWidthEnum::options())
                     ->default('lg')
                     ->live(),
                 Select::make('cardDensity')
                     ->label(__('capell-admin::theme-editor.fields.card_density'))
                     ->options([
-                        'compact' => __('capell-admin::theme-editor.options.compact'),
-                        'comfortable' => __('capell-admin::theme-editor.options.comfortable'),
+                        ThemeStudioCardDensityEnum::Compact->value => ThemeStudioCardDensityEnum::Compact->getLabel(),
+                        ThemeStudioCardDensityEnum::Comfortable->value => ThemeStudioCardDensityEnum::Comfortable->getLabel(),
                     ])
                     ->live(),
             ]);

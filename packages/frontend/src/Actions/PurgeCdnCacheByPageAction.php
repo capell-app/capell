@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Models\Page;
-use Capell\Frontend\Jobs\PurgeCdnCacheJob;
-use Capell\Frontend\Support\Cache\FragmentCache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -30,21 +28,7 @@ class PurgeCdnCacheByPageAction
             return;
         }
 
-        // Invalidate fragment caches for all affected surrogate keys
-        $fragmentCache = resolve(FragmentCache::class);
-        foreach ($surrogateKeys as $surrogateKey) {
-            $fragmentCache->invalidateBySurrogateKey($surrogateKey);
-        }
-
-        if (! PurgeCdnCacheJob::hasConfiguredProvider()) {
-            return;
-        }
-
-        $queue = config('capell-frontend.purge_queue', 'default');
-
-        // Dispatch the purge job (implemented via CdnPurgeJob or similar)
-        dispatch(new PurgeCdnCacheJob($surrogateKeys))
-            ->onQueue(is_string($queue) ? $queue : 'default');
+        InvalidateFrontendSurrogateKeysAction::run($surrogateKeys);
     }
 
     /**

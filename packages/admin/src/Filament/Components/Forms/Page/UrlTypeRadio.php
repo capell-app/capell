@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Enums\PageUrlTypeEnum;
 use Filament\Forms\Components\Radio;
 
 class UrlTypeRadio
@@ -20,11 +21,7 @@ class UrlTypeRadio
                 }
             })
             ->dehydrateStateUsing(fn (string $state): ?string => $state === 'default' ? null : $state)
-            ->options([
-                'default' => __('capell-admin::generic.default'),
-                'alias' => __('capell-admin::generic.alias'),
-                'redirect' => __('capell-admin::generic.redirect'),
-            ])
+            ->options(PageUrlTypeEnum::options())
             ->descriptions([
                 'alias' => __('capell-admin::generic.page_url_alias_info'),
                 'redirect' => __('capell-admin::generic.page_url_redirect_info'),

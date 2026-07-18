@@ -13,7 +13,7 @@ use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeFinder;
 use RuntimeException;
 
-class ConfigArrayEditor
+final class ConfigArrayEditor
 {
     private readonly NodeFinder $nodeFinder;
 

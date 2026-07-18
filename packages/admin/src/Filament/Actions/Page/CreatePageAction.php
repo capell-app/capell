@@ -16,6 +16,7 @@ use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
@@ -208,7 +209,7 @@ class CreatePageAction extends CreateAction
 
             if (! isset($data['translations']) || (is_array($data['translations']) && $data['translations'] === [])) {
                 $name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
-                $slug = $name !== '' ? str($name)->slug()->toString() : '';
+                $slug = $name !== '' ? SlugGenerator::slug($name) : '';
 
                 $data['translations'] = [
                     (string) Str::uuid() => [

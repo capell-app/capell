@@ -9,6 +9,7 @@ use Capell\Core\Database\Factories\Concerns\HasMeta;
 use Capell\Core\Enums\LayoutGroupEnum;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -30,7 +31,7 @@ class LayoutFactory extends Factory
 
         return [
             'name' => $name,
-            'key' => str($name)->slug()->__toString(),
+            'key' => SlugGenerator::slug($name),
             'group' => LayoutGroupEnum::Default->value,
             'default' => fn (): bool => Layout::query()->count() === 0,
             'created_at' => $this->faker->dateTimeBetween('-1 year', '-6 month'),

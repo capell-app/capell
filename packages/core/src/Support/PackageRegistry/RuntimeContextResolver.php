@@ -7,7 +7,7 @@ namespace Capell\Core\Support\PackageRegistry;
 use Capell\Core\Enums\RuntimeContextEnum;
 use Illuminate\Support\Str;
 
-class RuntimeContextResolver
+final class RuntimeContextResolver
 {
     public function resolve(): RuntimeContextEnum
     {

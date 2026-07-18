@@ -26,6 +26,7 @@ final class SendExtensionHealthReportAction
      * @return array<string, mixed>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function handle(
         string $source,

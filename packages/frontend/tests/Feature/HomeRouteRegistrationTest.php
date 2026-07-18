@@ -2,14 +2,46 @@
 
 declare(strict_types=1);
 
-it('requires the packaged frontend home route to be explicitly enabled', function (): void {
-    $config = file_get_contents(__DIR__ . '/../../config/capell-frontend.php');
+use Capell\Frontend\Http\Controllers\PageController;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Route;
 
-    expect($config)->toContain("'register_home_route' => env('CAPELL_FRONTEND_REGISTER_HOME_ROUTE', false),");
+it('keeps the packaged frontend home route disabled by default', function (): void {
+    $originalRouter = Route::getFacadeRoot();
+    $router = new Router(resolve(Dispatcher::class), app());
+    config(['capell-frontend.register_home_route' => false]);
+    Route::swap($router);
 
-    $routes = file_get_contents(__DIR__ . '/../../routes/web.php');
+    try {
+        require __DIR__ . '/../../routes/web.php';
 
-    expect($routes)
-        ->toContain("config('capell-frontend.register_home_route', false)")
-        ->toContain("Route::get('/', PageController::class)->name('home');");
+        $router->getRoutes()->refreshNameLookups();
+
+        expect(Route::has('home'))->toBeFalse()
+            ->and(Route::has('capell-frontend.home'))->toBeFalse();
+    } finally {
+        Route::swap($originalRouter);
+    }
+});
+
+it('registers the packaged frontend home route when enabled before routes boot', function (): void {
+    $originalRouter = Route::getFacadeRoot();
+    $router = new Router(resolve(Dispatcher::class), app());
+    config(['capell-frontend.register_home_route' => true]);
+    Route::swap($router);
+
+    try {
+        require __DIR__ . '/../../routes/web.php';
+
+        $router->getRoutes()->refreshNameLookups();
+        $route = $router->getRoutes()->getByName('capell-frontend.home');
+
+        expect($route)->not->toBeNull()
+            ->and($route?->uri())->toBe('/')
+            ->and($route?->getActionName())->toBe(PageController::class);
+    } finally {
+        config(['capell-frontend.register_home_route' => false]);
+        Route::swap($originalRouter);
+    }
 });

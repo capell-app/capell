@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Slug;
 
-class SlugGenerator
+final class SlugGenerator
 {
+    public static function slug(string $value): string
+    {
+        return str($value)->slug()->toString();
+    }
+
     /**
      * Build an Alpine/Filament JS snippet that slugifies one state value into another.
      *

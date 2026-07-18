@@ -9,12 +9,13 @@ use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Str;
 
-final class CapellPackageRegistry
+/** @extends AbstractKeyedRegistry<CapellManifestData> */
+final class CapellPackageRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, CapellManifestData> */
-    private array $packages = [];
+    use ManagesPackages;
 
     /** @var array{byType: array<string, list<ExtensionContributionData>>, byPackage: array<string, list<ExtensionContributionData>>, bySurface: array<string, list<ExtensionContributionData>>, byClass: array<string, ExtensionContributionData>, surfaceCatalog: array<string, ExtensionSurfaceCatalogEntryData>}|null */
     private ?array $contractRegistry = null;
@@ -22,24 +23,41 @@ final class CapellPackageRegistry
     /** @param array<string, CapellManifestData> $manifests */
     public function fill(array $manifests): void
     {
-        $this->packages = $manifests;
+        $this->clearItems();
+
+        foreach ($manifests as $manifest) {
+            $this->setItem($manifest->name, $manifest);
+        }
+
+        $this->contractRegistry = null;
+    }
+
+    public function register(CapellManifestData $manifest): void
+    {
+        $this->setItem($manifest->name, $manifest);
         $this->contractRegistry = null;
     }
 
     public function get(string $name): ?CapellManifestData
     {
-        return $this->packages[$name] ?? null;
+        return $this->getItem($name);
     }
 
     /** @return array<string, CapellManifestData> */
     public function all(): array
     {
-        return $this->packages;
+        return $this->allItems();
     }
 
     public function has(string $name): bool
     {
-        return isset($this->packages[$name]);
+        return $this->hasItem($name);
+    }
+
+    public function clear(): void
+    {
+        $this->clearItems();
+        $this->contractRegistry = null;
     }
 
     /**
@@ -53,7 +71,7 @@ final class CapellPackageRegistry
     {
         $map = [];
 
-        foreach ($this->packages as $manifest) {
+        foreach ($this->allItems() as $manifest) {
             $resolvedNamespace = $manifest->resolvedNamespace();
 
             if ($resolvedNamespace === null) {
@@ -73,7 +91,7 @@ final class CapellPackageRegistry
     public function forContext(string $context): array
     {
         return array_values(array_filter(
-            $this->packages,
+            $this->allItems(),
             fn (CapellManifestData $manifest): bool => in_array($context, $manifest->surfaces, strict: true),
         ));
     }
@@ -105,7 +123,7 @@ final class CapellPackageRegistry
     private function contractRegistry(): array
     {
         if ($this->contractRegistry === null) {
-            $this->contractRegistry = BuildExtensionContractRegistryAction::run($this->packages);
+            $this->contractRegistry = BuildExtensionContractRegistryAction::run($this->allItems());
         }
 
         return $this->contractRegistry;

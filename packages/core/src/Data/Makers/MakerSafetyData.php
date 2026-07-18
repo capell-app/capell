@@ -7,7 +7,7 @@ namespace Capell\Core\Data\Makers;
 use Illuminate\Support\Collection;
 use Spatie\LaravelData\Data;
 
-class MakerSafetyData extends Data
+final class MakerSafetyData extends Data
 {
     /**
      * @param  Collection<int, string>  $allowedRoots

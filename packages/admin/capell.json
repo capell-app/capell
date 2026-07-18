@@ -55,7 +55,7 @@
         "demo": null,
         "doctor": null
     },
-    "settings": [],
+    "settings": ["Capell\\Admin\\Settings\\AdminSettings"],
     "permissions": [],
     "capabilities": ["admin-shell", "dashboard", "editor-operations"],
     "performance": {

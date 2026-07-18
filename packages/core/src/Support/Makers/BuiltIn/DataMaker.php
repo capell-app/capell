@@ -9,7 +9,7 @@ use Capell\Core\Data\Makers\MakerInputData;
 use Capell\Core\Data\Makers\MakerPreviewData;
 use Capell\Core\Support\Makers\AbstractFileMaker;
 
-class DataMaker extends AbstractFileMaker
+final class DataMaker extends AbstractFileMaker
 {
     public function definition(): MakerDefinitionData
     {

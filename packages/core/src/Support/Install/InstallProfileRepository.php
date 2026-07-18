@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use Capell\Core\Data\Install\InstallProfileData;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -61,12 +62,12 @@ final class InstallProfileRepository
         }
 
         try {
-            $profiles = json_decode((string) File::get($jsonPath), true, flags: JSON_THROW_ON_ERROR);
+            $profiles = JsonCodec::decodeArray((string) File::get($jsonPath));
         } catch (Throwable) {
             return [];
         }
 
-        return is_array($profiles) ? $this->normaliseProfiles($profiles) : [];
+        return $this->normaliseProfiles($profiles);
     }
 
     /**

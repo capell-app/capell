@@ -39,7 +39,7 @@
         "upgrade": "capell:frontend-upgrade",
         "doctor": null
     },
-    "settings": [],
+    "settings": ["Capell\\Frontend\\Settings\\FrontendSettings"],
     "permissions": [],
     "capabilities": [
         "frontend-rendering",

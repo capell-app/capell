@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
 
-class MakerPreviewData extends Data
+final class MakerPreviewData extends Data
 {
     /**
      * @param  Collection<int, MakerFileData>|DataCollection<int, MakerFileData>  $files

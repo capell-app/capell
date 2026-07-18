@@ -6,37 +6,38 @@ namespace Capell\Core\Support\Makers;
 
 use Capell\Core\Contracts\Makers\Maker;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
-class MakerRegistry implements MakerRegistryInterface
+/** @extends AbstractKeyedRegistry<Maker> */
+final class MakerRegistry extends AbstractKeyedRegistry implements MakerRegistryInterface
 {
-    /** @var array<string, Maker> */
-    private array $makers = [];
-
     public function register(Maker $maker): void
     {
-        $this->makers[$maker->definition()->key] = $maker;
+        $this->setItem($maker->definition()->key, $maker);
     }
 
     public function has(string $key): bool
     {
-        return isset($this->makers[$key]);
+        return $this->hasItem($key);
     }
 
     public function get(string $key): Maker
     {
-        if (! $this->has($key)) {
-            throw new InvalidArgumentException(sprintf('Maker [%s] is not registered.', $key));
-        }
-
-        return $this->makers[$key];
+        return $this->getItem($key)
+            ?? throw new InvalidArgumentException(sprintf('Maker [%s] is not registered.', $key));
     }
 
     public function all(): Collection
     {
-        return collect($this->makers)
+        return collect($this->allItems())
             ->sortBy(fn (Maker $maker): string => $maker->definition()->group . ':' . $maker->definition()->label)
             ->values();
+    }
+
+    public function clear(): void
+    {
+        $this->clearItems();
     }
 }

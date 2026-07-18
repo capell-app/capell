@@ -7,12 +7,13 @@ namespace Capell\Core\Jobs;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\CacheProgressReporter;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-final class RunCapellInstallJob implements ShouldQueue
+final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
@@ -22,10 +23,25 @@ final class RunCapellInstallJob implements ShouldQueue
 
     public int $timeout = 600;
 
+    public int $tries = 3;
+
+    public int $uniqueFor = self::CACHE_TTL;
+
     public function __construct(
         private readonly InstallInputData $inputData,
         private readonly string $installId,
     ) {}
+
+    /** @return array<int, int> */
+    public function backoff(): array
+    {
+        return [30, 60];
+    }
+
+    public function uniqueId(): string
+    {
+        return $this->installId;
+    }
 
     public function handle(): void
     {

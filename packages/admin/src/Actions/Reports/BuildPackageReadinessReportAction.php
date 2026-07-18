@@ -9,12 +9,13 @@ use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
+use Capell\Core\Actions\Packages\BuildPackageCapabilityGraphAction;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Data\Diagnostics\PackageReadinessCheckData;
 use Capell\Core\Data\Diagnostics\PackageReadinessPackageData;
-use Capell\Core\Data\Manifest\ExtensionContributionData;
+use Capell\Core\Data\PackageCapabilityGraphData;
 use Capell\Core\Data\PackageData;
-use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\PublicRenderContractEvent;
 use Capell\Core\Support\Database\RuntimeSchemaState;
@@ -40,9 +41,11 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
 
     public function handle(): ReportSnapshotData
     {
+        $manifests = $this->packageRegistry->all();
+        $capabilityGraph = BuildPackageCapabilityGraphAction::run($manifests);
         $packages = array_values(array_map(
-            $this->packageReadiness(...),
-            $this->packageRegistry->all(),
+            fn (CapellManifestData $manifest): PackageReadinessPackageData => $this->packageReadiness($manifest, $capabilityGraph),
+            $manifests,
         ));
 
         $criticalCount = array_sum(array_map(
@@ -87,7 +90,7 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
         );
     }
 
-    private function packageReadiness(CapellManifestData $manifest): PackageReadinessPackageData
+    private function packageReadiness(CapellManifestData $manifest, PackageCapabilityGraphData $capabilityGraph): PackageReadinessPackageData
     {
         return new PackageReadinessPackageData(
             packageName: $manifest->name,
@@ -95,10 +98,10 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
             checks: [
                 $this->manifestCheck($manifest),
                 $this->migrationCheck($manifest),
-                $this->frontendAssetsCheck($manifest),
+                $this->frontendAssetsCheck($manifest, $capabilityGraph),
                 $this->settingsCheck($manifest),
                 $this->marketplaceMetadataCheck($manifest),
-                $this->publicRenderSafetyCheck($manifest),
+                $this->publicRenderSafetyCheck($manifest, $capabilityGraph),
             ],
         );
     }
@@ -171,9 +174,9 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
         );
     }
 
-    private function frontendAssetsCheck(CapellManifestData $manifest): PackageReadinessCheckData
+    private function frontendAssetsCheck(CapellManifestData $manifest, PackageCapabilityGraphData $capabilityGraph): PackageReadinessCheckData
     {
-        if (! $this->isFrontendPackage($manifest)) {
+        if (! $capabilityGraph->packageHas($manifest->name, PackageCapability::FrontendSurface)) {
             return new PackageReadinessCheckData(
                 key: 'frontend_assets',
                 label: __('capell-admin::reports.package_readiness_check_frontend_assets'),
@@ -182,7 +185,7 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        if ($this->hasFrontendAssetContribution($manifest)) {
+        if ($capabilityGraph->packageHas($manifest->name, PackageCapability::FrontendAssets)) {
             return new PackageReadinessCheckData(
                 key: 'frontend_assets',
                 label: __('capell-admin::reports.package_readiness_check_frontend_assets'),
@@ -271,9 +274,9 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
         );
     }
 
-    private function publicRenderSafetyCheck(CapellManifestData $manifest): PackageReadinessCheckData
+    private function publicRenderSafetyCheck(CapellManifestData $manifest, PackageCapabilityGraphData $capabilityGraph): PackageReadinessCheckData
     {
-        if (! $this->isFrontendPackage($manifest)) {
+        if (! $capabilityGraph->packageHas($manifest->name, PackageCapability::FrontendSurface)) {
             return new PackageReadinessCheckData(
                 key: 'public_render_safety',
                 label: __('capell-admin::reports.package_readiness_check_public_render_safety'),
@@ -361,23 +364,6 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
         } catch (Throwable) {
             return null;
         }
-    }
-
-    private function isFrontendPackage(CapellManifestData $manifest): bool
-    {
-        return in_array('frontend', $manifest->surfaces, true)
-            || collect($manifest->contributes)->contains(
-                fn (ExtensionContributionData $contribution): bool => $contribution->type === ExtensionContributionType::ContentWidget
-                    || ($contribution->metadata['surface'] ?? null) === 'frontend',
-            );
-    }
-
-    private function hasFrontendAssetContribution(CapellManifestData $manifest): bool
-    {
-        return collect($manifest->contributes)->contains(
-            fn (ExtensionContributionData $contribution): bool => $contribution->type === ExtensionContributionType::Asset
-                && (($contribution->metadata['surface'] ?? null) === 'frontend' || in_array('frontend', $manifest->surfaces, true)),
-        );
     }
 
     /** @return list<string> */

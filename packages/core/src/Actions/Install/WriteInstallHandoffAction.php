@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\Install\InstallHandoffData;
+use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -24,9 +25,9 @@ final class WriteInstallHandoffAction
 
         throw_if(is_dir($path), RuntimeException::class, 'Install handoff path must identify a JSON file, not a directory.');
 
-        $json = json_encode(
+        $json = JsonCodec::encode(
             $handoff->toArray(),
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
         ) . PHP_EOL;
         $temporaryPath = $path . '.tmp-' . bin2hex(random_bytes(6));
 

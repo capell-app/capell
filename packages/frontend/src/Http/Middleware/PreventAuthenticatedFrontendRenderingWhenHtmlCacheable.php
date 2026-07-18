@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Http\Middleware;
 
-use Capell\Frontend\Support\Context\FrontendContext;
+use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Support\Loader\PageCachePolicy;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 final class PreventAuthenticatedFrontendRenderingWhenHtmlCacheable
 {
+    public function __construct(private readonly FrontendContextReader $context) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         if ($this->shouldRenderAnonymously($request)) {
@@ -38,6 +41,6 @@ final class PreventAuthenticatedFrontendRenderingWhenHtmlCacheable
             return false;
         }
 
-        return FrontendContext::shouldCachePage();
+        return PageCachePolicy::shouldCache($this->context->page());
     }
 }

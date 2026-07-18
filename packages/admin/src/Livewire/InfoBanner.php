@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Livewire;
 
 use Capell\Admin\Actions\DismissHintAction;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\Auth;
@@ -33,9 +34,9 @@ class InfoBanner extends Component
         }
 
         $raw = DB::table('users')->where('id', $userId)->value('dismissed_hints');
-        $dismissed = is_string($raw) ? json_decode($raw, true) : [];
+        $dismissed = is_string($raw) ? JsonCodec::decodeArray($raw) : [];
 
-        if (in_array($this->hintKey, is_array($dismissed) ? $dismissed : [], true)) {
+        if (in_array($this->hintKey, $dismissed, true)) {
             $this->visible = false;
         }
     }

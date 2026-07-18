@@ -7,7 +7,7 @@ namespace Capell\Core\Data;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\LaravelData\Data;
 
-class PageVariationData extends Data
+final class PageVariationData extends Data
 {
     public function __construct(
         public string $name,

@@ -11,12 +11,11 @@ use Capell\Admin\Contracts\Extenders\PageTitleWithSlugInputExtender;
 use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
 use Capell\Admin\Contracts\Extenders\SiteHeaderActionExtender;
 use Capell\Admin\Contracts\Extenders\SiteSchemaExtender;
-use Capell\Admin\Contracts\Extenders\UserSchemaExtender;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Enums\PageTranslationSchemaHookEnum;
 use Capell\Admin\Enums\SiteCreateWizardHookEnum;
 use Capell\Admin\Enums\UserSchemaHookEnum;
-use Capell\Admin\Support\Schemas\AbstractUserSchemaExtender;
+use Capell\Admin\Support\Bridges\AbstractUserResourceBridge;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelineBridgeRelationManager;
 use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelineExistingRelationManager;
@@ -24,7 +23,6 @@ use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelinePageRelationManager
 use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelinePageRelationManagerB;
 use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelineResourcePage;
 use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelineSiteRelationManagerA;
-use Capell\Admin\Tests\Unit\Support\Schemas\Fixtures\PipelineUserRelationManagerLegacy;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -95,39 +93,11 @@ function capellPipelineSiteExtender(string $suffix): SiteSchemaExtender
     };
 }
 
-function capellPipelineUserExtender(string $suffix, bool $supports = true): UserSchemaExtender
-{
-    return new class($suffix, $supports) extends AbstractUserSchemaExtender
-    {
-        public function __construct(private readonly string $suffix, private readonly bool $supportsContext) {}
-
-        public function supports(UserSchemaContextData $context): bool
-        {
-            return $this->supportsContext;
-        }
-
-        public function extendComponentsForHook(Schema $schema, UserSchemaHookEnum $hook, UserSchemaContextData $context): array
-        {
-            return [TextInput::make('user_' . $hook->value . '_' . $this->suffix)];
-        }
-
-        public function extendSidebarComponents(Schema $schema, UserSchemaContextData $context): array
-        {
-            return [TextInput::make('user_sidebar_' . $this->suffix)];
-        }
-
-        public function extendRelationManagers(Model $record, array $relationManagers, UserSchemaContextData $context): array
-        {
-            return [...$relationManagers, capellPipelineRelationManager('user', $this->suffix)];
-        }
-    };
-}
-
 function capellPipelineUserBridge(string $suffix, bool $supports = true): UserResourceBridge
 {
-    return new readonly class($suffix, $supports) implements UserResourceBridge
+    return new class($suffix, $supports) extends AbstractUserResourceBridge
     {
-        public function __construct(private string $suffix, private bool $supportsContext) {}
+        public function __construct(private readonly string $suffix, private readonly bool $supportsContext) {}
 
         public function supports(UserSchemaContextData $context): bool
         {
@@ -147,40 +117,6 @@ function capellPipelineUserBridge(string $suffix, bool $supports = true): UserRe
         public function extendRelationManagers(Model $record, array $relationManagers, UserSchemaContextData $context): array
         {
             return [...$relationManagers, PipelineBridgeRelationManager::class];
-        }
-
-        public function mutateDataBeforeCreate(array $data): array
-        {
-            return $data;
-        }
-
-        public function afterCreate(Model $record): void {}
-
-        public function mutateDataBeforeSave(Model $record, array $data): array
-        {
-            return $data;
-        }
-
-        public function afterSave(Model $record): void {}
-
-        public function columns(): array
-        {
-            return [];
-        }
-
-        public function filters(): array
-        {
-            return [];
-        }
-
-        public function recordActions(): array
-        {
-            return [];
-        }
-
-        public function toolbarActions(): array
-        {
-            return [];
         }
     };
 }
@@ -230,7 +166,6 @@ function capellPipelineRelationManager(string $prefix, string $suffix): string
         'page:a' => PipelinePageRelationManagerA::class,
         'page:b' => PipelinePageRelationManagerB::class,
         'site:a' => PipelineSiteRelationManagerA::class,
-        'user:legacy' => PipelineUserRelationManagerLegacy::class,
         default => PipelineExistingRelationManager::class,
     };
 }
@@ -365,12 +300,10 @@ it('centralises action extension hooks with support filtering and dedupe', funct
         ->and(capellPipelineActionNames($pipeline->resourceHeaderActions(PipelineResourcePage::class)))->toBe(['resource-supported']);
 });
 
-it('merges supported user schema extenders and user bridges', function (): void {
-    app()->bind('pipeline.user.skipped', fn (): UserSchemaExtender => capellPipelineUserExtender('skipped', supports: false));
-    app()->bind('pipeline.user.legacy', fn (): UserSchemaExtender => capellPipelineUserExtender('legacy'));
+it('resolves supported user resource bridges', function (): void {
+    app()->bind('pipeline.user.skipped', fn (): UserResourceBridge => capellPipelineUserBridge('skipped', supports: false));
     app()->bind('pipeline.user.bridge', fn (): UserResourceBridge => capellPipelineUserBridge('bridge'));
-    app()->tag(['pipeline.user.skipped', 'pipeline.user.legacy'], UserSchemaExtender::TAG);
-    app()->tag(['pipeline.user.bridge'], UserResourceBridge::TAG);
+    app()->tag(['pipeline.user.skipped', 'pipeline.user.bridge'], UserResourceBridge::TAG);
 
     $pipeline = new AdminSchemaExtensionPipeline;
     $schema = Mockery::mock(Schema::class);
@@ -378,12 +311,11 @@ it('merges supported user schema extenders and user bridges', function (): void 
     $context = UserSchemaContextData::forCreate(schemaType: 'editor');
 
     expect(capellPipelineComponentNames($pipeline->userComponentsForHook($schema, UserSchemaHookEnum::AfterIdentity, $context)))
-        ->toBe(['user_after_identity_legacy', 'bridge_after_identity_bridge'])
+        ->toBe(['bridge_after_identity_bridge'])
         ->and(capellPipelineComponentNames($pipeline->userSidebarComponents($schema, $context)))
-        ->toBe(['user_sidebar_legacy', 'bridge_sidebar_bridge'])
+        ->toBe(['bridge_sidebar_bridge'])
         ->and($pipeline->userRelationManagers($record, [PipelineExistingRelationManager::class], $context))->toBe([
             PipelineExistingRelationManager::class,
-            PipelineUserRelationManagerLegacy::class,
             PipelineBridgeRelationManager::class,
         ]);
 });

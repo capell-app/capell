@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Filesystem\DirectoryCreator;
 use GdImage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -65,9 +66,7 @@ class GenerateThemeImageAction
         $absolutePath = Storage::disk('public')->path($path);
         $directory = dirname($absolutePath);
 
-        if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-            throw new RuntimeException(sprintf('Unable to create directory [%s].', $directory));
-        }
+        DirectoryCreator::ensure($directory, 0755, sprintf('Unable to create directory [%s].', $directory));
 
         imagepng($image, $absolutePath, 9);
         imagedestroy($image);

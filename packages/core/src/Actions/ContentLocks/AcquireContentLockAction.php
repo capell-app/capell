@@ -16,22 +16,18 @@ final class AcquireContentLockAction
     use AsFake;
     use AsObject;
 
-    private const int DEFAULT_TTL_MINUTES = 15;
-
-    public function handle(Model $model, Authenticatable $user, int $ttlMinutes = self::DEFAULT_TTL_MINUTES): ContentLock
+    public function handle(Model $model, Authenticatable $user, int $ttlMinutes = ContentLock::DEFAULT_TTL_MINUTES): ContentLock
     {
         $now = Date::now();
 
         ContentLock::query()
-            ->where('model_type', $model->getMorphClass())
-            ->where('model_id', $model->getKey())
+            ->forModel($model)
             ->where('expires_at', '<=', $now)
             ->delete();
 
         /** @var ContentLock|null $lock */
         $lock = ContentLock::query()
-            ->where('model_type', $model->getMorphClass())
-            ->where('model_id', $model->getKey())
+            ->forModel($model)
             ->first();
 
         if ($lock instanceof ContentLock && ! $lock->isOwnedBy($user)) {

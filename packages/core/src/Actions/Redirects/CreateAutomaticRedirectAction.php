@@ -72,7 +72,7 @@ class CreateAutomaticRedirectAction
             ->where('language_id', $language->getKey())
             ->where('site_id', $page->site_id)
             ->where('url', $oldUrl)
-            ->where('type', UrlTypeEnum::Redirect)
+            ->redirects()
             ->where('is_manual', true)
             ->exists();
     }
@@ -88,7 +88,7 @@ class CreateAutomaticRedirectAction
             ->where('language_id', $language->getKey())
             ->where('site_id', $page->site_id)
             ->where('url', $oldUrl)
-            ->where('status', true)
+            ->enabled()
             ->where(function (Builder $query) use ($page): void {
                 $query
                     ->whereNull('type')

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Upgrade;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -66,15 +67,7 @@ final class ReadLatestUpgradeSnapshotAction
             return [];
         }
 
-        try {
-            $decoded = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return [];
-        }
-
-        if (! is_array($decoded)) {
-            return [];
-        }
+        $decoded = JsonCodec::decodeArray($value);
 
         return array_values(array_filter($decoded, is_array(...)));
     }

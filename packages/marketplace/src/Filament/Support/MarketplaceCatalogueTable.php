@@ -4,23 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Filament\Support;
 
-use Capell\Core\Data\PackageData;
-use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
-use Capell\Marketplace\Data\ExtensionListingData;
-use Capell\Marketplace\Data\MarketplaceCatalogueQueryData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceExtensionCapability;
 use Capell\Marketplace\Enums\MarketplaceExtensionCategory;
-use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Enums\MarketplaceSort;
-use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Services\MarketplaceClient;
-use Composer\InstalledVersions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -36,25 +29,10 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 
 final class MarketplaceCatalogueTable
 {
-    /** @var array<int, int> */
-    private const TABLE_PAGE_OPTIONS = [18, 36, 72];
-
-    private const int DEFAULT_TABLE_PAGE_OPTION = 18;
-
-    private const array INTERNAL_MARKETPLACE_COMPOSER_NAMES = [
-        'capell-app/installer',
-        'capell-app/marketplace',
-        'capell-app/plugins',
-    ];
-
-    private const int MAX_REMOTE_PAGE = 100;
-
     public function __construct(
         private readonly MarketplaceCatalogueRecordProvider $recordProvider,
         private readonly MarketplaceInstallActionPresenter $installActionPresenter,
@@ -70,12 +48,12 @@ final class MarketplaceCatalogueTable
         $extensionCardView = 'capell-admin::filament.pages.extensions.extension-card';
 
         return $table
-            ->records(fn (?string $search = null, ?array $filters = null, int|string $page = 1, int|string $recordsPerPage = self::DEFAULT_TABLE_PAGE_OPTION): LengthAwarePaginator => $this->paginatedRecords(
+            ->records(fn (?string $search = null, ?array $filters = null, int|string $page = 1, int|string $recordsPerPage = MarketplaceCatalogueRecordProvider::DEFAULT_TABLE_PAGE_OPTION): LengthAwarePaginator => $this->recordProvider->paginatedRecords(
                 search: $search,
                 filters: $this->tableFilters($filters ?? [], $forceAvailableOnly),
                 lockedKind: $lockedKind,
-                page: $this->tablePageValue($page),
-                perPage: $this->tableRecordsPerPageValue($recordsPerPage),
+                page: $this->recordProvider->normalizePage($page),
+                perPage: $this->recordProvider->normalizeRecordsPerPage($recordsPerPage),
                 includeLocalExtensionState: $includeLocalExtensionState,
             ))
             ->searchable()
@@ -105,109 +83,15 @@ final class MarketplaceCatalogueTable
             ->extraAttributes([
                 'class' => 'capell-marketplace-catalogue [&_.fi-ta-ctn]:overflow-hidden [&_.fi-ta-ctn]:rounded-xl [&_.fi-ta-ctn]:border-0 [&_.fi-ta-ctn]:bg-transparent [&_.fi-ta-ctn]:shadow-none [&_.fi-ta-header]:gap-3 [&_.fi-ta-header]:px-1 [&_.fi-ta-header]:py-2 [&_.fi-ta-header-toolbar]:gap-2 [&_.fi-ta-search-field]:min-w-80 [&_.fi-ta-search-field]:flex-1 [&_.fi-ta-search-field_.fi-input-wrp]:rounded-lg [&_.fi-ta-search-field_.fi-input-wrp]:bg-white dark:[&_.fi-ta-search-field_.fi-input-wrp]:bg-gray-900 [&_.fi-ta-content-ctn]:border-0 [&_.fi-ta-content-ctn]:bg-transparent [&_.fi-ta-content-ctn]:p-1 [&_.fi-ta-content]:gap-4 [&_.fi-ta-filter-indicators]:rounded-lg [&_.fi-ta-filter-indicators]:bg-gray-50 [&_.fi-ta-filter-indicators]:px-3 [&_.fi-ta-filter-indicators]:py-2 dark:[&_.fi-ta-filter-indicators]:bg-white/[0.04] [&_.fi-ta-pagination]:mt-4 [&_.fi-ta-pagination]:rounded-lg [&_.fi-ta-pagination]:border-0 [&_.fi-ta-pagination]:bg-gray-50 dark:[&_.fi-ta-pagination]:bg-white/[0.04]',
             ])
-            ->paginated(self::TABLE_PAGE_OPTIONS)
-            ->defaultPaginationPageOption(self::DEFAULT_TABLE_PAGE_OPTION)
+            ->paginated(MarketplaceCatalogueRecordProvider::TABLE_PAGE_OPTIONS)
+            ->defaultPaginationPageOption(MarketplaceCatalogueRecordProvider::DEFAULT_TABLE_PAGE_OPTION)
             ->emptyStateHeading(fn (): string => $this->marketplaceEmptyStateHeading())
             ->emptyStateDescription(fn (): string => $this->marketplaceEmptyStateDescription());
     }
 
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return array<int, array<string, mixed>>
-     */
-    public function records(
-        ?string $search = null,
-        array $filters = [],
-        ?string $lockedKind = null,
-        bool $includeLocalExtensionState = true,
-    ): array {
-        return $this->recordProvider->records(
-            search: $search,
-            filters: $filters,
-            lockedKind: $lockedKind,
-            includeLocalExtensionState: $includeLocalExtensionState,
-        );
-    }
-
-    /**
-     * @param  array<int, string>  $composerNames
-     * @return array<string, array<string, mixed>>
-     */
-    public function recordsByComposerNames(
-        array $composerNames,
-        ?string $lockedKind = null,
-        bool $includeLocalExtensionState = true,
-    ): array {
-        return $this->recordProvider->recordsByComposerNames(
-            composerNames: $composerNames,
-            lockedKind: $lockedKind,
-            includeLocalExtensionState: $includeLocalExtensionState,
-        );
-    }
-
-    /**
-     * @param  array<string, mixed>  $filters
-     * @return LengthAwarePaginator<int, array<string, mixed>>
-     */
-    public function paginatedRecords(
-        ?string $search = null,
-        array $filters = [],
-        ?string $lockedKind = null,
-        int $page = 1,
-        int $perPage = self::DEFAULT_TABLE_PAGE_OPTION,
-        bool $includeLocalExtensionState = true,
-    ): LengthAwarePaginator {
-        return $this->recordProvider->paginatedRecords(
-            search: $search,
-            filters: $filters,
-            lockedKind: $lockedKind,
-            page: $this->tablePageValue($page),
-            perPage: $this->tableRecordsPerPageValue($perPage),
-            includeLocalExtensionState: $includeLocalExtensionState,
-        );
-    }
-
-    /** @return array<int, ExtensionListingData> */
-    public function getBrowseExtensions(): array
-    {
-        try {
-            $marketplacePage = resolve(MarketplaceClient::class)->listExtensionPage(new MarketplaceCatalogueQueryData(
-                sort: MarketplaceClient::DEFAULT_EXTENSION_SORT,
-                installedComposerNames: $this->downloadedMarketplaceComposerNames(),
-                page: 1,
-                perPage: 9,
-            ), allowStale: true);
-
-            return array_values(array_filter(
-                $marketplacePage->extensions,
-                fn (ExtensionListingData $extension): bool => ! $this->isHiddenMarketplaceExtension($extension)
-                    && ! in_array($extension->composerName, $this->downloadedMarketplaceComposerNames(), true),
-            ));
-        } catch (Throwable $throwable) {
-            Log::warning('capell-marketplace: marketplace browse failed', ['error' => $throwable->getMessage()]);
-
-            return [];
-        }
-    }
-
-    public function queueDefaultWarm(?string $lockedKind = null, bool $includeLocalExtensionState = true): bool
-    {
-        return $this->recordProvider->queueDefaultWarm($lockedKind, $includeLocalExtensionState);
-    }
-
-    public function marketplaceBrowseUnavailable(): bool
-    {
-        return $this->recordProvider->marketplaceBrowseUnavailable();
-    }
-
-    public function marketplaceBrowseUnavailableReason(): ?string
-    {
-        return $this->recordProvider->marketplaceBrowseUnavailableReason();
-    }
-
     public function marketplaceEmptyStateHeading(): string
     {
-        if ($this->marketplaceBrowseUnavailable()) {
+        if ($this->recordProvider->marketplaceBrowseUnavailable()) {
             return (string) __('capell-marketplace::marketplace.filters.unavailable_heading');
         }
 
@@ -216,9 +100,9 @@ final class MarketplaceCatalogueTable
 
     public function marketplaceEmptyStateDescription(): string
     {
-        if ($this->marketplaceBrowseUnavailable()) {
+        if ($this->recordProvider->marketplaceBrowseUnavailable()) {
             $description = (string) __('capell-marketplace::marketplace.filters.unavailable_description');
-            $reason = $this->marketplaceBrowseUnavailableReason();
+            $reason = $this->recordProvider->marketplaceBrowseUnavailableReason();
 
             return is_string($reason) && $reason !== ''
                 ? $description . ' ' . __('capell-marketplace::marketplace.filters.unavailable_reason', ['reason' => $reason])
@@ -261,18 +145,6 @@ final class MarketplaceCatalogueTable
             ->all();
     }
 
-    /** @return array{capell: ?string, laravel: ?string, livewire: ?string, filament: ?string} */
-    public function detectedCompatibilityVersions(): array
-    {
-        return [
-            'capell' => CapellCore::getInstalledPrettyVersion('capell-app/capell')
-                ?? CapellCore::getInstalledPrettyVersion('capell/core'),
-            'laravel' => $this->installedPackagePrettyVersion('laravel/framework') ?? app()->version(),
-            'livewire' => $this->installedPackagePrettyVersion('livewire/livewire'),
-            'filament' => $this->installedPackagePrettyVersion('filament/filament'),
-        ];
-    }
-
     /**
      * @param  array<string, mixed>  $arguments
      * @param  array<string, mixed>  $data
@@ -310,7 +182,7 @@ final class MarketplaceCatalogueTable
     public function marketplaceFiltersFormSchema(array $filters, ?string $lockedKind): array
     {
         $primaryFilterNames = array_values(array_filter([
-            $this->lockedMarketplaceKind($lockedKind) === null ? 'kind' : null,
+            $this->recordProvider->lockedMarketplaceKind($lockedKind) === null ? 'kind' : null,
             'installed_status',
             'category',
             'sort',
@@ -367,7 +239,7 @@ final class MarketplaceCatalogueTable
     /** @return array<int, Filter|SelectFilter|TernaryFilter> */
     private function getMarketplaceTableFilters(?string $lockedKind = null): array
     {
-        $compatibilityVersions = $this->detectedCompatibilityVersions();
+        $compatibilityVersions = $this->recordProvider->detectedCompatibilityVersions();
 
         $filters = [
             'kind' => SelectFilter::make('kind')
@@ -480,7 +352,7 @@ final class MarketplaceCatalogueTable
                 ->indicateUsing(fn (array $data): array => $this->compatibilityFilterIndicators($data)),
         ];
 
-        if ($this->lockedMarketplaceKind($lockedKind) !== null) {
+        if ($this->recordProvider->lockedMarketplaceKind($lockedKind) !== null) {
             unset($filters['kind']);
         }
 
@@ -571,7 +443,7 @@ final class MarketplaceCatalogueTable
      */
     private function compatibilityFilterIndicators(array $data): array
     {
-        $detectedCompatibilityVersions = $this->detectedCompatibilityVersions();
+        $detectedCompatibilityVersions = $this->recordProvider->detectedCompatibilityVersions();
         $labels = [
             'capell_version' => (string) __('capell-marketplace::marketplace.filters.capell_version'),
             'laravel_version' => (string) __('capell-marketplace::marketplace.filters.laravel_version'),
@@ -597,98 +469,11 @@ final class MarketplaceCatalogueTable
         return $indicators;
     }
 
-    private function tablePageValue(int|string $value): int
-    {
-        if (! is_numeric($value) || (int) $value < 1) {
-            return 1;
-        }
-
-        return min((int) $value, self::MAX_REMOTE_PAGE);
-    }
-
-    private function tableRecordsPerPageValue(int|string $value): int
-    {
-        return is_numeric($value) && in_array((int) $value, self::TABLE_PAGE_OPTIONS, true)
-            ? (int) $value
-            : self::DEFAULT_TABLE_PAGE_OPTION;
-    }
-
     /** @return array<string, string> */
     private function versionFilterOptions(?string $version): array
     {
         return is_string($version) && $version !== ''
             ? [$version => $version]
             : [];
-    }
-
-    private function installedPackagePrettyVersion(string $packageName): ?string
-    {
-        try {
-            return InstalledVersions::isInstalled($packageName)
-                ? InstalledVersions::getPrettyVersion($packageName)
-                : null;
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private function validKind(?string $kind): string
-    {
-        return ExtensionKind::tryFrom((string) $kind) instanceof ExtensionKind
-            ? (string) $kind
-            : '';
-    }
-
-    private function lockedMarketplaceKind(?string $lockedKind): ?string
-    {
-        $kind = $this->validKind($lockedKind);
-
-        return $kind !== '' ? $kind : null;
-    }
-
-    private function isHiddenMarketplaceExtension(ExtensionListingData $extension): bool
-    {
-        return in_array($extension->composerName, $this->hiddenMarketplaceComposerNames(), true);
-    }
-
-    /** @return array<int, string> */
-    private function hiddenMarketplaceComposerNames(): array
-    {
-        return CapellCore::getPackages()
-            ->filter(fn (PackageData $package): bool => $package->isHiddenFromMarketplace())
-            ->keys()
-            ->merge(self::INTERNAL_MARKETPLACE_COMPOSER_NAMES)
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /** @return array<int, string> */
-    private function downloadedMarketplaceComposerNames(): array
-    {
-        return CapellCore::getPackages()
-            ->filter(fn (PackageData $package): bool => CapellCore::isPackageInstalled($package->name)
-                || CapellCore::isPackageAvailable($package->name))
-            ->keys()
-            ->merge($this->activeMarketplaceInstallComposerNames())
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /** @return array<int, string> */
-    private function activeMarketplaceInstallComposerNames(): array
-    {
-        return MarketplaceInstallAttempt::query()
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
-            ->pluck('composer_name')
-            ->filter(fn (mixed $composerName): bool => is_string($composerName) && $composerName !== '')
-            ->unique()
-            ->values()
-            ->all();
     }
 }

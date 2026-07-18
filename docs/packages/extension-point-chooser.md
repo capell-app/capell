@@ -2,6 +2,8 @@
 
 Use this page before adding a hook, service provider call, or package integration. Start with the table that matches the runtime you are changing, then follow the linked page for the full contract and examples.
 
+Use container tags for focused contributors and `AdminBridgeRegistry` / `AdminBridgeRegistrar` when one package owns a grouped or context-aware admin integration. Provider lifecycle and lifetime rules are documented in [Package provider conventions](../development/package-provider-conventions.md).
+
 If you are not sure which runtime you are changing, start with [Package authoring jobs](package-authoring-jobs.md) and [Extension surface vocabulary](extension-surface-vocabulary.md). Those pages define the package surfaces and install-impact terms used by this chooser.
 
 ## Core And Package Runtime
@@ -50,7 +52,7 @@ If you are not sure which runtime you are changing, start with [Package authorin
 | Add public widgets                       | `LayoutWidgetRegistry::register(...)` with a frontend target             | Frontend/Core |
 | Register frontend component aliases      | `FrontendComponentRegistry::register(...)`                               | Frontend      |
 | Register package CSS or JS sources       | `TailwindAssetsRegistry::registerSource()` / `registerImport()`          | Core/Frontend |
-| Register runtime frontend assets         | `FrontendResourceRegistry` groups / `FrontendAssetContributor::TAG`      | Frontend      |
+| Register runtime frontend assets         | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG`   | Frontend      |
 | Reserve package-owned public paths       | `ReservedFrontendPathRegistry::reserveExact()` / `reservePrefix()`       | Frontend      |
 | Add middleware to the public page route  | `FrontendRouteMiddlewareRegistry`                                        | Frontend      |
 | Add frontend rule conditions             | `FrontendRuleConditionRegistry::register(...)`                           | Frontend      |

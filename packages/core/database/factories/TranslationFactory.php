@@ -8,6 +8,7 @@ use Capell\Core\Database\Factories\Concerns\HasContent;
 use Capell\Core\Database\Factories\Concerns\HasMeta;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Slug\SlugGenerator;
 use Closure;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
@@ -68,7 +69,7 @@ class TranslationFactory extends Factory
             }
 
             if ($slug === null) {
-                $slug = str($attributes['title'] ?? $this->faker->catchPhrase())->slug()->toString();
+                $slug = SlugGenerator::slug((string) ($attributes['title'] ?? $this->faker->catchPhrase()));
             }
 
             if ($slug !== '/') {
