@@ -116,7 +116,6 @@ use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
-use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
@@ -196,7 +195,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FrontendComponentRegistryInterface::class, FrontendComponentRegistry::class);
         $this->app->singleton(FrontendComponentRegistrar::class);
         $this->app->singleton(PublicRouteAliasRegistry::class);
-        $this->app->singleton(RenderableDynamicDataRegistry::class);
         $this->registerCoreFrontendComponents();
         $this->app->singleton(FrontendSettingsReaderInterface::class, FrontendSettingsReader::class);
         $this->app->singleton(SettingsMigrationProviderInterface::class, FrontendSettingsMigrationProvider::class);

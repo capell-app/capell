@@ -138,7 +138,6 @@ use Capell\Core\ThemeStudio\Http\Middleware\ResolveThemePreviewContext;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewSigner;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
-use Capell\Core\ThemeStudio\Theme\BookingEntryPointRegistry;
 use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
@@ -586,7 +585,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ThemeRegistry::class);
         $this->app->singleton(PagePresentationRegistry::class);
         $this->app->singleton(WidgetPresentationRegistry::class);
-        $this->app->singleton(BookingEntryPointRegistry::class);
         $this->app->singleton(ThemeTokenStore::class);
         $this->app->singleton(ThemeRuntimeSettings::class, ThemeStudioSettings::class);
         $this->app->singleton(
