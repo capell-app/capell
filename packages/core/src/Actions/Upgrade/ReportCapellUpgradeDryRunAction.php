@@ -9,6 +9,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Data\VersionAudit;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Migration\MigrationFileScanner;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
 use Illuminate\Console\Command;
@@ -301,7 +302,7 @@ final class ReportCapellUpgradeDryRunAction
     /** @return list<string> */
     private function coreMigrationNames(): array
     {
-        return $this->migrationNames(dirname(__DIR__, 3) . '/database/migrations', includeStubs: false);
+        return MigrationFileScanner::names(dirname(__DIR__, 3) . '/database/migrations', includeStubs: false);
     }
 
     /** @return list<string> */
@@ -311,28 +312,7 @@ final class ReportCapellUpgradeDryRunAction
             return [];
         }
 
-        return $this->migrationNames($package->path . '/database/' . $type, includeStubs: true);
-    }
-
-    /** @return list<string> */
-    private function migrationNames(string $path, bool $includeStubs): array
-    {
-        $migrationPaths = glob($path . '/*.php') ?: [];
-
-        if ($includeStubs) {
-            $migrationPaths = [...$migrationPaths, ...(glob($path . '/*.php.stub') ?: [])];
-        }
-
-        sort($migrationPaths);
-
-        return array_values(array_unique(array_map(
-            static fn (string $migrationPath): string => str($migrationPath)
-                ->basename()
-                ->replaceEnd('.php.stub', '')
-                ->replaceEnd('.php', '')
-                ->toString(),
-            $migrationPaths,
-        )));
+        return MigrationFileScanner::names($package->path . '/database/' . $type);
     }
 
     /** @param array<string, string> $composerVersions */
