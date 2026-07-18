@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Upgrade;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Data\Upgrade\UpgradeReadinessCheckData;
 use Capell\Core\Data\Upgrade\UpgradeReadinessReportData;
+use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeReadinessResult;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Support\Facades\Artisan;
@@ -138,7 +139,7 @@ final class BuildUpgradeReadinessReportAction
     private function cacheLockCheck(): UpgradeReadinessCheckData
     {
         try {
-            $lock = Cache::lock('capell:upgrade', 1);
+            $lock = Cache::lock(CacheEnum::UpgradeLock->value, 1);
 
             if ($lock->get() === false) {
                 return new UpgradeReadinessCheckData(

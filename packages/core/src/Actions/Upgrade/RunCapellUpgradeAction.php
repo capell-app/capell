@@ -10,6 +10,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Data\UpgradePlanData;
 use Capell\Core\Data\UpgradeRunOptions;
 use Capell\Core\Data\VersionAudit;
+use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Capell\Core\Facades\CapellCore;
@@ -34,10 +35,10 @@ final class RunCapellUpgradeAction
     {
         $reporter ??= new NullUpgradeReporter;
 
-        $lock = Cache::lock('capell:upgrade', self::UPGRADE_LOCK_SECONDS);
+        $lock = Cache::lock(CacheEnum::UpgradeLock->value, self::UPGRADE_LOCK_SECONDS);
 
         if ($lock->get() === false) {
-            $reporter->error('Another upgrade is running (cache lock "capell:upgrade" held). Aborting. If no upgrade is active, retry after the lock TTL expires, up to 25 minutes after a hard process kill.');
+            $reporter->error(sprintf('Another upgrade is running (cache lock "%s" held). Aborting. If no upgrade is active, retry after the lock TTL expires, up to 25 minutes after a hard process kill.', CacheEnum::UpgradeLock->value));
 
             return self::UPGRADE_LOCKED;
         }

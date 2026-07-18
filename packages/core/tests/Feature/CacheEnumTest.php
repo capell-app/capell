@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Cache;
 it('has expected cache enum cases and flushes keys by enum prefix', function (): void {
     expect(CacheEnum::HasFoundationTheme)->toBeInstanceOf(CacheEnum::class)
         ->and(CacheEnum::Site)->toBeInstanceOf(CacheEnum::class)
-        ->and(CacheEnum::RelationExists)->toBeInstanceOf(CacheEnum::class);
+        ->and(CacheEnum::RelationExists)->toBeInstanceOf(CacheEnum::class)
+        ->and(CacheEnum::UpgradeLock->value)->toBe('capell:upgrade');
 
     $prefixes = [
         CacheEnum::HasFoundationTheme->value . '-dummy',
