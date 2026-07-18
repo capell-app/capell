@@ -171,6 +171,28 @@ use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
 {
+    private const array SITE_CHECK_SCHEDULE_FREQUENCIES = [
+        'everyMinute' => true,
+        'everyTwoMinutes' => true,
+        'everyThreeMinutes' => true,
+        'everyFourMinutes' => true,
+        'everyFiveMinutes' => true,
+        'everyTenMinutes' => true,
+        'everyFifteenMinutes' => true,
+        'everyThirtyMinutes' => true,
+        'hourly' => true,
+        'everyTwoHours' => true,
+        'everyThreeHours' => true,
+        'everyFourHours' => true,
+        'everySixHours' => true,
+        'daily' => true,
+        'twiceDaily' => true,
+        'weekly' => true,
+        'monthly' => true,
+        'quarterly' => true,
+        'yearly' => true,
+    ];
+
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
@@ -518,18 +540,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         }
 
         $frequency = config('capell-frontend.schedule_page_cleaner', 'daily');
-        $frequencies = array_fill_keys([
-            'everyMinute', 'everyTwoMinutes', 'everyThreeMinutes', 'everyFourMinutes', 'everyFiveMinutes',
-            'everyTenMinutes', 'everyFifteenMinutes', 'everyThirtyMinutes', 'hourly', 'everyTwoHours',
-            'everyThreeHours', 'everyFourHours', 'everySixHours', 'daily', 'twiceDaily', 'weekly',
-            'monthly', 'quarterly', 'yearly',
-        ], true);
 
         if (! is_string($frequency) || $frequency === '') {
             return $this;
         }
 
-        if (! isset($frequencies[$frequency])) {
+        if (! isset(self::SITE_CHECK_SCHEDULE_FREQUENCIES[$frequency])) {
             Log::warning('Invalid schedule frequency: ' . $frequency);
 
             return $this;
