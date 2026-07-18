@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Toast;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -41,7 +42,7 @@ final class CacheSafeToast
             'duration' => is_numeric(Arr::get($toast, 'duration')) ? (int) Arr::get($toast, 'duration') : null,
         ];
 
-        $json = json_encode($payload, JSON_THROW_ON_ERROR);
+        $json = JsonCodec::encode($payload);
 
         return rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
     }

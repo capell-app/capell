@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Upgrade;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -32,9 +33,9 @@ final class RecordUpgradeSnapshotAction
             'source' => $source,
             'checked_at' => now(),
             'capell_version' => $capellVersion ?? CapellCore::getInstalledPrettyVersion('capell-app/capell'),
-            'updates' => json_encode($updates, JSON_THROW_ON_ERROR),
-            'advisories' => json_encode($advisories, JSON_THROW_ON_ERROR),
-            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'updates' => JsonCodec::encode($updates),
+            'advisories' => JsonCodec::encode($advisories),
+            'metadata' => JsonCodec::encode($metadata),
             'created_at' => now(),
             'updated_at' => now(),
         ]);

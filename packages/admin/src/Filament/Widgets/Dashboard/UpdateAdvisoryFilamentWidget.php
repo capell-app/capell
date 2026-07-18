@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Widgets\Dashboard;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Pages\UpgradePage;
+use Capell\Core\Support\Json\JsonCodec;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -57,15 +58,7 @@ final class UpdateAdvisoryFilamentWidget extends Widget implements CapellFilamen
             return [];
         }
 
-        try {
-            $advisories = json_decode((string) ($snapshot->advisories ?? ''), true, flags: JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            $advisories = [];
-        }
-
-        if (! is_array($advisories)) {
-            return [];
-        }
+        $advisories = JsonCodec::decodeArray((string) ($snapshot->advisories ?? ''));
 
         return collect($advisories)
             ->filter(fn (mixed $notice): bool => is_array($notice))

@@ -18,6 +18,7 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Models\UpgradeRunEvent;
+use Capell\Core\Support\Json\JsonCodec;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -837,15 +838,7 @@ class UpgradePage extends Page
             return [];
         }
 
-        try {
-            $decoded = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return [];
-        }
-
-        if (! is_array($decoded)) {
-            return [];
-        }
+        $decoded = JsonCodec::decodeArray($value);
 
         return array_values(array_filter($decoded, is_array(...)));
     }
