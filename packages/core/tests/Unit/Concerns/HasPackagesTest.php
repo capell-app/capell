@@ -13,6 +13,7 @@ use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
+use Capell\Core\Tests\Support\Fixtures\Autoload\RuntimeProviderInstallPackageFixture;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -319,6 +320,68 @@ it('registerManifestPackage exposes package lifecycle commands from capell manif
         ->and($package->getInstallAction())->toBe(LifecycleRecorderAction::class)
         ->and($package->getSetupAction())->toBe(LifecycleRecorderAction::class)
         ->and($package->getAfterInstallAction())->toBe(LifecycleRecorderAction::class);
+});
+
+it('registerManifestPackage consumes normalized lifecycle metadata', function (): void {
+    CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/normalized-lifecycle-package',
+        providers: [
+            'runtime' => [RuntimeProviderInstallPackageFixture::class],
+        ],
+        overrides: [
+            'commands' => [
+                'install' => '  capell:normalized-install  ',
+                'installParams' => ['--force', false],
+                'setup' => ['invalid'],
+                'setupParams' => '--force',
+            ],
+            'actions' => [
+                'install' => LifecycleRecorderAction::class,
+                'uninstall' => 'Missing\\PackageAction',
+            ],
+        ],
+    )));
+
+    $package = CapellCore::getPackage('vendor/normalized-lifecycle-package');
+
+    expect($package->serviceProviderClass)->toBe(RuntimeProviderInstallPackageFixture::class)
+        ->and($package->getInstallCommand())->toBe('capell:normalized-install')
+        ->and($package->getInstallParams())->toBe(['--force'])
+        ->and($package->getSetupCommand())->toBeNull()
+        ->and($package->getSetupParams())->toBe([])
+        ->and($package->getInstallAction())->toBe(LifecycleRecorderAction::class)
+        ->and($package->uninstallAction)->toBeNull();
+});
+
+it('registerManifestPackage preserves existing runtime package metadata', function (): void {
+    CapellCore::registerPackage(
+        name: 'vendor/runtime-backed-package',
+        serviceProviderClass: RuntimeProviderInstallPackageFixture::class,
+        path: '/runtime/vendor/runtime-backed-package',
+        version: '9.9.9',
+    );
+
+    CapellCore::registerManifestPackage(CapellManifestData::fromArray(
+        capellManifestV3Array(
+            name: 'vendor/runtime-backed-package',
+            overrides: [
+                'version' => '1.2.3',
+                'commands' => [
+                    'install' => '  capell:runtime-backed-install  ',
+                    'installParams' => ['--force', false],
+                ],
+            ],
+        ),
+        '/manifest/vendor/runtime-backed-package',
+    ));
+
+    $package = CapellCore::getPackage('vendor/runtime-backed-package');
+
+    expect($package->serviceProviderClass)->toBe(RuntimeProviderInstallPackageFixture::class)
+        ->and($package->path)->toBe('/runtime/vendor/runtime-backed-package')
+        ->and($package->version)->toBe('9.9.9')
+        ->and($package->getInstallCommand())->toBe('capell:runtime-backed-install')
+        ->and($package->getInstallParams())->toBe(['--force']);
 });
 
 it('packages expose product grouping metadata from capell manifests', function (): void {

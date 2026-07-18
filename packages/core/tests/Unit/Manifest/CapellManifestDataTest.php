@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
+use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
+use Capell\Core\Tests\Support\Fixtures\Autoload\RuntimeProviderInstallPackageFixture;
 
 it('hydrates from a valid manifest v3 array', function (): void {
     $manifest = CapellManifestData::fromArray(manifestV3DataFixture());
@@ -146,6 +148,43 @@ it('resolves namespace from explicit field or provider classes', function (): vo
 
     expect(CapellManifestData::fromArray($explicit)->resolvedNamespace())->toBe('Vendor\\Package')
         ->and(CapellManifestData::fromArray($provider)->resolvedNamespace())->toBe('Vendor\\Package');
+});
+
+it('normalizes package registration values through typed accessors', function (): void {
+    $data = manifestV3DataFixture();
+    $data['providers']['runtime'] = [RuntimeProviderInstallPackageFixture::class];
+    $data['commands'] = [
+        'install' => '  capell:package-install  ',
+        'installParams' => ['--force', false, '--site=primary'],
+        'setup' => ['capell:package-setup'],
+        'setupParams' => '--force',
+        'demo' => '   ',
+        'demoParams' => [null, '--demo'],
+        'afterInstall' => 'capell:package-after-install',
+        'afterInstallParams' => ['--assets', 1],
+    ];
+    $data['actions'] = [
+        'install' => LifecycleRecorderAction::class,
+        'uninstall' => 'Missing\\PackageAction',
+        'setup' => ['invalid'],
+        'afterInstall' => '  ' . LifecycleRecorderAction::class . '  ',
+    ];
+
+    $manifest = CapellManifestData::fromArray($data);
+
+    expect($manifest->serviceProviderClass())->toBe(RuntimeProviderInstallPackageFixture::class)
+        ->and($manifest->installCommand())->toBe('capell:package-install')
+        ->and($manifest->installParams())->toBe(['--force', '--site=primary'])
+        ->and($manifest->setupCommand())->toBeNull()
+        ->and($manifest->setupParams())->toBe([])
+        ->and($manifest->demoCommand())->toBeNull()
+        ->and($manifest->demoParams())->toBe(['--demo'])
+        ->and($manifest->afterInstallCommand())->toBe('capell:package-after-install')
+        ->and($manifest->afterInstallParams())->toBe(['--assets'])
+        ->and($manifest->installAction())->toBe(LifecycleRecorderAction::class)
+        ->and($manifest->uninstallAction())->toBeNull()
+        ->and($manifest->setupAction())->toBeNull()
+        ->and($manifest->afterInstallAction())->toBe(LifecycleRecorderAction::class);
 });
 
 function manifestV3DataFixture(): array
