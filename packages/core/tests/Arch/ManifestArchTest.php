@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\DraftableContract;
-use Capell\Core\Contracts\SettingsOwnerContract;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Frontend\Enums\RenderHookLocation;
@@ -99,8 +98,4 @@ it('RenderHookLocation includes every required hook case', function (): void {
 
 it('DraftableContract exists in the core contracts namespace', function (): void {
     expect(interface_exists(DraftableContract::class))->toBeTrue();
-})->group('Core');
-
-it('SettingsOwnerContract exists in the core contracts namespace', function (): void {
-    expect(interface_exists(SettingsOwnerContract::class))->toBeTrue();
 })->group('Core');
