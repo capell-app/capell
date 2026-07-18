@@ -283,10 +283,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 generateSitemap: $generateSitemap,
             );
 
-            $this->outputPlan($inputData);
-            $this->logInstallDebug('finished plan-only command');
-
-            return CommandAlias::SUCCESS;
+            return $this->finishPlanOnlyInstall($inputData);
         }
 
         $this->logInstallDebug('resolving admin user');
@@ -373,39 +370,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             generateSitemap: $generateSitemap,
         );
 
-        $this->orchestratedSeedDefaultData = $seedDefaultData;
-        try {
-            $this->logInstallDebug('running install orchestration');
-            OrchestrateInstallAction::run(
-                $inputData,
-                new InstallOrchestrationData(
-                    outputPlan: ! $this->input->isInteractive(),
-                    runNpmBuild: $runNpmBuild,
-                    removeInstaller: $removeInstallerPackage,
-                    cachesToClear: resolve(InstallCacheOptionResolver::class)->resolve(
-                        $clearCache,
-                        $freshInstall,
-                        fn (string $command): bool => $this->getApplication()?->has($command) === true,
-                    ),
-                ),
-                $reporter,
-                $this,
-            );
-            $this->logInstallDebug('install orchestration finished');
-        } catch (Throwable $throwable) {
-            report($throwable);
-            resolve(InstallCommandPresenter::class)->renderFailure($throwable, $this->getOutput());
-            $this->logInstallDebug('install action failed', [
-                'exception' => $throwable::class,
-                'message' => $throwable->getMessage(),
-            ]);
-
-            return CommandAlias::FAILURE;
-        }
-
-        $this->logInstallDebug('finished command');
-
-        return CommandAlias::SUCCESS;
+        return $this->runInstallOrchestration(
+            inputData: $inputData,
+            reporter: $reporter,
+            seedDefaultData: $seedDefaultData,
+            runNpmBuild: $runNpmBuild,
+            removeInstallerPackage: $removeInstallerPackage,
+            clearCache: (bool) $clearCache,
+            freshInstall: $freshInstall,
+        );
     }
 
     public function outputPlan(InstallInputData $inputData): void
@@ -560,6 +533,59 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $packages
             ->keys()
             ->all();
+    }
+
+    private function finishPlanOnlyInstall(InstallInputData $inputData): int
+    {
+        $this->outputPlan($inputData);
+        $this->logInstallDebug('finished plan-only command');
+
+        return CommandAlias::SUCCESS;
+    }
+
+    private function runInstallOrchestration(
+        InstallInputData $inputData,
+        ProgressReporter $reporter,
+        bool $seedDefaultData,
+        bool $runNpmBuild,
+        bool $removeInstallerPackage,
+        bool $clearCache,
+        bool $freshInstall,
+    ): int {
+        $this->orchestratedSeedDefaultData = $seedDefaultData;
+
+        try {
+            $this->logInstallDebug('running install orchestration');
+            OrchestrateInstallAction::run(
+                $inputData,
+                new InstallOrchestrationData(
+                    outputPlan: ! $this->input->isInteractive(),
+                    runNpmBuild: $runNpmBuild,
+                    removeInstaller: $removeInstallerPackage,
+                    cachesToClear: resolve(InstallCacheOptionResolver::class)->resolve(
+                        $clearCache,
+                        $freshInstall,
+                        fn (string $command): bool => $this->getApplication()?->has($command) === true,
+                    ),
+                ),
+                $reporter,
+                $this,
+            );
+            $this->logInstallDebug('install orchestration finished');
+        } catch (Throwable $throwable) {
+            report($throwable);
+            resolve(InstallCommandPresenter::class)->renderFailure($throwable, $this->getOutput());
+            $this->logInstallDebug('install action failed', [
+                'exception' => $throwable::class,
+                'message' => $throwable->getMessage(),
+            ]);
+
+            return CommandAlias::FAILURE;
+        }
+
+        $this->logInstallDebug('finished command');
+
+        return CommandAlias::SUCCESS;
     }
 
     /**
