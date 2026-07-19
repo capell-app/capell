@@ -119,9 +119,9 @@ it('defines the public v1 split package release contract', function (): void {
 
     expect($splitWorkflow)
         ->toContain('actions: read')
-        ->toContain('actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349')
-        ->toContain('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02')
-        ->toContain('actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093')
+        ->toContain('actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1')
+        ->toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
+        ->toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
         ->toContain('SPLIT_APP_ID')
         ->toContain('SPLIT_APP_PRIVATE_KEY')
         ->toContain('permission-contents: write')

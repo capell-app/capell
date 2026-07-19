@@ -27,14 +27,14 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
     ]);
 
     CapellCore::registerPackage(
-        name: 'capell-app/seo-suite',
+        name: 'capell-app/capell',
         type: PackageTypeEnum::Plugin,
-        version: '1.2.3',
+        version: 'dev-main',
         description: 'SEO Suite',
     );
-    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    CapellCore::forcePackageInstalled('capell-app/capell');
     CapellExtension::query()
-        ->updateOrCreate(['composer_name' => 'capell-app/seo-suite'], [
+        ->updateOrCreate(['composer_name' => 'capell-app/capell'], [
             'name' => 'SEO Suite',
             'version' => '1.2.3',
             'status' => ExtensionStatusEnum::Enabled,
@@ -48,8 +48,8 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
                 'signature_issued_at' => now()->subMinute()->toIso8601String(),
                 'extension_id' => 1,
                 'extension_slug' => 'seo-suite',
-                'composer_name' => 'capell-app/seo-suite',
-                'package_version' => '1.2.3',
+                'composer_name' => 'capell-app/capell',
+                'package_version' => 'dev-main',
                 'manifest_version' => 3,
                 'manifest_hash' => str_repeat('a', 64),
                 'package_identity' => 'identity-123',
@@ -103,11 +103,11 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
             && is_string($payload['signature'])
             && str_starts_with($payload['signature'], 'sha256=')
             && collect($payload['installed'])->contains(
-                fn (array $package): bool => $package['name'] === 'capell-app/seo-suite'
-                    && $package['version'] === '1.2.3',
+                fn (array $package): bool => $package['name'] === 'capell-app/capell'
+                    && $package['version'] === 'dev-main',
             )
             && collect($payload['installed'])->contains(
-                fn (array $package): bool => $package['composer_name'] === 'capell-app/seo-suite'
+                fn (array $package): bool => $package['composer_name'] === 'capell-app/capell'
                     && $package['paid'] === true
                     && $package['licence_status'] === 'active'
                     && $package['runtime_allowed'] === true
