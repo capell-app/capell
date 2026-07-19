@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Core\Contracts\ProjectBuild;
+
+interface ProjectBuildManifestMigration
+{
+    public const string TAG = 'capell.project-build.manifest-migration';
+
+    public function fromVersion(): int;
+
+    public function toVersion(): int;
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function migrate(array $payload): array;
+}

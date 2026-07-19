@@ -22,6 +22,10 @@ it('catalogues every supported extension surface kind from explicit metadata', f
     )
         ->and(array_column($catalog, 'id'))->toContain(
             'core.contract.site-spec-applier',
+            'core.contract.project-build-artifact-handler',
+            'core.dto.project-build-manifest',
+            'core.schema.project-build-manifest-v1',
+            'core.tag.project-build-artifact-handler',
             'core.tag.site-spec-applier',
         );
 

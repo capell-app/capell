@@ -43,6 +43,26 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.project-build-artifact-handler",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildArtifactHandler",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned project artifact verification boundary.",
+            "contractTestId": "core.project-build-artifact-handler"
+        },
+        {
+            "id": "core.contract.project-build-manifest-migration",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildManifestMigration",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Explicit forward migration boundary for portable project manifests.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.site-spec-applier",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
@@ -61,6 +81,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed manifest contribution data.",
             "contractTestId": "core.extension-contribution-data"
+        },
+        {
+            "id": "core.dto.project-build-manifest",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildManifestData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build manifest envelope.",
+            "contractTestId": null
         },
         {
             "id": "core.event.package-installed",
@@ -93,6 +123,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.schema.project-build-manifest-v1",
+            "kind": "schema",
+            "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildManifestSchema",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Closed JSON Schema for portable project build manifests.",
+            "contractTestId": null
+        },
+        {
             "id": "core.tag.extension-health",
             "kind": "tagged-service",
             "identifier": "capell.extension-health-checks",
@@ -100,6 +140,26 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Container tag for extension health checks.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.project-build-artifact-handler",
+            "kind": "tagged-service",
+            "identifier": "capell.project-build.artifact-handler",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for project build artifact handlers.",
+            "contractTestId": "core.project-build-artifact-handler-registration"
+        },
+        {
+            "id": "core.tag.project-build-manifest-migration",
+            "kind": "tagged-service",
+            "identifier": "capell.project-build.manifest-migration",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for project build manifest migrations.",
             "contractTestId": null
         },
         {
