@@ -100,7 +100,7 @@ final class MarketplaceInstallFlowCallbackController
      */
     private function selectedComposerNames(array $selections): array
     {
-        return collect($selections)
+        return array_values(collect($selections)
             ->filter(fn (mixed $selection): bool => is_array($selection))
             ->map(fn (array $selection): string => is_string($selection['composer_name'] ?? null)
                 ? trim($selection['composer_name'])
@@ -108,7 +108,7 @@ final class MarketplaceInstallFlowCallbackController
             ->filter(fn (string $composerName): bool => $composerName !== '')
             ->unique()
             ->values()
-            ->all();
+            ->all());
     }
 
     private function supportReference(?string $flowId): string
