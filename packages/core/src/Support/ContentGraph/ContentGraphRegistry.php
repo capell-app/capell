@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\ContentGraph;
 
 use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
+use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 
@@ -15,9 +16,12 @@ final class ContentGraphRegistry
     /** @var array<class-string<Model>, array<int, class-string<ContentGraphExtractor>>> */
     private array $extractors = [];
 
-    private bool $taggedExtractorsDiscovered = false;
+    private readonly bool $discoversTaggedExtractors;
 
-    public function __construct(private readonly ?Container $container = null) {}
+    public function __construct(?Container $container = null)
+    {
+        $this->discoversTaggedExtractors = $container instanceof Container;
+    }
 
     /** @param class-string<ContentGraphExtractor> $extractor */
     public function register(string $extractor): void
@@ -37,25 +41,21 @@ final class ContentGraphRegistry
      */
     public function forModel(string $modelClass): array
     {
-        $this->discoverTaggedExtractors();
+        $container = $this->discoversTaggedExtractors ? LaravelContainer::getInstance() : null;
+        $extractors = [];
 
-        return collect($this->extractors[$modelClass] ?? [])
-            ->map(fn (string $extractor): ContentGraphExtractor => $this->container?->make($extractor) ?? new $extractor)
-            ->all();
-    }
-
-    private function discoverTaggedExtractors(): void
-    {
-        if ($this->taggedExtractorsDiscovered || ! $this->container instanceof Container) {
-            return;
+        foreach ($this->extractors[$modelClass] ?? [] as $extractor) {
+            $extractors[$extractor] = $container?->make($extractor) ?? new $extractor;
         }
 
-        foreach ($this->container->tagged(self::TAG) as $extractor) {
-            if ($extractor instanceof ContentGraphExtractor) {
-                $this->register($extractor::class);
+        if ($container instanceof LaravelContainer) {
+            foreach ($container->tagged(self::TAG) as $extractor) {
+                if ($extractor instanceof ContentGraphExtractor && $extractor::sourceModel() === $modelClass) {
+                    $extractors[$extractor::class] ??= $extractor;
+                }
             }
         }
 
-        $this->taggedExtractorsDiscovered = true;
+        return array_values($extractors);
     }
 }
