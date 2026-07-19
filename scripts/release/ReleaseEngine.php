@@ -686,8 +686,10 @@ final class ReleaseEngine
             if ($main !== $state['packages'][$package['name']]['split_sha']) {
                 throw new ReleaseException(sprintf('Remote main drift for %s.', $package['name']));
             }
-
-            $sourceLine = $this->required(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $package['source_tag']]);
+            $sourceLine = $this->required(
+                ['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $package['source_tag']],
+                $this->root,
+            );
             if (! str_starts_with($sourceLine, $plan['source']['commit'])) {
                 throw new ReleaseException(sprintf('Source tag drift for %s.', $package['name']));
             }
