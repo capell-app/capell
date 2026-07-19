@@ -12,7 +12,7 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-it('registers, returns, replaces, and resets theme metadata', function (): void {
+it('registers, returns, and replaces theme metadata', function (): void {
     $registry = new ThemeRegistry;
     $original = themeRegistryDefinition('metadata-theme');
     $replacement = themeRegistryDefinition('metadata-theme', extends: 'foundation');
@@ -25,13 +25,8 @@ it('registers, returns, replaces, and resets theme metadata', function (): void 
 
     $registry->register($replacement);
 
-    expect($registry->definition('metadata-theme'))->toBe($replacement);
-
-    $registry->reset();
-
-    expect($registry->has('metadata-theme'))->toBeFalse()
-        ->and($registry->definitions())->toBe([])
-        ->and(fn (): ThemeDefinitionData => $registry->definition('metadata-theme'))
+    expect($registry->definition('metadata-theme'))->toBe($replacement)
+        ->and(fn (): ThemeDefinitionData => $registry->definition('missing-theme'))
         ->toThrow(ThemeNotFoundException::class);
 });
 
@@ -41,6 +36,17 @@ it('sorts registered definitions by key', function (): void {
     $registry->register(themeRegistryDefinition('alpha'));
 
     expect(array_keys($registry->definitions()))->toBe(['alpha', 'zulu']);
+});
+
+it('preserves boot registrations across an Octane operation boundary', function (): void {
+    $registry = resolve(ThemeRegistry::class);
+    $definition = themeRegistryDefinition('worker-theme');
+    $registry->register($definition);
+
+    app()->forgetScopedInstances();
+
+    expect(resolve(ThemeRegistry::class))->toBe($registry)
+        ->and(resolve(ThemeRegistry::class)->definition('worker-theme'))->toBe($definition);
 });
 
 it('resolves runtime metadata and writes token css', function (): void {
