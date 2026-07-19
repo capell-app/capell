@@ -70,6 +70,13 @@ it('recognises every supported direct settings registry write idiom', function (
             public function boot(): void { $this->store->removeGroup('group'); }
         }
         PHP,
+    'typed accessor receiver' => <<<'PHP'
+        use Capell\Core\Support\Settings\SettingsSchemaRegistry as SchemaStore;
+        final class Provider {
+            private function settings(): SchemaStore { return resolve(SchemaStore::class); }
+            public function boot(): void { $this->settings()->register('group', Schema::class); }
+        }
+        PHP,
 ]);
 
 /**
@@ -112,8 +119,14 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
     $nodes = (new NodeFinder)->findInstanceOf($statements, Node::class);
     $registryVariables = [];
     $registryProperties = [];
+    $registryAccessors = [];
 
     foreach ($nodes as $node) {
+        if ($node instanceof Node\Stmt\ClassMethod
+            && settingsSchemaTypeIsRegistry($node->returnType)) {
+            $registryAccessors[$node->name->toString()] = true;
+        }
+
         if (! $node instanceof Node\Param || ! settingsSchemaTypeIsRegistry($node->type)) {
             continue;
         }
@@ -135,6 +148,7 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
                 $node->expr,
                 $registryVariables,
                 $registryProperties,
+                $registryAccessors,
             )) {
                 continue;
             }
@@ -165,7 +179,12 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
             continue;
         }
 
-        if (settingsSchemaExpressionIsRegistry($node->var, $registryVariables, $registryProperties)) {
+        if (settingsSchemaExpressionIsRegistry(
+            $node->var,
+            $registryVariables,
+            $registryProperties,
+            $registryAccessors,
+        )) {
             return true;
         }
     }
@@ -176,11 +195,13 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
 /**
  * @param  array<string, true>  $registryVariables
  * @param  array<string, true>  $registryProperties
+ * @param  array<string, true>  $registryAccessors
  */
 function settingsSchemaExpressionIsRegistry(
     Expr $expression,
     array $registryVariables,
     array $registryProperties,
+    array $registryAccessors,
 ): bool {
     if ($expression instanceof Expr\Variable && is_string($expression->name)) {
         return isset($registryVariables[$expression->name]);
@@ -193,8 +214,17 @@ function settingsSchemaExpressionIsRegistry(
     }
 
     if ($expression instanceof Expr\BinaryOp\Coalesce) {
-        return settingsSchemaExpressionIsRegistry($expression->left, $registryVariables, $registryProperties)
-            || settingsSchemaExpressionIsRegistry($expression->right, $registryVariables, $registryProperties);
+        return settingsSchemaExpressionIsRegistry(
+            $expression->left,
+            $registryVariables,
+            $registryProperties,
+            $registryAccessors,
+        ) || settingsSchemaExpressionIsRegistry(
+            $expression->right,
+            $registryVariables,
+            $registryProperties,
+            $registryAccessors,
+        );
     }
 
     if ($expression instanceof Expr\FuncCall && $expression->name instanceof Node\Name) {
@@ -202,10 +232,17 @@ function settingsSchemaExpressionIsRegistry(
             && settingsSchemaFirstArgumentIsRegistryClass($expression->args);
     }
 
-    return $expression instanceof Expr\MethodCall
-        && $expression->name instanceof Node\Identifier
-        && $expression->name->toString() === 'make'
-        && settingsSchemaFirstArgumentIsRegistryClass($expression->args);
+    if (! $expression instanceof Expr\MethodCall || ! $expression->name instanceof Node\Identifier) {
+        return false;
+    }
+
+    if ($expression->name->toString() === 'make') {
+        return settingsSchemaFirstArgumentIsRegistryClass($expression->args);
+    }
+
+    return $expression->var instanceof Expr\Variable
+        && $expression->var->name === 'this'
+        && isset($registryAccessors[$expression->name->toString()]);
 }
 
 function settingsSchemaPropertyName(Expr $expression): ?string
