@@ -692,7 +692,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             Cache::put(
                 $this->reviewRecordCacheKey($composerName, $includeLocalExtensionState),
                 $record,
-                now()->addSeconds(min(60, (int) config('capell-marketplace.marketplace.cache_ttl_seconds', 300))),
+                now()->addSeconds((int) config('capell-marketplace.marketplace.cache_ttl_seconds', 300)),
             );
         }
 
