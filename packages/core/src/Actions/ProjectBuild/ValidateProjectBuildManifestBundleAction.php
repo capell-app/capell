@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\ProjectBuild;
 
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Closure;
 use Illuminate\Validation\ValidationException;
@@ -26,7 +27,7 @@ final class ValidateProjectBuildManifestBundleAction
     public function handle(string $manifestJson, string $publicKey, Closure $readArtifact): ProjectBuildManifestData
     {
         try {
-            $signedPayload = json_decode($manifestJson, true, 512, JSON_THROW_ON_ERROR);
+            $signedPayload = JsonCodec::decode($manifestJson);
         } catch (JsonException) {
             throw ValidationException::withMessages(['manifest' => 'The project build manifest must contain valid JSON.']);
         }

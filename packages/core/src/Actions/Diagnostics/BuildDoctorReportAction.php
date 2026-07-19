@@ -23,6 +23,7 @@ use Capell\Core\Support\Diagnostics\Checks\RequiredTablesCheck;
 use Capell\Core\Support\Diagnostics\Checks\SeedDataCheck;
 use Capell\Core\Support\Diagnostics\Checks\StorageDisksWritableCheck;
 use Capell\Core\Support\Diagnostics\Checks\ViteInputsCheck;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -90,7 +91,7 @@ final class BuildDoctorReportAction
         try {
             $output = new BufferedOutput;
             Artisan::call($command, ['--json' => true], $output);
-            $decoded = json_decode($output->fetch(), true, 512, JSON_THROW_ON_ERROR);
+            $decoded = JsonCodec::decode($output->fetch());
         } catch (Throwable $throwable) {
             return [new DoctorCheckResultData(
                 label: sprintf('Package doctor: %s', $command),

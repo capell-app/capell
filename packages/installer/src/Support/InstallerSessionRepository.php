@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Support;
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Installer\Data\ActiveInstallData;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -394,7 +395,10 @@ final class InstallerSessionRepository
         $raw = (string) $this->get($this->key($installId, 'output'), '');
 
         return array_values(array_filter(
-            array_map(json_decode(...), explode("\n", trim($raw))),
+            array_map(
+                fn (string $line): mixed => JsonCodec::decodeOrDefault($line, associative: false),
+                explode("\n", trim($raw)),
+            ),
             fn (mixed $decoded): bool => $decoded !== null && $decoded !== false,
         ));
     }
@@ -407,7 +411,7 @@ final class InstallerSessionRepository
         return array_values(collect(explode("\n", trim($rawOutput)))
             ->filter()
             ->map(function (string $line): string {
-                $decodedLine = json_decode($line, true);
+                $decodedLine = JsonCodec::decodeOrDefault($line);
 
                 return is_array($decodedLine)
                     ? (string) ($decodedLine['message'] ?? $decodedLine['line'] ?? $line)

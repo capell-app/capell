@@ -21,7 +21,7 @@ final class MaintenanceManifestStore
             return $this->defaults();
         }
 
-        return array_replace_recursive($this->defaults(), JsonCodec::decodeArray(File::get($this->path())));
+        return array_replace_recursive($this->defaults(), JsonCodec::decodeObject(File::get($this->path())));
     }
 
     /** @param array<string, mixed> $manifest */

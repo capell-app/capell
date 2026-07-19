@@ -8,6 +8,8 @@ use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Composer\Autoload\ClassLoader;
 use Composer\InstalledVersions;
+use JsonException;
+use UnexpectedValueException;
 
 final class ManifestLoader
 {
@@ -76,9 +78,9 @@ final class ManifestLoader
             throw InvalidManifestException::fileNotFound($path);
         }
 
-        $data = json_decode($contents, associative: true);
-
-        if (! is_array($data)) {
+        try {
+            $data = JsonCodec::decodeObjectOrFail($contents);
+        } catch (JsonException|UnexpectedValueException) {
             throw InvalidManifestException::missingField('root object (invalid JSON)');
         }
 
@@ -298,9 +300,7 @@ final class ManifestLoader
             return [];
         }
 
-        $contents = json_decode((string) file_get_contents($path), associative: true);
-
-        return is_array($contents) ? $contents : [];
+        return JsonCodec::decodeObject((string) file_get_contents($path));
     }
 
     /** @param array<string, mixed> $composerJson */
@@ -401,9 +401,9 @@ final class ManifestLoader
             return false;
         }
 
-        $contents = json_decode($fileContents, associative: true);
+        $contents = JsonCodec::decodeObject($fileContents);
 
-        if (! is_array($contents)) {
+        if ($contents === []) {
             return false;
         }
 

@@ -8,6 +8,7 @@ use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Composer\InstalledVersions;
@@ -356,7 +357,7 @@ final class ThemePackageCandidates
         }
 
         try {
-            $decoded = json_decode((string) file_get_contents($path), associative: true, flags: JSON_THROW_ON_ERROR);
+            $decoded = JsonCodec::decode((string) file_get_contents($path));
         } catch (Throwable) {
             return [];
         }

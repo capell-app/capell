@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Console\Commands;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Illuminate\Console\Command;
 
@@ -22,7 +23,7 @@ final class MarketplaceDoctorCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($report->toArray(), JSON_THROW_ON_ERROR));
+            $this->line(JsonCodec::encode($report->toArray()));
 
             return $report->status === 'passed' ? self::SUCCESS : self::FAILURE;
         }

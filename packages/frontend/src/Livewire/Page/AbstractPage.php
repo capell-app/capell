@@ -289,7 +289,7 @@ abstract class AbstractPage extends Component
         }
 
         try {
-            $payload = json_decode(Crypt::decryptString($this->stateToken), true, 512, JSON_THROW_ON_ERROR);
+            $payload = JsonCodec::decode(Crypt::decryptString($this->stateToken));
         } catch (DecryptException|JsonException) {
             return [];
         }

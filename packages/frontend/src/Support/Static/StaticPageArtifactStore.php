@@ -52,18 +52,7 @@ final class StaticPageArtifactStore
             return $default;
         }
 
-        $decoded = JsonCodec::decodeArray(File::get($this->manifestPath()), $default);
-        $manifest = [];
-
-        foreach ($decoded as $key => $value) {
-            if (! is_string($key)) {
-                return $default;
-            }
-
-            $manifest[$key] = $value;
-        }
-
-        return $manifest;
+        return JsonCodec::decodeObject(File::get($this->manifestPath()), $default);
     }
 
     private function pathWithinRoot(string $file): string

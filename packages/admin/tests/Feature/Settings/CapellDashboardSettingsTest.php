@@ -165,6 +165,16 @@ it('normalizes dashboard layout submitted as serialized field state', function (
         ->not->toHaveKey('widget_layout');
 });
 
+it('preserves malformed serialized dashboard layout for recovery', function (): void {
+    $settings = [
+        'widget_layout' => '{malformed',
+        'enabled_widgets' => ['list_pages' => true],
+    ];
+
+    expect(NormalizeDashboardFilamentWidgetSettingsAction::run($settings, DashboardEnum::Main))
+        ->toBe($settings);
+});
+
 it('repairs a fully disabled default widget state during install setup sync', function (): void {
     app()->tag([FixtureDashboardContributor::class], DashboardSettingsContributor::TAG);
 

@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -24,7 +25,7 @@ final class NormalizeDashboardFilamentWidgetSettingsAction
         $layout = $settings['widget_layout'] ?? null;
 
         if (is_string($layout)) {
-            $decodedLayout = json_decode($layout, true);
+            $decodedLayout = JsonCodec::decodeOrDefault($layout);
             $layout = is_array($decodedLayout) ? $decodedLayout : null;
         }
 

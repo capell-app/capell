@@ -51,12 +51,7 @@ final class EncryptedPublicFragmentReferenceCodec implements PublicFragmentRefer
     public function decode(string $token): PublicFragmentReferenceData
     {
         try {
-            $payload = json_decode(
-                Crypt::decryptString($this->fromUrlSafeToken($token)),
-                true,
-                512,
-                JSON_THROW_ON_ERROR,
-            );
+            $payload = JsonCodec::decode(Crypt::decryptString($this->fromUrlSafeToken($token)));
 
             throw_unless(is_array($payload), PublicFragmentReferenceInvalid::class);
 

@@ -110,7 +110,7 @@ final class ErrorPageFallbackManifest
             return null;
         }
 
-        return JsonCodec::decodeArray($contents) ?: null;
+        return JsonCodec::decodeObject($contents) ?: null;
     }
 
     /**

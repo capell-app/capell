@@ -3,12 +3,29 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Media\MediaContract as Media;
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Support\Facades\DB;
+
+it('preserves malformed structured content from persisted legacy data', function (): void {
+    $blueprint = Blueprint::factory()->page()->createOne([
+        'meta' => ['content_structure' => ContentStructure::Blocks->value],
+    ]);
+    $page = Page::factory()->type($blueprint)->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne();
+
+    DB::table('translations')->where('id', $translation->getKey())->update([
+        'content' => '{malformed',
+    ]);
+
+    expect($translation->fresh()->content)->toBe('{malformed');
+});
 
 it('belongs to a language', function (): void {
     $language = Language::factory()->createOne();

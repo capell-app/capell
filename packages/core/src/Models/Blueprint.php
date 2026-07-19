@@ -24,6 +24,7 @@ use Capell\Core\Models\Contracts\Defaultable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\BlueprintObserver;
+use Capell\Core\Support\Json\JsonCodec;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -386,11 +387,11 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
     {
         return Attribute::make(set: function (mixed $value): array {
             if (is_string($value)) {
-                $value = json_decode($value, true);
+                $value = JsonCodec::decodeOrDefault($value);
             }
 
             if (! is_array($value)) {
-                return ['meta' => $value === null ? null : json_encode($value)];
+                return ['meta' => $value === null ? null : JsonCodec::encode($value)];
             }
 
             $attributes = [];
@@ -407,7 +408,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
                 unset($value['livewire']);
             }
 
-            $attributes['meta'] = $value === [] ? null : json_encode($value);
+            $attributes['meta'] = $value === [] ? null : JsonCodec::encode($value);
 
             return $attributes;
         });

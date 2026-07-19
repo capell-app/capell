@@ -107,6 +107,25 @@ it('formats install output messages through the session repository', function ()
     ]);
 });
 
+it('preserves decoded output objects while ignoring malformed and false lines', function (): void {
+    config(['cache.default' => 'array']);
+
+    $repository = new InstallerSessionRepository;
+    $installId = 'decoded-output-install';
+
+    Cache::put($repository->key($installId, 'output'), implode("\n", [
+        '{"message":"Preparing database"}',
+        '{malformed',
+        'false',
+    ]));
+
+    $lines = $repository->lines($installId);
+
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0])->toBeInstanceOf(stdClass::class)
+        ->and($lines[0]->message)->toBe('Preparing database');
+});
+
 it('resolves active install data and clears stale locks', function (): void {
     config(['cache.default' => 'array']);
 

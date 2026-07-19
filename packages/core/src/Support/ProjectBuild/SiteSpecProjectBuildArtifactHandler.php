@@ -7,6 +7,7 @@ namespace Capell\Core\Support\ProjectBuild;
 use Capell\Core\Actions\ValidateSiteSpecAction;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Validation\ValidationException;
 use JsonException;
 
@@ -20,7 +21,7 @@ final class SiteSpecProjectBuildArtifactHandler implements ProjectBuildArtifactH
     public function validate(ProjectBuildArtifactReferenceData $artifact, string $bytes): void
     {
         try {
-            $payload = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+            $payload = JsonCodec::decode($bytes);
         } catch (JsonException) {
             throw ValidationException::withMessages(['siteSpec' => 'The SiteSpec artifact must contain valid JSON.']);
         }

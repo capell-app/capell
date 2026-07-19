@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Models\Contracts\Translatable as TranslatableContract;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -141,7 +142,7 @@ class CheckTranslationCompletenessAction
     {
         $attempts = 0;
         while (is_string($value) && $attempts < 3) {
-            $decoded = json_decode($value, true);
+            $decoded = JsonCodec::decodeOrDefault($value);
             if (is_array($decoded)) {
                 return $decoded;
             }

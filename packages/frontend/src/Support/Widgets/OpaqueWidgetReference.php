@@ -25,7 +25,7 @@ final class OpaqueWidgetReference
     public static function decode(string $reference): ?array
     {
         try {
-            $decoded = json_decode(Crypt::decryptString($reference), true, 512, JSON_THROW_ON_ERROR);
+            $decoded = JsonCodec::decode(Crypt::decryptString($reference));
         } catch (DecryptException|JsonException) {
             return null;
         }

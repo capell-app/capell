@@ -111,7 +111,7 @@ class RemovePackageAction
             return;
         }
 
-        $lock = json_decode($this->files->get($lockPath), true, flags: JSON_THROW_ON_ERROR);
+        $lock = JsonCodec::decode($this->files->get($lockPath));
         throw_unless(is_array($lock), RuntimeException::class, 'The application composer.lock file is invalid.');
 
         foreach (['packages', 'packages-dev'] as $section) {
@@ -161,7 +161,7 @@ class RemovePackageAction
         throw_if($composerContents === null, RuntimeException::class, 'The application composer.json file is unavailable.');
 
         $bundle = CapellCore::getPackage($name);
-        $composer = json_decode($composerContents, true, flags: JSON_THROW_ON_ERROR);
+        $composer = JsonCodec::decode($composerContents);
         throw_unless(is_array($composer), RuntimeException::class, 'The application composer.json file is invalid.');
 
         $require = is_array($composer['require'] ?? null) ? $composer['require'] : [];
@@ -202,7 +202,7 @@ class RemovePackageAction
             return [];
         }
 
-        $composer = json_decode($this->files->get($packagePath . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+        $composer = JsonCodec::decode($this->files->get($packagePath . '/composer.json'));
         $require = is_array($composer['require'] ?? null) ? $composer['require'] : [];
 
         return array_filter($require, static fn (mixed $constraint, mixed $package): bool => is_string($package) && is_string($constraint), ARRAY_FILTER_USE_BOTH);

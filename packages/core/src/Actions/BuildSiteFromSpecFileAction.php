@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Validation\ValidationException;
 use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -24,7 +25,7 @@ final class BuildSiteFromSpecFileAction
         throw_unless(is_string($contents), RuntimeException::class, 'Could not read a spec file at: ' . $path);
 
         try {
-            $payload = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+            $payload = JsonCodec::decode($contents);
         } catch (JsonException) {
             $payload = [];
         }

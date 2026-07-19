@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Jobs;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -345,7 +346,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         }
 
         try {
-            $decoded = json_decode(Crypt::decryptString($encrypted), true, flags: JSON_THROW_ON_ERROR);
+            $decoded = JsonCodec::decode(Crypt::decryptString($encrypted));
         } catch (JsonException $jsonException) {
             throw new RuntimeException('Marketplace Composer authentication payload could not be decoded.', $jsonException->getCode(), previous: $jsonException);
         }

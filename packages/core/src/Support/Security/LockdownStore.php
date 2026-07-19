@@ -92,9 +92,9 @@ final class LockdownStore implements Resettable
         }
 
         $contents = $this->files->get($this->path());
-        $decoded = json_decode($contents, true);
+        $decoded = JsonCodec::decodeObject($contents);
 
-        if (! is_array($decoded) || ($decoded['active'] ?? null) !== true) {
+        if (($decoded['active'] ?? null) !== true) {
             return $this->cachedData = ['active' => true, 'invalid' => true];
         }
 

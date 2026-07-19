@@ -117,7 +117,7 @@ final readonly class BackupArtifactStore
 
         throw_unless(is_string($contents), UnexpectedValueException::class, 'Backup manifest is unreadable.');
 
-        $manifest = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        $manifest = JsonCodec::decode($contents);
 
         throw_unless(is_array($manifest), UnexpectedValueException::class, 'Backup manifest is invalid.');
 

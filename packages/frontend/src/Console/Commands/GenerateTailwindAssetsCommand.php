@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Console\Commands;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Support\Tailwind\TailwindAssetsGenerator;
 use Illuminate\Console\Command;
 
@@ -16,10 +17,14 @@ class GenerateTailwindAssetsCommand extends Command
     public function handle(TailwindAssetsGenerator $generator): int
     {
         if ($this->option('report')) {
-            $encodedReport = json_encode($generator->collect()->toReport(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $encodedReport = JsonCodec::encodeOrDefault(
+                $generator->collect()->toReport(),
+                '{}',
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+            );
 
             $this->line('Tailwind assets report:');
-            $this->line($encodedReport === false ? '{}' : $encodedReport);
+            $this->line($encodedReport);
 
             return self::SUCCESS;
         }

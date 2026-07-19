@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\ThemeStudio\Discovery;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -102,7 +103,7 @@ final class LocalAppThemeDefinitionRepository
     private function definitionFromJsonFile(string $manifestPath): ?ThemeDefinitionData
     {
         try {
-            $decoded = json_decode($this->files->get($manifestPath), associative: true, flags: JSON_THROW_ON_ERROR);
+            $decoded = JsonCodec::decode($this->files->get($manifestPath));
 
             throw_unless(is_array($decoded), InvalidArgumentException::class, 'Theme manifest root must be a JSON object.');
 

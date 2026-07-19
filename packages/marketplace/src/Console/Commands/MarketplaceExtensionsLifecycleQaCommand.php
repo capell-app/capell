@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Console\Commands;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Actions\RunMarketplaceExtensionsLifecycleQaAction;
 use Capell\Marketplace\Data\MarketplaceExtensionLifecycleQaResultData;
 use Illuminate\Console\Command;
@@ -40,7 +41,7 @@ final class MarketplaceExtensionsLifecycleQaCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode([
+            $this->line(JsonCodec::encode([
                 'ok' => ! $this->hasFailures($results),
                 'count' => count($results),
                 'extensions' => $report,

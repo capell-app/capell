@@ -479,7 +479,7 @@ final class ResolveFrontendResourcePlanAction
             throw new FrontendResourcePlanException(sprintf('Vite manifest not found for frontend resource [%s] at [%s].', $resource->handle, $manifestPath));
         }
 
-        $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
+        $manifest = JsonCodec::decode((string) file_get_contents($manifestPath));
 
         if (! is_array($manifest) || ! isset($manifest[$source->entry]) || ! is_array($manifest[$source->entry])) {
             throw new FrontendResourcePlanException(sprintf('Vite entry [%s] is missing for frontend resource [%s].', $source->entry, $resource->handle));

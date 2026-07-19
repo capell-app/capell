@@ -140,7 +140,7 @@ JS;
 
         $script = str_replace(
             ['__ENDPOINT__', '__LABELS__'],
-            [json_encode($endpoint, JSON_THROW_ON_ERROR), JsonCodec::encode($labels)],
+            [JsonCodec::encode($endpoint), JsonCodec::encode($labels)],
             $script,
         );
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\ProjectBuild;
 
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Support\Json\JsonCodec;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -17,9 +18,9 @@ final class CanonicalizeProjectBuildManifestAction
     /** @param array<string, mixed>|ProjectBuildManifestData $manifest */
     public function handle(array|ProjectBuildManifestData $manifest): string
     {
-        return json_encode(
+        return JsonCodec::encode(
             $this->normalize($manifest instanceof ProjectBuildManifestData ? $manifest->toArray() : $manifest),
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         );
     }
 

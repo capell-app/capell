@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Plugins;
 
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -57,7 +58,7 @@ class PluginPackagesFetcher
             return collect();
         }
 
-        $data = json_decode($body, true);
+        $data = JsonCodec::decodeOrDefault($body);
         $rawPackages = null;
 
         // Accept either keyed structure ['packages' => [...]] or a flat array of packages

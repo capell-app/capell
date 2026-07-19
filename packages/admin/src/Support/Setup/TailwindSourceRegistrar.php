@@ -8,6 +8,7 @@ use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Support\Json\JsonCodec;
 use Closure;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\File;
@@ -363,9 +364,7 @@ final class TailwindSourceRegistrar
             return [];
         }
 
-        $contents = json_decode(File::get($path), associative: true);
-
-        return is_array($contents) ? $contents : [];
+        return JsonCodec::decodeObject(File::get($path));
     }
 
     private function relativePath(string $from, string $to): string

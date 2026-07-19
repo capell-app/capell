@@ -14,6 +14,7 @@ use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
@@ -604,7 +605,7 @@ trait ManagesPackages
         }
 
         $contents = file_get_contents($manifestPath);
-        $manifest = $contents !== false ? json_decode($contents, true) : null;
+        $manifest = $contents !== false ? JsonCodec::decodeOrDefault($contents) : null;
 
         if (! is_array($manifest) || ($manifest['manifest-version'] ?? null) !== 3 || ($manifest['name'] ?? null) !== $packageName) {
             return null;

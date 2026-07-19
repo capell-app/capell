@@ -7,17 +7,18 @@ namespace Capell\Core\Casts;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Contracts\Blueprintable;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Intentionally lenient JSON cast — does NOT use JsonCodec.
+ * Intentionally lenient JSON cast.
  *
  * get() returns the raw string on decode failure (not an empty array) so legacy
  * or malformed content surfaces unchanged rather than silently becoming []. set()
- * uses bare json_encode without JSON_THROW_ON_ERROR for the same reason: array
- * values supplied here originate from validated Data/form input, and a throwing
- * codec would convert benign edge cases into write-time exceptions.
+ * uses JsonCodec's explicit legacy methods for the same reason: array values
+ * supplied here originate from validated Data/form input, and a throwing codec
+ * would convert benign edge cases into write-time exceptions.
  */
 /**
  * @implements CastsAttributes<mixed, mixed>
@@ -30,7 +31,7 @@ class DynamicContentCast implements CastsAttributes
 
         if ($structure->isArray()) {
             if (is_string($value)) {
-                $decoded = json_decode($value, true);
+                $decoded = JsonCodec::decodeOrRaw($value);
 
                 return is_array($decoded) ? $decoded : $value;
             }
@@ -39,7 +40,7 @@ class DynamicContentCast implements CastsAttributes
         }
 
         if (is_array($value)) {
-            return json_encode($value);
+            return JsonCodec::encodeOrFalse($value);
         }
 
         if (is_string($value)) {
@@ -54,11 +55,11 @@ class DynamicContentCast implements CastsAttributes
         $structure = $this->resolveContentStructure($model);
 
         if ($structure->isArray()) {
-            return is_array($value) ? json_encode($value) : (string) $value;
+            return is_array($value) ? JsonCodec::encodeOrFalse($value) : (string) $value;
         }
 
         if (is_array($value)) {
-            return json_encode($value);
+            return JsonCodec::encodeOrFalse($value);
         }
 
         if (is_string($value)) {

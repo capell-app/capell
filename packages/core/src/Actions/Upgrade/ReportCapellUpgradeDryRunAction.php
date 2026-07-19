@@ -9,6 +9,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Data\VersionAudit;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Migration\MigrationFileScanner;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
@@ -273,7 +274,7 @@ final class ReportCapellUpgradeDryRunAction
         }
 
         try {
-            $data = json_decode((string) file_get_contents($path), associative: true, flags: JSON_THROW_ON_ERROR);
+            $data = JsonCodec::decode((string) file_get_contents($path));
         } catch (Throwable) {
             return null;
         }

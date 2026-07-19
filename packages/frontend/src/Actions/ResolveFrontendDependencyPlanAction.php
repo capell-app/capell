@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
@@ -103,7 +104,7 @@ final class ResolveFrontendDependencyPlanAction
             return [];
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        $decoded = JsonCodec::decode((string) file_get_contents($path));
 
         return is_array($decoded) ? $decoded : [];
     }

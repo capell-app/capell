@@ -159,7 +159,7 @@ class InstallDeveloperToolingAction
             return false;
         }
 
-        $composerJson = json_decode((string) file_get_contents($composerJsonPath), true);
+        $composerJson = JsonCodec::decodeOrDefault((string) file_get_contents($composerJsonPath));
 
         if (! is_array($composerJson)) {
             return false;
@@ -194,7 +194,7 @@ class InstallDeveloperToolingAction
 
         file_put_contents(
             $boostJsonPath,
-            json_encode($boostConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
+            JsonCodec::encode($boostConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
         );
     }
 

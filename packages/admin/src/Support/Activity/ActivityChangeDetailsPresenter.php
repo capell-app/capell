@@ -8,6 +8,7 @@ use Capell\Admin\Data\Activity\ActivityChangedFieldData;
 use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Data\Activity\ActivityFieldDiffData;
 use Capell\Admin\Data\Activity\ActivityNestedFieldDiffData;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -171,15 +172,16 @@ final class ActivityChangeDetailsPresenter
             ]);
         }
 
-        return Str::limit((string) json_encode($value, JSON_UNESCAPED_SLASHES), 160);
+        return Str::limit(JsonCodec::encodeOrDefault($value, flags: JSON_UNESCAPED_SLASHES), 160);
     }
 
     private function detail(mixed $value): string
     {
         if (is_array($value)) {
-            $encodedValue = json_encode($this->normalizeArray($value), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-            return $encodedValue === false ? '' : $encodedValue;
+            return JsonCodec::encodeOrDefault(
+                $this->normalizeArray($value),
+                flags: JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+            );
         }
 
         return $this->summary($value);

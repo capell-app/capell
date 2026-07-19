@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 
@@ -58,7 +59,7 @@ final class CacheProgressReporter implements ProgressReporter
     private function append(string $type, string $line): void
     {
         $line = mb_strcut($line, 0, self::MAX_LINE_BYTES, 'UTF-8');
-        $entry = json_encode(['type' => $type, 'line' => $line, 'ts' => Date::now()->getTimestamp()]) . "\n";
+        $entry = JsonCodec::encode(['type' => $type, 'line' => $line, 'ts' => Date::now()->getTimestamp()]) . "\n";
         $existing = Cache::get($this->outputKey(), '');
         $output = $existing . $entry;
 

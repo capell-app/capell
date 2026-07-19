@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Scaffolding;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Str;
 
 final readonly class ThemeScaffoldInputData
@@ -55,7 +56,7 @@ final readonly class ThemeScaffoldInputData
 
     private function jsonStringValue(string $value): string
     {
-        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $encoded = JsonCodec::encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return substr($encoded, 1, -1);
     }

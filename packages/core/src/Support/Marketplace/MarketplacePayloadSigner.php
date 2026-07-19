@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Marketplace;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Str;
 
 final class MarketplacePayloadSigner
@@ -60,7 +61,7 @@ final class MarketplacePayloadSigner
      */
     public function canonicalJson(array $payload): string
     {
-        return json_encode($this->sortRecursively($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        return JsonCodec::encode($this->sortRecursively($payload), JSON_UNESCAPED_SLASHES);
     }
 
     private function sortRecursively(mixed $value): mixed

@@ -10,6 +10,7 @@ use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
@@ -163,7 +164,7 @@ final class AuditExtensionContractsAction
         }
 
         try {
-            $data = json_decode((string) file_get_contents($path), associative: true, flags: JSON_THROW_ON_ERROR);
+            $data = JsonCodec::decode((string) file_get_contents($path));
         } catch (Throwable) {
             return null;
         }

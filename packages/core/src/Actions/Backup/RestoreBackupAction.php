@@ -10,6 +10,7 @@ use Capell\Core\Data\Backup\BackupRestoreResultData;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
@@ -215,7 +216,7 @@ final class RestoreBackupAction
             );
             $process->setTimeout(max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600)));
             $process->mustRun();
-            $report = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
+            $report = JsonCodec::decode($process->getOutput());
         } catch (Throwable) {
             throw new RuntimeException('Scratch restore doctor verification failed.');
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Support\Json\JsonCodec;
 use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -71,7 +72,7 @@ class MutateContentPresenterAction
 
     private function normalizeEditorContentString(string $content): string
     {
-        $decodedContent = json_decode($content, true);
+        $decodedContent = JsonCodec::decodeOrDefault($content);
 
         if (! is_array($decodedContent)) {
             return $content;
@@ -94,7 +95,7 @@ class MutateContentPresenterAction
             return ExtractContentFromBlocksAction::run($content);
         }
 
-        $decodedContent = json_decode((string) $content, true);
+        $decodedContent = JsonCodec::decodeOrDefault((string) $content);
 
         if (is_array($decodedContent)) {
             return ExtractContentFromBlocksAction::run($decodedContent);
