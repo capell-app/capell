@@ -200,6 +200,56 @@ it('defines the public v1 split package release contract', function (): void {
         ->and($packagistScript)->toContain('config/release-packages.json');
 });
 
+it('runs the release validator without a Laravel bootstrap', function (): void {
+    $root = dirname(__DIR__, 2);
+    $output = [];
+    $exitCode = 1;
+
+    exec(sprintf(
+        '%s %s validate %s 2>&1',
+        escapeshellarg(PHP_BINARY),
+        escapeshellarg($root . '/scripts/release.php'),
+        escapeshellarg($root . '/release-plan.json'),
+    ), $output, $exitCode);
+
+    expect($exitCode)->toBe(0)
+        ->and(implode(PHP_EOL, $output))->toContain('Plan is valid.');
+});
+
+it('reads public Packagist package slugs from the release matrix', function (): void {
+    $root = dirname(__DIR__, 2);
+    $temporary = sys_get_temp_dir() . '/capell-packagist-test-' . bin2hex(random_bytes(8));
+    mkdir($temporary, 0700, true);
+    file_put_contents($temporary . '/curl', "#!/usr/bin/env bash\nprintf '404'\n");
+    chmod($temporary . '/curl', 0700);
+
+    $output = [];
+    $exitCode = 1;
+
+    try {
+        exec(sprintf(
+            'PATH=%s bash %s --dry-run 2>&1',
+            escapeshellarg($temporary . ':' . getenv('PATH')),
+            escapeshellarg($root . '/scripts/create-packagist-packages.sh'),
+        ), $output, $exitCode);
+    } finally {
+        unlink($temporary . '/curl');
+        rmdir($temporary);
+    }
+
+    $result = implode(PHP_EOL, $output);
+
+    expect($exitCode)->toBe(0)
+        ->and($result)->toContain('Create capell-app/core')
+        ->toContain('Create capell-app/admin')
+        ->toContain('Create capell-app/frontend')
+        ->toContain('Create capell-app/installer')
+        ->toContain('Create capell-app/marketplace')
+        ->toContain('Create capell-app/capell')
+        ->not->toContain('Array to string conversion')
+        ->not->toContain('capell-app/Array');
+});
+
 it('warms the package manifest cache after installation and before release smoke requests', function (): void {
     $releasePreflight = file_get_contents(dirname(__DIR__, 2) . '/scripts/release-preflight.php');
 
