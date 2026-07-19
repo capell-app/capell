@@ -8,6 +8,7 @@ use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
+use Capell\Core\ThemeStudio\Data\ThemeFrontendBuildAssetsData;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionMapper;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
@@ -33,6 +34,13 @@ afterEach(function (): void {
 it('maps local app theme manifests to theme definitions', function (): void {
     $definition = (new LocalAppThemeDefinitionMapper)->fromManifest(localAppThemeManifest([
         'assets' => [' resources/css/capell/frontend.css '],
+        'frontend' => [
+            'assets' => [
+                'cssSource' => 'resources/css/theme-local-test.css',
+                'cssBuildInput' => 'resources/css/capell/themes/local-test.css',
+                'condition' => 'theme-css:local-test',
+            ],
+        ],
     ]));
 
     expect($definition)->toBeInstanceOf(ThemeDefinitionData::class)
@@ -41,6 +49,10 @@ it('maps local app theme manifests to theme definitions', function (): void {
         ->and($definition->presets[0]->key)->toBe('launch')
         ->and($definition->includedSections)->toBe(['hero', 'features'])
         ->and($definition->assets)->toBe(['resources/css/capell/frontend.css'])
+        ->and($definition->frontendBuildAssets())->toBeInstanceOf(ThemeFrontendBuildAssetsData::class)
+        ->and($definition->frontendBuildAssets()?->cssSource)->toBe('resources/css/theme-local-test.css')
+        ->and($definition->frontendBuildAssets()?->cssBuildInput)->toBe('resources/css/capell/themes/local-test.css')
+        ->and($definition->frontendBuildAssets()?->condition)->toBe('theme-css:local-test')
         ->and($definition->presets[0]->values['primaryColor'])->toBe('#123456');
 });
 

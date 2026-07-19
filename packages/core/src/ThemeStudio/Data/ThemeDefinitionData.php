@@ -7,6 +7,7 @@ namespace Capell\Core\ThemeStudio\Data;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\ThemeStudio\Exceptions\ThemePresetNotFoundException;
 use Spatie\LaravelData\Data;
+use Throwable;
 
 class ThemeDefinitionData extends Data
 {
@@ -33,6 +34,25 @@ class ThemeDefinitionData extends Data
         public array $frontend = [],
         public ?string $extends = null,
     ) {}
+
+    public function frontendBuildAssets(): ?ThemeFrontendBuildAssetsData
+    {
+        $assets = $this->frontend['assets'] ?? null;
+
+        if ($assets instanceof ThemeFrontendBuildAssetsData) {
+            return $assets;
+        }
+
+        if (! is_array($assets)) {
+            return null;
+        }
+
+        try {
+            return ThemeFrontendBuildAssetsData::from($assets);
+        } catch (Throwable) {
+            return null;
+        }
+    }
 
     public function preset(string $key): ?ThemePresetData
     {
