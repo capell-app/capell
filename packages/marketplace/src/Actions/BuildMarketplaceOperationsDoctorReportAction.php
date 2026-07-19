@@ -10,10 +10,12 @@ use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildMarketplaceOperationsDoctorReportAction
 {
+    use AsFake;
     use AsObject;
 
     private const array RUNTIME_COLUMNS = [

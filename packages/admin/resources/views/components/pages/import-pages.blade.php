@@ -692,7 +692,8 @@
                 <pre
                     class="overflow-auto rounded bg-rose-100 p-3 text-xs text-rose-900 dark:bg-rose-900/40 dark:text-rose-100"
                 >
-{{ $failureReason }}</pre>
+{{ $failureReason }}</pre
+                >
             @endif
 
             <x-filament::button wire:click="backToUpload">

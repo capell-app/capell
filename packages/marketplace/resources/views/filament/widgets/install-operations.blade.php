@@ -361,7 +361,8 @@
                                                     <pre
                                                         class="max-h-80 overflow-auto bg-gray-950 p-3 text-xs leading-5 whitespace-pre-wrap text-gray-100"
                                                     >
-{{ $logEntry['content'] }}</pre>
+{{ $logEntry['content'] }}</pre
+                                                    >
                                                 </div>
                                             @endif
                                         @endforeach

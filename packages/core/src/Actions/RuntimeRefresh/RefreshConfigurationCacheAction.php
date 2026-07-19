@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\RuntimeRefresh;
 
 use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshStageResultData;
 use Illuminate\Foundation\Application;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class RefreshConfigurationCacheAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

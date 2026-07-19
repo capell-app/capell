@@ -7,17 +7,17 @@ namespace Capell\Core\Actions\RuntimeRefresh;
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshStageResultData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 class RunRuntimeDoctorAction
 {
+    use AsFake;
     use AsObject;
-
-    public function __construct(private readonly BuildDoctorReportAction $buildDoctorReport) {}
 
     public function handle(): RuntimeRefreshStageResultData
     {
-        $report = $this->buildDoctorReport->handle();
+        $report = BuildDoctorReportAction::run();
         $failures = $report->checks
             ->reject(fn (DoctorCheckResultData $check): bool => $check->passed)
             ->map(fn (DoctorCheckResultData $check): string => $check->label)
