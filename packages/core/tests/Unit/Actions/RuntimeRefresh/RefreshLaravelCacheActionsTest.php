@@ -15,8 +15,8 @@ it('preserves uncached configuration and route modes', function (): void {
     $artisan = Mockery::mock(RunArtisanRuntimeRefreshStageAction::class);
     $artisan->shouldNotReceive('handle');
 
-    $config = (new RefreshConfigurationCacheAction($application, $artisan))->handle();
-    $routes = (new RefreshRouteCacheAction($application, $artisan))->handle();
+    $config = new RefreshConfigurationCacheAction($application, $artisan)->handle();
+    $routes = new RefreshRouteCacheAction($application, $artisan)->handle();
 
     expect($config->skipped)->toBeTrue()
         ->and($config->passed)->toBeTrue()
@@ -38,8 +38,8 @@ it('rebuilds configuration and routes only when their caches are active', functi
         ->with('routes', 'Laravel route cache', 'route:cache')
         ->andReturn(new RuntimeRefreshStageResultData('routes', 'Laravel route cache', true, 'rebuilt'));
 
-    $config = (new RefreshConfigurationCacheAction($application, $artisan))->handle();
-    $routes = (new RefreshRouteCacheAction($application, $artisan))->handle();
+    $config = new RefreshConfigurationCacheAction($application, $artisan)->handle();
+    $routes = new RefreshRouteCacheAction($application, $artisan)->handle();
 
     expect($config->skipped)->toBeFalse()
         ->and($config->passed)->toBeTrue()

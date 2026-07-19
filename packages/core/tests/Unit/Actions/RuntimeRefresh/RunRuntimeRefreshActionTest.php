@@ -61,7 +61,7 @@ it('runs runtime refresh stages in their safe deployment order', function (): vo
         return runtimeRefreshStage('doctor');
     });
 
-    $result = (new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor))->handle();
+    $result = new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor)->handle();
 
     expect($order)->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor'])
         ->and($result->passed())->toBeTrue();
@@ -83,7 +83,7 @@ it('continues independent stages and aggregates a partial failure', function ():
     $warm->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('warm'));
     $doctor->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('doctor'));
 
-    $result = (new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor))->handle();
+    $result = new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor)->handle();
 
     expect($result->passed())->toBeFalse()
         ->and($result->stages)->toHaveCount(6)

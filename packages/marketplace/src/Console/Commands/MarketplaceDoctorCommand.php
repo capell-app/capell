@@ -22,7 +22,7 @@ final class MarketplaceDoctorCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report->toArray(), JSON_THROW_ON_ERROR));
+            $this->line(json_encode($report->toArray(), JSON_THROW_ON_ERROR));
 
             return $report->status === 'passed' ? self::SUCCESS : self::FAILURE;
         }

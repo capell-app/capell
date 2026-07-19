@@ -28,7 +28,7 @@ it('warms every enabled default site homepage through the application kernel', f
         });
     $kernel->shouldReceive('terminate')->once();
 
-    (new WarmCriticalFrontendPagesAction($kernel))->warm();
+    new WarmCriticalFrontendPagesAction($kernel)->warm();
 
     expect(rtrim((string) $requestedUrl, '/'))->toBe(rtrim($siteDomain->full_url, '/'));
 });
@@ -43,11 +43,11 @@ it('fails the warm stage when a critical homepage is unhealthy', function (): vo
             'path' => '/',
         ]);
     $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('handle')->once()->andReturn(new Response('failed', 500));
+    $kernel->shouldReceive('handle')->once()->andReturn(new Response('failed', Response::HTTP_INTERNAL_SERVER_ERROR));
     $kernel->shouldReceive('terminate')->once();
 
     expect(function () use ($kernel): void {
-        (new WarmCriticalFrontendPagesAction($kernel))->warm();
+        new WarmCriticalFrontendPagesAction($kernel)->warm();
     })
         ->toThrow(RuntimeException::class, 'returned HTTP 500');
 });

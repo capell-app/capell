@@ -32,7 +32,7 @@ foreach ($contracts as $description => [$relativePath, $expected]) {
         $fileContents = file_get_contents($path);
 
         if ($fileContents === false) {
-            $failures[] = "{$relativePath} could not be read.";
+            $failures[] = $relativePath . ' could not be read.';
 
             continue;
         }
@@ -41,7 +41,7 @@ foreach ($contracts as $description => [$relativePath, $expected]) {
     }
 
     if (! str_contains($contents[$relativePath], $expected)) {
-        $failures[] = "{$description} ({$relativePath}).";
+        $failures[] = sprintf('%s (%s).', $description, $relativePath);
     }
 }
 
@@ -49,7 +49,7 @@ if ($failures !== []) {
     fwrite(STDERR, "README engineering standards are out of sync:\n");
 
     foreach ($failures as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
     exit(1);
