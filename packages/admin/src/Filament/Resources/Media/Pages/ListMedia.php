@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Media\Pages;
 
+use Capell\Admin\Actions\Media\CreateExternalVideoMediaAction;
+use Capell\Admin\Actions\Media\UploadSiteMediaAction;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Concerns\HasImportExportHeaderActions;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Data\Media\ExternalVideoData;
-use Capell\Core\Enums\MediaCollectionEnum;
-use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Filament\Actions\Action;
@@ -20,8 +20,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Override;
 
@@ -126,26 +124,7 @@ class ListMedia extends ListRecords
             ]);
         }
 
-        $media = new Media;
-        $media->forceFill([
-            'model_type' => $site->getMorphClass(),
-            'model_id' => $site->getKey(),
-            'uuid' => (string) Str::uuid(),
-            'collection_name' => MediaCollectionEnum::Video->value,
-            'name' => (string) $data['name'],
-            'file_name' => $video->videoId . '.youtube',
-            'mime_type' => 'video/youtube',
-            'disk' => config('media-library.disk_name', 'public'),
-            'conversions_disk' => config('media-library.disk_name', 'public'),
-            'size' => 0,
-            'manipulations' => [],
-            'custom_properties' => [],
-            'generated_conversions' => [],
-            'responsive_images' => [],
-            'order_column' => $this->nextVideoOrderForSite($site),
-        ]);
-        $media->setExternalVideo($video);
-        $media->save();
+        CreateExternalVideoMediaAction::run($site, (string) $data['name'], $video);
 
         Notification::make()
             ->title(__('capell-admin::media.external_video_created'))
@@ -171,38 +150,13 @@ class ListMedia extends ListRecords
             ]);
         }
 
-        $uploadedFiles = $data['files'] ?? [];
-
-        $paths = collect(is_array($uploadedFiles) ? $uploadedFiles : [])
-            ->flatten()
-            ->filter(fn (mixed $path): bool => is_string($path) && $path !== '')
-            ->values();
-
-        $paths->each(function (string $path) use ($site): void {
-            $absolutePath = Storage::disk('local')->path($path);
-
-            $site
-                ->addMedia($absolutePath)
-                ->usingName(pathinfo($path, PATHINFO_FILENAME))
-                ->toMediaCollection('uploads', config('media-library.disk_name', 'public'));
-        });
+        $uploadedCount = UploadSiteMediaAction::run($site, $data['files'] ?? []);
 
         Notification::make()
-            ->title(trans_choice('capell-admin::media.upload_files_success', $paths->count(), ['count' => $paths->count()]))
+            ->title(trans_choice('capell-admin::media.upload_files_success', $uploadedCount, ['count' => $uploadedCount]))
             ->success()
             ->send();
 
         return null;
-    }
-
-    private function nextVideoOrderForSite(Site $site): int
-    {
-        $max = Media::query()
-            ->where('model_type', $site->getMorphClass())
-            ->where('model_id', $site->getKey())
-            ->where('collection_name', MediaCollectionEnum::Video->value)
-            ->max('order_column');
-
-        return (int) $max + 1;
     }
 }
