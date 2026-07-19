@@ -169,9 +169,9 @@ it('skips invalid tagged values and selects the first valid contributor determin
     app()->tag(['test.marketplace.invalid-publisher'], MarketplaceComposerChangePublisher::TAG);
 
     foreach (['first' => 'first123', 'second' => 'second456'] as $key => $commit) {
-        tagMarketplacePublicationPublisher(new class($commit) implements MarketplaceComposerChangePublisher
+        tagMarketplacePublicationPublisher(new readonly class($commit) implements MarketplaceComposerChangePublisher
         {
-            public function __construct(private readonly string $commit) {}
+            public function __construct(private string $commit) {}
 
             public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
             {
