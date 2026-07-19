@@ -169,10 +169,12 @@ final class QueueMarketplaceInstallAttemptAction
             return $attempt;
         }
 
-        $deployment = [
-            ...PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $attempt),
-            ...$deploymentMetadata,
-        ];
+        $deployment = PackageIsAvailableForLifecycleAction::run($attempt->composer_name)
+            ? $deploymentMetadata
+            : [
+                ...PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $attempt),
+                ...$deploymentMetadata,
+            ];
 
         $attempt->forceFill(['deployment' => $deployment !== [] ? $deployment : null])->save();
 

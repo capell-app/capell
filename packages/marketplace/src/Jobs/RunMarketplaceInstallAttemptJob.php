@@ -12,6 +12,7 @@ use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Actions\ClassifyMarketplaceInstallFailureAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
+use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
 use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
@@ -160,7 +161,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         $attempt->refresh();
 
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_running', MarketplaceInstallFailureStage::Queue);
-        if ($this->packageAlreadyAvailableForLifecycle($attempt)) {
+        if (PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
             $result = new MarketplaceComposerResultData(
                 exitCode: 0,
                 output: (string) __('capell-marketplace::marketplace.operations.timeline_composer_skipped_downloaded'),
@@ -424,13 +425,6 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             context: $context,
             outputExcerpt: $outputExcerpt,
         );
-    }
-
-    private function packageAlreadyAvailableForLifecycle(MarketplaceInstallAttempt $attempt): bool
-    {
-        return CapellCore::hasPackage($attempt->composer_name)
-            && CapellCore::isPackageAvailable($attempt->composer_name)
-            && ! CapellCore::isPackageInstalled($attempt->composer_name);
     }
 
     private function reloadPackageRegistry(): void
