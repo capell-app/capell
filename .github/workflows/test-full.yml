@@ -90,15 +90,19 @@ jobs:
       - name: Configure environment
         run: |
           if [ "${{ matrix.db }}" == "mysql" ]; then
-            echo "DB_CONNECTION=mysql" >> .env
-            echo "DB_HOST=127.0.0.1" >> .env
-            echo "DB_PORT=${{ job.services.mysql.ports['3306'] }}" >> .env
-            echo "DB_DATABASE=test_cms_multi" >> .env
-            echo "DB_USERNAME=root" >> .env
-            echo "DB_PASSWORD=root" >> .env
+            {
+              echo "DB_CONNECTION=mysql"
+              echo "DB_HOST=127.0.0.1"
+              echo "DB_PORT=${{ job.services.mysql.ports['3306'] }}"
+              echo "DB_DATABASE=test_cms_multi"
+              echo "DB_USERNAME=root"
+              echo "DB_PASSWORD=root"
+            } >> .env
           else
-            echo "DB_CONNECTION=sqlite" >> .env
-            echo "DB_DATABASE=:memory:" >> .env
+            {
+              echo "DB_CONNECTION=sqlite"
+              echo "DB_DATABASE=:memory:"
+            } >> .env
           fi
 
       - name: Run test:all
