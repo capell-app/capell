@@ -3,7 +3,8 @@
 
 declare(strict_types=1);
 
-[$script, $planPath] = $argv + [null, null];
+$cliArguments = $GLOBALS['argv'] ?? [];
+[$script, $planPath] = $cliArguments + [null, null];
 if (! is_string($planPath) || ! is_file($planPath)) {
     fwrite(STDERR, "A release plan is required.\n");
     exit(1);
@@ -14,7 +15,7 @@ $temporary = sys_get_temp_dir() . '/capell-preflight-' . bin2hex(random_bytes(8)
 mkdir($temporary, 0700, true);
 register_shutdown_function(static function () use ($temporary): void {
     if (getenv('CAPELL_RELEASE_PREFLIGHT_KEEP') === '1') {
-        fwrite(STDERR, "Retained release preflight consumer at {$temporary}\n");
+        fwrite(STDERR, sprintf('Retained release preflight consumer at %s%s', $temporary, PHP_EOL));
 
         return;
     }
@@ -38,7 +39,7 @@ foreach ([...($plan['external_ledger'] ?? []), ...$plan['ledger']] as $package) 
     $repositories[] = ['type' => 'vcs', 'url' => 'https://github.com/' . $package['repository'] . '.git'];
     if (isset($selected[$package['name']])) {
         [$major, $minor] = explode('.', $selected[$package['name']]['proposed_version']);
-        $requirements[$package['name']] = "dev-main as {$major}.{$minor}.x-dev";
+        $requirements[$package['name']] = sprintf('dev-main as %s.%s.x-dev', $major, $minor);
     } else {
         $requirements[$package['name']] = $package['version'];
     }
@@ -69,6 +70,10 @@ if ($exitCode !== 0) {
 }
 touch($consumer . '/database/database.sqlite');
 passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover && php artisan migrate --force && php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --theme=none --name=Preflight --email=preflight@example.test --password=release-preflight-password --clear-cache --install-welcome-route', $exitCode);
+if ($exitCode !== 0) {
+    exit($exitCode);
+}
+passthru('cd ' . escapeshellarg($consumer) . ' && php artisan capell:package-cache', $exitCode);
 if ($exitCode !== 0) {
     exit($exitCode);
 }
