@@ -8,6 +8,7 @@ use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Support\Manifest\ManifestLoader;
+use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -135,7 +136,7 @@ final class BuildThemeDoctorReportAction
             ->filter(function (SplFileInfo $file): bool {
                 $contents = (string) File::get($file->getPathname());
 
-                return preg_match('/(?:src|href)=["\']\/(?!\/)/', $contents) === 1;
+                return ThemeAssetUrlInspector::containsRootRelativeAssetUrl($contents);
             })
             ->map(fn (SplFileInfo $file): string => $file->getRelativePathname())
             ->values()

@@ -11,6 +11,7 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
+use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\Testing\Contracts\CompanionPackageContractSuite;
 use Capell\Core\Testing\Data\CompanionPackageContractData;
 use Composer\InstalledVersions;
@@ -163,7 +164,7 @@ final class ExtensionTestHarness
             ->filter(function (SplFileInfo $file): bool {
                 $contents = (string) File::get($file->getPathname());
 
-                return preg_match('/(?:src|href)=["\']\/(?!\/)/', $contents) === 1;
+                return ThemeAssetUrlInspector::containsRootRelativeAssetUrl($contents);
             })
             ->map(fn (SplFileInfo $file): string => $file->getRelativePathname())
             ->values()

@@ -75,7 +75,7 @@ final class AfterInstallCommand extends Command
             ->all();
         $this->writeViteInputManifest($inputs);
 
-        $build = Process::run($buildCommand);
+        $build = Process::forever()->run($buildCommand);
         $this->outputProcessStreams($build->output(), $build->errorOutput());
 
         if (! $build->successful()) {
@@ -118,7 +118,7 @@ final class AfterInstallCommand extends Command
             return true;
         }
 
-        $result = Process::run($command);
+        $result = Process::forever()->run($command);
         $this->outputProcessStreams($result->output(), $result->errorOutput());
 
         if ($result->successful()) {
