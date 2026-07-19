@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Media\Pages;
 
+use Capell\Admin\Actions\Media\UpdateMediaAction;
 use Capell\Admin\Contracts\Extenders\MediaEditActionExtender;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Concerns\HasConfigurableFormActionPosition;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\MediaCropPresetRepository;
-use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Repeater;
@@ -34,9 +33,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\ValidationException;
 use Override;
-use Spatie\MediaLibrary\Conversions\FileManipulator;
 
 /**
  * @property Media $record
@@ -248,44 +245,7 @@ class EditMedia extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Media $record */
-        $record->name = (string) $data['name'];
-        $externalVideoUrl = trim((string) ($data['external_video_url'] ?? ''));
-
-        if ($externalVideoUrl !== '') {
-            $externalVideo = YouTubeVideoUrl::parse($externalVideoUrl);
-
-            if (! $externalVideo instanceof ExternalVideoData) {
-                throw ValidationException::withMessages([
-                    'external_video_url' => __('capell-admin::media.external_video_invalid'),
-                ]);
-            }
-
-            $record->setExternalVideo($externalVideo);
-        } elseif ($record->isExternalVideo()) {
-            $record->clearExternalVideo();
-        }
-
-        $usesSpatieImageEditing = $record->isImage() && resolve(BackendResolver::class)->isSpatie();
-
-        if ($usesSpatieImageEditing) {
-            $record
-                ->setFocalPoint((int) $data['focal_point_x'], (int) $data['focal_point_y'])
-                ->setCropPresets($this->validCropPresetNames($data['crop_presets'] ?? []));
-        }
-
-        $record->save();
-
-        $this->syncLocalizedMetadata($record, $data['translations'] ?? []);
-
-        if ($usesSpatieImageEditing) {
-            resolve(FileManipulator::class)->createDerivedFiles(
-                $record->refresh(),
-                $record->getCropPresetNames(),
-                withResponsiveImages: true,
-            );
-        }
-
-        return $record;
+        return UpdateMediaAction::run($record, $data);
     }
 
     #[Override]
@@ -328,74 +288,6 @@ class EditMedia extends EditRecord
                 }),
             $this->getCancelFormAction(),
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function validCropPresetNames(mixed $presetNames): array
-    {
-        if (! is_array($presetNames)) {
-            return [];
-        }
-
-        $available = resolve(MediaCropPresetRepository::class)->names();
-
-        $validPresetNames = collect($presetNames)
-            ->filter(fn (mixed $name): bool => is_string($name) && in_array($name, $available, true))
-            ->values()
-            ->all();
-
-        return array_values($validPresetNames);
-    }
-
-    private function syncLocalizedMetadata(Media $record, mixed $translations): void
-    {
-        if (! is_array($translations)) {
-            return;
-        }
-
-        $seenLanguageIds = [];
-
-        foreach ($translations as $translationData) {
-            if (! is_array($translationData)) {
-                continue;
-            }
-
-            $languageId = (int) ($translationData['language_id'] ?? 0);
-            if ($languageId < 1) {
-                continue;
-            }
-
-            if (in_array($languageId, $seenLanguageIds, true)) {
-                continue;
-            }
-
-            $seenLanguageIds[] = $languageId;
-
-            $meta = array_filter([
-                'alt' => $translationData['meta']['alt'] ?? null,
-                'caption' => $translationData['meta']['caption'] ?? null,
-                'credit' => $translationData['meta']['credit'] ?? null,
-                'decorative' => (bool) ($translationData['meta']['decorative'] ?? false),
-            ], fn (mixed $value): bool => $value !== null && $value !== '');
-
-            Translation::query()->updateOrCreate(
-                [
-                    'language_id' => $languageId,
-                    'translatable_type' => $record->getMorphClass(),
-                    'translatable_id' => $record->getKey(),
-                ],
-                [
-                    'title' => $translationData['title'] ?? null,
-                    'meta' => $meta,
-                ],
-            );
-        }
-
-        $record->translations()
-            ->whereNotIn('language_id', $seenLanguageIds)
-            ->delete();
     }
 
     private function ownerUrl(): ?string
