@@ -28,6 +28,7 @@ use Capell\Marketplace\Support\MarketplaceTrustedUrlPolicy;
 use Composer\InstalledVersions;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -132,10 +133,24 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             return [];
         }
 
+        $records = $composerNames
+            ->mapWithKeys(function (string $composerName): array {
+                $record = Cache::get($this->reviewRecordCacheKey($composerName));
+
+                return is_array($record) ? [$composerName => $record] : [];
+            })
+            ->all();
+        $composerNames = $composerNames
+            ->reject(fn (string $composerName): bool => array_key_exists($composerName, $records))
+            ->values();
+
+        if ($composerNames->isEmpty()) {
+            return $records;
+        }
+
         $compatibilityVersions = $this->detectedCompatibilityVersions();
         $includeLocalExtensionState = $this->canExposeLocalExtensionState($includeLocalExtensionState);
         $kind = $this->lockedMarketplaceKind($lockedKind) ?? '';
-        $records = [];
         $marketplaceClient = resolve(MarketplaceClient::class);
 
         try {
@@ -153,7 +168,9 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
                     continue;
                 }
 
-                $records[$composerName] = $this->extensionTableRecord($extension, $includeLocalExtensionState);
+                $records[$composerName] = $this->cacheReviewRecord(
+                    $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                );
             }
         } catch (Throwable $throwable) {
             Log::warning('capell-marketplace: exact marketplace composer lookup failed; falling back to search lookup', [
@@ -186,7 +203,9 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
                     continue;
                 }
 
-                $records[$composerName] = $this->extensionTableRecord($extension, $includeLocalExtensionState);
+                $records[$composerName] = $this->cacheReviewRecord(
+                    $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                );
 
                 break;
             }
@@ -478,7 +497,9 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
                     break;
                 }
 
-                $records[] = $this->extensionTableRecord($extension, $includeLocalExtensionState);
+                $records[] = $this->cacheReviewRecord(
+                    $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                );
             }
 
             $hasMoreRemotePages = $remotePage->nextPageUrl !== null
@@ -514,7 +535,9 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
         return [
             'records' => $visibleExtensions
-                ->map(fn (ExtensionListingData $extension): array => $this->extensionTableRecord($extension, $includeLocalExtensionState))
+                ->map(fn (ExtensionListingData $extension): array => $this->cacheReviewRecord(
+                    $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                ))
                 ->values()
                 ->all(),
             'total' => max($visibleExtensions->count(), $marketplacePage->total - $hiddenExtensionsCount),
@@ -654,6 +677,37 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     }
 
     /** @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>
+     */
+    private function cacheReviewRecord(array $record): array
+    {
+        $composerName = $record['composer_name'] ?? null;
+
+        if (is_string($composerName) && $composerName !== '') {
+            Cache::put(
+                $this->reviewRecordCacheKey($composerName),
+                $record,
+                now()->addSeconds(min(60, (int) config('capell-marketplace.marketplace.cache_ttl_seconds', 300))),
+            );
+        }
+
+        return $record;
+    }
+
+    private function reviewRecordCacheKey(string $composerName): string
+    {
+        $instance = $this->instances->latest();
+
+        return 'capell-marketplace.marketplace.review-record.' . hash('xxh3', implode('|', [
+            $instance?->instance_id ?? 'unconnected',
+            $instance?->account_id ?? 'anonymous',
+            auth()->id() !== null ? (string) auth()->id() : 'guest',
+            $composerName,
+        ]));
+    }
+
     private function extensionTableRecord(ExtensionListingData $extension, bool $includeLocalExtensionState = true): array
     {
         $isInstalled = $includeLocalExtensionState && $this->isInstalled($extension);

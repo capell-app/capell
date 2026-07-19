@@ -338,6 +338,8 @@ it('reviews marketplace selections after search changes hide the selected record
         ->assertSee('Media Curator')
         ->assertSee(trans_choice('capell-marketplace::marketplace.selection.review_summary', 2, ['count' => 2]))
         ->assertSee(trans_choice('capell-marketplace::marketplace.selection.final_install_count_button', 2, ['count' => 2]));
+
+    Http::assertNotSent(fn ($request): bool => str_contains((string) $request->url(), '/extensions/by-composer'));
 });
 
 it('shows blocked marketplace extensions in the default not installed marketplace results', function (): void {
