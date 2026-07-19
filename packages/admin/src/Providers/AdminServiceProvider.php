@@ -195,7 +195,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Contracts\Container\Container as ContainerContract;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -681,10 +680,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         $this->app->singleton(AdminEventRegistry::class);
 
-        $this->app->singleton(
-            AdminEventRouter::class,
-            fn (ContainerContract $app): AdminEventRouter => new AdminEventRouter($app, $app->make(AdminEventRegistry::class)),
-        );
+        $this->app->singleton(AdminEventRouter::class);
 
         return $this;
     }

@@ -9,8 +9,6 @@ use Capell\Core\Data\PageTypeData;
 use Capell\Core\Models\Site;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
-use Capell\Core\Octane\SingletonLifetime;
-use Capell\Core\Octane\SingletonLifetimeInventory;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Media\ImageUrlPolicy;
@@ -28,11 +26,16 @@ use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Capell\Tests\Support\Octane\SingletonLifetime;
+use Capell\Tests\Support\Octane\SingletonLifetimeInventory;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Livewire\Mechanisms\DataStore;
+
+require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetime.php';
+require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetimeInventory.php';
 
 it('flushes tagged resettable services', function (): void {
     $resettable = new class implements Resettable

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 use Capell\Core\Concerns\HasModelRelations;
 use Capell\Core\Octane\Resettable;
-use Capell\Core\Octane\SingletonLifetime;
-use Capell\Core\Octane\SingletonLifetimeInventory;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
@@ -16,223 +14,66 @@ use Capell\Frontend\Support\Logging\FrontendLogger;
 use Capell\Frontend\Support\Security\FrontendUrlSignatureService;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Marketplace\Actions\PhoneHomeAction;
-use PhpParser\Node;
-use PhpParser\NodeFinder;
-use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitor\NameResolver;
-use PhpParser\ParserFactory;
+use Capell\Tests\Support\Octane\SingletonLifetime;
+use Capell\Tests\Support\Octane\SingletonLifetimeGuard;
+use Capell\Tests\Support\Octane\SingletonLifetimeInventory;
 
-class SingletonLifetimeParentFixture
+require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetime.php';
+require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetimeInventory.php';
+require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetimeGuard.php';
+
+trait SingletonLifetimeTraitFixture
+{
+    private array $traitCache = [];
+}
+
+class SingletonLifetimeGrandparentFixture
+{
+    private array $privateParentCache = [];
+}
+
+class SingletonLifetimeParentFixture extends SingletonLifetimeGrandparentFixture
 {
     protected array $parentCache = [];
 }
 
+final class SingletonLifetimeMutableDependencyFixture
+{
+    private array $values = [];
+}
+
 final class SingletonLifetimeFixture extends SingletonLifetimeParentFixture
 {
+    use SingletonLifetimeTraitFixture;
+
     private string $operation = '';
 
-    private readonly string $immutable;
-
-    public function __construct()
-    {
-        $this->immutable = 'fixed';
-    }
+    public function __construct(private readonly SingletonLifetimeMutableDependencyFixture $dependency) {}
 }
 
-/** @return array<string, array{file: string, abstract: string}> */
-function capellSingletonTargets(): array
+function singletonLifetimeGuard(): SingletonLifetimeGuard
 {
-    $parser = (new ParserFactory)->createForNewestSupportedVersion();
-    $finder = new NodeFinder;
-    $targets = [];
-    $files = glob(dirname(__DIR__, 4) . '/*/src/{Providers,Support/Bootstrap}/*.php', GLOB_BRACE);
-
-    foreach ($files ?: [] as $file) {
-        $nodes = $parser->parse((string) file_get_contents($file)) ?? [];
-        $traverser = new NodeTraverser;
-        $traverser->addVisitor(new NameResolver);
-        $nodes = $traverser->traverse($nodes);
-
-        /** @var list<Node\Expr\MethodCall> $calls */
-        $calls = $finder->find($nodes, static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall
-            && $node->name instanceof Node\Identifier
-            && in_array($node->name->toString(), ['singleton', 'singletonIf'], true));
-
-        foreach ($calls as $call) {
-            $abstract = capellClassNameFromNode($call->args[0]->value ?? null);
-            $target = capellClassNameFromNode($call->args[1]->value ?? null) ?? $abstract;
-
-            if ($target === null || ! str_starts_with($target, 'Capell\\')) {
-                continue;
-            }
-
-            $targets[$target] = ['file' => $file, 'abstract' => $abstract ?? $target];
-        }
-    }
-
-    ksort($targets);
-
-    return $targets;
-}
-
-function capellClassNameFromNode(?Node $node): ?string
-{
-    if ($node instanceof Node\Expr\ClassConstFetch && $node->name instanceof Node\Identifier && $node->name->toString() === 'class') {
-        return $node->class instanceof Node\Name ? $node->class->toString() : null;
-    }
-
-    if ($node instanceof Node\Expr\Closure || $node instanceof Node\Expr\ArrowFunction) {
-        $new = (new NodeFinder)->findFirstInstanceOf($node, Node\Expr\New_::class);
-
-        return $new instanceof Node\Expr\New_ && $new->class instanceof Node\Name ? $new->class->toString() : null;
-    }
-
-    return null;
-}
-
-/** @return array<string, array{file: string, abstract: string}> */
-function capellScopedTargets(): array
-{
-    $parser = (new ParserFactory)->createForNewestSupportedVersion();
-    $finder = new NodeFinder;
-    $targets = [];
-
-    foreach (glob(dirname(__DIR__, 4) . '/*/src/{Providers,Support/Bootstrap}/*.php', GLOB_BRACE) ?: [] as $file) {
-        $nodes = $parser->parse((string) file_get_contents($file)) ?? [];
-        $traverser = new NodeTraverser;
-        $traverser->addVisitor(new NameResolver);
-        $nodes = $traverser->traverse($nodes);
-        /** @var list<Node\Expr\MethodCall> $calls */
-        $calls = $finder->find($nodes, static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall
-            && $node->name instanceof Node\Identifier && $node->name->toString() === 'scoped');
-
-        foreach ($calls as $call) {
-            $abstract = capellClassNameFromNode($call->args[0]->value ?? null);
-            $target = capellClassNameFromNode($call->args[1]->value ?? null) ?? $abstract;
-
-            if ($target !== null && str_starts_with($target, 'Capell\\')) {
-                $targets[$target] = ['file' => $file, 'abstract' => $abstract ?? $target];
-            }
-        }
-    }
-
-    return $targets;
-}
-
-/** @return array<string, true> */
-function capellResettableTaggedTargets(): array
-{
-    $parser = (new ParserFactory)->createForNewestSupportedVersion();
-    $finder = new NodeFinder;
-    $targets = [];
-
-    foreach (glob(dirname(__DIR__, 4) . '/*/src/{Providers,Support/Bootstrap}/*.php', GLOB_BRACE) ?: [] as $file) {
-        $nodes = $parser->parse((string) file_get_contents($file)) ?? [];
-        $traverser = new NodeTraverser;
-        $traverser->addVisitor(new NameResolver);
-        $nodes = $traverser->traverse($nodes);
-        /** @var list<Node\Expr\MethodCall> $calls */
-        $calls = $finder->find($nodes, static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall
-            && $node->name instanceof Node\Identifier && $node->name->toString() === 'tag');
-
-        foreach ($calls as $call) {
-            $tag = $call->args[1]->value ?? null;
-
-            if (! $tag instanceof Node\Expr\ClassConstFetch
-                || ! $tag->class instanceof Node\Name
-                || $tag->class->toString() !== Resettable::class
-                || ! $call->args[0]->value instanceof Node\Expr\Array_) {
-                continue;
-            }
-
-            foreach ($call->args[0]->value->items as $item) {
-                $target = capellClassNameFromNode($item?->value);
-
-                if ($target !== null) {
-                    $targets[$target] = true;
-                }
-            }
-        }
-    }
-
-    return $targets;
-}
-
-/** @return array<string, string> */
-function capellMutatedStaticState(): array
-{
-    $hazards = [];
-    $packages = new DirectoryIterator(dirname(__DIR__, 4));
-
-    foreach ($packages as $package) {
-        if (! $package->isDir() || $package->isDot() || ! is_dir($package->getPathname() . '/src')) {
-            continue;
-        }
-
-        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($package->getPathname() . '/src'));
-
-        foreach ($files as $candidate) {
-            if (! $candidate->isFile() || $candidate->getExtension() !== 'php') {
-                continue;
-            }
-
-            $file = $candidate->getPathname();
-            $source = (string) file_get_contents($file);
-
-            if (! preg_match('/namespace\s+([^;]+);/', $source, $namespace)
-                || ! preg_match('/\b(?:class|trait)\s+(\w+)/', $source, $class)) {
-                continue;
-            }
-
-            preg_match_all('/(?:private|protected|public)\s+static\s+[^\n;]*\$(\w+)(?:\s*=[^;]*)?;/', $source, $properties);
-            $withoutDeclarations = preg_replace('/(?:private|protected|public)\s+static\s+[^\n;]+;/', '', $source) ?? $source;
-
-            foreach ($properties[1] as $property) {
-                $quoted = preg_quote($property, '/');
-
-                if (preg_match('/self::\$' . $quoted . '\s*\?\?=|self::\$' . $quoted . '\s*=|self::\$' . $quoted . '\[[^;]+\]\s*=|self::\$' . $quoted . '\[\]\s*=/', $withoutDeclarations)) {
-                    $hazards[trim($namespace[1]) . '\\' . $class[1]] = $file;
-                }
-            }
-        }
-    }
-
-    ksort($hazards);
-
-    return $hazards;
-}
-
-/** @return list<string> */
-function capellMutableInstanceProperties(string $class): array
-{
-    if (! class_exists($class)) {
-        return [];
-    }
-
-    return array_values(collect((new ReflectionClass($class))->getProperties())
-        ->reject(static fn (ReflectionProperty $property): bool => $property->isStatic() || $property->isReadOnly())
-        ->map(static fn (ReflectionProperty $property): string => $property->getDeclaringClass()->getName() . '::$' . $property->getName())
-        ->values()
-        ->all());
+    return new SingletonLifetimeGuard(dirname(__DIR__, 4), SingletonLifetimeInventory::dynamicBindingTargets());
 }
 
 it('classifies every mutable Capell production singleton with an exact concrete target', function (): void {
-    $bindings = capellSingletonTargets();
+    $guard = singletonLifetimeGuard();
+    $bindings = $guard->singletonTargets();
     $inventory = SingletonLifetimeInventory::mutableSingletons();
     $mutableBindings = collect($bindings)
-        ->filter(static fn (array $binding, string $target): bool => capellMutableInstanceProperties($target) !== [])
+        ->filter(static fn (array $binding, string $target): bool => $guard->mutableInstanceState($target) !== [])
         ->all();
 
-    $missing = array_diff_key($mutableBindings, $inventory);
-    $stale = array_diff_key($inventory, $bindings);
-
-    expect($missing)->toBe([], 'Unclassified mutable singleton targets: ' . json_encode($missing, JSON_PRETTY_PRINT))
-        ->and($stale)->toBe([], 'Classifications without a production singleton binding: ' . json_encode(array_keys($stale), JSON_PRETTY_PRINT));
+    expect(array_diff_key($mutableBindings, $inventory))
+        ->toBe([], 'Unclassified mutable singleton targets: ' . json_encode(array_diff_key($mutableBindings, $inventory), JSON_PRETTY_PRINT))
+        ->and(array_diff_key($inventory, $bindings))
+        ->toBe([], 'Classifications without a production singleton binding: ' . json_encode(array_keys(array_diff_key($inventory, $bindings)), JSON_PRETTY_PRINT));
 });
 
 it('enforces request mutable singleton reset protection without scoped dual registration', function (): void {
-    $scopedTargets = capellScopedTargets();
-    $taggedTargets = capellResettableTaggedTargets();
+    $guard = singletonLifetimeGuard();
+    $scopedTargets = $guard->scopedTargets();
+    $taggedTargets = $guard->resettableTaggedTargets(Resettable::class);
 
     expect(array_intersect_key($scopedTargets, $taggedTargets))
         ->toBe([], 'A service cannot be both scoped and tagged for reset');
@@ -248,8 +89,8 @@ it('enforces request mutable singleton reset protection without scoped dual regi
         expect($scopedTargets)->not->toHaveKey($class, "Request-mutable singleton [{$class}] must not also be scoped");
 
         if ($classification['protection'] === 'tagged') {
-            expect(is_a($class, Resettable::class, true))->toBeTrue("Tagged singleton [{$class}] must implement Resettable");
-            expect($taggedTargets)->toHaveKey($class, "Resettable singleton [{$class}] must be tagged in its provider");
+            expect(is_a($class, Resettable::class, true))->toBeTrue("Tagged singleton [{$class}] must implement Resettable")
+                ->and($taggedTargets)->toHaveKey($class, "Resettable singleton [{$class}] must be tagged in its provider");
         }
 
         if ($classification['protection'] === 'delegated') {
@@ -259,42 +100,79 @@ it('enforces request mutable singleton reset protection without scoped dual regi
     }
 });
 
-it('resolves interface and closure binding targets explicitly', function (): void {
-    expect(capellSingletonTargets())
+it('scans every production source directory and resolves returned closure targets', function (): void {
+    $guard = singletonLifetimeGuard();
+    $singletons = $guard->singletonTargets();
+
+    expect($singletons)
         ->toHaveKey(FrontendAssetsService::class)
-        ->and(capellSingletonTargets()[FrontendAssetsService::class]['abstract'])
-        ->toBe(AssetsRegistryInterface::class)
-        ->and(capellSingletonTargets())
-        ->toHaveKey(FrontendUrlSignatureService::class)
-        ->and(capellScopedTargets()[ThemeStudioSettings::class]['abstract'])
-        ->toBe(ThemeRuntimeSettings::class);
+        ->and($singletons[FrontendAssetsService::class]['abstract'])->toBe(AssetsRegistryInterface::class)
+        ->and($singletons)->toHaveKey(FrontendUrlSignatureService::class)
+        ->and($guard->scopedTargets()[ThemeStudioSettings::class]['abstract'])->toBe(ThemeRuntimeSettings::class)
+        ->and($guard->bindingTargetsInSource(<<<'PHP'
+            <?php
+            $app->singleton(Contract::class, function () {
+                $unrelated = new UnrelatedThing();
+
+                return new ReturnedBinding();
+            });
+            PHP))->toBe(['ReturnedBinding']);
+
+    expect(array_diff_key($guard->unresolvedClosureBindings(), SingletonLifetimeInventory::dynamicBindingTargets()))
+        ->toBe([], 'Dynamic closure bindings require explicit abstract-to-concrete metadata');
+});
+
+it('characterizes singletonIf in the abstract package provider outside provider directories', function (): void {
+    $source = (string) file_get_contents(dirname(__DIR__, 4) . '/core/src/Support/Packages/AbstractPackageServiceProvider.php');
+
+    expect(singletonLifetimeGuard()->bindingTargetsInSource($source))
+        ->toContain('Capell\Core\Support\PackageRegistry\CapellPackageRegistry');
 });
 
 it('keeps known process static hazards explicit and request-safe', function (): void {
-    $knownClean = [
-        PhoneHomeAction::class,
-        InstallerPreflight::class,
-        ErrorPageFallbackManifestStore::class,
-        FrontendLogger::class,
-    ];
-
-    foreach ($knownClean as $class) {
-        $mutableStatic = collect((new ReflectionClass($class))->getProperties(ReflectionProperty::IS_STATIC))
-            ->reject(static fn (ReflectionProperty $property): bool => $property->getDeclaringClass()->isEnum())
-            ->all();
-
-        expect($mutableStatic)->toBe([], "Known operation service [{$class}] must not retain static state");
+    foreach ([PhoneHomeAction::class, InstallerPreflight::class, ErrorPageFallbackManifestStore::class, FrontendLogger::class] as $class) {
+        expect(collect((new ReflectionClass($class))->getProperties(ReflectionProperty::IS_STATIC))->all())
+            ->toBe([], "Known operation service [{$class}] must not retain static state");
     }
 
-    expect(array_keys(capellMutatedStaticState()))
-        ->toEqualCanonicalizing(array_keys(SingletonLifetimeInventory::mutableStaticState()))
-        ->and(SingletonLifetimeInventory::mutableStaticState())
-        ->toHaveKey(HasModelRelations::class);
+    $hazards = singletonLifetimeGuard()->mutatedStaticState();
+
+    expect(array_keys($hazards))->toEqualCanonicalizing(array_keys(SingletonLifetimeInventory::mutableStaticState()))
+        ->and(SingletonLifetimeInventory::mutableStaticState())->toHaveKey(HasModelRelations::class);
 });
 
-it('characterizes mutable property detection through parent and trait state', function (): void {
-    expect(capellMutableInstanceProperties(SingletonLifetimeFixture::class))
+it('detects bounded static mutation forms and aliases', function (): void {
+    $source = <<<'PHP'
+        <?php
+        namespace Fixtures;
+        final class StaticMutations
+        {
+            private static array $values = [];
+            private static int $counter = 0;
+            private static object $store;
+            public static function mutate(): void
+            {
+                self::$values = [];
+                static::$values['key'] = true;
+                StaticMutations::$values[] = 'value';
+                self::$counter += 2;
+                ++static::$counter;
+                StaticMutations::$counter--;
+                unset(self::$values['key']);
+                self::$store->flush();
+            }
+        }
+        PHP;
+
+    expect(singletonLifetimeGuard()->staticMutationsInSource($source))
+        ->toBe(['Fixtures\StaticMutations']);
+});
+
+it('detects private parent trait and readonly collaborator mutable state', function (): void {
+    expect(singletonLifetimeGuard()->mutableInstanceState(SingletonLifetimeFixture::class))
         ->toContain(SingletonLifetimeFixture::class . '::$operation')
         ->toContain(SingletonLifetimeParentFixture::class . '::$parentCache')
-        ->not->toContain(SingletonLifetimeFixture::class . '::$immutable');
+        ->toContain(SingletonLifetimeGrandparentFixture::class . '::$privateParentCache')
+        ->toContain(SingletonLifetimeTraitFixture::class . '::$traitCache')
+        ->toContain(SingletonLifetimeFixture::class . '::$dependency->' . SingletonLifetimeMutableDependencyFixture::class . '::$values');
 });

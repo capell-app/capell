@@ -15,7 +15,11 @@ final class RedirectHealthRequestCache
 
     public function for(PageUrl $pageUrl): ?object
     {
-        return $this->snapshots[$pageUrl->id] ??= $this->resolve($pageUrl);
+        if (! array_key_exists($pageUrl->id, $this->snapshots)) {
+            $this->snapshots[$pageUrl->id] = $this->resolve($pageUrl);
+        }
+
+        return $this->snapshots[$pageUrl->id];
     }
 
     private function resolve(PageUrl $pageUrl): ?object

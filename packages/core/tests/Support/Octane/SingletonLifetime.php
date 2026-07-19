@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Core\Octane;
+namespace Capell\Tests\Support\Octane;
 
 enum SingletonLifetime: string
 {
