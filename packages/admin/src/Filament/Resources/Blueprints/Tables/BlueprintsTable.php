@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Blueprints\Tables;
 
+use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Enums\FilamentColorEnum;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Actions\ReplicateAction;
@@ -17,7 +18,6 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
-use Capell\Core\Models\Page;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -133,18 +133,7 @@ class BlueprintsTable implements TableConfigurator
     /** @param array<string, mixed> $data */
     public static function updateBlueprint(Blueprint $record, array $data): Blueprint
     {
-        $roleRestrictions = $data['admin']['role_restrictions'] ?? null;
-        unset($data['admin']['role_restrictions']);
-
-        $record->update($data);
-
-        if (auth()->user()?->can('manageRestrictions', Page::class) === true && is_array($roleRestrictions)) {
-            $record->syncRoleRestrictions(
-                array_values(array_map(intval(...), $roleRestrictions)),
-            );
-        }
-
-        return $record;
+        return UpdateBlueprintAction::run($record, $data);
     }
 
     public static function recordTypeName(Blueprint $record): string
