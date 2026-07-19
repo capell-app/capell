@@ -30,7 +30,7 @@
 
 ## Verification
 
-- Focused Pest: `./vendor/bin/pest path/to/Test.php --configuration=phpunit.xml`
+- Focused Pest: `composer test:focus -- path/to/Test.php`
 - Formatting: `composer lint`
 - Static analysis: `composer analyze`
 - Repository gate: `composer preflight`
