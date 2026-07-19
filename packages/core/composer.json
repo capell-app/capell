@@ -8,7 +8,7 @@
         "cms"
     ],
     "homepage": "https://github.com/capell-app/core",
-    "license": "proprietary",
+    "license": "MIT",
     "authors": [
         {
             "name": "Howdu",

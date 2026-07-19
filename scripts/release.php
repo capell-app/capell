@@ -3,6 +3,24 @@
 
 declare(strict_types=1);
 
+if (! function_exists('throw_if')) {
+    /** @param class-string<Throwable> $exception */
+    function throw_if(mixed $condition, string $exception, string $message): void
+    {
+        if ($condition) {
+            throw new $exception($message);
+        }
+    }
+}
+
+if (! function_exists('throw_unless')) {
+    /** @param class-string<Throwable> $exception */
+    function throw_unless(mixed $condition, string $exception, string $message): void
+    {
+        throw_if(! $condition, $exception, $message);
+    }
+}
+
 require __DIR__ . '/release/ReleaseEngine.php';
 
 use Capell\Release\PlanValidator;

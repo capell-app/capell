@@ -9,7 +9,7 @@
         "cms"
     ],
     "homepage": "https://github.com/capell-app/marketplace",
-    "license": "proprietary",
+    "license": "MIT",
     "authors": [
         {
             "name": "Howdu",
