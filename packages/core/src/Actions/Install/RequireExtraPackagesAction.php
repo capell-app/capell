@@ -44,8 +44,13 @@ class RequireExtraPackagesAction
 
         $process = $this->processFactory->make($command, base_path(), $env);
         $process->setTimeout(600);
+        $process->disableOutput();
 
-        $process->run(function (string $type, string $buffer) use ($reporter): void {
+        $outputTail = '';
+
+        $process->run(function (string $type, string $buffer) use ($reporter, &$outputTail): void {
+            $outputTail = substr($outputTail . $buffer, -65_536);
+
             foreach (explode("\n", trim($buffer)) as $line) {
                 if ($line !== '') {
                     $reporter->report($line);
@@ -54,8 +59,7 @@ class RequireExtraPackagesAction
         });
 
         if (! $process->isSuccessful()) {
-            $errorOutput = $process->getErrorOutput();
-            $error = trim($errorOutput !== '' ? $errorOutput : $process->getOutput());
+            $error = trim($outputTail);
             throw new RuntimeException(
                 sprintf('Failed to require extra packages [%s]: %s', implode(', ', $packages), $error !== '' ? $error : 'Unknown error.'),
             );

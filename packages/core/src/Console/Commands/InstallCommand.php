@@ -38,7 +38,6 @@ use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
-use Capell\Core\Support\Install\InstallMemoryLimit;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
@@ -638,8 +637,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private function bootInstallCommand(): ?int
     {
-        $this->ensureInstallationMemoryLimit();
-
         $this->logInstallDebug('starting command', [
             'interactive' => $this->input->isInteractive(),
         ]);
@@ -750,11 +747,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         } catch (Throwable) {
             return 'unavailable';
         }
-    }
-
-    private function ensureInstallationMemoryLimit(): void
-    {
-        resolve(InstallMemoryLimit::class)->ensureMinimum();
     }
 
     /**

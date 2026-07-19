@@ -32,24 +32,34 @@ final class InstallerOptions
     public function downloadablePackages(): array
     {
         try {
-            return GetPluginsAction::run('download')
+            $packages = [];
+            $packageBatches = GetPluginsAction::run('download')
                 ->filter(fn (PackageData $package): bool => $this->composerPackageIsAvailable($package->name))
                 ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue())
                 ->reject(fn (PackageData $package): bool => $package->getThemeKey() !== null)
-                ->map(fn (PackageData $package): array => [
-                    'name' => $package->name,
-                    'label' => $package->getLabel(),
-                    'description' => $package->getDescription(),
-                    'requirements' => $package->getRequirements(),
-                    'core' => $package->isCore(),
-                    'defaultCore' => TrustedCorePackages::isDefaultInstallSelection($package->name),
-                    'defaultSelected' => $this->packageIsDefaultSelected($package),
-                    'kind' => $package->getKind(),
-                    'themeKey' => $package->getThemeKey(),
-                    'previewImageUrl' => $package->getPreviewImageUrl(),
-                ])
-                ->values()
-                ->all();
+                ->lazy()
+                ->chunk(25);
+
+            foreach ($packageBatches as $batch) {
+                foreach ($batch as $package) {
+                    $packages[] = [
+                        'name' => $package->name,
+                        'label' => $package->getLabel(),
+                        'description' => $package->getDescription(),
+                        'requirements' => $package->getRequirements(),
+                        'core' => $package->isCore(),
+                        'defaultCore' => TrustedCorePackages::isDefaultInstallSelection($package->name),
+                        'defaultSelected' => $this->packageIsDefaultSelected($package),
+                        'kind' => $package->getKind(),
+                        'themeKey' => $package->getThemeKey(),
+                        'previewImageUrl' => $package->getPreviewImageUrl(),
+                    ];
+                }
+            }
+
+            unset($packageBatches, $batch);
+
+            return $packages;
         } catch (Throwable) {
             return [];
         }
@@ -74,15 +84,26 @@ final class InstallerOptions
     /** @return array<string, array{key: string, name: string, description: ?string, packageName: ?string, previewImageUrl: ?string}> */
     public function themeOptions(): array
     {
-        return collect($this->themes->optionDataForCatalogue())
-            ->mapWithKeys(fn (ThemeInstallOptionData $option): array => [$option->key => [
-                'key' => $option->key,
-                'name' => $option->name,
-                'description' => $option->description,
-                'packageName' => $option->packageName,
-                'previewImageUrl' => $option->previewImageUrl,
-            ]])
-            ->all();
+        $themes = [];
+        $themeBatches = collect($this->themes->optionDataForCatalogue())
+            ->lazy()
+            ->chunk(25);
+
+        foreach ($themeBatches as $batch) {
+            foreach ($batch as $option) {
+                $themes[$option->key] = [
+                    'key' => $option->key,
+                    'name' => $option->name,
+                    'description' => $option->description,
+                    'packageName' => $option->packageName,
+                    'previewImageUrl' => $option->previewImageUrl,
+                ];
+            }
+        }
+
+        unset($themeBatches, $batch);
+
+        return $themes;
     }
 
     /** @param array<int, string> $selected @param array<int, string> $extra @return array<string, string> */

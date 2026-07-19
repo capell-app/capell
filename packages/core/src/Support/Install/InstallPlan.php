@@ -35,13 +35,11 @@ final class InstallPlan
 
     public const string STEP_INSTALL_FILAMENT_PANEL = 'install-filament-panel';
 
-    public const string STEP_REQUIRE_EXTRA_PACKAGES = 'require-extra-packages';
+    public const string STEP_REQUIRE_PACKAGE_PREFIX = 'require-package:';
 
     public const string STEP_INSTALL_DEVELOPER_TOOLING = 'install-developer-tooling';
 
     public const string STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS = 'publish-extra-vendor-migrations';
-
-    public const string STEP_INSTALL_PACKAGES = 'install-packages';
 
     public const string STEP_INSTALL_PACKAGE_PREFIX = 'install-package:';
 
@@ -114,7 +112,12 @@ final class InstallPlan
         }
 
         if ($inputData->extraPackages !== []) {
-            $steps->push(new InstallStepData(self::STEP_REQUIRE_EXTRA_PACKAGES, 'Require extra packages'));
+            foreach (array_values(array_unique($inputData->extraPackages)) as $packageName) {
+                $steps->push(new InstallStepData(
+                    self::packageRequireStepKey($packageName),
+                    'Download ' . $packageName,
+                ));
+            }
         }
 
         if ($shouldInstallFilamentPanelAfterRequiringPackages) {
@@ -129,14 +132,11 @@ final class InstallPlan
             $steps->push(new InstallStepData(self::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS, 'Publish extra vendor migrations'));
         }
 
-        if ($inputData->extraPackages !== []) {
-            $steps->push(new InstallStepData(self::STEP_INSTALL_PACKAGES, 'Install required packages'));
-        }
-
         if ($hasSelectedPackages) {
             $selectedPackages = self::selectedPackages($inputData);
 
             $selectedPackages
+                ->reject(fn (PackageData $package): bool => in_array($package->name, $inputData->extraPackages, true))
                 ->reject(fn (PackageData $package): bool => TrustedCorePackages::isCoreRuntimePackage($package->name))
                 ->each(function (PackageData $package) use ($steps): void {
                     $steps->push(new InstallStepData(
@@ -148,6 +148,7 @@ final class InstallPlan
 
             if ($inputData->seedDefaultData) {
                 $selectedPackages
+                    ->reject(fn (PackageData $package): bool => in_array($package->name, $inputData->extraPackages, true))
                     ->filter(fn (PackageData $package): bool => self::packageHasSetupLifecycle($package))
                     ->reject(fn (PackageData $package): bool => self::setupCommandIsCoveredByDemoCommand($inputData, $package))
                     ->each(function (PackageData $package) use ($steps): void {
@@ -161,6 +162,7 @@ final class InstallPlan
 
             if ($inputData->demoContent) {
                 $selectedPackages
+                    ->reject(fn (PackageData $package): bool => in_array($package->name, $inputData->extraPackages, true))
                     ->filter(fn (PackageData $package): bool => PackageDemoLifecycle::shouldRunDemo($inputData, $package))
                     ->each(function (PackageData $package) use ($steps): void {
                         $steps->push(new InstallStepData(
@@ -172,6 +174,7 @@ final class InstallPlan
             }
 
             $selectedPackages
+                ->reject(fn (PackageData $package): bool => in_array($package->name, $inputData->extraPackages, true))
                 ->filter(fn (PackageData $package): bool => $package->getAfterInstallCommand() !== null && $package->getAfterInstallCommand() !== '')
                 ->each(function (PackageData $package) use ($steps): void {
                     $steps->push(new InstallStepData(
@@ -180,6 +183,36 @@ final class InstallPlan
                         requiresResolvedUser: true,
                     ));
                 });
+        }
+
+        foreach (array_values(array_unique($inputData->extraPackages)) as $packageName) {
+            $steps->push(new InstallStepData(
+                self::packageInstallStepKey($packageName),
+                'Install ' . $packageName,
+                requiresResolvedUser: true,
+            ));
+
+            if ($inputData->seedDefaultData) {
+                $steps->push(new InstallStepData(
+                    self::packageSetupStepKey($packageName),
+                    'Set up ' . $packageName,
+                    requiresResolvedUser: true,
+                ));
+            }
+
+            if ($inputData->demoContent) {
+                $steps->push(new InstallStepData(
+                    self::packageDemoStepKey($packageName),
+                    'Demo content for ' . $packageName,
+                    requiresResolvedUser: true,
+                ));
+            }
+
+            $steps->push(new InstallStepData(
+                self::packageAfterInstallStepKey($packageName),
+                'Post-install ' . $packageName,
+                requiresResolvedUser: true,
+            ));
         }
 
         if (self::shouldIntegrateAdminPanel($inputData)) {
@@ -247,6 +280,11 @@ final class InstallPlan
         return self::STEP_INSTALL_PACKAGE_PREFIX . $packageName;
     }
 
+    public static function packageRequireStepKey(string $packageName): string
+    {
+        return self::STEP_REQUIRE_PACKAGE_PREFIX . $packageName;
+    }
+
     public static function packageSetupStepKey(string $packageName): string
     {
         return self::STEP_SETUP_PACKAGE_PREFIX . $packageName;
@@ -265,6 +303,11 @@ final class InstallPlan
     public static function isPackageInstallStep(string $stepKey): bool
     {
         return str_starts_with($stepKey, self::STEP_INSTALL_PACKAGE_PREFIX);
+    }
+
+    public static function isPackageRequireStep(string $stepKey): bool
+    {
+        return str_starts_with($stepKey, self::STEP_REQUIRE_PACKAGE_PREFIX);
     }
 
     public static function isPackageSetupStep(string $stepKey): bool
@@ -286,6 +329,7 @@ final class InstallPlan
     {
         foreach ([
             self::STEP_INSTALL_PACKAGE_PREFIX,
+            self::STEP_REQUIRE_PACKAGE_PREFIX,
             self::STEP_SETUP_PACKAGE_PREFIX,
             self::STEP_DEMO_PACKAGE_PREFIX,
             self::STEP_AFTER_INSTALL_PACKAGE_PREFIX,

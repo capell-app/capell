@@ -59,10 +59,18 @@ class RequirePackageAction
         $processFactory = self::$processFactory ?? fn (array $args, string $cwd, ?array $env): Process => new Process($args, $cwd, $env);
         $process = $processFactory(['composer', 'require', $name], base_path(), $env);
         $process->setTimeout(300);
-        $process->run();
+        $process->disableOutput();
+        $standardOutput = '';
+        $errorOutput = '';
+        $process->run(function (string $type, string $buffer) use (&$standardOutput, &$errorOutput): void {
+            if ($type === Process::ERR) {
+                $errorOutput = substr($errorOutput . $buffer, -65_536);
 
-        $errorOutput = $process->getErrorOutput();
-        $standardOutput = $process->getOutput();
+                return;
+            }
+
+            $standardOutput = substr($standardOutput . $buffer, -65_536);
+        });
 
         if (! $process->isSuccessful()) {
             $authFailure = $this->isAuthFailure($errorOutput . $standardOutput);

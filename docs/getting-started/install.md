@@ -23,8 +23,8 @@ Before changing an existing application, back up its database and media and conf
 
 ### Hosting checklist
 
-- Capell installation needs PHP `memory_limit=512M` or higher. CLI PHP and web PHP can load different configuration files; use the browser preflight report to check the web value.
-- Browser requests can time out during Composer or package setup on managed hosting. The CLI path `php -d memory_limit=512M artisan capell:install` is not limited by the browser request timeout.
+- Capell supports immutable 128 MB shared-hosting limits by running bounded, resumable install steps. It does not inspect or change PHP's `memory_limit`.
+- Browser requests can time out during Composer or package setup on managed hosting. Reopen the installer to resume the interrupted step, or use `php artisan capell:install` from the terminal.
 - A non-`sync` queue needs a persistent queue worker. Laravel's scheduler is separate and needs `php artisan schedule:run` every minute in production.
 - Keep `storage/` and `bootstrap/cache/` writable by the web and worker users, and know where the host records PHP and web-server errors.
 
@@ -298,7 +298,7 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 | Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                      |
 | A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)          |
 | Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)            |
-| PHP reports `Allowed memory size ... exhausted` | Check the [web and CLI memory limits](../operations/troubleshooting.md#php-memory-limit) |
+| PHP reports `Allowed memory size ... exhausted` | Reopen the installer, identify the failing step in its report, and report it as a batching defect |
 | Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                           |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.

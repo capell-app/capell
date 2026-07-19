@@ -17,48 +17,12 @@ Start with the symptom you can see:
 
 | Symptom                                      | Start here                                          |
 | -------------------------------------------- | --------------------------------------------------- |
-| Installer reports a low PHP memory limit     | [PHP memory limit](#php-memory-limit)               |
 | Browser installation times out               | [Browser install timeout](#browser-install-timeout) |
 | An install or other job remains queued       | [Queue worker](#queue-worker)                       |
 | Scheduled work never runs                    | [Scheduler](#scheduler)                             |
 | You need the useful error rather than the UI | [Installation logs](#installation-logs)             |
 
 ## Install and hosting
-
-<a id="php-memory-limit"></a>
-
-### Capell reports a PHP `memory_limit` below 512M
-
-Capell installation needs at least 512 MB of PHP memory. The browser and command-line PHP runtimes can load different configuration files, so a healthy CLI check does not prove that PHP-FPM or Apache has the same limit.
-
-The Capell preflight message includes the effective value. For a 128 MB host it is exactly:
-
-```text
-Capell installation requires PHP memory_limit of at least 512M; the current limit is 128M.
-```
-
-If PHP runs out of memory before Laravel can report the preflight failure, the host log may contain this standard fatal error. The byte counts vary, but the wording is the same:
-
-```text
-PHP Fatal error: Allowed memory size of 134217728 bytes exhausted (tried to allocate 4096 bytes)
-```
-
-**Check CLI PHP:**
-
-```bash
-php --ini
-php -r 'echo ini_get("memory_limit"), PHP_EOL;'
-```
-
-For the browser installer, download the installer report and check `environment.memoryLimit`. Change `memory_limit` to `512M` or higher in the PHP configuration used by the web server, then reload the PHP service through the host's normal control panel or process manager.
-
-If web PHP cannot be changed, run the command installer with an explicit limit:
-
-```bash
-php -d memory_limit=512M artisan capell:install
-```
-
-**You should see:** The `php-memory-limit` preflight check passes. A value of `-1` also passes because PHP treats it as unlimited.
 
 <a id="browser-install-timeout"></a>
 
@@ -75,10 +39,12 @@ The web server timed out before the installer could finish this step. Use the co
 **Fix:** Use the CLI installer from the application directory. Increasing a public web timeout is not required when installation can run safely during deployment:
 
 ```bash
-php -d memory_limit=512M artisan capell:install
+php artisan capell:install
 ```
 
-**You should see:** The command continues in the terminal and finishes with the Capell health summary or a specific actionable failure.
+Reopening the browser installer resumes from the last completed step. If a step genuinely exhausts the host's available memory, report that step as a defect so it can be isolated or batched; changing PHP's configured memory limit is not a Capell installation requirement.
+
+**You should see:** The installer resumes at the interrupted step and finishes with the Capell health summary or a specific actionable failure.
 
 <a id="queue-worker"></a>
 

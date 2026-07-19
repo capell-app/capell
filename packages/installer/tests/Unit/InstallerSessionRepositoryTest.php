@@ -195,3 +195,17 @@ it('stores and pulls install success summaries through named session methods', f
         ])
         ->and($repository->hasSuccessSummary($installId))->toBeFalse();
 });
+
+it('records per-step peak memory diagnostics separately from progress state', function (): void {
+    config(['cache.default' => 'array']);
+
+    $repository = new InstallerSessionRepository;
+    $installId = '44444444-4444-4444-a444-444444444444';
+
+    $repository->recordStepPeakMemory($installId, 'prepare-environment', 67_108_864);
+    $repository->recordStepPeakMemory($installId, 'prepare-environment', 68_157_440);
+
+    expect($repository->stepDiagnostics($installId))->toBe([
+        'prepare-environment' => ['peakMemoryBytes' => 68_157_440],
+    ]);
+});

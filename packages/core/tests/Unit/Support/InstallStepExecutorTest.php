@@ -499,8 +499,6 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
         ->with(
             Mockery::on(fn (array|string $command): bool => $command === [
                 PHP_BINARY,
-                '-d',
-                'memory_limit=' . ini_get('memory_limit'),
                 'artisan',
                 'capell:admin-sync-permissions',
                 '--mode=install',
@@ -537,21 +535,6 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     );
 
     expect(collect($lines)->contains(fn (array $line): bool => $line['line'] === '✓ Admin permissions synced'))->toBeTrue();
-});
-
-it('skips package installation when no packages were selected', function (): void {
-    $lines = [];
-    $state = new InstallRunState(
-        installStepExecutorInputData(),
-        installStepExecutorReporter($lines),
-    );
-
-    resolve(InstallStepExecutor::class)->execute(
-        InstallPlan::STEP_INSTALL_PACKAGES,
-        $state,
-    );
-
-    expect($lines)->toBeEmpty();
 });
 
 it('reports welcome route permission failures without failing the install step', function (): void {

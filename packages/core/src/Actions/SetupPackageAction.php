@@ -61,7 +61,7 @@ class SetupPackageAction
         ?ProgressReporter $reporter,
     ): void {
         $phpBinary = self::resolvePhpCliBinary();
-        $command = [$phpBinary, '-d', 'memory_limit=512M', 'artisan', $setupCommand, '--no-interaction'];
+        $command = [$phpBinary, 'artisan', $setupCommand, '--no-interaction'];
 
         foreach ($arguments as $option => $value) {
             if ($value === null) {
@@ -95,12 +95,13 @@ class SetupPackageAction
 
         $process = new Process($command, base_path(), ArtisanProcessEnvironment::prepare());
         $process->setTimeout(null);
+        $process->disableOutput();
 
         $output = '';
         $lineBuffer = '';
 
         $process->run(function (string $outputType, string $buffer) use (&$output, &$lineBuffer, $reporter): void {
-            $output .= $buffer;
+            $output = self::appendOutputTail($output, $buffer);
 
             if (! $reporter instanceof ProgressReporter) {
                 return;
@@ -236,5 +237,10 @@ class SetupPackageAction
         }
 
         return substr($output, 0, 1197) . '...';
+    }
+
+    private static function appendOutputTail(string $output, string $buffer): string
+    {
+        return substr($output . $buffer, -65_536);
     }
 }

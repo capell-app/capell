@@ -6,7 +6,6 @@ namespace Capell\Installer\Support\Preflight;
 
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
-use Capell\Core\Support\Install\InstallMemoryLimit;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -54,7 +53,6 @@ final class InstallerPreflight
     {
         $checks = [
             $this->phpVersion(),
-            $this->phpMemoryLimit(),
             $this->requiredExtensions(),
             $this->processSupport(),
             $this->phpBinary(),
@@ -109,7 +107,6 @@ final class InstallerPreflight
     {
         $environment = [
             'php' => PHP_VERSION,
-            'memoryLimit' => resolve(InstallMemoryLimit::class)->current(),
             'laravel' => app()->version(),
             'os' => PHP_OS_FAMILY,
             'sapi' => PHP_SAPI,
@@ -155,30 +152,6 @@ final class InstallerPreflight
             'PHP version',
             'pass',
             'PHP ' . PHP_VERSION . ' is compatible with Capell.',
-        );
-    }
-
-    /** @return array<string, string> */
-    private function phpMemoryLimit(): array
-    {
-        $memoryLimit = resolve(InstallMemoryLimit::class);
-        $configuredLimit = $memoryLimit->current();
-
-        if (! $memoryLimit->isSatisfied($configuredLimit)) {
-            return $this->check(
-                'php-memory-limit',
-                'PHP memory limit',
-                'fail',
-                $memoryLimit->failureMessage($configuredLimit),
-                'Increase memory_limit to 512M or higher for the web PHP runtime, or run php -d memory_limit=512M artisan capell:install from the terminal.',
-            );
-        }
-
-        return $this->check(
-            'php-memory-limit',
-            'PHP memory limit',
-            'pass',
-            sprintf('PHP memory_limit=%s is available for Capell installation.', $configuredLimit),
         );
     }
 

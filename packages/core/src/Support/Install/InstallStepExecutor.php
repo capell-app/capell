@@ -41,6 +41,12 @@ final class InstallStepExecutor
 
     public function execute(string $stepKey, InstallRunState $state): InstallRunState
     {
+        if (InstallPlan::isPackageRequireStep($stepKey)) {
+            $this->requireExtraPackage($state, InstallPlan::packageNameFromStep($stepKey));
+
+            return $state;
+        }
+
         if (InstallPlan::isPackageInstallStep($stepKey)) {
             $this->installPackage($state, InstallPlan::packageNameFromStep($stepKey));
 
@@ -77,9 +83,7 @@ final class InstallStepExecutor
             InstallPlan::STEP_RUN_MIGRATIONS_MID, InstallPlan::STEP_RUN_MIGRATIONS_POST => RunMigrationsAction::run($state->reporter),
             InstallPlan::STEP_RESOLVE_USER => $this->resolveInstallUser($state),
             InstallPlan::STEP_INSTALL_FILAMENT_PANEL => InstallFilamentPanelAction::run($state->reporter),
-            InstallPlan::STEP_REQUIRE_EXTRA_PACKAGES => $this->requireExtraPackages($state),
             InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => InstallDeveloperToolingAction::run($state->reporter, $state->inputData->configureBoostDeveloperTooling),
-            InstallPlan::STEP_INSTALL_PACKAGES => $this->installExtraPackages($state),
             InstallPlan::STEP_INTEGRATE_ADMIN_PANEL => $this->integrateAdminPanel($state),
             InstallPlan::STEP_CLEAR_CACHES => ClearCachesAction::run($state->inputData->cachesToClear, $state->reporter),
             InstallPlan::STEP_SEED_DATABASE => $this->seedDatabase($state),
@@ -114,9 +118,9 @@ final class InstallStepExecutor
         );
     }
 
-    private function requireExtraPackages(InstallRunState $state): void
+    private function requireExtraPackage(InstallRunState $state, string $packageName): void
     {
-        RequireExtraPackagesAction::run($state->inputData->extraPackages, $state->reporter);
+        RequireExtraPackagesAction::run([$packageName], $state->reporter);
 
         $this->registerComposerDiscoveredProviders();
         CapellCore::clearExtensionCache();
@@ -196,36 +200,6 @@ final class InstallStepExecutor
         CreateAdditionalInstallUsersAction::run($state->inputData->additionalUsers, $state->reporter);
 
         $state->setResolvedUser($user);
-    }
-
-    private function installExtraPackages(InstallRunState $state): void
-    {
-        if ($state->inputData->extraPackages === []) {
-            return;
-        }
-
-        CapellCore::clearExtensionCache();
-        $state->refreshSelectedPackages();
-
-        foreach ($state->inputData->extraPackages as $packageName) {
-            $this->installPackage($state, $packageName);
-        }
-
-        if ($state->inputData->seedDefaultData) {
-            foreach ($state->inputData->extraPackages as $packageName) {
-                $this->setupPackage($state, $packageName);
-            }
-        }
-
-        if ($state->inputData->demoContent) {
-            foreach ($state->inputData->extraPackages as $packageName) {
-                $this->demoPackage($state, $packageName);
-            }
-        }
-
-        foreach ($state->inputData->extraPackages as $packageName) {
-            $this->afterInstallPackage($state, $packageName);
-        }
     }
 
     private function installPackage(InstallRunState $state, string $packageName): void

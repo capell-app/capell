@@ -49,7 +49,6 @@ it('builds a minimal plan when no optional toggles are enabled', function (): vo
         InstallPlan::STEP_MARK_CORE_INSTALLED,
     )->and($stepKeys)->not->toContain(
         InstallPlan::STEP_GENERATE_SITEMAP,
-        InstallPlan::STEP_REQUIRE_EXTRA_PACKAGES,
         InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
     );
 });
@@ -65,8 +64,11 @@ it('includes sitemap and extra package steps when toggled', function (): void {
 
     expect($keys)->toContain(
         InstallPlan::STEP_GENERATE_SITEMAP,
-        InstallPlan::STEP_REQUIRE_EXTRA_PACKAGES,
+        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS,
+        InstallPlan::packageInstallStepKey('vendor/some-extra'),
+        InstallPlan::packageDemoStepKey('vendor/some-extra'),
+        InstallPlan::packageAfterInstallStepKey('vendor/some-extra'),
     );
 
     expect($keys)->not->toContain(InstallPlan::STEP_INSTALL_FILAMENT_PANEL);
@@ -98,7 +100,6 @@ it('splits package installation into per-package browser install steps while ret
         InstallPlan::packageDemoStepKey('capell-app/blog'),
         InstallPlan::packageAfterInstallStepKey('capell-app/blog'),
     )
-        ->and($stepKeys)->not->toContain(InstallPlan::STEP_INSTALL_PACKAGES)
         ->and(array_search(InstallPlan::packageInstallStepKey('capell-app/blog'), $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::packageSetupStepKey('capell-app/blog'), $stepKeys, true))
         ->and(array_search(InstallPlan::packageSetupStepKey('capell-app/blog'), $stepKeys, true))
@@ -215,10 +216,11 @@ it('runs developer tooling after extra package require and before extra vendor m
         InstallPlan::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS,
         InstallPlan::STEP_RUN_MIGRATIONS_MID,
         InstallPlan::STEP_RESOLVE_USER,
-        InstallPlan::STEP_REQUIRE_EXTRA_PACKAGES,
+        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
         InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS,
-        InstallPlan::STEP_INSTALL_PACKAGES,
+        InstallPlan::packageInstallStepKey('vendor/some-extra'),
+        InstallPlan::packageAfterInstallStepKey('vendor/some-extra'),
         InstallPlan::STEP_RUN_MIGRATIONS_POST,
         InstallPlan::STEP_CLEAR_CACHES,
         InstallPlan::STEP_RUN_DOCTOR_SUMMARY,
@@ -275,11 +277,11 @@ it('requires admin before installing filament and integrating the admin panel wh
         'integrateAdminPanel' => true,
     ])), 'key');
 
-    expect(array_search(InstallPlan::STEP_REQUIRE_EXTRA_PACKAGES, $stepKeys, true))
+    expect(array_search(InstallPlan::packageRequireStepKey('capell-app/admin'), $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $stepKeys, true))
         ->and(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $stepKeys, true))
-        ->toBeLessThan(array_search(InstallPlan::STEP_INSTALL_PACKAGES, $stepKeys, true))
-        ->and(array_search(InstallPlan::STEP_INSTALL_PACKAGES, $stepKeys, true))
+        ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey('capell-app/admin'), $stepKeys, true))
+        ->and(array_search(InstallPlan::packageInstallStepKey('capell-app/admin'), $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::STEP_INTEGRATE_ADMIN_PANEL, $stepKeys, true));
 });
 
@@ -326,9 +328,10 @@ it('publishes vendor migrations again after requiring extra packages', function 
         InstallPlan::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS,
         InstallPlan::STEP_RUN_MIGRATIONS_MID,
         InstallPlan::STEP_RESOLVE_USER,
-        InstallPlan::STEP_REQUIRE_EXTRA_PACKAGES,
+        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS,
-        InstallPlan::STEP_INSTALL_PACKAGES,
+        InstallPlan::packageInstallStepKey('vendor/some-extra'),
+        InstallPlan::packageAfterInstallStepKey('vendor/some-extra'),
         InstallPlan::STEP_RUN_MIGRATIONS_POST,
         InstallPlan::STEP_CLEAR_CACHES,
         InstallPlan::STEP_RUN_DOCTOR_SUMMARY,

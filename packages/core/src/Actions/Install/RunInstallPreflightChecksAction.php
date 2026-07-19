@@ -6,7 +6,6 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
-use Capell\Core\Support\Install\InstallMemoryLimit;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -57,12 +56,6 @@ final class RunInstallPreflightChecksAction
     private function runtimeFailures(): array
     {
         $failures = [];
-        $memoryLimit = resolve(InstallMemoryLimit::class);
-
-        if (! $memoryLimit->isSatisfied()) {
-            $failures[] = $memoryLimit->failureMessage();
-        }
-
         foreach (self::REQUIRED_EXTENSIONS as $extension) {
             if (! extension_loaded($extension)) {
                 $failures[] = sprintf('Required PHP extension [%s] is not loaded.', $extension);

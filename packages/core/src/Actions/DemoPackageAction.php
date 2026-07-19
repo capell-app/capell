@@ -47,8 +47,6 @@ class DemoPackageAction
 
         $process = self::makeProcess([
             PHP_BINARY,
-            '-d',
-            'memory_limit=512M',
             base_path('artisan'),
             $demoCommand,
             ...self::commandArguments($arguments),
@@ -57,11 +55,15 @@ class DemoPackageAction
 
         self::callProcessVoidMethod($process, 'setTimeout', null);
 
+        if (is_callable([$process, 'disableOutput'])) {
+            self::callProcessVoidMethod($process, 'disableOutput');
+        }
+
         $output = '';
         $lineBuffer = '';
 
         self::callProcessVoidMethod($process, 'run', function (string $outputType, string $buffer) use (&$output, &$lineBuffer, $reporter): void {
-            $output .= $buffer;
+            $output = self::appendOutputTail($output, $buffer);
 
             if (! $reporter instanceof ProgressReporter) {
                 return;
@@ -77,8 +79,6 @@ class DemoPackageAction
         if (! self::callProcessBoolMethod($process, 'isSuccessful')) {
             $message = self::formatFailureMessage($demoCommand, self::callProcessNullableIntMethod($process, 'getExitCode'), $output, [
                 PHP_BINARY,
-                '-d',
-                'memory_limit=512M',
                 base_path('artisan'),
                 $demoCommand,
                 ...self::commandArguments($arguments),
@@ -225,6 +225,11 @@ class DemoPackageAction
         }
 
         return '...' . substr($output, -3997);
+    }
+
+    private static function appendOutputTail(string $output, string $buffer): string
+    {
+        return substr($output . $buffer, -65_536);
     }
 
     /**

@@ -1838,6 +1838,7 @@ it('returns a diagnostic install report', function (): void {
             'environment',
             'preflight',
             'plan',
+            'diagnostics' => ['steps'],
             'selected',
             'lines',
             'remediations',
@@ -2080,6 +2081,9 @@ it('runs a single install step via the run-step endpoint', function (): void {
         ->assertJsonStructure(['nextStep', 'lines', 'logPath']);
 
     $spy->shouldHaveReceived('handle')->once();
+
+    expect(resolve(InstallerSessionRepository::class)->stepDiagnostics($installId))
+        ->toHaveKey(InstallPlan::STEP_PREPARE_ENVIRONMENT . '.peakMemoryBytes');
 });
 
 it('rejects run-step requests ahead of the current installer step', function (): void {
