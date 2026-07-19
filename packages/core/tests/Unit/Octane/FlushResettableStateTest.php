@@ -2,19 +2,37 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
+use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Models\Site;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Octane\SingletonLifetime;
+use Capell\Core\Octane\SingletonLifetimeInventory;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Security\LockdownStore;
+use Capell\Frontend\Support\Assets\PublicFrontendAssetUrl;
+use Capell\Frontend\Support\Cache\PageListingCache;
+use Capell\Frontend\Support\Cache\PageModelCache;
+use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
+use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
+use Capell\Frontend\Support\Render\PublicViewQueryGuard;
+use Capell\Frontend\Support\View\ThemeViewRegistrar;
+use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
+use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use Laravel\Octane\Contracts\OperationTerminated;
+use Livewire\Mechanisms\DataStore;
 
 it('flushes tagged resettable services', function (): void {
     $resettable = new class implements Resettable
@@ -157,4 +175,73 @@ it('flushes resettable services when an Octane operation terminates', function (
 
     expect($resettable->flushes)->toBe(1)
         ->and(collect($baseApplication->tagged(Resettable::TAG))->contains($resettable))->toBeFalse();
+});
+
+it('runs two operations without leaking classified Capell state', function (): void {
+    $application = app();
+    $packages = $application->make(CapellPackageRegistry::class);
+    $bootManifestNames = array_keys($packages->all());
+
+    $scopedServices = array_values(array_filter([
+        ImageUrlPolicy::class,
+        UserMenuItemResolver::class,
+        RedirectHealthRequestCache::class,
+        FrontendResponseRendererRegistry::class,
+        ErrorPageRegenerationQueue::class,
+        PublicViewQueryGuard::class,
+        PublicFrontendAssetUrl::class,
+        PageListingCache::class,
+        PageModelCache::class,
+        PublicPageRenderDataCache::class,
+        InstallerPreflight::class,
+        MarketplaceCatalogueRecordProvider::class,
+        MarketplaceInstanceResolver::class,
+        BuildMarketplaceInstallOperationsSummaryAction::class,
+        ...($application->bound(DataStore::class) && $application->make(DataStore::class) instanceof DataStoreOverride
+            ? [DataStore::class]
+            : []),
+    ], static fn (string $class): bool => $application->bound($class)));
+
+    $firstOperation = collect($scopedServices)
+        ->mapWithKeys(static fn (string $class): array => [$class => $application->make($class)]);
+
+    /** @var CapellCacheManager $cache */
+    $cache = $application->make(CapellCacheManager::class);
+    $cache->rememberCache('octane-central-acceptance', static fn (): string => 'operation-one');
+    /** @var LockdownStore $lockdown */
+    $lockdown = $application->make(LockdownStore::class);
+    $lockdownState = new ReflectionProperty($lockdown, 'cachedData');
+    $lockdownState->setValue($lockdown, ['operation' => 'one']);
+    if (! $application->bound(ThemeViewRegistrar::class)) {
+        $application->instance(ThemeViewRegistrar::class, new ThemeViewRegistrar($application->make('view.finder')));
+        $application->tag([ThemeViewRegistrar::class], Resettable::TAG);
+    }
+
+    /** @var ThemeViewRegistrar $themeViews */
+    $themeViews = $application->make(ThemeViewRegistrar::class);
+    $themeViews->register([], 'operation-one');
+    $registeredTheme = new ReflectionProperty($themeViews, 'registeredKey');
+
+    $application->forgetScopedInstances();
+    new FlushResettableState($application)->handle();
+
+    foreach ($scopedServices as $class) {
+        expect($application->make($class))->not->toBe($firstOperation->get($class), "Scoped service [{$class}] leaked between operations");
+    }
+
+    $localCache = new ReflectionProperty($cache, 'localCache');
+    expect($localCache->getValue($cache))->toBe([])
+        ->and($lockdownState->getValue($lockdown))->toBeNull()
+        ->and($registeredTheme->getValue($themeViews))->toBeNull()
+        ->and(array_keys($packages->all()))->toBe($bootManifestNames)
+        ->and(collect(SingletonLifetimeInventory::mutableSingletons())
+            ->where('lifetime', SingletonLifetime::RequestMutable)
+            ->keys()
+            ->all())
+        ->toEqualCanonicalizing([
+            CapellCoreManager::class,
+            CapellCacheManager::class,
+            LockdownStore::class,
+            ThemeViewRegistrar::class,
+        ]);
 });

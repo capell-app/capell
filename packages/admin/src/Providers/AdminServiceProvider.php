@@ -147,6 +147,7 @@ use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
+use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
@@ -314,6 +315,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ExtensionOperationsRequestCache::class);
         $this->app->singleton(ExtensionsPageActionRegistry::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
+        $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
         $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));

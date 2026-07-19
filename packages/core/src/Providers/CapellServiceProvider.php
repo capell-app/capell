@@ -594,7 +594,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PagePresentationRegistry::class);
         $this->app->singleton(WidgetPresentationRegistry::class);
         $this->app->singleton(ThemeTokenStore::class);
-        $this->app->singleton(ThemeRuntimeSettings::class, ThemeStudioSettings::class);
+        $this->app->scoped(ThemeRuntimeSettings::class, ThemeStudioSettings::class);
         $this->app->singleton(
             ThemePreviewSigner::class,
             fn (): ThemePreviewSigner => new ThemePreviewSigner(config('app.key', 'capell-theme')),
