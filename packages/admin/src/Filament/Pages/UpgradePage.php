@@ -397,9 +397,6 @@ class UpgradePage extends Page
     }
 
     /**
-     * @return array<int, string>
-     */
-    /**
      * @param  Notice  $notice
      * @return list<string>
      */
@@ -447,13 +444,9 @@ class UpgradePage extends Page
             return $installedVersion;
         }
 
-        $affectedPackage = collect(is_array($notice['affected_packages'] ?? null) ? $notice['affected_packages'] : [])
-            ->filter(fn (mixed $package): bool => is_array($package))
-            ->first(fn (array $package): bool => is_string($package['installed_version'] ?? null) && $package['installed_version'] !== '');
+        $affectedVersion = $this->noticeAffectedPackageVersion($notice, 'installed_version');
 
-        return is_array($affectedPackage)
-            ? (string) $affectedPackage['installed_version']
-            : (string) __('capell-admin::generic.unknown');
+        return $affectedVersion ?? (string) __('capell-admin::generic.unknown');
     }
 
     /**
@@ -467,12 +460,10 @@ class UpgradePage extends Page
             return $recommendedVersion;
         }
 
-        $affectedPackage = collect(is_array($notice['affected_packages'] ?? null) ? $notice['affected_packages'] : [])
-            ->filter(fn (mixed $package): bool => is_array($package))
-            ->first(fn (array $package): bool => is_string($package['fixed_version'] ?? null) && $package['fixed_version'] !== '');
+        $affectedVersion = $this->noticeAffectedPackageVersion($notice, 'fixed_version');
 
-        if (is_array($affectedPackage)) {
-            return (string) $affectedPackage['fixed_version'];
+        if ($affectedVersion !== null) {
+            return $affectedVersion;
         }
 
         return $this->noticeFixedVersionsLabel($notice);
@@ -616,6 +607,26 @@ class UpgradePage extends Page
                 ->modalDescription(__('capell-admin::generic.upgrade_confirm_description'))
                 ->action(fn (): null => $this->runUpgrade(dryRun: false)),
         ];
+    }
+
+    /**
+     * @param  Notice  $notice
+     */
+    private function noticeAffectedPackageVersion(array $notice, string $versionKey): ?string
+    {
+        if (! is_array($notice['affected_packages'] ?? null)) {
+            return null;
+        }
+
+        foreach ($notice['affected_packages'] as $package) {
+            $version = is_array($package) ? ($package[$versionKey] ?? null) : null;
+
+            if (is_string($version) && $version !== '') {
+                return $version;
+            }
+        }
+
+        return null;
     }
 
     private function runUpgrade(bool $dryRun): null
