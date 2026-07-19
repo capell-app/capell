@@ -14,12 +14,16 @@ The Settings Schema Registry is a runtime registry of settings form-builder. The
     - Supports multiple schemas per group (composable)
     - Stores optional metadata for package-owned settings surfaces
 
-2. **SettingsSchemaBootstrapper** (`Capell\Core\Support\Settings\SettingsSchemaBootstrapper`)
-    - Manages extension callbacks
-    - Executes after package registration
-    - Allows dynamic schema modifications
+2. **PackageSurfaceRegistrar** (`Capell\Core\Support\Packages\PackageSurfaceRegistrar`)
+    - Is the canonical write path for package-owned settings
+    - Is available through `AbstractPackageServiceProvider::surface()`
+    - Preserves provider load order: contributions are applied when each installed package boots
 
-3. **HasSchema Contract** (`Capell\Admin\Filament\Contracts\HasSchema`)
+3. **AdminBridgeRegistrar** (`Capell\Admin\Support\Bridges\AdminBridgeRegistrar`)
+    - Is the canonical write path for settings supplied by an external admin integration
+    - Provides the same settings class, metadata, and schema contribution trio
+
+4. **HasSchema Contract** (`Capell\Admin\Filament\Contracts\HasSchema`)
     - Interface all settings schemas must implement
     - Defines `make(Schema $schema): array` method
 
@@ -33,17 +37,16 @@ In your package's service provider:
 use Capell\YourPackage\Filament\Settings\YourSettingsSchema;
 use Capell\YourPackage\Settings\YourSettings;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Filament\Support\Icons\Heroicon;
 
 private function registerSettingsSchemas(): self
 {
-    $registry = resolve(SettingsSchemaRegistry::class);
+    $surface = $this->surface();
 
     // Register the settings class (for form hydration/saving)
-    $registry->registerSettingsClass('yourgroup', YourSettings::class);
+    $surface->settingsClass('yourgroup', YourSettings::class);
 
-    $registry->registerMetadata(new SettingsGroupMetadata(
+    $surface->settingsMetadata(new SettingsGroupMetadata(
         group: 'yourgroup',
         label: 'your-package::settings.title',
         icon: Heroicon::OutlinedCog6Tooth,
@@ -52,7 +55,7 @@ private function registerSettingsSchemas(): self
     ));
 
     // Register the schema class (for form building)
-    $registry->register('yourgroup', YourSettingsSchema::class);
+    $surface->settingsSchema('yourgroup', YourSettingsSchema::class);
 
     return $this;
 }
@@ -68,20 +71,19 @@ Package settings are exposed from the Extensions page as an explicit opt-in moda
 declare(strict_types=1);
 
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
-use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 
-$registry = resolve(SettingsSchemaRegistry::class);
-$registry->registerSettingsClass('your_package', YourPackageSettings::class);
-$registry->registerMetadata(new SettingsGroupMetadata(
+$registrar = resolve(AdminBridgeRegistrar::class);
+$registrar->settingsClass('your_package', YourPackageSettings::class);
+$registrar->settingsMetadata(new SettingsGroupMetadata(
     group: 'your_package',
     label: 'Your package settings',
     packageName: 'capell-app/your-package',
 ));
-$registry->register('your_package', YourPackageSettingsSchema::class);
+$registrar->settingsSchema('your_package', YourPackageSettingsSchema::class);
 
-CapellAdmin::registerExtensionManagementSurface(ExtensionManagementSurfaceData::settings(
+$registrar->extensionManagementSurface(ExtensionManagementSurfaceData::settings(
     packageName: 'capell-app/your-package',
     label: 'Your package settings',
     settingsGroup: 'your_package',
@@ -202,64 +204,52 @@ class YourSettings extends Settings implements SettingsContract
 You can register multiple schemas for the same group. They will be merged together:
 
 ```php
-$registry = resolve(SettingsSchemaRegistry::class);
+$surface = $this->surface();
 
 // Core schema
-$registry->register('admin', AdminCoreSchema::class, 'core');
+$surface->settingsSchema('admin', AdminCoreSchema::class, 'core');
 
 // Additional schema from a package
-$registry->register('admin', AdminExtendedSchema::class, 'extended');
+$surface->settingsSchema('admin', AdminExtendedSchema::class, 'extended');
 ```
 
 Both schemas will appear on the package-owned settings modal for that group.
 
 ### Replacing an Existing Schema
 
-To override a schema registered by another package:
+To replace a keyed schema, register the same group and key later in provider load order:
 
 ```php
-$registry = resolve(SettingsSchemaRegistry::class);
-
 // Replace the core admin schema with a custom one
-$registry->replace('admin', CustomAdminSchema::class, 'AdminSettingsSchema');
+$this->surface()->settingsSchema('admin', CustomAdminSchema::class, 'AdminSettingsSchema');
 ```
+
+Key collisions are deterministic: the later installed-package provider contribution wins. Declare package dependencies when one package must contribute after another; do not defer schema writes through an extra boot callback.
 
 ### Removing a Schema
 
-To remove a schema entirely:
-
-```php
-$registry = resolve(SettingsSchemaRegistry::class);
-
-// Remove a specific schema
-$registry->remove('admin', 'AdminSettingsSchema');
-
-// Remove all schemas from a group
-$registry->removeGroup('admin');
-```
+Removal is an internal registry operation used for lifecycle and test cleanup. Package providers should contribute or replace a stable keyed schema instead of mutating another package's group after registration.
 
 ### Dynamic Schema Registration
 
-Use the bootstrapper to register schemas after all packages have loaded:
+Register schemas from `bootInstalledPackage()` through `surface()`. Capell applies contributions immediately in installed package provider load order, so the registry is complete when application boot finishes:
 
 ```php
-use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+protected function bootInstalledPackage(): self
+{
+    $this->surface()->settingsSchema('admin', MyDynamicSchema::class, 'my-package');
 
-// In your service provider's boot method
-resolve(SettingsSchemaBootstrapper::class)->extend(function (SettingsSchemaRegistry $registry): void {
-    // This runs after all packages are registered
-    $registry->register('admin', MyDynamicSchema::class);
-});
+    return $this;
+}
 ```
 
-## Registry API Reference
+## Contribution API Reference
 
-### SettingsSchemaRegistry Methods
+Package providers use these `PackageSurfaceRegistrar` methods. An `AdminBridgeRegistrar` exposes the same three settings methods for external admin integrations.
 
-#### `register(string $group, string $schemaClass, ?string $key = null): void`
+#### `settingsSchema(string $group, string $schemaClass, ?string $key = null): self`
 
-Register a new schema for a group.
+Register a new schema contribution for a group.
 
 **Parameters:**
 
@@ -270,11 +260,11 @@ Register a new schema for a group.
 **Example:**
 
 ```php
-$registry->register('admin', AdminSettingsSchema::class);
-$registry->register('admin', CustomSchema::class, 'my_custom');
+$this->surface()->settingsSchema('admin', AdminSettingsSchema::class);
+$this->surface()->settingsSchema('admin', CustomSchema::class, 'my_custom');
 ```
 
-#### `registerSettingsClass(string $group, string $settingsClass): void`
+#### `settingsClass(string $group, string $settingsClass): self`
 
 Register the primary settings class for a group.
 
@@ -286,55 +276,16 @@ Register the primary settings class for a group.
 **Example:**
 
 ```php
-$registry->registerSettingsClass('admin', AdminSettings::class);
+$this->surface()->settingsClass('admin', AdminSettings::class);
 ```
 
-#### `replace(string $group, string $schemaClass, string $key): void`
+#### `settingsMetadata(SettingsGroupMetadata $metadata): self`
 
-Replace an existing schema in a group.
+Register the label, icon, navigation, and package ownership metadata for a settings group.
 
-**Parameters:**
+### SettingsSchemaRegistry Read Methods
 
-- `$group` - Settings group identifier
-- `$schemaClass` - New schema class
-- `$key` - Key of the schema to replace (must exist)
-
-**Throws:** `InvalidArgumentException` if key doesn't exist
-
-**Example:**
-
-```php
-$registry->replace('admin', NewAdminSchema::class, 'AdminSettingsSchema');
-```
-
-#### `remove(string $group, string $key): void`
-
-Remove a specific schema from a group.
-
-**Parameters:**
-
-- `$group` - Settings group identifier
-- `$key` - Schema key to remove
-
-**Example:**
-
-```php
-$registry->remove('admin', 'AdminSettingsSchema');
-```
-
-#### `removeGroup(string $group): void`
-
-Remove all schemas from a group.
-
-**Parameters:**
-
-- `$group` - Settings group identifier
-
-**Example:**
-
-```php
-$registry->removeGroup('admin');
-```
+Consumers may resolve the registry to read the completed boot metadata. Registry mutation methods are internal implementation details; package code writes through one of the canonical registrars above.
 
 #### `getSchemas(string $group): array`
 
@@ -439,7 +390,7 @@ $allSchemas = $registry->all();
 
 ### Core Package
 
-The Core package registers the registry and bootstrapper:
+The Core package binds the registry and the package surface registrar writes to it:
 
 ```php
 // In CapellServiceProvider::packageRegistered()
@@ -447,14 +398,7 @@ private function registerSettingsSchemaRegistry(): self
 {
     $this->app->singleton(
         SettingsSchemaRegistry::class,
-        fn (): SettingsSchemaRegistry => new SettingsSchemaRegistry(),
-    );
-
-    $this->app->singleton(
-        SettingsSchemaBootstrapper::class,
-        fn (): SettingsSchemaBootstrapper => new SettingsSchemaBootstrapper(
-            resolve(SettingsSchemaRegistry::class),
-        ),
+        fn (): SettingsSchemaRegistry => new SettingsSchemaRegistry,
     );
 
     return $this;
@@ -469,13 +413,13 @@ The Admin package registers core and admin schemas:
 // In AdminServiceProvider::bootInstalledPackage()
 private function registerSettingsSchemas(): self
 {
-    $registry = resolve(SettingsSchemaRegistry::class);
+    $surface = $this->surface();
 
-    $registry->registerSettingsClass('core', CoreSettings::class);
-    $registry->register('core', CoreSettingsSchema::class);
+    $surface->settingsClass('core', CoreSettings::class);
+    $surface->settingsSchema('core', CoreSettingsSchema::class);
 
-    $registry->registerSettingsClass('admin', AdminSettings::class);
-    $registry->register('admin', AdminSettingsSchema::class);
+    $surface->settingsClass('admin', AdminSettings::class);
+    $surface->settingsSchema('admin', AdminSettingsSchema::class);
 
     return $this;
 }
@@ -489,10 +433,10 @@ The Frontend package registers its own schemas:
 // In FrontendServiceProvider::bootInstalledPackage()
 private function registerSettingsSchemas(): self
 {
-    $registry = resolve(SettingsSchemaRegistry::class);
+    $surface = $this->surface();
 
-    $registry->registerSettingsClass('frontend', FrontendSettings::class);
-    $registry->register('frontend', FrontendSettingsSchema::class);
+    $surface->settingsClass('frontend', FrontendSettings::class);
+    $surface->settingsSchema('frontend', FrontendSettingsSchema::class);
 
     return $this;
 }
@@ -506,14 +450,14 @@ Your package can add its own settings or extend existing ones:
 // In YourPackageServiceProvider::bootInstalledPackage()
 private function registerSettingsSchemas(): self
 {
-    $registry = resolve(SettingsSchemaRegistry::class);
+    $surface = $this->surface();
 
     // Add your own settings group
-    $registry->registerSettingsClass('my_package', MyPackageSettings::class);
-    $registry->register('my_package', MyPackageSettingsSchema::class);
+    $surface->settingsClass('my_package', MyPackageSettings::class);
+    $surface->settingsSchema('my_package', MyPackageSettingsSchema::class);
 
     // Or extend an existing group
-    $registry->register('admin', MyPackageAdminExtensionSchema::class, 'my_package_admin');
+    $surface->settingsSchema('admin', MyPackageAdminExtensionSchema::class, 'my_package_admin');
 
     return $this;
 }
@@ -598,15 +542,15 @@ Each group should have exactly one settings class (for form hydration/saving), b
 
 ### 4. Explicit Keys for Important Schemas
 
-When registering schemas that others might want to replace/remove, use explicit keys:
+When registering schemas that others might intentionally replace, use explicit keys:
 
 ```php
-$registry->register('admin', ImportantSchema::class, 'important_feature');
+$this->surface()->settingsSchema('admin', ImportantSchema::class, 'important_feature');
 ```
 
 ### 5. Document Extension Points
 
-If your package allows schema extensions, document which groups and keys are available for replacement.
+If your package allows schema extensions, document which groups and keys are available for keyed contributions.
 
 ### 6. Validate Schema Classes
 

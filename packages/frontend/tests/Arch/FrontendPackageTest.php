@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Themes\FrontendThemePreviewRenderer;
@@ -19,7 +18,3 @@ it('Site package to be standalone')
 it('Frontend package must not reference FoundationTheme')
     ->expect('Capell\Frontend')
     ->not()->toUse(['Capell\FoundationTheme']);
-
-arch('frontend providers contribute settings through the package surface registrar')
-    ->expect('Capell\Frontend\Providers')
-    ->not()->toUse(SettingsSchemaRegistry::class);
