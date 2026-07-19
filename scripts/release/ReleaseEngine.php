@@ -567,10 +567,27 @@ final class ReleaseEngine
             $tag = 'v' . $package['proposed_version'];
             $repository = $package['split_repository'];
             $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
-            if (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
+            $record = $state['packages'][$name] ?? null;
+            $recordedSplit = is_array($record) ? ($record['split_sha'] ?? null) : null;
+            $recordedState = is_array($record) ? ($record['state'] ?? null) : null;
+            $resumeRecordedMain = in_array($recordedState, ['main_pushed', 'published'], true);
+
+            if ($resumeRecordedMain) {
+                if (! is_string($recordedSplit) || preg_match('/^[a-f0-9]{40}$/', $recordedSplit) !== 1 || ($record['tag'] ?? null) !== $tag) {
+                    throw new ReleaseException("Recorded main push state for {$name} is incomplete.");
+                }
+                if (! is_string($main) || ! hash_equals($recordedSplit, $main)) {
+                    throw new ReleaseException("Remote main drift after recorded push for {$name}.");
+                }
+                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", 'refs/heads/main'], $this->root);
+                $splitSha = $recordedSplit;
+            } elseif (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
                 $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", 'refs/heads/main'], $this->root);
                 $parent = $this->git(['rev-parse', 'FETCH_HEAD']);
-                $splitSha = $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', "Release {$tag}"]);
+                $parentTree = $this->git(['rev-parse', "{$parent}^{tree}"]);
+                $splitSha = hash_equals($package['subtree_hash'], $parentTree)
+                    ? $parent
+                    : $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', "Release {$tag}"]);
             } else {
                 $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit']]);
             }
@@ -649,6 +666,7 @@ final class ReleaseEngine
     public function verify(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
+        $this->assertExactSource($plan);
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : [];
         foreach ($plan['packages'] as $package) {
