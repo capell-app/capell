@@ -282,6 +282,60 @@ it('verify rejects remote main drift', function (): void {
     @unlink($path . '.state.json');
 });
 
+it('verifies source tags against the declared source checkout origin', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $split = str_repeat('c', 40);
+    $root = releaseEngineRootForPlan(releaseEnginePlan($sha, $tree));
+    $runner = new class($sha, $tree, $split, $root) implements CommandRunner
+    {
+        public ?string $sourceTagWorkingDirectory = null;
+
+        public function __construct(
+            private readonly string $sha,
+            private readonly string $tree,
+            private readonly string $split,
+            private readonly string $root,
+        ) {}
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $text = implode(' ', $command);
+
+            if (str_contains($text, 'ls-remote --tags origin')) {
+                $this->sourceTagWorkingDirectory = $workingDirectory;
+            }
+
+            return ['output' => match (true) {
+                str_contains($text, 'status') => '',
+                str_contains($text, 'rev-parse HEAD') => $this->sha,
+                str_contains($text, ':packages/core') => $this->tree,
+                str_contains($text, 'isPrerelease') => 'false',
+                str_contains($text, 'git/ref/tags') => $this->split,
+                str_contains($text, 'git/ref/heads/main') => $this->split,
+                str_contains($text, 'ls-remote --tags origin') => $this->sha . "\trefs/tags/core/v1.0.0",
+                default => '',
+            }, 'exitCode' => 0];
+        }
+    };
+    $path = tempnam(sys_get_temp_dir(), 'plan-');
+    file_put_contents($path . '.state.json', json_encode([
+        'packages' => [
+            'capell-app/core' => [
+                'tag_sha' => $split,
+                'split_sha' => $split,
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+    $plan = releaseEnginePlan($sha, $tree);
+
+    new ReleaseEngine($root, $runner)->verify($plan, $path);
+
+    expect($runner->sourceTagWorkingDirectory)->toBe($root);
+    @unlink($path);
+    @unlink($path . '.state.json');
+});
+
 it('publish refuses exact source subtree drift before splitting', function (): void {
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
