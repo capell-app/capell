@@ -189,6 +189,7 @@ it('publishes a verified split and records atomic resumable state', function ():
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
                 str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
                 str_contains($joined, 'commit-tree'), str_contains($joined, 'subtree split') => ['output' => $this->split, 'exitCode' => 0],
+                str_contains($joined, str_repeat('f', 40) . '^{tree}') => ['output' => str_repeat('e', 40), 'exitCode' => 0],
                 str_contains($joined, '^{tree}') => ['output' => $this->tree, 'exitCode' => 0],
                 str_contains($joined, 'git/ref/tags') && count(array_filter($this->commands, fn (array $seen): bool => str_contains(implode(' ', $seen), 'git/ref/tags'))) === 1 => ['output' => '', 'exitCode' => 1],
                 str_contains($joined, 'git/ref/tags') => ['output' => $this->tagSha, 'exitCode' => 0],
@@ -581,6 +582,192 @@ it('preserves completed state while recording a later package', function (): voi
     new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
     $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
     expect($state['packages']['capell-app/earlier']['tag_sha'])->toBe('kept')->and($state['packages'])->toHaveKey('capell-app/core');
+    @unlink($path);
+    @unlink($path . '.state.json');
+});
+
+it('reuses the recorded split commit when resuming after main was pushed', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $split = str_repeat('c', 40);
+    $plan = releaseEnginePlan($sha, $tree);
+    $path = tempnam(sys_get_temp_dir(), 'plan-');
+    $hash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    file_put_contents($path . '.state.json', json_encode([
+        'plan_sha256' => $hash,
+        'source_commit' => $sha,
+        'packages' => [
+            'capell-app/core' => [
+                'state' => 'main_pushed',
+                'split_sha' => $split,
+                'tag' => 'v1.0.0',
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+    $runner = new class($sha, $tree, $split) implements CommandRunner
+    {
+        public array $commands = [];
+
+        public function __construct(
+            private readonly string $sha,
+            private readonly string $tree,
+            private readonly string $split,
+        ) {}
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+            $text = implode(' ', $command);
+
+            if (($command[0] ?? null) === PHP_BINARY) {
+                return ['output' => '', 'exitCode' => 1];
+            }
+
+            if (str_contains($text, 'git/ref/tags')
+                || str_contains($text, 'rev-parse -q --verify refs/tags/')
+                || str_contains($text, 'ls-remote --tags')) {
+                return ['output' => '', 'exitCode' => 1];
+            }
+
+            return ['output' => match (true) {
+                str_contains($text, 'status') => '',
+                str_contains($text, 'rev-parse HEAD') => $this->sha,
+                str_contains($text, ':packages/core') => $this->tree,
+                str_contains($text, '^{tree}') => $this->tree,
+                str_contains($text, 'git/ref/heads/main') => $this->split,
+                default => '',
+            }, 'exitCode' => 0];
+        }
+    };
+
+    putenv('GH_TOKEN=test');
+
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))
+        ->toThrow(ReleaseException::class, 'Command failed: ' . PHP_BINARY);
+
+    $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
+
+    expect(array_filter($commands, static fn (string $command): bool => str_contains($command, 'commit-tree')))->toBeEmpty()
+        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/heads/main')))->toBeEmpty();
+
+    @unlink($path);
+    @unlink($path . '.state.json');
+});
+
+it('fails closed when remote main drifted after a recorded push', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $split = str_repeat('c', 40);
+    $driftedMain = str_repeat('d', 40);
+    $plan = releaseEnginePlan($sha, $tree);
+    $path = tempnam(sys_get_temp_dir(), 'plan-');
+    $hash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    file_put_contents($path . '.state.json', json_encode([
+        'plan_sha256' => $hash,
+        'source_commit' => $sha,
+        'packages' => [
+            'capell-app/core' => [
+                'state' => 'main_pushed',
+                'split_sha' => $split,
+                'tag' => 'v1.0.0',
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+    $runner = new class($sha, $tree, $driftedMain) implements CommandRunner
+    {
+        public array $commands = [];
+
+        public function __construct(
+            private readonly string $sha,
+            private readonly string $tree,
+            private readonly string $driftedMain,
+        ) {}
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+            $text = implode(' ', $command);
+
+            return ['output' => match (true) {
+                str_contains($text, 'status') => '',
+                str_contains($text, 'rev-parse HEAD') => $this->sha,
+                str_contains($text, ':packages/core') => $this->tree,
+                str_contains($text, 'git/ref/heads/main') => $this->driftedMain,
+                default => '',
+            }, 'exitCode' => 0];
+        }
+    };
+
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))
+        ->toThrow(ReleaseException::class, 'Remote main drift after recorded push for capell-app/core.');
+
+    expect(array_filter(
+        $runner->commands,
+        static fn (array $command): bool => in_array('push', $command, true) || in_array('commit-tree', $command, true),
+    ))->toBeEmpty();
+
+    @unlink($path);
+    @unlink($path . '.state.json');
+});
+
+it('reuses an unrecorded remote main commit when it already has the planned tree', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $main = str_repeat('c', 40);
+    $plan = releaseEnginePlan($sha, $tree);
+    $path = tempnam(sys_get_temp_dir(), 'plan-');
+    $runner = new class($sha, $tree, $main) implements CommandRunner
+    {
+        public array $commands = [];
+
+        public function __construct(
+            private readonly string $sha,
+            private readonly string $tree,
+            private readonly string $main,
+        ) {}
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+            $text = implode(' ', $command);
+
+            if (($command[0] ?? null) === PHP_BINARY) {
+                return ['output' => '', 'exitCode' => 1];
+            }
+
+            if (str_contains($text, 'git/ref/tags')
+                || str_contains($text, 'rev-parse -q --verify refs/tags/')
+                || str_contains($text, 'ls-remote --tags')) {
+                return ['output' => '', 'exitCode' => 1];
+            }
+
+            return ['output' => match (true) {
+                str_contains($text, 'status') => '',
+                str_contains($text, 'rev-parse HEAD') => $this->sha,
+                str_contains($text, ':packages/core') => $this->tree,
+                str_contains($text, 'refs/remotes/') => $this->main,
+                str_contains($text, '^{tree}') => $this->tree,
+                str_contains($text, 'git/ref/heads/main') => $this->main,
+                default => '',
+            }, 'exitCode' => 0];
+        }
+    };
+
+    putenv('GH_TOKEN=test');
+
+    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))
+        ->toThrow(ReleaseException::class, 'Command failed: ' . PHP_BINARY);
+
+    $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
+
+    expect(array_filter($commands, static fn (string $command): bool => str_contains($command, 'commit-tree')))->toBeEmpty()
+        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/heads/main')))->toBeEmpty();
+
+    $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($state['packages']['capell-app/core']['split_sha'])->toBe($main)
+        ->and($state['packages']['capell-app/core']['state'])->toBe('main_pushed');
+
     @unlink($path);
     @unlink($path . '.state.json');
 });
