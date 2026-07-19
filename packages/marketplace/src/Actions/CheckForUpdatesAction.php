@@ -18,7 +18,7 @@ final class CheckForUpdatesAction
     {
         $this->failureMessage = null;
 
-        $result = resolve(PhoneHomeAction::class)->result();
+        $result = RunMarketplaceHeartbeatAction::run();
         $this->failureMessage = $result->failureMessage;
 
         return $result->successful;

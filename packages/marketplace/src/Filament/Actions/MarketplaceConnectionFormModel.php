@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Actions;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Marketplace\Actions\PhoneHomeAction;
+use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
 use Capell\Marketplace\Actions\StartMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplacePermission;
@@ -125,7 +125,7 @@ final class MarketplaceConnectionFormModel
 
     public function runHeartbeat(): void
     {
-        $result = resolve(PhoneHomeAction::class)->result();
+        $result = RunMarketplaceHeartbeatAction::run();
 
         if (! $result->successful) {
             $notification = Notification::make('marketplace-error')
