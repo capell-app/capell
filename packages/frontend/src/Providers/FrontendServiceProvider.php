@@ -29,6 +29,7 @@ use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
+use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
@@ -197,7 +198,13 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         ));
         $this->app->alias('capell.tailwind.generator', TailwindAssetsGenerator::class);
         $this->app->singleton(FrontendComponentRegistryInterface::class, FrontendComponentRegistry::class);
-        $this->app->singleton(FrontendComponentRegistrar::class);
+        $this->app->singleton(
+            FrontendComponentRegistrar::class,
+            fn (Application $application): FrontendComponentRegistrar => new FrontendComponentRegistrar(
+                $application,
+                $application->tagged(FrontendComponentContributor::TAG),
+            ),
+        );
         $this->app->singleton(PublicRouteAliasRegistry::class);
         $this->app->singleton(RenderableDynamicDataRegistry::class);
         $this->registerCoreFrontendComponents();
