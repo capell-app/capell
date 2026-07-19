@@ -150,9 +150,8 @@ it('shows a persistent success notification with queued extensions and support r
     Notification::assertNotified(
         Notification::make()
             ->title((string) __('capell-marketplace::marketplace.install_flow.completed_title'))
-            ->body(trans_choice('capell-marketplace::marketplace.install_flow.completed_body', 1, [
+            ->body((string) __('capell-marketplace::marketplace.install_flow.queued_body', [
                 'count' => 1,
-                'extensions' => 'Premium SEO',
                 'reference' => 'mif_notify',
             ]))
             ->success()

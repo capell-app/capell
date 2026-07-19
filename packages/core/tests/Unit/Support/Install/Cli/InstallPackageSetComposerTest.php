@@ -48,7 +48,6 @@ it('preserves console package option precedence for demo and install-time packag
             'capell-app/admin',
             'capell-app/frontend',
             'capell-app/marketplace',
-            'capell-app/welcome-tour',
         ]);
 });
 

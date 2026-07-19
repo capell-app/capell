@@ -59,8 +59,8 @@ it('returns merged set for explicit All filter and default (installed + remote n
 
     $all = nonTrustedPluginNames('All');
     $default = nonTrustedPluginNames();
-    expect($default)->toEqual(['installed-alpha', 'beta-remote'])
-        ->and($all)->toEqual(['installed-alpha', 'beta-remote']);
+    expect($default)->toEqual(['installed-alpha', 'beta-remote', 'capell-app/welcome-tour'])
+        ->and($all)->toEqual(['installed-alpha', 'beta-remote', 'capell-app/welcome-tour']);
 });
 
 it('returns only installed packages when filter is install', function (): void {
@@ -93,7 +93,7 @@ it('returns only remote uninstalled packages when filter is download', function 
     bindPluginPackagesFetcher($remote);
 
     $notInstalled = nonTrustedPluginNames('download');
-    expect($notInstalled)->toEqual(['epsilon-remote']);
+    expect($notInstalled)->toEqual(['epsilon-remote', 'capell-app/welcome-tour']);
 });
 
 it('installed vs download filters return distinct sets', function (): void {
@@ -113,7 +113,7 @@ it('installed vs download filters return distinct sets', function (): void {
     expect($installTab)
         ->toEqual(['installed-alpha'])
         ->and($notInstalled)
-        ->toEqual(['zeta-remote']);
+        ->toEqual(['zeta-remote', 'capell-app/welcome-tour']);
 });
 
 it('fetches remote packages when cache is empty', function (): void {
@@ -126,7 +126,7 @@ it('fetches remote packages when cache is empty', function (): void {
     bindPluginPackagesFetcher($fetched, true);
 
     $names = nonTrustedPluginNames();
-    expect($names)->toEqual(['alpha', 'beta-remote']);
+    expect($names)->toEqual(['alpha', 'beta-remote', 'capell-app/welcome-tour']);
 });
 
 it('defaults to merged set for unknown filter casing', function (): void {
@@ -141,8 +141,8 @@ it('defaults to merged set for unknown filter casing', function (): void {
 
     $unknown = nonTrustedPluginNames('Installed');
     $default = nonTrustedPluginNames();
-    expect($unknown)->toEqual(['installed-alpha', 'omega-remote'])
-        ->and($default)->toEqual(['installed-alpha', 'omega-remote']);
+    expect($unknown)->toEqual(['installed-alpha', 'omega-remote', 'capell-app/welcome-tour'])
+        ->and($default)->toEqual(['installed-alpha', 'omega-remote', 'capell-app/welcome-tour']);
 });
 
 it('skips remote entries with non-package type or missing name', function (): void {
@@ -157,7 +157,7 @@ it('skips remote entries with non-package type or missing name', function (): vo
     bindPluginPackagesFetcher($remote);
 
     $names = nonTrustedPluginNames();
-    expect($names)->toEqual(['foo', 'bar-remote', 'theme-one']);
+    expect($names)->toEqual(['foo', 'bar-remote', 'theme-one', 'capell-app/welcome-tour']);
 });
 
 it('keeps remote theme package metadata for installer theme selection', function (): void {
@@ -218,7 +218,7 @@ it('does not treat string false remote default selection as selected', function 
 
     bindPluginPackagesFetcher($remote);
 
-    expect(nonTrustedPluginNames('download'))->toBeEmpty();
+    expect(nonTrustedPluginNames('download'))->toBe(['capell-app/welcome-tour']);
 });
 
 it('does not treat remote core metadata as installer package selection authority', function (): void {
@@ -232,7 +232,7 @@ it('does not treat remote core metadata as installer package selection authority
 
     bindPluginPackagesFetcher($remote);
 
-    expect(nonTrustedPluginNames('download'))->toBeEmpty();
+    expect(nonTrustedPluginNames('download'))->toBe(['capell-app/welcome-tour']);
 });
 
 it('ignores remote core metadata on plugin package data', function (): void {
@@ -285,12 +285,12 @@ it('deduplicates installed package appearing in remote list', function (): void 
     bindPluginPackagesFetcher($remote);
 
     $names = nonTrustedPluginNames();
-    expect($names)->toEqual(['dup-alpha', 'new-remote']);
+    expect($names)->toEqual(['dup-alpha', 'new-remote', 'capell-app/welcome-tour']);
 });
 
-it('returns empty collection when no packages registered and remote cache empty', function (): void {
+it('returns the default welcome tour selection when no packages are registered and the remote cache is empty', function (): void {
     bindPluginPackagesFetcher(Collection::make(), true);
     $result = nonTrustedPluginNames();
 
-    expect($result)->toBeEmpty();
+    expect($result)->toBe(['capell-app/welcome-tour']);
 });

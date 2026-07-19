@@ -180,7 +180,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->scoped(RuntimeSchemaState::class);
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
-        $this->app->singleton(ProjectBuildManifestMigrationRegistry::class);
+        $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->singleton(SiteSpecApplierRegistry::class);
 

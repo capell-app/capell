@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\RequirePackageAction;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     RequirePackageAction::resetProcessFactory();
@@ -23,13 +24,22 @@ afterEach(function (): void {
 it('requires a package', function (): void {
     $mockProcess = new class
     {
+        public function disableOutput(): self
+        {
+            return $this;
+        }
+
         public function setTimeout(?float $timeout): self
         {
             return $this;
         }
 
-        public function run(): int
+        public function run(?callable $callback = null): int
         {
+            if ($callback !== null) {
+                $callback(Process::OUT, json_encode(['status' => 'installed'], JSON_THROW_ON_ERROR));
+            }
+
             return 0;
         }
 
@@ -60,13 +70,22 @@ it('requires a package', function (): void {
 it('handles require failures', function (): void {
     $mockProcess = new class
     {
+        public function disableOutput(): self
+        {
+            return $this;
+        }
+
         public function setTimeout(?float $timeout): self
         {
             return $this;
         }
 
-        public function run(): int
+        public function run(?callable $callback = null): int
         {
+            if ($callback !== null) {
+                $callback(Process::ERR, 'Composer error');
+            }
+
             return 1;
         }
 
@@ -188,8 +207,23 @@ function requirePackageProcess(bool $successful, string $output = '', string $er
             return $this;
         }
 
-        public function run(): int
+        public function disableOutput(): self
         {
+            return $this;
+        }
+
+        public function run(?callable $callback = null): int
+        {
+            if ($callback !== null) {
+                if ($this->output !== '') {
+                    $callback(Process::OUT, $this->output);
+                }
+
+                if ($this->errorOutput !== '') {
+                    $callback(Process::ERR, $this->errorOutput);
+                }
+            }
+
             return $this->successful ? 0 : 1;
         }
 

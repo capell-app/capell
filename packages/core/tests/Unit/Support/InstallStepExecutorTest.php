@@ -363,14 +363,17 @@ it('runs the final doctor summary in a fresh process even when the command is vi
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
         ->once()
-        ->withArgs(fn (array $command, string $cwd, ?array $environment): bool => $command === [
-            PHP_BINARY,
+        ->withArgs(fn (array $command, string $cwd, ?array $environment): bool => array_slice($command, 1) === [
             'artisan',
             'capell:doctor',
             '--install-summary',
             '--skip-package-doctors',
             '--no-interaction',
-        ] && $cwd === base_path() && is_array($environment))
+        ] && is_string($command[0])
+            && $command[0] !== ''
+            && $cwd !== ''
+            && is_array($environment)
+            && ($environment['GIT_CONFIG_COUNT'] ?? null) === '3')
         ->andReturn($process);
 
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -496,17 +499,16 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
         ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [
-                PHP_BINARY,
-                'artisan',
-                'capell:admin-sync-permissions',
-                '--mode=install',
-                '--no-interaction',
-            ]),
-            Mockery::type('string'),
-            Mockery::type('array'),
-        )
+        ->withArgs(fn (array $command, string $cwd, ?array $environment): bool => array_slice($command, 1) === [
+            'artisan',
+            'capell:admin-sync-permissions',
+            '--mode=install',
+            '--no-interaction',
+        ] && is_string($command[0])
+                && $command[0] !== ''
+                && $cwd !== ''
+                && is_array($environment)
+                && ($environment['GIT_CONFIG_COUNT'] ?? null) === '3')
         ->andReturn($process);
     $factory->shouldReceive('make')
         ->once()

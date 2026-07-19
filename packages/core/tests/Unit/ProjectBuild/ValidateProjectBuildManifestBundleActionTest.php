@@ -3,11 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
-use Capell\Core\Actions\ProjectBuild\ReadProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
-use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 
 final class BundleVersionZeroProjectBuildManifestMigration implements ProjectBuildManifestMigration
@@ -44,7 +42,7 @@ it('enforces read signature and artifact validation in one fail-closed operation
     assert(is_string($manifestJson));
     assert(is_string($publicKey));
 
-    $manifest = resolve(ValidateProjectBuildManifestBundleAction::class)->handle(
+    $manifest = ValidateProjectBuildManifestBundleAction::run(
         $manifestJson,
         $publicKey,
         static fn (ProjectBuildArtifactReferenceData $artifact): string => (string) file_get_contents(projectBuildFixturePath($artifact->path)),
@@ -61,7 +59,7 @@ it('does not read artifacts before the manifest signature is verified', function
     $artifactReads = 0;
 
     expect(function () use ($payload, $publicKey, &$artifactReads): void {
-        resolve(ValidateProjectBuildManifestBundleAction::class)->handle(
+        ValidateProjectBuildManifestBundleAction::run(
             json_encode($payload, JSON_THROW_ON_ERROR),
             $publicKey,
             static function (ProjectBuildArtifactReferenceData $artifact) use (&$artifactReads): string {
@@ -81,7 +79,7 @@ it('refuses artifact bytes that do not match the signed reference', function ():
     assert(is_string($publicKey));
 
     expect(function () use ($manifestJson, $publicKey): void {
-        resolve(ValidateProjectBuildManifestBundleAction::class)->handle(
+        ValidateProjectBuildManifestBundleAction::run(
             $manifestJson,
             $publicKey,
             static fn (ProjectBuildArtifactReferenceData $artifact): string => 'tampered-bytes',
@@ -103,12 +101,9 @@ it('verifies legacy signed bytes before applying a trusted core migration', func
     ));
     $migrations = new ProjectBuildManifestMigrationRegistry;
     $migrations->register(new BundleVersionZeroProjectBuildManifestMigration);
-    $action = new ValidateProjectBuildManifestBundleAction(
-        new ReadProjectBuildManifestAction($migrations),
-        resolve(ProjectBuildArtifactHandlerRegistry::class),
-    );
+    app()->instance(ProjectBuildManifestMigrationRegistry::class, $migrations);
 
-    $manifest = $action->handle(
+    $manifest = ValidateProjectBuildManifestBundleAction::run(
         json_encode($payload, JSON_THROW_ON_ERROR),
         sodium_crypto_sign_publickey($keyPair),
         static fn (ProjectBuildArtifactReferenceData $artifact): string => (string) file_get_contents(projectBuildFixturePath($artifact->path)),

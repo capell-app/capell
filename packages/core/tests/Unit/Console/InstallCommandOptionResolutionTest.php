@@ -234,7 +234,6 @@ it('requires missing foundation packages when all-package mode is selected', fun
             'capell-app/admin',
             'capell-app/frontend',
             'capell-app/marketplace',
-            'capell-app/welcome-tour',
         ]);
 });
 

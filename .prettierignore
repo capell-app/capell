@@ -5,5 +5,7 @@ composer.lock
 packages/**/publishes/dist/assets/**
 packages/**/publishes/build/**
 tests/.pest/snapshots/
+# Signed Project Build fixtures are byte-addressed by digest.
+packages/core/tests/fixtures/project-build/artifacts/site-spec.json
 # prettier-plugin-blade can't parse conditional opening/closing tags
 packages/frontend/resources/views/components/dropdown/index.blade.php

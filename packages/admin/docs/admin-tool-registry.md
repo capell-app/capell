@@ -62,8 +62,8 @@ Your tool class **must** implement this interface with a `render()` method that 
 
 ## Public API (AdminToolRegistry)
 
-| Method  | Returns                   | Purpose                                   |
-| ------- | ------------------------- | ----------------------------------------- |
+| Method  | Returns               | Purpose                                   |
+| ------- | --------------------- | ----------------------------------------- |
 | `all()` | `list<AdminToolItem>` | Fetch all tagged tools from the container |
 
 The registry has a single public method: `all()` returns an iterable of all tools tagged with `AdminToolItem::TAG`. It is typically resolved via the service container and called from the `AdminTools` Livewire component.
