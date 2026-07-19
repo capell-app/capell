@@ -26,9 +26,6 @@ class LanguageLoader
         return $model::getDefault();
     }
 
-    /**
-     * @throws Exception
-     */
     /** @return Collection<int, Language> */
     public static function languages(?int $siteId): Collection
     {
