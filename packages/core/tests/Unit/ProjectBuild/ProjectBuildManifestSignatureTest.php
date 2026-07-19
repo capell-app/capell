@@ -50,3 +50,8 @@ it('refuses tampered manifests and the wrong public key', function (string $fail
     })
         ->toThrow(RuntimeException::class, 'could not be verified');
 })->with(['tampered', 'wrong key']);
+
+it('refuses malformed raw signing metadata without a PHP offset error', function (): void {
+    expect(fn (): string => CanonicalizeProjectBuildManifestSigningInputAction::run(['signature' => 'invalid']))
+        ->toThrow(InvalidArgumentException::class, 'must be an object');
+});
