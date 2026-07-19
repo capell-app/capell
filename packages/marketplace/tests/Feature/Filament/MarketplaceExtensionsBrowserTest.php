@@ -95,21 +95,10 @@ function grantMarketplacePageOnlyAccess(): void
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
 }
 
-function ensureMarketplaceBrowserDeploymentPublisherTestContracts(): void
+function tagMarketplaceBrowserPublisher(MarketplaceComposerChangePublisher $publisher): void
 {
-    app()->instance('test.marketplace.browser-deployment-publisher-adapter', new class implements MarketplaceComposerChangePublisher
-    {
-        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
-        {
-            $result = app()->make('Capell\\Deployments\\Contracts\\PublishesComposerChanges')->publish($request);
-
-            return new MarketplaceComposerPublicationResultData(
-                pullRequestUrl: is_string($result->pullRequestUrl ?? null) ? $result->pullRequestUrl : null,
-                commitSha: is_string($result->commitSha ?? null) ? $result->commitSha : null,
-            );
-        }
-    });
-    app()->tag(['test.marketplace.browser-deployment-publisher-adapter'], MarketplaceComposerChangePublisher::TAG);
+    app()->instance('test.marketplace.browser-composer-change-publisher', $publisher);
+    app()->tag(['test.marketplace.browser-composer-change-publisher'], MarketplaceComposerChangePublisher::TAG);
 }
 
 it('renders author and rating information in the marketplace card', function (): void {
@@ -391,17 +380,13 @@ it('shows blocked marketplace extensions in the default not installed marketplac
 
 it('queues a free marketplace extension install from the grouped browser footer', function (): void {
     grantMarketplaceBrowserManagementAccess();
-    ensureMarketplaceBrowserDeploymentPublisherTestContracts();
     Queue::fake();
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new class
+    tagMarketplaceBrowserPublisher(new class implements MarketplaceComposerChangePublisher
     {
-        public function publish(object $requirement): stdClass
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
-            return (object) [
-                'pullRequestUrl' => 'https://github.test/capell/pulls/authentication-log',
-                'commitSha' => null,
-            ];
+            return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://github.test/capell/pulls/authentication-log');
         }
     });
 
@@ -635,17 +620,13 @@ it('shows marketplace extensions when a package install operation is already act
 
 it('includes available dependencies in the grouped marketplace install review', function (): void {
     grantMarketplaceBrowserManagementAccess();
-    ensureMarketplaceBrowserDeploymentPublisherTestContracts();
     Queue::fake();
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new class
+    tagMarketplaceBrowserPublisher(new class implements MarketplaceComposerChangePublisher
     {
-        public function publish(object $requirement): stdClass
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
-            return (object) [
-                'pullRequestUrl' => 'https://github.test/capell/pulls/grouped-dependencies',
-                'commitSha' => null,
-            ];
+            return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://github.test/capell/pulls/grouped-dependencies');
         }
     });
 

@@ -58,21 +58,10 @@ beforeEach(function (): void {
     ]);
 });
 
-function ensureDeploymentPublisherTestContracts(): void
+function tagMarketplaceCataloguePublisher(MarketplaceComposerChangePublisher $publisher): void
 {
-    app()->instance('test.marketplace.deployment-publisher-adapter', new class implements MarketplaceComposerChangePublisher
-    {
-        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
-        {
-            $result = app()->make('Capell\\Deployments\\Contracts\\PublishesComposerChanges')->publish($request);
-
-            return new MarketplaceComposerPublicationResultData(
-                pullRequestUrl: is_string($result->pullRequestUrl ?? null) ? $result->pullRequestUrl : null,
-                commitSha: is_string($result->commitSha ?? null) ? $result->commitSha : null,
-            );
-        }
-    });
-    app()->tag(['test.marketplace.deployment-publisher-adapter'], MarketplaceComposerChangePublisher::TAG);
+    app()->instance('test.marketplace.composer-change-publisher', $publisher);
+    app()->tag(['test.marketplace.composer-change-publisher'], MarketplaceComposerChangePublisher::TAG);
 }
 
 it('builds marketplace table records from filtered marketplace listings', function (): void {
@@ -1128,8 +1117,6 @@ it('blocks install actions while a marketplace install operation is active', fun
 });
 
 it('blocks duplicate queueing while deployment publishing is still running', function (): void {
-    ensureDeploymentPublisherTestContracts();
-
     $listing = marketplaceQueueListing();
     $acquisition = marketplaceQueueAcquisition();
     $eligibility = new MarketplaceInstallEligibilityData(
@@ -1139,7 +1126,7 @@ it('blocks duplicate queueing while deployment publishing is still running', fun
     $policyEvidence = BuildMarketplaceInstallPolicyEvidenceAction::run($listing);
     $duplicateBlockState = (object) ['wasBlocked' => false];
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new readonly class($listing, $acquisition, $eligibility, $policyEvidence, $duplicateBlockState)
+    tagMarketplaceCataloguePublisher(new readonly class($listing, $acquisition, $eligibility, $policyEvidence, $duplicateBlockState) implements MarketplaceComposerChangePublisher
     {
         public function __construct(
             private ExtensionListingData $listing,
@@ -1149,7 +1136,7 @@ it('blocks duplicate queueing while deployment publishing is still running', fun
             private stdClass $duplicateBlockState,
         ) {}
 
-        public function publish(object $requirement): stdClass
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
             try {
                 QueueMarketplaceInstallAttemptAction::run(
@@ -1165,10 +1152,7 @@ it('blocks duplicate queueing while deployment publishing is still running', fun
                 $this->duplicateBlockState->wasBlocked = true;
             }
 
-            return (object) [
-                'pullRequestUrl' => null,
-                'commitSha' => 'abc123',
-            ];
+            return new MarketplaceComposerPublicationResultData(commitSha: 'abc123');
         }
     });
 
@@ -1762,22 +1746,17 @@ it('records install attempts for non-theme marketplace installs', function (): v
 });
 
 it('records deployment published attempts when deployment publisher returns a pull request', function (): void {
-    ensureDeploymentPublisherTestContracts();
-
     config([
         'app.url' => 'https://example.test',
         'capell-marketplace.instance.id' => 'instance-123',
         'capell-marketplace.marketplace.webhook_secret' => 'test-secret',
     ]);
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new class
+    tagMarketplaceCataloguePublisher(new class implements MarketplaceComposerChangePublisher
     {
-        public function publish(object $requirement): stdClass
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
-            return (object) [
-                'pullRequestUrl' => 'https://github.test/capell/pulls/42',
-                'commitSha' => null,
-            ];
+            return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://github.test/capell/pulls/42');
         }
     });
 
@@ -1860,22 +1839,17 @@ it('can install filament peek through the admin marketplace catalogue', function
 });
 
 it('records deployment published attempts when deployment publisher returns a commit sha', function (): void {
-    ensureDeploymentPublisherTestContracts();
-
     config([
         'app.url' => 'https://example.test',
         'capell-marketplace.instance.id' => 'instance-123',
         'capell-marketplace.marketplace.webhook_secret' => 'test-secret',
     ]);
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new class
+    tagMarketplaceCataloguePublisher(new class implements MarketplaceComposerChangePublisher
     {
-        public function publish(object $requirement): stdClass
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
-            return (object) [
-                'pullRequestUrl' => null,
-                'commitSha' => 'abc123',
-            ];
+            return new MarketplaceComposerPublicationResultData(commitSha: 'abc123');
         }
     });
 
@@ -1911,19 +1885,17 @@ it('records deployment published attempts when deployment publisher returns a co
 });
 
 it('falls back to composer command when no active deployment connection exists', function (): void {
-    ensureDeploymentPublisherTestContracts();
-
     config([
         'app.url' => 'https://example.test',
         'capell-marketplace.instance.id' => 'instance-123',
         'capell-marketplace.marketplace.webhook_secret' => 'test-secret',
     ]);
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new class
+    tagMarketplaceCataloguePublisher(new class implements MarketplaceComposerChangePublisher
     {
-        public function publish(object $requirement): object
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
-            throw (new ModelNotFoundException)->setModel('Capell\\Deployments\\Models\\DeploymentConnection');
+            throw (new ModelNotFoundException)->setModel('DeploymentConnection');
         }
     });
 
@@ -1963,8 +1935,6 @@ it('falls back to composer command when no active deployment connection exists',
 });
 
 it('records deployment failures separately before showing composer fallback', function (): void {
-    ensureDeploymentPublisherTestContracts();
-
     $redactedReason = 'Deployment connection password=[redacted] Bearer [redacted] is disconnected.';
 
     config([
@@ -1973,9 +1943,9 @@ it('records deployment failures separately before showing composer fallback', fu
         'capell-marketplace.marketplace.webhook_secret' => 'test-secret',
     ]);
 
-    app()->instance('Capell\\Deployments\\Contracts\\PublishesComposerChanges', new class
+    tagMarketplaceCataloguePublisher(new class implements MarketplaceComposerChangePublisher
     {
-        public function publish(object $requirement): object
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
         {
             throw new RuntimeException('Deployment connection password=hunter2 Bearer ghp_secret_token is disconnected.');
         }
