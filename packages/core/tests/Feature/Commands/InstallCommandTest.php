@@ -1257,13 +1257,13 @@ it('selects every registered package when --all-packages is given', function ():
     setupInstallTest([
         'capell-app/admin',
         'capell-app/frontend',
+        'capell-app/welcome-tour',
         'vendor/composer-installed-plugin',
     ]);
     $user = createTestUser();
     $fake = bindFakeRunInstallAction();
     bindInstallCommandPreflightProcessFactory(packages: [
         'capell-app/marketplace',
-        'capell-app/welcome-tour',
     ]);
 
     artisanCommand('capell:install', [
@@ -1284,6 +1284,7 @@ it('selects every registered package when --all-packages is given', function ():
         ->and($fake->capturedInput->packages)->toBe([
             'capell-app/admin',
             'capell-app/frontend',
+            'capell-app/welcome-tour',
             'vendor/composer-installed-plugin',
         ]);
 });
@@ -2024,6 +2025,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
         'capell-app/core',
         'capell-app/admin',
         'capell-app/frontend',
+        'capell-app/welcome-tour',
         'capell-app/content-sections',
         'capell-app/demo-kit',
         'vendor/demo-package',
@@ -2049,7 +2051,6 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
         ->withArgs(fn (array $cachesToClear): bool => $cachesToClear === ['all']);
     bindInstallCommandPreflightProcessFactory(packages: [
         'capell-app/marketplace',
-        'capell-app/welcome-tour',
     ]);
 
     artisanCommand('capell:install', [
@@ -2074,6 +2075,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
         ->and($capturedInput->packages)->toContain(
             'capell-app/admin',
             'capell-app/frontend',
+            'capell-app/welcome-tour',
             'capell-app/content-sections',
             'capell-app/demo-kit',
             'vendor/demo-package',
