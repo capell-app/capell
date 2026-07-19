@@ -7,16 +7,19 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 
 beforeEach(function (): void {
     CapellCore::clearPackages();
     (new Filesystem)->deleteDirectory(resource_path('views/capell/themes/capell-app/local-client'));
+    resolve(LocalAppThemeDefinitionRepository::class)->clearCache();
 });
 
 afterEach(function (): void {
     (new Filesystem)->deleteDirectory(resource_path('views/capell/themes/capell-app/local-client'));
+    resolve(LocalAppThemeDefinitionRepository::class)->clearCache();
 });
 
 it('returns static offline theme choices', function (): void {
