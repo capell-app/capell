@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Emitted declared package-specific theme identity tokens while rejecting malformed names, reserved core-property collisions, and values outside their declared vocabulary.
+- Published generated theme-token CSS atomically and restored genuine database selection in the full CI matrix.
+
 ## v2.0.85 - 2026-07-09
 
 ### Changed

@@ -42,6 +42,15 @@ class BrandProfileData extends Data
         ], true);
     }
 
+    public static function supportsCustomToken(string $key): bool
+    {
+        if (preg_match('/\A[A-Za-z][A-Za-z0-9]*\z/', $key) !== 1) {
+            return false;
+        }
+
+        return ! array_key_exists(self::customProperty($key), (new self)->baseTokens());
+    }
+
     /**
      * @param  array<string, mixed>  $values
      */
@@ -85,6 +94,27 @@ class BrandProfileData extends Data
     public function tokens(): array
     {
         return [
+            ...$this->baseTokens(),
+            ...collect($this->customTokens)
+                ->filter(fn (string $value, string $key): bool => self::supportsCustomToken($key))
+                ->mapWithKeys(fn (string $value, string $key): array => [self::customProperty($key) => $value])
+                ->all(),
+        ];
+    }
+
+    private static function customProperty(string $key): string
+    {
+        $kebab = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $key));
+
+        return '--theme-' . $kebab;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function baseTokens(): array
+    {
+        return [
             '--theme-primary' => $this->primaryColor,
             '--theme-accent' => $this->accentColor,
             '--theme-neutral' => $this->neutralColor,
@@ -107,17 +137,7 @@ class BrandProfileData extends Data
             '--theme-card-density-gap' => $this->cardDensityGap($this->cardDensity),
             '--theme-overlay-treatment' => $this->allowed($this->overlayTreatment, ['none', 'subtle', 'strong'], 'subtle'),
             '--theme-overlay-opacity' => $this->overlayOpacity($this->overlayTreatment),
-            ...collect($this->customTokens)
-                ->mapWithKeys(fn (string $value, string $key): array => [$this->customProperty($key) => $value])
-                ->all(),
         ];
-    }
-
-    private function customProperty(string $key): string
-    {
-        $kebab = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $key));
-
-        return '--theme-' . $kebab;
     }
 
     private function stringValue(mixed $value, string $fallback): string
