@@ -217,13 +217,9 @@ final class QueueMarketplaceInstallAttemptAction
             $attempt->forceFill(['failure_reason' => $reason])->save();
         }
 
-        if ($afterResponse) {
-            RunMarketplaceInstallAttemptJob::dispatchAfterResponse((int) $attempt->getKey());
-        } else {
-            dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
-                ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
-                ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
-        }
+        dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
+            ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
+            ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
 
         return $attempt;
     }
