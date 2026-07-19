@@ -66,9 +66,9 @@ it('resolves class-string extensions from the current container scope', function
     app()->scoped('testing.scoped-render-hook', function () use (&$instances): RenderHookExtensionInterface {
         $instance = ++$instances;
 
-        return new class($instance) implements RenderHookExtensionInterface
+        return new readonly class($instance) implements RenderHookExtensionInterface
         {
-            public function __construct(private readonly int $instance) {}
+            public function __construct(private int $instance) {}
 
             public function render(RenderHookContext $context): string
             {
