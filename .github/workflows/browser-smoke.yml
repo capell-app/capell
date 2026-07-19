@@ -78,9 +78,12 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Run installer smoke
+      - name: Run offline installer module contract
+        run: npm run test:installer-modules
+
+      - name: Run live installer smoke
         if: inputs.target == 'all' || inputs.target == 'installer'
-        run: npm run test:installer-browser
+        run: npm run test:installer-live
 
       - name: Run frontend demo smoke
         if: inputs.target == 'all' || inputs.target == 'demo'
