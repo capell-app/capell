@@ -9,7 +9,15 @@ use Capell\Release\PlanValidator;
 use Capell\Release\ReleaseEngine;
 use Capell\Release\ReleaseException;
 
-$root = dirname(__DIR__);
+$configuredRoot = getenv('CAPELL_RELEASE_SOURCE_ROOT');
+$root = is_string($configuredRoot) && $configuredRoot !== ''
+    ? realpath($configuredRoot)
+    : dirname(__DIR__);
+
+if (! is_string($root) || ! file_exists($root . '/.git')) {
+    fwrite(STDERR, "CAPELL_RELEASE_SOURCE_ROOT must name a Git checkout.\n");
+    exit(1);
+}
 $command = $argv[1] ?? '';
 
 // Plans written before per-package maturity existed lack the field; default

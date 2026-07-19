@@ -568,10 +568,26 @@ final class ReleaseEngine
             $repository = $package['split_repository'];
             $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             $branch = 'capell-release-' . str_replace('/', '-', $name) . '-' . substr($plan['source']['commit'], 0, 12);
-            if (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
+            $record = $state['packages'][$name] ?? null;
+            $recordedSplit = is_array($record) ? ($record['split_sha'] ?? null) : null;
+            $recordedState = is_array($record) ? ($record['state'] ?? null) : null;
+            $resumeRecordedMain = in_array($recordedState, ['main_pushed', 'published'], true);
+
+            if ($resumeRecordedMain) {
+                if (! is_string($recordedSplit) || preg_match('/^[a-f0-9]{40}$/', $recordedSplit) !== 1 || ($record['tag'] ?? null) !== $tag) {
+                    throw new ReleaseException("Recorded main push state for {$name} is incomplete.");
+                }
+                if (! is_string($main) || ! hash_equals($recordedSplit, $main)) {
+                    throw new ReleaseException("Remote main drift after recorded push for {$name}.");
+                }
                 $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", "refs/heads/main:refs/remotes/{$branch}"], $this->root);
-                $parent = $this->git(['rev-parse', "refs/remotes/{$branch}"]);
-                $splitSha = $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', "Release {$tag}"]);
+                $splitSha = $recordedSplit;
+            } elseif (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
+                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", "refs/heads/main:refs/remotes/{$branch}"], $this->root);
+                $parentTree = $this->git(['rev-parse', "{$main}^{tree}"]);
+                $splitSha = hash_equals($package['subtree_hash'], $parentTree)
+                    ? $main
+                    : $this->git(['commit-tree', $package['subtree_hash'], '-p', $main, '-m', "Release {$tag}"]);
             } else {
                 $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit'], '-b', $branch]);
             }

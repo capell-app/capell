@@ -76,6 +76,22 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Stage and attest release tooling from the workflow commit
+        env:
+          RELEASE_TOOLING_COMMIT: ${{ github.sha }}
+          RELEASE_TOOLING_ROOT: ${{ runner.temp }}/release-tooling
+        run: |
+          mkdir -p "${RELEASE_TOOLING_ROOT}"
+          git archive "${RELEASE_TOOLING_COMMIT}" \
+            scripts/release.php \
+            scripts/release/ReleaseEngine.php \
+            scripts/release-preflight.php \
+            | tar -x -C "${RELEASE_TOOLING_ROOT}"
+          for path in scripts/release.php scripts/release/ReleaseEngine.php scripts/release-preflight.php; do
+            expected_blob="$(git rev-parse "${RELEASE_TOOLING_COMMIT}:${path}")"
+            actual_blob="$(git hash-object "${RELEASE_TOOLING_ROOT}/${path}")"
+            test "${actual_blob}" = "${expected_blob}"
+          done
       - name: Configure split repository git credentials
         env:
           GH_TOKEN: ${{ steps.split-token.outputs.token }}
@@ -113,11 +129,13 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.split-token.outputs.token }}
           RELEASE_PLAN: ${{ runner.temp }}/approved-plan/release-plan.json
-          RELEASE_PREFLIGHT_SCRIPT: ${{ github.workspace }}/scripts/release-preflight.php
+          RELEASE_TOOLING_ROOT: ${{ runner.temp }}/release-tooling
+          CAPELL_RELEASE_SOURCE_ROOT: ${{ github.workspace }}
+          RELEASE_PREFLIGHT_SCRIPT: ${{ runner.temp }}/release-tooling/scripts/release-preflight.php
         run: |
-          php scripts/release.php validate "${RELEASE_PLAN}"
-          php scripts/release.php resume "${RELEASE_PLAN}"
-          php scripts/release.php verify "${RELEASE_PLAN}"
+          php "${RELEASE_TOOLING_ROOT}/scripts/release.php" validate "${RELEASE_PLAN}"
+          php "${RELEASE_TOOLING_ROOT}/scripts/release.php" resume "${RELEASE_PLAN}"
+          php "${RELEASE_TOOLING_ROOT}/scripts/release.php" verify "${RELEASE_PLAN}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
