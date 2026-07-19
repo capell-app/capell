@@ -8,7 +8,6 @@ use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\Pages\PageTableStatusData;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
-use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Filament\Support\Icons\Heroicon;
@@ -16,11 +15,6 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DefaultPageTableStatusResolver implements PageTableStatusResolver
 {
-    /**
-     * Retained for compatibility; publishing rules are owned by Core.
-     */
-    public const DRAFT_SENTINEL_YEARS = PublishSentinel::DRAFT_BOUNDARY_YEARS;
-
     /**
      * @param  Builder<Page>  $query
      * @return Builder<Page>
