@@ -1022,7 +1022,7 @@ it('shows uninstall actions for trusted package entries', function (): void {
         ->callTableAction('uninstallExtension', record: 'capell-app/frontend')
         ->assertDispatched('refresh-sidebar')
         ->assertNotified(__('capell-admin::message.extension_uninstalled', [
-            'extension' => 'Capell Frontend',
+            'extension' => 'Frontend',
         ]));
 
     expect(CapellCore::isPackageInstalled('capell-app/frontend'))->toBeFalse();

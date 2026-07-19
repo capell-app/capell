@@ -47,7 +47,7 @@ it('clears plugin packages cache and removes installed package from install filt
 
     // Download filter should show both remote packages (none installed yet).
     $initialInstallNames = requirePackageActionDownloadPackageNames();
-    expect($initialInstallNames)->toEqual(['alpha-remote', 'beta-remote']);
+    expect($initialInstallNames)->toEqual(['alpha-remote', 'beta-remote', 'capell-app/welcome-tour']);
 
     $packagePath = sys_get_temp_dir() . '/capell-require-action-alpha-' . bin2hex(random_bytes(8));
     mkdir($packagePath, 0777, true);
@@ -76,7 +76,7 @@ it('clears plugin packages cache and removes installed package from install filt
 
         // After installation, download filter should exclude installed package.
         $postInstallNames = requirePackageActionDownloadPackageNames();
-        expect($postInstallNames)->toEqual(['beta-remote'])->not()->toContain('alpha-remote');
+        expect($postInstallNames)->toEqual(['beta-remote', 'capell-app/welcome-tour'])->not()->toContain('alpha-remote');
     } finally {
         if (is_file($packagePath . '/composer.json')) {
             unlink($packagePath . '/composer.json');
