@@ -68,33 +68,14 @@ class CapellAdminManager
     /** @var class-string<Page> */
     private string $dashboardPage = CapellDashboard::class;
 
-    private readonly AdminSurfaceContributionRegistry $adminSurfaceRegistry;
-
-    private readonly ReportRegistry $reportRegistry;
-
-    private readonly DashboardFilamentWidgetRegistry $dashboardWidgetRegistry;
-
-    private readonly MarketingStudioActionRegistry $marketingStudioActionRegistry;
-
-    private readonly UserMenuItemRegistry $userMenuItemRegistry;
-
-    private readonly OverviewStatRegistry $overviewStatRegistry;
-
     public function __construct(
-        ?AdminSurfaceContributionRegistry $adminSurfaceRegistry = null,
-        ?ReportRegistry $reportRegistry = null,
-        ?DashboardFilamentWidgetRegistry $dashboardWidgetRegistry = null,
-        ?MarketingStudioActionRegistry $marketingStudioActionRegistry = null,
-        ?UserMenuItemRegistry $userMenuItemRegistry = null,
-        ?OverviewStatRegistry $overviewStatRegistry = null,
-    ) {
-        $this->adminSurfaceRegistry = $adminSurfaceRegistry ?? new AdminSurfaceContributionRegistry;
-        $this->reportRegistry = $reportRegistry ?? new ReportRegistry;
-        $this->dashboardWidgetRegistry = $dashboardWidgetRegistry ?? new DashboardFilamentWidgetRegistry;
-        $this->marketingStudioActionRegistry = $marketingStudioActionRegistry ?? new MarketingStudioActionRegistry;
-        $this->userMenuItemRegistry = $userMenuItemRegistry ?? new UserMenuItemRegistry;
-        $this->overviewStatRegistry = $overviewStatRegistry ?? new OverviewStatRegistry;
-    }
+        private readonly AdminSurfaceContributionRegistry $adminSurfaceRegistry,
+        private readonly ReportRegistry $reportRegistry,
+        private readonly DashboardFilamentWidgetRegistry $dashboardWidgetRegistry,
+        private readonly MarketingStudioActionRegistry $marketingStudioActionRegistry,
+        private readonly UserMenuItemRegistry $userMenuItemRegistry,
+        private readonly OverviewStatRegistry $overviewStatRegistry,
+    ) {}
 
     /** @return list<string>|list<FilamentWidgetEnum> */
     public function getWidgets(null|bool|Closure $filter = null): array

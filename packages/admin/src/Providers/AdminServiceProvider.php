@@ -203,7 +203,6 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Override;
-use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
@@ -267,27 +266,21 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(FlagIconRendererContract::class, FlagIconRenderer::class);
         $this->app->singletonIf(PageTableStatusResolver::class, DefaultPageTableStatusResolver::class);
 
-        $this->app->singletonIf(ExtensionPageRegistry::class);
-        $this->app->singletonIf(AdminNotificationGroupRegistry::class);
+        $this->app->singleton(ExtensionPageRegistry::class);
+        $this->app->singleton(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
-        $this->app->singletonIf(ActivityResourceLinkRegistry::class);
-        $this->app->singletonIf(AdminSurfaceContributionRegistry::class);
-        $this->app->singletonIf(ReportRegistry::class);
-        $this->app->singletonIf(DashboardFilamentWidgetRegistry::class);
-        $this->app->singletonIf(MarketingStudioActionRegistry::class);
-        $this->app->singletonIf(UserMenuItemRegistry::class);
-        $this->app->singletonIf(OverviewStatRegistry::class);
-        $this->app->singletonIf(AdminBridgeRegistry::class);
-        $this->app->singletonIf(AdminBridgeRegistrar::class);
+        $this->app->singleton(ActivityResourceLinkRegistry::class);
+        $this->app->singleton(AdminSurfaceContributionRegistry::class);
+        $this->app->singleton(ReportRegistry::class);
+        $this->app->singleton(DashboardFilamentWidgetRegistry::class);
+        $this->app->singleton(MarketingStudioActionRegistry::class);
+        $this->app->singleton(UserMenuItemRegistry::class);
+        $this->app->singleton(OverviewStatRegistry::class);
+        $this->app->singleton(AdminBridgeRegistry::class);
+        $this->app->singleton(AdminBridgeRegistrar::class);
+        $this->app->singleton(CapellAdminManager::class);
         $this->app->singleton(AdminFrontendRouteReservationContributor::class);
         $this->app->tag(AdminFrontendRouteReservationContributor::class, FrontendRouteReservationContributor::TAG);
-
-        $manager = CapellAdmin::getFacadeRoot();
-        throw_unless($manager instanceof CapellAdminManager, RuntimeException::class, 'The Capell admin facade must resolve its manager.');
-
-        $this->app->instance(CapellAdminManager::class, $manager);
-        $this->app->instance(AdminSurfaceContributionRegistry::class, $manager->getAdminSurfaceRegistry());
-        $this->app->instance(ReportRegistry::class, $manager->getReportRegistry());
         $this->app->singleton(AdminResourceResolverContract::class, AdminResourceResolver::class);
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);

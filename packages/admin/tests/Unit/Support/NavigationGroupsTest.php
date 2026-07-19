@@ -9,7 +9,6 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Support\Icons\Heroicon;
 
 beforeEach(function (): void {
-    app()->instance(CapellAdminManager::class, new CapellAdminManager);
     CapellAdmin::clearResolvedInstance(CapellAdminManager::class);
 });
 
