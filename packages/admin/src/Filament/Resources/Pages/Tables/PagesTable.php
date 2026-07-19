@@ -296,12 +296,10 @@ class PagesTable implements TableConfigurator
      */
     protected static function getPublishStatusFilterOptions(): array
     {
-        return [
-            PublishVisibilityStateEnum::published->value => __('capell-admin::table.page_status_published'),
-            PublishVisibilityStateEnum::draft->value => __('capell-admin::table.page_status_draft'),
-            PublishVisibilityStateEnum::scheduled->value => __('capell-admin::table.page_status_scheduled'),
-            PublishVisibilityStateEnum::expired->value => __('capell-admin::table.page_status_expired'),
-        ];
+        return collect(PublishVisibilityStateEnum::cases())
+            ->reject(fn (PublishVisibilityStateEnum $state): bool => $state === PublishVisibilityStateEnum::deleted)
+            ->mapWithKeys(fn (PublishVisibilityStateEnum $state): array => [$state->value => $state->getLabel()])
+            ->all();
     }
 
     /**

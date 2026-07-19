@@ -9,10 +9,10 @@ use Capell\Admin\Actions\Publishing\RevertRecordToDraftAction;
 use Capell\Admin\Actions\Publishing\ScheduleRecordPublishAction;
 use Capell\Admin\Actions\Publishing\ScheduleRecordUnpublishAction;
 use Capell\Admin\Actions\Publishing\UnpublishRecordAction;
-use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
@@ -96,12 +96,12 @@ it('reverts a published page to the draft sentinel', function (): void {
     $result = RevertRecordToDraftAction::run($page, $actor);
 
     expect($result->outcome)->toBe(PublicationTransitionOutcome::Changed)
-        ->and(PagePublishSentinel::isDraftValue($page->fresh()->visible_from))->toBeTrue();
+        ->and(PublishSentinel::isDraftValue($page->fresh()->visible_from))->toBeTrue();
 });
 
 it('skips reverting a page already in draft', function (): void {
     $actor = test()->actingAsAdmin()->authenticatedUser();
-    $page = Page::factory()->create(['visible_from' => PagePublishSentinel::draftValue()]);
+    $page = Page::factory()->create(['visible_from' => PublishSentinel::draftValue()]);
 
     $result = RevertRecordToDraftAction::run($page, $actor);
 

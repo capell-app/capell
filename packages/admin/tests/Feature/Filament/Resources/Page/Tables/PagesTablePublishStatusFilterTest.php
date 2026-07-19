@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -21,6 +23,26 @@ function applyPublishStatusFilter(array $data): Builder
     return $builder;
 }
 
+/** @return array<string, string> */
+function publishStatusFilterOptions(): array
+{
+    $method = new ReflectionMethod(PagesTable::class, 'getPublishStatusFilterOptions');
+
+    /** @var array<string, string> $options */
+    $options = $method->invoke(null);
+
+    return $options;
+}
+
+it('builds publish status options from the visibility enum except for deleted', function (): void {
+    expect(publishStatusFilterOptions())->toBe([
+        PublishVisibilityStateEnum::draft->value => PublishVisibilityStateEnum::draft->getLabel(),
+        PublishVisibilityStateEnum::scheduled->value => PublishVisibilityStateEnum::scheduled->getLabel(),
+        PublishVisibilityStateEnum::published->value => PublishVisibilityStateEnum::published->getLabel(),
+        PublishVisibilityStateEnum::expired->value => PublishVisibilityStateEnum::expired->getLabel(),
+    ])->not->toHaveKey(PublishVisibilityStateEnum::deleted->value);
+});
+
 it('partitions pages across every publish status filter option', function (): void {
     $publishedPage = Page::factory()->createOne([
         'visible_from' => CarbonImmutable::now()->subDay(),
@@ -31,7 +53,7 @@ it('partitions pages across every publish status filter option', function (): vo
         'visible_until' => null,
     ]);
     $draftPage = Page::factory()->createOne([
-        'visible_from' => CarbonImmutable::now()->addYears(100),
+        'visible_from' => PublishSentinel::draftValue(),
         'visible_until' => null,
     ]);
     $expiredPage = Page::factory()->createOne([
@@ -51,7 +73,7 @@ it('returns the unfiltered query for empty or unknown filter values', function (
         'visible_until' => null,
     ]);
     Page::factory()->createOne([
-        'visible_from' => CarbonImmutable::now()->addYears(100),
+        'visible_from' => PublishSentinel::draftValue(),
         'visible_until' => null,
     ]);
 

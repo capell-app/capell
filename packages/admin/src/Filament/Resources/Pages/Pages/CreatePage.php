@@ -17,12 +17,12 @@ use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -249,7 +249,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             // Sentinel: a far-future visible_from means "draft / not yet published".
             // pages.visible_from is DATETIME (not TIMESTAMP) so values beyond 2038 are safe.
             // Do NOT change this back to a TIMESTAMP column or MySQL will reject the insert.
-            $data['visible_from'] = PagePublishSentinel::draftValue();
+            $data['visible_from'] = PublishSentinel::draftValue();
         }
 
         return $data;

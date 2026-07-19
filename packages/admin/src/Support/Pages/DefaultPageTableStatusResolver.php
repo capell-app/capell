@@ -17,9 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 class DefaultPageTableStatusResolver implements PageTableStatusResolver
 {
     /**
-     * A page whose visible_from is more than this many years in the future is
-     * treated as a Draft (sentinel pattern). Real scheduled publishes never
-     * cross this threshold — the legacy convention is now()->addYears(100).
+     * Retained for compatibility; publishing rules are owned by Core.
      */
     public const DRAFT_SENTINEL_YEARS = PublishSentinel::DRAFT_BOUNDARY_YEARS;
 

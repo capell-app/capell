@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Pages\ResolvePagePublishStateAction;
-use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 
 it('treats the far-future draft sentinel as draft, not a scheduled publish', function (): void {
     $page = Page::factory()->create([
-        'visible_from' => PagePublishSentinel::draftValue(),
+        'visible_from' => PublishSentinel::draftValue(),
         'visible_until' => null,
     ]);
 

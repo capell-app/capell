@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PagePublishSentinel;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 
 it('writes a draft value beyond the boundary', function (): void {
@@ -11,8 +11,8 @@ it('writes a draft value beyond the boundary', function (): void {
         ->and(PagePublishSentinel::isDraftValue(PagePublishSentinel::draftValue()))->toBeTrue();
 });
 
-it('puts the boundary at the resolver sentinel years', function (): void {
-    $expected = CarbonImmutable::now()->addYears(DefaultPageTableStatusResolver::DRAFT_SENTINEL_YEARS);
+it('delegates the boundary to the core publishing sentinel', function (): void {
+    $expected = CarbonImmutable::now()->addYears(PublishSentinel::DRAFT_BOUNDARY_YEARS);
 
     expect(PagePublishSentinel::draftBoundary()->diffInDays($expected, true))->toBeLessThan(1.0);
 });

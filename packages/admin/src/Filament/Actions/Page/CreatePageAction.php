@@ -11,11 +11,11 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -155,7 +155,7 @@ class CreatePageAction extends CreateAction
                         // Sentinel: a far-future visible_from means "draft / not yet published".
                         // pages.visible_from is DATETIME (not TIMESTAMP) so values beyond 2038 are safe.
                         // Do NOT change this back to a TIMESTAMP column or MySQL will reject the insert.
-                        $data['visible_from'] = PagePublishSentinel::draftValue();
+                        $data['visible_from'] = PublishSentinel::draftValue();
                     }
 
                     return self::saveActionUsing($data, $livewire);

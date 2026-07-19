@@ -6,8 +6,8 @@ use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Enums\PublishPanelStatusEnum;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
-use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -50,7 +50,7 @@ it('reports the scheduled status for a future publish date within the sentinel b
 
 it('reports the draft status for the far-future sentinel, not scheduled', function (): void {
     test()->actingAsAdmin();
-    $page = Page::factory()->create(['visible_from' => PagePublishSentinel::draftValue()]);
+    $page = Page::factory()->create(['visible_from' => PublishSentinel::draftValue()]);
 
     expect(panelFor($page)->instance()->viewData()->status)->toBe(PublishPanelStatusEnum::draft);
 });
@@ -64,7 +64,7 @@ it('reports the expired status for a past unpublish date', function (): void {
 
 it('publishes immediately via the publishNow action', function (): void {
     test()->actingAsAdmin();
-    $page = Page::factory()->create(['visible_from' => PagePublishSentinel::draftValue()]);
+    $page = Page::factory()->create(['visible_from' => PublishSentinel::draftValue()]);
 
     panelFor($page)->callAction('publishNow');
 
@@ -88,7 +88,7 @@ it('reverts to draft via the revertToDraft action', function (): void {
 
     panelFor($page)->callAction('revertToDraft');
 
-    expect(PagePublishSentinel::isDraftValue($page->fresh()->visible_from))->toBeTrue();
+    expect(PublishSentinel::isDraftValue($page->fresh()->visible_from))->toBeTrue();
 });
 
 it('unpublishes a live page via the unpublish action', function (): void {
