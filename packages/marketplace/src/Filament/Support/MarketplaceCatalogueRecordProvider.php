@@ -133,9 +133,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             return [];
         }
 
+        $includeLocalExtensionState = $this->canExposeLocalExtensionState($includeLocalExtensionState);
         $records = $composerNames
-            ->mapWithKeys(function (string $composerName): array {
-                $record = Cache::get($this->reviewRecordCacheKey($composerName));
+            ->mapWithKeys(function (string $composerName) use ($includeLocalExtensionState): array {
+                $record = Cache::get($this->reviewRecordCacheKey($composerName, $includeLocalExtensionState));
 
                 return is_array($record) ? [$composerName => $record] : [];
             })
@@ -149,7 +150,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         }
 
         $compatibilityVersions = $this->detectedCompatibilityVersions();
-        $includeLocalExtensionState = $this->canExposeLocalExtensionState($includeLocalExtensionState);
         $kind = $this->lockedMarketplaceKind($lockedKind) ?? '';
         $marketplaceClient = resolve(MarketplaceClient::class);
 
@@ -170,6 +170,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
                 $records[$composerName] = $this->cacheReviewRecord(
                     $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                    $includeLocalExtensionState,
                 );
             }
         } catch (Throwable $throwable) {
@@ -205,6 +206,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
                 $records[$composerName] = $this->cacheReviewRecord(
                     $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                    $includeLocalExtensionState,
                 );
 
                 break;
@@ -499,6 +501,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
                 $records[] = $this->cacheReviewRecord(
                     $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                    $includeLocalExtensionState,
                 );
             }
 
@@ -537,6 +540,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'records' => $visibleExtensions
                 ->map(fn (ExtensionListingData $extension): array => $this->cacheReviewRecord(
                     $this->extensionTableRecord($extension, $includeLocalExtensionState),
+                    $includeLocalExtensionState,
                 ))
                 ->values()
                 ->all(),
@@ -676,18 +680,17 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         }
     }
 
-    /** @return array<string, mixed> */
     /**
      * @param  array<string, mixed>  $record
      * @return array<string, mixed>
      */
-    private function cacheReviewRecord(array $record): array
+    private function cacheReviewRecord(array $record, bool $includeLocalExtensionState): array
     {
         $composerName = $record['composer_name'] ?? null;
 
         if (is_string($composerName) && $composerName !== '') {
             Cache::put(
-                $this->reviewRecordCacheKey($composerName),
+                $this->reviewRecordCacheKey($composerName, $includeLocalExtensionState),
                 $record,
                 now()->addSeconds(min(60, (int) config('capell-marketplace.marketplace.cache_ttl_seconds', 300))),
             );
@@ -696,7 +699,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         return $record;
     }
 
-    private function reviewRecordCacheKey(string $composerName): string
+    private function reviewRecordCacheKey(string $composerName, bool $includeLocalExtensionState): string
     {
         $instance = $this->instances->latest();
 
@@ -704,6 +707,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             $instance?->instance_id ?? 'unconnected',
             $instance?->account_id ?? 'anonymous',
             auth()->id() !== null ? (string) auth()->id() : 'guest',
+            $includeLocalExtensionState ? 'local-state' : 'remote-only',
             $composerName,
         ]));
     }
