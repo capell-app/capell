@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Enums\ThemeEditorHeaderPositionEnum;
+use Capell\Admin\Enums\ThemeStudioCardDensityEnum;
 use Capell\Admin\Enums\ThemeStudioRadiusEnum;
 
 it('provides theme editor header position options in UI order', function (): void {
@@ -20,5 +21,16 @@ it('provides translated radius options including the visible extra large label',
         'md' => 'Medium',
         'lg' => 'Large',
         'xl' => 'Extra large',
+    ]);
+});
+
+it('provides every theme studio card density option', function (): void {
+    expect(array_map(
+        fn (ThemeStudioCardDensityEnum $density): array => [$density->value, $density->getLabel()],
+        ThemeStudioCardDensityEnum::cases(),
+    ))->toBe([
+        ['compact', 'Compact'],
+        ['comfortable', 'Comfortable'],
+        ['spacious', 'Spacious'],
     ]);
 });

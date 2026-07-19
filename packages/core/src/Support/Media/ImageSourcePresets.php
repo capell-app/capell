@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Media;
 
+use Capell\Core\Enums\ImageSourcePreset;
 use Capell\Core\Enums\ImageSourceType;
 use InvalidArgumentException;
 
@@ -62,13 +63,6 @@ final class ImageSourcePresets
      */
     public static function presetOptions(): array
     {
-        return [
-            'all' => __('capell::media.image_source_preset.all'),
-            'url_only' => __('capell::media.image_source_preset.url_only'),
-            'upload_only' => __('capell::media.image_source_preset.upload_only'),
-            'media_only' => __('capell::media.image_source_preset.media_only'),
-            'url_media' => __('capell::media.image_source_preset.url_media'),
-            'upload_media' => __('capell::media.image_source_preset.upload_media'),
-        ];
+        return ImageSourcePreset::options();
     }
 }

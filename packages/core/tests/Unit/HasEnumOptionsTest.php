@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Enums\CacheFrequency;
+use Capell\Core\Enums\ImageSourcePreset;
+use Capell\Core\Enums\PresentationLazyPolicy;
+use Capell\Core\Enums\UrlScheme;
 
 describe('HasEnumOptions', function (): void {
     it('returns all options as value => label pairs', function (): void {
@@ -28,5 +32,32 @@ describe('HasEnumOptions', function (): void {
         $second = BlueprintSubjectEnum::options();
 
         expect($first)->toBe($second);
+    });
+
+    it('exposes complete option maps for static Filament choice domains', function (): void {
+        expect(array_map(
+            fn (CacheFrequency $frequency): array => [$frequency->value, $frequency->getLabel()],
+            CacheFrequency::cases(),
+        ))->toBe([
+            ['always', 'Always'],
+        ])->and(array_map(
+            fn (UrlScheme $scheme): array => [$scheme->value, $scheme->getLabel()],
+            UrlScheme::cases(),
+        ))->toBe([
+            ['http', 'HTTP'],
+            ['https', 'HTTPS'],
+        ])->and(PresentationLazyPolicy::options())->toBe([
+            'server-rendered' => 'Server rendered',
+            'visible' => 'Visible',
+            'interaction' => 'Interaction',
+            'idle' => 'Idle',
+        ])->and(ImageSourcePreset::options())->toBe([
+            'all' => 'URL, upload, or media library',
+            'url_only' => 'URL only',
+            'upload_only' => 'Upload only',
+            'media_only' => 'Media library only',
+            'url_media' => 'URL or media library',
+            'upload_media' => 'Upload or media library',
+        ]);
     });
 });

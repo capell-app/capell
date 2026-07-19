@@ -229,10 +229,7 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->live(),
                 Select::make('cardDensity')
                     ->label(__('capell-admin::theme-editor.fields.card_density'))
-                    ->options([
-                        ThemeStudioCardDensityEnum::Compact->value => ThemeStudioCardDensityEnum::Compact->getLabel(),
-                        ThemeStudioCardDensityEnum::Comfortable->value => ThemeStudioCardDensityEnum::Comfortable->getLabel(),
-                    ])
+                    ->options(ThemeStudioCardDensityEnum::class)
                     ->live(),
             ]);
     }

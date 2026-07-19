@@ -10,6 +10,7 @@ use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\StatusToggle;
 use Capell\Admin\Filament\Contracts\FormConfigurator;
 use Capell\Admin\Filament\Resources\Sites\RelationManagers\SiteDomainsRelationManager;
+use Capell\Core\Enums\UrlScheme;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Filament\Forms\Components\Select;
@@ -40,12 +41,7 @@ class SiteDomainForm implements FormConfigurator
                             Select::make('scheme')
                                 ->label(__('capell-admin::form.url_scheme'))
                                 ->placeholder(__('capell-admin::generic.both'))
-                                ->options(
-                                    [
-                                        'http' => 'http',
-                                        'https' => 'https',
-                                    ],
-                                )
+                                ->options(UrlScheme::class)
                                 ->validationAttribute(__('capell-admin::generic.schema')),
 
                             TextInput::make('domain')

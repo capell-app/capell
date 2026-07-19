@@ -467,20 +467,12 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     /** @return array<string, string> */
     private function statusOptions(): array
     {
-        return collect(MarketplaceInstallIntentStatus::cases())
-            ->mapWithKeys(fn (MarketplaceInstallIntentStatus $status): array => [
-                $status->value => str($status->value)->replace('_', ' ')->title()->toString(),
-            ])
-            ->all();
+        return MarketplaceInstallIntentStatus::options();
     }
 
     /** @return array<string, string> */
     private function failureTypeOptions(): array
     {
-        return collect(MarketplaceInstallFailureType::cases())
-            ->mapWithKeys(fn (MarketplaceInstallFailureType $failureType): array => [
-                $failureType->value => str($failureType->value)->replace('_', ' ')->title()->toString(),
-            ])
-            ->all();
+        return MarketplaceInstallFailureType::options();
     }
 }

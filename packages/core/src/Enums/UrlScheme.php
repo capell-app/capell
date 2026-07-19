@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums;
 
-use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
-enum PresentationDeliveryMode: string implements HasLabel
+enum UrlScheme: string implements HasLabel
 {
-    use HasEnumOptions;
-
-    case ServerRendered = 'server_rendered';
-    case LazyFragment = 'lazy_fragment';
+    case Http = 'http';
+    case Https = 'https';
 
     public function getLabel(): string
     {

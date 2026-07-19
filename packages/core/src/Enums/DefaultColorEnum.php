@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums;
 
-enum DefaultColorEnum: string
+use Filament\Support\Contracts\HasLabel;
+
+enum DefaultColorEnum: string implements HasLabel
 {
     case Black = 'black';
 

@@ -42,17 +42,9 @@ class CoreSettingsSchema implements HasSchema
                     Select::make('default_image_source')
                         ->label(__('capell-admin::form.default_image_source'))
                         ->helperText(__('capell-admin::form.default_image_source_helper'))
-                        ->options([
-                            ImageSourceType::Url->value => ImageSourceType::Url->getLabel(),
-                            ImageSourceType::Upload->value => ImageSourceType::Upload->getLabel(),
-                            ImageSourceType::Media->value => ImageSourceType::Media->getLabel(),
-                        ])
+                        ->options(ImageSourcePresets::options())
                         ->default(ImageSourceType::Media->value)
-                        ->in([
-                            ImageSourceType::Url->value,
-                            ImageSourceType::Upload->value,
-                            ImageSourceType::Media->value,
-                        ])
+                        ->in(array_keys(ImageSourcePresets::options()))
                         ->required(),
                     TagsInput::make('allowed_remote_image_domains')
                         ->label(__('capell-admin::form.allowed_remote_image_domains'))

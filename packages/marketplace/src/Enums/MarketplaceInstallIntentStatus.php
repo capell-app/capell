@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Enums;
 
-enum MarketplaceInstallIntentStatus: string
+use Capell\Core\Enums\Concerns\HasEnumOptions;
+use Filament\Support\Contracts\HasLabel;
+
+enum MarketplaceInstallIntentStatus: string implements HasLabel
 {
+    use HasEnumOptions;
+
     case Pending = 'pending';
     case Resolved = 'resolved';
     case Dismissed = 'dismissed';
@@ -21,6 +26,11 @@ enum MarketplaceInstallIntentStatus: string
     case TimedOut = 'timed_out';
     case CancelRequested = 'cancel_requested';
     case Cancelled = 'cancelled';
+
+    public function getLabel(): string
+    {
+        return (string) __('capell-marketplace::marketplace.operations.status_options.' . $this->value);
+    }
 
     public function isActiveInstallOperation(): bool
     {

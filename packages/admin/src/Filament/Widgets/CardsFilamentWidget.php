@@ -39,11 +39,7 @@ class CardsFilamentWidget implements FilamentWidget
                         self::imageUpload(),
 
                         Select::make('alignment')
-                            ->options([
-                                MenuAlignmentEnum::Left->value => MenuAlignmentEnum::Left->getLabel(),
-                                MenuAlignmentEnum::Right->value => MenuAlignmentEnum::Right->getLabel(),
-                                MenuAlignmentEnum::Center->value => MenuAlignmentEnum::Center->getLabel(),
-                            ]),
+                            ->options(MenuAlignmentEnum::class),
                     ]),
             ]);
     }

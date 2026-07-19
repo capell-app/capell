@@ -7,6 +7,8 @@ namespace Capell\Admin\Filament\Pages\Extensions\Tables;
 use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
+use Capell\Admin\Enums\ExtensionHealthFilterEnum;
+use Capell\Admin\Enums\ExtensionPriceFilterEnum;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Pages\Extensions\Tables\Actions\DeleteExtensionAction;
@@ -246,20 +248,13 @@ class ExtensionsTable implements TableConfigurator
     /** @return array<string, string> */
     private static function priceOptions(): array
     {
-        return [
-            'free' => __('capell-admin::filter.free'),
-            'paid' => __('capell-admin::filter.paid'),
-        ];
+        return ExtensionPriceFilterEnum::options();
     }
 
     /** @return array<string, string> */
     private static function healthOptions(): array
     {
-        return [
-            'ok' => __('capell-admin::filter.health_ok'),
-            'warning' => __('capell-admin::filter.health_warning'),
-            'critical' => __('capell-admin::filter.health_critical'),
-        ];
+        return ExtensionHealthFilterEnum::options();
     }
 
     /** @return array<string, string> */

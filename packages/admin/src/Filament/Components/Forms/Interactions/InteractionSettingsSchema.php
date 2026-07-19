@@ -147,12 +147,7 @@ class InteractionSettingsSchema
      */
     private static function behaviorOptions(): array
     {
-        return [
-            InteractionBehavior::Modal->value => __('capell-admin::generic.modal'),
-            InteractionBehavior::SlideOver->value => __('capell-admin::generic.slide_over'),
-            InteractionBehavior::InlineReveal->value => __('capell-admin::generic.inline_reveal'),
-            InteractionBehavior::ReplaceRegion->value => __('capell-admin::generic.replace_region'),
-        ];
+        return InteractionBehavior::options();
     }
 
     /**

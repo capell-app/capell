@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Enums;
 
-enum ExtensionKind: string
+use Filament\Support\Contracts\HasLabel;
+
+enum ExtensionKind: string implements HasLabel
 {
     case Theme = 'theme';
     case Widget = 'widget';

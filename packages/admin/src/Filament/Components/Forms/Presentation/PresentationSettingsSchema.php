@@ -10,6 +10,7 @@ use Capell\Core\Enums\PresentationAlignment;
 use Capell\Core\Enums\PresentationConnectionRequirement;
 use Capell\Core\Enums\PresentationDeliveryMode;
 use Capell\Core\Enums\PresentationDeviceVisibility;
+use Capell\Core\Enums\PresentationLazyPolicy;
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use Capell\Core\Enums\PresentationWidthMode;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
@@ -136,10 +137,7 @@ class PresentationSettingsSchema
      */
     public static function deliveryOptions(): array
     {
-        return [
-            PresentationDeliveryMode::ServerRendered->value => __('capell-admin::generic.server_rendered'),
-            PresentationDeliveryMode::LazyFragment->value => __('capell-admin::generic.lazy_fragment'),
-        ];
+        return PresentationDeliveryMode::options();
     }
 
     /**
@@ -147,12 +145,7 @@ class PresentationSettingsSchema
      */
     public static function loadingOptions(): array
     {
-        return [
-            PresentationLoadingStrategy::Eager->value => __('capell-admin::generic.eager'),
-            PresentationLoadingStrategy::Visible->value => __('capell-admin::generic.visible'),
-            PresentationLoadingStrategy::Interaction->value => __('capell-admin::generic.interaction'),
-            PresentationLoadingStrategy::Idle->value => __('capell-admin::generic.idle'),
-        ];
+        return PresentationLoadingStrategy::options();
     }
 
     /**
@@ -160,12 +153,7 @@ class PresentationSettingsSchema
      */
     public static function lazyPolicyOptions(): array
     {
-        return [
-            'server-rendered' => __('capell-admin::generic.server_rendered'),
-            'visible' => __('capell-admin::generic.visible'),
-            'interaction' => __('capell-admin::generic.interaction'),
-            'idle' => __('capell-admin::generic.idle'),
-        ];
+        return PresentationLazyPolicy::options();
     }
 
     /**
@@ -231,12 +219,7 @@ class PresentationSettingsSchema
      */
     private static function deviceOptions(): array
     {
-        return [
-            PresentationDeviceVisibility::All->value => __('capell-admin::generic.all_devices'),
-            PresentationDeviceVisibility::MobileOnly->value => __('capell-admin::generic.mobile_only'),
-            PresentationDeviceVisibility::DesktopOnly->value => __('capell-admin::generic.desktop_only'),
-            PresentationDeviceVisibility::CustomRange->value => __('capell-admin::generic.custom_range'),
-        ];
+        return PresentationDeviceVisibility::options();
     }
 
     /**
@@ -244,11 +227,7 @@ class PresentationSettingsSchema
      */
     private static function connectionOptions(): array
     {
-        return [
-            PresentationConnectionRequirement::Any->value => __('capell-admin::generic.any_connection'),
-            PresentationConnectionRequirement::FastOnly->value => __('capell-admin::generic.fast_connection_only'),
-            PresentationConnectionRequirement::HideOnSaveData->value => __('capell-admin::generic.hide_on_save_data'),
-        ];
+        return PresentationConnectionRequirement::options();
     }
 
     /**
@@ -256,12 +235,7 @@ class PresentationSettingsSchema
      */
     private static function widthOptions(): array
     {
-        return [
-            PresentationWidthMode::Inherit->value => __('capell-admin::generic.inherit'),
-            PresentationWidthMode::Full->value => __('capell-admin::generic.full_width'),
-            PresentationWidthMode::Container->value => __('capell-admin::generic.container'),
-            PresentationWidthMode::Custom->value => __('capell-admin::generic.custom'),
-        ];
+        return PresentationWidthMode::options();
     }
 
     /**
@@ -269,11 +243,6 @@ class PresentationSettingsSchema
      */
     private static function alignmentOptions(): array
     {
-        return [
-            PresentationAlignment::Stretch->value => __('capell-admin::generic.stretch'),
-            PresentationAlignment::Left->value => __('capell-admin::generic.left'),
-            PresentationAlignment::Center->value => __('capell-admin::generic.center'),
-            PresentationAlignment::Right->value => __('capell-admin::generic.right'),
-        ];
+        return PresentationAlignment::options();
     }
 }

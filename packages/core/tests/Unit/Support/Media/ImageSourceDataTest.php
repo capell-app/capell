@@ -160,8 +160,12 @@ it('resolves image source policy precedence from schema then blueprint then glob
 });
 
 it('exposes preset options for image source policy fields', function (): void {
-    expect(ImageSourcePresets::presetOptions())
-        ->toHaveKey('all')
-        ->toHaveKey('url_media')
-        ->toHaveKey('upload_media');
+    expect(ImageSourcePresets::presetOptions())->toBe([
+        'all' => 'URL, upload, or media library',
+        'url_only' => 'URL only',
+        'upload_only' => 'Upload only',
+        'media_only' => 'Media library only',
+        'url_media' => 'URL or media library',
+        'upload_media' => 'Upload or media library',
+    ]);
 });

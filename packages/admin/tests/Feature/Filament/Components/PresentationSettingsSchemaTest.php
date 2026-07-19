@@ -7,6 +7,7 @@ use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Filament\Components\Forms\Presentation\PresentationSettingsSchema;
 use Capell\Admin\Filament\Components\Forms\Presentation\ResourceSettingsSchema;
 use Capell\Core\Enums\PresentationDeliveryMode;
+use Capell\Core\Enums\PresentationLazyPolicy;
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use Filament\Forms\Components\Field;
 use Illuminate\Support\Facades\Auth;
@@ -36,10 +37,11 @@ it('shows advanced presentation controls to permitted editors', function (): voi
 });
 
 it('maps lazy policy choices onto existing presentation fields', function (): void {
-    expect(PresentationSettingsSchema::presentationSettingsForLazyPolicy('server-rendered'))->toBe([
-        'delivery_mode' => PresentationDeliveryMode::ServerRendered->value,
-        'loading_strategy' => PresentationLoadingStrategy::Eager->value,
-    ])
+    expect(PresentationSettingsSchema::lazyPolicyOptions())->toBe(PresentationLazyPolicy::options())
+        ->and(PresentationSettingsSchema::presentationSettingsForLazyPolicy('server-rendered'))->toBe([
+            'delivery_mode' => PresentationDeliveryMode::ServerRendered->value,
+            'loading_strategy' => PresentationLoadingStrategy::Eager->value,
+        ])
         ->and(PresentationSettingsSchema::presentationSettingsForLazyPolicy('visible'))->toBe([
             'delivery_mode' => PresentationDeliveryMode::LazyFragment->value,
             'loading_strategy' => PresentationLoadingStrategy::Visible->value,
