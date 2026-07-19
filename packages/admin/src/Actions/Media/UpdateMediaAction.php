@@ -94,7 +94,11 @@ final class UpdateMediaAction
             }
 
             $languageId = (int) ($translationData['language_id'] ?? 0);
-            if ($languageId < 1 || in_array($languageId, $seenLanguageIds, true)) {
+            if ($languageId < 1) {
+                continue;
+            }
+
+            if (in_array($languageId, $seenLanguageIds, true)) {
                 continue;
             }
 
