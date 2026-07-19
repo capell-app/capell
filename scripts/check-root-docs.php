@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $root = getenv('CAPELL_ROOT_DOCS_ROOT') ?: dirname(__DIR__);
 $allowed = [
+    'AGENTS.md',
     'CHANGELOG.md',
     'CODE_OF_CONDUCT.md',
     'CONTRIBUTING.md',

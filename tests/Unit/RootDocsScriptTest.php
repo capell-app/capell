@@ -26,6 +26,21 @@ it('accepts a supported aligned aggregate fixture', function (): void {
     }
 });
 
+it('allows repository instructions at the root', function (): void {
+    $root = rootDocsFixture();
+
+    try {
+        file_put_contents($root . '/AGENTS.md', '# Repository instructions');
+
+        [$exitCode, $output] = runRootDocsCheck($root);
+
+        expect($exitCode)->toBe(0)
+            ->and($output)->toContain('Root documentation contract is verified.');
+    } finally {
+        deleteRootDocsFixture($root);
+    }
+});
+
 it('reports package truth drift and unexpected root handoff files', function (): void {
     $root = rootDocsFixture();
 
