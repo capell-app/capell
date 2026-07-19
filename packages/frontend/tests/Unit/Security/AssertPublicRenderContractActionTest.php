@@ -115,6 +115,19 @@ it('allows public composer package names and repository urls', function (): void
     expect(fn () => AssertPublicRenderContractAction::run($response))->not->toThrow(RuntimeException::class);
 });
 
+it('exempts non html responses from the public html inspector', function (string $contentType): void {
+    $response = new Response(
+        '# Public output containing <div data-model-id="42">literal documentation</div>',
+        Response::HTTP_OK,
+        ['Content-Type' => $contentType],
+    );
+
+    expect(fn () => AssertPublicRenderContractAction::run($response))->not->toThrow(RuntimeException::class);
+})->with([
+    'plain text' => ['text/plain; charset=utf-8'],
+    'markdown' => ['text/markdown; charset=utf-8'],
+]);
+
 it('remembers safe public html inspection details on the current request and frontend context', function (): void {
     $content = '<article><h1>News</h1></article>';
     $request = Request::create('https://example.test/news');

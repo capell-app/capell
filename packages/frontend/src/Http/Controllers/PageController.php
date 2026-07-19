@@ -8,11 +8,13 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\ThemeStudio\Exceptions\ThemeNotFoundException;
+use Capell\Frontend\Actions\AssertPublicRenderContractAction;
 use Capell\Frontend\Actions\PrepareFrontendRenderAction;
 use Capell\Frontend\Actions\RenderFallbackPublicViewAction;
 use Capell\Frontend\Actions\ResolveSystemPageAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Support\Render\PageVariantNegotiatorRegistry;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
@@ -32,18 +34,34 @@ class PageController extends BaseController
         $page = $context->page();
 
         if ($page !== null) {
-            return $this->renderFrontendResponse(
-                $context,
-                new FrontendRenderContextData(
-                    page: $page,
-                    site: $context->site(),
-                    language: $context->language(),
-                    layout: $context->layout(),
-                    theme: $context->theme(),
-                    status: $context->isError() ? SymfonyResponse::HTTP_NOT_FOUND : null,
-                    isError: $context->isError(),
-                ),
+            $renderContext = new FrontendRenderContextData(
+                page: $page,
+                site: $context->site(),
+                language: $context->language(),
+                layout: $context->layout(),
+                theme: $context->theme(),
+                status: $context->isError() ? SymfonyResponse::HTTP_NOT_FOUND : null,
+                isError: $context->isError(),
             );
+
+            $pageVariants = resolve(PageVariantNegotiatorRegistry::class);
+            $variantResponse = $pageVariants->negotiate(request(), $renderContext);
+
+            if ($variantResponse instanceof SymfonyResponse) {
+                if ($renderContext->status !== null) {
+                    $variantResponse->setStatusCode($renderContext->status);
+                }
+
+                AssertPublicRenderContractAction::run($variantResponse);
+
+                return $variantResponse;
+            }
+
+            if ($pageVariants->wasVariantRequested(request())) {
+                return response()->noContent(SymfonyResponse::HTTP_NOT_FOUND);
+            }
+
+            return $this->renderFrontendResponse($context, $renderContext);
         }
 
         $site = $context->site();

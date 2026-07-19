@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Frontend\Http\Controllers\PageController;
+use Capell\Frontend\Support\Routing\AeoRouteRegistry;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Illuminate\Support\Facades\Route;
+
+resolve(AeoRouteRegistry::class)->registerRoutes();
 
 Route::name('capell-frontend.')
     ->group(function (): void {

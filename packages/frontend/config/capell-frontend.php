@@ -86,9 +86,9 @@ return [
         'auto_create_missing' => env('CAPELL_AUTO_CREATE_SYSTEM_PAGES', true),
     ],
     // Exclude admin, Livewire/internal/debug/storage routes, and static asset file extensions from frontend matching.
-    // HTML URLs remain routable so cached/static page URLs like /about.html can resolve through Capell.
+    // HTML URLs and negotiated Markdown variants remain routable through Capell's page resolver.
     'route' => [
-        'url_regex' => '^(?!(admin|api|install(?:/.*)?|livewire(?:-[a-zA-Z0-9]+)?(?:/update)?|storage|_clockwork|_debugbar)(/|$))(?!.*\.(?![Hh][Tt][Mm][Ll]$)[a-zA-Z0-9]{2,5}$).*$',
+        'url_regex' => '^(?!(admin|api|install(?:/.*)?|livewire(?:-[a-zA-Z0-9]+)?(?:/update)?|storage|_clockwork|_debugbar)(/|$))(?!.*\.(?!(?:[Hh][Tt][Mm][Ll]|md)$)[a-zA-Z0-9]{2,5}$).*$',
         'reserved_prefixes' => [],
         'reserved_exact_paths' => [],
         // Hosts the frontend catch-all must never handle. The Filament admin

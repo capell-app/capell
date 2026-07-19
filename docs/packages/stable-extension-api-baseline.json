@@ -56,6 +56,26 @@
             "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",
             "signature": "65b878832a0022736ffe00ab1af12be5fbeb432c7ab4221c759c7a7dffe771ea",
             "contractTestId": "core.extension-test-harness"
+        },
+        "frontend.contract.aeo-route-provider": {
+            "identifier": "Capell\\Frontend\\Contracts\\AeoRouteProvider",
+            "signature": "40d534608b95caadab1fc6a85da562efd83a2885dbb3cedf210f1f7f0baa1269",
+            "contractTestId": "frontend.aeo-route-provider"
+        },
+        "frontend.contract.page-variant-negotiator": {
+            "identifier": "Capell\\Frontend\\Contracts\\PageVariantNegotiator",
+            "signature": "4522cb14c1f229ae7eabc83f4237320dd2d68cf32f564498930c1c9d90edef3c",
+            "contractTestId": "frontend.page-variant-negotiator"
+        },
+        "frontend.tag.aeo-route-provider": {
+            "identifier": "capell-frontend.aeo-route-provider",
+            "signature": "969ec0877573b5be0aa73557b19cc2f0cb106890a7f92aad4015ae981621a77a",
+            "contractTestId": "frontend.aeo-route-provider-registration"
+        },
+        "frontend.tag.page-variant-negotiator": {
+            "identifier": "capell-frontend.page-variant-negotiator",
+            "signature": "6d14145379962f9a55ddbea47accb056af7045eb270ddcad4d705fff5d79ca26",
+            "contractTestId": "frontend.page-variant-negotiator-registration"
         }
     },
     "manifestRequirements": [

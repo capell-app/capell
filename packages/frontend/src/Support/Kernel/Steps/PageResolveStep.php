@@ -12,6 +12,7 @@ use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Data\PageResolutionData;
 use Capell\Frontend\Data\PublicPageResolutionInputData;
 use Capell\Frontend\Support\Logging\FrontendLogger;
+use Capell\Frontend\Support\Render\PageVariantNegotiatorRegistry;
 use Capell\Frontend\Support\Routing\PageResolutionRouteMetadataApplier;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ final class PageResolveStep
 {
     public function __construct(
         private readonly FrontendLogger $logger,
+        private readonly PageVariantNegotiatorRegistry $pageVariants,
         private readonly PageResolutionRouteMetadataApplier $routeMetadataApplier,
     ) {}
 
@@ -32,7 +34,10 @@ final class PageResolveStep
             return $next($work);
         }
 
-        $url = $work->state->effectiveUrl() ?? ($work->state->relativePath() ?? '/');
+        $url = $this->pageVariants->resolutionPath(
+            $work->request,
+            $work->state->effectiveUrl() ?? ($work->state->relativePath() ?? '/'),
+        );
         $revisionPageId = $work->state->revisionPageId();
 
         // Only log resolving page if revisionPageId is present (diagnostic)

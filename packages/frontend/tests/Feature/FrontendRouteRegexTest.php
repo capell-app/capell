@@ -28,6 +28,8 @@ it('still matches frontend page urls', function (string $url): void {
     'nested page' => 'services/web-design',
     'top-level html page' => 'about.html',
     'nested html page' => 'services/web-design.html',
+    'top-level markdown variant' => 'about.md',
+    'nested markdown variant' => 'services/web-design.md',
 ]);
 
 it('rejects reserved frontend paths before resolving public themes', function (string $reservedPath): void {

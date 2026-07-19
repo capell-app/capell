@@ -10,6 +10,8 @@ use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Frontend\Contracts\AeoRouteProvider;
+use Capell\Frontend\Contracts\PageVariantNegotiator;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
@@ -92,6 +94,28 @@ it('classifies the frontend package dependency seam as experimental', function (
     foreach ($catalog->only($surfaceIds) as $entry) {
         expect($entry->ownerPackage)->toBe('capell-app/frontend')
             ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental);
+    }
+});
+
+it('classifies the aeo response seams as stable extension contracts', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'frontend.contract.aeo-route-provider',
+        'frontend.contract.page-variant-negotiator',
+        'frontend.tag.aeo-route-provider',
+        'frontend.tag.page-variant-negotiator',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds)
+        ->and($catalog->get('frontend.contract.aeo-route-provider')?->identifier)->toBe(AeoRouteProvider::class)
+        ->and($catalog->get('frontend.contract.page-variant-negotiator')?->identifier)->toBe(PageVariantNegotiator::class)
+        ->and($catalog->get('frontend.tag.aeo-route-provider')?->identifier)->toBe(AeoRouteProvider::TAG)
+        ->and($catalog->get('frontend.tag.page-variant-negotiator')?->identifier)->toBe(PageVariantNegotiator::TAG);
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/frontend')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Stable)
+            ->and($entry->contractTestId)->not->toBeNull();
     }
 });
 
