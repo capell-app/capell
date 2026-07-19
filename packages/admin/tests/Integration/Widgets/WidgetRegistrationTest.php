@@ -9,7 +9,6 @@ use Capell\Admin\Filament\Widgets\ContentFilamentWidget;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Admin\Tests\Fixtures\Widgets\AlternateHeroWidget;
 use Capell\Admin\Tests\Fixtures\Widgets\HeroWidget;
-use Capell\Core\Models\Blueprint;
 use Capell\Core\Support\BlueprintBlockTypeRegistry;
 use Filament\Forms\Components\Builder\Block;
 use Illuminate\Filesystem\Filesystem;
@@ -61,7 +60,7 @@ it('registerWidget adds a custom widget to the registry', function (): void {
 it('exposes registered widgets to blueprint block schema generation', function (): void {
     CapellAdmin::registerWidget(HeroWidget::class);
 
-    expect(resolve(BlueprintBlockTypeRegistry::class)->for(Blueprint::factory()->make()))
+    expect(resolve(BlueprintBlockTypeRegistry::class)->for())
         ->toContain('content', 'hero');
 });
 

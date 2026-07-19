@@ -72,6 +72,7 @@ it('uses a fallback provider only when a tagged provider has not claimed its pat
     $container = new Container;
     $container->instance('test.robots-provider', $tagged);
     $container->tag('test.robots-provider', AeoRouteProvider::TAG);
+
     $registry = new AeoRouteRegistry(
         $container,
         new FrontendRouteMiddlewareRegistry,

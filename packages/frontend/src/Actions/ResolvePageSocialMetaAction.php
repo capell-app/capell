@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Language;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\SocialMetaData;
 use Illuminate\Database\Eloquent\Model;
@@ -46,7 +48,7 @@ final class ResolvePageSocialMetaAction
             data_get($siteMeta, 'description'),
             data_get($siteMeta, 'meta_description'),
         ]) ?? '';
-        $canonicalUrl = $page !== null && $context->language !== null
+        $canonicalUrl = $page instanceof Pageable && $context->language instanceof Language
             ? ResolvePageCanonicalUrlAction::run($page, $context->language)
             : null;
         $canonicalUrl ??= $this->firstString([

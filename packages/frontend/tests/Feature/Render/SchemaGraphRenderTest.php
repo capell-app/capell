@@ -41,7 +41,7 @@ it('renders a deduplicated schema graph for matching page blueprints', function 
         /** @param array<string, mixed> $node */
         public function __construct(private array $node) {}
 
-        public function blueprintKeys(): ?array
+        public function blueprintKeys(): array
         {
             return ['article'];
         }
@@ -74,7 +74,7 @@ it('returns no graph when no contributor matches the page blueprint', function (
     resolve(SchemaGraphContributorRegistry::class)->register(
         new class implements SchemaGraphContributor
         {
-            public function blueprintKeys(): ?array
+            public function blueprintKeys(): array
             {
                 return ['article'];
             }

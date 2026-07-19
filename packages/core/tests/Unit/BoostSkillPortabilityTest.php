@@ -10,7 +10,11 @@ it('keeps the shipped capell skill free of monorepo-only paths', function (): vo
     );
 
     foreach ($files as $file) {
-        if (! $file instanceof SplFileInfo || ! $file->isFile()) {
+        if (! $file instanceof SplFileInfo) {
+            continue;
+        }
+
+        if (! $file->isFile()) {
             continue;
         }
 
@@ -46,7 +50,7 @@ it('keeps every relative docs llms link resolvable', function (): void {
     $missing = [];
 
     foreach ($matches[1] as $link) {
-        if (! is_string($link) || preg_match('~^(?:[a-z][a-z0-9+.-]*:|#)~i', $link) === 1) {
+        if (preg_match('~^(?:[a-z][a-z0-9+.-]*:|#)~i', $link) === 1) {
             continue;
         }
 

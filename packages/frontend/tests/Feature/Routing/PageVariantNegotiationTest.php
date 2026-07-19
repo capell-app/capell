@@ -19,7 +19,7 @@ beforeEach(function (): void {
 it('discovers page variant negotiators through the stable container tag', function (): void {
     $negotiator = new class implements PageVariantNegotiator
     {
-        public function variant(Request $request, FrontendRenderContextData $context): ?Response
+        public function variant(Request $request, FrontendRenderContextData $context): Response
         {
             return response('tagged variant');
         }
@@ -28,6 +28,7 @@ it('discovers page variant negotiators through the stable container tag', functi
     $container = new Container;
     $container->instance('test.page-variant-negotiator', $negotiator);
     $container->tag('test.page-variant-negotiator', PageVariantNegotiator::TAG);
+
     $registry = new PageVariantNegotiatorRegistry($container);
     $request = Request::create('/about.md');
     $context = new FrontendRenderContextData(null, null, null, null, null);
@@ -45,7 +46,7 @@ it('does not invoke page variant negotiators for non get requests', function ():
     {
         public function __construct(private stdClass $capture) {}
 
-        public function variant(Request $request, FrontendRenderContextData $context): ?Response
+        public function variant(Request $request, FrontendRenderContextData $context): Response
         {
             $this->capture->called = true;
 
@@ -53,7 +54,7 @@ it('does not invoke page variant negotiators for non get requests', function ():
         }
     });
 
-    $request = Request::create('/about.md', 'POST');
+    $request = Request::create('/about.md', Symfony\Component\HttpFoundation\Request::METHOD_POST);
     $context = new FrontendRenderContextData(null, null, null, null, null);
 
     expect($registry->resolutionPath($request, '/about.md'))->toBe('/about.md')

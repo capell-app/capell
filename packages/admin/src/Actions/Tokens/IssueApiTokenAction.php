@@ -42,10 +42,10 @@ final class IssueApiTokenAction
         throw_unless(
             in_array(HasApiTokens::class, class_uses_recursive($user), true),
             LogicException::class,
-            sprintf('%s must use Laravel Sanctum\'s HasApiTokens trait.', $user::class),
+            sprintf("%s must use Laravel Sanctum's HasApiTokens trait.", $user::class),
         );
 
-        $accessToken = call_user_func([$user, 'createToken'], $name, $validatedAbilities);
+        $accessToken = $user->createToken($name, $validatedAbilities);
 
         throw_unless($accessToken instanceof NewAccessToken, LogicException::class);
 

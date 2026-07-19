@@ -36,8 +36,8 @@ it('merges contributed crawler policies after the default group', function (): v
         ->assertSeeText('Allow: /public')
         ->assertSeeText('Disallow: /private');
 
-    expect(strpos($response->getContent(), 'User-agent: *'))
-        ->toBeLessThan(strpos($response->getContent(), 'User-agent: CCBot'))
-        ->and(strpos($response->getContent(), 'User-agent: CCBot'))
-        ->toBeLessThan(strpos($response->getContent(), 'User-agent: GPTBot'));
+    expect(strpos((string) $response->getContent(), 'User-agent: *'))
+        ->toBeLessThan(strpos((string) $response->getContent(), 'User-agent: CCBot'))
+        ->and(strpos((string) $response->getContent(), 'User-agent: CCBot'))
+        ->toBeLessThan(strpos((string) $response->getContent(), 'User-agent: GPTBot'));
 });

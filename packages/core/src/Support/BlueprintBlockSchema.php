@@ -23,7 +23,7 @@ final class BlueprintBlockSchema
                 'properties' => [
                     'type' => [
                         'type' => 'string',
-                        'enum' => resolve(BlueprintBlockTypeRegistry::class)->for($blueprint),
+                        'enum' => resolve(BlueprintBlockTypeRegistry::class)->for(),
                     ],
                     'data' => [
                         'type' => 'object',

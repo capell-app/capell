@@ -225,15 +225,37 @@
         />
     @endif
 
-    <meta property="og:title" content="{{ $socialMeta->title }}" />
-    <meta property="og:description" content="{{ $socialMeta->description }}" />
-    <meta property="og:url" content="{{ $socialMeta->canonicalUrl }}" />
-    <meta property="og:type" content="{{ $socialMeta->type }}" />
+    <meta
+        property="og:title"
+        content="{{ $socialMeta->title }}"
+    />
+    <meta
+        property="og:description"
+        content="{{ $socialMeta->description }}"
+    />
+    <meta
+        property="og:url"
+        content="{{ $socialMeta->canonicalUrl }}"
+    />
+    <meta
+        property="og:type"
+        content="{{ $socialMeta->type }}"
+    />
     @if ($socialMeta->imageUrl)
-        <meta property="og:image" content="{{ $socialMeta->imageUrl }}" />
+        <meta
+            property="og:image"
+            content="{{ $socialMeta->imageUrl }}"
+        />
     @endif
-    <meta name="twitter:card" content="{{ $socialMeta->twitterCard }}" />
-    <meta name="twitter:title" content="{{ $socialMeta->title }}" />
+
+    <meta
+        name="twitter:card"
+        content="{{ $socialMeta->twitterCard }}"
+    />
+    <meta
+        name="twitter:title"
+        content="{{ $socialMeta->title }}"
+    />
 
     @if ($icon)
         <link

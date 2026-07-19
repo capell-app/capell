@@ -26,6 +26,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Override;
 use RuntimeException;
 
 class CreatePageAction extends CreateAction
@@ -169,6 +170,7 @@ class CreatePageAction extends CreateAction
     /**
      * @param  array<string, mixed>  $data
      */
+    #[Override]
     protected function saveActionUsing(array $data, HasActions&HasSchemas $livewire): Model
     {
         return PublicationDateGuard::allow(
