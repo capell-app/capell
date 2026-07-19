@@ -63,6 +63,10 @@ First-party extension contracts should be referenced directly. Use `class_exists
 
 Avoid globally named helpers when a class or namespaced function will do. If a shared test/bootstrap helper must be global, guard it with `function_exists()` and give it a collision-resistant, feature-specific name. Generic names such as `fixture()`, `packagePath()`, or `makePackage()` can collide when suites are loaded together.
 
+## Enforcement
+
+`packages/core/tests/Arch/ProviderPatternRatchetTest.php` enforces the registry shape, settings write paths, provider filesystem boundary, optional-integration probes, and singleton lifetime classification described here. Update that contract and its documented allowlist deliberately when introducing a genuinely distinct extension mechanism; do not bypass it with another registration pattern.
+
 ## Related Documentation
 
 - [Service providers](../packages/service-providers.md)
