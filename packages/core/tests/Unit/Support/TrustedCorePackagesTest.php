@@ -9,6 +9,7 @@ it('preselects installable core packages by default', function (): void {
         ->and(TrustedCorePackages::isDefaultInstallSelection('capell-app/frontend'))->toBeTrue()
         ->and(TrustedCorePackages::isDefaultInstallSelection('capell-app/marketplace'))->toBeTrue()
         ->and(TrustedCorePackages::isDefaultInstallSelection('capell-app/welcome-tour'))->toBeTrue()
+        ->and(TrustedCorePackages::contains('capell-app/welcome-tour'))->toBeFalse()
         ->and(TrustedCorePackages::isDefaultInstallSelection('capell-app/core'))->toBeFalse()
         ->and(TrustedCorePackages::isDefaultInstallSelection('capell-app/installer'))->toBeFalse();
 });
