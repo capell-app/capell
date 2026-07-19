@@ -79,6 +79,6 @@ final class StateDiffer
 
     private function valuesEqual(mixed $before, mixed $after): bool
     {
-        return json_encode($before) === json_encode($after);
+        return $before === $after;
     }
 }
