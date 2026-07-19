@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Providers;
 
+use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
@@ -14,6 +15,7 @@ use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Registries\TaggedProviderRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
+use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
@@ -384,6 +386,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootInstalledPackage(): self
     {
+        (new ApplyFrontendRouteReservationsAction(
+            $this->app->make(ReservedFrontendPathRegistry::class),
+            $this->app->make(ReservedFrontendDomainRegistry::class),
+            $this->app->tagged(FrontendRouteReservationContributor::TAG),
+        ))();
+
         return $this
             ->registerPublishCommands()
             ->registerTailwindAssets()

@@ -109,7 +109,6 @@ use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
@@ -149,6 +148,7 @@ use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Reports\ReportRegistry;
+use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
@@ -157,6 +157,7 @@ use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
+use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
@@ -278,6 +279,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(OverviewStatRegistry::class);
         $this->app->singletonIf(AdminBridgeRegistry::class);
         $this->app->singletonIf(AdminBridgeRegistrar::class);
+        $this->app->singleton(AdminFrontendRouteReservationContributor::class);
+        $this->app->tag(AdminFrontendRouteReservationContributor::class, FrontendRouteReservationContributor::TAG);
 
         $manager = CapellAdmin::getFacadeRoot();
         throw_unless($manager instanceof CapellAdminManager, RuntimeException::class, 'The Capell admin facade must resolve its manager.');
@@ -314,9 +317,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ExtensionsPageActionRegistry::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
-        $this->reserveAdminFrontendPath();
-        $this->reserveAdminFrontendDomain();
-
         $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));
             $registry->register($this->app->make(AdminConfiguratorMaker::class));
@@ -376,50 +376,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerUpgradeNotificationSchedule()
             ->registerContentRetentionSchedule()
             ->registerModelObservers();
-    }
-
-    private function reserveAdminFrontendPath(): void
-    {
-        $adminPath = AdminPanelEntrypoint::path();
-
-        if ($adminPath === '') {
-            return;
-        }
-
-        $this->reserveAdminFrontendValue(
-            'Capell\\Frontend\\Support\\Routing\\ReservedFrontendPathRegistry',
-            'reservePrefix',
-            $adminPath,
-        );
-    }
-
-    private function reserveAdminFrontendDomain(): void
-    {
-        $adminDomain = AdminPanelEntrypoint::domain();
-
-        if ($adminDomain === null) {
-            return;
-        }
-
-        $this->reserveAdminFrontendValue(
-            'Capell\\Frontend\\Support\\Routing\\ReservedFrontendDomainRegistry',
-            'reserve',
-            $adminDomain,
-        );
-    }
-
-    /** @param class-string $registryClass */
-    private function reserveAdminFrontendValue(string $registryClass, string $method, string $value): void
-    {
-        // Frontend is an optional package, so do not make its registry classes
-        // a static Admin dependency or register callbacks for absent services.
-        if (! class_exists($registryClass)) {
-            return;
-        }
-
-        $this->callAfterResolving($registryClass, static function (object $registry) use ($method, $value): void {
-            $registry->{$method}($value);
-        });
     }
 
     private function registerResources(): self

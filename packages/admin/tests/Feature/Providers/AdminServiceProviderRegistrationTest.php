@@ -26,13 +26,14 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadiness
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
-use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\DefaultPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\NotFoundPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\SystemPageBlueprintInterceptor;
+use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
+use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
@@ -41,31 +42,15 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
-use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
-use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Filament\Support\Icons\Heroicon;
 
-it('reserves the admin path when the optional frontend registry resolves later', function (): void {
-    $this->app->singleton(ReservedFrontendPathRegistry::class);
+it('registers the admin frontend route reservation contribution', function (): void {
+    $contributors = collect($this->app->tagged(FrontendRouteReservationContributor::TAG));
 
-    $registry = resolve(ReservedFrontendPathRegistry::class);
-
-    expect($registry->prefixes())->toContain('admin');
-});
-
-it('reserves the admin domain when the optional frontend registry resolves later', function (): void {
-    config(['capell-admin.domain' => 'admin.example.com']);
-
-    $provider = $this->app->getProvider(AdminServiceProvider::class);
-    expect($provider)->toBeInstanceOf(AdminServiceProvider::class);
-
-    $reservation = new ReflectionMethod(AdminServiceProvider::class, 'reserveAdminFrontendDomain');
-    $reservation->invoke($provider);
-
-    $this->app->singleton(ReservedFrontendDomainRegistry::class);
-    $registry = resolve(ReservedFrontendDomainRegistry::class);
-
-    expect($registry->reservedDomains())->toContain('admin.example.com');
+    expect($contributors)
+        ->toHaveCount(1)
+        ->and($contributors->first())->toBeInstanceOf(AdminFrontendRouteReservationContributor::class)
+        ->and($contributors->first())->toBe(resolve(AdminFrontendRouteReservationContributor::class));
 });
 
 it('registers the built-in overview stat contract', function (): void {
