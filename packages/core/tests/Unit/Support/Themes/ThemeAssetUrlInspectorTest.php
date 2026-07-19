@@ -20,6 +20,8 @@ it('detects root-relative asset attributes', function (string $blade): void {
     'stylesheet link with href first' => '<link href="/build/theme.css" rel="stylesheet">',
     'SVG use href' => '<svg><use href="/icons/sprite.svg#tick"></use></svg>',
     'SVG image href' => '<svg><image href="/images/diagram.png"></image></svg>',
+    'SVG use xlink href' => '<svg><use xlink:href="/icons/sprite.svg#tick"></use></svg>',
+    'SVG image xlink href' => '<svg><image xlink:href="/images/diagram.png"></image></svg>',
     'video poster' => '<video poster="/images/poster.jpg"></video>',
     'object data' => '<object data="/documents/example.pdf"></object>',
     'first srcset candidate' => '<img srcset="/images/small.jpg 480w, @frontendAsset(\'images/large.jpg\') 960w">',

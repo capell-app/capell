@@ -16,7 +16,7 @@ final class ThemeAssetUrlInspector
             return true;
         }
 
-        if (preg_match('/<(?:use|image)\b[^>]*(?<![-:\\w])href\s*=\s*["\']\/(?!\/)/i', $blade) === 1) {
+        if (preg_match('/<(?:use|image)\b[^>]*(?<![-:\\w])(?:xlink:)?href\s*=\s*["\']\/(?!\/)/i', $blade) === 1) {
             return true;
         }
 
