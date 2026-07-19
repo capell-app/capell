@@ -78,6 +78,11 @@ it('keeps documentation-only install guide patches manual and non-applicable', f
     }
 });
 
+it('links the queue worker step to capell hosting troubleshooting', function (): void {
+    expect((new DocOnlyQueueWorkerPatch)->docUrl())
+        ->toBe('https://docs.capell.app/operations/troubleshooting/#queue-worker');
+});
+
 /**
  * @return list<Patch>
  */

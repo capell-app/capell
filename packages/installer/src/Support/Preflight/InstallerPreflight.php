@@ -6,6 +6,7 @@ namespace Capell\Installer\Support\Preflight;
 
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,9 @@ final class InstallerPreflight
      */
     public function run(?InstallInputData $inputData = null): array
     {
+        $missingDeveloperToolingPackages = $inputData?->installDeveloperTooling === true
+            ? resolve(DeveloperToolingInstallationState::class)->missingPackageNames()
+            : [];
         $checks = [
             $this->phpVersion(),
             $this->requiredExtensions(),
@@ -69,7 +73,7 @@ final class InstallerPreflight
             $this->queueWorkerReadiness(),
         ];
 
-        if ($inputData instanceof InstallInputData && ($inputData->extraPackages !== [] || $inputData->installDeveloperTooling)) {
+        if ($inputData instanceof InstallInputData && ($inputData->extraPackages !== [] || $missingDeveloperToolingPackages !== [])) {
             $checks[] = $this->composerFileReadiness();
         }
 
@@ -77,11 +81,11 @@ final class InstallerPreflight
             $checks[] = $this->selectedPackages('selected-packages', 'Selected package dry-run', $inputData->extraPackages);
         }
 
-        if ($inputData instanceof InstallInputData && $inputData->installDeveloperTooling) {
+        if ($missingDeveloperToolingPackages !== []) {
             $checks[] = $this->selectedPackages(
                 'developer-tooling-packages',
                 'Developer tooling package dry-run',
-                ['capell-app/agent-bridge', 'laravel/boost'],
+                $missingDeveloperToolingPackages,
                 true,
             );
         }

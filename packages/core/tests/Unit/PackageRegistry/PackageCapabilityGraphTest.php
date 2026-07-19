@@ -232,3 +232,38 @@ it('audits unknown capabilities and missing typed frontend capability declaratio
     expect($messages)->toContain('Manifest declares capability strings outside the typed package capability graph.')
         ->and($messages)->toContain('Frontend package contribution is missing typed package capabilities.');
 });
+
+it('types every capability currently published by the commercial AI packages', function (): void {
+    $capabilities = [
+        'ai-orchestrator',
+        'ai-orchestrator-admin',
+        'ai-creator',
+        'ai-creator-admin-studio',
+        'ai-creator-agent-bridge',
+        'ai-creator-background-generation',
+        'ai-creator-private-preview',
+        'ai-creator-confirmed-apply',
+        'agent-bridge',
+        'agent-bridge-admin',
+        'media-ai',
+        'media-ai-admin',
+        'media-ai-console',
+        'media-ai-batch',
+        'media-ai-alt-caption-generation',
+        'media-ai-cost-controls',
+        'media-ai-missing-alt-workflow',
+        'seo-suite',
+        'seo-suite-admin',
+        'seo-suite-console',
+        'seo-suite-frontend',
+        'seo-suite-site-discovery-registry',
+        'seo-suite-publishing-studio-gates',
+        'seo-suite-blog-article-schema',
+        'seo-suite-url-manager-redirect-opportunities',
+    ];
+
+    foreach ($capabilities as $capability) {
+        expect(PackageCapability::tryFrom($capability))
+            ->not->toBeNull(sprintf('Missing typed capability [%s].', $capability));
+    }
+});

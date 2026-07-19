@@ -21,7 +21,6 @@ export default {
             command: 'php',
             args: [
                 '-d',
-                'memory_limit=-1',
                 'vendor/bin/testbench',
                 'serve',
                 '--host=127.0.0.1',

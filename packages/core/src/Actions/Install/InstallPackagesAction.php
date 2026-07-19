@@ -81,7 +81,7 @@ final class InstallPackagesAction
         string $packageName,
         ProgressReporter $reporter,
     ): void {
-        $package = $this->selectedPackage($inputData, $packageName);
+        $package = $this->selectedPackage($packageName);
 
         if (! $package instanceof PackageData) {
             return;
@@ -100,7 +100,7 @@ final class InstallPackagesAction
         string $packageName,
         ProgressReporter $reporter,
     ): void {
-        $package = $this->selectedPackage($inputData, $packageName);
+        $package = $this->selectedPackage($packageName);
 
         if (! $package instanceof PackageData || ! $this->packageHasSetupLifecycle($package)) {
             return;
@@ -119,7 +119,7 @@ final class InstallPackagesAction
         string $packageName,
         ProgressReporter $reporter,
     ): void {
-        $package = $this->selectedPackage($inputData, $packageName);
+        $package = $this->selectedPackage($packageName);
 
         if (! $package instanceof PackageData || ! $this->packageHasAfterInstallLifecycle($package)) {
             return;
@@ -134,7 +134,7 @@ final class InstallPackagesAction
         string $packageName,
         ProgressReporter $reporter,
     ): void {
-        $package = $this->selectedPackage($inputData, $packageName);
+        $package = $this->selectedPackage($packageName);
 
         if (! $package instanceof PackageData || $package->getDemoCommand() === null || $package->getDemoCommand() === '') {
             return;
@@ -247,18 +247,13 @@ final class InstallPackagesAction
         return $package->getAfterInstallAction() !== null && $package->getAfterInstallAction() !== '';
     }
 
-    private function selectedPackage(InstallInputData $inputData, string $packageName): ?PackageData
+    private function selectedPackage(string $packageName): ?PackageData
     {
-        return resolve(PackageWorkflowPlanner::class)
-            ->expandAndOrder(
-                CapellCore::getPackages(),
-                array_values(array_unique([
-                    ...$inputData->packages,
-                    ...$inputData->extraPackages,
-                ])),
-                $inputData->freshInstall,
-            )
-            ->get($packageName);
+        if (! CapellCore::hasPackage($packageName)) {
+            return null;
+        }
+
+        return CapellCore::getPackage($packageName);
     }
 
     /**
@@ -282,6 +277,9 @@ final class InstallPackagesAction
             'no-widgets' => ! $inputData->adminAddWidgets,
             'no-navigation' => ! $inputData->adminAddNavigation,
             'skip-permission-sync' => true,
+            'adopt-existing-site' => true,
+            'skip-package-demos' => true,
+            'quick' => true,
             'force' => true,
         ];
     }
@@ -325,7 +323,7 @@ final class InstallPackagesAction
             $result['--assets'] = $params['assets'];
         }
 
-        foreach (['skip-panel-integration', 'no-colors', 'no-widgets', 'no-navigation', 'skip-permission-sync', 'force'] as $flag) {
+        foreach (['skip-panel-integration', 'no-colors', 'no-widgets', 'no-navigation', 'skip-permission-sync', 'adopt-existing-site', 'skip-package-demos', 'quick', 'force'] as $flag) {
             if (in_array($flag, $allowedParams, true) && (bool) ($params[$flag] ?? false)) {
                 $result['--' . $flag] = true;
             }

@@ -580,6 +580,7 @@ return [
     'install_flow' => [
         'completed_body' => '{1} Hosted Marketplace approval is complete. Capell queued :count package operation for :extensions. Support reference: :reference.|[2,*] Hosted Marketplace approval is complete. Capell queued :count package operations for :extensions. Support reference: :reference.',
         'completed_title' => 'Marketplace install approved',
+        'queued_body' => 'Marketplace approval is complete. Capell is preparing :count package operations in the background. You can follow progress here. Support reference: :reference.',
         'failed_body' => 'Marketplace could not complete this hosted install flow. Support reference: :reference. Return to Marketplace and resume the flow where available, or start again if it has expired.',
         'failed_title' => 'Marketplace install flow failed',
         'unknown_support_reference' => 'unavailable',

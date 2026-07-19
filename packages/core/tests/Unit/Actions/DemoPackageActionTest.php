@@ -77,7 +77,7 @@ it('runs demo commands in a fresh artisan process', function (): void {
     );
 
     expect($capturedCommand)->toContain('capell:test-demo-process')
-        ->and($capturedCommand)->toContain('memory_limit=512M')
+        ->and($capturedCommand)->not->toContain('memory_limit')
         ->and($capturedCommand)->toContain('--languages=en,fr')
         ->and($capturedCommand)->toContain('--force')
         ->and($capturedCommand)->toContain('--no-interaction')

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Capell\Admin\Livewire\Header;
 
 use Capell\Admin\Actions\ActivateLockdownAction;
+use Capell\Admin\Actions\Cache\QueueFrontendBuildAction;
 use Capell\Admin\Actions\DeactivateLockdownAction;
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Admin\Enums\ListenerEnum;
 use Capell\Admin\Support\AdminTools\AdminToolRegistry;
-use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Security\LockdownStore;
@@ -21,7 +21,6 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Component;
-use RuntimeException;
 
 class AdminTools extends Component
 {
@@ -66,23 +65,13 @@ class AdminTools extends Component
     {
         $this->assertGlobalAdmin();
 
-        try {
-            RunNpmBuildAction::run();
-        } catch (RuntimeException $runtimeException) {
-            Notification::make('frontend_build_error')
-                ->status('danger')
-                ->title(__('capell-admin::message.frontend_build_error'))
-                ->body($runtimeException->getMessage())
-                ->send();
-
-            return;
-        }
+        $queued = QueueFrontendBuildAction::run();
 
         $this->successResponse(
             name: 'build_frontend',
-            title: __('capell-admin::message.frontend_build_success'),
-            body: __('capell-admin::message.frontend_build_success_body'),
-            type: 'success',
+            title: __($queued ? 'capell-admin::message.frontend_build_queued' : 'capell-admin::message.frontend_build_already_running'),
+            body: __('capell-admin::message.frontend_build_queued_body'),
+            type: $queued ? 'success' : 'warning',
         );
     }
 

@@ -149,16 +149,6 @@ function dockerSupportContractErrors(string $repositoryRoot): array
         return $errors;
     }
 
-    $phpConfiguration = parse_ini_file($phpConfigurationPath, scanner_mode: INI_SCANNER_RAW);
-    $memoryLimit = is_array($phpConfiguration) ? $phpConfiguration['memory_limit'] ?? null : null;
-
-    if (! is_string($memoryLimit)
-        || preg_match('/^(?:-1|\d+[KMGT]?)$/i', $memoryLimit) !== 1
-        || (ini_parse_quantity($memoryLimit) !== -1 && ini_parse_quantity($memoryLimit) < 1024 ** 3)
-    ) {
-        $errors[] = '.docker/php/php.ini must set memory_limit to at least 1G so Pest child processes inherit enough memory.';
-    }
-
     return $errors;
 }
 

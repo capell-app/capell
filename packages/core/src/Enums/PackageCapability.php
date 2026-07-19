@@ -9,7 +9,11 @@ enum PackageCapability: string
     // App-package capabilities: package identities and cross-package contract surfaces.
     case AccessGateCustomerPortalGatedResourceFeed = 'access-gate-customer-portal-gated-resource-feed';
     case AiCreator = 'ai-creator';
+    case AiCreatorAdminStudio = 'ai-creator-admin-studio';
     case AiCreatorAgentBridge = 'ai-creator-agent-bridge';
+    case AiCreatorBackgroundGeneration = 'ai-creator-background-generation';
+    case AiCreatorConfirmedApply = 'ai-creator-confirmed-apply';
+    case AiCreatorPrivatePreview = 'ai-creator-private-preview';
     case Contacts = 'contacts';
     case ContactsAccessGateSourceAdapter = 'contacts-access-gate-source-adapter';
     case ContactsCampaignStudioSourceAdapter = 'contacts-campaign-studio-source-adapter';
@@ -117,7 +121,11 @@ enum PackageCapability: string
     case MarketplaceBrowsing = 'marketplace-browsing';
     case MediaAi = 'media-ai';
     case MediaAiAdmin = 'media-ai-admin';
+    case MediaAiAltCaptionGeneration = 'media-ai-alt-caption-generation';
+    case MediaAiBatch = 'media-ai-batch';
     case MediaAiConsole = 'media-ai-console';
+    case MediaAiCostControls = 'media-ai-cost-controls';
+    case MediaAiMissingAltWorkflow = 'media-ai-missing-alt-workflow';
     case MigrationAssistant = 'migration-assistant';
     case MigrationAssistantAdmin = 'migration-assistant-admin';
     case MigrationAssistantConsole = 'migration-assistant-console';

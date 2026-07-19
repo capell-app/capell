@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Console\Commands;
 
+use Capell\Core\Actions\PublishMigrationsAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
@@ -36,14 +37,27 @@ class InstallCommand extends Command
             return Command::FAILURE;
         }
 
-        $this->call(
-            'capell:publish-migrations',
-            [
-                '--type' => 'settings',
-                '--items' => resolve(SettingsMigrationProviderInterface::class)->getSettingMigrations(),
-                '--path' => $settings,
-            ],
+        $publishResult = PublishMigrationsAction::run(
+            type: 'settings',
+            items: resolve(SettingsMigrationProviderInterface::class)->getSettingMigrations(),
+            path: $settings,
         );
+
+        foreach ($publishResult->warnings as $warning) {
+            $this->warn($warning);
+        }
+
+        foreach ($publishResult->errors as $error) {
+            $this->error($error);
+        }
+
+        if (! $publishResult->successful()) {
+            return self::FAILURE;
+        }
+
+        foreach ($publishResult->lines as $line) {
+            $this->line($line);
+        }
 
         $this->call('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true]);
 

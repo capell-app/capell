@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
@@ -45,23 +46,26 @@ class DemoPackageAction
             throw new Exception(sprintf("Demo command '%s' does not exist.", $package->getDemoCommand()));
         }
 
-        $process = self::makeProcess([
-            PHP_BINARY,
-            '-d',
-            'memory_limit=512M',
+        $command = [
+            self::resolvePhpCliBinary(),
             base_path('artisan'),
             $demoCommand,
             ...self::commandArguments($arguments),
             '--no-interaction',
-        ]);
+        ];
+        $process = self::makeProcess($command);
 
         self::callProcessVoidMethod($process, 'setTimeout', null);
+
+        if (is_callable([$process, 'disableOutput'])) {
+            self::callProcessVoidMethod($process, 'disableOutput');
+        }
 
         $output = '';
         $lineBuffer = '';
 
         self::callProcessVoidMethod($process, 'run', function (string $outputType, string $buffer) use (&$output, &$lineBuffer, $reporter): void {
-            $output .= $buffer;
+            $output = self::appendOutputTail($output, $buffer);
 
             if (! $reporter instanceof ProgressReporter) {
                 return;
@@ -75,15 +79,12 @@ class DemoPackageAction
         }
 
         if (! self::callProcessBoolMethod($process, 'isSuccessful')) {
-            $message = self::formatFailureMessage($demoCommand, self::callProcessNullableIntMethod($process, 'getExitCode'), $output, [
-                PHP_BINARY,
-                '-d',
-                'memory_limit=512M',
-                base_path('artisan'),
+            $message = self::formatFailureMessage(
                 $demoCommand,
-                ...self::commandArguments($arguments),
-                '--no-interaction',
-            ]);
+                self::callProcessNullableIntMethod($process, 'getExitCode'),
+                $output,
+                $command,
+            );
 
             if ($reporter instanceof ProgressReporter) {
                 $reporter->error($message);
@@ -116,6 +117,36 @@ class DemoPackageAction
         }
 
         return new Process($command, base_path(), ArtisanProcessEnvironment::prepare());
+    }
+
+    private static function resolvePhpCliBinary(): string
+    {
+        $finder = new ExecutableFinder;
+        $configuredBinary = config('capell-installer.php_binary');
+        $candidates = array_values(array_unique(array_filter([
+            is_string($configuredBinary) ? $configuredBinary : null,
+            'php',
+            PHP_BINARY,
+        ])));
+
+        foreach ($candidates as $candidate) {
+            $resolvedBinary = str_contains($candidate, DIRECTORY_SEPARATOR)
+                ? (is_file($candidate) && is_executable($candidate) ? $candidate : null)
+                : $finder->find($candidate);
+
+            if ($resolvedBinary !== null && ! self::looksLikePhpFpm($resolvedBinary)) {
+                return $resolvedBinary;
+            }
+        }
+
+        throw new Exception('Unable to locate a CLI PHP binary for the package demo command.');
+    }
+
+    private static function looksLikePhpFpm(string $binary): bool
+    {
+        $filename = basename($binary);
+
+        return str_contains($filename, 'php-fpm') || str_contains($filename, 'phpfpm');
     }
 
     private static function callProcessVoidMethod(object $process, string $method, mixed ...$arguments): void
@@ -225,6 +256,11 @@ class DemoPackageAction
         }
 
         return '...' . substr($output, -3997);
+    }
+
+    private static function appendOutputTail(string $output, string $buffer): string
+    {
+        return substr($output . $buffer, -65_536);
     }
 
     /**

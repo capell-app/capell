@@ -6,11 +6,15 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -33,33 +37,102 @@ final class BuildCapellSiteFromSpecAction
         }
 
         throw_if($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic, RuntimeException::class, 'Public site specs require explicit acknowledgement.');
+        $this->assertExtensionRequirementsAreInstalled($spec);
+        $this->assertReferencesCanBeApplied($spec);
 
-        return DB::transaction(function () use ($spec, $hash): Site {
-            $language = $this->resolveLanguage($spec);
-            $theme = $this->buildTheme($spec);
+        $downloads = FetchSiteSpecMediaAction::run($spec->media);
 
-            resolve(ThemeInstallDefaultsRegistry::class)->install($spec->theme->key);
+        try {
+            return DB::transaction(function () use ($spec, $hash, $downloads): Site {
+                $language = $this->resolveLanguage($spec);
+                $theme = $this->buildTheme($spec);
 
-            $site = CreateSiteAction::run($spec->site->name, null, $language, collect([$language]), $theme);
-            $site->meta = array_merge($site->meta ?? [], array_filter([
-                'business_name' => $spec->site->businessName,
-                'organization_type' => $spec->site->organisationType,
-            ]), ['site_spec_hash' => $hash]);
-            $site->save();
+                resolve(ThemeInstallDefaultsRegistry::class)->install($spec->theme->key);
 
-            $creator = resolve(PageCreator::class);
+                $site = CreateSiteAction::run($spec->site->name, null, $language, collect([$language]), $theme);
+                $site->meta = array_merge($site->meta ?? [], array_filter([
+                    'business_name' => $spec->site->businessName,
+                    'organization_type' => $spec->site->organisationType,
+                ]), ['site_spec_hash' => $hash]);
+                $site->save();
 
-            foreach ($this->orderedPages($spec) as $index => $page) {
-                $createdPage = $creator->createPage(
-                    $this->pageData($page, $language, $index === 0, $spec->initialVisibility === 'public'),
-                    $site,
-                    collect([$language]),
-                );
-                SetupPageUrlsAction::run($createdPage);
+                $creator = resolve(PageCreator::class);
+                $pagesBySlug = [];
+
+                foreach ($this->orderedPages($spec) as $index => $page) {
+                    $createdPage = $creator->createPage(
+                        $this->pageData($page, $language, $index === 0, $spec->initialVisibility === 'public'),
+                        $site,
+                        collect([$language]),
+                    );
+                    throw_unless($createdPage instanceof Page, RuntimeException::class, sprintf(
+                        'Site spec page [%s] did not resolve to a Capell page model.',
+                        $page->slug,
+                    ));
+                    SetupPageUrlsAction::run($createdPage);
+                    $pagesBySlug[$page->slug] = $createdPage;
+                }
+
+                if ($spec->navigations !== []) {
+                    resolve(SiteSpecApplierRegistry::class)->apply('navigation', $spec, $site, $pagesBySlug);
+                }
+
+                AttachSiteSpecMediaAction::run($site, $pagesBySlug, $downloads);
+
+                return $site->refresh();
+            });
+        } finally {
+            $this->deleteDownloads($downloads);
+        }
+    }
+
+    private function assertExtensionRequirementsAreInstalled(CapellSiteSpecData $spec): void
+    {
+        $missingExtensions = array_values(array_filter(
+            array_unique($spec->extensions),
+            static fn (string $extension): bool => ! CapellCore::isPackageInstalled($extension),
+        ));
+
+        throw_if($missingExtensions !== [], RuntimeException::class, sprintf(
+            'Install the required Capell extension(s) before importing this site spec: %s.',
+            implode(', ', $missingExtensions),
+        ));
+    }
+
+    private function assertReferencesCanBeApplied(CapellSiteSpecData $spec): void
+    {
+        $pageSlugs = array_map(static fn (CapellSiteSpecPageData $page): string => $page->slug, $spec->pages);
+
+        foreach ($spec->navigations as $navigation) {
+            foreach ($navigation->pageSlugs as $pageSlug) {
+                throw_unless(in_array($pageSlug, $pageSlugs, true), RuntimeException::class, sprintf(
+                    'Navigation [%s] references missing page slug [%s].',
+                    $navigation->key,
+                    $pageSlug,
+                ));
             }
+        }
 
-            return $site->refresh();
-        });
+        foreach (array_keys($spec->media->images) as $pageSlug) {
+            throw_unless(is_string($pageSlug) && in_array($pageSlug, $pageSlugs, true), RuntimeException::class, sprintf(
+                'Site spec media references missing page slug [%s].',
+                (string) $pageSlug,
+            ));
+        }
+
+        if ($spec->navigations !== []) {
+            throw_unless(resolve(SiteSpecApplierRegistry::class)->has('navigation'), RuntimeException::class, 'The site spec contains navigation data, but no installed package registered the [navigation] site spec applier.');
+        }
+    }
+
+    /** @param list<SiteSpecMediaDownload> $downloads */
+    private function deleteDownloads(array $downloads): void
+    {
+        foreach ($downloads as $download) {
+            if (is_file($download->path)) {
+                unlink($download->path);
+            }
+        }
     }
 
     private function resolveLanguage(CapellSiteSpecData $spec): Language

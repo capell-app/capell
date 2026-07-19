@@ -217,6 +217,30 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
         return is_string($image) && $image !== '' ? $image : null;
     }
 
+    /**
+     * Persist generated-image bookkeeping without touching `updated_at`.
+     *
+     * The generated admin image is derived metadata, not theme content. Bumping
+     * `updated_at` for it invalidates every downstream consumer keyed on the
+     * theme timestamp — notably the frontend optimizer's render-profile
+     * signature, which would then discard already-generated critical CSS.
+     *
+     * @param  array<string, mixed>  $admin
+     */
+    public function writeGeneratedImageMetadata(array $admin): void
+    {
+        self::withoutEvents(function () use ($admin): void {
+            $timestamps = $this->timestamps;
+            $this->timestamps = false;
+
+            try {
+                $this->forceFill(['admin' => $admin])->save();
+            } finally {
+                $this->timestamps = $timestamps;
+            }
+        });
+    }
+
     /** @return HasMany<Layout, $this> */
     public function layouts(): HasMany
     {

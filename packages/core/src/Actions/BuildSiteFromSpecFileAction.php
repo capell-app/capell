@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Models\Site;
+use Illuminate\Validation\ValidationException;
 use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -30,6 +31,12 @@ final class BuildSiteFromSpecFileAction
 
         throw_unless(is_array($payload), RuntimeException::class, 'The site spec must decode to a JSON object.');
 
-        return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::validateAndCreate($payload));
+        $validation = ValidateSiteSpecAction::run($payload, [], [], []);
+
+        if (! $validation['valid'] || ! is_array($validation['normalized'])) {
+            throw ValidationException::withMessages($validation['errors']);
+        }
+
+        return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::from($validation['normalized']));
     }
 }

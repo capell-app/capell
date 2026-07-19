@@ -32,7 +32,7 @@ class DocOnlyQueueWorkerPatch implements Patch
 
     public function docUrl(): ?string
     {
-        return 'https://laravel.com/docs/queues';
+        return 'https://docs.capell.app/operations/troubleshooting/#queue-worker';
     }
 
     public function defaultEnabled(): bool

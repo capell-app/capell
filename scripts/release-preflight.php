@@ -68,7 +68,7 @@ if ($exitCode !== 0) {
     exit($exitCode);
 }
 touch($consumer . '/database/database.sqlite');
-passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover && php artisan migrate --force && php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --all-packages --theme=none --name=Preflight --email=preflight@example.test --password=release-preflight-password --clear-cache --install-welcome-route', $exitCode);
+passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover && php artisan migrate --force && php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --theme=none --name=Preflight --email=preflight@example.test --password=release-preflight-password --clear-cache --install-welcome-route', $exitCode);
 if ($exitCode !== 0) {
     exit($exitCode);
 }

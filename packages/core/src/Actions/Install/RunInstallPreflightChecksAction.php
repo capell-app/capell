@@ -56,7 +56,6 @@ final class RunInstallPreflightChecksAction
     private function runtimeFailures(): array
     {
         $failures = [];
-
         foreach (self::REQUIRED_EXTENSIONS as $extension) {
             if (! extension_loaded($extension)) {
                 $failures[] = sprintf('Required PHP extension [%s] is not loaded.', $extension);

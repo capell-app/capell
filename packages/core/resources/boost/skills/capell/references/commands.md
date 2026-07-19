@@ -8,6 +8,7 @@
 | `capell:upgrade`                | Upgrade Capell to latest version                                 |
 | `capell:static-site`            | Pre-generate static HTML cache for pages (capell-app/html-cache) |
 | `capell:doctor`                 | Check install health                                             |
+| `capell:site-spec-import`       | Build a site from a deterministic SiteSpec JSON file             |
 | `capell:cache-components`       | Cache component definitions                                      |
 | `capell:clear-components-cache` | Clear cached component definitions                               |
 | `capell:publish-components`     | Publish Blade components to app                                  |
@@ -81,6 +82,17 @@
 | `capell:hero-demo`  | Seed hero example data |
 
 ## Common Development Workflows
+
+### Import a SiteSpec JSON file:
+
+```bash
+php artisan capell:site-spec-import storage/app/site-spec.json
+```
+
+The import validates the complete contract before writing. Requested extensions
+must already be installed, navigation requires a tagged package applier, and
+remote media is restricted to the declared public HTTPS origin. Re-importing the
+same canonical spec returns the existing site.
 
 ### After changing schema/type files:
 

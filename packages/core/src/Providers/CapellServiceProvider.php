@@ -19,6 +19,7 @@ use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
+use Capell\Core\Console\Commands\ImportSiteSpecCommand;
 use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Console\Commands\InstallExtensionCommand;
 use Capell\Core\Console\Commands\MakeActionCommand;
@@ -43,6 +44,7 @@ use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
+use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
@@ -124,6 +126,9 @@ use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
+use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
+use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
+use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
@@ -131,6 +136,7 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
@@ -173,6 +179,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->scoped(RuntimeSchemaState::class);
+        $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
+        $this->app->singleton(ProjectBuildManifestMigrationRegistry::class);
+        $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
+        $this->app->singleton(SiteSpecApplierRegistry::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);
         config(['media-library.media_model' => Media::class]);
@@ -216,6 +226,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
+            ImportSiteSpecCommand::class,
             InstallExtensionCommand::class,
             UninstallExtensionCommand::class,
             InstallCommand::class,

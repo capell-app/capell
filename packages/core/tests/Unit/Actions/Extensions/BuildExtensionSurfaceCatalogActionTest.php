@@ -15,6 +15,7 @@ it('catalogues every supported extension surface kind from explicit metadata', f
 
     expect(array_column($catalog, 'kind'))->toContain(
         'contract',
+        'action',
         'facade',
         'dto',
         'enum',
@@ -25,7 +26,18 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         'registry',
         'testing',
         'internal',
-    );
+    )
+        ->and(array_column($catalog, 'id'))->toContain(
+            'core.contract.site-spec-applier',
+            'core.contract.project-build-artifact-handler',
+            'core.action.project-build-signing-input',
+            'core.action.validate-project-build-bundle',
+            'core.action.verify-project-build-signature',
+            'core.dto.project-build-manifest',
+            'core.schema.project-build-manifest-v1',
+            'core.tag.project-build-artifact-handler',
+            'core.tag.site-spec-applier',
+        );
 
     foreach ($catalog as $entry) {
         expect($entry->id)->not->toBe('')

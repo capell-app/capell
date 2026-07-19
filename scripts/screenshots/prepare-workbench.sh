@@ -28,7 +28,7 @@ export CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED=false
 export CAPELL_MARKETPLACE_URL="${APP_URL}/api/v1"
 export CAPELL_MARKETPLACE_WEB_URL="${APP_URL}"
 
-php -d memory_limit=-1 vendor/bin/testbench capell:install \
+php vendor/bin/testbench capell:install \
     --fresh=force \
     --demo \
     --package-mode=core \

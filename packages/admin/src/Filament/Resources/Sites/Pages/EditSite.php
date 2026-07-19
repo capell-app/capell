@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Sites\Pages;
 
+use Capell\Admin\Actions\Cache\QueueStaticSiteGenerationAction;
 use Capell\Admin\Actions\Sites\BuildSiteDeletionImpactDescriptionAction;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
@@ -33,7 +34,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Attributes\On;
@@ -134,7 +134,7 @@ class EditSite extends EditRecord
                     ->record($this->getRecord())
                     ->groupedIcon('heroicon-o-arrow-path')
                     ->action(function (Site $record): void {
-                        Artisan::call('capell:static-site', ['--site' => $record->getKey()]);
+                        QueueStaticSiteGenerationAction::run($record);
 
                         Notification::make()
                             ->success()

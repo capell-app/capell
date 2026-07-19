@@ -13,7 +13,6 @@ final class TrustedCorePackages
         'capell-app/frontend',
         'capell-app/installer',
         'capell-app/marketplace',
-        'capell-app/welcome-tour',
     ];
 
     private const array DEFAULT_INSTALL_SELECTION_NAMES = [

@@ -208,6 +208,10 @@ final class InstallController
 
         $reporter->markRunning();
 
+        if (function_exists('memory_reset_peak_usage')) {
+            memory_reset_peak_usage();
+        }
+
         try {
             $reporter->step(InstallPlan::labelForStep($plan, $stepKey) . '…');
             if ($stepKey === InstallPlan::STEP_PREFLIGHT_CHECKS) {
@@ -235,7 +239,6 @@ final class InstallController
             }
 
             if (($stepKey === InstallPlan::STEP_RESOLVE_USER && $this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData))
-                || $stepKey === InstallPlan::STEP_INSTALL_PACKAGES
                 || InstallPlan::packageNameFromStep($stepKey) === 'capell-app/admin') {
                 $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
             }
@@ -257,6 +260,8 @@ final class InstallController
                 $throwable->getMessage(),
                 ['errorClass' => $throwable::class, 'remediation' => $this->remediation->remediationFor($throwable->getMessage())],
             );
+        } finally {
+            $this->sessions->recordStepPeakMemory($installId, $stepKey, memory_get_peak_usage(true));
         }
 
         $nextStep = InstallPlan::findNextStep($plan, $stepKey);
@@ -365,6 +370,7 @@ final class InstallController
                 'environment' => $preflight['environment'] ?? [],
                 'preflight' => $preflight,
                 'plan' => $this->sessions->plan($installId),
+                'diagnostics' => ['steps' => $this->sessions->stepDiagnostics($installId)],
                 'selected' => [
                     'packages' => $inputData->packages ?? [],
                     'extraPackages' => $inputData->extraPackages ?? [],

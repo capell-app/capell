@@ -21,6 +21,15 @@ Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `sim
 
 Before changing an existing application, back up its database and media and confirm that the backup can be read. Capell page history is not a substitute for that backup.
 
+### Hosting checklist
+
+- Capell supports immutable 128 MB shared-hosting limits by running bounded, resumable install steps. It does not inspect or change PHP's `memory_limit`.
+- Browser requests can time out during Composer or package setup on managed hosting. Reopen the installer to resume the interrupted step, or use `php artisan capell:install` from the terminal.
+- A non-`sync` queue needs a persistent queue worker. Laravel's scheduler is separate and needs `php artisan schedule:run` every minute in production.
+- Keep `storage/` and `bootstrap/cache/` writable by the web and worker users, and know where the host records PHP and web-server errors.
+
+See [hosting and installation troubleshooting](../operations/troubleshooting.md#install-and-hosting) for the exact errors, checks, worker setup, scheduler command, and log locations.
+
 ## Fresh Laravel application
 
 ### 1. Create and configure Laravel
@@ -243,7 +252,9 @@ Do not copy package-specific Tailwind paths from an unrelated project. Use the g
 
 Choose optional themes only from a listing that states a released Composer path, compatible Capell line, screenshots, install command, support boundary, and removal path. Source-only examples and Labs packages are not part of this installation guide.
 
-## File permissions
+<a id="file-permissions"></a>
+
+## Install-time write permissions
 
 The install user needs write access to the paths selected by the plan. Common paths are:
 
@@ -279,14 +290,16 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 
 ## Troubleshooting
 
-| Symptom                                         | First action                                                        |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer   |
-| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`              |
-| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build      |
-| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package |
-| A queued task never finishes                    | Start the queue worker and inspect failed jobs                      |
-| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`      |
+| Symptom                                         | First action                                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                        |
+| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                   |
+| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build                           |
+| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                      |
+| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)          |
+| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)            |
+| PHP reports `Allowed memory size ... exhausted` | Reopen the installer, identify the failing step in its report, and report it as a batching defect |
+| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                           |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.
 

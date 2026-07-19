@@ -28,7 +28,33 @@ it('normalizes the neutral site spec contract', function (): void {
 
     expect($spec->language->locale)->toBe('en_GB')
         ->and($spec->pages[0]->resolvedUrl())->toBe('/home')
-        ->and($spec->theme->colors->primary)->toBe('#123456');
+        ->and($spec->theme->colors->primary)->toBe('#123456')
+        ->and($spec->navigations)->toBe([])
+        ->and($spec->media->hasRemoteAssets())->toBeFalse()
+        ->and($spec->extensions)->toBe([]);
+});
+
+it('normalizes deterministic navigation media and extension inputs', function (): void {
+    $payload = validSiteSpecPayload();
+    $payload['navigations'] = [[
+        'key' => 'main',
+        'name' => 'Main navigation',
+        'pageSlugs' => ['home'],
+    ]];
+    $payload['media'] = [
+        'sourceUrl' => 'https://example.com',
+        'logo' => 'https://example.com/logo.png',
+        'images' => ['home' => 'https://example.com/home.png'],
+    ];
+    $payload['extensions'] = ['capell-app/navigation'];
+
+    $spec = CapellSiteSpecData::validateAndCreate($payload);
+
+    expect($spec->navigations[0]->key)->toBe('main')
+        ->and($spec->navigations[0]->pageSlugs)->toBe(['home'])
+        ->and($spec->media->logo)->toBe('https://example.com/logo.png')
+        ->and($spec->media->images)->toBe(['home' => 'https://example.com/home.png'])
+        ->and($spec->extensions)->toBe(['capell-app/navigation']);
 });
 
 it('publishes a bounded schema matching the contract', function (): void {
@@ -39,7 +65,10 @@ it('publishes a bounded schema matching the contract', function (): void {
         ->and($schema['properties']['pages']['items']['properties']['slug']['pattern'])->toBe(CapellSiteSpecConstraints::SLUG_PATTERN)
         ->and($schema['properties']['theme']['properties']['colors']['properties']['primary']['pattern'])->toBe(CapellSiteSpecConstraints::HEX_COLOUR_PATTERN)
         ->and($schema['properties']['pages']['items']['properties']['sections']['items']['properties']['content']['maxLength'])
-        ->toBe(CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH);
+        ->toBe(CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH)
+        ->and($schema['properties']['navigations']['maxItems'])->toBe(CapellSiteSpecConstraints::MAX_NAVIGATIONS)
+        ->and($schema['properties']['media']['properties']['images']['maxProperties'])->toBe(CapellSiteSpecConstraints::MAX_MEDIA_IMAGES)
+        ->and($schema['properties']['extensions']['maxItems'])->toBe(CapellSiteSpecConstraints::MAX_EXTENSIONS);
 });
 
 it('sanitizes unsafe section html and rejects oversized input', function (): void {
@@ -97,4 +126,44 @@ it('requires explicit acknowledgement for public visibility', function (): void 
 
     expect($result['valid'])->toBeFalse()
         ->and($result['errors'])->toHaveKey('acknowledgePublic');
+});
+
+it('validates cross references and remote media requirements', function (): void {
+    $payload = validSiteSpecPayload();
+    $payload['navigations'] = [[
+        'key' => 'main',
+        'pageSlugs' => ['missing-page'],
+    ]];
+    $payload['media'] = [
+        'logo' => 'https://example.com/logo.png',
+        'images' => ['missing-page' => 'https://example.com/image.png'],
+    ];
+    $payload['extensions'] = ['Not a Composer package'];
+
+    $result = ValidateSiteSpecAction::run($payload, ['default'], ['page'], ['content']);
+
+    expect($result['valid'])->toBeFalse()
+        ->and($result['errors'])->toHaveKeys([
+            'navigations.0.pageSlugs.0',
+            'media.sourceUrl',
+            'media.images.missing-page',
+            'extensions.0',
+        ]);
+});
+
+it('allows a page in different navigations but rejects duplicates within one navigation', function (): void {
+    $payload = validSiteSpecPayload();
+    $payload['navigations'] = [
+        ['key' => 'main', 'pageSlugs' => ['home']],
+        ['key' => 'footer', 'pageSlugs' => ['home']],
+    ];
+
+    $valid = ValidateSiteSpecAction::run($payload, ['default'], ['page'], ['content']);
+
+    $payload['navigations'][0]['pageSlugs'] = ['home', 'home'];
+    $invalid = ValidateSiteSpecAction::run($payload, ['default'], ['page'], ['content']);
+
+    expect($valid['valid'])->toBeTrue()
+        ->and($invalid['valid'])->toBeFalse()
+        ->and($invalid['errors'])->toHaveKey('navigations.0.pageSlugs.1');
 });

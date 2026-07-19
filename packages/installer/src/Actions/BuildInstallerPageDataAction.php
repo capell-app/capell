@@ -34,25 +34,37 @@ final class BuildInstallerPageDataAction
 
     public function handle(bool $capellAlreadyInstalled, bool $canReinstall): InstallerPageData
     {
-        $packages = CapellCore::getPackages(sortByDependencies: true)
+        $packages = [];
+        $packageBatches = CapellCore::getPackages(sortByDependencies: true)
             ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue()
                 || TrustedCorePackages::isDefaultInstallSelection($package->name))
-            ->map(fn (PackageData $package): array => [
-                'name' => $package->name,
-                'label' => $package->getLabel(),
-                'description' => $package->getDescription(),
-                'hasFrontend' => $package->hasFrontendScope(),
-                'requirements' => $package->getRequirements(),
-                'kind' => $package->getKind(),
-                'themeKey' => $package->getThemeKey(),
-                'core' => $package->isCore(),
-                'defaultCore' => TrustedCorePackages::isDefaultInstallSelection($package->name),
-                'defaultSelected' => $this->options->packageIsDefaultSelected($package),
-            ])
+            ->lazy()
+            ->chunk(25);
+
+        foreach ($packageBatches as $batch) {
+            foreach ($batch as $package) {
+                $packages[] = [
+                    'name' => $package->name,
+                    'label' => $package->getLabel(),
+                    'description' => $package->getDescription(),
+                    'hasFrontend' => $package->hasFrontendScope(),
+                    'requirements' => $package->getRequirements(),
+                    'kind' => $package->getKind(),
+                    'themeKey' => $package->getThemeKey(),
+                    'core' => $package->isCore(),
+                    'defaultCore' => TrustedCorePackages::isDefaultInstallSelection($package->name),
+                    'defaultSelected' => $this->options->packageIsDefaultSelected($package),
+                ];
+            }
+        }
+
+        unset($packageBatches, $batch);
+
+        $registeredPackageNames = array_column($packages, 'name');
+        $downloadablePackages = collect($this->options->downloadablePackages())
+            ->reject(fn (array $package): bool => in_array($package['name'] ?? null, $registeredPackageNames, true))
             ->values()
             ->all();
-
-        $downloadablePackages = $this->options->downloadablePackages();
         [$installId, $installStatus] = $this->sessions->activeInstallState();
         $themeOptions = $this->options->themeOptions();
         $corePackages = array_values(array_filter(

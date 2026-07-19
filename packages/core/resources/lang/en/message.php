@@ -15,4 +15,7 @@ return [
     'redirect_source_must_start_with_slash' => 'The source URL must start with a slash.',
     'redirect_target_empty' => 'Enter a target URL.',
     'redirect_target_invalid' => 'Enter a valid relative URL or full http/https URL.',
+    'site_spec_import_complete' => 'Imported site ":name" (#:id) with :pages page(s).',
+    'site_spec_import_path_required' => 'Provide a SiteSpec JSON file path.',
+    'site_spec_import_validation_failed' => 'The SiteSpec failed validation.',
 ];

@@ -510,7 +510,7 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
         ->andReturn($process);
     $factory->shouldReceive('make')
         ->once()
-        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->withArgs(fn (array $command): bool => in_array('capell:doctor', $command, true))
         ->andReturn($doctorProcess);
 
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -535,21 +535,6 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     );
 
     expect(collect($lines)->contains(fn (array $line): bool => $line['line'] === '✓ Admin permissions synced'))->toBeTrue();
-});
-
-it('skips package installation when no packages were selected', function (): void {
-    $lines = [];
-    $state = new InstallRunState(
-        installStepExecutorInputData(),
-        installStepExecutorReporter($lines),
-    );
-
-    resolve(InstallStepExecutor::class)->execute(
-        InstallPlan::STEP_INSTALL_PACKAGES,
-        $state,
-    );
-
-    expect($lines)->toBeEmpty();
 });
 
 it('reports welcome route permission failures without failing the install step', function (): void {

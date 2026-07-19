@@ -26,6 +26,7 @@ final class InstallerSessionRepository
         'completed_steps',
         'preflight',
         'success',
+        'diagnostics',
     ];
 
     public function cacheStoreIsUsable(): bool
@@ -257,6 +258,7 @@ final class InstallerSessionRepository
         $this->put($this->key($installId, 'plan'), $plan);
         $this->putStatus($installId, $installStatus);
         $this->put($this->key($installId, 'completed_steps'), []);
+        $this->put($this->key($installId, 'diagnostics'), []);
 
         if (is_string($firstStepKey)) {
             $this->put($this->key($installId, 'current_step'), $firstStepKey);
@@ -322,6 +324,22 @@ final class InstallerSessionRepository
         }
 
         $this->put($this->key($installId, 'current_step'), $nextStepKey);
+    }
+
+    public function recordStepPeakMemory(string $installId, string $stepKey, int $peakBytes): void
+    {
+        $diagnostics = $this->stepDiagnostics($installId);
+        $diagnostics[$stepKey] = ['peakMemoryBytes' => $peakBytes];
+
+        $this->put($this->key($installId, 'diagnostics'), $diagnostics);
+    }
+
+    /** @return array<string, array{peakMemoryBytes: int}> */
+    public function stepDiagnostics(string $installId): array
+    {
+        $diagnostics = $this->get($this->key($installId, 'diagnostics'), []);
+
+        return is_array($diagnostics) ? $diagnostics : [];
     }
 
     /**

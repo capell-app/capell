@@ -122,7 +122,7 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
             static::$packageName,
             type: static::getType(),
             serviceProviderClass: static::class,
-            path: dirname($providerFile, 3),
+            path: $this->resolvePackagePath($providerFile),
             version: CapellCore::getInstalledPrettyVersion(static::$packageName) ?? 'dev',
             setting: $setting,
             setupCommand: $setupCommand,
@@ -179,5 +179,28 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $this->callAfterResolving(Schedule::class, $callback);
 
         return $this;
+    }
+
+    private function resolvePackagePath(string $providerFile): string
+    {
+        if (InstalledVersions::isInstalled(static::$packageName)) {
+            $installPath = InstalledVersions::getInstallPath(static::$packageName);
+
+            if (is_string($installPath) && $installPath !== '') {
+                return realpath($installPath) ?: $installPath;
+            }
+        }
+
+        $directory = dirname($providerFile);
+
+        while ($directory !== dirname($directory)) {
+            if (is_file($directory . '/composer.json')) {
+                return realpath($directory) ?: $directory;
+            }
+
+            $directory = dirname($directory);
+        }
+
+        throw new RuntimeException('Package root could not be resolved for ' . static::$packageName);
     }
 }

@@ -2,10 +2,35 @@
     "schemaVersion": 1,
     "status": "pending-first-public-release",
     "surfaces": {
+        "core.action.project-build-signing-input": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
+            "signature": "9e587ec08e9f70bdce43a2fe51ebd1aab6463051673492ba1a7e770b93d78743",
+            "contractTestId": "core.project-build-manifest-signing"
+        },
+        "core.action.validate-project-build-bundle": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
+            "signature": "1115635cbfdff5c5440dee67e4e5314e4609d6d70a642f8eae149d1d1d872ed5",
+            "contractTestId": "core.project-build-manifest-bundle"
+        },
+        "core.action.verify-project-build-signature": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildManifestSignatureAction",
+            "signature": "5cc6ab6bba845d46253c3bdd98a9671af025989c3993ecf586065333140c97c4",
+            "contractTestId": "core.project-build-manifest-signing"
+        },
         "core.contract.extension-contribution": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
             "contractTestId": "core.extension-contribution"
+        },
+        "core.contract.project-build-artifact-handler": {
+            "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildArtifactHandler",
+            "signature": "268cd49b5a7fbd8166312e916f2e6405866a4c2106a618233a8fc160c8d0f32b",
+            "contractTestId": "core.project-build-artifact-handler"
+        },
+        "core.contract.site-spec-applier": {
+            "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
+            "signature": "531f1d572365b2ad90e8cb1d32e31824ef6ade10a7bfd3b0f5adbbbcf2c283ae",
+            "contractTestId": "core.site-spec-applier"
         },
         "core.dto.extension-contribution": {
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",
@@ -16,6 +41,16 @@
             "identifier": "Capell\\Core\\Events\\PackageInstalled",
             "signature": "9791d008a221f76abdf3bd0e7c8f5da09d16901defbaa456e009a71b27636672",
             "contractTestId": "core.package-installed-event"
+        },
+        "core.tag.project-build-artifact-handler": {
+            "identifier": "capell.project-build.artifact-handler",
+            "signature": "8c85288aa5a9d7eaecfe0a3a0b002dd2e638703177317909eca53c1969b94454",
+            "contractTestId": "core.project-build-artifact-handler-registration"
+        },
+        "core.tag.site-spec-applier": {
+            "identifier": "capell.site-spec.applier",
+            "signature": "0fafdd5d6b86fdd50865e85051af16d44a5dc69f180b5606fff9d55d3b772e4a",
+            "contractTestId": "core.site-spec-applier-registration"
         },
         "core.testing.extension-harness": {
             "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",

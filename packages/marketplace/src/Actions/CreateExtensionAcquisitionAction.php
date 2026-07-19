@@ -39,6 +39,7 @@ final class CreateExtensionAcquisitionAction
         ?string $email = null,
         ?string $domain = null,
         array $installOptions = [],
+        bool $hostedFlowAuthorized = false,
     ): ExtensionAcquisitionData {
         $resolvedEmail = $email ?? auth()->user()?->email ?? 'unknown@local';
         unset($domain);
@@ -72,12 +73,14 @@ final class CreateExtensionAcquisitionAction
             );
         }
 
-        AssertMarketplaceInstallAllowedAction::run(
-            listing: $listing,
-            instance: $this->marketplaceInstance(),
-            action: 'install',
-            remoteEligibility: $listing->installEligibilityPolicy,
-        );
+        if (! $hostedFlowAuthorized) {
+            AssertMarketplaceInstallAllowedAction::run(
+                listing: $listing,
+                instance: $this->marketplaceInstance(),
+                action: 'install',
+                remoteEligibility: $listing->installEligibilityPolicy,
+            );
+        }
 
         $authorization = $this->marketplace->createInstallAuthorization(
             slug: $listing->slug,

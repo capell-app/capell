@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
@@ -67,6 +68,13 @@ it('reports the current environment with remediation fields', function (): void 
     if (InstalledVersions::isInstalled('livewire/livewire')) {
         expect($report['environment'])->toHaveKey('livewire');
     }
+});
+
+it('does not inspect or report the php memory limit', function (): void {
+    $report = resolve(InstallerPreflight::class)->run();
+
+    expect(collect($report['checks'])->pluck('key'))->not->toContain('php-memory-limit')
+        ->and($report['environment'])->not->toHaveKey('memoryLimit');
 });
 
 it('accepts the documented minimum PHP version', function (): void {
@@ -426,6 +434,31 @@ it('dry-runs developer tooling packages as dev requirements', function (): void 
         File::deleteDirectory($temporaryDirectory);
         config(['capell-installer.composer_binary' => 'composer']);
     }
+});
+
+it('does not dry-run developer tooling packages that are already installed', function (): void {
+    app()->bind(DeveloperToolingInstallationState::class, fn (): DeveloperToolingInstallationState => new class extends DeveloperToolingInstallationState
+    {
+        public function missingPackageNames(): array
+        {
+            return [];
+        }
+    });
+
+    $report = resolve(InstallerPreflight::class)->run(new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: [],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        installDeveloperTooling: true,
+    ));
+
+    expect(collect($report['checks'])->pluck('key'))
+        ->not->toContain('developer-tooling-packages')
+        ->not->toContain('composer-files-writable');
 });
 
 it('fails selected package dry-runs when composer is required but missing', function (): void {

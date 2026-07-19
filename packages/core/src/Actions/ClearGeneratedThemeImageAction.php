@@ -41,8 +41,6 @@ class ClearGeneratedThemeImageAction
             $admin['generated_image_error'],
         );
 
-        Theme::withoutEvents(function () use ($theme, $admin): void {
-            $theme->forceFill(['admin' => $admin])->save();
-        });
+        $theme->writeGeneratedImageMetadata($admin);
     }
 }

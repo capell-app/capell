@@ -44,6 +44,7 @@ final class ResolveInstallUserAction
                     'name' => $newUser->name,
                     'password' => Hash::make($newUser->password),
                 ])->save();
+                MarkInstallUserEmailVerifiedAction::run($existingUser);
 
                 $reporter->report('✓ Updated existing user: ' . $newUser->email);
 
@@ -56,6 +57,7 @@ final class ResolveInstallUserAction
                 'email' => $newUser->email,
                 'password' => Hash::make($newUser->password),
             ]);
+            MarkInstallUserEmailVerifiedAction::run($user);
             $reporter->report('✓ Created new user: ' . $newUser->email);
 
             return $user;
