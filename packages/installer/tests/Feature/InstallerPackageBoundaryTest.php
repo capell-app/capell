@@ -3,10 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Installer\Actions\GetActiveInstallAction;
+use Capell\Installer\Bridges\InstallerAdminBridge;
+use Capell\Installer\Providers\InstallerAdminServiceProvider;
+use Capell\Installer\Providers\InstallerServiceProvider;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 
 use function Pest\Laravel\get;
+
+use Symfony\Component\Process\Process;
 
 it('keeps the installer package installable without the admin package', function (): void {
     $composerContents = file_get_contents(dirname(__DIR__, 2) . '/composer.json');
@@ -36,7 +41,56 @@ it('declares admin as an optional supported package in the Capell manifest', fun
     expect($manifest['dependencies']['requires'] ?? [])
         ->toBe(['capell-app/core'])
         ->and($manifest['dependencies']['supports'] ?? [])
-        ->toContain('capell-app/admin');
+        ->toContain('capell-app/admin')
+        ->and($manifest['providers']['install'] ?? [])
+        ->toBe([InstallerServiceProvider::class])
+        ->and($manifest['providers']['admin'] ?? [])
+        ->toBe([InstallerAdminServiceProvider::class]);
+});
+
+it('keeps the general installer provider free of admin and Filament dependencies', function (): void {
+    $providerContents = file_get_contents(
+        dirname(__DIR__, 2) . '/src/Providers/InstallerServiceProvider.php',
+    );
+
+    expect($providerContents)->toBeString()
+        ->not->toContain('Capell\\Admin\\')
+        ->not->toContain('Filament\\')
+        ->not->toContain(InstallerAdminBridge::class);
+});
+
+it('discovers the general installer provider without autoloading admin-only classes', function (): void {
+    $projectRoot = dirname(__DIR__, 4);
+    $autoloadPath = $projectRoot . '/vendor/autoload.php';
+
+    $script = sprintf(
+        <<<'PHP'
+        require %s;
+
+        spl_autoload_register(
+            static function (string $class): void {
+                if (str_starts_with($class, 'Capell\\Admin\\') || str_starts_with($class, 'Filament\\')) {
+                    throw new LogicException("Unexpected optional admin autoload: {$class}");
+                }
+            },
+            true,
+            true,
+        );
+
+        if (! class_exists(%s)) {
+            throw new LogicException('The Installer service provider was not discoverable.');
+        }
+
+        echo 'installer-provider-discovered';
+        PHP,
+        var_export($autoloadPath, true),
+        var_export(InstallerServiceProvider::class, true),
+    );
+
+    $process = new Process([PHP_BINARY, '-r', $script], $projectRoot);
+    $process->mustRun();
+
+    expect($process->getOutput())->toBe('installer-provider-discovered');
 });
 
 it('uses standalone web installer routes for active install progress', function (): void {
