@@ -34,8 +34,7 @@ final class VersionZeroProjectBuildManifestMigration implements ProjectBuildMani
 }
 
 it('reads a current manifest without migration', function (): void {
-    $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry);
-    $manifest = $reader->handle(json_encode(ProjectBuildManifestFixture::payload(), JSON_THROW_ON_ERROR));
+    $manifest = ReadProjectBuildManifestAction::run(json_encode(ProjectBuildManifestFixture::payload(), JSON_THROW_ON_ERROR));
 
     expect($manifest)->toBeInstanceOf(ProjectBuildManifestData::class)
         ->and($manifest->schemaVersion)->toBe(1);
@@ -47,21 +46,30 @@ it('migrates an explicitly supported legacy manifest before validation', functio
     $payload = ProjectBuildManifestFixture::payload();
     $payload['schemaVersion'] = 0;
     $payload['legacyVersion'] = 'v0';
+    app()->instance(ProjectBuildManifestMigrationRegistry::class, $registry);
 
-    $manifest = (new ReadProjectBuildManifestAction($registry))->handle(json_encode($payload, JSON_THROW_ON_ERROR));
+    $manifest = ReadProjectBuildManifestAction::run(json_encode($payload, JSON_THROW_ON_ERROR));
 
     expect($manifest->schemaVersion)->toBe(1);
 });
 
-it('registers the core-owned migration registry as a singleton', function (): void {
-    expect(resolve(ProjectBuildManifestMigrationRegistry::class))
-        ->toBe(resolve(ProjectBuildManifestMigrationRegistry::class));
+it('scopes the core-owned migration registry to the current operation', function (): void {
+    $registry = resolve(ProjectBuildManifestMigrationRegistry::class);
+    $registry->register(new VersionZeroProjectBuildManifestMigration);
+
+    expect(resolve(ProjectBuildManifestMigrationRegistry::class))->toBe($registry);
+
+    app()->forgetScopedInstances();
+
+    $nextRegistry = resolve(ProjectBuildManifestMigrationRegistry::class);
+
+    expect($nextRegistry)->not->toBe($registry)
+        ->and(fn (): array => $nextRegistry->migrate(['schemaVersion' => 0], 1))
+        ->toThrow(ValidationException::class, 'No compatible project build manifest migration');
 });
 
 it('refuses malformed, future, and migration-gap manifests', function (string $json, string $message): void {
-    $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry);
-
-    expect(fn (): mixed => $reader->handle($json))
+    expect(fn (): mixed => ReadProjectBuildManifestAction::run($json))
         ->toThrow(ValidationException::class, $message);
 })->with([
     'malformed JSON' => ['{', 'valid JSON'],

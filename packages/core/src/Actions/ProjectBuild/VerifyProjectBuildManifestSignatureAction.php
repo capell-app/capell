@@ -6,12 +6,14 @@ namespace Capell\Core\Actions\ProjectBuild;
 
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestConstraints;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 /** @method static void run(array<string, mixed>|ProjectBuildManifestData $manifest, string $publicKey) */
 final class VerifyProjectBuildManifestSignatureAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param array<string, mixed>|ProjectBuildManifestData $manifest */

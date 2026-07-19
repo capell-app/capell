@@ -10,14 +10,15 @@ use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Closure;
 use Illuminate\Validation\ValidationException;
 use JsonException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ValidateProjectBuildManifestBundleAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(
-        private readonly ReadProjectBuildManifestAction $reader,
         private readonly ProjectBuildArtifactHandlerRegistry $artifacts,
     ) {}
 
@@ -35,7 +36,7 @@ final class ValidateProjectBuildManifestBundleAction
         }
 
         VerifyProjectBuildManifestSignatureAction::run($signedPayload, $publicKey);
-        $manifest = $this->reader->handle($manifestJson);
+        $manifest = ReadProjectBuildManifestAction::run($manifestJson);
 
         $references = [
             $manifest->siteSpec->artifactReference(),

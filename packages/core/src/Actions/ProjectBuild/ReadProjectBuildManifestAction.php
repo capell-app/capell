@@ -9,10 +9,12 @@ use Capell\Core\Support\ProjectBuild\ProjectBuildManifestConstraints;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Illuminate\Validation\ValidationException;
 use JsonException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ReadProjectBuildManifestAction
 {
+    use AsFake;
     use AsObject;
 
     public const int CurrentSchemaVersion = ProjectBuildManifestConstraints::CURRENT_SCHEMA_VERSION;

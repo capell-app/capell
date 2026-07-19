@@ -12,11 +12,13 @@ use Exception;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** @method static ProjectBuildManifestData run(array<string, mixed>|ProjectBuildManifestData $manifest) */
 final class ValidateProjectBuildManifestAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param array<string, mixed>|ProjectBuildManifestData $manifest */

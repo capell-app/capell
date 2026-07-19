@@ -9,7 +9,6 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestConstraints;
-use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 
 it('publishes a closed draft 2020-12 schema for the portable envelope', function (): void {
@@ -38,7 +37,7 @@ it('verifies canonical signed fixtures with real SiteSpec bytes and future topol
     expect($json)->toBeString();
     assert(is_string($json));
 
-    $manifest = (new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry))->handle($json);
+    $manifest = ReadProjectBuildManifestAction::run($json);
     $siteSpecBytes = file_get_contents(dirname(__DIR__, 2) . '/fixtures/project-build/' . $manifest->siteSpec->path);
     $publicKey = base64_decode(trim((string) file_get_contents(dirname(__DIR__, 2) . '/fixtures/project-build/signing-public-key.txt')), true);
     expect($siteSpecBytes)->toBeString()
@@ -68,7 +67,7 @@ it('pins the unsupported future topology fallback and extension contract for sha
     $expectationsJson = file_get_contents(dirname(__DIR__, 2) . '/fixtures/project-build/two-site-two-locale.expectations.json');
     assert(is_string($manifestJson));
     assert(is_string($expectationsJson));
-    $manifest = (new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry))->handle($manifestJson);
+    $manifest = ReadProjectBuildManifestAction::run($manifestJson);
     $expectations = json_decode($expectationsJson, true, 512, JSON_THROW_ON_ERROR);
     $siteSpec = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/fixtures/project-build/' . $manifest->siteSpec->path), true, 512, JSON_THROW_ON_ERROR);
     $fallbacks = [];
