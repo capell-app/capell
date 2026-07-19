@@ -2,8 +2,17 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
+use Composer\InstalledVersions;
+use Illuminate\Support\Facades\File;
 use PhpParser\Node;
-use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Identifier;
+use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\Class_;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
@@ -75,7 +84,7 @@ it('keeps filesystem work out of service providers except documented bootstrap p
         }
 
         foreach (providerPatternStaticCalls($path) as $call) {
-            if ($call['class'] === 'Illuminate\\Support\\Facades\\File') {
+            if ($call['class'] === File::class) {
                 $calls[] = sprintf(
                     '%s:File::%s',
                     str_replace($repositoryRoot . '/', '', $path),
@@ -110,7 +119,7 @@ it('allows static availability probes only for genuine optional integrations', f
             if (str_starts_with($probe['target'], 'Capell\\')
                 || str_starts_with($probe['target'], 'Illuminate\\')
                 || str_starts_with($probe['target'], 'Laravel\\Octane\\')
-                || $probe['target'] === 'Composer\\InstalledVersions') {
+                || $probe['target'] === InstalledVersions::class) {
                 $probes[] = sprintf(
                     '%s:%s:%s',
                     str_replace($repositoryRoot . '/', '', $path),
@@ -138,8 +147,11 @@ function providerPatternPhpPaths(string $repositoryRoot, ?callable $filter = nul
 
     foreach ($packages as $package) {
         $sourceRoot = $package->getPathname() . '/src';
+        if ($package->isDot()) {
+            continue;
+        }
 
-        if ($package->isDot() || ! is_dir($sourceRoot)) {
+        if (! is_dir($sourceRoot)) {
             continue;
         }
 
@@ -159,13 +171,7 @@ function providerPatternPhpPaths(string $repositoryRoot, ?callable $filter = nul
 
 function providerPatternExtendsAbstractKeyedRegistry(string $path): bool
 {
-    foreach (providerPatternNodes($path) as $node) {
-        if ($node instanceof Node\Stmt\Class_ && $node->extends?->toString() === 'Capell\\Core\\Support\\Registries\\AbstractKeyedRegistry') {
-            return true;
-        }
-    }
-
-    return false;
+    return array_any(providerPatternNodes($path), fn (Node $node): bool => $node instanceof Class_ && $node->extends?->toString() === AbstractKeyedRegistry::class);
 }
 
 /** @return list<string> */
@@ -174,7 +180,7 @@ function providerPatternFunctionCalls(string $path): array
     $calls = [];
 
     foreach (providerPatternNodes($path) as $node) {
-        if ($node instanceof Expr\FuncCall && $node->name instanceof Node\Name) {
+        if ($node instanceof FuncCall && $node->name instanceof Name) {
             $calls[] = $node->name->toString();
         }
     }
@@ -188,9 +194,9 @@ function providerPatternStaticCalls(string $path): array
     $calls = [];
 
     foreach (providerPatternNodes($path) as $node) {
-        if ($node instanceof Expr\StaticCall
-            && $node->class instanceof Node\Name
-            && $node->name instanceof Node\Identifier) {
+        if ($node instanceof StaticCall
+            && $node->class instanceof Name
+            && $node->name instanceof Identifier) {
             $calls[] = [
                 'class' => $node->class->toString(),
                 'method' => $node->name->toString(),
@@ -207,19 +213,25 @@ function providerPatternStaticAvailabilityProbes(string $path): array
     $probes = [];
 
     foreach (providerPatternNodes($path) as $node) {
-        if (! $node instanceof Expr\FuncCall
-            || ! $node->name instanceof Node\Name
-            || ! in_array($node->name->toString(), ['class_exists', 'interface_exists', 'method_exists'], true)) {
+        if (! $node instanceof FuncCall) {
+            continue;
+        }
+
+        if (! $node->name instanceof Name) {
+            continue;
+        }
+
+        if (! in_array($node->name->toString(), ['class_exists', 'interface_exists', 'method_exists'], true)) {
             continue;
         }
 
         $target = $node->args[0]->value ?? null;
 
-        if ($target instanceof Expr\ClassConstFetch && $target->class instanceof Node\Name) {
+        if ($target instanceof ClassConstFetch && $target->class instanceof Name) {
             $probes[] = ['function' => $node->name->toString(), 'target' => $target->class->toString()];
         }
 
-        if ($target instanceof Node\Scalar\String_) {
+        if ($target instanceof String_) {
             $probes[] = ['function' => $node->name->toString(), 'target' => ltrim($target->value, '\\')];
         }
     }

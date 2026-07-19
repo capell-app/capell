@@ -70,9 +70,9 @@ it('starts the next operation with fresh core runtime state and preserved boot r
     ]);
 
     /** @var CapellCoreManager $manager */
-    $manager = app(CapellCoreManager::class);
+    $manager = resolve(CapellCoreManager::class);
     /** @var CapellPackageRegistry $packages */
-    $packages = app(CapellPackageRegistry::class);
+    $packages = resolve(CapellPackageRegistry::class);
     $manifestNames = array_keys($packages->all());
 
     $manager
@@ -97,7 +97,7 @@ it('starts the next operation with fresh core runtime state and preserved boot r
     File::put($componentRoot . '/widgets/second.blade.php', '<div>Second</div>');
     File::delete($manager->getComponentCachePath());
     /** @var CapellCacheManager $cache */
-    $cache = app(CapellCacheManager::class);
+    $cache = resolve(CapellCacheManager::class);
     $normalizeCacheKey = new ReflectionMethod($cache, 'normalizeCacheKey');
     $cacheRepository = new ReflectionMethod($cache, 'getCacheInstance');
     $cacheRepository->invoke($cache)->put(
@@ -205,7 +205,7 @@ it('runs two operations without leaking classified Capell state', function (): v
         ...($application->bound(DataStore::class) && $application->make(DataStore::class) instanceof DataStoreOverride
             ? [DataStore::class]
             : []),
-    ], static fn (string $class): bool => $application->bound($class)));
+    ], $application->bound(...)));
 
     $firstOperation = collect($scopedServices)
         ->mapWithKeys(static fn (string $class): array => [$class => $application->make($class)]);
@@ -225,13 +225,14 @@ it('runs two operations without leaking classified Capell state', function (): v
     /** @var ThemeViewRegistrar $themeViews */
     $themeViews = $application->make(ThemeViewRegistrar::class);
     $themeViews->register([], 'operation-one');
+
     $registeredTheme = new ReflectionProperty($themeViews, 'registeredKey');
 
     $application->forgetScopedInstances();
     new FlushResettableState($application)->handle();
 
     foreach ($scopedServices as $class) {
-        expect($application->make($class))->not->toBe($firstOperation->get($class), "Scoped service [{$class}] leaked between operations");
+        expect($application->make($class))->not->toBe($firstOperation->get($class), sprintf('Scoped service [%s] leaked between operations', $class));
     }
 
     $localCache = new ReflectionProperty($cache, 'localCache');

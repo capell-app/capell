@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
@@ -9,6 +10,12 @@ use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
+use Capell\Frontend\Enums\FrontendPackageDependencyType;
+use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
+use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 
 it('catalogues every supported extension surface kind from explicit metadata', function (): void {
     $catalog = BuildExtensionSurfaceCatalogAction::run();
@@ -60,7 +67,7 @@ it('classifies the admin tool seam as experimental', function (): void {
     ];
 
     expect($catalog)->toHaveKeys($surfaceIds)
-        ->and($catalog->get('admin.contract.admin-tool-item')?->identifier)->toBe('Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem')
+        ->and($catalog->get('admin.contract.admin-tool-item')?->identifier)->toBe(AdminToolItem::class)
         ->and($catalog->get('admin.tag.admin-tool-item')?->identifier)->toBe('capell-admin:admin-tool-items');
 
     foreach ($catalog->only($surfaceIds) as $entry) {
@@ -78,9 +85,9 @@ it('classifies the frontend package dependency seam as experimental', function (
     ];
 
     expect($catalog)->toHaveKeys($surfaceIds)
-        ->and($catalog->get('frontend.dto.package-dependency')?->identifier)->toBe('Capell\\Frontend\\Data\\Assets\\FrontendPackageDependencyData')
-        ->and($catalog->get('frontend.enum.package-dependency-type')?->identifier)->toBe('Capell\\Frontend\\Enums\\FrontendPackageDependencyType')
-        ->and($catalog->get('frontend.registry.package-dependency')?->identifier)->toBe('Capell\\Frontend\\Support\\Assets\\FrontendPackageDependencyRegistry');
+        ->and($catalog->get('frontend.dto.package-dependency')?->identifier)->toBe(FrontendPackageDependencyData::class)
+        ->and($catalog->get('frontend.enum.package-dependency-type')?->identifier)->toBe(FrontendPackageDependencyType::class)
+        ->and($catalog->get('frontend.registry.package-dependency')?->identifier)->toBe(FrontendPackageDependencyRegistry::class);
 
     foreach ($catalog->only($surfaceIds) as $entry) {
         expect($entry->ownerPackage)->toBe('capell-app/frontend')
@@ -128,9 +135,9 @@ it('classifies the marketplace composer publication seam as experimental', funct
     ];
 
     expect($catalog)->toHaveKeys($surfaceIds)
-        ->and($catalog->get('marketplace.contract.composer-change-publisher')?->identifier)->toBe('Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher')
-        ->and($catalog->get('marketplace.dto.composer-publication-request')?->identifier)->toBe('Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData')
-        ->and($catalog->get('marketplace.dto.composer-publication-result')?->identifier)->toBe('Capell\\Marketplace\\Data\\MarketplaceComposerPublicationResultData')
+        ->and($catalog->get('marketplace.contract.composer-change-publisher')?->identifier)->toBe(MarketplaceComposerChangePublisher::class)
+        ->and($catalog->get('marketplace.dto.composer-publication-request')?->identifier)->toBe(MarketplaceComposerPublicationRequestData::class)
+        ->and($catalog->get('marketplace.dto.composer-publication-result')?->identifier)->toBe(MarketplaceComposerPublicationResultData::class)
         ->and($catalog->get('marketplace.tag.composer-change-publisher')?->identifier)->toBe('capell.marketplace.composer-change-publisher');
 
     foreach ($catalog->only($surfaceIds) as $entry) {
