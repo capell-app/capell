@@ -104,7 +104,8 @@ class ContentBuilder extends Builder
 
         $availableBlocks = collect(($component ?? $this)->getBlocks())
             ->map(fn (Block $block): string => $block->getName())
-            ->flip();
+            ->mapWithKeys(fn (string $blockName): array => [$blockName => true])
+            ->all();
 
         $resolved = [];
 
@@ -113,59 +114,54 @@ class ContentBuilder extends Builder
                 continue;
             }
 
-            if (! is_array($template)) {
+            $resolvedTemplate = $this->resolveBlockTemplate($template, $availableBlocks);
+
+            if ($resolvedTemplate === null) {
                 continue;
             }
 
-            $label = $template['label'] ?? null;
-            $blocks = $template['blocks'] ?? null;
-            if (! is_string($label)) {
-                continue;
-            }
-
-            if (! is_array($blocks)) {
-                continue;
-            }
-
-            $templateBlocks = [];
-
-            foreach ($blocks as $block) {
-                if (! is_array($block)) {
-                    continue 2;
-                }
-
-                $type = $block['type'] ?? null;
-                if (! is_string($type)) {
-                    continue 2;
-                }
-
-                if (! $availableBlocks->has($type)) {
-                    continue 2;
-                }
-
-                $data = $block['data'] ?? [];
-
-                if (! is_array($data)) {
-                    continue 2;
-                }
-
-                $templateBlocks[] = [
-                    'type' => $type,
-                    'data' => $data,
-                ];
-            }
-
-            if ($templateBlocks === []) {
-                continue;
-            }
-
-            $resolved[$key] = [
-                'label' => $label,
-                'blocks' => $templateBlocks,
-            ];
+            $resolved[$key] = $resolvedTemplate;
         }
 
         return $resolved;
+    }
+
+    /**
+     * @param  array<string, bool>  $availableBlocks
+     * @return array{label: string, blocks: list<array{type: string, data: array<string, mixed>}>}|null
+     */
+    private function resolveBlockTemplate(mixed $template, array $availableBlocks): ?array
+    {
+        if (! is_array($template)
+            || ! is_string($template['label'] ?? null)
+            || ! is_array($template['blocks'] ?? null)) {
+            return null;
+        }
+
+        $resolvedBlocks = [];
+
+        foreach ($template['blocks'] as $block) {
+            $type = is_array($block) ? ($block['type'] ?? null) : null;
+            $data = is_array($block) ? ($block['data'] ?? []) : null;
+
+            if (! is_string($type) || ! isset($availableBlocks[$type]) || ! is_array($data)) {
+                return null;
+            }
+
+            $resolvedBlocks[] = [
+                'type' => $type,
+                'data' => $data,
+            ];
+        }
+
+        if ($resolvedBlocks === []) {
+            return null;
+        }
+
+        return [
+            'label' => $template['label'],
+            'blocks' => $resolvedBlocks,
+        ];
     }
 
     /**
