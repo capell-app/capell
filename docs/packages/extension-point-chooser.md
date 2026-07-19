@@ -2,25 +2,25 @@
 
 Use this page before adding a hook, service provider call, or package integration. Start with the table that matches the runtime you are changing, then follow the linked page for the full contract and examples.
 
-Use container tags for focused contributors and `AdminBridgeRegistry` / `AdminBridgeRegistrar` when one package owns a grouped or context-aware admin integration. Provider lifecycle and lifetime rules are documented in [Package provider conventions](../development/package-provider-conventions.md).
+Use container tags for focused contributors and `AdminBridgeRegistrar` when one package owns a grouped or context-aware admin integration. The registry is an internal read model; package providers write through the registrar or their `surface()` helper. Provider lifecycle and lifetime rules are documented in [Package provider conventions](../development/package-provider-conventions.md).
 
 If you are not sure which runtime you are changing, start with [Package authoring jobs](package-authoring-jobs.md) and [Extension surface vocabulary](extension-surface-vocabulary.md). Those pages define the package surfaces and install-impact terms used by this chooser.
 
 ## Core And Package Runtime
 
-| Need                                   | Use                                                                                       | Owner                 |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------- |
-| Register a page subject type           | `CapellCore::registerPageType(new PageTypeData(...))`                                     | Core                  |
-| Replace a core model implementation    | Laravel container binding for the model class                                             | Core                  |
-| Register renderable definitions        | `RenderableRegistry::register(...)`                                                       | Core                  |
-| Register link picker/search options    | `LinkableContentRegistry::register(...)`                                                  | Core                  |
-| Register content graph extractors      | `ContentGraphRegistry::register(...)` or `ContentGraphRegistry::TAG`                      | Core                  |
-| Add package settings                   | `SettingsSchemaRegistry::register()`, `registerSettingsClass()`, and `registerMetadata()` | Core/Admin            |
-| Add package settings migrations        | `database/settings/*` plus package install/setup registration                             | Core                  |
-| Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                                                   | Core                  |
-| Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                                             | Core/Frontend         |
-| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                                              | Static export package |
-| Extend ownership/export mapping        | `OwnershipMap::register(...)`                                                             | Migration Assistant   |
+| Need                                   | Use                                                                  | Owner                 |
+| -------------------------------------- | -------------------------------------------------------------------- | --------------------- |
+| Register a page subject type           | `CapellCore::registerPageType(new PageTypeData(...))`                | Core                  |
+| Replace a core model implementation    | Laravel container binding for the model class                        | Core                  |
+| Register renderable definitions        | `RenderableRegistry::register(...)`                                  | Core                  |
+| Register link picker/search options    | `LinkableContentRegistry::register(...)`                             | Core                  |
+| Register content graph extractors      | `ContentGraphRegistry::register(...)` or `ContentGraphRegistry::TAG` | Core                  |
+| Add package settings                   | Provider `surface()` or `AdminBridgeRegistrar`                       | Core/Admin            |
+| Add package settings migrations        | `database/settings/*` plus package install/setup registration        | Core                  |
+| Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                              | Core                  |
+| Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                        | Core/Frontend         |
+| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                         | Static export package |
+| Extend ownership/export mapping        | `OwnershipMap::register(...)`                                        | Migration Assistant   |
 
 ## Admin Runtime
 
@@ -66,7 +66,7 @@ If you are not sure which runtime you are changing, start with [Package authorin
 - Put writes in Actions and structured state in Data objects.
 - Keep visible strings in translations.
 - Public output must pass the [public HTML safety contract](../frontend/public-html-safety.md).
-- Register most extension points from a package provider's `boot()` method unless the contract explicitly says to bind something in `register()`.
+- Register most extension points from `bootInstalledPackage()` unless the contract explicitly belongs in discovery/bootstrap or must bind something in `register()`.
 
 ## Next
 
