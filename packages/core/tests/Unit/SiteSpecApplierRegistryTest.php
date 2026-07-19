@@ -39,3 +39,18 @@ it('rejects duplicate SiteSpec applier keys', function (): void {
     })
         ->toThrow(LogicException::class, 'already registered');
 });
+
+it('discards operation registrations between scoped lifecycles', function (): void {
+    $firstRegistry = resolve(SiteSpecApplierRegistry::class);
+    $firstRegistry->register(new TaggedSiteSpecApplier);
+
+    expect(resolve(SiteSpecApplierRegistry::class))->toBe($firstRegistry)
+        ->and($firstRegistry->has('navigation'))->toBeTrue();
+
+    app()->forgetScopedInstances();
+
+    $secondRegistry = resolve(SiteSpecApplierRegistry::class);
+
+    expect($secondRegistry)->not->toBe($firstRegistry)
+        ->and($secondRegistry->has('navigation'))->toBeFalse();
+});
