@@ -183,6 +183,10 @@ final class ManifestLoader
                     continue;
                 }
 
+                if (isset($manifests[$packageName])) {
+                    continue;
+                }
+
                 $manifest = $this->loadDiscoveredManifest(
                     path: $manifestPath,
                     packageName: $packageName,
@@ -218,6 +222,10 @@ final class ManifestLoader
             $packageName = (string) ($packageComposerJson['name'] ?? '');
 
             if ($packageName === '') {
+                continue;
+            }
+
+            if (isset($manifests[$packageName])) {
                 continue;
             }
 
