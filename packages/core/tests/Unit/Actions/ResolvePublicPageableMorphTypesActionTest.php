@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Models\Page;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 
 final class UnavailableModel extends Model
 {
+    use HasFactory;
+
     protected $table = 'unavailable_pageables';
 }
 

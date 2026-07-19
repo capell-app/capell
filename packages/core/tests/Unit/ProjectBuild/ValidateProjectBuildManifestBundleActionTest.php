@@ -101,6 +101,7 @@ it('verifies legacy signed bytes before applying a trusted core migration', func
     ));
     $migrations = new ProjectBuildManifestMigrationRegistry;
     $migrations->register(new BundleVersionZeroProjectBuildManifestMigration);
+
     app()->instance(ProjectBuildManifestMigrationRegistry::class, $migrations);
 
     $manifest = ValidateProjectBuildManifestBundleAction::run(

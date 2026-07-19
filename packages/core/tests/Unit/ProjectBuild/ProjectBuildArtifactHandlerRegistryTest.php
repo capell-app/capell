@@ -48,6 +48,7 @@ it('discovers handlers and dispatches only integrity-verified bytes', function (
     $handler = new RecordingProjectBuildArtifactHandler;
     app()->instance(RecordingProjectBuildArtifactHandler::class, $handler);
     app()->tag([RecordingProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
+
     $registry = new ProjectBuildArtifactHandlerRegistry(app());
 
     $registry->validate(projectBuildArtifactReference(), 'theme-bytes');
@@ -68,7 +69,7 @@ it('fails loudly for invalid handler types and mis-tagged services', function ()
     $container->instance(stdClass::class, new stdClass);
     $container->tag([stdClass::class], ProjectBuildArtifactHandler::TAG);
 
-    expect(fn (): array => (new ProjectBuildArtifactHandlerRegistry($container))->types())
+    expect(fn (): array => new ProjectBuildArtifactHandlerRegistry($container)->types())
         ->toThrow(LogicException::class, 'must implement');
 });
 
@@ -91,6 +92,7 @@ it('rejects missing handlers and payload integrity mismatches before dispatch', 
     $handler = new RecordingProjectBuildArtifactHandler;
     $registry = new ProjectBuildArtifactHandlerRegistry(app());
     $registry->register($handler);
+
     $artifact = projectBuildArtifactReference();
 
     if ($expectedMessage === 'handler') {

@@ -60,6 +60,7 @@ class RequirePackageAction
         $process = $processFactory(['composer', 'require', $name], base_path(), $env);
         $process->setTimeout(300);
         $process->disableOutput();
+
         $standardOutput = '';
         $errorOutput = '';
         $process->run(function (string $type, string $buffer) use (&$standardOutput, &$errorOutput): void {
