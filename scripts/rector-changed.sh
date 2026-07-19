@@ -61,5 +61,9 @@ echo "Running Rector on ${#PHP_FILES[@]} changed PHP file(s)..."
 for ((offset = 0; offset < ${#PHP_FILES[@]}; offset += BATCH_SIZE)); do
   batch=("${PHP_FILES[@]:offset:BATCH_SIZE}")
 
-  XDEBUG_MODE=off "$PHP_BINARY" vendor/bin/rector --no-progress-bar "${RECTOR_ARGS[@]}" "${batch[@]}"
+  if [[ ${#RECTOR_ARGS[@]} -gt 0 ]]; then
+    XDEBUG_MODE=off "$PHP_BINARY" vendor/bin/rector --no-progress-bar "${RECTOR_ARGS[@]}" "${batch[@]}"
+  else
+    XDEBUG_MODE=off "$PHP_BINARY" vendor/bin/rector --no-progress-bar "${batch[@]}"
+  fi
 done
