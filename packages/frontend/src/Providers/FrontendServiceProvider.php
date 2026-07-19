@@ -262,7 +262,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ErrorPagePathResolver::class);
         $this->app->singleton(ErrorPageFallbackManifestStore::class);
         $this->app->singleton(ErrorPageRegenerationQueue::class);
-        $this->app->singleton(FrontendResponseRendererRegistry::class);
+        $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->singleton(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
