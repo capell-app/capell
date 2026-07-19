@@ -387,7 +387,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->tag([CapellCoreManager::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
-        $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
         $this->app->singleton(PackageSurfaceRegistrar::class, fn ($app): PackageSurfaceRegistrar => new PackageSurfaceRegistrar(
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),

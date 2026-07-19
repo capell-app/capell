@@ -38,12 +38,12 @@ it('ignores tagged services that do not implement the reset contract', function 
     expect(true)->toBeTrue();
 });
 
-it('registers every request-caching core service for Octane reset', function (): void {
+it('registers singleton request-caching core services for Octane reset', function (): void {
     $resettableServices = collect(app()->tagged(Resettable::TAG));
 
     expect($resettableServices->contains(fn (object $service): bool => $service instanceof CapellCoreManager))->toBeTrue()
-        ->and($resettableServices->contains(fn (object $service): bool => $service instanceof ImageUrlPolicy))->toBeTrue()
-        ->and($resettableServices->contains(fn (object $service): bool => $service instanceof LockdownStore))->toBeTrue();
+        ->and($resettableServices->contains(fn (object $service): bool => $service instanceof LockdownStore))->toBeTrue()
+        ->and($resettableServices->contains(fn (object $service): bool => $service instanceof ImageUrlPolicy))->toBeFalse();
 });
 
 it('flushes resettable services when an Octane operation terminates', function (): void {
