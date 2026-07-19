@@ -11,6 +11,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -44,6 +45,7 @@ final class RetryMarketplaceInstallAttemptAction
             'retried_by_id' => $this->userId($user),
             'retried_at' => now(),
             'queued_at' => now(),
+            'idempotency_key' => hash('sha256', Str::uuid()->toString()),
             'user_id' => $attempt->user_id,
             'user_email' => $attempt->user_email,
         ]);
@@ -77,7 +79,9 @@ final class RetryMarketplaceInstallAttemptAction
             return $retry;
         }
 
-        RunMarketplaceInstallAttemptJob::dispatchAfterResponse((int) $retry->getKey());
+        dispatch(new RunMarketplaceInstallAttemptJob((int) $retry->getKey()))
+            ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
+            ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
 
         return $retry;
     }

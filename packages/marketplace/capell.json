@@ -39,7 +39,7 @@
         "install": null,
         "setup": null,
         "demo": null,
-        "doctor": null
+        "doctor": "capell:marketplace:doctor"
     },
     "settings": [],
     "permissions": ["View:ExtensionsPage", "View:MarketplacePage"],

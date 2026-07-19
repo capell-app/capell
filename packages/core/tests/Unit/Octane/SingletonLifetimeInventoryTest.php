@@ -31,6 +31,11 @@ trait SingletonLifetimeTraitFixture
 class SingletonLifetimeGrandparentFixture
 {
     private array $privateParentCache = [];
+
+    public function privateParentCache(): array
+    {
+        return $this->privateParentCache;
+    }
 }
 
 class SingletonLifetimeParentFixture extends SingletonLifetimeGrandparentFixture
@@ -41,6 +46,11 @@ class SingletonLifetimeParentFixture extends SingletonLifetimeGrandparentFixture
 final class SingletonLifetimeMutableDependencyFixture
 {
     private array $values = [];
+
+    public function values(): array
+    {
+        return $this->values;
+    }
 }
 
 final class SingletonLifetimeFixture extends SingletonLifetimeParentFixture

@@ -7,7 +7,9 @@ namespace Capell\Admin\Actions\Themes;
 use Capell\Admin\Data\Themes\ThemeDiagnosticsData;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
+use Capell\Core\ThemeStudio\Data\ThemeFrontendBuildAssetsData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Composer\InstalledVersions;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -87,11 +89,49 @@ final class ValidateThemeDefinitionAction
      */
     private function missingAssets(ThemeDefinitionData $definition): array
     {
-        if ($definition->assets !== []) {
-            return [];
+        $buildAssets = $definition->frontendBuildAssets();
+
+        if (! $buildAssets instanceof ThemeFrontendBuildAssetsData) {
+            return $definition->assets === [] ? ['frontend'] : [];
         }
 
-        return ['frontend'];
+        $missingAssets = [];
+        $packagePath = InstalledVersions::isInstalled($definition->package)
+            ? InstalledVersions::getInstallPath($definition->package)
+            : null;
+
+        if (! is_string($packagePath) || ! $this->isFileWithin($packagePath, $buildAssets->cssSource)) {
+            $missingAssets[] = 'frontend source';
+        }
+
+        if (! $this->isFileWithin(base_path(), $buildAssets->cssBuildInput)) {
+            $missingAssets[] = 'frontend build input';
+        }
+
+        if ($buildAssets->condition !== 'theme-css:' . $definition->key) {
+            $missingAssets[] = 'frontend condition';
+        }
+
+        return $missingAssets;
+    }
+
+    private function isFileWithin(string $basePath, string $relativePath): bool
+    {
+        if ($relativePath === '' || str_starts_with($relativePath, '/')) {
+            return false;
+        }
+
+        $basePath = realpath($basePath);
+
+        if (! is_string($basePath)) {
+            return false;
+        }
+
+        $filePath = realpath($basePath . DIRECTORY_SEPARATOR . $relativePath);
+
+        return is_string($filePath)
+            && str_starts_with($filePath, $basePath . DIRECTORY_SEPARATOR)
+            && is_file($filePath);
     }
 
     /**

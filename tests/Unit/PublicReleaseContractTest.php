@@ -185,7 +185,7 @@ it('defines the public v1 split package release contract', function (): void {
 
     expect($releasePreflight)
         ->toContain('[$major, $minor]')
-        ->toContain('"dev-main as {$major}.{$minor}.x-dev"')
+        ->toContain("sprintf('dev-main as %s.%s.x-dev', \$major, \$minor)")
         ->toContain('php artisan capell:package-cache --no-interaction')
         ->toContain('npm install --no-audit --no-fund')
         ->toContain('npm run build')
@@ -197,6 +197,25 @@ it('defines the public v1 split package release contract', function (): void {
 
     expect($localSplitScript)->toContain('config/release-packages.json')
         ->and($packagistScript)->toContain('config/release-packages.json');
+});
+
+it('warms the package manifest cache after installation and before release smoke requests', function (): void {
+    $releasePreflight = file_get_contents(dirname(__DIR__, 2) . '/scripts/release-preflight.php');
+
+    expect($releasePreflight)
+        ->toContain('php artisan capell:install')
+        ->toContain('php artisan capell:package-cache')
+        ->toContain('npm run build')
+        ->toContain('php artisan serve --no-reload');
+
+    $installIndex = strpos($releasePreflight, 'php artisan capell:install');
+    $packageCacheIndex = strpos($releasePreflight, 'php artisan capell:package-cache');
+    $assetBuildIndex = strpos($releasePreflight, 'npm run build');
+    $serveIndex = strpos($releasePreflight, 'php artisan serve --no-reload');
+
+    expect($installIndex)->toBeLessThan($packageCacheIndex)
+        ->and($packageCacheIndex)->toBeLessThan($assetBuildIndex)
+        ->and($assetBuildIndex)->toBeLessThan($serveIndex);
 });
 
 it('defines the paid root package as the aggregate of the public foundation', function (): void {

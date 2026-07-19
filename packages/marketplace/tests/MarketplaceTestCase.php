@@ -26,6 +26,7 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Tables\TablesServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Guava\IconPicker\IconPickerServiceProvider;
+use Illuminate\Contracts\Config\Repository;
 use LaraZeus\SpatieTranslatable\SpatieTranslatableServiceProvider;
 use Livewire\LivewireServiceProvider;
 use Override;
@@ -76,6 +77,8 @@ abstract class MarketplaceTestCase extends AbstractTestCase
     protected function getEnvironmentSetUp(mixed $app): void
     {
         parent::getEnvironmentSetUp($app);
+
+        $app->make(Repository::class)->set('queue.connections.database.retry_after', 900);
 
         foreach (['installer', 'marketplace'] as $packageDirectory) {
             $manifest = json_decode(

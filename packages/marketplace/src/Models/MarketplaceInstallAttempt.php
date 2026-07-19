@@ -38,6 +38,17 @@ use Override;
  * @property CarbonImmutable|null $telemetry_attempted_at
  * @property CarbonImmutable|null $telemetry_synced_at
  * @property string|null $telemetry_failure
+ * @property string|null $idempotency_key
+ * @property string|null $current_stage
+ * @property int $progress_current
+ * @property int|null $progress_total
+ * @property CarbonImmutable|null $heartbeat_at
+ * @property int $attempt_count
+ * @property int|null $runtime_ms
+ * @property int|null $peak_memory_bytes
+ * @property int $query_count
+ * @property array<string, mixed>|null $stage_telemetry
+ * @property array<string, mixed>|null $failure_context
  * @property CarbonImmutable|null $queued_at
  * @property CarbonImmutable|null $started_at
  * @property CarbonImmutable|null $completed_at
@@ -80,6 +91,17 @@ final class MarketplaceInstallAttempt extends Model
         'telemetry_attempted_at',
         'telemetry_synced_at',
         'telemetry_failure',
+        'idempotency_key',
+        'current_stage',
+        'progress_current',
+        'progress_total',
+        'heartbeat_at',
+        'attempt_count',
+        'runtime_ms',
+        'peak_memory_bytes',
+        'query_count',
+        'stage_telemetry',
+        'failure_context',
         'queued_at',
         'started_at',
         'completed_at',
@@ -128,6 +150,9 @@ final class MarketplaceInstallAttempt extends Model
             'retried_at' => 'immutable_datetime',
             'telemetry_attempted_at' => 'immutable_datetime',
             'telemetry_synced_at' => 'immutable_datetime',
+            'heartbeat_at' => 'immutable_datetime',
+            'stage_telemetry' => 'array',
+            'failure_context' => 'array',
             'queued_at' => 'immutable_datetime',
             'started_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',

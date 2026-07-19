@@ -50,7 +50,7 @@ it('skips optimize:clear in testbench when all is selected', function (): void {
     expect($reporter->reports)
         ->toContain('Skipped optimize:clear; Testbench package manifests are shared across parallel tests')
         ->toContain('Skipped capell:html-cache:clear; command is not available')
-        ->toContain('Skipped capell:package-cache:clear; command is not available');
+        ->toContain('Skipped capell:package-cache; command is not available');
 });
 
 it('calls config:clear when config is selected', function (): void {
@@ -105,7 +105,7 @@ it('calls optional capell and filament cache commands when they are selected and
         'capell:admin-clear-widgets-cache' => true,
         'capell:admin-clear-configurators-cache' => true,
         'filament:clear-cached-components' => true,
-        'capell:package-cache:clear' => true,
+        'capell:package-cache' => true,
     ];
 
     $kernel = Mockery::mock(ConsoleKernel::class);
@@ -115,7 +115,7 @@ it('calls optional capell and filament cache commands when they are selected and
     $kernel->shouldReceive('call')->with('capell:admin-clear-widgets-cache')->once()->andReturn(0);
     $kernel->shouldReceive('call')->with('capell:admin-clear-configurators-cache')->once()->andReturn(0);
     $kernel->shouldReceive('call')->with('filament:clear-cached-components')->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('capell:package-cache:clear')->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('capell:package-cache')->once()->andReturn(0);
     $this->app->instance(ConsoleKernel::class, $kernel);
 
     ClearCachesAction::run([
@@ -169,17 +169,17 @@ it('executes a cache command for every individually advertised cache key', funct
     ]);
 });
 
-it('clears generated capell package cache files when all is selected', function (): void {
+it('rebuilds generated capell package cache files when all is selected', function (): void {
     $availableCommands = [
         'capell:html-cache:clear' => true,
-        'capell:package-cache:clear' => true,
+        'capell:package-cache' => true,
     ];
 
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('all')->twice()->andReturn($availableCommands);
     $kernel->shouldReceive('call')->with('optimize:clear')->never();
     $kernel->shouldReceive('call')->with('capell:html-cache:clear')->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('capell:package-cache:clear')->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('capell:package-cache')->once()->andReturn(0);
     $this->app->instance(ConsoleKernel::class, $kernel);
 
     ClearCachesAction::run(['all'], new NullProgressReporter);

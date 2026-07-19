@@ -63,8 +63,8 @@ class ClearCachesAction
             'optional' => true,
         ],
         'packages' => [
-            'command' => 'capell:package-cache:clear',
-            'message' => '✓ Capell package cache cleared',
+            'command' => 'capell:package-cache',
+            'message' => '✓ Capell package cache rebuilt',
             'optional' => true,
         ],
     ];

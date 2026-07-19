@@ -36,7 +36,7 @@ it('guards each install attempt and bounds lock-contention retries', function ()
 
     expect($job)->toBeInstanceOf(ShouldBeUnique::class)
         ->and($job->uniqueId())->toBe('42')
-        ->and($job->tries)->toBe(30)
+        ->and($job->tries)->toBe(0)
         ->and($job->backoff())->toBe([30, 60, 120, 300]);
 });
 
@@ -66,7 +66,18 @@ it('marks composer failures without sending the old failure notification', funct
         ->and($attempt->failure_reason)->toBe('Composer failed hard')
         ->and($attempt->started_at)->not->toBeNull()
         ->and($attempt->completed_at)->not->toBeNull()
-        ->and($attempt->resolved_at)->toBeNull();
+        ->and($attempt->resolved_at)->toBeNull()
+        ->and($attempt->attempt_count)->toBe(1)
+        ->and($attempt->heartbeat_at)->not->toBeNull()
+        ->and($attempt->current_stage)->toBe(MarketplaceInstallFailureStage::Composer->value)
+        ->and($attempt->runtime_ms)->toBeInt()
+        ->and($attempt->peak_memory_bytes)->toBeGreaterThan(0)
+        ->and($attempt->query_count)->toBeGreaterThan(0)
+        ->and($attempt->failure_context)->toMatchArray([
+            'type' => MarketplaceInstallFailureType::Unknown->value,
+            'stage' => MarketplaceInstallFailureStage::Composer->value,
+            'reason' => 'Composer failed hard',
+        ]);
 
     Notification::assertNothingSentTo($superAdmin);
 });

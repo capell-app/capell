@@ -48,7 +48,14 @@ final class QueueMarketplaceInstallAttemptAction
         ?string $telemetryStatus = null,
         ?Authenticatable $user = null,
         bool $afterResponse = true,
+        ?string $idempotencyKey = null,
     ): MarketplaceInstallAttempt {
+        $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
+
+        if ($existingAttempt instanceof MarketplaceInstallAttempt) {
+            return $existingAttempt;
+        }
+
         $lock = Cache::lock('capell-marketplace:queue-install:' . hash('sha256', $acquisition->composerName), 10);
 
         if (! $lock->get()) {
@@ -70,6 +77,7 @@ final class QueueMarketplaceInstallAttemptAction
                 telemetryStatus: $telemetryStatus,
                 user: $user,
                 afterResponse: $afterResponse,
+                idempotencyKey: $idempotencyKey,
             );
         } finally {
             $lock->release();
@@ -95,7 +103,14 @@ final class QueueMarketplaceInstallAttemptAction
         ?string $telemetryStatus = null,
         ?Authenticatable $user = null,
         bool $afterResponse = true,
+        ?string $idempotencyKey = null,
     ): MarketplaceInstallAttempt {
+        $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
+
+        if ($existingAttempt instanceof MarketplaceInstallAttempt) {
+            return $existingAttempt;
+        }
+
         if (! $policyEvidence->entitlementAllowed
             || ! $policyEvidence->compatibilityAllowed
             || ! $policyEvidence->consentAllowed) {
@@ -136,6 +151,7 @@ final class QueueMarketplaceInstallAttemptAction
             failureReason: null,
             telemetryStatus: $telemetryStatus,
             user: $user,
+            idempotencyKey: $idempotencyKey,
         );
 
         $attempt->forceFill(['queued_at' => now()])->save();
@@ -201,13 +217,9 @@ final class QueueMarketplaceInstallAttemptAction
             $attempt->forceFill(['failure_reason' => $reason])->save();
         }
 
-        if ($afterResponse) {
-            RunMarketplaceInstallAttemptJob::dispatchAfterResponse((int) $attempt->getKey());
-        } else {
-            dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
-                ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
-                ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
-        }
+        dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
+            ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
+            ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
 
         return $attempt;
     }
@@ -309,5 +321,16 @@ final class QueueMarketplaceInstallAttemptAction
                 'package' => $composerName,
             ]),
         ]);
+    }
+
+    private function findIdempotentAttempt(?string $idempotencyKey): ?MarketplaceInstallAttempt
+    {
+        if ($idempotencyKey === null || trim($idempotencyKey) === '') {
+            return null;
+        }
+
+        return MarketplaceInstallAttempt::query()
+            ->where('idempotency_key', hash('sha256', $idempotencyKey))
+            ->first();
     }
 }

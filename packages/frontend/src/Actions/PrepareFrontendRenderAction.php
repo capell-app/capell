@@ -24,6 +24,8 @@ final class PrepareFrontendRenderAction
         FrontendContextReader $context,
         FrontendRenderContextData $renderContext,
     ): PreparedFrontendRenderData {
+        $renderContext->theme?->loadMissing('blueprint');
+
         $runtimeResolution = ResolveFrontendRuntimeAction::run($context);
         $renderer = resolve(FrontendResponseRendererRegistry::class)
             ->forRuntime($runtimeResolution->runtime);

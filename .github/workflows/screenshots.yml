@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     branches:
-      - 1.x
+      - main
     paths:
       - 'docs/screenshots.json'
       - 'packages/**'
@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: capell-app/capell
-          ref: ${{ github.repository == 'capell-app/capell' && github.sha || '1.x' }}
+          ref: ${{ github.repository == 'capell-app/capell' && github.sha || 'main' }}
           token: ${{ secrets.ACCESS_TOKEN }}
           fetch-depth: 0
           path: repositories/capell

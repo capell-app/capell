@@ -166,6 +166,7 @@ final class ResumeMarketplaceInstallFlowAction
                 ],
                 user: auth()->user(),
                 afterResponse: false,
+                idempotencyKey: sprintf('hosted-flow:%s:%s', $session->getKey(), $composerName),
             );
         }
 

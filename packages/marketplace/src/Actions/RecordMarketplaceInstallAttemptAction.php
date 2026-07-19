@@ -43,6 +43,7 @@ final class RecordMarketplaceInstallAttemptAction
         ?string $failureReason = null,
         ?string $telemetryStatus = null,
         ?Authenticatable $user = null,
+        ?string $idempotencyKey = null,
     ): MarketplaceInstallAttempt {
         $recordedAt = now();
         $userContext = $this->userContext($user);
@@ -68,6 +69,9 @@ final class RecordMarketplaceInstallAttemptAction
             'policy_evidence' => $policyEvidence->toArray(),
             'failure_reason' => $failureReason,
             'telemetry_status' => $telemetryStatus,
+            'idempotency_key' => $idempotencyKey !== null && trim($idempotencyKey) !== ''
+                ? hash('sha256', $idempotencyKey)
+                : null,
             'user_id' => $userContext['id'] ?? null,
             'user_email' => $userContext['email'] ?? null,
             'resolved_at' => in_array($status, [

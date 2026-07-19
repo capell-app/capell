@@ -46,9 +46,7 @@ try {
             }
             if (str_starts_with($argument, '--bump=')) {
                 $value = substr($argument, 7);
-                if (! str_contains($value, '=')) {
-                    throw new ReleaseException('Bumps use --bump=package=patch|minor|major.');
-                }
+                throw_unless(str_contains($value, '='), ReleaseException::class, 'Bumps use --bump=package=patch|minor|major.');
                 [$package, $type] = explode('=', $value, 2);
                 $bumps[$package] = $type;
             }
@@ -58,22 +56,18 @@ try {
         }
         $previous = $from === null ? null : $normalizeMaturity(json_decode((string) file_get_contents($from), true, 512, JSON_THROW_ON_ERROR));
         $version = $baseline ?? 'incremental';
-        if (! is_string($version)) {
-            throw new ReleaseException('plan requires --baseline-version or --from.');
-        }
+        throw_unless(is_string($version), ReleaseException::class, 'plan requires --baseline-version or --from.');
         $externalLedger = [];
         if ($dependenciesFrom !== null) {
             $dependencyPlan = $normalizeMaturity(json_decode((string) file_get_contents($dependenciesFrom), true, 512, JSON_THROW_ON_ERROR));
             (new PlanValidator)->validate($dependencyPlan);
             $externalLedger = [...($dependencyPlan['external_ledger'] ?? []), ...$dependencyPlan['ledger']];
         }
-        echo json_encode((new ReleaseEngine($root))->plan($version, $previous, $bumps, $externalLedger), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+        echo json_encode(new ReleaseEngine($root)->plan($version, $previous, $bumps, $externalLedger), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
         exit(0);
     }
     $path = $argv[2] ?? null;
-    if ($path === null) {
-        throw new ReleaseException("{$command} requires a plan path.");
-    }
+    throw_if($path === null, ReleaseException::class, $command . ' requires a plan path.');
     $plan = $normalizeMaturity(json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR));
     (new PlanValidator)->validate($plan);
     if ($command === 'validate') {
@@ -92,8 +86,8 @@ try {
         echo "Remote release verified.\n";
         exit(0);
     }
-    throw new ReleaseException("Unknown command {$command}.");
-} catch (Throwable $exception) {
-    fwrite(STDERR, $exception->getMessage() . PHP_EOL);
+    throw new ReleaseException(sprintf('Unknown command %s.', $command));
+} catch (Throwable $throwable) {
+    fwrite(STDERR, $throwable->getMessage() . PHP_EOL);
     exit(1);
 }

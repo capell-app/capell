@@ -38,6 +38,7 @@ use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
+use Capell\Core\Console\Commands\RuntimeRefreshCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
@@ -241,6 +242,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             UpgradeCommand::class,
             RollbackCommand::class,
             RestoreBackupCommand::class,
+            RuntimeRefreshCommand::class,
             ThemeDoctorCommand::class,
             PurgeSoftDeletedMediaCommand::class,
             PublishComponentsCommand::class,

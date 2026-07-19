@@ -187,6 +187,7 @@ it('publishes a verified split and records atomic resumable state', function ():
             return match (true) {
                 str_contains($joined, 'status --porcelain') => ['output' => '', 'exitCode' => 0],
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
+                str_contains($joined, 'rev-parse FETCH_HEAD') => ['output' => str_repeat('f', 40), 'exitCode' => 0],
                 str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
                 str_contains($joined, 'commit-tree'), str_contains($joined, 'subtree split') => ['output' => $this->split, 'exitCode' => 0],
                 str_contains($joined, str_repeat('f', 40) . '^{tree}') => ['output' => str_repeat('e', 40), 'exitCode' => 0],
@@ -209,7 +210,8 @@ it('publishes a verified split and records atomic resumable state', function ():
     expect($state['packages']['capell-app/core']['split_sha'])->toBe($split)
         ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
         ->and(implode("\n", array_map(fn (array $command): string => implode(' ', $command), $runner->commands)))
-        ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0');
+        ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0')
+        ->toContain('rev-parse FETCH_HEAD')->not->toContain('capell-release-capell-')->not->toContain('refs/remotes/');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
@@ -745,7 +747,7 @@ it('reuses an unrecorded remote main commit when it already has the planned tree
                 str_contains($text, 'status') => '',
                 str_contains($text, 'rev-parse HEAD') => $this->sha,
                 str_contains($text, ':packages/core') => $this->tree,
-                str_contains($text, 'refs/remotes/') => $this->main,
+                str_contains($text, 'rev-parse FETCH_HEAD') => $this->main,
                 str_contains($text, '^{tree}') => $this->tree,
                 str_contains($text, 'git/ref/heads/main') => $this->main,
                 default => '',

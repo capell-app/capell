@@ -9,6 +9,7 @@ use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\VerifyMarketplaceSignedActivationAction;
 use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
+use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
@@ -30,6 +31,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         $package
             ->name(self::$name)
             ->hasConfigFile()
+            ->hasCommand(MarketplaceDoctorCommand::class)
             ->hasCommand(MarketplaceExtensionsLifecycleQaCommand::class)
             ->hasRoute('marketplace')
             ->hasViews(self::$name)
@@ -43,6 +45,8 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
                 '2026_05_10_190837_09_create_marketplace_install_attempts_table',
                 '2026_05_25_000001_create_marketplace_install_flow_sessions_table',
                 '2026_05_25_000004_create_marketplace_install_attempt_events_table',
+                '2026_07_14_000001_add_policy_evidence_to_marketplace_install_attempts',
+                '2026_07_19_000001_add_runtime_tracking_to_marketplace_install_attempts',
             ]);
     }
 

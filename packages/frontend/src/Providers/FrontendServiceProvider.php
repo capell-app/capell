@@ -6,6 +6,7 @@ namespace Capell\Frontend\Providers;
 
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
+use Capell\Core\Contracts\RuntimeRefreshWarmer;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
@@ -20,6 +21,7 @@ use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
+use Capell\Frontend\Actions\WarmCriticalFrontendPagesAction;
 use Capell\Frontend\Console\Commands\AfterInstallCommand;
 use Capell\Frontend\Console\Commands\GenerateErrorPagesCommand;
 use Capell\Frontend\Console\Commands\GenerateHtmlCommand;
@@ -255,6 +257,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             FrontendInteractionTargetCapabilityContributor::class,
             InteractionTargetCapabilityContributor::TAG,
         );
+        $this->app->tag(WarmCriticalFrontendPagesAction::class, RuntimeRefreshWarmer::TAG);
         $this->app->singletonIf(FrontendResourcePlanRenderer::class, DefaultFrontendResourcePlanRenderer::class);
         $this->app->singletonIf(RedirectResolver::class, NullRedirectResolver::class);
         $this->app->bind(DefaultSystemPageResolver::class);
