@@ -2,7 +2,7 @@
 
 Use this path to evaluate the current 1.x foundation in a fresh Laravel application. It installs Core, Admin, Frontend, Installer, and Marketplace, creates a site and administrator, seeds demo content, generates frontend assets, and runs the install health summary.
 
-The current 1.x foundation release is available through public Packagist packages. Marketplace access may be required separately for paid extensions or customer services.
+The current 1.x Capell Foundation release is MIT-licensed and available through public Packagist packages without a Capell account. Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access.
 
 For an existing application, use the [Install guide](install.md#existing-laravel-applications) and take a database and media backup before running migrations.
 

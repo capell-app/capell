@@ -102,7 +102,7 @@ while IFS= read -r package; do
 done < <(php -r '
   $packages = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
   foreach ($packages as $package) {
-      echo $package, PHP_EOL;
+      echo basename((string) $package["path"]), PHP_EOL;
   }
 ' "${ROOT}/config/release-packages.json")
 
