@@ -1575,6 +1575,31 @@ it('provides a package-owned livewire browser component', function (): void {
         ->and($componentReflection->getProperty('lockedKind')->getType()?->__toString())->toBe('?string');
 });
 
+it('preserves composer name filtering and ordering in marketplace selection reshapes', function (): void {
+    $browser = resolve(MarketplaceExtensionsBrowser::class);
+    $records = [
+        [],
+        ['composer_name' => null, 'maturity' => 'beta'],
+        ['composer_name' => '', 'maturity' => 'beta'],
+        ['composer_name' => '0', 'maturity' => 'beta'],
+        ['composer_name' => 'vendor/first', 'maturity' => 'stable'],
+        ['composer_name' => 'vendor/second', 'maturity' => 'beta'],
+        ['composer_name' => 'vendor/third', 'maturity' => 'beta'],
+    ];
+
+    $composerNames = new ReflectionMethod(MarketplaceExtensionsBrowser::class, 'recordComposerNames');
+    $betaComposerNames = new ReflectionMethod(MarketplaceExtensionsBrowser::class, 'betaRecordComposerNames');
+
+    expect($composerNames->invoke($browser, $records))->toBe([
+        'vendor/first',
+        'vendor/second',
+        'vendor/third',
+    ])->and($betaComposerNames->invoke($browser, $records))->toBe([
+        'vendor/second',
+        'vendor/third',
+    ]);
+});
+
 it('does not expose per-extension marketplace install actions', function (): void {
     grantMarketplaceBrowserViewOnlyAccess();
 

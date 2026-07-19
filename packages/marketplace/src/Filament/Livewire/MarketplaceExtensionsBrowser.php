@@ -793,7 +793,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         foreach ($records as $record) {
             $composerName = $this->recordComposerName($record);
 
-            if ($composerName !== null) {
+            if ($composerName !== null && $composerName !== '0') {
                 $composerNames[] = $composerName;
             }
         }
@@ -816,7 +816,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
             $composerName = $this->recordComposerName($record);
 
-            if ($composerName !== null) {
+            if ($composerName !== null && $composerName !== '0') {
                 $composerNames[] = $composerName;
             }
         }
