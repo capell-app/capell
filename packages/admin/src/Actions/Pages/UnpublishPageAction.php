@@ -8,6 +8,7 @@ use Capell\Admin\Data\Pages\PublishVisibilityActionResultData;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
@@ -31,11 +32,15 @@ final class UnpublishPageAction
             return PublishVisibilityActionResultData::skipped('not_live');
         }
 
-        $page->visible_until = CarbonImmutable::now();
-        $page->save();
+        $unpublishedAt = CarbonImmutable::now();
+
+        PublicationDateGuard::allow(function () use ($page, $unpublishedAt): void {
+            $page->visible_until = $unpublishedAt;
+            $page->save();
+        });
 
         PageSavedAction::run($page, [
-            'visible_until' => $page->visible_until->toDateTimeString(),
+            'visible_until' => $unpublishedAt->toDateTimeString(),
             'unpublished_by' => $actor->getKey(),
         ]);
 

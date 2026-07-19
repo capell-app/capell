@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Publishing;
 
 use Capell\Core\Models\Contracts\Publishable;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -28,9 +29,11 @@ final class CancelScheduledUnpublishAction
             return false;
         }
 
-        DB::transaction(function () use ($record): void {
-            $record->setAttribute('visible_until', null);
-            $record->saveOrFail();
+        PublicationDateGuard::allow(function () use ($record): void {
+            DB::transaction(function () use ($record): void {
+                $record->setAttribute('visible_until', null);
+                $record->saveOrFail();
+            });
         });
 
         return true;

@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Actions\IncrementNameAction;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -36,7 +37,9 @@ class ReplicatePageAction
 
         $model->fill($data);
 
-        $replica = $model->duplicate();
+        $replica = PublicationDateGuard::allow(
+            fn (): ?Page => $model->duplicate(),
+        );
         throw_if($replica === null, RuntimeException::class, 'Page could not be duplicated.');
 
         if ($model->isClean('name')) {
@@ -46,7 +49,9 @@ class ReplicatePageAction
         $replica->setAttribute('created_at', now());
         $replica->setAttribute('updated_at', now());
 
-        $replica->save();
+        PublicationDateGuard::allow(
+            fn (): bool => $replica->save(),
+        );
 
         if ($translations) {
             foreach ($translations as $translation) {

@@ -50,6 +50,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ForceDeleteAction;
@@ -403,6 +404,17 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    #[Override]
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return PublicationDateGuard::allow(
+            fn (): Model => parent::handleRecordUpdate($record, $data),
+        );
     }
 
     protected function beforeSave(): void

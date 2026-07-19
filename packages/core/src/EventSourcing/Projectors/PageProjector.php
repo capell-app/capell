@@ -18,6 +18,7 @@ use Capell\Core\EventSourcing\Events\PageUnpublished;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\PageWorkflowState;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Carbon\CarbonImmutable;
 use Spatie\EventSourcing\EventHandlers\Projectors\Projector;
 use Spatie\EventSourcing\StoredEvents\ShouldBeStored;
@@ -156,12 +157,14 @@ final class PageProjector extends Projector
 
     private function syncVisibility(ShouldBeStored $event, ?CarbonImmutable $visibleFrom, ?CarbonImmutable $visibleUntil): void
     {
-        Page::query()
-            ->where('uuid', $event->aggregateRootUuid())
-            ->update([
-                'visible_from' => $visibleFrom,
-                'visible_until' => $visibleUntil,
-            ]);
+        PublicationDateGuard::allow(
+            static fn (): int => Page::query()
+                ->where('uuid', $event->aggregateRootUuid())
+                ->update([
+                    'visible_from' => $visibleFrom,
+                    'visible_until' => $visibleUntil,
+                ]),
+        );
     }
 
     private function actorId(ShouldBeStored $event): ?int

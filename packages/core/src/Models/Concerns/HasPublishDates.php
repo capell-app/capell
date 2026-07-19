@@ -6,7 +6,9 @@ namespace Capell\Core\Models\Concerns;
 
 use Capell\Core\Enums\PublishStatusEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Exceptions\UnauthorizedPublicationMutationException;
 use Capell\Core\Models\Contracts\Publishable;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -71,6 +73,19 @@ trait HasPublishDates
     public function isDraftSentinel(): bool
     {
         return PublishSentinel::isDraftValue($this->normalizeDateAttribute('visible_from'));
+    }
+
+    protected static function bootHasPublishDates(): void
+    {
+        static::saving(static function (Model $model): void {
+            if (! $model->isDirty(['visible_from', 'visible_until'])) {
+                return;
+            }
+
+            if (! PublicationDateGuard::permitted()) {
+                throw UnauthorizedPublicationMutationException::for($model);
+            }
+        });
     }
 
     /**

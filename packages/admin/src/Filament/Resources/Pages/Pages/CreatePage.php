@@ -23,6 +23,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -253,6 +254,17 @@ class CreatePage extends CreateRecord implements HasPageResource
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    #[Override]
+    protected function handleRecordCreation(array $data): Model
+    {
+        return PublicationDateGuard::allow(
+            fn (): Model => parent::handleRecordCreation($data),
+        );
     }
 
     protected function afterCreate(): void

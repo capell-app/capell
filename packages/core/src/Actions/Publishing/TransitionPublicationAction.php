@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -40,10 +41,12 @@ final class TransitionPublicationAction
         }
 
         try {
-            DB::transaction(function () use ($request, $result): void {
-                $request->record->setAttribute('visible_from', $result->visibleFrom);
-                $request->record->setAttribute('visible_until', $result->visibleUntil);
-                $request->record->saveOrFail();
+            PublicationDateGuard::allow(function () use ($request, $result): void {
+                DB::transaction(function () use ($request, $result): void {
+                    $request->record->setAttribute('visible_from', $result->visibleFrom);
+                    $request->record->setAttribute('visible_until', $result->visibleUntil);
+                    $request->record->saveOrFail();
+                });
             });
         } catch (Throwable) {
             return $this->evaluator->unchanged(

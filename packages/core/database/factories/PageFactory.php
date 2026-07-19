@@ -14,8 +14,11 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Creator\BlueprintCreator;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Override;
 
 /**
  * @extends Factory<Page>
@@ -28,6 +31,17 @@ class PageFactory extends Factory
     use HasTranslations;
 
     protected $model = Page::class;
+
+    /**
+     * @param  (callable(array<string, mixed>): array<string, mixed>)|array<string, mixed>  $attributes
+     */
+    #[Override]
+    public function create($attributes = [], ?Model $parent = null): mixed
+    {
+        return PublicationDateGuard::allow(
+            fn (): mixed => parent::create($attributes, $parent),
+        );
+    }
 
     /**
      * Define the model's default state.

@@ -17,6 +17,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -272,17 +273,19 @@ class PageCreator implements PageCreatable
         ];
 
         /** @var Page $page */
-        $page = CapellCore::createOrUpdateModel(
-            $this->pageModel,
-            [
-                'name' => $data['name'],
-                'layout_id' => $defaults['layout_id'],
-                'site_id' => $site->id,
-                'blueprint_id' => $defaults['blueprint_id'],
-                'parent_id' => $defaults['parent_id'],
-            ],
-            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
-            PageInterceptorInterface::class,
+        $page = PublicationDateGuard::allow(
+            fn (): Pageable => CapellCore::createOrUpdateModel(
+                $this->pageModel,
+                [
+                    'name' => $data['name'],
+                    'layout_id' => $defaults['layout_id'],
+                    'site_id' => $site->id,
+                    'blueprint_id' => $defaults['blueprint_id'],
+                    'parent_id' => $defaults['parent_id'],
+                ],
+                fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+                PageInterceptorInterface::class,
+            ),
         );
 
         $languages->each(function (Language $language) use ($data, $page): void {

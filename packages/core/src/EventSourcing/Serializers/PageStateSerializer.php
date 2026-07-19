@@ -8,6 +8,7 @@ use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -93,11 +94,13 @@ final class PageStateSerializer implements EventSourcedStateSerializer
     {
         $page = $this->asPage($model);
 
-        DB::transaction(function () use ($page, $state): void {
-            Model::withoutEvents(function () use ($page, $state): void {
-                $this->restoreAttributes($page, $state['attributes'] ?? []);
-                $this->restoreTranslations($page, $state['translations'] ?? []);
-                $this->restorePageUrls($page, $state['pageUrls'] ?? []);
+        PublicationDateGuard::allow(function () use ($page, $state): void {
+            DB::transaction(function () use ($page, $state): void {
+                Model::withoutEvents(function () use ($page, $state): void {
+                    $this->restoreAttributes($page, $state['attributes'] ?? []);
+                    $this->restoreTranslations($page, $state['translations'] ?? []);
+                    $this->restorePageUrls($page, $state['pageUrls'] ?? []);
+                });
             });
         });
     }

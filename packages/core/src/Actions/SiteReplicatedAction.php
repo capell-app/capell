@@ -12,6 +12,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -184,7 +185,9 @@ class SiteReplicatedAction
         array $replacementPages,
         ?Page $parentPage = null,
     ): array {
-        $replica = $page->duplicateExcept(['deleted_at', 'deleted_by']);
+        $replica = PublicationDateGuard::allow(
+            fn (): Page => $page->duplicateExcept(['deleted_at', 'deleted_by']),
+        );
 
         $replica->site()->associate($site);
 
@@ -194,7 +197,9 @@ class SiteReplicatedAction
             $replica->parent_id = null;
         }
 
-        $replica->saveQuietly();
+        PublicationDateGuard::allow(
+            fn (): bool => $replica->saveQuietly(),
+        );
 
         $replacementPages[$page->id] = $replica;
 
@@ -203,7 +208,9 @@ class SiteReplicatedAction
             $this->replicatePageUrl($page, $replica, $language);
         });
 
-        $replica->save();
+        PublicationDateGuard::allow(
+            fn (): bool => $replica->save(),
+        );
 
         if ($page->children->isNotEmpty()) {
             $page->children->each(function (Page $child) use ($site, $languages, &$replacementPages, $replica): void {

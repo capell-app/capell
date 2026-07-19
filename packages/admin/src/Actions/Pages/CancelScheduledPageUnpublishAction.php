@@ -8,6 +8,7 @@ use Capell\Admin\Data\Pages\PublishVisibilityActionResultData;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -30,8 +31,10 @@ final class CancelScheduledPageUnpublishAction
             return PublishVisibilityActionResultData::skipped('not_scheduled');
         }
 
-        $page->visible_until = null;
-        $page->save();
+        PublicationDateGuard::allow(function () use ($page): void {
+            $page->visible_until = null;
+            $page->save();
+        });
 
         PageSavedAction::run($page, [
             'visible_until' => null,

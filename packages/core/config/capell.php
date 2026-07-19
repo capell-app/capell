@@ -79,6 +79,10 @@ return [
         'relationship_diagnostics' => env('CAPELL_RELATIONSHIP_DIAGNOSTICS', false),
     ],
 
+    'publishing' => [
+        'guard_visibility_dates' => env('CAPELL_PUBLISHING_GUARD_VISIBILITY_DATES', true),
+    ],
+
     /**
      * Prevent saving to cache for specific keys.
      * Accepts:

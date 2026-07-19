@@ -16,9 +16,12 @@ use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Capell\Core\Support\Slug\SlugGenerator;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Model;
@@ -161,6 +164,16 @@ class CreatePageAction extends CreateAction
                     return self::saveActionUsing($data, $livewire);
                 },
             );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function saveActionUsing(array $data, HasActions&HasSchemas $livewire): Model
+    {
+        return PublicationDateGuard::allow(
+            fn (): Model => parent::saveActionUsing($data, $livewire),
+        );
     }
 
     /**
