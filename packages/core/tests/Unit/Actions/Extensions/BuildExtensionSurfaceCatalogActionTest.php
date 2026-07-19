@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Tokens\IssueApiTokenAction;
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
+use Capell\Core\Console\Commands\ExportBlueprintBlockSchemaCommand;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
@@ -12,6 +13,7 @@ use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Enums\ApiTokenAbility;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Core\Support\BlueprintBlockSchema;
 use Capell\Frontend\Actions\BuildPageSchemaGraphAction;
 use Capell\Frontend\Actions\ResolvePageSocialMetaAction;
 use Capell\Frontend\Contracts\AeoRouteProvider;
@@ -98,6 +100,15 @@ it('classifies scoped API token issuance as a stable extension surface', functio
         ->and($catalog->get('core.enum.api-token-ability')?->identifier)->toBe(ApiTokenAbility::class)
         ->and($catalog->get('core.enum.api-token-ability')?->stability)->toBe(ExtensionSurfaceStability::Stable)
         ->and($catalog->get('core.enum.api-token-ability')?->contractTestId)->toBe('core.api-token-ability');
+});
+
+it('classifies blueprint block schema export as a stable extension surface', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+
+    expect($catalog->get('core.schema.blueprint-block-payload')?->identifier)->toBe(BlueprintBlockSchema::class)
+        ->and($catalog->get('core.schema.blueprint-block-payload')?->stability)->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.command.export-blueprint-block-schema')?->identifier)->toBe(ExportBlueprintBlockSchemaCommand::class)
+        ->and($catalog->get('core.command.export-blueprint-block-schema')?->stability)->toBe(ExtensionSurfaceStability::Stable);
 });
 
 it('classifies the frontend package dependency seam as experimental', function (): void {

@@ -41,6 +41,9 @@
         "symfony/html-sanitizer": "^7.0|^8.0",
         "symfony/process": "^7.2|^8.0"
     },
+    "require-dev": {
+        "opis/json-schema": "^2.6"
+    },
     "autoload": {
         "psr-4": {
             "Capell\\Core\\": "src",

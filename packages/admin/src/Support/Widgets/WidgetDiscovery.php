@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Widgets;
 
 use Capell\Admin\Contracts\Widgets\FilamentWidget;
+use Capell\Core\Support\BlueprintBlockTypeRegistry;
 use Filament\Forms\Components\Builder\Block;
 use Illuminate\Filesystem\Filesystem;
 use InvalidArgumentException;
@@ -42,6 +43,7 @@ class WidgetDiscovery
         }
 
         $this->widgets[$widgetName] = $widgetClass;
+        resolve(BlueprintBlockTypeRegistry::class)->register($widgetName);
     }
 
     /**
@@ -60,6 +62,7 @@ class WidgetDiscovery
 
         $this->widgets[$widgetName] = $widgetClass;
         $this->authoritativeWidgets[$widgetName] = true;
+        resolve(BlueprintBlockTypeRegistry::class)->register($widgetName);
     }
 
     public function registerDiscoverableWidgets(string $directory, string $namespace): void
@@ -141,6 +144,7 @@ class WidgetDiscovery
 
             if (! isset($this->authoritativeWidgets[$name])) {
                 $this->widgets[$name] = $widgetClass;
+                resolve(BlueprintBlockTypeRegistry::class)->register($name);
             }
         }
     }

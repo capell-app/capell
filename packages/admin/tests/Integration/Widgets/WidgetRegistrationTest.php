@@ -9,6 +9,8 @@ use Capell\Admin\Filament\Widgets\ContentFilamentWidget;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Admin\Tests\Fixtures\Widgets\AlternateHeroWidget;
 use Capell\Admin\Tests\Fixtures\Widgets\HeroWidget;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\BlueprintBlockTypeRegistry;
 use Filament\Forms\Components\Builder\Block;
 use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Finder\SplFileInfo;
@@ -54,6 +56,13 @@ it('registerWidget adds a custom widget to the registry', function (): void {
     $names = array_map(fn (Block $widget): string => $widget->getName(), $widgets);
 
     expect($names)->toContain('hero');
+});
+
+it('exposes registered widgets to blueprint block schema generation', function (): void {
+    CapellAdmin::registerWidget(HeroWidget::class);
+
+    expect(resolve(BlueprintBlockTypeRegistry::class)->for(Blueprint::factory()->make()))
+        ->toContain('content', 'hero');
 });
 
 it('registerWidget throws for a class that does not implement a Filament widget contract', function (): void {

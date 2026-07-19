@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Extensions;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
+use Capell\Core\Console\Commands\ExportBlueprintBlockSchemaCommand;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
@@ -23,6 +24,7 @@ use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\BlueprintBlockSchema;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Testing\ExtensionTestHarness;
 use InvalidArgumentException;
@@ -100,6 +102,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('marketplace.tag.composer-change-publisher', 'tagged-service', 'capell.marketplace.composer-change-publisher', ExtensionSurfaceStability::Experimental, 'Container tag for optional Composer change publishers.', owner: 'capell-app/marketplace'),
             $this->entry('core.testing.extension-harness', 'testing', ExtensionTestHarness::class, ExtensionSurfaceStability::Stable, 'Single-package manifest and contribution assertions.', 'core.extension-test-harness'),
             $this->entry('core.schema.project-build-manifest-v1', 'schema', ProjectBuildManifestSchema::class, ExtensionSurfaceStability::Experimental, 'Closed JSON Schema for portable project build manifests.'),
+            $this->entry('core.schema.blueprint-block-payload', 'schema', BlueprintBlockSchema::class, ExtensionSurfaceStability::Stable, 'JSON Schema builder for editor-compatible blueprint block payloads.', 'core.blueprint-block-schema'),
+            $this->entry('core.command.export-blueprint-block-schema', 'command', ExportBlueprintBlockSchemaCommand::class, ExtensionSurfaceStability::Stable, 'CLI export for one or all blueprint block payload schemas.', 'core.blueprint-block-schema-export'),
             $this->entry('core.internal.registry-builder', 'internal', BuildExtensionContractRegistryAction::class, ExtensionSurfaceStability::Internal, 'Internal executable contribution index.'),
             $this->entry('core.internal.project-build-manifest-migration', 'internal', ProjectBuildManifestMigration::class, ExtensionSurfaceStability::Internal, 'Core-owned portable manifest migration boundary.'),
             $this->entry('frontend.contract.aeo-route-provider', 'contract', 'Capell\\Frontend\\Contracts\\AeoRouteProvider', ExtensionSurfaceStability::Stable, 'Typed exact-path AEO response provider.', 'frontend.aeo-route-provider', owner: 'capell-app/frontend'),

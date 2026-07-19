@@ -16,6 +16,7 @@ use Capell\Core\Console\Commands\CoreFakerCommand;
 use Capell\Core\Console\Commands\CreateBackupCommand;
 use Capell\Core\Console\Commands\DeleteMigrationsCommand;
 use Capell\Core\Console\Commands\DoctorCommand;
+use Capell\Core\Console\Commands\ExportBlueprintBlockSchemaCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
@@ -87,6 +88,7 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
+use Capell\Core\Support\BlueprintBlockTypeRegistry;
 use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
@@ -178,6 +180,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         $this->app->singleton(CapellCoreManager::class);
         $this->app->singleton(ComponentRegistry::class);
+        $this->app->singleton(BlueprintBlockTypeRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->scoped(RuntimeSchemaState::class);
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
@@ -225,6 +228,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             DeleteMigrationsCommand::class,
             DoctorCommand::class,
             ExtensionAuditCommand::class,
+            ExportBlueprintBlockSchemaCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
             ImportSiteSpecCommand::class,

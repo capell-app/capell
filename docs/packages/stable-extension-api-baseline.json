@@ -22,6 +22,11 @@
             "signature": "5cc6ab6bba845d46253c3bdd98a9671af025989c3993ecf586065333140c97c4",
             "contractTestId": "core.project-build-manifest-signing"
         },
+        "core.command.export-blueprint-block-schema": {
+            "identifier": "Capell\\Core\\Console\\Commands\\ExportBlueprintBlockSchemaCommand",
+            "signature": "d2e1a524be9ddd20794257cb4adcdb7f28a3e3c462c6019c1be3882d35ce1e25",
+            "contractTestId": "core.blueprint-block-schema-export"
+        },
         "core.contract.extension-contribution": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
@@ -51,6 +56,11 @@
             "identifier": "Capell\\Core\\Events\\PackageInstalled",
             "signature": "9791d008a221f76abdf3bd0e7c8f5da09d16901defbaa456e009a71b27636672",
             "contractTestId": "core.package-installed-event"
+        },
+        "core.schema.blueprint-block-payload": {
+            "identifier": "Capell\\Core\\Support\\BlueprintBlockSchema",
+            "signature": "05d7b76fbe308d74a8a1358c6de48076511aa5da2c9f8b280269ae3103db3c85",
+            "contractTestId": "core.blueprint-block-schema"
         },
         "core.tag.project-build-artifact-handler": {
             "identifier": "capell.project-build.artifact-handler",
