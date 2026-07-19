@@ -28,6 +28,7 @@ use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\ViteThemeInputPatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Illuminate\Support\Facades\Schema;
 use Override;
 use Spatie\LaravelPackageTools\Package;
@@ -59,6 +60,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
     public function packageRegistered(): void
     {
         $this->app->singleton(PatchRegistry::class, fn (): PatchRegistry => new PatchRegistry);
+        $this->app->scoped(InstallerPreflight::class);
     }
 
     /**
