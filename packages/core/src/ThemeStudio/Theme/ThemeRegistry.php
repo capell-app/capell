@@ -36,4 +36,9 @@ class ThemeRegistry extends AbstractKeyedRegistry
     {
         return $this->hasItem($themeKey);
     }
+
+    public function reset(): void
+    {
+        $this->clearItems();
+    }
 }

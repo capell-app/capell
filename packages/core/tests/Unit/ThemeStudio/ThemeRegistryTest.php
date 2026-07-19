@@ -12,7 +12,7 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-it('registers, returns, and replaces theme metadata', function (): void {
+it('registers, returns, replaces, and resets theme metadata', function (): void {
     $registry = new ThemeRegistry;
     $original = themeRegistryDefinition('metadata-theme');
     $replacement = themeRegistryDefinition('metadata-theme', extends: 'foundation');
@@ -25,8 +25,13 @@ it('registers, returns, and replaces theme metadata', function (): void {
 
     $registry->register($replacement);
 
-    expect($registry->definition('metadata-theme'))->toBe($replacement)
-        ->and(fn (): ThemeDefinitionData => $registry->definition('missing-theme'))
+    expect($registry->definition('metadata-theme'))->toBe($replacement);
+
+    $registry->reset();
+
+    expect($registry->has('metadata-theme'))->toBeFalse()
+        ->and($registry->definitions())->toBe([])
+        ->and(fn (): ThemeDefinitionData => $registry->definition('metadata-theme'))
         ->toThrow(ThemeNotFoundException::class);
 });
 
