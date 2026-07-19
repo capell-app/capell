@@ -1,10 +1,10 @@
 {
     "launchSupported": false,
     "routes": [
-        {"siteKey":"primary","locale":"en-GB","path":"/"},
-        {"siteKey":"primary","locale":"fr-FR","path":"/fr"},
-        {"siteKey":"secondary","locale":"en-GB","path":"/"},
-        {"siteKey":"secondary","locale":"fr-FR","path":"/fr"}
+        { "siteKey": "primary", "locale": "en-GB", "path": "/" },
+        { "siteKey": "primary", "locale": "fr-FR", "path": "/fr" },
+        { "siteKey": "secondary", "locale": "en-GB", "path": "/" },
+        { "siteKey": "secondary", "locale": "fr-FR", "path": "/fr" }
     ],
     "fallbacks": {
         "primary:fr-FR": "en-GB",
