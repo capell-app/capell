@@ -21,6 +21,7 @@ use Capell\Admin\Console\Commands\UpgradeCommand;
 use Capell\Admin\Console\Commands\ValidateThemesCommand;
 use Capell\Admin\Contracts\Backup\PageExporter;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
+use Capell\Admin\Contracts\Cache\StaticSiteGenerationDispatcher;
 use Capell\Admin\Contracts\Dashboard\ContentHealthDataProvider;
 use Capell\Admin\Contracts\Dashboard\MyWorkQueueDataProvider;
 use Capell\Admin\Contracts\Dashboard\RecentlyPublishedDataProvider;
@@ -116,6 +117,7 @@ use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
+use Capell\Admin\Support\Cache\UnavailableStaticSiteGenerationDispatcher;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
@@ -254,6 +256,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     public function registeringPackage(): void
     {
         parent::registeringPackage();
+
+        $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);
 
         // Admin overrides the core default factory with a decorator that adds
         // translated label + max upload size. Plugins (e.g. capell/media-library)
