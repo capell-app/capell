@@ -182,7 +182,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
-        $this->app->singleton(SiteSpecApplierRegistry::class);
+        $this->app->scoped(SiteSpecApplierRegistry::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);
         config(['media-library.media_model' => Media::class]);
