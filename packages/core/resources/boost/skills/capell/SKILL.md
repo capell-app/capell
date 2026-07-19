@@ -20,7 +20,7 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 - Domain behaviour belongs in Actions under `packages/{pkg}/src/Actions`.
 - UI, resources, controllers, commands, and Livewire delegate to Actions.
 - Use Data objects for request, form, wire, API, and JSON-cast boundaries.
-- New core migrations must be registered in `packages/core/src/Concerns/HasMigrations.php`.
+- New core migrations must be registered in the core package's `src/Concerns/HasMigrations.php` (Composer installs: `vendor/capell/core/src/Concerns/HasMigrations.php`).
 
 ## Public Output Safety
 

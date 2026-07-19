@@ -98,7 +98,8 @@ describe('Page creation', function () {
 ### Using Factories
 
 ```php
-// Core factories are in packages/core/database/factories/
+// Core factories are in the core package's database/factories directory.
+// Composer installs: vendor/capell/core/database/factories/
 $site = Site::factory()->createOne();
 $language = Language::factory()->for($site)->create();
 $page = Page::factory()->for($site)->create();

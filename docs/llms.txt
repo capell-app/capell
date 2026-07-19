@@ -1,0 +1,36 @@
+# Capell CMS
+
+> Source-led documentation for Capell CMS architecture, extension contracts, AI-ready boundaries, and contributor standards.
+
+## Docs
+
+- [Documentation home](README.md)
+- [AI-ready Capell](getting-started/ai-ready.md)
+
+## Architecture
+
+- [Page cache architecture](architecture/page-cache.md)
+- [Architecture diagrams](reference/architecture-diagrams.md)
+- [Core entity relationships](reference/core-erd.md)
+
+## Packages and Extensions
+
+- [Package documentation](packages/README.md)
+- [Build an extension end to end](packages/build-extension-end-to-end.md)
+- [Extension point chooser](packages/extension-point-chooser.md)
+- [Extension point API reference](packages/extension-point-api-reference.md)
+- [Package catalogue](packages/catalog.md)
+- [AI Creator package boundary](packages/ai-creator.md)
+- [Extension surface catalogue](packages/extension-surface-catalog.md)
+- [Extension surface catalogue JSON](packages/extension-surface-catalog.json)
+- [Stable extension API baseline JSON](packages/stable-extension-api-baseline.json)
+
+## Reference
+
+- [Reference index](reference/index.md)
+- [Glossary](reference/glossary.md)
+- [Credits](reference/credits.md)
+
+## Standards
+
+- [Coding standards](standards/coding-standards.md)

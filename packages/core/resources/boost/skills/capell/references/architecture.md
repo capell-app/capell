@@ -121,7 +121,7 @@ Packages implement this to subscribe to model lifecycle events (created/updated/
 
 ## Filament Resources (Admin Panel)
 
-12 core resources in `packages/admin/src/Filament/Resources/`:
+The admin package provides 12 Filament resources under `src/Filament/Resources/` (Composer installs: `vendor/capell/admin/src/Filament/Resources/`):
 
 - `PageResource` — Page CRUD with blueprint-based schema fields
 - `SitesResource` — Multi-site management
