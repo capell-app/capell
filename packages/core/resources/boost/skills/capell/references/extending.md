@@ -148,15 +148,17 @@ class MyPackageSettingsSchema implements HasSchema
 ### 3. Register in Service Provider
 
 ```php
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
-
-private function registerSettingsSchemas(): void
+protected function bootInstalledPackage(): self
 {
-    $registry = resolve(SettingsSchemaRegistry::class);
-    $registry->registerSettingsClass('my_package', MyPackageSettings::class);
-    $registry->register('my_package', MyPackageSettingsSchema::class);
+    $surface = $this->surface();
+    $surface->settingsClass('my_package', MyPackageSettings::class);
+    $surface->settingsSchema('my_package', MyPackageSettingsSchema::class);
+
+    return $this;
 }
 ```
+
+Settings contributions are boot metadata. They are applied immediately in installed package provider load order and remain stable across Octane requests. If a keyed contribution intentionally replaces another package's schema, declare the package dependency that establishes that order.
 
 Create a migration for the settings:
 
@@ -168,20 +170,22 @@ php artisan make:migration create_my_package_settings
 
 ## Extending an Existing Schema
 
-Use the SettingsSchemaBootstrapper to modify existing schemas after they're registered:
+Contribute another keyed schema to the existing group from the package provider:
 
 ```php
-use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
-use Filament\Forms\Components\TextInput;
+protected function bootInstalledPackage(): self
+{
+    $this->surface()->settingsSchema(
+        'core',
+        MyPackageCoreSettingsSchema::class,
+        'my-package',
+    );
 
-$bootstrapper = resolve(SettingsSchemaBootstrapper::class);
-
-$bootstrapper->extend('core', function (array $components) {
-    return array_merge($components, [
-        TextInput::make('my_custom_field')->label('Custom Field'),
-    ]);
-});
+    return $this;
+}
 ```
+
+The registered schema class owns its Filament components. Do not defer registry mutation through an additional boot callback.
 
 ## Creating a Schema Extender (for Admin form-builder)
 

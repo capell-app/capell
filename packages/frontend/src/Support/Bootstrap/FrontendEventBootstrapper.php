@@ -33,8 +33,9 @@ final class FrontendEventBootstrapper
         Event::listen(PageUrlChanged::class, [PurgeCdnCacheOnPageChangeListener::class, 'handlePageUrlChanged']);
         Event::listen(FrontendSurrogateKeysInvalidated::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSurrogateKeys']);
 
-        // Error page dependencies span first- and third-party models, so these
-        // listeners intentionally remain wildcard-scoped.
+        // Eloquent observer events are scoped to the concrete model class.
+        // Wildcards preserve invalidation for supported third-party Page
+        // subclasses, while the observer bounds accepted models and owners.
         Event::listen('eloquent.created: *', [ErrorPageModelInvalidationObserver::class, 'createdFromEvent']);
         Event::listen('eloquent.updated: *', [ErrorPageModelInvalidationObserver::class, 'updatedFromEvent']);
         Event::listen('eloquent.deleted: *', [ErrorPageModelInvalidationObserver::class, 'deletedFromEvent']);

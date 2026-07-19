@@ -11,6 +11,7 @@ use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Illuminate\Contracts\Foundation\Application;
+use RuntimeException;
 use Throwable;
 
 final readonly class PackageRegistryBootstrapper
@@ -24,9 +25,7 @@ final readonly class PackageRegistryBootstrapper
     {
         $registry = $this->app->make(CapellPackageRegistry::class);
         $cachePath = $this->app->bootstrapPath('cache/capell-package-manifests.php');
-        $manifests = file_exists($cachePath)
-            ? $this->cachedManifests($cachePath)
-            : $this->manifestLoader->discover();
+        $manifests = $this->manifests($cachePath);
 
         $registry->fill([
             ...$registry->all(),
@@ -43,6 +42,20 @@ final readonly class PackageRegistryBootstrapper
     }
 
     /** @return array<string, CapellManifestData> */
+    private function manifests(string $cachePath): array
+    {
+        if (file_exists($cachePath)) {
+            return $this->cachedManifests($cachePath);
+        }
+
+        if ($this->app->runningInConsole()) {
+            return $this->manifestLoader->discover();
+        }
+
+        throw new RuntimeException('The Capell package manifest cache is missing. Run [php artisan capell:package-cache] during deployment.');
+    }
+
+    /** @return array<string, CapellManifestData> */
     private function cachedManifests(string $cachePath): array
     {
         try {
@@ -54,10 +67,17 @@ final readonly class PackageRegistryBootstrapper
                 $this->normalizeCachedManifest(...),
                 $cached,
             );
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
             @unlink($cachePath);
 
-            return $this->manifestLoader->discover();
+            if ($this->app->runningInConsole()) {
+                return $this->manifestLoader->discover();
+            }
+
+            throw new RuntimeException(
+                'The Capell package manifest cache is invalid. Run [php artisan capell:package-cache] during deployment.',
+                previous: $exception,
+            );
         }
     }
 

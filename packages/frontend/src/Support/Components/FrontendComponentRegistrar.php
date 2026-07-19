@@ -6,18 +6,19 @@ namespace Capell\Frontend\Support\Components;
 
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\LivewirePageComponentEnum;
+use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
+use Capell\Frontend\Data\FrontendComponentContributionData;
+use Capell\Frontend\Enums\FrontendComponentTarget;
 use Capell\Frontend\Livewire\Page\Page;
-use Capell\LayoutBuilder\Enums\LayoutWidgetTarget;
-use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
-use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Blade;
-use Livewire\Livewire;
+use Livewire\Component;
 
 final readonly class FrontendComponentRegistrar
 {
+    /** @param iterable<mixed> $contributors */
     public function __construct(
-        private Application $application,
+        private iterable $contributors,
     ) {}
 
     public function registerCoreComponents(FrontendComponentRegistryInterface $registry): void
@@ -34,30 +35,28 @@ final readonly class FrontendComponentRegistrar
 
     public function registerBladeComponents(): void
     {
-        foreach ($this->stringMap(config('capell-frontend.blade_components', [])) as $name => $component) {
-            Blade::component($component, $name);
-        }
-
-        foreach ($this->layoutWidgets('FrontendBlade') as $name => $component) {
+        foreach ($this->bladeComponents() as $name => $component) {
             Blade::component($component, $name);
         }
     }
 
-    public function registerLivewireComponents(): void
+    /** @return array<string, string> */
+    public function bladeComponents(): array
     {
-        if (! $this->application->bound('livewire.finder')) {
-            return;
-        }
+        return array_merge(
+            $this->stringMap(config('capell-frontend.blade_components', [])),
+            $this->contributedComponents(FrontendComponentTarget::Blade),
+        );
+    }
 
-        Livewire::component(LivewirePageComponentEnum::Default->value, Page::class);
-
-        foreach ($this->stringMap(config('capell-frontend.livewire_components', [])) as $name => $component) {
-            Livewire::component($name, $component);
-        }
-
-        foreach ($this->layoutWidgets('FrontendLivewire') as $name => $component) {
-            Livewire::component($name, $component);
-        }
+    /** @return array<string, class-string> */
+    public function livewireComponents(): array
+    {
+        return $this->livewireComponentMap(array_merge(
+            [LivewirePageComponentEnum::Default->value => Page::class],
+            $this->stringMap(config('capell-frontend.livewire_components', [])),
+            $this->contributedComponents(FrontendComponentTarget::Livewire),
+        ));
     }
 
     /** @return array<string, string> */
@@ -74,19 +73,41 @@ final readonly class FrontendComponentRegistrar
         );
     }
 
-    /** @return array<string, string> */
-    private function layoutWidgets(string $target): array
+    /**
+     * @param  array<string, string>  $components
+     * @return array<string, class-string<Component>>
+     */
+    private function livewireComponentMap(array $components): array
     {
-        if (! class_exists(LayoutWidgetRegistry::class) || ! enum_exists(LayoutWidgetTarget::class)) {
-            return [];
+        return array_filter(
+            $components,
+            static fn (string $component): bool => is_a($component, Component::class, true),
+        );
+    }
+
+    /** @return array<string, string> */
+    private function contributedComponents(FrontendComponentTarget $target): array
+    {
+        $components = [];
+
+        foreach ($this->contributors as $contributor) {
+            if (! $contributor instanceof FrontendComponentContributor) {
+                continue;
+            }
+
+            foreach ($contributor->components() as $component) {
+                if (! $component instanceof FrontendComponentContributionData) {
+                    continue;
+                }
+
+                if ($component->target !== $target) {
+                    continue;
+                }
+
+                $components[$component->name] = $component->component;
+            }
         }
 
-        $layoutWidgetTarget = $target === 'FrontendBlade'
-            ? LayoutWidgetTarget::FrontendBlade
-            : LayoutWidgetTarget::FrontendLivewire;
-
-        return $this->application
-            ->make(LayoutWidgetRegistry::class)
-            ->allForTarget($layoutWidgetTarget);
+        return $components;
     }
 }

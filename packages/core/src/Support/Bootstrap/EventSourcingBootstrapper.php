@@ -19,6 +19,7 @@ use Capell\Core\Models\Page;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Foundation\CachesConfiguration;
 use ReflectionClass;
 use Spatie\EventSourcing\EventSourcingServiceProvider;
 
@@ -36,11 +37,13 @@ final readonly class EventSourcingBootstrapper
         $this->app->singleton(RollbackValidatorRegistry::class);
         $this->app->singleton(StateDiffer::class);
 
-        $providerFile = new ReflectionClass(EventSourcingServiceProvider::class)->getFileName();
+        if (! $this->app instanceof CachesConfiguration || ! $this->app->configurationIsCached()) {
+            $providerFile = new ReflectionClass(EventSourcingServiceProvider::class)->getFileName();
 
-        if ($providerFile !== false) {
-            $defaults = require dirname($providerFile, 2) . '/config/event-sourcing.php';
-            $this->config->set('event-sourcing', array_merge($defaults, $this->config->get('event-sourcing', [])));
+            if ($providerFile !== false) {
+                $defaults = require dirname($providerFile, 2) . '/config/event-sourcing.php';
+                $this->config->set('event-sourcing', array_merge($defaults, $this->config->get('event-sourcing', [])));
+            }
         }
 
         $this->config->set([

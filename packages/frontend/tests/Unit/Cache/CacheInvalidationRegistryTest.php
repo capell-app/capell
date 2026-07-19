@@ -7,6 +7,7 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Data\CacheInvalidationRule;
+use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationExecutor;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Illuminate\Support\Facades\Cache;
@@ -38,6 +39,28 @@ it('registers custom key dependencies and forgets those cache entries', function
 
     expect($executor->getFromCache('custom-key'))->toBeNull()
         ->and($executor->getFromCache('another-key'))->toBeNull();
+});
+
+it('keeps boot dependency registrations across scoped lifecycle resets', function (): void {
+    $dependencies = resolve(CacheInvalidationDependencyRegistry::class);
+    $registry = resolve(CacheInvalidationRegistry::class);
+    $registry->registerDependency('Vendor\\Package\\PersistentModel', 'persistent-key');
+
+    app()->forgetScopedInstances();
+
+    $nextDependencies = resolve(CacheInvalidationDependencyRegistry::class);
+    $nextRegistry = resolve(CacheInvalidationRegistry::class);
+    $nextExecutor = resolve(CacheInvalidationExecutor::class);
+    $nextExecutor->setToCache('persistent-key', 'cached');
+    $plan = $nextRegistry->planForModel('Vendor\\Package\\PersistentModel');
+    $nextRegistry->invalidateForModel('Vendor\\Package\\PersistentModel');
+
+    expect($nextDependencies)->toBe($dependencies)
+        ->and($nextRegistry)->not->toBe($registry)
+        ->and($plan->rules)->toHaveCount(1)
+        ->and($plan->rules[0]->kind)->toBe(CacheInvalidationRule::KIND_FORGET_KEY)
+        ->and($plan->rules[0]->cacheKey)->toBe('persistent-key')
+        ->and($nextExecutor->getFromCache('persistent-key'))->toBeNull();
 });
 
 it('does not flush unrelated application cache entries for wildcard frontend dependencies', function (): void {

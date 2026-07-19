@@ -28,9 +28,6 @@ abstract class AbstractReportPage extends Page implements CapellReportPage
 
     protected string $view = 'capell-admin::filament.pages.reports.report';
 
-    /** @var array<class-string, string|null> */
-    private static array $pagePermissionKeysByClass = [];
-
     /** @return class-string<BuildsReportSnapshot> */
     abstract protected static function reportAction(): string;
 
@@ -61,12 +58,8 @@ abstract class AbstractReportPage extends Page implements CapellReportPage
 
     protected static function getPagePermission(): ?string
     {
-        if (! array_key_exists(static::class, self::$pagePermissionKeysByClass)) {
-            $page = FilamentShield::getPages()[static::class] ?? null;
+        $page = FilamentShield::getPages()[static::class] ?? null;
 
-            self::$pagePermissionKeysByClass[static::class] = $page ? array_key_first($page['permissions']) : null;
-        }
-
-        return self::$pagePermissionKeysByClass[static::class];
+        return $page ? array_key_first($page['permissions']) : null;
     }
 }

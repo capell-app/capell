@@ -11,6 +11,7 @@ use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Providers\FrontendServiceProvider;
+use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCacheDirective;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
@@ -42,7 +43,11 @@ it('only tags singleton frontend state for octane resets', function (): void {
 
     expect($resettableServices)
         ->toContain(ThemeViewRegistrar::class)
-        ->not->toContain(CacheInvalidationRegistry::class, FragmentCacheDirective::class);
+        ->not->toContain(
+            CacheInvalidationDependencyRegistry::class,
+            CacheInvalidationRegistry::class,
+            FragmentCacheDirective::class,
+        );
 });
 
 it('registers frontend css for generated tailwind assets', function (): void {

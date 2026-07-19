@@ -53,6 +53,38 @@ it('treats null-team roles as global roles for every site', function (): void {
     expect($user->hasRoleForSite($site, $role))->toBeTrue();
 });
 
+it('queries the same users that satisfy the global admin predicate', function (): void {
+    config()->set('capell.roles.super_admin', 'platform-admin');
+
+    $site = Site::factory()->createOne();
+    $role = Role::query()->create(['name' => 'platform-admin', 'guard_name' => 'web']);
+    $nonWebRole = Role::query()->create(['name' => 'platform-admin', 'guard_name' => 'api']);
+    $globalAdmin = makeSitePermissionUserForTest();
+    $siteAdmin = makeSitePermissionUserForTest();
+    $nonWebAdmin = makeSitePermissionUserForTest();
+    makeSitePermissionUserForTest();
+
+    $globalAdmin->assignRole($role);
+    DB::table('model_has_roles')->insert([
+        'role_id' => $role->getKey(),
+        'model_type' => $siteAdmin->getMorphClass(),
+        'model_id' => $siteAdmin->getKey(),
+        'team_id' => $site->getKey(),
+    ]);
+    DB::table('model_has_roles')->insert([
+        'role_id' => $nonWebRole->getKey(),
+        'model_type' => $nonWebAdmin->getMorphClass(),
+        'model_id' => $nonWebAdmin->getKey(),
+        'team_id' => null,
+    ]);
+
+    expect(HasSitePermissionsTestUser::query()->globalAdmins()->pluck('id')->all())
+        ->toBe([$globalAdmin->getKey()])
+        ->and($globalAdmin->isGlobalAdmin())->toBeTrue()
+        ->and($siteAdmin->isGlobalAdmin())->toBeFalse()
+        ->and($nonWebAdmin->isGlobalAdmin())->toBeFalse();
+});
+
 it('assigns removes and lists roles within a temporary site permission scope', function (): void {
     $site = Site::factory()->createOne();
     $otherSite = Site::factory()->createOne();

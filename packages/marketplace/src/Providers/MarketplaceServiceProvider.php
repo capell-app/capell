@@ -4,38 +4,18 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Providers;
 
-use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
-use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
-use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
-use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
-use Capell\Admin\Data\AdminSurfaceContributionData;
-use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\VerifyMarketplaceSignedActivationAction;
+use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
-use Capell\Marketplace\Filament\Actions\ConnectMarketplaceAccountAction;
-use Capell\Marketplace\Filament\Actions\CreateMarketplaceAccountAction;
-use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
-use Capell\Marketplace\Filament\Actions\MarketplaceInstallOperationsAction;
-use Capell\Marketplace\Filament\Actions\OpenMarketplaceAction;
-use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
-use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
-use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
-use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
-use Capell\Marketplace\Filament\Pages\MarketplacePage;
-use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
-use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
+use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
-use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
-use Filament\Actions\Action;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
@@ -73,26 +53,22 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerPackageMetadata();
 
+        $this->app->booted(function (): void {
+            CapellAdmin::registerAdminBridge(self::$packageName, MarketplaceAdminBridge::class);
+            CapellAdmin::bootAdminBridges(self::$packageName);
+        });
+
         if (config('capell-marketplace.enabled', true)) {
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);
             $this->app->scoped(MarketplaceInstanceResolver::class);
             $this->app->scoped(BuildMarketplaceInstallOperationsSummaryAction::class);
             $this->app->scoped(MarketplaceCatalogueRecordProvider::class);
+            $this->app->bind(MarketplaceComposerChangePublisherRegistry::class);
 
             $this->app->bind(
                 'capell.marketplace.activation-verifier',
                 fn (): callable => VerifyMarketplaceSignedActivationAction::run(...),
             );
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(MarketplacePage::class));
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(MarketplaceExtensionDetailPage::class));
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(MarketplacePackageOperationsPage::class));
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(ThemeExtensionPage::class));
-            CapellAdmin::registerDashboardFilamentWidget(MarketplacePackageOperationsAlertFilamentWidget::class, DashboardEnum::Main);
-            $this->app->tag(MarketplaceExtensionsPageExtender::class, ExtensionsPageExtender::TAG);
-            $this->app->tag(MarketplaceCatalogueRecordProvider::class, ExtensionCatalogueMetadataProvider::TAG);
-            $this->app->tag(ThemeMarketplaceHeaderActionExtender::class, ResourceHeaderActionExtender::TAG);
-            $this->app->tag(PendingMarketplaceThemeInstallProvider::class, PendingThemeInstallProvider::TAG);
-            $this->registerExtensionsPageActions();
         }
     }
 
@@ -110,43 +86,5 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             'namespace' => 'capell-marketplace',
             'classNamespace' => 'Capell\\Marketplace\\Filament\\Livewire',
         ]);
-    }
-
-    private function registerExtensionsPageActions(): void
-    {
-        $this->callAfterResolving(ExtensionsPageActionRegistry::class, function (ExtensionsPageActionRegistry $registry): void {
-            $registry->registerHeaderAction(
-                fn (): Action => OpenMarketplaceAction::make(resolve(MarketplaceConnectionFormModel::class)),
-                'capell-marketplace.open-marketplace',
-            );
-
-            $registry->registerHeaderAction(
-                fn (): Action => MarketplaceInstallOperationsAction::make(),
-                'capell-marketplace.install-operations',
-            );
-
-            $registry->registerHeaderActionGroupAction(
-                fn (): Action => ConnectMarketplaceAccountAction::make(resolve(MarketplaceConnectionFormModel::class)),
-                'capell-marketplace.connect-account',
-            );
-
-            $registry->registerHeaderActionGroupAction(
-                fn (): Action => CreateMarketplaceAccountAction::make(resolve(MarketplaceConnectionFormModel::class)),
-                'capell-marketplace.create-account',
-            );
-
-            $registry->registerTableAction(
-                fn (ExtensionsPage $page): Action => OpenMarketplaceAction::make(resolve(MarketplaceConnectionFormModel::class))
-                    ->label(function (mixed $livewire): string {
-                        $search = $livewire instanceof ExtensionsPage ? $livewire->extensionTableSearchTerm() : null;
-
-                        return filled($search)
-                            ? (string) __('capell-marketplace::marketplace.marketplace.search_marketplace_for', ['search' => $search])
-                            : (string) __('capell-marketplace::marketplace.marketplace.install_from_marketplace');
-                    })
-                    ->button(),
-                'capell-marketplace.search-marketplace',
-            );
-        });
     }
 }

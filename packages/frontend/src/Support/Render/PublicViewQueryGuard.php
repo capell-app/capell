@@ -13,7 +13,6 @@ use Capell\Frontend\Enums\FrontendRenderAudience;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
@@ -22,9 +21,7 @@ final class PublicViewQueryGuard
 {
     private const string DOCS_URL = 'https://docs.capell.app/security/public-rendering#public-view-query-guard';
 
-    private bool $listenerRegistered = false;
-
-    private bool $active = false;
+    private int $activeDepth = 0;
 
     private readonly PublicViewQueryCapture $capture;
 
@@ -39,14 +36,22 @@ final class PublicViewQueryGuard
             return $render();
         }
 
-        $this->registerListener();
-        $this->active = true;
-        $this->capture->flush();
+        $outermostGuard = $this->activeDepth === 0;
+
+        if ($outermostGuard) {
+            $this->capture->flush();
+        }
+
+        $this->activeDepth++;
 
         try {
             $result = $render();
         } finally {
-            $this->active = false;
+            $this->activeDepth--;
+        }
+
+        if (! $outermostGuard) {
+            return $result;
         }
 
         $queries = $this->capture->all();
@@ -79,25 +84,12 @@ final class PublicViewQueryGuard
 
     public function isActive(): bool
     {
-        return $this->active;
+        return $this->activeDepth > 0;
     }
 
-    private function registerListener(): void
+    public function capture(QueryExecuted $event): void
     {
-        if ($this->listenerRegistered) {
-            return;
-        }
-
-        DB::listen(function (QueryExecuted $event): void {
-            $this->recordQuery($event);
-        });
-
-        $this->listenerRegistered = true;
-    }
-
-    private function recordQuery(QueryExecuted $event): void
-    {
-        if (! $this->active || $this->ignoredConnection($event->connectionName)) {
+        if (! $this->isActive() || $this->ignoredConnection($event->connectionName)) {
             return;
         }
 

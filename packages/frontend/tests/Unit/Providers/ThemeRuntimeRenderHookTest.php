@@ -48,7 +48,7 @@ it('uses editor active preset when rendering theme token css hook', function ():
             $path = storage_path('app/testing/' . $themeKey . '-' . $presetKey . '.css');
 
             File::ensureDirectoryExists(dirname($path));
-            File::put($path, ':root { --color-primary: rgb(15, 118, 110); }');
+            File::put($path, ':root { --heading-scale: ' . $brand->headingScale . '; }');
 
             return $path;
         }
@@ -59,8 +59,7 @@ it('uses editor active preset when rendering theme token css hook', function ():
         }
     };
 
-    app()->instance(ThemeTokenStore::class, $store);
-    app()->instance(ThemeRuntimeSettings::class, new class implements ThemeRuntimeSettings
+    $settings = new class implements ThemeRuntimeSettings
     {
         public function activeTheme(): string
         {
@@ -79,10 +78,12 @@ it('uses editor active preset when rendering theme token css hook', function ():
 
         public function themeOverrides(): array
         {
-            return [];
+            return [
+                'hook-theme' => ['headingScale' => 'settings'],
+            ];
         }
-    });
-    app()->instance(FrontendContextReader::class, new readonly class($theme) implements FrontendContextReader
+    };
+    $contextReader = new readonly class($theme) implements FrontendContextReader
     {
         public function __construct(private Theme $theme) {}
 
@@ -135,7 +136,11 @@ it('uses editor active preset when rendering theme token css hook', function ():
         {
             return $key === null ? [] : null;
         }
-    });
+    };
+
+    app()->instance(ThemeTokenStore::class, $store);
+    app()->instance(ThemeRuntimeSettings::class, $settings);
+    app()->instance(FrontendContextReader::class, $contextReader);
 
     resolve(ThemeRegistry::class)->register(
         new ThemeDefinitionData(
@@ -158,7 +163,27 @@ it('uses editor active preset when rendering theme token css hook', function ():
         ),
     );
 
-    $html = resolve(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeadClose);
+    $registry = resolve(RenderHookRegistry::class);
+    $firstHtml = $registry->renderAll(RenderHookLocation::HeadClose);
+
+    $theme->meta = [
+        'editor' => [
+            'preset' => ['active' => 'launch'],
+            'tokens' => [
+                'headingScale' => 'compact',
+                'ignored' => false,
+            ],
+        ],
+    ];
+
+    $sameRequestHtml = $registry->renderAll(RenderHookLocation::HeadClose);
+
+    app()->forgetScopedInstances();
+    app()->instance(ThemeTokenStore::class, $store);
+    app()->instance(ThemeRuntimeSettings::class, $settings);
+    app()->instance(FrontendContextReader::class, $contextReader);
+
+    $nextRequestHtml = $registry->renderAll(RenderHookLocation::HeadClose);
 
     expect($store->calls)->toBe([
         [
@@ -166,8 +191,19 @@ it('uses editor active preset when rendering theme token css hook', function ():
             'presetKey' => 'launch',
             'headingScale' => 'expressive',
         ],
+        [
+            'themeKey' => 'hook-theme',
+            'presetKey' => 'launch',
+            'headingScale' => 'compact',
+        ],
+        [
+            'themeKey' => 'hook-theme',
+            'presetKey' => 'launch',
+            'headingScale' => 'compact',
+        ],
     ])
-        ->and($html)->toContain('<style data-capell-theme-tokens>')
-        ->and($html)->toContain(':root { --color-primary: rgb(15, 118, 110); }')
-        ->and($html)->not->toContain('/tokens/hook-theme-launch.css');
+        ->and($firstHtml)->toBe('<style data-capell-theme-tokens>:root { --heading-scale: expressive; }</style>')
+        ->and($sameRequestHtml)->toBe($firstHtml)
+        ->and($nextRequestHtml)->toBe('<style data-capell-theme-tokens>:root { --heading-scale: compact; }</style>')
+        ->and($nextRequestHtml)->not->toContain('/tokens/hook-theme-launch.css');
 });

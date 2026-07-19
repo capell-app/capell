@@ -11,16 +11,16 @@ use Filament\Actions\ActionGroup;
 
 final class ExtensionsPageActionRegistry
 {
-    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup> */
+    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)> */
     private array $headerActions = [];
 
-    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup> */
+    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)> */
     private array $headerActionGroupActions = [];
 
     /** @var array<int|string, Action|Closure(ExtensionsPage): Action> */
     private array $tableActions = [];
 
-    /** @param  Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup  $action */
+    /** @param  Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)  $action */
     public function registerHeaderAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         if ($key === null) {
@@ -32,7 +32,7 @@ final class ExtensionsPageActionRegistry
         $this->headerActions[$key] = $action;
     }
 
-    /** @param  Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup  $action */
+    /** @param  Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)  $action */
     public function registerHeaderActionGroupAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         if ($key === null) {
@@ -75,14 +75,30 @@ final class ExtensionsPageActionRegistry
     }
 
     /**
-     * @param  array<int|string, Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup>  $actions
+     * @param  array<int|string, Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)>  $actions
      * @return array<int, Action|ActionGroup>
      */
     private function resolveActions(array $actions, ExtensionsPage $page): array
     {
         return array_values(array_map(
-            fn (Action|ActionGroup|Closure $action): Action|ActionGroup => $action instanceof Closure ? $action($page) : $action,
+            fn (Action|ActionGroup|Closure $action): Action|ActionGroup => $action instanceof Closure
+                ? $action($page)
+                : $this->cloneAction($action),
             $actions,
         ));
+    }
+
+    private function cloneAction(Action|ActionGroup $action): Action|ActionGroup
+    {
+        $clone = (clone $action)->group(null);
+
+        if ($clone instanceof ActionGroup) {
+            $clone->actions(array_map(
+                fn (Action|ActionGroup $groupedAction): Action|ActionGroup => $this->cloneAction($groupedAction),
+                $clone->getActions(),
+            ));
+        }
+
+        return $clone;
     }
 }

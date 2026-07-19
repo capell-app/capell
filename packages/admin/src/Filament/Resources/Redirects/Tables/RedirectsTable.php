@@ -13,11 +13,11 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
+use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
-use Capell\Core\Models\RedirectHealthSnapshot;
 use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -33,13 +33,9 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 
 class RedirectsTable implements TableConfigurator
 {
-    /** @var array<int, object|null> */
-    private static array $redirectHealthCache = [];
-
     public static function configure(Table $table): Table
     {
         return $table
@@ -237,23 +233,6 @@ class RedirectsTable implements TableConfigurator
 
     private static function redirectHealthFor(PageUrl $record): ?object
     {
-        $pageUrlId = $record->id;
-
-        if (! array_key_exists($pageUrlId, self::$redirectHealthCache)) {
-            if ($record->relationLoaded('redirectHealthSnapshot')) {
-                self::$redirectHealthCache[$pageUrlId] = $record->redirectHealthSnapshot;
-
-                return self::$redirectHealthCache[$pageUrlId];
-            }
-
-            /** @var class-string<Model> $redirectHealthSnapshotClass */
-            $redirectHealthSnapshotClass = RedirectHealthSnapshot::class;
-
-            self::$redirectHealthCache[$pageUrlId] = $redirectHealthSnapshotClass::query()
-                ->where('page_url_id', $pageUrlId)
-                ->first();
-        }
-
-        return self::$redirectHealthCache[$pageUrlId];
+        return resolve(RedirectHealthRequestCache::class)->for($record);
     }
 }

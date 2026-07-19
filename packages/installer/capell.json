@@ -24,7 +24,7 @@
         "metadata": [],
         "install": ["Capell\\Installer\\Providers\\InstallerServiceProvider"],
         "runtime": [],
-        "admin": ["Capell\\Installer\\Providers\\InstallerServiceProvider"],
+        "admin": ["Capell\\Installer\\Providers\\InstallerAdminServiceProvider"],
         "frontend": []
     },
     "contributes": [],

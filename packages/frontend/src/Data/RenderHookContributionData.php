@@ -133,6 +133,7 @@ final class RenderHookContributionData
     private function defaultRegistrationType(RenderHookExtensionInterface|string $extension): RenderHookRegistrationType
     {
         return $extension instanceof RenderHookExtensionInterface
+            || (is_string($extension) && is_a($extension, RenderHookExtensionInterface::class, true))
             ? RenderHookRegistrationType::ExtensionClass
             : RenderHookRegistrationType::LegacyString;
     }

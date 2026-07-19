@@ -10,21 +10,29 @@ use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
+use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
+use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionQuickActionProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
+use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Contracts\HasSchema;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Closure;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Pages\Page;
 use Filament\Resources\Resource as FilamentResource;
 use Filament\Support\Icons\Heroicon;
@@ -36,8 +44,8 @@ use Illuminate\View\View;
 final class AdminBridgeRegistrar
 {
     public function __construct(
-        private readonly ?AdminBridgeRegistry $bridges = null,
-        private readonly ?SettingsSchemaRegistry $settings = null,
+        private readonly AdminBridgeRegistry $bridges,
+        private readonly SettingsSchemaRegistry $settings,
     ) {}
 
     /**
@@ -45,7 +53,7 @@ final class AdminBridgeRegistrar
      */
     public function bridge(string $packageName, string $bridgeClass): void
     {
-        ($this->bridges ?? resolve(AdminBridgeRegistry::class))->register($packageName, $bridgeClass);
+        $this->bridges->register($packageName, $bridgeClass);
     }
 
     /** @param class-string $pageClass */
@@ -121,6 +129,48 @@ final class AdminBridgeRegistrar
     public function extensionDependencyProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionDependencyProvider::TAG);
+    }
+
+    /** @param class-string<ExtensionsPageExtender> $extenderClass */
+    public function extensionsPageExtender(string $extenderClass): void
+    {
+        app()->tag([$extenderClass], ExtensionsPageExtender::TAG);
+    }
+
+    /** @param class-string<ExtensionCatalogueMetadataProvider> $providerClass */
+    public function extensionCatalogueMetadataProvider(string $providerClass): void
+    {
+        app()->tag([$providerClass], ExtensionCatalogueMetadataProvider::TAG);
+    }
+
+    /** @param class-string<ResourceHeaderActionExtender> $extenderClass */
+    public function resourceHeaderActionExtender(string $extenderClass): void
+    {
+        app()->tag([$extenderClass], ResourceHeaderActionExtender::TAG);
+    }
+
+    /** @param class-string<PendingThemeInstallProvider> $providerClass */
+    public function pendingThemeInstallProvider(string $providerClass): void
+    {
+        app()->tag([$providerClass], PendingThemeInstallProvider::TAG);
+    }
+
+    /** @param Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup) $action */
+    public function extensionsPageHeaderAction(Action|ActionGroup|Closure $action, ?string $key = null): void
+    {
+        resolve(ExtensionsPageActionRegistry::class)->registerHeaderAction($action, $key);
+    }
+
+    /** @param Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup) $action */
+    public function extensionsPageHeaderActionGroupAction(Action|ActionGroup|Closure $action, ?string $key = null): void
+    {
+        resolve(ExtensionsPageActionRegistry::class)->registerHeaderActionGroupAction($action, $key);
+    }
+
+    /** @param Action|Closure(ExtensionsPage): Action $action */
+    public function extensionsPageTableAction(Action|Closure $action, ?string $key = null): void
+    {
+        resolve(ExtensionsPageActionRegistry::class)->registerTableAction($action, $key);
     }
 
     public function userMenuItem(
@@ -260,7 +310,7 @@ final class AdminBridgeRegistrar
      */
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): void
     {
-        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->register($group, $schemaClass, $key);
+        $this->settings->register($group, $schemaClass, $key);
     }
 
     /**
@@ -268,11 +318,11 @@ final class AdminBridgeRegistrar
      */
     public function settingsClass(string $group, string $settingsClass): void
     {
-        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerSettingsClass($group, $settingsClass);
+        $this->settings->registerSettingsClass($group, $settingsClass);
     }
 
     public function settingsMetadata(SettingsGroupMetadata $metadata): void
     {
-        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerMetadata($metadata);
+        $this->settings->registerMetadata($metadata);
     }
 }

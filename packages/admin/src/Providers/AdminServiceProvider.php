@@ -109,8 +109,8 @@ use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminResourceResolver;
+use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
@@ -148,15 +148,19 @@ use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
+use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
+use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
+use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
+use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
@@ -176,8 +180,6 @@ use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
-use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
-use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
@@ -194,7 +196,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Contracts\Container\Container as ContainerContract;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -204,7 +205,6 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Override;
-use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
@@ -268,26 +268,25 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(FlagIconRendererContract::class, FlagIconRenderer::class);
         $this->app->singletonIf(PageTableStatusResolver::class, DefaultPageTableStatusResolver::class);
 
-        $this->app->singletonIf(ExtensionPageRegistry::class);
-        $this->app->singletonIf(AdminNotificationGroupRegistry::class);
+        // These concrete services are owned by Admin; unlike substitutable contracts above,
+        // their identity must remain the one shared by the manager, facade, and container.
+        $this->app->singleton(ExtensionPageRegistry::class);
+        $this->app->singleton(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
-        $this->app->singletonIf(ActivityResourceLinkRegistry::class);
-        $this->app->singletonIf(AdminSurfaceContributionRegistry::class);
-        $this->app->singletonIf(ReportRegistry::class);
-        $this->app->singletonIf(DashboardFilamentWidgetRegistry::class);
-        $this->app->singletonIf(MarketingStudioActionRegistry::class);
-        $this->app->singletonIf(UserMenuItemRegistry::class);
-        $this->app->singletonIf(OverviewStatRegistry::class);
-        $this->app->singletonIf(AdminBridgeRegistry::class);
-        $this->app->singletonIf(AdminBridgeRegistrar::class);
-
-        $manager = CapellAdmin::getFacadeRoot();
-        throw_unless($manager instanceof CapellAdminManager, RuntimeException::class, 'The Capell admin facade must resolve its manager.');
-
-        $this->app->instance(CapellAdminManager::class, $manager);
-        $this->app->instance(AdminSurfaceContributionRegistry::class, $manager->getAdminSurfaceRegistry());
-        $this->app->instance(ReportRegistry::class, $manager->getReportRegistry());
-        $this->app->instance(AdminBridgeRegistry::class, $manager->getAdminBridgeRegistry());
+        $this->app->singleton(ActivityResourceLinkRegistry::class);
+        $this->app->singleton(AdminSurfaceContributionRegistry::class);
+        $this->app->singleton(AdminSurfaceContributionCache::class);
+        $this->app->singleton(ReportRegistry::class);
+        $this->app->singleton(DashboardFilamentWidgetRegistry::class);
+        $this->app->singleton(MarketingStudioActionRegistry::class);
+        $this->app->singleton(UserMenuItemRegistry::class);
+        $this->app->scoped(UserMenuItemResolver::class);
+        $this->app->singleton(OverviewStatRegistry::class);
+        $this->app->singleton(AdminBridgeRegistry::class);
+        $this->app->singleton(AdminBridgeRegistrar::class);
+        $this->app->singleton(CapellAdminManager::class);
+        $this->app->singleton(AdminFrontendRouteReservationContributor::class);
+        $this->app->tag(AdminFrontendRouteReservationContributor::class, FrontendRouteReservationContributor::TAG);
         $this->app->singleton(AdminResourceResolverContract::class, AdminResourceResolver::class);
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
@@ -307,8 +306,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(ActivityTrailQueryProvider::class, NullActivityTrailQueryProvider::class);
         $this->app->scoped(AdminDashboardDataRequestCache::class);
         // Filament swaps Livewire's data store so partial rendering can share component state.
-        // Keep that store stable for the request so Livewire validation state persists.
-        $this->app->singleton(DataStore::class, DataStoreOverride::class);
+        // Keep that store stable for one request so Livewire validation state persists
+        // without leaking component state into the next long-lived worker operation.
+        $this->app->scoped(DataStore::class, static fn (): DataStoreOverride => new DataStoreOverride);
         $this->app->singletonIf(PageExporter::class, NullPageExporter::class);
         $this->app->singletonIf(RedirectUrlRecorder::class, PageUrlRedirectUrlRecorder::class);
         $this->app->singleton(RegistryInspectorInterface::class, RegistryInspector::class);
@@ -316,10 +316,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ExtensionOperationsRequestCache::class);
         $this->app->singleton(ExtensionsPageActionRegistry::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
+        $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
-        $this->reserveAdminFrontendPath();
-        $this->reserveAdminFrontendDomain();
-
         $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));
             $registry->register($this->app->make(AdminConfiguratorMaker::class));
@@ -365,7 +363,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerAboutInfo()
             ->bootAdminBridges()
             ->registerWidgetComponents()
-            ->registerBlazeComponents()
+            ->registerBlazeOptimizedComponentViews()
             ->registerServingEvents()
             ->registerAdminLivewireComponents()
             ->registerPublishCommands()
@@ -381,62 +379,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerModelObservers();
     }
 
-    private function reserveAdminFrontendPath(): void
-    {
-        $adminPath = AdminPanelEntrypoint::path();
-
-        if ($adminPath === '') {
-            return;
-        }
-
-        $this->reserveAdminFrontendValue(
-            ReservedFrontendPathRegistry::class,
-            'reservePrefix',
-            $adminPath,
-        );
-    }
-
-    private function reserveAdminFrontendDomain(): void
-    {
-        $adminDomain = AdminPanelEntrypoint::domain();
-
-        if ($adminDomain === null) {
-            return;
-        }
-
-        $this->reserveAdminFrontendValue(
-            ReservedFrontendDomainRegistry::class,
-            'reserve',
-            $adminDomain,
-        );
-    }
-
-    /** @param class-string $registryClass */
-    private function reserveAdminFrontendValue(string $registryClass, string $method, string $value): void
-    {
-        if (! class_exists($registryClass)) {
-            return;
-        }
-
-        $this->callAfterResolving($registryClass, static function (object $registry) use ($method, $value): void {
-            $callback = [$registry, $method];
-
-            if (is_callable($callback)) {
-                $callback($value);
-            }
-        });
-    }
-
     private function registerResources(): self
     {
-        foreach (ResourceEnum::cases() as $resourceEnum) {
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(
+        return $this->registerAdminSurfaceCases(
+            ResourceEnum::cases(),
+            static fn (ResourceEnum $resourceEnum): AdminSurfaceContributionData => AdminSurfaceContributionData::resource(
                 class: $resourceEnum->value,
                 group: $resourceEnum->name,
-            ));
-        }
-
-        return $this;
+            ),
+        );
     }
 
     private function registerNotificationGroups(): self
@@ -459,11 +410,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerPages(): self
     {
-        foreach (PageEnum::cases() as $pageEnum) {
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page($pageEnum->value));
-        }
-
-        return $this;
+        return $this->registerAdminSurfaceCases(
+            PageEnum::cases(),
+            static fn (PageEnum $pageEnum): AdminSurfaceContributionData => AdminSurfaceContributionData::page($pageEnum->value),
+        );
     }
 
     private function registerCoreReports(): self
@@ -534,8 +484,22 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerWidgets(): self
     {
-        foreach (FilamentWidgetEnum::cases() as $widgetEnum) {
-            CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget($widgetEnum->value));
+        return $this->registerAdminSurfaceCases(
+            FilamentWidgetEnum::cases(),
+            static fn (FilamentWidgetEnum $widgetEnum): AdminSurfaceContributionData => AdminSurfaceContributionData::widget($widgetEnum->value),
+        );
+    }
+
+    /**
+     * @template TCase
+     *
+     * @param  list<TCase>  $cases
+     * @param  callable(TCase): AdminSurfaceContributionData  $makeContribution
+     */
+    private function registerAdminSurfaceCases(array $cases, callable $makeContribution): self
+    {
+        foreach ($cases as $case) {
+            CapellAdmin::contributeToAdminSurface($makeContribution($case));
         }
 
         return $this;
@@ -718,10 +682,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         $this->app->singleton(AdminEventRegistry::class);
 
-        $this->app->singleton(
-            AdminEventRouter::class,
-            fn (ContainerContract $app): AdminEventRouter => new AdminEventRouter($app, $app->make(AdminEventRegistry::class)),
-        );
+        $this->app->singleton(AdminEventRouter::class);
 
         return $this;
     }
@@ -742,7 +703,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerBlazeComponents(): self
+    private function registerBlazeOptimizedComponentViews(): self
     {
         return $this->registerBlazeOptimizedViews([
             __DIR__ . '/../../resources/views/components/alert.blade.php',

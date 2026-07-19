@@ -242,8 +242,10 @@ it('serves only matching pending challenge domains', function (): void {
 
 ```php
 it('does not phone home without a connected instance', function (): void {
-    expect(PhoneHomeAction::run())->toBeFalse()
-        ->and(PhoneHomeAction::lastFailureMessage())->toContain('not connected');
+    $result = RunMarketplaceHeartbeatAction::run();
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->failureMessage)->toContain('not connected');
 });
 ```
 

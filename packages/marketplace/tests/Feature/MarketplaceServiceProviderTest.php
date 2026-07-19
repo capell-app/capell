@@ -3,16 +3,26 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
+use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
+use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
+use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
+use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
+use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
+use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -28,7 +38,41 @@ it('registers the marketplace package metadata', function (): void {
 it('registers marketplace pages in the admin surface', function (): void {
     expect(CapellAdmin::getAdminSurfaceRegistry()->pages())
         ->toContain(MarketplacePage::class)
-        ->toContain(MarketplaceExtensionDetailPage::class);
+        ->toContain(MarketplaceExtensionDetailPage::class)
+        ->toContain(MarketplacePackageOperationsPage::class)
+        ->toContain(ThemeExtensionPage::class)
+        ->and(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main))
+        ->toContain(MarketplacePackageOperationsAlertFilamentWidget::class);
+});
+
+it('registers and boots the marketplace admin bridge once', function (): void {
+    $registry = resolve(AdminBridgeRegistry::class);
+    $tagCount = fn (string $tag, string $class): int => collect(app()->tagged($tag))
+        ->filter(fn (object $contribution): bool => $contribution instanceof $class)
+        ->count();
+
+    expect($registry->classes(MarketplaceServiceProvider::$packageName))
+        ->toBe([MarketplaceAdminBridge::class]);
+
+    CapellAdmin::registerAdminBridge(MarketplaceServiceProvider::$packageName, MarketplaceAdminBridge::class);
+    CapellAdmin::bootAdminBridges(MarketplaceServiceProvider::$packageName);
+
+    expect($registry->classes(MarketplaceServiceProvider::$packageName))
+        ->toBe([MarketplaceAdminBridge::class])
+        ->and($tagCount(ExtensionsPageExtender::TAG, MarketplaceExtensionsPageExtender::class))->toBe(1)
+        ->and($tagCount(ExtensionCatalogueMetadataProvider::TAG, MarketplaceCatalogueRecordProvider::class))->toBe(1)
+        ->and($tagCount(ResourceHeaderActionExtender::TAG, ThemeMarketplaceHeaderActionExtender::class))->toBe(1)
+        ->and($tagCount(PendingThemeInstallProvider::TAG, PendingMarketplaceThemeInstallProvider::class))->toBe(1);
+});
+
+it('does not boot marketplace admin contributions when marketplace is disabled', function (): void {
+    config()->set('capell-marketplace.enabled', false);
+    CapellAdmin::clearAdminSurfaceContributions();
+
+    CapellAdmin::registerAdminBridge('capell-app/marketplace-disabled-test', MarketplaceAdminBridge::class);
+    CapellAdmin::bootAdminBridges('capell-app/marketplace-disabled-test');
+
+    expect(CapellAdmin::getAdminSurfaceRegistry()->pages())->toBe([]);
 });
 
 it('does not register marketplace as an extensions page header action', function (): void {
@@ -48,6 +92,9 @@ it('registers marketplace extensions page actions', function (): void {
     $groupActionNames = collect($registry->headerActionGroupActions(new ExtensionsPage))
         ->map(fn (Action $action): string => expectPresent($action->getName()))
         ->all();
+    $tableActionNames = collect($registry->tableActions(new ExtensionsPage))
+        ->map(fn (Action $action): string => expectPresent($action->getName()))
+        ->all();
 
     expect($headerActionNames)
         ->toContain('openMarketplace')
@@ -55,7 +102,9 @@ it('registers marketplace extensions page actions', function (): void {
         ->not->toContain('connectMarketplaceAccount')
         ->and($groupActionNames)
         ->toContain('connectMarketplaceAccount')
-        ->toContain('createMarketplaceAccount');
+        ->toContain('createMarketplaceAccount')
+        ->and($tableActionNames)
+        ->toContain('openMarketplace');
 });
 
 it('registers the installed extension catalogue metadata provider', function (): void {

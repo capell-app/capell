@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support;
 
-use Illuminate\Contracts\Container\Container;
 use InvalidArgumentException;
 use Livewire\Component;
 use Throwable;
@@ -12,7 +11,6 @@ use Throwable;
 final class AdminEventRouter
 {
     public function __construct(
-        private readonly Container $container,
         private readonly AdminEventRegistry $registry,
     ) {}
 
@@ -25,7 +23,7 @@ final class AdminEventRouter
             return;
         }
 
-        $handler = $this->container->make($handlerClass);
+        $handler = resolve($handlerClass);
 
         throw_unless($handler instanceof AdminEventHandlerInterface, InvalidArgumentException::class, 'Admin event handler must implement ' . AdminEventHandlerInterface::class);
 

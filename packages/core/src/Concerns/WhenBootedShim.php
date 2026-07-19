@@ -37,6 +37,6 @@ trait WhenBootedShim
 
     private static function parentClassName(): string|false
     {
-        return get_parent_class(static::class);
+        return get_parent_class(self::class);
     }
 }

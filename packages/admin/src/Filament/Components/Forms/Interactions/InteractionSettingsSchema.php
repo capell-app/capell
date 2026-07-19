@@ -8,9 +8,9 @@ use Capell\Admin\Enums\InteractionModalSizeEnum;
 use Capell\Admin\Enums\InteractionStyleEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\Presentation\PresentationSettingsSchema;
+use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Enums\InteractionBehavior;
 use Capell\Core\Enums\InteractionTargetType;
-use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -130,17 +130,16 @@ class InteractionSettingsSchema
         ];
     }
 
-    /**
-     * Fragment targets only work when at least one package registers an owner
-     * with Frontend's public fragment URL resolver registry. Referencing the
-     * class here is a sanctioned boundary exception (see
-     * tests/Arch/AdminPackageTest); the class constant does not autoload the
-     * registry, so Admin still runs without capell/frontend installed.
-     */
     private static function fragmentTargetsAvailable(): bool
     {
-        return app()->bound(PublicFragmentUrlResolverRegistry::class)
-            && resolve(PublicFragmentUrlResolverRegistry::class)->hasResolvers();
+        foreach (app()->tagged(InteractionTargetCapabilityContributor::TAG) as $contributor) {
+            if ($contributor instanceof InteractionTargetCapabilityContributor
+                && $contributor->supports(InteractionTargetType::Fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

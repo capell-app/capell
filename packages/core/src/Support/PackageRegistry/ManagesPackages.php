@@ -45,8 +45,7 @@ trait ManagesPackages
     public function flushRuntimeState(): void
     {
         $this->installedExtensionNamesCache = null;
-        $this->uninstalledExtensionNamesCache = null;
-        $this->packagesCache = [];
+        $this->clearPackageMemoization();
         $this->extensionLifecycle()->clear();
     }
 
@@ -73,7 +72,7 @@ trait ManagesPackages
         array $installParams = [],
         bool $defaultSelected = false,
     ): static {
-        $this->packagesCache = [];
+        $this->clearPackageMemoization();
 
         $manifest = $this->hasPackage($name)
             ? null
@@ -135,8 +134,7 @@ trait ManagesPackages
 
     public function registerManifestPackage(CapellManifestData $manifest, ?string $version = null): static
     {
-        $this->packagesCache = [];
-        $this->uninstalledExtensionNamesCache = null;
+        $this->clearPackageMemoization();
 
         $existing = $this->packages[$manifest->name] ?? null;
         $installed = $existing->installed ?? $this->forcedPackageInstallStates[$manifest->name] ?? null;
@@ -401,7 +399,7 @@ trait ManagesPackages
         $this->forcedPackageInstallStates[$name] = $installed;
 
         if (! $this->hasPackage($name)) {
-            $this->packagesCache = [];
+            $this->clearPackageMemoization();
             $this->packages[$name] = new PackageData(
                 name: $name,
                 type: PackageTypeEnum::Plugin,
@@ -543,8 +541,7 @@ trait ManagesPackages
         $this->packages = [];
         $this->forcedPackageInstallStates = [];
         $this->installedExtensionNamesCache = null;
-        $this->packagesCache = [];
-        $this->uninstalledExtensionNamesCache = null;
+        $this->clearPackageMemoization();
         $this->extensionLifecycle()->clear();
     }
 
@@ -561,8 +558,7 @@ trait ManagesPackages
         }
 
         $this->installedExtensionNamesCache = null;
-        $this->packagesCache = [];
-        $this->uninstalledExtensionNamesCache = null;
+        $this->clearPackageMemoization();
         $this->extensionLifecycle()->clear();
     }
 
@@ -695,5 +691,11 @@ trait ManagesPackages
             'plugin' => PackageTypeEnum::Plugin,
             default => PackageTypeEnum::Package,
         };
+    }
+
+    private function clearPackageMemoization(): void
+    {
+        $this->packagesCache = [];
+        $this->uninstalledExtensionNamesCache = null;
     }
 }

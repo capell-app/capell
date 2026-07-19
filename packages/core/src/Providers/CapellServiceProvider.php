@@ -89,6 +89,7 @@ use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\MediaContentGraphExtractor;
@@ -129,7 +130,6 @@ use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
-use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -155,7 +155,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Override;
-use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 
@@ -170,6 +169,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
+        $this->app->singleton(CapellCoreManager::class);
+        $this->app->singleton(ComponentRegistry::class);
+        $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->app->scoped(RuntimeSchemaState::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);
@@ -385,13 +387,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
 
-        $manager = CapellCore::getFacadeRoot();
-        throw_unless($manager instanceof CapellCoreManager, RuntimeException::class, 'The Capell core facade must resolve its manager.');
-        $this->app->instance(CapellCoreManager::class, $manager);
-        $this->app->alias(CapellCoreManager::class, 'capell-admin');
-        $this->app->tag([CapellCoreManager::class], Resettable::TAG);
+        $this->app->tag([CapellCoreManager::class, ComponentRegistry::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
-        $this->app->tag([ImageUrlPolicy::class], Resettable::TAG);
         $this->app->singleton(PackageSurfaceRegistrar::class, fn ($app): PackageSurfaceRegistrar => new PackageSurfaceRegistrar(
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
@@ -599,7 +596,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PagePresentationRegistry::class);
         $this->app->singleton(WidgetPresentationRegistry::class);
         $this->app->singleton(ThemeTokenStore::class);
-        $this->app->singleton(ThemeRuntimeSettings::class, ThemeStudioSettings::class);
+        $this->app->scoped(ThemeRuntimeSettings::class, ThemeStudioSettings::class);
         $this->app->singleton(
             ThemePreviewSigner::class,
             fn (): ThemePreviewSigner => new ThemePreviewSigner(config('app.key', 'capell-theme')),
@@ -628,6 +625,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerOptimization(): self
     {
+        $this->optimizes(
+            optimize: PackageCacheCommand::class,
+            clear: PackageClearCacheCommand::class,
+            key: 'capell-package-manifests',
+        );
+
         $this->optimizes(
             optimize: CacheComponentsCommand::class,
             clear: CacheComponentsCommand::class,
@@ -676,13 +679,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(
             SettingsSchemaRegistry::class,
             fn (): SettingsSchemaRegistry => new SettingsSchemaRegistry,
-        );
-
-        $this->app->singleton(
-            SettingsSchemaBootstrapper::class,
-            fn (Application $application): SettingsSchemaBootstrapper => new SettingsSchemaBootstrapper(
-                $application->make(SettingsSchemaRegistry::class),
-            ),
         );
 
         return $this;

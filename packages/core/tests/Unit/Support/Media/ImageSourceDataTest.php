@@ -28,29 +28,32 @@ it('rejects unsafe or unapproved image URLs', function (string $url): void {
     'unapproved host' => ['https://example.com/photo.jpg'],
 ]);
 
-it('does not retain image settings between sequential requests', function (): void {
+it('uses a fresh image URL policy after an Octane request scope is flushed', function (): void {
     $firstSettings = Mockery::mock(CoreSettings::class);
     $firstSettings->allowed_remote_image_domains = ['first.example.com'];
     $firstSettings->allow_relative_image_urls = false;
 
     app()->instance(CoreSettings::class, $firstSettings);
 
-    $policy = resolve(ImageUrlPolicy::class);
+    $firstPolicy = resolve(ImageUrlPolicy::class);
 
-    expect($policy->allows('https://first.example.com/image.jpg'))->toBeTrue()
-        ->and($policy->allows('/image.jpg'))->toBeFalse();
+    expect(resolve(ImageUrlPolicy::class))->toBe($firstPolicy)
+        ->and($firstPolicy->allows('https://first.example.com/image.jpg'))->toBeTrue()
+        ->and($firstPolicy->allows('/image.jpg'))->toBeFalse();
 
     $secondSettings = Mockery::mock(CoreSettings::class);
     $secondSettings->allowed_remote_image_domains = ['second.example.com'];
     $secondSettings->allow_relative_image_urls = true;
 
+    app()->forgetScopedInstances();
     app()->instance(CoreSettings::class, $secondSettings);
 
-    $policy->flushOctaneState();
+    $secondPolicy = resolve(ImageUrlPolicy::class);
 
-    expect($policy->allows('https://first.example.com/image.jpg'))->toBeFalse()
-        ->and($policy->allows('https://second.example.com/image.jpg'))->toBeTrue()
-        ->and($policy->allows('/image.jpg'))->toBeTrue();
+    expect($secondPolicy)->not->toBe($firstPolicy)
+        ->and($secondPolicy->allows('https://first.example.com/image.jpg'))->toBeFalse()
+        ->and($secondPolicy->allows('https://second.example.com/image.jpg'))->toBeTrue()
+        ->and($secondPolicy->allows('/image.jpg'))->toBeTrue();
 });
 
 it('normalizes legacy string URLs into image source data', function (): void {

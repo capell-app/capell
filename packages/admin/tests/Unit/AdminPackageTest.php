@@ -11,6 +11,18 @@ it('admin package does not have frontend scope', function (): void {
     expect($package->hasFrontendScope())->toBeFalse();
 });
 
+it('keeps the frontend package optional', function (): void {
+    $composerJson = file_get_contents(__DIR__ . '/../../composer.json');
+
+    $composer = json_decode(
+        $composerJson !== false ? $composerJson : '',
+        associative: true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect($composer['require'] ?? [])->not->toHaveKey('capell-app/frontend');
+});
+
 it('requires the Spatie media library Filament plugin', function (): void {
     $composerJson = file_get_contents(__DIR__ . '/../../composer.json');
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Providers;
 
+use Capell\Core\Contracts\FrontendRouteReservationContributor;
+use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
@@ -12,7 +14,9 @@ use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Registries\TaggedProviderRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
+use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
@@ -29,6 +33,7 @@ use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
+use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
@@ -69,6 +74,7 @@ use Capell\Frontend\Support\Blade\BuildAssetDirective;
 use Capell\Frontend\Support\Blade\FrontendAssetDirective;
 use Capell\Frontend\Support\Blade\WireNavigateDirective;
 use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
+use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationExecutor;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCache;
@@ -91,6 +97,7 @@ use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
 use Capell\Frontend\Support\Font\FontMimeTypeResolver;
 use Capell\Frontend\Support\Fragments\EncryptedPublicFragmentReferenceCodec;
+use Capell\Frontend\Support\Fragments\FrontendInteractionTargetCapabilityContributor;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
@@ -153,13 +160,16 @@ use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
@@ -171,6 +181,28 @@ use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
 {
+    private const array SITE_CHECK_SCHEDULE_FREQUENCIES = [
+        'everyMinute' => true,
+        'everyTwoMinutes' => true,
+        'everyThreeMinutes' => true,
+        'everyFourMinutes' => true,
+        'everyFiveMinutes' => true,
+        'everyTenMinutes' => true,
+        'everyFifteenMinutes' => true,
+        'everyThirtyMinutes' => true,
+        'hourly' => true,
+        'everyTwoHours' => true,
+        'everyThreeHours' => true,
+        'everyFourHours' => true,
+        'everySixHours' => true,
+        'daily' => true,
+        'twiceDaily' => true,
+        'weekly' => true,
+        'monthly' => true,
+        'quarterly' => true,
+        'yearly' => true,
+    ];
+
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
@@ -197,7 +229,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         ));
         $this->app->alias('capell.tailwind.generator', TailwindAssetsGenerator::class);
         $this->app->singleton(FrontendComponentRegistryInterface::class, FrontendComponentRegistry::class);
-        $this->app->singleton(FrontendComponentRegistrar::class);
+        $this->app->bind(
+            FrontendComponentRegistrar::class,
+            fn (Application $application): FrontendComponentRegistrar => new FrontendComponentRegistrar(
+                $application->tagged(FrontendComponentContributor::TAG),
+            ),
+        );
         $this->app->singleton(PublicRouteAliasRegistry::class);
         $this->app->singleton(RenderableDynamicDataRegistry::class);
         $this->registerCoreFrontendComponents();
@@ -213,6 +250,11 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 $application->tagged(PublicFragmentUrlResolver::TAG),
             ),
         );
+        $this->app->scoped(FrontendInteractionTargetCapabilityContributor::class);
+        $this->app->tag(
+            FrontendInteractionTargetCapabilityContributor::class,
+            InteractionTargetCapabilityContributor::TAG,
+        );
         $this->app->singletonIf(FrontendResourcePlanRenderer::class, DefaultFrontendResourcePlanRenderer::class);
         $this->app->singletonIf(RedirectResolver::class, NullRedirectResolver::class);
         $this->app->bind(DefaultSystemPageResolver::class);
@@ -222,10 +264,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ErrorPageManifestStore::class);
         $this->app->singleton(ErrorPagePathResolver::class);
         $this->app->singleton(ErrorPageFallbackManifestStore::class);
-        $this->app->singleton(ErrorPageRegenerationQueue::class);
-        $this->app->singleton(FrontendResponseRendererRegistry::class);
+        $this->app->scoped(ErrorPageRegenerationQueue::class);
+        $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
-        $this->app->singleton(PublicViewQueryGuard::class);
+        $this->app->scoped(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
         $this->app->singleton(FrontendHookRegistrar::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
@@ -361,17 +403,24 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootInstalledPackage(): self
     {
+        (new ApplyFrontendRouteReservationsAction(
+            $this->app->make(ReservedFrontendPathRegistry::class),
+            $this->app->make(ReservedFrontendDomainRegistry::class),
+            $this->app->tagged(FrontendRouteReservationContributor::TAG),
+        ))();
+
         return $this
             ->registerPublishCommands()
             ->registerTailwindAssets()
             ->registerAboutInfo()
             ->registerBladeComponents()
-            ->registerBlazeComponents()
+            ->registerBlazeOptimizedComponentViews()
             ->registerFrontendLivewireComponents()
             ->registerBladeDirectives()
             ->registerPaginateRoute()
             ->configureVite()
             ->bootstrapFrontendEvents()
+            ->registerPublicViewQueryListener()
             ->registerSiteCheckSchedule()
             ->registerSettingsSchemas()
             ->registerViewComposers();
@@ -395,6 +444,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerCacheInvalidationBindings(): void
     {
+        $this->app->singleton(CacheInvalidationDependencyRegistry::class);
         $this->app->scoped(CacheInvalidationExecutor::class);
         $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
         $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
@@ -407,7 +457,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(
             TranslationCacheDependencyRegistry::class,
             fn (Application $app): TranslationCacheDependencyRegistry => new TranslationCacheDependencyRegistry(
-                $app->tagged(TranslationCacheDependencyResolver::TAG),
+                TaggedProviderRegistry::tagged($app, TranslationCacheDependencyResolver::TAG),
             ),
         );
         $this->app->scoped(CacheInvalidationRegistry::class);
@@ -467,25 +517,24 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerPaginateRoute(): self
     {
-        $translationsPath = base_path('vendor/michaloravec/laravel-paginateroute/resources/lang');
-
-        if (is_dir($translationsPath)) {
-            $this->loadTranslationsFrom($translationsPath, 'paginateroute');
-        }
+        $this->loadTranslationsFrom(
+            base_path('vendor/michaloravec/laravel-paginateroute/resources/lang'),
+            'paginateroute',
+        );
 
         return $this;
     }
 
     private function registerFrontendLivewireComponents(): self
     {
-        $this->app->make(FrontendComponentRegistrar::class)->registerLivewireComponents();
-
-        return $this->registerLivewireComponentDefinitions([], [
-            'namespace' => 'capell',
-            'classNamespace' => 'Capell\\Frontend\\Livewire',
-            'classPath' => __DIR__ . '/../Livewire',
-            'classViewPath' => __DIR__ . '/../../resources/views/livewire',
-        ]);
+        return $this->registerLivewireComponentDefinitions($this->app
+            ->make(FrontendComponentRegistrar::class)
+            ->livewireComponents(), [
+                'namespace' => 'capell',
+                'classNamespace' => 'Capell\\Frontend\\Livewire',
+                'classPath' => __DIR__ . '/../Livewire',
+                'classViewPath' => __DIR__ . '/../../resources/views/livewire',
+            ]);
     }
 
     private function registerBladeComponents(): self
@@ -495,7 +544,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
-    private function registerBlazeComponents(): self
+    private function registerBlazeOptimizedComponentViews(): self
     {
         return $this->registerBlazeOptimizedViews([
             __DIR__ . '/../../resources/views/components/layout/index.blade.php',
@@ -518,18 +567,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         }
 
         $frequency = config('capell-frontend.schedule_page_cleaner', 'daily');
-        $frequencies = array_fill_keys([
-            'everyMinute', 'everyTwoMinutes', 'everyThreeMinutes', 'everyFourMinutes', 'everyFiveMinutes',
-            'everyTenMinutes', 'everyFifteenMinutes', 'everyThirtyMinutes', 'hourly', 'everyTwoHours',
-            'everyThreeHours', 'everyFourHours', 'everySixHours', 'daily', 'twiceDaily', 'weekly',
-            'monthly', 'quarterly', 'yearly',
-        ], true);
 
         if (! is_string($frequency) || $frequency === '') {
             return $this;
         }
 
-        if (! isset($frequencies[$frequency])) {
+        if (! isset(self::SITE_CHECK_SCHEDULE_FREQUENCIES[$frequency])) {
             Log::warning('Invalid schedule frequency: ' . $frequency);
 
             return $this;
@@ -575,6 +618,15 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    private function registerPublicViewQueryListener(): self
+    {
+        DB::listen(static function (QueryExecuted $event): void {
+            LaravelContainer::getInstance()->make(PublicViewQueryGuard::class)->capture($event);
+        });
+
+        return $this;
+    }
+
     private function registerThemeRuntime(): self
     {
         $this->callAfterResolving(
@@ -582,7 +634,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             function (): void {
                 $this->app->make(FrontendHookRegistrar::class)->contribute(
                     RenderHookLocation::HeadClose,
-                    $this->app->make(ThemeTokenHeadCloseHook::class),
+                    ThemeTokenHeadCloseHook::class,
                     owner: self::$packageName,
                     key: 'theme-token-css',
                 );
@@ -661,16 +713,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             $registry->reservePrefix($prefix);
         }
 
-        foreach (config('capell-frontend.route.reserved_prefixes', []) as $prefix) {
-            if (is_string($prefix)) {
-                $registry->reservePrefix($prefix);
-            }
+        foreach (array_filter((array) config('capell-frontend.route.reserved_prefixes', []), is_string(...)) as $prefix) {
+            $registry->reservePrefix($prefix);
         }
 
-        foreach (config('capell-frontend.route.reserved_exact_paths', []) as $path) {
-            if (is_string($path)) {
-                $registry->reserveExact($path);
-            }
+        foreach (array_filter((array) config('capell-frontend.route.reserved_exact_paths', []), is_string(...)) as $path) {
+            $registry->reserveExact($path);
         }
     }
 
@@ -678,10 +726,8 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         $registry = $this->app->make(ReservedFrontendDomainRegistry::class);
 
-        foreach (config('capell-frontend.route.reserved_domains', []) as $domain) {
-            if (is_string($domain)) {
-                $registry->reserve($domain);
-            }
+        foreach (array_filter((array) config('capell-frontend.route.reserved_domains', []), is_string(...)) as $domain) {
+            $registry->reserve($domain);
         }
     }
 }

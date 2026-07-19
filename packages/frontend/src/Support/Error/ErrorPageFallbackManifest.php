@@ -19,22 +19,12 @@ final class ErrorPageFallbackManifest
     private const string MANIFEST_RELATIVE_PATH = 'framework/capell-error-pages-fallback.json';
 
     /**
-     * Decoded manifest, cached for the lifetime of the request.
-     *
-     * @var array<mixed>|null
-     */
-    private static ?array $manifest = null;
-
-    private static bool $loaded = false;
-
-    /**
-     * Reset the static cache. Intended for tests so manifest state does not
-     * leak between cases in the same process.
+     * Retained for consumers which cleared the former process-static cache.
+     * Reads are now always fresh, so there is no state to flush.
      */
     public static function flush(): void
     {
-        self::$manifest = null;
-        self::$loaded = false;
+        // No-op: the manifest is read from disk for every operation.
     }
 
     public static function logoUrl(string $host): ?string
@@ -73,18 +63,32 @@ final class ErrorPageFallbackManifest
     }
 
     /**
+     * Read the logo and copy from one coherent manifest snapshot.
+     *
+     * @return array{logo_url: ?string, copy: array{headline: ?string, description: ?string}|null}
+     */
+    public static function forHost(string $host, string $status): array
+    {
+        $manifest = self::manifest();
+        $normalizedHost = strtolower($host);
+
+        $logoUrl = self::nestedString($manifest, ['hosts', $normalizedHost, 'logo_url'])
+            ?? self::nestedString($manifest, ['default', 'logo_url']);
+        $copy = self::nestedArray($manifest, ['hosts', $normalizedHost, 'copy', $status])
+            ?? self::nestedArray($manifest, ['default', 'copy', $status]);
+
+        return [
+            'logo_url' => $logoUrl,
+            'copy' => $copy !== null ? self::normalizeCopy($copy) : null,
+        ];
+    }
+
+    /**
      * @return array<mixed>
      */
     private static function manifest(): array
     {
-        if (self::$loaded) {
-            return self::$manifest ?? [];
-        }
-
-        self::$loaded = true;
-        self::$manifest = self::read();
-
-        return self::$manifest ?? [];
+        return self::read() ?? [];
     }
 
     /**

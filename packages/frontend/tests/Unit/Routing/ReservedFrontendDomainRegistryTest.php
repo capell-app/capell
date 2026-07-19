@@ -33,3 +33,18 @@ it('exposes the normalized reserved hosts', function (): void {
 
     expect($registry->reservedDomains())->toBe(['admin.test', 'internal.test']);
 });
+
+it('preserves first-registration order when a normalized host is reserved again', function (): void {
+    $registry = new ReservedFrontendDomainRegistry;
+
+    $registry->reserve('Admin.Test');
+    $registry->reserve('internal.test');
+    $registry->reserve('admin.test:443');
+
+    expect($registry->reservedDomains())->toBe(['admin.test', 'internal.test']);
+});
+
+it('is resolved from the container as a singleton', function (): void {
+    expect(resolve(ReservedFrontendDomainRegistry::class))
+        ->toBe(resolve(ReservedFrontendDomainRegistry::class));
+});
