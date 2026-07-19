@@ -79,6 +79,9 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('marketplace.tag.composer-change-publisher', 'tagged-service', 'capell.marketplace.composer-change-publisher', ExtensionSurfaceStability::Experimental, 'Container tag for optional Composer change publishers.', owner: 'capell-app/marketplace'),
             $this->entry('core.testing.extension-harness', 'testing', ExtensionTestHarness::class, ExtensionSurfaceStability::Stable, 'Single-package manifest and contribution assertions.', 'core.extension-test-harness'),
             $this->entry('core.internal.registry-builder', 'internal', BuildExtensionContractRegistryAction::class, ExtensionSurfaceStability::Internal, 'Internal executable contribution index.'),
+            $this->entry('frontend.contract.widget-resource-usage-contributor', 'contract', 'Capell\\Frontend\\Contracts\\FrontendWidgetResourceUsageContributor', ExtensionSurfaceStability::Experimental, 'Typed widget resource usage contribution boundary.', owner: 'capell-app/frontend'),
+            $this->entry('frontend.dto.widget-resource-usage', 'dto', 'Capell\\Frontend\\Data\\Assets\\FrontendWidgetResourceUsageData', ExtensionSurfaceStability::Experimental, 'Typed widget resource usage data.', owner: 'capell-app/frontend'),
+            $this->entry('frontend.tag.widget-resource-usage-contributor', 'tagged-service', 'capell.frontend.widget-resource-usage-contributor', ExtensionSurfaceStability::Experimental, 'Container tag for widget resource usage contributors.', owner: 'capell-app/frontend'),
         ];
     }
 

@@ -163,6 +163,36 @@
             "contractTestId": "core.extension-test-harness"
         },
         {
+            "id": "frontend.contract.widget-resource-usage-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\FrontendWidgetResourceUsageContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed widget resource usage contribution boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.widget-resource-usage",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\Assets\\FrontendWidgetResourceUsageData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed widget resource usage data.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.tag.widget-resource-usage-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend.widget-resource-usage-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for widget resource usage contributors.",
+            "contractTestId": null
+        },
+        {
             "id": "marketplace.contract.composer-change-publisher",
             "kind": "contract",
             "identifier": "Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher",

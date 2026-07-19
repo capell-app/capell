@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Frontend\Contracts\FrontendWidgetResourceUsageContributor;
+use Capell\Frontend\Data\Assets\FrontendWidgetResourceUsageData;
 use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\LayoutBuilder\Contracts\Assets\LayoutWidgetResourceUsageContributor;
-use Capell\LayoutBuilder\Data\Assets\LayoutWidgetResourceUsageData;
 use Illuminate\Contracts\Foundation\Application;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -28,14 +28,10 @@ class BuildFrontendWidgetResourceUsagesAction
     {
         $usages = BuildSelectedFrontendWidgetResourceUsagesAction::run($context);
 
-        if (! interface_exists(LayoutWidgetResourceUsageContributor::class)) {
-            return $usages;
-        }
-
-        return collect($this->application->tagged(LayoutWidgetResourceUsageContributor::TAG))
-            ->filter(fn (mixed $contributor): bool => $contributor instanceof LayoutWidgetResourceUsageContributor)
-            ->flatMap(fn (LayoutWidgetResourceUsageContributor $contributor): array => $contributor->usages($context))
-            ->filter(fn (mixed $usage): bool => $usage instanceof LayoutWidgetResourceUsageData)
+        return collect($this->application->tagged(FrontendWidgetResourceUsageContributor::TAG))
+            ->filter(fn (mixed $contributor): bool => $contributor instanceof FrontendWidgetResourceUsageContributor)
+            ->flatMap(fn (FrontendWidgetResourceUsageContributor $contributor): array => $contributor->usages($context))
+            ->filter(fn (mixed $usage): bool => $usage instanceof FrontendWidgetResourceUsageData)
             ->merge($usages)
             ->unique(function (mixed $usage): string {
                 $loadingStrategy = data_get($usage, 'loadingStrategy', data_get($usage, 'presentation.loadingStrategy'));
