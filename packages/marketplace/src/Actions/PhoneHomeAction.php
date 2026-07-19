@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Data\InstalledPackageData;
+use Capell\Marketplace\Data\PhoneHomeResultData;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
@@ -21,43 +22,39 @@ final class PhoneHomeAction
     use AsFake;
     use AsObject;
 
-    private static ?string $lastFailureMessage = null;
-
-    private ?string $failureMessage = null;
-
     public function __construct(
         private readonly MarketplaceClient $marketplace,
         private readonly MarketplacePayloadSigner $signer,
     ) {}
 
-    public static function lastFailureMessage(): ?string
-    {
-        return self::$lastFailureMessage;
-    }
-
     public function handle(): bool
     {
-        $this->failureMessage = null;
-        self::$lastFailureMessage = null;
+        return $this->result()->successful;
+    }
+
+    public function result(): PhoneHomeResultData
+    {
 
         $baseUrl = config('capell-marketplace.marketplace.base_url');
 
         if ($baseUrl === null || $baseUrl === '') {
             Log::warning('capell-marketplace: marketplace.base_url not configured, skipping phone home.');
-            $this->failureMessage = 'The marketplace URL is not configured. Set CAPELL_MARKETPLACE_URL to the Capell marketplace API URL.';
-            self::$lastFailureMessage = $this->failureMessage;
 
-            return false;
+            return new PhoneHomeResultData(
+                successful: false,
+                failureMessage: 'The marketplace URL is not configured. Set CAPELL_MARKETPLACE_URL to the Capell marketplace API URL.',
+            );
         }
 
         $webhookUrl = MarketplaceWebhookUrl::resolve();
 
         if ($webhookUrl === null) {
             Log::warning('capell-marketplace: marketplace webhook URL is not configured, skipping phone home.');
-            $this->failureMessage = 'The marketplace webhook URL could not be resolved. Set APP_URL to this site URL or set CAPELL_MARKETPLACE_WEBHOOK_URL before running heartbeat.';
-            self::$lastFailureMessage = $this->failureMessage;
 
-            return false;
+            return new PhoneHomeResultData(
+                successful: false,
+                failureMessage: 'The marketplace webhook URL could not be resolved. Set APP_URL to this site URL or set CAPELL_MARKETPLACE_WEBHOOK_URL before running heartbeat.',
+            );
         }
 
         $marketplaceInstance = MarketplaceInstance::query()
@@ -67,10 +64,10 @@ final class PhoneHomeAction
         $instanceId = $marketplaceInstance?->instance_id ?? config('capell-marketplace.instance.id');
 
         if (! is_string($instanceId) || $instanceId === '') {
-            $this->failureMessage = 'This installation is not connected to Capell Marketplace. Connect a Capell account before running heartbeat.';
-            self::$lastFailureMessage = $this->failureMessage;
-
-            return false;
+            return new PhoneHomeResultData(
+                successful: false,
+                failureMessage: 'This installation is not connected to Capell Marketplace. Connect a Capell account before running heartbeat.',
+            );
         }
 
         $capellVersion = CapellCore::getInstalledPrettyVersion('capell-app/capell')
@@ -104,10 +101,10 @@ final class PhoneHomeAction
                 $signingSecret = $heartbeatResult->signingSecret ?? $marketplaceInstance?->signing_secret_encrypted;
 
                 if (! is_string($signingSecret) || $signingSecret === '') {
-                    $this->failureMessage = 'The marketplace response did not include a signing secret for initial heartbeat bootstrap.';
-                    self::$lastFailureMessage = $this->failureMessage;
-
-                    return false;
+                    return new PhoneHomeResultData(
+                        successful: false,
+                        failureMessage: 'The marketplace response did not include a signing secret for initial heartbeat bootstrap.',
+                    );
                 }
 
                 MarketplaceInstance::query()->updateOrCreate(
@@ -127,29 +124,22 @@ final class PhoneHomeAction
                     payload: $heartbeatResult->toArray(),
                 );
 
-                return true;
+                return new PhoneHomeResultData(successful: true);
             }
 
-            $this->failureMessage = 'The marketplace response did not confirm the connected instance ID.'
+            $failureMessage = 'The marketplace response did not confirm the connected instance ID.'
                 . ' Heartbeat URL: ' . $heartbeatUrl . '.';
         } catch (ConnectionException $connectionException) {
             Log::warning('capell-marketplace: phone home connection failed', ['error' => $connectionException->getMessage()]);
-            $this->failureMessage = 'Capell could not connect to the marketplace API. Heartbeat URL: '
+            $failureMessage = 'Capell could not connect to the marketplace API. Heartbeat URL: '
                 . $heartbeatUrl
                 . '. Error: '
                 . $connectionException->getMessage();
         } catch (RuntimeException $runtimeException) {
             Log::warning('capell-marketplace: phone home failed', ['error' => $runtimeException->getMessage()]);
-            $this->failureMessage = $runtimeException->getMessage();
+            $failureMessage = $runtimeException->getMessage();
         }
 
-        self::$lastFailureMessage = $this->failureMessage;
-
-        return false;
-    }
-
-    public function failureMessage(): ?string
-    {
-        return $this->failureMessage;
+        return new PhoneHomeResultData(successful: false, failureMessage: $failureMessage);
     }
 }

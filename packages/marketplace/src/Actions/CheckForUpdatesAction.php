@@ -18,11 +18,10 @@ final class CheckForUpdatesAction
     {
         $this->failureMessage = null;
 
-        $result = PhoneHomeAction::run();
+        $result = resolve(PhoneHomeAction::class)->result();
+        $this->failureMessage = $result->failureMessage;
 
-        $this->failureMessage = PhoneHomeAction::lastFailureMessage();
-
-        return $result;
+        return $result->successful;
     }
 
     public function failureMessage(): ?string

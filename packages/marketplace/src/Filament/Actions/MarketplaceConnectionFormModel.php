@@ -125,13 +125,13 @@ final class MarketplaceConnectionFormModel
 
     public function runHeartbeat(): void
     {
-        $phoneHome = resolve(PhoneHomeAction::class);
+        $result = resolve(PhoneHomeAction::class)->result();
 
-        if (! $phoneHome->handle()) {
+        if (! $result->successful) {
             $notification = Notification::make('marketplace-error')
                 ->title((string) __('capell-marketplace::marketplace.install.heartbeat_failed'))
                 ->body((string) __('capell-marketplace::marketplace.install.heartbeat_failed_body', [
-                    'reason' => $phoneHome->failureMessage() ?? (string) __('capell-marketplace::marketplace.install.heartbeat_default_failure'),
+                    'reason' => $result->failureMessage ?? (string) __('capell-marketplace::marketplace.install.heartbeat_default_failure'),
                 ]))
                 ->danger()
                 ->persistent();

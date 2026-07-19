@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Capell\Marketplace\Actions\PhoneHomeAction;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 use Spatie\Permission\Models\Role;
 
@@ -97,12 +97,18 @@ it('runs marketplace heartbeat from the connection form model', function (): voi
 it('reports marketplace heartbeat failures from the connection form model', function (): void {
     config([
         'capell-marketplace.marketplace.base_url' => null,
-        'capell-marketplace.marketplace.troubleshooting_url' => 'https://docs.example.test/marketplace',
+        'capell-marketplace.marketplace.troubleshooting_url' => null,
     ]);
 
     resolve(MarketplaceConnectionFormModel::class)->runHeartbeat();
 
-    expect(PhoneHomeAction::lastFailureMessage())->toBe(
-        'The marketplace URL is not configured. Set CAPELL_MARKETPLACE_URL to the Capell marketplace API URL.',
+    Notification::assertNotified(
+        Notification::make('marketplace-error')
+            ->title((string) __('capell-marketplace::marketplace.install.heartbeat_failed'))
+            ->body((string) __('capell-marketplace::marketplace.install.heartbeat_failed_body', [
+                'reason' => 'The marketplace URL is not configured. Set CAPELL_MARKETPLACE_URL to the Capell marketplace API URL.',
+            ]))
+            ->danger()
+            ->persistent(),
     );
 });

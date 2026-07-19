@@ -152,8 +152,10 @@ it('reports a clear heartbeat failure when the marketplace webhook URL is not co
         'capell-marketplace.marketplace.webhook_url' => null,
     ]);
 
-    expect(PhoneHomeAction::run())->toBeFalse()
-        ->and(PhoneHomeAction::lastFailureMessage())->toContain('marketplace webhook URL could not be resolved');
+    $result = resolve(PhoneHomeAction::class)->result();
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->failureMessage)->toContain('marketplace webhook URL could not be resolved');
 
     Http::assertNothingSent();
 });
@@ -165,8 +167,10 @@ it('reports a clear heartbeat failure when the marketplace URL is not configured
         'capell-marketplace.marketplace.base_url' => null,
     ]);
 
-    expect(PhoneHomeAction::run())->toBeFalse()
-        ->and(PhoneHomeAction::lastFailureMessage())->toContain('marketplace URL is not configured');
+    $result = resolve(PhoneHomeAction::class)->result();
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->failureMessage)->toContain('marketplace URL is not configured');
 
     Http::assertNothingSent();
 });
@@ -181,8 +185,10 @@ it('requires a connected marketplace instance before sending heartbeat telemetry
         'capell-marketplace.instance.id' => null,
     ]);
 
-    expect(PhoneHomeAction::run())->toBeFalse()
-        ->and(PhoneHomeAction::lastFailureMessage())->toContain('not connected to Capell Marketplace');
+    $result = resolve(PhoneHomeAction::class)->result();
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->failureMessage)->toContain('not connected to Capell Marketplace');
 
     Http::assertNothingSent();
 });
@@ -205,8 +211,10 @@ it('does not bootstrap a heartbeat when the marketplace omits the signing secret
         ]),
     ]);
 
-    expect(PhoneHomeAction::run())->toBeFalse()
-        ->and(PhoneHomeAction::lastFailureMessage())->toContain('did not include a signing secret')
+    $result = resolve(PhoneHomeAction::class)->result();
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->failureMessage)->toContain('did not include a signing secret')
         ->and(MarketplaceInstance::query()->where('instance_id', '00000000-0000-4000-8000-000000000002')->exists())->toBeFalse();
 });
 
@@ -234,6 +242,40 @@ it('rejects heartbeat responses for a different connected instance', function ()
         ]),
     ]);
 
-    expect(PhoneHomeAction::run())->toBeFalse()
-        ->and(PhoneHomeAction::lastFailureMessage())->toContain('did not confirm the connected instance ID');
+    $result = resolve(PhoneHomeAction::class)->result();
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->failureMessage)->toContain('did not confirm the connected instance ID');
+});
+
+it('keeps failure details isolated to the operation that produced them', function (): void {
+    config(['capell-marketplace.marketplace.base_url' => null]);
+
+    $failed = resolve(PhoneHomeAction::class)->result();
+
+    config([
+        'app.url' => 'https://example.test',
+        'capell-marketplace.marketplace.base_url' => 'https://capell.test/api/v1',
+        'capell-marketplace.marketplace.webhook_url' => 'https://example.test/capell/marketplace/webhook',
+        'capell-marketplace.instance.id' => '00000000-0000-4000-8000-000000000002',
+    ]);
+
+    Http::fake([
+        'https://capell.test/api/v1/instances/heartbeat' => Http::response([
+            'data' => [
+                'instance_id' => '00000000-0000-4000-8000-000000000002',
+                'signing_secret' => 'test-signing-secret',
+                'updates' => [],
+                'advisories' => [],
+            ],
+        ]),
+    ]);
+
+    $succeeded = resolve(PhoneHomeAction::class)->result();
+
+    expect($failed->successful)->toBeFalse()
+        ->and($failed->failureMessage)->toContain('marketplace URL is not configured')
+        ->and($succeeded->successful)->toBeTrue()
+        ->and($succeeded->failureMessage)->toBeNull()
+        ->and($failed->failureMessage)->toContain('marketplace URL is not configured');
 });
