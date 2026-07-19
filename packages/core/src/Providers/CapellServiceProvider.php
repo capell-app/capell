@@ -626,6 +626,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerOptimization(): self
     {
         $this->optimizes(
+            optimize: PackageCacheCommand::class,
+            clear: PackageClearCacheCommand::class,
+            key: 'capell-package-manifests',
+        );
+
+        $this->optimizes(
             optimize: CacheComponentsCommand::class,
             clear: CacheComponentsCommand::class,
             key: 'capell-components-cache',

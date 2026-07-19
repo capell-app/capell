@@ -100,6 +100,7 @@
         "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --configuration=phpunit.xml",
         "test:shards": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --update-shards --configuration=phpunit.xml",
         "test:profile": "@php scripts/profile-pest-tests.php",
+        "benchmark:boot": "@php scripts/benchmark-boot.php",
         "check:pest-shards": "@php scripts/patch-pest-shards.php --check",
         "test:types": "@php vendor/bin/pest --configuration=phpunit.xml --type-coverage",
         "test": [
