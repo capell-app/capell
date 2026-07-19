@@ -11,6 +11,10 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
+use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Bus;
+use Lorisleiva\Actions\Decorators\JobDecorator;
 
 /**
  * @return array{site: Site, siteDomain: SiteDomain, errorPage: Page}
@@ -38,6 +42,40 @@ it('dispatches for a site update', function (): void {
 
     $site->name = 'Renamed site';
     $site->save();
+});
+
+it('deduplicates queued regeneration per request without suppressing the next request', function (): void {
+    $application = app();
+    $originalEnvironment = $application->environment();
+    $runningInConsole = new ReflectionProperty(Application::class, 'isRunningInConsole');
+    $originalRunningInConsole = $runningInConsole->getValue($application);
+
+    try {
+        $application->detectEnvironment(fn (): string => 'local');
+        $runningInConsole->setValue($application, false);
+        Bus::fake();
+
+        $site = new Site;
+        $site->forceFill(['id' => 47, 'name' => 'Before']);
+        $site->syncOriginal();
+        $site->name = 'After';
+        $site->syncChanges();
+
+        $observer = resolve(ErrorPageModelInvalidationObserver::class);
+
+        $observer->updatedFromEvent('eloquent.updated', [$site]);
+        $observer->updatedFromEvent('eloquent.updated', [$site]);
+
+        Bus::assertDispatchedAfterResponse(JobDecorator::class, 1);
+
+        $application->forgetScopedInstances();
+        $observer->updatedFromEvent('eloquent.updated', [$site]);
+
+        Bus::assertDispatchedAfterResponse(JobDecorator::class, 2);
+    } finally {
+        $application->detectEnvironment(fn (): string => $originalEnvironment);
+        $runningInConsole->setValue($application, $originalRunningInConsole);
+    }
 });
 
 it('dispatches for a site domain update', function (): void {
