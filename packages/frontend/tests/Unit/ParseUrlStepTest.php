@@ -25,4 +25,10 @@ it('normalizes index.php and leading/trailing slashes', function (): void {
     $step->handle($work2, fn (FrontendWork $w): FrontendWork => $w);
 
     expect($work2->state->effectiveUrl())->toBe('/path/');
+
+    $nestedRequest = Request::create('https://example.com/catalogue/index.php');
+    $nestedWork = new FrontendWork($nestedRequest, new FrontendState);
+    $step->handle($nestedWork, fn (FrontendWork $frontendWork): FrontendWork => $frontendWork);
+
+    expect($nestedWork->state->effectiveUrl())->toBe('/catalogue/');
 });

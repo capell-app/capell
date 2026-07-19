@@ -6,6 +6,7 @@ namespace Capell\Core\EventSourcing\Rollback\Support;
 
 use Capell\Core\EventSourcing\Rollback\RollbackChangeType;
 use Capell\Core\EventSourcing\Rollback\RollbackFieldChangeData;
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Str;
 
 /**
@@ -79,6 +80,6 @@ final class StateDiffer
 
     private function valuesEqual(mixed $before, mixed $after): bool
     {
-        return json_encode($before) === json_encode($after);
+        return JsonCodec::encodeValue($before) === JsonCodec::encodeValue($after);
     }
 }

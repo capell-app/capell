@@ -15,6 +15,14 @@ final class JsonCodec
      */
     public static function encode(array $value, int $flags = 0): string
     {
+        return self::encodeValue($value, $flags);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public static function encodeValue(mixed $value, int $flags = 0): string
+    {
         return json_encode($value, JSON_THROW_ON_ERROR | $flags);
     }
 
@@ -35,5 +43,25 @@ final class JsonCodec
         }
 
         return is_array($decoded) ? $decoded : $default;
+    }
+
+    /**
+     * @param  array<string, mixed>  $default
+     * @return array<string, mixed>
+     */
+    public static function decodeObject(?string $json, array $default = []): array
+    {
+        $decoded = self::decodeArray($json, $default);
+        $object = [];
+
+        foreach ($decoded as $key => $value) {
+            if (! is_string($key)) {
+                return $default;
+            }
+
+            $object[$key] = $value;
+        }
+
+        return $object;
     }
 }

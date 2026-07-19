@@ -27,10 +27,7 @@ final class NormalizeDomainPathStep
             $path = UrlPathNormalizer::stripPrefix($path, $prefix);
         }
 
-        // Normalize index.php to root after prefix handling
-        if ($path === '/index.php' || str_ends_with($path, '/index.php')) {
-            $path = '/';
-        }
+        $path = UrlPathNormalizer::stripIndexPhp($path);
 
         $state->setEffectiveUrl($path);
 

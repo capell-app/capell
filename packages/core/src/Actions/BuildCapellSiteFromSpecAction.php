@@ -195,7 +195,7 @@ final class BuildCapellSiteFromSpecAction
                 'title' => ! $public && $first ? 'Coming soon' : $page->title,
                 'content' => $content,
                 'summary' => ! $public && $first ? 'This site is being prepared.' : $page->description,
-                'slug' => ltrim($page->slug, '/'),
+                'slug' => ltrim($page->resolvedUrl(), '/'),
                 'meta' => array_merge(['description' => $page->description, 'robots' => $public ? 'index,follow' : 'noindex,nofollow'], $page->meta),
             ]],
         ];

@@ -10,6 +10,7 @@ use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Illuminate\Support\Facades\Http;
@@ -178,6 +179,30 @@ it('publishes only the coming soon page for a private import', function (): void
         ->and($about->publishVisibilityState())->toBe(PublishVisibilityStateEnum::draft)
         ->and(Page::query()->whereBelongsTo($site)->published()->pluck('name')->all())->toBe(['Home'])
         ->and(Page::query()->whereBelongsTo($site)->draft()->pluck('name')->all())->toBe(['About']);
+
+    Http::assertNothingSent();
+});
+
+it('uses an explicit page URL instead of its navigation slug', function (): void {
+    Http::fake();
+    $payload = importSiteSpecPayload();
+    $payload['pages'][1]['url'] = '/company/about-us';
+    $payload['navigations'] = [];
+    $payload['media'] = ['sourceUrl' => null, 'logo' => null, 'images' => []];
+    $payload['extensions'] = [];
+    $path = writeSiteSpec($payload);
+
+    try {
+        artisanCommand('capell:site-spec-import', ['spec' => $path])
+            ->assertExitCode(Command::SUCCESS);
+    } finally {
+        unlink($path);
+    }
+
+    $about = Page::query()->where('name', 'About')->firstOrFail();
+
+    expect(PageUrl::query()->whereMorphedTo('pageable', $about)->value('url'))
+        ->toBe('/company/about-us');
 
     Http::assertNothingSent();
 });

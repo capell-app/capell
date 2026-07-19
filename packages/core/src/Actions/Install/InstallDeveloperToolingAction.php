@@ -194,7 +194,7 @@ class InstallDeveloperToolingAction
 
         file_put_contents(
             $boostJsonPath,
-            json_encode($boostConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
+            JsonCodec::encode($boostConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
         );
     }
 
