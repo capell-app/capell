@@ -58,8 +58,10 @@ class ResolveBrandProfileAction
             if (! is_string($key)) {
                 continue;
             }
-
             if (BrandProfileData::supportsToken($key)) {
+                continue;
+            }
+            if (! BrandProfileData::supportsCustomToken($key)) {
                 continue;
             }
 

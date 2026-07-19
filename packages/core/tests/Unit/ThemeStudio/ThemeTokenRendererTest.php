@@ -67,6 +67,20 @@ it('reports invalid foreground and surface contrast tokens', function (): void {
         ->and($issues[0])->toContain('invalid color');
 });
 
+it('publishes token css without leaving partial files', function (): void {
+    $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
+
+    try {
+        $path = new ThemeTokenStore($directory)->put('atomic-theme', 'default', new BrandProfileData);
+
+        expect(File::get($path))->toStartWith(':root {')
+            ->and(File::glob($directory . '/*.tmp'))->toBe([])
+            ->and(File::files($directory))->toHaveCount(1);
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});
+
 it('returns fallback token css and exposes token issues for invalid runtime profiles', function (): void {
     $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
 
@@ -173,7 +187,11 @@ it('renders declared theme editor extras and rejects values outside their closed
             frontend: [
                 'editor' => [
                     'groups' => ['identity' => ['glassDepth']],
-                    'tokens' => ['glassDepth' => ['options' => ['restrained', 'balanced', 'prismatic']]],
+                    'tokens' => [
+                        'glassDepth' => ['options' => ['restrained', 'balanced', 'prismatic']],
+                        'x; } body { displayNone' => ['options' => ['unsafe']],
+                        'radiusValue' => ['options' => ['999px']],
+                    ],
                 ],
             ],
         ),
@@ -188,6 +206,8 @@ it('renders declared theme editor extras and rejects values outside their closed
                 'identity-token-theme' => [
                     'glassDepth' => 'prismatic',
                     'undeclaredToken' => 'unsafe; } body { display: none',
+                    'x; } body { displayNone' => 'unsafe',
+                    'radiusValue' => '999px',
                 ],
             ],
         );
@@ -196,7 +216,10 @@ it('renders declared theme editor extras and rejects values outside their closed
 
         expect($css)
             ->toContain('--theme-glass-depth: prismatic;')
+            ->toContain('--theme-radius-value: 0.5rem;')
             ->not->toContain('undeclared-token')
+            ->not->toContain('--theme-x;')
+            ->not->toContain('--theme-radius-value: 999px;')
             ->not->toContain('display: none');
     } finally {
         File::deleteDirectory($directory);

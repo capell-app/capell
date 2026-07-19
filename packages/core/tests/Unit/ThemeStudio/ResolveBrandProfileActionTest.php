@@ -65,3 +65,45 @@ it('rejects identity token values outside the declared options', function (): vo
 
     expect($profile->tokens())->not->toHaveKey('--theme-glass-depth');
 });
+
+it('rejects unsafe and reserved custom token names', function (string $key): void {
+    $definition = new ThemeDefinitionData(
+        key: 'custom-token-safety',
+        name: 'Custom Token Safety',
+        description: 'Custom token safety test.',
+        package: 'capell-app/custom-token-safety',
+        previewImage: '/preview.jpg',
+        tags: [],
+        bestFit: [],
+        presets: [new ThemePresetData('default', 'Default', 'Default.', '/preview.jpg', [])],
+        frontend: [
+            'editor' => [
+                'tokens' => [$key => ['options' => ['unsafe']]],
+            ],
+        ],
+    );
+
+    $profile = ResolveBrandProfileAction::run(
+        new BrandProfileData,
+        $definition,
+        new ThemeOverrideData('custom-token-safety', 'default', [$key => 'unsafe']),
+    );
+
+    expect($profile->customTokens)->toBeEmpty();
+})->with([
+    'css declaration injection' => 'x; } body { displayNone',
+    'reserved derived property' => 'radiusValue',
+]);
+
+it('defensively excludes unsafe custom tokens when profiles are constructed directly', function (): void {
+    $tokens = new BrandProfileData(customTokens: [
+        'safeIdentity' => 'balanced',
+        'x; } body { displayNone' => 'unsafe',
+        'radiusValue' => '999px',
+    ])->tokens();
+
+    expect($tokens)
+        ->toHaveKey('--theme-safe-identity', 'balanced')
+        ->toHaveKey('--theme-radius-value', '0.5rem')
+        ->not->toHaveKey('--theme-x; } body { display-none');
+});

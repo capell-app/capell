@@ -97,13 +97,19 @@ jobs:
               echo "DB_DATABASE=test_cms_multi"
               echo "DB_USERNAME=root"
               echo "DB_PASSWORD=root"
-            } >> .env
+            } >> "$GITHUB_ENV"
           else
             {
               echo "DB_CONNECTION=sqlite"
               echo "DB_DATABASE=:memory:"
-            } >> .env
+            } >> "$GITHUB_ENV"
           fi
+
+      - name: Verify database matrix environment
+        env:
+          EXPECTED_DB_CONNECTION: ${{ matrix.db }}
+        run: |
+          php -r 'if (getenv("DB_CONNECTION") !== getenv("EXPECTED_DB_CONNECTION")) { throw new RuntimeException("Unexpected database connection."); }'
 
       - name: Run test:all
         id: run-tests
