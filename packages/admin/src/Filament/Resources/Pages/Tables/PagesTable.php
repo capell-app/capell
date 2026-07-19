@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Pages\Tables;
 
+use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Enums\FilamentColorEnum;
@@ -124,20 +125,8 @@ class PagesTable implements TableConfigurator
                         })
                         ->action(function (PageModel $record, array $data): void {
                             $blueprint = $record->blueprint;
-                            $roleRestrictions = $data['admin']['role_restrictions'] ?? null;
-                            unset($data['admin']['role_restrictions']);
 
-                            $blueprint->update($data);
-
-                            if (auth()->user()?->can('manageRestrictions', PageModel::class) !== true) {
-                                return;
-                            }
-
-                            if (is_array($roleRestrictions)) {
-                                $blueprint->syncRoleRestrictions(
-                                    array_values(array_map(intval(...), $roleRestrictions)),
-                                );
-                            }
+                            UpdateBlueprintAction::run($blueprint, $data);
                         }),
                     ReplicatePageAction::make(),
                     DeleteAction::make()
