@@ -44,6 +44,7 @@ use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
+use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
@@ -126,6 +127,7 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
+use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
@@ -175,8 +177,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function registeringPackage(): void
     {
         $this->app->scoped(RuntimeSchemaState::class);
-        $this->app->singleton(ProjectBuildArtifactHandlerRegistry::class);
+        $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
         $this->app->singleton(ProjectBuildManifestMigrationRegistry::class);
+        $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->singleton(SiteSpecApplierRegistry::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);

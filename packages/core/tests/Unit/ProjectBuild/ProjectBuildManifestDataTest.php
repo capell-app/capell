@@ -9,9 +9,11 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
 
 it('represents the complete provider-neutral project build envelope', function (): void {
-    $siteSpec = new ProjectBuildArtifactReferenceData(
+    $siteSpec = new ProjectBuildSiteSpecReferenceData(
+        schemaVersion: 1,
         key: 'site-spec',
         type: 'site-spec',
         path: 'artifacts/site-spec.json',
@@ -65,6 +67,7 @@ it('represents the complete provider-neutral project build envelope', function (
     expect($payload['schemaVersion'])->toBe(1)
         ->and($payload['buildId'])->toBe('019f7bf4-45b4-70f1-b8c9-f88d8c783b41')
         ->and($payload['siteSpec']['key'])->toBe('site-spec')
+        ->and($payload['siteSpec']['schemaVersion'])->toBe(1)
         ->and($payload['siteSpec']['type'])->toBe('site-spec')
         ->and($payload['artifacts'][0]['key'])->toBe('theme')
         ->and($payload['artifacts'][0]['type'])->toBe('capell-theme')

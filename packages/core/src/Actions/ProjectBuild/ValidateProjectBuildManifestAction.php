@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\ProjectBuild;
 
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Support\ProjectBuild\ProjectBuildManifestConstraints;
 use Closure;
+use DateTimeImmutable;
+use Exception;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator as LaravelValidator;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -15,12 +19,15 @@ final class ValidateProjectBuildManifestAction
 {
     use AsObject;
 
-    private const int ED25519_SIGNATURE_BYTES = 64;
-
     /** @param array<string, mixed>|ProjectBuildManifestData $manifest */
     public function handle(array|ProjectBuildManifestData $manifest): ProjectBuildManifestData
     {
         $payload = $manifest instanceof ProjectBuildManifestData ? $manifest->toArray() : $manifest;
+        $rootKeys = ['schemaVersion', 'buildId', 'createdAt', 'siteSpec', 'artifacts', 'packages', 'sites', 'routes', 'compatibility', 'signature'];
+        if (array_is_list($payload) || array_diff(array_keys($payload), $rootKeys) !== []) {
+            throw ValidationException::withMessages(['manifest' => 'The project build manifest contains unsupported root properties.']);
+        }
+
         $validator = Validator::make($payload, $this->rules());
         $validator->after(function (LaravelValidator $validator) use ($payload): void {
             $this->validateRelationships($validator, $payload);
@@ -34,79 +41,111 @@ final class ValidateProjectBuildManifestAction
     private function rules(): array
     {
         $artifactRules = ['required', 'array:key,type,path,digest,sizeBytes,mediaType'];
-        $artifactKeyRules = ['required', 'string', 'regex:/^[a-z0-9][a-z0-9._-]{0,99}$/'];
-        $artifactTypeRules = ['required', 'string', 'regex:/^[a-z0-9][a-z0-9-]{0,63}$/'];
+        $artifactKeyRules = ['required', 'string', $this->regex(ProjectBuildManifestConstraints::ARTIFACT_KEY_PATTERN)];
+        $artifactTypeRules = ['required', 'string', $this->regex(ProjectBuildManifestConstraints::ARTIFACT_TYPE_PATTERN)];
         $artifactPathRules = [
             'required',
             'string',
-            'max:255',
+            'max:' . ProjectBuildManifestConstraints::MAX_ARTIFACT_PATH_LENGTH,
             static function (string $attribute, mixed $value, Closure $fail): void {
-                if (! is_string($value)
-                    || str_starts_with($value, '/')
-                    || str_contains($value, '\\')
-                    || in_array('..', explode('/', $value), true)
-                    || in_array('', explode('/', $value), true)) {
+                if (! is_string($value) || preg_match('~' . ProjectBuildManifestConstraints::ARTIFACT_PATH_PATTERN . '~D', $value) !== 1) {
                     $fail("The {$attribute} field must be a safe relative POSIX path.");
                 }
             },
         ];
 
         return [
-            'schemaVersion' => ['required', 'integer', 'in:1'],
+            'schemaVersion' => ['required', 'integer', 'in:' . ProjectBuildManifestConstraints::CURRENT_SCHEMA_VERSION],
             'buildId' => ['required', 'uuid'],
-            'createdAt' => ['required', 'date_format:Y-m-d\TH:i:sP'],
-            'siteSpec' => $artifactRules,
+            'createdAt' => [
+                'required',
+                'string',
+                static function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value) || preg_match('~' . ProjectBuildManifestConstraints::DATE_TIME_PATTERN . '~D', $value) !== 1) {
+                        $fail("The {$attribute} field must be an RFC 3339 date-time.");
+
+                        return;
+                    }
+
+                    $hasFraction = str_contains($value, '.');
+                    $usesZulu = str_ends_with($value, 'Z');
+                    $format = match (true) {
+                        $hasFraction && $usesZulu => '!Y-m-d\TH:i:s.u\Z',
+                        $hasFraction => '!Y-m-d\TH:i:s.uP',
+                        $usesZulu => '!Y-m-d\TH:i:s\Z',
+                        default => '!Y-m-d\TH:i:sP',
+                    };
+
+                    try {
+                        $date = DateTimeImmutable::createFromFormat($format, $value);
+                        $errors = DateTimeImmutable::getLastErrors();
+                        if (! $date instanceof DateTimeImmutable || (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+                            $fail("The {$attribute} field must be an RFC 3339 date-time.");
+                        }
+                    } catch (Exception) {
+                        $fail("The {$attribute} field must be an RFC 3339 date-time.");
+                    }
+                },
+            ],
+            'siteSpec' => ['required', 'array:schemaVersion,key,type,path,digest,sizeBytes,mediaType'],
+            'siteSpec.schemaVersion' => ['required', 'integer', 'in:' . ProjectBuildManifestConstraints::CURRENT_SITE_SPEC_SCHEMA_VERSION],
             'siteSpec.key' => $artifactKeyRules,
             'siteSpec.type' => ['required', 'in:site-spec'],
             'siteSpec.path' => $artifactPathRules,
-            'siteSpec.digest' => ['required', 'regex:/^[a-f0-9]{64}$/'],
-            'siteSpec.sizeBytes' => ['required', 'integer', 'min:1', 'max:2147483648'],
-            'siteSpec.mediaType' => ['required', 'string', 'regex:/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i'],
-            'artifacts' => ['present', 'array', 'max:1000'],
+            'siteSpec.digest' => ['required', $this->regex(ProjectBuildManifestConstraints::DIGEST_PATTERN)],
+            'siteSpec.sizeBytes' => ['required', 'integer', 'min:1', 'max:' . ProjectBuildManifestConstraints::MAX_ARTIFACT_SIZE_BYTES],
+            'siteSpec.mediaType' => ['required', 'string', $this->regex(ProjectBuildManifestConstraints::MEDIA_TYPE_PATTERN)],
+            'artifacts' => ['present', 'array', 'list', 'max:' . ProjectBuildManifestConstraints::MAX_ARTIFACTS],
             'artifacts.*' => $artifactRules,
             'artifacts.*.key' => $artifactKeyRules,
             'artifacts.*.type' => $artifactTypeRules,
             'artifacts.*.path' => $artifactPathRules,
-            'artifacts.*.digest' => ['required', 'regex:/^[a-f0-9]{64}$/'],
-            'artifacts.*.sizeBytes' => ['required', 'integer', 'min:1', 'max:2147483648'],
-            'artifacts.*.mediaType' => ['required', 'string', 'regex:/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i'],
-            'packages' => ['present', 'array', 'max:250'],
+            'artifacts.*.digest' => ['required', $this->regex(ProjectBuildManifestConstraints::DIGEST_PATTERN)],
+            'artifacts.*.sizeBytes' => ['required', 'integer', 'min:1', 'max:' . ProjectBuildManifestConstraints::MAX_ARTIFACT_SIZE_BYTES],
+            'artifacts.*.mediaType' => ['required', 'string', $this->regex(ProjectBuildManifestConstraints::MEDIA_TYPE_PATTERN)],
+            'packages' => ['present', 'array', 'list', 'max:' . ProjectBuildManifestConstraints::MAX_PACKAGES],
             'packages.*' => ['required', 'array:name,version,releaseIdentity,installOrder'],
-            'packages.*.name' => ['required', 'regex:/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/'],
-            'packages.*.version' => ['required', 'regex:/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/'],
-            'packages.*.releaseIdentity' => ['required', 'regex:/^[a-f0-9]{40}$/'],
+            'packages.*.name' => ['required', $this->regex(ProjectBuildManifestConstraints::PACKAGE_NAME_PATTERN)],
+            'packages.*.version' => ['required', $this->regex(ProjectBuildManifestConstraints::PACKAGE_VERSION_PATTERN)],
+            'packages.*.releaseIdentity' => ['required', $this->regex(ProjectBuildManifestConstraints::RELEASE_IDENTITY_PATTERN)],
             'packages.*.installOrder' => ['required', 'integer', 'min:0'],
-            'sites' => ['required', 'array', 'min:1', 'max:100'],
+            'sites' => ['required', 'array', 'list', 'min:1', 'max:' . ProjectBuildManifestConstraints::MAX_SITES],
             'sites.*' => ['required', 'array:key,defaultLocale,locales'],
-            'sites.*.key' => ['required', 'regex:/^[a-z0-9][a-z0-9-]{0,63}$/'],
-            'sites.*.defaultLocale' => ['required', 'regex:/^[a-z]{2,3}(?:-[A-Z]{2})?$/'],
-            'sites.*.locales' => ['required', 'array', 'min:1', 'max:100'],
-            'sites.*.locales.*' => ['required', 'regex:/^[a-z]{2,3}(?:-[A-Z]{2})?$/'],
-            'routes' => ['required', 'array', 'min:1', 'max:10000'],
+            'sites.*.key' => ['required', $this->regex(ProjectBuildManifestConstraints::SITE_KEY_PATTERN)],
+            'sites.*.defaultLocale' => ['required', $this->regex(ProjectBuildManifestConstraints::LOCALE_PATTERN)],
+            'sites.*.locales' => ['required', 'array', 'list', 'min:1', 'max:' . ProjectBuildManifestConstraints::MAX_LOCALES_PER_SITE],
+            'sites.*.locales.*' => ['required', $this->regex(ProjectBuildManifestConstraints::LOCALE_PATTERN)],
+            'routes' => ['required', 'array', 'list', 'min:1', 'max:' . ProjectBuildManifestConstraints::MAX_ROUTES],
             'routes.*' => ['required', 'array:siteKey,locale,path'],
             'routes.*.siteKey' => ['required', 'string'],
             'routes.*.locale' => ['required', 'string'],
-            'routes.*.path' => ['required', 'string', 'max:2048', 'regex:/^\/(?:[A-Za-z0-9._~!$&\'()*+,;=:@%-]+\/?)*$/'],
+            'routes.*.path' => ['required', 'string', 'max:' . ProjectBuildManifestConstraints::MAX_ROUTE_PATH_LENGTH, $this->regex(ProjectBuildManifestConstraints::ROUTE_PATH_PATTERN)],
             'compatibility' => ['required', 'array:capell,php,platforms'],
-            'compatibility.capell' => ['required', 'string', 'max:100'],
-            'compatibility.php' => ['required', 'string', 'max:100'],
-            'compatibility.platforms' => ['required', 'array', 'min:1'],
-            'compatibility.platforms.*' => ['required', 'regex:/^[a-z0-9][a-z0-9-]{0,63}$/', 'distinct:strict'],
+            'compatibility.capell' => ['required', 'string', 'max:' . ProjectBuildManifestConstraints::MAX_COMPATIBILITY_LENGTH],
+            'compatibility.php' => ['required', 'string', 'max:' . ProjectBuildManifestConstraints::MAX_COMPATIBILITY_LENGTH],
+            'compatibility.platforms' => ['required', 'array', 'list', 'min:1'],
+            'compatibility.platforms.*' => ['required', $this->regex(ProjectBuildManifestConstraints::PLATFORM_PATTERN), 'distinct:strict'],
             'signature' => ['required', 'array:algorithm,keyId,value'],
             'signature.algorithm' => ['required', 'in:ed25519'],
-            'signature.keyId' => ['required', 'regex:/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/'],
+            'signature.keyId' => ['required', $this->regex(ProjectBuildManifestConstraints::KEY_ID_PATTERN)],
             'signature.value' => [
                 'required',
                 'string',
+                $this->regex(ProjectBuildManifestConstraints::SIGNATURE_PATTERN),
                 static function (string $attribute, mixed $value, Closure $fail): void {
                     $signature = is_string($value) ? base64_decode($value, true) : false;
 
-                    if (! is_string($signature) || strlen($signature) !== self::ED25519_SIGNATURE_BYTES) {
+                    if (! is_string($signature) || strlen($signature) !== ProjectBuildManifestConstraints::ED25519_SIGNATURE_BYTES) {
                         $fail("The {$attribute} field must be a base64-encoded Ed25519 signature.");
                     }
                 },
             ],
         ];
+    }
+
+    private function regex(string $pattern): string
+    {
+        return 'regex:#' . $pattern . '#D';
     }
 
     /** @param array<string, mixed> $payload */

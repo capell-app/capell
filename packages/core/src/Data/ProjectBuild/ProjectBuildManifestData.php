@@ -19,7 +19,7 @@ final class ProjectBuildManifestData extends Data
         public readonly int $schemaVersion,
         public readonly string $buildId,
         public readonly string $createdAt,
-        public readonly ProjectBuildArtifactReferenceData $siteSpec,
+        public readonly ProjectBuildSiteSpecReferenceData $siteSpec,
         #[DataCollectionOf(ProjectBuildArtifactReferenceData::class)]
         public readonly array $artifacts,
         #[DataCollectionOf(ProjectBuildPackageData::class)]

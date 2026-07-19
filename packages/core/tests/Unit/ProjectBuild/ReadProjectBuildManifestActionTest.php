@@ -33,7 +33,7 @@ final class VersionZeroProjectBuildManifestMigration implements ProjectBuildMani
 }
 
 it('reads a current manifest without migration', function (): void {
-    $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry(app()));
+    $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry);
     $manifest = $reader->handle(json_encode(validProjectBuildManifestPayload(), JSON_THROW_ON_ERROR));
 
     expect($manifest)->toBeInstanceOf(ProjectBuildManifestData::class)
@@ -41,7 +41,7 @@ it('reads a current manifest without migration', function (): void {
 });
 
 it('migrates an explicitly supported legacy manifest before validation', function (): void {
-    $registry = new ProjectBuildManifestMigrationRegistry(app());
+    $registry = new ProjectBuildManifestMigrationRegistry;
     $registry->register(new VersionZeroProjectBuildManifestMigration);
     $payload = validProjectBuildManifestPayload();
     $payload['schemaVersion'] = 0;
@@ -52,22 +52,13 @@ it('migrates an explicitly supported legacy manifest before validation', functio
     expect($manifest->schemaVersion)->toBe(1);
 });
 
-it('discovers tagged migrations from the core singleton registry', function (): void {
-    app()->instance(VersionZeroProjectBuildManifestMigration::class, new VersionZeroProjectBuildManifestMigration);
-    app()->tag([VersionZeroProjectBuildManifestMigration::class], ProjectBuildManifestMigration::TAG);
-    $payload = validProjectBuildManifestPayload();
-    $payload['schemaVersion'] = 0;
-    $payload['legacyVersion'] = 'v0';
-
-    $registry = resolve(ProjectBuildManifestMigrationRegistry::class);
-    $manifest = (new ReadProjectBuildManifestAction($registry))->handle(json_encode($payload, JSON_THROW_ON_ERROR));
-
-    expect($registry)->toBe(resolve(ProjectBuildManifestMigrationRegistry::class))
-        ->and($manifest->schemaVersion)->toBe(1);
+it('registers the core-owned migration registry as a singleton', function (): void {
+    expect(resolve(ProjectBuildManifestMigrationRegistry::class))
+        ->toBe(resolve(ProjectBuildManifestMigrationRegistry::class));
 });
 
 it('refuses malformed, future, and migration-gap manifests', function (string $json, string $message): void {
-    $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry(app()));
+    $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry);
 
     expect(fn (): mixed => $reader->handle($json))
         ->toThrow(ValidationException::class, $message);
@@ -78,7 +69,7 @@ it('refuses malformed, future, and migration-gap manifests', function (string $j
 ]);
 
 it('rejects duplicate and non-forward migrations', function (): void {
-    $registry = new ProjectBuildManifestMigrationRegistry(app());
+    $registry = new ProjectBuildManifestMigrationRegistry;
     $registry->register(new VersionZeroProjectBuildManifestMigration);
 
     expect(function () use ($registry): void {

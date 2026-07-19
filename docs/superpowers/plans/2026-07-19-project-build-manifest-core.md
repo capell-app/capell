@@ -4,7 +4,7 @@
 
 **Goal:** Add the versioned, provider-neutral Project Build Manifest envelope, canonical reader, validation, migration seam, and package-owned artifact-handler registry required by Website Generator consumers.
 
-**Architecture:** Core owns portable manifest structure and structural/digest validation without importing commerce, accounts, DesignSpec, or provider policy. Artifact bytes remain external to the envelope and are addressed by safe relative paths; core verifies size and SHA-256 before dispatching payload validation to a stable tagged handler. Capell App later wraps these portable bytes in a separate signed authorisation envelope.
+**Architecture:** Core owns portable manifest structure, detached Ed25519 signing bytes and verification, structural/digest validation, and a fail-closed bundle validator without importing commerce, accounts, DesignSpec, or provider policy. Artifact bytes remain external to the envelope and are addressed by safe relative paths; core verifies size and SHA-256 before dispatching payload validation to a stable tagged handler. Capell App later wraps these portable bytes in a separate signed authorisation envelope.
 
 **Tech Stack:** PHP 8.4, Laravel 13 container/provider lifecycle, Spatie Laravel Data, Pest 4, JSON Schema draft 2020-12.
 
@@ -19,6 +19,7 @@
 - Create: `packages/core/src/Data/ProjectBuild/ProjectBuildRouteData.php`
 - Create: `packages/core/src/Data/ProjectBuild/ProjectBuildCompatibilityData.php`
 - Create: `packages/core/src/Data/ProjectBuild/ProjectBuildSignatureData.php`
+- Create: `packages/core/src/Data/ProjectBuild/ProjectBuildSiteSpecReferenceData.php`
 - Create: `packages/core/src/Data/ProjectBuild/ProjectBuildManifestData.php`
 - Test: `packages/core/tests/Unit/ProjectBuild/ProjectBuildManifestDataTest.php`
 
@@ -34,7 +35,7 @@ Expected: FAIL because the ProjectBuild Data classes do not exist.
 
 - [ ] **Step 3: Implement strict readonly Data objects**
 
-Use constructor-promoted typed properties. The artifact reference contains `key`, `type`, safe relative `path`, lowercase SHA-256 `digest`, `sizeBytes`, and `mediaType`. The envelope contains `schemaVersion`, UUID `buildId`, ISO-8601 `createdAt`, the exact SiteSpec reference, other artifacts, exact packages, site/locale topology, routes, compatibility, and signature metadata.
+Use constructor-promoted typed properties. The artifact reference contains `key`, `type`, safe relative `path`, lowercase SHA-256 `digest`, `sizeBytes`, and `mediaType`. The typed SiteSpec reference additionally carries its schema version. The envelope contains `schemaVersion`, UUID `buildId`, RFC 3339 `createdAt`, the exact SiteSpec reference, other artifacts, exact packages, site/locale topology, routes, compatibility, and signature metadata.
 
 - [ ] **Step 4: Run the focused test**
 
@@ -45,6 +46,8 @@ Expected: PASS with exact nested values and ordering.
 **Files:**
 - Create: `packages/core/src/Actions/ProjectBuild/ValidateProjectBuildManifestAction.php`
 - Create: `packages/core/src/Actions/ProjectBuild/CanonicalizeProjectBuildManifestAction.php`
+- Create: `packages/core/src/Actions/ProjectBuild/CanonicalizeProjectBuildManifestSigningInputAction.php`
+- Create: `packages/core/src/Actions/ProjectBuild/VerifyProjectBuildManifestSignatureAction.php`
 - Test: `packages/core/tests/Unit/ProjectBuild/ValidateProjectBuildManifestActionTest.php`
 
 - [ ] **Step 1: Write rejection tests**
@@ -61,7 +64,7 @@ Return the validated immutable Data object. Throw `ValidationException` with sta
 
 - [ ] **Step 4: Implement canonical encoding**
 
-Recursively sort associative object keys while preserving JSON list order, then encode with `JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE`. Prove identical logical objects produce identical bytes and digest.
+Recursively sort associative object keys while preserving JSON list order, then encode with `JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE`. Define detached signing input by omitting only `signature.value`, preserving the signed algorithm and key ID. Prove identical logical objects produce identical bytes and digest, and add real sign/verify/tamper/wrong-key tests.
 
 - [ ] **Step 5: Run the validator/canonical tests**
 
@@ -92,7 +95,7 @@ interface ProjectBuildArtifactHandler
 }
 ```
 
-- [ ] **Step 3: Implement and register the singleton registry**
+- [ ] **Step 3: Implement and register the scoped registry**
 
 Discover handlers once through the stable container tag. Before dispatch, compare `strlen($bytes)` and `hash('sha256', $bytes)` with the immutable reference using constant-time digest comparison.
 
@@ -111,11 +114,11 @@ Expected: PASS, including no handler call on integrity failure.
 
 - [ ] **Step 1: Write reader/migration tests**
 
-Assert v1 reads directly, malformed JSON is refused, future versions are refused, a tagged v0-to-v1 fixture migration runs once, migration gaps/cycles are refused, and the migrated result passes the same validator.
+Assert v1 reads directly, malformed JSON is refused, future versions are refused, an explicitly registered Core-owned v0-to-v1 fixture migration runs once, migration gaps/cycles are refused, and the migrated result passes the same validator.
 
 - [ ] **Step 2: Implement the migration seam**
 
-Migrations declare integer `fromVersion()`, `toVersion()`, and `migrate(array $payload): array`. The registry requires one forward migration per source version and rejects duplicates or non-forward transitions.
+Migrations declare integer `fromVersion()`, `toVersion()`, and `migrate(array $payload): array`. The internal Core-owned registry requires one forward migration per source version and rejects duplicates or non-forward transitions; companion packages migrate only their own typed artifact payloads.
 
 - [ ] **Step 3: Implement the reader**
 
@@ -129,8 +132,9 @@ Expected: PASS for direct and migrated v1, with explicit failures for malformed/
 
 **Files:**
 - Create: `packages/core/src/Support/ProjectBuild/ProjectBuildManifestSchema.php`
-- Create: `packages/core/tests/Fixtures/project-build/one-site-one-locale.json`
-- Create: `packages/core/tests/Fixtures/project-build/two-site-two-locale.json`
+- Create: `packages/core/tests/fixtures/project-build/one-site-one-locale.json`
+- Create: `packages/core/tests/fixtures/project-build/two-site-two-locale.json`
+- Create: `packages/core/tests/fixtures/project-build/artifacts/site-spec.json`
 - Create: `packages/core/tests/Unit/ProjectBuild/ProjectBuildManifestSchemaTest.php`
 - Modify: `packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php`
 - Modify: `packages/core/tests/Unit/Actions/Extensions/BuildExtensionSurfaceCatalogActionTest.php`
@@ -148,7 +152,7 @@ The schema describes only core-owned portable fields. It does not name DesignSpe
 
 - [ ] **Step 3: Add stable catalogue entries**
 
-Add the artifact-handler contract and tag as Stable with direct contract-test IDs; add the migration contract/tag and manifest DTO/schema as Experimental until the first compatible consumer release.
+Add the artifact-handler contract/tag plus signing-input, signature-verification, and fail-closed bundle Actions as Stable with direct contract-test IDs. Keep the Core-owned migration seam Internal and the manifest DTO/schema Experimental until the first compatible consumer release.
 
 - [ ] **Step 4: Regenerate and verify extension catalogues**
 

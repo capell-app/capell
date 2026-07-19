@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Support\ProjectBuild;
 
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
-use Illuminate\Contracts\Container\Container;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 
@@ -13,10 +12,6 @@ final class ProjectBuildManifestMigrationRegistry
 {
     /** @var array<int, ProjectBuildManifestMigration> */
     private array $migrations = [];
-
-    private bool $taggedMigrationsDiscovered = false;
-
-    public function __construct(private readonly Container $container) {}
 
     public function register(ProjectBuildManifestMigration $migration): void
     {
@@ -35,7 +30,6 @@ final class ProjectBuildManifestMigrationRegistry
      */
     public function migrate(array $payload, int $targetVersion): array
     {
-        $this->discoverTaggedMigrations();
         $version = $payload['schemaVersion'] ?? null;
         if (! is_int($version)) {
             throw ValidationException::withMessages(['schemaVersion' => 'The project build manifest schema version must be an integer.']);
@@ -58,19 +52,5 @@ final class ProjectBuildManifestMigrationRegistry
         }
 
         return $payload;
-    }
-
-    private function discoverTaggedMigrations(): void
-    {
-        if ($this->taggedMigrationsDiscovered) {
-            return;
-        }
-
-        $this->taggedMigrationsDiscovered = true;
-        foreach ($this->container->tagged(ProjectBuildManifestMigration::TAG) as $migration) {
-            if ($migration instanceof ProjectBuildManifestMigration) {
-                $this->register($migration);
-            }
-        }
     }
 }

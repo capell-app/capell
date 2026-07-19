@@ -23,7 +23,7 @@ final class ProjectBuildArtifactHandlerRegistry
     {
         $type = $handler->type();
 
-        throw_if($type === '', LogicException::class, 'Project build artifact handler types must not be empty.');
+        throw_unless(preg_match('~' . ProjectBuildManifestConstraints::ARTIFACT_TYPE_PATTERN . '~D', $type) === 1, LogicException::class, 'Project build artifact handler types must match the manifest artifact type grammar.');
         throw_if(isset($this->handlers[$type]), LogicException::class, sprintf('A project build artifact handler is already registered for [%s].', $type));
 
         $this->handlers[$type] = $handler;
@@ -70,9 +70,8 @@ final class ProjectBuildArtifactHandlerRegistry
 
         $this->taggedHandlersDiscovered = true;
         foreach ($this->container->tagged(ProjectBuildArtifactHandler::TAG) as $handler) {
-            if ($handler instanceof ProjectBuildArtifactHandler) {
-                $this->register($handler);
-            }
+            throw_unless($handler instanceof ProjectBuildArtifactHandler, LogicException::class, 'Tagged project build artifact handlers must implement the project build artifact handler contract.');
+            $this->register($handler);
         }
     }
 }

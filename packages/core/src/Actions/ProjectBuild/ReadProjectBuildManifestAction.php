@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\ProjectBuild;
 
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Support\ProjectBuild\ProjectBuildManifestConstraints;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Illuminate\Validation\ValidationException;
 use JsonException;
@@ -14,7 +15,7 @@ final class ReadProjectBuildManifestAction
 {
     use AsObject;
 
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = ProjectBuildManifestConstraints::CURRENT_SCHEMA_VERSION;
 
     public function __construct(
         private readonly ProjectBuildManifestMigrationRegistry $migrations,

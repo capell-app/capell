@@ -15,6 +15,7 @@ function validProjectBuildManifestPayload(): array
         'buildId' => '019f7bf4-45b4-70f1-b8c9-f88d8c783b41',
         'createdAt' => '2026-07-19T12:00:00+00:00',
         'siteSpec' => [
+            'schemaVersion' => 1,
             'key' => 'site-spec',
             'type' => 'site-spec',
             'path' => 'artifacts/site-spec.json',
@@ -75,6 +76,18 @@ it('validates a complete manifest and produces stable canonical bytes', function
         ->and(hash('sha256', $canonical))->toHaveLength(64);
 });
 
+it('accepts schema-compatible RFC 3339 timestamp forms', function (string $createdAt): void {
+    $payload = validProjectBuildManifestPayload();
+    $payload['createdAt'] = $createdAt;
+
+    expect(ValidateProjectBuildManifestAction::run($payload)->createdAt)->toBe($createdAt);
+})->with([
+    'Zulu' => '2026-07-19T12:00:00Z',
+    'fractional Zulu' => '2026-07-19T12:00:00.123456Z',
+    'offset' => '2026-07-19T12:00:00+01:00',
+    'fractional offset' => '2026-07-19T12:00:00.1-04:00',
+]);
+
 it('rejects structurally unsafe or inconsistent manifests', function (Closure $mutate): void {
     $payload = validProjectBuildManifestPayload();
     $mutate($payload);
@@ -84,6 +97,33 @@ it('rejects structurally unsafe or inconsistent manifests', function (Closure $m
 })->with([
     'future schema' => [static function (array &$payload): void {
         $payload['schemaVersion'] = 2;
+    }],
+    'future SiteSpec schema' => [static function (array &$payload): void {
+        $payload['siteSpec']['schemaVersion'] = 2;
+    }],
+    'unknown root property' => [static function (array &$payload): void {
+        $payload['customerId'] = 123;
+    }],
+    'associative artifact collection' => [static function (array &$payload): void {
+        $payload['artifacts'] = ['theme' => $payload['artifacts'][0]];
+    }],
+    'associative package collection' => [static function (array &$payload): void {
+        $payload['packages'] = ['navigation' => $payload['packages'][0]];
+    }],
+    'associative site collection' => [static function (array &$payload): void {
+        $payload['sites'] = ['primary' => $payload['sites'][0]];
+    }],
+    'associative locale collection' => [static function (array &$payload): void {
+        $payload['sites'][0]['locales'] = ['default' => 'en-GB'];
+    }],
+    'associative route collection' => [static function (array &$payload): void {
+        $payload['routes'] = ['home' => $payload['routes'][0]];
+    }],
+    'associative platform collection' => [static function (array &$payload): void {
+        $payload['compatibility']['platforms'] = ['local' => 'local'];
+    }],
+    'calendar-invalid timestamp' => [static function (array &$payload): void {
+        $payload['createdAt'] = '2026-02-30T12:00:00Z';
     }],
     'unsafe artifact path' => [static function (array &$payload): void {
         $payload['artifacts'][0]['path'] = '../theme.zip';

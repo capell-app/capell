@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "buildId": "019f7bf4-45b4-70f1-b8c9-f88d8c783b42",
     "createdAt": "2026-07-19T12:00:00+00:00",
-    "siteSpec": {"key":"site-spec","type":"site-spec","path":"artifacts/site-spec.json","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","sizeBytes":1024,"mediaType":"application/json"},
+    "siteSpec": {"schemaVersion":1,"key":"site-spec","type":"site-spec","path":"artifacts/site-spec.json","digest":"ff914e2331e3f27a100bcf75931b469bdd3532f4338bbd318930659b57007922","sizeBytes":934,"mediaType":"application/json"},
     "artifacts": [],
     "packages": [{"name":"capell-app/navigation","version":"1.0.4","releaseIdentity":"cccccccccccccccccccccccccccccccccccccccc","installOrder":10}],
     "sites": [
@@ -16,5 +16,5 @@
         {"siteKey":"secondary","locale":"fr-FR","path":"/fr"}
     ],
     "compatibility": {"capell":"^1.0","php":"^8.4","platforms":["local","laravel-cloud"]},
-    "signature": {"algorithm":"ed25519","keyId":"fixture-key","value":"c3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzcw=="}
+    "signature": {"algorithm":"ed25519","keyId":"fixture-key","value":"3+kHOTc9D1zoE9OvNyd8N2IBL+7cNbFbnkRUn2jV0X+BS2iBfq/zjRiM+Tl5b40zzi4WKIyCLu8KKeXCJhmxDA=="}
 }

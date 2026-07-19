@@ -6,8 +6,6 @@ namespace Capell\Core\Contracts\ProjectBuild;
 
 interface ProjectBuildManifestMigration
 {
-    public const string TAG = 'capell.project-build.manifest-migration';
-
     public function fromVersion(): int;
 
     public function toVersion(): int;

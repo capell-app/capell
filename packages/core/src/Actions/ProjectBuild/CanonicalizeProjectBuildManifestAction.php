@@ -7,15 +7,16 @@ namespace Capell\Core\Actions\ProjectBuild;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** @method static string run(ProjectBuildManifestData $manifest) */
+/** @method static string run(array<string, mixed>|ProjectBuildManifestData $manifest) */
 final class CanonicalizeProjectBuildManifestAction
 {
     use AsObject;
 
-    public function handle(ProjectBuildManifestData $manifest): string
+    /** @param array<string, mixed>|ProjectBuildManifestData $manifest */
+    public function handle(array|ProjectBuildManifestData $manifest): string
     {
         return json_encode(
-            $this->normalize($manifest->toArray()),
+            $this->normalize($manifest instanceof ProjectBuildManifestData ? $manifest->toArray() : $manifest),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         );
     }
