@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Providers;
 
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
+use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
@@ -94,6 +95,7 @@ use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
 use Capell\Frontend\Support\Font\FontMimeTypeResolver;
 use Capell\Frontend\Support\Fragments\EncryptedPublicFragmentReferenceCodec;
+use Capell\Frontend\Support\Fragments\FrontendInteractionTargetCapabilityContributor;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
@@ -237,6 +239,11 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             fn (Application $application): PublicFragmentUrlResolverRegistry => new PublicFragmentUrlResolverRegistry(
                 $application->tagged(PublicFragmentUrlResolver::TAG),
             ),
+        );
+        $this->app->scoped(FrontendInteractionTargetCapabilityContributor::class);
+        $this->app->tag(
+            FrontendInteractionTargetCapabilityContributor::class,
+            InteractionTargetCapabilityContributor::TAG,
         );
         $this->app->singletonIf(FrontendResourcePlanRenderer::class, DefaultFrontendResourcePlanRenderer::class);
         $this->app->singletonIf(RedirectResolver::class, NullRedirectResolver::class);

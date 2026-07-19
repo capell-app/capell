@@ -3,9 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Interactions\InteractionSettingsSchema;
-use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
-use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
-use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
+use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
+use Capell\Core\Enums\InteractionTargetType;
 
 it('builds a progressive interaction schema for widget and fragment targets', function (): void {
     $schema = InteractionSettingsSchema::make();
@@ -26,24 +25,41 @@ it('hides the fragment interaction target while no public fragment owner is regi
         ->and($options)->toHaveKeys(['widget', 'url', 'public_action']);
 });
 
-it('offers the fragment interaction target when a public fragment owner is registered', function (): void {
-    app()->instance(PublicFragmentUrlResolverRegistry::class, new PublicFragmentUrlResolverRegistry([
-        new class implements PublicFragmentUrlResolver
+it('hides the fragment interaction target when every valid contributor declines it', function (): void {
+    $contributor = new class implements InteractionTargetCapabilityContributor
+    {
+        public function supports(InteractionTargetType $targetType): bool
         {
-            public function owner(): string
-            {
-                return 'layout-builder';
-            }
+            return false;
+        }
+    };
+    app()->instance($contributor::class, $contributor);
+    app()->tag($contributor::class, InteractionTargetCapabilityContributor::TAG);
 
-            public function url(PublicFragmentReferenceData $reference): string
-            {
-                return '/_fragments/' . $reference->contentVersion;
-            }
-        },
-    ]));
+    expect(InteractionSettingsSchema::targetOptions())->not->toHaveKey('fragment');
+});
+
+it('offers the fragment interaction target when any valid contributor supports it', function (): void {
+    $contributor = new class implements InteractionTargetCapabilityContributor
+    {
+        public function supports(InteractionTargetType $targetType): bool
+        {
+            return $targetType === InteractionTargetType::Fragment;
+        }
+    };
+    app()->instance($contributor::class, $contributor);
+    app()->tag($contributor::class, InteractionTargetCapabilityContributor::TAG);
 
     $options = InteractionSettingsSchema::targetOptions();
 
     expect($options)->toHaveKey('fragment')
         ->and($options)->toHaveKeys(['widget', 'fragment', 'url', 'public_action']);
+});
+
+it('ignores invalid interaction target capability tag entries', function (): void {
+    $invalidContributor = new stdClass;
+    app()->instance($invalidContributor::class, $invalidContributor);
+    app()->tag($invalidContributor::class, InteractionTargetCapabilityContributor::TAG);
+
+    expect(InteractionSettingsSchema::targetOptions())->not->toHaveKey('fragment');
 });
