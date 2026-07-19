@@ -6,6 +6,7 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
+use Capell\Admin\Tests\Fixtures\Configurators\TestTableConfigurator;
 use Illuminate\Filesystem\Filesystem;
 
 beforeEach(function (): void {
@@ -56,7 +57,7 @@ it('clears then restores keyed contribution groups in their cached order', funct
         'first',
     ));
     $registry->register(AdminSurfaceContributionData::configurator(
-        self::class,
+        TestTableConfigurator::class,
         'page',
         'second',
     ));
