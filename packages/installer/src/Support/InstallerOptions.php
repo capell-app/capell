@@ -7,6 +7,7 @@ namespace Capell\Installer\Support;
 use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -34,6 +35,7 @@ final class InstallerOptions
         try {
             $packages = [];
             $packageBatches = GetPluginsAction::run('download')
+                ->reject(fn (PackageData $package): bool => CapellCore::hasPackage($package->name))
                 ->filter(fn (PackageData $package): bool => $this->composerPackageIsAvailable($package->name))
                 ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue())
                 ->reject(fn (PackageData $package): bool => $package->getThemeKey() !== null)

@@ -53,6 +53,7 @@ final class CreateAdditionalInstallUsersAction
                 throw new RuntimeException(sprintf('Install user model [%s] must implement Authenticatable.', $userModel));
             }
 
+            MarkInstallUserEmailVerifiedAction::run($user);
             $this->assignRole($user, $userData, $reporter);
 
             $reporter->report(sprintf(

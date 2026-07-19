@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
@@ -348,6 +349,13 @@ it('dry-runs developer tooling packages as dev requirements', function (): void 
     chmod($fakeComposerPath, 0755);
 
     config(['capell-installer.composer_binary' => $fakeComposerPath]);
+    app()->bind(DeveloperToolingInstallationState::class, fn (): DeveloperToolingInstallationState => new class extends DeveloperToolingInstallationState
+    {
+        public function missingPackageNames(): array
+        {
+            return ['capell-app/agent-bridge', 'laravel/boost'];
+        }
+    });
 
     try {
         $report = resolve(InstallerPreflight::class)->run(new InstallInputData(
@@ -379,6 +387,31 @@ it('dry-runs developer tooling packages as dev requirements', function (): void 
         File::deleteDirectory($temporaryDirectory);
         config(['capell-installer.composer_binary' => 'composer']);
     }
+});
+
+it('does not dry-run developer tooling packages that are already installed', function (): void {
+    app()->bind(DeveloperToolingInstallationState::class, fn (): DeveloperToolingInstallationState => new class extends DeveloperToolingInstallationState
+    {
+        public function missingPackageNames(): array
+        {
+            return [];
+        }
+    });
+
+    $report = resolve(InstallerPreflight::class)->run(new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: [],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        installDeveloperTooling: true,
+    ));
+
+    expect(collect($report['checks'])->pluck('key'))
+        ->not->toContain('developer-tooling-packages')
+        ->not->toContain('composer-files-writable');
 });
 
 it('fails selected package dry-runs when composer is required but missing', function (): void {

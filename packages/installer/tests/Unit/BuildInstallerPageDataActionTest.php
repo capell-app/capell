@@ -24,6 +24,18 @@ it('clears stale installer locks before rendering web installer data', function 
         ->and(Cache::has(InstallerSessionRepository::LOCK_KEY))->toBeFalse();
 });
 
+it('does not offer registered packages as downloadable packages', function (): void {
+    $data = BuildInstallerPageDataAction::run(capellAlreadyInstalled: false, canReinstall: false)->toViewData();
+
+    $registeredPackageNames = collect([
+        ...$data['corePackages'],
+        ...$data['installedPackages'],
+    ])->pluck('name');
+    $downloadablePackageNames = collect($data['downloadablePackages'])->pluck('name');
+
+    expect($downloadablePackageNames->intersect($registeredPackageNames))->toBeEmpty();
+});
+
 it('does not dry-run uncached remote package choices when setup cache is unavailable', function (): void {
     $temporaryDirectory = storage_path('framework/testing/installer-page-data-' . uniqid());
     File::makeDirectory($temporaryDirectory, 0755, true);

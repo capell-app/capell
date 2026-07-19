@@ -277,6 +277,9 @@ final class InstallPackagesAction
             'no-widgets' => ! $inputData->adminAddWidgets,
             'no-navigation' => ! $inputData->adminAddNavigation,
             'skip-permission-sync' => true,
+            'adopt-existing-site' => true,
+            'skip-package-demos' => true,
+            'quick' => true,
             'force' => true,
         ];
     }
@@ -320,7 +323,7 @@ final class InstallPackagesAction
             $result['--assets'] = $params['assets'];
         }
 
-        foreach (['skip-panel-integration', 'no-colors', 'no-widgets', 'no-navigation', 'skip-permission-sync', 'force'] as $flag) {
+        foreach (['skip-panel-integration', 'no-colors', 'no-widgets', 'no-navigation', 'skip-permission-sync', 'adopt-existing-site', 'skip-package-demos', 'quick', 'force'] as $flag) {
             if (in_array($flag, $allowedParams, true) && (bool) ($params[$flag] ?? false)) {
                 $result['--' . $flag] = true;
             }

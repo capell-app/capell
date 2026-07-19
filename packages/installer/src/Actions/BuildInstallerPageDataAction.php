@@ -60,7 +60,11 @@ final class BuildInstallerPageDataAction
 
         unset($packageBatches, $batch);
 
-        $downloadablePackages = $this->options->downloadablePackages();
+        $registeredPackageNames = array_column($packages, 'name');
+        $downloadablePackages = collect($this->options->downloadablePackages())
+            ->reject(fn (array $package): bool => in_array($package['name'] ?? null, $registeredPackageNames, true))
+            ->values()
+            ->all();
         [$installId, $installStatus] = $this->sessions->activeInstallState();
         $themeOptions = $this->options->themeOptions();
         $corePackages = array_values(array_filter(
