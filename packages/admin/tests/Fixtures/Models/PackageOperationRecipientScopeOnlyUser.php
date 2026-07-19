@@ -23,7 +23,7 @@ final class PackageOperationRecipientScopeOnlyUser extends Authenticatable
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeGlobalAdmins(Builder $query): Builder
+    protected function scopeGlobalAdmins(Builder $query): Builder
     {
         return $query;
     }

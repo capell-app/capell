@@ -2,8 +2,22 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use PhpParser\Node;
+use PhpParser\Node\ComplexType;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\BinaryOp\Coalesce;
+use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\PropertyFetch;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Identifier;
+use PhpParser\Node\Name;
+use PhpParser\Node\NullableType;
+use PhpParser\Node\Param;
+use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
@@ -89,8 +103,11 @@ function settingsSchemaProductionPhpPaths(string $repositoryRoot): array
 
     foreach ($packages as $package) {
         $sourceRoot = $package->getPathname() . '/src';
+        if ($package->isDot()) {
+            continue;
+        }
 
-        if ($package->isDot() || ! is_dir($sourceRoot)) {
+        if (! is_dir($sourceRoot)) {
             continue;
         }
 
@@ -115,6 +132,7 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
     $statements = (new ParserFactory)->createForNewestSupportedVersion()->parse($contents) ?? [];
     $traverser = new NodeTraverser;
     $traverser->addVisitor(new NameResolver);
+
     $statements = $traverser->traverse($statements);
     $nodes = (new NodeFinder)->findInstanceOf($statements, Node::class);
     $registryVariables = [];
@@ -122,16 +140,20 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
     $registryAccessors = [];
 
     foreach ($nodes as $node) {
-        if ($node instanceof Node\Stmt\ClassMethod
+        if ($node instanceof ClassMethod
             && settingsSchemaTypeIsRegistry($node->returnType)) {
             $registryAccessors[$node->name->toString()] = true;
         }
 
-        if (! $node instanceof Node\Param || ! settingsSchemaTypeIsRegistry($node->type)) {
+        if (! $node instanceof Param) {
             continue;
         }
 
-        if ($node->var instanceof Expr\Variable && is_string($node->var->name)) {
+        if (! settingsSchemaTypeIsRegistry($node->type)) {
+            continue;
+        }
+
+        if ($node->var instanceof Variable && is_string($node->var->name)) {
             $registryVariables[$node->var->name] = true;
 
             if ($node->flags !== 0) {
@@ -144,7 +166,11 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
         $knownCount = count($registryVariables) + count($registryProperties);
 
         foreach ($nodes as $node) {
-            if (! $node instanceof Expr\Assign || ! settingsSchemaExpressionIsRegistry(
+            if (! $node instanceof Assign) {
+                continue;
+            }
+
+            if (! settingsSchemaExpressionIsRegistry(
                 $node->expr,
                 $registryVariables,
                 $registryProperties,
@@ -153,7 +179,7 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
                 continue;
             }
 
-            if ($node->var instanceof Expr\Variable && is_string($node->var->name)) {
+            if ($node->var instanceof Variable && is_string($node->var->name)) {
                 $registryVariables[$node->var->name] = true;
             }
 
@@ -164,7 +190,11 @@ function settingsSchemaSourceWritesToRegistry(string $contents): bool
     } while ($knownCount !== count($registryVariables) + count($registryProperties));
 
     foreach ($nodes as $node) {
-        if (! $node instanceof Expr\MethodCall || ! $node->name instanceof Node\Identifier) {
+        if (! $node instanceof MethodCall) {
+            continue;
+        }
+
+        if (! $node->name instanceof Identifier) {
             continue;
         }
 
@@ -203,7 +233,7 @@ function settingsSchemaExpressionIsRegistry(
     array $registryProperties,
     array $registryAccessors,
 ): bool {
-    if ($expression instanceof Expr\Variable && is_string($expression->name)) {
+    if ($expression instanceof Variable && is_string($expression->name)) {
         return isset($registryVariables[$expression->name]);
     }
 
@@ -213,7 +243,7 @@ function settingsSchemaExpressionIsRegistry(
         return isset($registryProperties[$propertyName]);
     }
 
-    if ($expression instanceof Expr\BinaryOp\Coalesce) {
+    if ($expression instanceof Coalesce) {
         return settingsSchemaExpressionIsRegistry(
             $expression->left,
             $registryVariables,
@@ -227,12 +257,12 @@ function settingsSchemaExpressionIsRegistry(
         );
     }
 
-    if ($expression instanceof Expr\FuncCall && $expression->name instanceof Node\Name) {
+    if ($expression instanceof FuncCall && $expression->name instanceof Name) {
         return in_array($expression->name->toString(), ['app', 'resolve'], true)
             && settingsSchemaFirstArgumentIsRegistryClass($expression->args);
     }
 
-    if (! $expression instanceof Expr\MethodCall || ! $expression->name instanceof Node\Identifier) {
+    if (! $expression instanceof MethodCall || ! $expression->name instanceof Identifier) {
         return false;
     }
 
@@ -240,31 +270,31 @@ function settingsSchemaExpressionIsRegistry(
         return settingsSchemaFirstArgumentIsRegistryClass($expression->args);
     }
 
-    return $expression->var instanceof Expr\Variable
+    return $expression->var instanceof Variable
         && $expression->var->name === 'this'
         && isset($registryAccessors[$expression->name->toString()]);
 }
 
 function settingsSchemaPropertyName(Expr $expression): ?string
 {
-    if (! $expression instanceof Expr\PropertyFetch
-        || ! $expression->var instanceof Expr\Variable
+    if (! $expression instanceof PropertyFetch
+        || ! $expression->var instanceof Variable
         || $expression->var->name !== 'this'
-        || ! $expression->name instanceof Node\Identifier) {
+        || ! $expression->name instanceof Identifier) {
         return null;
     }
 
     return $expression->name->toString();
 }
 
-function settingsSchemaTypeIsRegistry(Node\ComplexType|Node\Identifier|Node\Name|null $type): bool
+function settingsSchemaTypeIsRegistry(ComplexType|Identifier|Name|null $type): bool
 {
-    if ($type instanceof Node\NullableType) {
+    if ($type instanceof NullableType) {
         return settingsSchemaTypeIsRegistry($type->type);
     }
 
-    return $type instanceof Node\Name
-        && ltrim($type->toString(), '\\') === 'Capell\Core\Support\Settings\SettingsSchemaRegistry';
+    return $type instanceof Name
+        && ltrim($type->toString(), '\\') === SettingsSchemaRegistry::class;
 }
 
 /** @param array<Node\Arg> $arguments */
@@ -272,9 +302,9 @@ function settingsSchemaFirstArgumentIsRegistryClass(array $arguments): bool
 {
     $class = $arguments[0]->value ?? null;
 
-    return $class instanceof Expr\ClassConstFetch
-        && $class->name instanceof Node\Identifier
+    return $class instanceof ClassConstFetch
+        && $class->name instanceof Identifier
         && $class->name->toString() === 'class'
-        && $class->class instanceof Node\Name
-        && ltrim($class->class->toString(), '\\') === 'Capell\Core\Support\Settings\SettingsSchemaRegistry';
+        && $class->class instanceof Name
+        && ltrim($class->class->toString(), '\\') === SettingsSchemaRegistry::class;
 }

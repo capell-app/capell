@@ -43,6 +43,7 @@ it('reads a current manifest without migration', function (): void {
 it('migrates an explicitly supported legacy manifest before validation', function (): void {
     $registry = new ProjectBuildManifestMigrationRegistry;
     $registry->register(new VersionZeroProjectBuildManifestMigration);
+
     $payload = ProjectBuildManifestFixture::payload();
     $payload['schemaVersion'] = 0;
     $payload['legacyVersion'] = 'v0';

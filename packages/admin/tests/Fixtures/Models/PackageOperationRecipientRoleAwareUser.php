@@ -20,7 +20,7 @@ final class PackageOperationRecipientRoleAwareUser extends User
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeGlobalAdmins(Builder $query): Builder
+    protected function scopeGlobalAdmins(Builder $query): Builder
     {
         $roleName = (string) config('filament-shield.super_admin.name', 'super_admin');
 
