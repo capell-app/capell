@@ -9,11 +9,13 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Capell\Core\Support\Publishing\PublishSentinel;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** @method static Page run(Site $site, Language $language, string $name) */
 final class CreateDraftPageAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Site $site, Language $language, string $name): Page

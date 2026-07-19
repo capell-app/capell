@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -43,14 +44,18 @@ class ReplicateModelAction
         }
 
         /** @var T $replica */
-        $replica = method_exists($model, 'duplicate') ? $model->duplicate() : $model->replicate();
+        $replica = PublicationDateGuard::allow(function () use ($model): Model {
+            $replica = method_exists($model, 'duplicate') ? $model->duplicate() : $model->replicate();
 
-        if ($model->timestamps) {
-            $replica->setAttribute('created_at', now());
-            $replica->setAttribute('updated_at', now());
-        }
+            if ($model->timestamps) {
+                $replica->setAttribute('created_at', now());
+                $replica->setAttribute('updated_at', now());
+            }
 
-        $replica->save();
+            $replica->save();
+
+            return $replica;
+        });
 
         return $replica;
     }

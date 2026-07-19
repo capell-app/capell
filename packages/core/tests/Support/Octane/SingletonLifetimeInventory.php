@@ -34,6 +34,7 @@ use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\Concerns\ExtensibleModel;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\BlueprintBlockTypeRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
@@ -46,6 +47,7 @@ use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -117,6 +119,7 @@ final class SingletonLifetimeInventory
             ThemeInstallDefaultsRegistry::class => self::boot('Theme install defaults are package boot registrations.'),
             InstallPatchRegistry::class => self::boot('Install patches are package boot registrations.'),
             PresentationPresetRegistry::class => self::boot('Presentation presets are package boot registrations.'),
+            BlueprintBlockTypeRegistry::class => self::boot('Blueprint block types are package boot registrations.'),
             VendorAssetConditionRegistry::class => self::boot('Vendor asset conditions are package boot registrations.'),
             ThemeRegistry::class => self::boot('Themes are package boot registrations.'),
             PagePresentationRegistry::class => self::boot('Page presentation definitions are package boot registrations.'),
@@ -195,6 +198,7 @@ final class SingletonLifetimeInventory
             DemoPackageAction::class => 'The static process factory is a test-only override with an explicit reset API; production operations never populate it.',
             InstallDeveloperToolingAction::class => 'Static collaborators and paths are test-only overrides with explicit reset APIs; production operations never populate them.',
             RequirePackageAction::class => 'The static process factory is a test-only override with an explicit reset API; production operations never populate it.',
+            PublicationDateGuard::class => 'The nested permission flag is operation-scoped and restored in a finally block after every guarded mutation.',
         ];
     }
 

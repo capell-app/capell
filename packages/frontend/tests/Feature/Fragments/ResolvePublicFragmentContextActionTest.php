@@ -7,6 +7,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublicationDateGuard;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContentVersionAction;
 use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContextAction;
@@ -107,7 +108,7 @@ it('rejects every non-public publication state', function (Closure $mutate): voi
     $fixture = publicFragmentContextFixture();
     $reference = publicFragmentContextReference($fixture);
 
-    $mutate($fixture['page']);
+    PublicationDateGuard::allow(fn (): mixed => $mutate($fixture['page']));
 
     expect(fn (): mixed => ResolvePublicFragmentContextAction::run($reference))
         ->toThrow(ModelNotFoundException::class);

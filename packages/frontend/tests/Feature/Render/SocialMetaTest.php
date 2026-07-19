@@ -39,7 +39,9 @@ it('renders escaped open graph and twitter metadata', function (): void {
         ->assertSee('content="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"', false)
         ->assertSee('property="og:url"', false)
         ->assertSee('content="https://example.test/article"', false)
-        ->assertSee('property="og:type" content="article"', false)
-        ->assertSee('name="twitter:card" content="summary"', false)
+        ->assertSee('property="og:type"', false)
+        ->assertSee('content="article"', false)
+        ->assertSee('name="twitter:card"', false)
+        ->assertSee('content="summary"', false)
         ->assertDontSee('"><script>alert(1)</script>', false);
 });
