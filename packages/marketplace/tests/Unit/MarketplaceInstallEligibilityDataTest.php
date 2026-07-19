@@ -5,6 +5,17 @@ declare(strict_types=1);
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 
+it('preserves Capell Membership as an actionable block reason', function (): void {
+    $eligibility = MarketplaceInstallEligibilityData::fromPayload([
+        'state' => 'capell_all_required',
+        'can_install' => false,
+        'reason' => 'capell_all_required',
+    ]);
+
+    expect($eligibility->state)->toBe(MarketplaceInstallState::Blocked)
+        ->and($eligibility->blockReason)->toBe('capell_all_required');
+});
+
 it('allows account-linked installs when marketplace marks the extension eligible', function (): void {
     $eligibility = MarketplaceInstallEligibilityData::fromPayload([
         'state' => 'account_linked_allowed',

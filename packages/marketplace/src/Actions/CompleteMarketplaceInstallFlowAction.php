@@ -119,12 +119,17 @@ final class CompleteMarketplaceInstallFlowAction
     private function persistConnection(MarketplaceInstallFlowResultData $result): MarketplaceInstance
     {
         $instanceId = $this->requiredString($result->instance, 'instance_id');
-        $signingSecret = $this->requiredString($result->instance, 'signing_secret');
+        $existingInstance = MarketplaceInstance::query()->where('instance_id', $instanceId)->first();
+        $returnedSigningSecret = $result->instance['signing_secret'] ?? null;
+        $signingSecret = is_string($returnedSigningSecret) && $returnedSigningSecret !== ''
+            ? $returnedSigningSecret
+            : $existingInstance?->signing_secret_encrypted;
         $accountId = $this->requiredString($result->account, 'account_id');
         $accountEmail = $this->requiredString($result->account, 'account_email');
         $verifiedAt = $this->optionalDate($result->account['account_email_verified_at'] ?? null);
 
         throw_unless($verifiedAt instanceof CarbonImmutable, RuntimeException::class, 'Your Capell account email must be verified before installing Marketplace packages.');
+        throw_unless(is_string($signingSecret) && $signingSecret !== '', RuntimeException::class, 'Marketplace install flow did not return signing_secret.');
 
         return MarketplaceInstance::query()->updateOrCreate(
             ['instance_id' => $instanceId],

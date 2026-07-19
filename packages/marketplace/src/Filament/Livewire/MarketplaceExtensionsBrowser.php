@@ -683,7 +683,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         if (in_array($installState, ['blocked', 'incompatible'], true)) {
             $blockReason = resolve(MarketplaceInstallActionPresenter::class)->blockReason($record);
 
-            if (in_array($blockReason, ['account_required', 'not_connected', 'email_verification_required'], true)) {
+            if (in_array($blockReason, ['account_required', 'not_connected', 'email_verification_required', 'capell_all_required'], true)) {
                 return null;
             }
 
@@ -703,7 +703,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         return (bool) ($record['is_paid'] ?? false)
             || (bool) ($record['activation_required'] ?? false)
-            || in_array($blockReason, ['account_required', 'not_connected', 'email_verification_required'], true)
+            || in_array($blockReason, ['account_required', 'not_connected', 'email_verification_required', 'capell_all_required'], true)
             || in_array($installState, ['purchase_required', 'activation_required'], true)
             || (is_numeric($record['price_cents'] ?? null) && (int) $record['price_cents'] > 0);
     }

@@ -15,6 +15,8 @@ return [
         'cache_ttl_seconds' => 300,
         'stale_cache_ttl_seconds' => 3600,
         'warm_throttle_seconds' => 60,
+        'operations_queue_connection' => env('CAPELL_MARKETPLACE_QUEUE_CONNECTION', 'database'),
+        'operations_queue' => env('CAPELL_MARKETPLACE_QUEUE', 'capell-marketplace'),
         'catalogue_page_limit' => env('CAPELL_MARKETPLACE_CATALOGUE_PAGE_LIMIT', 3),
         'webhook_url' => env('CAPELL_MARKETPLACE_WEBHOOK_URL'),
         'webhook_secret' => env('CAPELL_MARKETPLACE_WEBHOOK_SECRET'),

@@ -47,6 +47,7 @@ final class QueueMarketplaceInstallAttemptAction
         array $deploymentMetadata = [],
         ?string $telemetryStatus = null,
         ?Authenticatable $user = null,
+        bool $afterResponse = true,
     ): MarketplaceInstallAttempt {
         $lock = Cache::lock('capell-marketplace:queue-install:' . hash('sha256', $acquisition->composerName), 10);
 
@@ -68,6 +69,7 @@ final class QueueMarketplaceInstallAttemptAction
                 deploymentMetadata: $deploymentMetadata,
                 telemetryStatus: $telemetryStatus,
                 user: $user,
+                afterResponse: $afterResponse,
             );
         } finally {
             $lock->release();
@@ -92,6 +94,7 @@ final class QueueMarketplaceInstallAttemptAction
         array $deploymentMetadata = [],
         ?string $telemetryStatus = null,
         ?Authenticatable $user = null,
+        bool $afterResponse = true,
     ): MarketplaceInstallAttempt {
         if (! $policyEvidence->entitlementAllowed
             || ! $policyEvidence->compatibilityAllowed
@@ -196,7 +199,13 @@ final class QueueMarketplaceInstallAttemptAction
             $attempt->forceFill(['failure_reason' => $reason])->save();
         }
 
-        RunMarketplaceInstallAttemptJob::dispatchAfterResponse((int) $attempt->getKey());
+        if ($afterResponse) {
+            RunMarketplaceInstallAttemptJob::dispatchAfterResponse((int) $attempt->getKey());
+        } else {
+            RunMarketplaceInstallAttemptJob::dispatch((int) $attempt->getKey())
+                ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
+                ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
+        }
 
         return $attempt;
     }

@@ -9,6 +9,7 @@ use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -31,13 +32,15 @@ final class ResumeMarketplaceInstallFlowAction
     /**
      * @return array<int, MarketplaceInstallAttempt>
      */
-    public function handle(MarketplaceInstallFlowSession $session): array
-    {
+    public function handle(
+        MarketplaceInstallFlowSession $session,
+        ?MarketplaceInstallActorData $actor = null,
+    ): array {
         try {
             $reservedSession = $this->reserveSessionForQueueing($session);
-            $attempts = $this->queueInstallAttempts($reservedSession);
+            $attempts = $this->queueInstallAttempts($reservedSession, $actor);
         } catch (Throwable $throwable) {
-            MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Failed, $throwable->getMessage());
+            MarketplaceInstallFlowSessionTransitionAction::run($session->refresh(), MarketplaceInstallFlowSessionStatus::Failed, $throwable->getMessage());
 
             throw $throwable;
         }
@@ -102,12 +105,20 @@ final class ResumeMarketplaceInstallFlowAction
     /**
      * @return array<int, MarketplaceInstallAttempt>
      */
-    private function queueInstallAttempts(MarketplaceInstallFlowSession $session): array
-    {
+    private function queueInstallAttempts(
+        MarketplaceInstallFlowSession $session,
+        ?MarketplaceInstallActorData $actor,
+    ): array {
         $attempts = [];
 
         foreach ($this->selectedExtensions($session) as $selection) {
             $slug = $this->requiredString($selection, 'slug');
+            $composerName = $this->requiredString($selection, 'composer_name');
+
+            if ($this->hasActiveOrSuccessfulAttempt($session, $composerName)) {
+                continue;
+            }
+
             $listing = $this->marketplace->getExtension($slug, allowCache: false);
 
             throw_unless($listing instanceof ExtensionListingData, RuntimeException::class, sprintf('Marketplace extension [%s] was not found.', $slug));
@@ -116,8 +127,9 @@ final class ResumeMarketplaceInstallFlowAction
             $acquisition = CreateExtensionAcquisitionAction::run(
                 listing: $listing,
                 licenseKey: null,
-                email: auth()->user()?->email,
+                email: $actor?->email ?? auth()->user()?->email,
                 installOptions: $installOptions,
+                hostedFlowAuthorized: true,
             );
 
             $this->assertAuthorizationAllowed($acquisition);
@@ -136,9 +148,9 @@ final class ResumeMarketplaceInstallFlowAction
                     listing: $listing,
                     consentAllowed: $listing->maturity !== 'beta' || ($installOptions['beta_acknowledged'] ?? false) === true,
                 ),
-                actor: auth()->user() instanceof Authenticatable
+                actor: $actor ?? (auth()->user() instanceof Authenticatable
                     ? MarketplaceInstallActorData::fromAuthenticatable(auth()->user())
-                    : MarketplaceInstallActorData::system('marketplace-hosted-resume'),
+                    : MarketplaceInstallActorData::system('marketplace-hosted-resume')),
                 source: MarketplaceInstallSource::HostedResume,
                 requestedOptions: $installOptions,
                 context: [
@@ -153,10 +165,26 @@ final class ResumeMarketplaceInstallFlowAction
                     'description' => $listing->description,
                 ],
                 user: auth()->user(),
+                afterResponse: false,
             );
         }
 
         return $attempts;
+    }
+
+    private function hasActiveOrSuccessfulAttempt(
+        MarketplaceInstallFlowSession $session,
+        string $composerName,
+    ): bool {
+        return MarketplaceInstallAttempt::query()
+            ->where('composer_name', $composerName)
+            ->where('context->remote_flow_id', $session->remote_flow_id)
+            ->whereIn('status', [
+                MarketplaceInstallIntentStatus::Queued->value,
+                MarketplaceInstallIntentStatus::Running->value,
+                MarketplaceInstallIntentStatus::Succeeded->value,
+            ])
+            ->exists();
     }
 
     /**
@@ -186,8 +214,14 @@ final class ResumeMarketplaceInstallFlowAction
     {
         $options = $session->install_options ?? [];
         $packageOptions = $options[$listing->composerName] ?? $options[$listing->slug] ?? [];
+        $sharedOptions = array_filter(
+            $options,
+            fn (mixed $value): bool => ! is_array($value),
+        );
 
-        return is_array($packageOptions) ? $packageOptions : [];
+        return is_array($packageOptions)
+            ? [...$sharedOptions, ...$packageOptions]
+            : $sharedOptions;
     }
 
     private function assertAuthorizationAllowed(ExtensionAcquisitionData $acquisition): void

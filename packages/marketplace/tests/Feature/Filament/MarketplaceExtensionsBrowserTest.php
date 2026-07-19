@@ -412,6 +412,37 @@ it('shows blocked marketplace extensions in the default not installed marketplac
         && ! array_key_exists('installed_status', $request->data()));
 });
 
+it('allows Capell Membership extensions into the hosted install review', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'filament-peek',
+                    'name' => 'Filament Peek',
+                    'composer_name' => 'capell-app/filament-peek',
+                    'install_state' => 'capell_all_required',
+                    'install_eligibility' => [
+                        'state' => 'capell_all_required',
+                        'can_install' => false,
+                        'reason' => 'capell_all_required',
+                    ],
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/filament-peek')
+        ->assertSet('selectedMarketplaceComposerNames', ['capell-app/filament-peek'])
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'review')
+        ->assertSee(__('capell-marketplace::marketplace.selection.premium_notice'));
+});
+
 it('queues a free marketplace extension install from the grouped browser footer', function (): void {
     grantMarketplaceBrowserManagementAccess();
     ensureMarketplaceBrowserDeploymentPublisherTestContracts();
