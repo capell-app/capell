@@ -97,6 +97,51 @@ it('allows block templates to be customised for registered blocks', function ():
         ->and($builder->getBlockTemplates()['valid_stack']['blocks'])->toHaveCount(2);
 });
 
+it('normalizes malformed persisted block templates without losing valid blocks', function (): void {
+    BlockTemplate::factory()->createOne([
+        'key' => 'malformed',
+        'name' => 'Malformed',
+        'blocks' => [
+            'invalid',
+            ['type' => 'content', 'data' => 'invalid'],
+        ],
+    ]);
+
+    $schema = Schema::make(Livewire::make())
+        ->statePath('data')
+        ->components([
+            ContentBuilder::make('content')->blockTemplates([
+                'unknown_block' => [
+                    'label' => 'Unknown block',
+                    'blocks' => [['type' => 'vendor.unknown', 'data' => []]],
+                ],
+                'empty_blocks' => [
+                    'label' => 'Empty blocks',
+                    'blocks' => [],
+                ],
+                'valid' => [
+                    'label' => 'Valid',
+                    'blocks' => [['type' => 'content']],
+                ],
+            ]),
+        ]);
+
+    $builder = $schema->getComponents()[0];
+
+    throw_unless($builder instanceof ContentBuilder, RuntimeException::class, 'Expected content builder.');
+
+    expect($builder->getBlockTemplates())->toBe([
+        'valid' => [
+            'label' => 'Valid',
+            'blocks' => [['type' => 'content', 'data' => []]],
+        ],
+        'malformed' => [
+            'label' => 'Malformed',
+            'blocks' => [['type' => 'content', 'data' => []]],
+        ],
+    ]);
+});
+
 it('resolves insert block template modal options from translated content builders', function (): void {
     $schema = Schema::make(Livewire::make())
         ->statePath('data')

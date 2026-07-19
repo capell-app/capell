@@ -15,7 +15,7 @@ beforeEach(function (): void {
     TestTableConfigurator::$configurationCount = 0;
     TableAwareConfigurator::$tableConfigurationCount = 0;
 
-    $manager = new CapellAdminManager;
+    $manager = resolve(CapellAdminManager::class);
     $manager->contributeToAdminSurface(
         AdminSurfaceContributionData::configurator(
             TableAwareConfigurator::class,

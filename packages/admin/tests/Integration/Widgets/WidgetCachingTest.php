@@ -6,7 +6,9 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Admin\Tests\Fixtures\Widgets\AlternateHeroWidget;
 use Capell\Admin\Tests\Fixtures\Widgets\HeroWidget;
+use Capell\Admin\Tests\Fixtures\Widgets\StateIntegrityFilamentWidget;
 use Illuminate\Filesystem\Filesystem;
+use Symfony\Component\Finder\SplFileInfo;
 
 beforeEach(function (): void {
     CapellAdmin::clearCachedWidgets();
@@ -87,6 +89,43 @@ it('clearCachedWidgets removes the cache file', function (): void {
     CapellAdmin::clearCachedWidgets();
 
     expect($filesystem->exists(CapellAdmin::getWidgetCachePath()))->toBeFalse();
+});
+
+it('rescans registered sources after an active widget cache is cleared', function (): void {
+    $firstSource = '/fixtures/widgets/first';
+    $secondSource = '/fixtures/widgets/second';
+    $filesystem = Mockery::mock(Filesystem::class)->makePartial();
+    $filesystem->shouldReceive('isDirectory')->once()->with($firstSource)->andReturnTrue();
+    $filesystem->shouldReceive('isDirectory')->once()->with($secondSource)->andReturnTrue();
+    $filesystem->shouldReceive('allFiles')->once()->with($firstSource)->andReturn([
+        new SplFileInfo(__DIR__ . '/../../Fixtures/Widgets/HeroWidget.php', '', 'HeroWidget.php'),
+    ]);
+    $filesystem->shouldReceive('allFiles')->once()->with($secondSource)->andReturn([
+        new SplFileInfo(__DIR__ . '/../../Fixtures/Widgets/StateIntegrityFilamentWidget.php', '', 'StateIntegrityFilamentWidget.php'),
+    ]);
+    $discovery = new WidgetDiscovery($filesystem);
+    $cachePath = $discovery->getWidgetCachePath();
+    $filesystem->ensureDirectoryExists(dirname($cachePath));
+    $filesystem->put($cachePath, '<?php return ' . var_export(['hero' => HeroWidget::class], true) . ';');
+
+    try {
+        $hasCachedWidgets = new ReflectionProperty($discovery, 'hasCachedWidgets');
+        $hasCachedWidgets->setValue($discovery, true);
+        $discovery->registerDiscoverableWidgets($firstSource, 'Capell\\Admin\\Tests\\Fixtures\\Widgets');
+
+        expect($discovery->registeredWidgets())->toHaveKey('hero');
+
+        $discovery->registerDiscoverableWidgets($secondSource, 'Capell\\Admin\\Tests\\Fixtures\\Widgets');
+
+        expect($discovery->registeredWidgets())->not->toHaveKey('capell-app.state-integrity');
+
+        $discovery->clearCachedWidgets();
+
+        expect($discovery->registeredWidgets())->toHaveKey('hero')
+            ->toHaveKey('capell-app.state-integrity', StateIntegrityFilamentWidget::class);
+    } finally {
+        $filesystem->delete($cachePath);
+    }
 });
 
 it('hasCachedWidgets returns false when no cache file exists', function (): void {

@@ -14,8 +14,6 @@ class FrontendLogger
 
     private readonly bool $debugEnabled;
 
-    private string $requestId = '';
-
     public function __construct()
     {
         $this->logger = $this->resolveLogger();
@@ -71,10 +69,6 @@ class FrontendLogger
      */
     private function context(array $context): array
     {
-        if ($this->requestId !== '') {
-            $context['request_id'] = $this->requestId;
-        }
-
         return $this->appendCallerToContext($context);
     }
 

@@ -6,6 +6,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Tests\Fixtures\Autoload\UserMenuRegistryTestUser;
 use Filament\Actions\Action;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 beforeEach(function (): void {
@@ -119,6 +120,47 @@ it('caches resolved user menu callbacks per user', function (): void {
     CapellAdmin::getUserMenuItems($user);
 
     expect($badgeCalls)->toBe(1);
+});
+
+it('isolates resolved actions and user callbacks between scoped requests', function (): void {
+    $firstUser = new UserMenuRegistryTestUser(51, 'First request');
+    $secondUser = new UserMenuRegistryTestUser(51, 'Second request');
+    $callbackUsers = [];
+
+    CapellAdmin::registerUserMenuItem(
+        key: 'capell-test.request-scoped',
+        label: fn (UserMenuRegistryTestUser $user): string => 'Menu for ' . $user->name,
+        url: fn (UserMenuRegistryTestUser $user): string => '/admin/users/' . strtolower(str_replace(' ', '-', $user->name)),
+        visible: function (UserMenuRegistryTestUser $user) use (&$callbackUsers): bool {
+            $callbackUsers[] = $user->name;
+
+            return true;
+        },
+    );
+    CapellAdmin::registerUserMenuItem(
+        key: 'capell-test.first-request-only',
+        label: 'First request only',
+        url: '/admin/first-request-only',
+        visible: fn (UserMenuRegistryTestUser $user): bool => $user->name === 'First request',
+    );
+
+    $firstItems = CapellAdmin::getUserMenuItems($firstUser);
+    $firstItemsAgain = CapellAdmin::getUserMenuItems($firstUser);
+
+    expect($firstItemsAgain['capell-test.request-scoped'])->toBe($firstItems['capell-test.request-scoped'])
+        ->and($firstItems)->toHaveKey('capell-test.first-request-only')
+        ->and($callbackUsers)->toBe(['First request']);
+
+    Container::getInstance()->forgetScopedInstances();
+
+    $secondItems = CapellAdmin::getUserMenuItems($secondUser);
+
+    expect($secondItems['capell-test.request-scoped'])
+        ->not->toBe($firstItems['capell-test.request-scoped'])
+        ->and($secondItems['capell-test.request-scoped']->getLabel())->toBe('Menu for Second request')
+        ->and($secondItems['capell-test.request-scoped']->getUrl())->toBe('/admin/users/second-request')
+        ->and($secondItems)->not->toHaveKey('capell-test.first-request-only')
+        ->and($callbackUsers)->toBe(['First request', 'Second request']);
 });
 
 it('skips all items without a user and omits blank urls', function (): void {

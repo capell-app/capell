@@ -43,6 +43,17 @@ it('sorts registered definitions by key', function (): void {
     expect(array_keys($registry->definitions()))->toBe(['alpha', 'zulu']);
 });
 
+it('preserves boot registrations across an Octane operation boundary', function (): void {
+    $registry = resolve(ThemeRegistry::class);
+    $definition = themeRegistryDefinition('worker-theme');
+    $registry->register($definition);
+
+    app()->forgetScopedInstances();
+
+    expect(resolve(ThemeRegistry::class))->toBe($registry)
+        ->and(resolve(ThemeRegistry::class)->definition('worker-theme'))->toBe($definition);
+});
+
 it('resolves runtime metadata and writes token css', function (): void {
     $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
 

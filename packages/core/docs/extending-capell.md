@@ -73,6 +73,8 @@ For current package inventory and per-package descriptions, use generated extens
 
 Capell can run inside long-lived Laravel workers such as Octane. Package services that keep request-specific state in a singleton must implement `Capell\Core\Octane\Resettable` and be tagged with `Resettable::TAG`:
 
+Treat a service lifetime as part of its public contract: registrations collected while providers boot may live for the worker lifetime, but anything derived from the current request or operation must be scoped. Use a reset-tagged singleton only when it genuinely has to preserve boot metadata as well as temporary operation state. Never register the same service as both scoped and resettable. Capell's test suite enforces an exact inventory of mutable singleton and static state; new mutable services must add an explicit classification and reason to that development-only guard.
+
 ```php
 use Capell\Core\Octane\Resettable;
 

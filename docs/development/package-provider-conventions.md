@@ -49,9 +49,23 @@ Choose the container lifetime from the state the service holds:
 
 This applies to registries and bridge services as well as ordinary services. A singleton must not retain a request, user, tenant, model, or site between Octane requests.
 
+Capell does not require Laravel Octane, but it must remain fully functional when an application installs and enables Octane. Keep Octane references behind optional runtime checks so an ordinary Laravel installation does not need the package. Treat every worker request or job as an isolation boundary: resolve scoped collaborators from the current container, and reset any deliberately mutable singleton through Capell's reset contract.
+
+Do not add a process-static cache as a shortcut around container resolution. Immutable bootstrap metadata may be cached through the existing manifest/cache services; request-derived state may not survive into the next Octane request.
+
+## Provider Boundaries
+
+Keep filesystem discovery and manifest building in the dedicated package bootstrap services. A package provider may delegate to those services, but should not scan Composer metadata, traverse directories, or read manifests itself. This keeps the boot path measurable and lets cached production boots avoid discovery work.
+
+First-party extension contracts should be referenced directly. Use `class_exists()`, `interface_exists()`, or `method_exists()` only at a documented optional-integration boundary, such as Octane support when Octane is installed. Compatibility probes are not a substitute for updating a first-party consumer to the current contract.
+
 ## Shared Helpers
 
 Avoid globally named helpers when a class or namespaced function will do. If a shared test/bootstrap helper must be global, guard it with `function_exists()` and give it a collision-resistant, feature-specific name. Generic names such as `fixture()`, `packagePath()`, or `makePackage()` can collide when suites are loaded together.
+
+## Enforcement
+
+`packages/core/tests/Arch/ProviderPatternRatchetTest.php` enforces the registry shape, settings write paths, provider filesystem boundary, optional-integration probes, and singleton lifetime classification described here. Update that contract and its documented allowlist deliberately when introducing a genuinely distinct extension mechanism; do not bypass it with another registration pattern.
 
 ## Related Documentation
 

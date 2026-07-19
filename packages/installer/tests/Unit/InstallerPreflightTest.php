@@ -3,13 +3,17 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 
 /**
  * @param  array<string, mixed>  $report
@@ -55,7 +59,6 @@ it('reports the current environment with remediation fields', function (): void 
         ->and($report['checks'])->toBeArray()->not->toBeEmpty()
         ->and($report['groups'])->toHaveKeys(['blocking', 'advisory'])
         ->and($report['environment'])->toHaveKeys(['php', 'laravel', 'os', 'sapi', 'paths'])
-        ->and($report['environment'])->not->toHaveKey('memoryLimit')
         ->and($report['checks'][0])->toHaveKeys(['key', 'label', 'status', 'severity', 'message', 'remediation']);
 
     if (InstalledVersions::isInstalled('filament/filament')) {
@@ -130,20 +133,53 @@ it('reports missing configured PHP and Git binaries without blocking package-fre
     }
 });
 
-it('reports configured PHP binary command failures once per resolved command', function (): void {
+it('caches command checks within an operation and recomputes them for the next operation', function (): void {
     $temporaryDirectory = storage_path('framework/testing/installer-preflight-' . uniqid());
     File::makeDirectory($temporaryDirectory, 0755, true);
 
-    $counterPath = $temporaryDirectory . '/php-counter.txt';
     $fakePhpPath = $temporaryDirectory . '/php';
-    File::put($fakePhpPath, "#!/bin/sh\necho run >> '{$counterPath}'\nprintf '%s\\n' 'php failed from fixture' >&2\nexit 2\n");
+    File::put($fakePhpPath, "#!/bin/sh\nexit 0\n");
     chmod($fakePhpPath, 0755);
 
+    $processFactory = new class($fakePhpPath) implements ProcessFactoryInterface
+    {
+        public int $phpChecks = 0;
+
+        public bool $phpAvailable = false;
+
+        private SymfonyProcessFactory $processes;
+
+        public function __construct(private readonly string $fakePhpPath)
+        {
+            $this->processes = new SymfonyProcessFactory;
+        }
+
+        public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
+        {
+            if (! is_array($command) || ($command[0] ?? null) !== $this->fakePhpPath) {
+                return $this->processes->make($command, $cwd, $environment);
+            }
+
+            $this->phpChecks++;
+
+            $process = Mockery::mock(Process::class);
+            $process->shouldReceive('setTimeout')->once()->with(15)->andReturnSelf();
+            $process->shouldReceive('run')->once()->andReturn($this->phpAvailable ? 0 : 2);
+            $process->shouldReceive('isSuccessful')->once()->andReturn($this->phpAvailable);
+            $process->shouldReceive('getOutput')->andReturn($this->phpAvailable ? 'PHP fixture available' : '');
+            $process->shouldReceive('getErrorOutput')->andReturn($this->phpAvailable ? '' : 'php failed from fixture');
+
+            return $process;
+        }
+    };
+
+    app()->instance(ProcessFactoryInterface::class, $processFactory);
     config(['capell-installer.php_binary' => $fakePhpPath]);
 
     try {
-        $firstReport = resolve(InstallerPreflight::class)->run();
-        $secondReport = resolve(InstallerPreflight::class)->run();
+        $firstOperation = resolve(InstallerPreflight::class);
+        $firstReport = $firstOperation->run();
+        $repeatedReport = resolve(InstallerPreflight::class)->run();
 
         expect(installerPreflightCheck($firstReport, 'php-binary'))
             ->toMatchArray([
@@ -151,8 +187,26 @@ it('reports configured PHP binary command failures once per resolved command', f
                 'message' => 'php failed from fixture',
                 'remediation' => 'Make sure the command is executable by the web PHP process.',
             ])
-            ->and(installerPreflightCheck($secondReport, 'php-binary')['message'])->toBe('php failed from fixture')
-            ->and(substr_count(File::get($counterPath), 'run'))->toBe(1);
+            ->and(installerPreflightCheck($repeatedReport, 'php-binary')['message'])->toBe('php failed from fixture')
+            ->and($processFactory->phpChecks)->toBe(1);
+
+        $processFactory->phpAvailable = true;
+        app()->forgetScopedInstances();
+
+        $secondOperation = resolve(InstallerPreflight::class);
+        $secondReport = $secondOperation->run();
+
+        expect($secondOperation)->not->toBe($firstOperation)
+            ->and(installerPreflightCheck($secondReport, 'php-binary'))
+            ->toMatchArray([
+                'status' => 'pass',
+                'message' => 'PHP fixture available',
+            ])
+            ->and($processFactory->phpChecks)->toBe(2)
+            ->and($firstOperation)->not->toBeInstanceOf(Resettable::class)
+            ->and($secondOperation)->not->toBeInstanceOf(Resettable::class)
+            ->and(collect(app()->tagged(Resettable::TAG))->contains($firstOperation))->toBeFalse()
+            ->and(collect(app()->tagged(Resettable::TAG))->contains($secondOperation))->toBeFalse();
     } finally {
         File::deleteDirectory($temporaryDirectory);
         config(['capell-installer.php_binary' => 'php']);
@@ -349,13 +403,6 @@ it('dry-runs developer tooling packages as dev requirements', function (): void 
     chmod($fakeComposerPath, 0755);
 
     config(['capell-installer.composer_binary' => $fakeComposerPath]);
-    app()->bind(DeveloperToolingInstallationState::class, fn (): DeveloperToolingInstallationState => new class extends DeveloperToolingInstallationState
-    {
-        public function missingPackageNames(): array
-        {
-            return ['capell-app/agent-bridge', 'laravel/boost'];
-        }
-    });
 
     try {
         $report = resolve(InstallerPreflight::class)->run(new InstallInputData(

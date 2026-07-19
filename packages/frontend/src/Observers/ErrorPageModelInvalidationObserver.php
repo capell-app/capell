@@ -17,9 +17,10 @@ use Throwable;
 
 /**
  * Targeted regeneration of a site's static error pages when an
- * error-page-relevant model changes. Bridges raw `eloquent.*` events to the
- * RegenerateSiteErrorPagesAction, with a tight relevance gate so unrelated
- * saves never trigger regeneration. Never throws out of the observer.
+ * error-page-relevant model changes, including third-party Page subclasses.
+ * Bridges raw `eloquent.*` events to the RegenerateSiteErrorPagesAction, with
+ * a tight relevance gate for accepted models and Translation owners so
+ * unrelated saves never trigger regeneration. Never throws out of the observer.
  */
 final class ErrorPageModelInvalidationObserver
 {

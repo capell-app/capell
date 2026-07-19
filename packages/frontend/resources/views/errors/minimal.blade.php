@@ -4,8 +4,9 @@
     $host = strtolower(request()->getHost());
     $status = trim($__env->yieldContent('code'));
     $status = $status !== '' ? $status : '500';
-    $manifestLogo = ErrorPageFallbackManifest::logoUrl($host);
-    $manifestCopy = ErrorPageFallbackManifest::copy($host, $status);
+    $fallbackManifest = ErrorPageFallbackManifest::forHost($host, $status);
+    $manifestLogo = $fallbackManifest['logo_url'];
+    $manifestCopy = $fallbackManifest['copy'];
     $showHomepageLink = request()->getPathInfo() !== '/';
     $headline = ($manifestCopy['headline'] ?? null)
         ?: trim($__env->yieldContent('headline', __('Something went wrong')));

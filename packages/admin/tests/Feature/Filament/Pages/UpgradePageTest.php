@@ -37,6 +37,36 @@ it('is registered in the admin page enum', function (): void {
         ->toContain(UpgradePage::class);
 });
 
+it('resolves advisory versions through the documented fallback order', function (): void {
+    $page = new UpgradePage;
+    $notice = [
+        'installed_version' => '',
+        'current_version' => '1.2.0',
+        'recommended_version' => '',
+        'latest_version' => '1.4.0',
+        'fixed_versions' => ['capell-app/capell' => '1.3.0'],
+        'affected_packages' => [
+            'invalid',
+            ['installed_version' => null, 'fixed_version' => []],
+            ['installed_version' => '1.1.0', 'fixed_version' => '1.5.0'],
+        ],
+    ];
+
+    expect($page->noticeInstalledVersion($notice))->toBe('1.1.0')
+        ->and($page->noticeRecommendedVersion($notice))->toBe('1.5.0');
+
+    unset($notice['installed_version'], $notice['recommended_version']);
+
+    expect($page->noticeInstalledVersion($notice))->toBe('1.2.0')
+        ->and($page->noticeRecommendedVersion($notice))->toBe('1.4.0');
+
+    unset($notice['current_version'], $notice['latest_version']);
+    $notice['affected_packages'] = ['invalid'];
+
+    expect($page->noticeInstalledVersion($notice))->toBe(__('capell-admin::generic.unknown'))
+        ->and($page->noticeRecommendedVersion($notice))->toBe('capell-app/capell: 1.3.0');
+});
+
 it('can be reached from the admin with view permission', function (): void {
     Permission::create(['name' => 'View:UpgradePage', 'guard_name' => 'web']);
     Permission::create(['name' => CapellPermission::RunUpgrades->name(), 'guard_name' => 'web']);

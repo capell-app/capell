@@ -3,6 +3,16 @@
     "generatedFrom": "Capell\\Core\\Actions\\Extensions\\BuildExtensionSurfaceCatalogAction",
     "surfaces": [
         {
+            "id": "admin.contract.admin-tool-item",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed admin header tool contribution boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.render-hook.navigation-after",
             "kind": "render-hook",
             "identifier": "panels::sidebar.nav.end",
@@ -10,6 +20,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Admin navigation contribution hook.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.tag.admin-tool-item",
+            "kind": "tagged-service",
+            "identifier": "capell-admin:admin-tool-items",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for admin header tool contributions.",
             "contractTestId": null
         },
         {
@@ -63,6 +83,16 @@
             "contractTestId": "core.extension-contribution"
         },
         {
+            "id": "core.contract.frontend-route-reservation-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\FrontendRouteReservationContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation contributions.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.health-check",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ChecksExtensionHealth",
@@ -70,6 +100,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed extension health checks.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.interaction-target-capability-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\InteractionTargetCapabilityContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed interaction target capability contributions.",
             "contractTestId": null
         },
         {
@@ -103,6 +143,16 @@
             "contractTestId": "core.extension-contribution-data"
         },
         {
+            "id": "core.dto.frontend-route-reservation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation data.",
+            "contractTestId": null
+        },
+        {
             "id": "core.dto.project-build-manifest",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildManifestData",
@@ -110,6 +160,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build manifest envelope.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.frontend-route-reservation-type",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\FrontendRouteReservationType",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported frontend route reservation types.",
             "contractTestId": null
         },
         {
@@ -173,6 +233,26 @@
             "contractTestId": null
         },
         {
+            "id": "core.tag.frontend-route-reservation-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend-route-reservation-contributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for frontend route reservation contributors.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.interaction-target-capability-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.interaction-target-capability-contributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for interaction target capability contributors.",
+            "contractTestId": null
+        },
+        {
             "id": "core.tag.project-build-artifact-handler",
             "kind": "tagged-service",
             "identifier": "capell.project-build.artifact-handler",
@@ -201,6 +281,146 @@
             "introducedVersion": "1.0.0",
             "summary": "Single-package manifest and contribution assertions.",
             "contractTestId": "core.extension-test-harness"
+        },
+        {
+            "id": "frontend.contract.component-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\FrontendComponentContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend component contribution boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.contract.widget-resource-usage-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\FrontendWidgetResourceUsageContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed widget resource usage contribution boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.component-contribution",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\FrontendComponentContributionData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Named component contribution for a frontend runtime target.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.package-dependency",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\Assets\\FrontendPackageDependencyData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend package dependency declaration.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.widget-resource-usage",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\Assets\\FrontendWidgetResourceUsageData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed widget resource usage data.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.enum.component-target",
+            "kind": "enum",
+            "identifier": "Capell\\Frontend\\Enums\\FrontendComponentTarget",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported frontend component runtime targets.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.enum.package-dependency-type",
+            "kind": "enum",
+            "identifier": "Capell\\Frontend\\Enums\\FrontendPackageDependencyType",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported frontend package dependency installation types.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.registry.package-dependency",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Assets\\FrontendPackageDependencyRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Registry for frontend package dependency declarations.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.tag.component-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend.component-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for frontend component contributors.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.tag.widget-resource-usage-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend.widget-resource-usage-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for widget resource usage contributors.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.contract.composer-change-publisher",
+            "kind": "contract",
+            "identifier": "Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed optional Composer change publication boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.dto.composer-publication-request",
+            "kind": "dto",
+            "identifier": "Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed Composer publication request data.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.dto.composer-publication-result",
+            "kind": "dto",
+            "identifier": "Capell\\Marketplace\\Data\\MarketplaceComposerPublicationResultData",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed Composer publication result data.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.tag.composer-change-publisher",
+            "kind": "tagged-service",
+            "identifier": "capell.marketplace.composer-change-publisher",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for optional Composer change publishers.",
+            "contractTestId": null
         }
     ]
 }

@@ -60,6 +60,41 @@ it('deduplicates keyed contributions by stable key and exposes diagnostics', fun
         ->and($diagnostics['footer'][0]['cacheSafe'])->toBeFalse();
 });
 
+it('resolves class-string extensions from the current container scope', function (): void {
+    $instances = 0;
+
+    app()->scoped('testing.scoped-render-hook', function () use (&$instances): RenderHookExtensionInterface {
+        $instance = ++$instances;
+
+        return new class($instance) implements RenderHookExtensionInterface
+        {
+            public function __construct(private readonly int $instance) {}
+
+            public function render(RenderHookContext $context): string
+            {
+                return '<span>' . $this->instance . '</span>';
+            }
+        };
+    });
+
+    $registry = new RenderHookRegistry(app());
+    $registry->contribute(new RenderHookContributionData(
+        location: RenderHookLocation::Footer,
+        extension: 'testing.scoped-render-hook',
+        owner: 'capell-app/example',
+        key: 'scoped-footer',
+        registrationType: RenderHookRegistrationType::ExtensionClass,
+    ));
+
+    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>1</span>')
+        ->and($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>1</span>');
+
+    app()->forgetScopedInstances();
+
+    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>2</span>')
+        ->and($instances)->toBe(2);
+});
+
 it('renders keyed explicit contribution types with dedupe and diagnostics', function (): void {
     $registry = new RenderHookRegistry;
     $viewPath = sys_get_temp_dir() . '/capell-keyed-render-hook-views-' . bin2hex(random_bytes(6));

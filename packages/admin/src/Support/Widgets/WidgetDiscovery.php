@@ -22,6 +22,8 @@ class WidgetDiscovery
     /** @var array<string, true> */
     private array $authoritativeWidgets = [];
 
+    private int $discoveredSourceCount = 0;
+
     private ?bool $hasCachedWidgets = null;
 
     public function __construct(
@@ -146,6 +148,7 @@ class WidgetDiscovery
     public function clearCachedWidgets(): void
     {
         $this->hasCachedWidgets = false;
+        $this->discoveredSourceCount = 0;
 
         if ($this->filesystem()->exists($this->getWidgetCachePath())) {
             $this->filesystem()->delete($this->getWidgetCachePath());
@@ -159,13 +162,18 @@ class WidgetDiscovery
 
     private function discoverWidgets(): void
     {
+        if ($this->discoveredSourceCount === count($this->discoverableWidgets)) {
+            return;
+        }
+
         if ($this->hasCachedWidgets()) {
             $this->restoreCachedWidgets();
+            $this->discoveredSourceCount = count($this->discoverableWidgets);
 
             return;
         }
 
-        foreach ($this->discoverableWidgets as $source) {
+        foreach (array_slice($this->discoverableWidgets, $this->discoveredSourceCount) as $source) {
             if (! $this->filesystem()->isDirectory($source['directory'])) {
                 continue;
             }
@@ -185,6 +193,8 @@ class WidgetDiscovery
                 }
             }
         }
+
+        $this->discoveredSourceCount = count($this->discoverableWidgets);
     }
 
     private function filesystem(): Filesystem

@@ -4,20 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Providers;
 
-use Capell\Admin\Data\AdminSurfaceContributionData;
-use Capell\Admin\Enums\DashboardEnum;
-use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Patching\Patch;
-use Capell\Installer\Filament\Pages\InstallCapellPage;
-use Capell\Installer\Filament\Pages\InstallGuidePage;
-use Capell\Installer\Filament\Pages\InstallProgressPage;
-use Capell\Installer\Filament\Widgets\CapellNotInstalledFilamentWidget;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelColorsPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelDashboardPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelNavigationPatch;
@@ -36,10 +28,7 @@ use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\ViteThemeInputPatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
-use Filament\Pages\Page;
-use Filament\Support\Facades\FilamentView;
-use Filament\View\PanelsRenderHook;
-use Illuminate\Contracts\View\View;
+use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Illuminate\Support\Facades\Schema;
 use Override;
 use Spatie\LaravelPackageTools\Package;
@@ -71,20 +60,20 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
     public function packageRegistered(): void
     {
         $this->app->singleton(PatchRegistry::class, fn (): PatchRegistry => new PatchRegistry);
+        $this->app->scoped(InstallerPreflight::class);
     }
 
+    /**
+     * The installer is the pre-install runtime, so this work must remain
+     * available before Capell can record the package as installed.
+     */
     #[Override]
-    public function registeringPackage(): void
+    protected function bootPackage(): self
     {
-        // The installer is the pre-install runtime, so its booted lifecycle must
-        // remain available before Capell can record this package as installed.
-        parent::registeringPackage();
+        $this->registerPatches();
+        $this->registerInstallPatches();
 
-        $this->booted(function (): void {
-            $this->registerPatches();
-            $this->registerInstallPatches();
-            $this->registerFilamentIntegration();
-        });
+        return $this;
     }
 
     /**
@@ -128,28 +117,6 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         } catch (Throwable) {
             config([$configuredDriverKey => 'file']);
         }
-    }
-
-    private function registerFilamentIntegration(): void
-    {
-        if (! class_exists(CapellAdmin::class)) {
-            return;
-        }
-
-        if (! class_exists(Page::class)) {
-            return;
-        }
-
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(InstallCapellPage::class));
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(InstallGuidePage::class));
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(InstallProgressPage::class));
-        CapellAdmin::registerDashboardFilamentWidget(CapellNotInstalledFilamentWidget::class, DashboardEnum::NotInstalled);
-
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
-            fn (): View => view('capell-installer::components.installer-warning-hook'),
-            CapellDashboard::class,
-        );
     }
 
     private function registerPatches(): void

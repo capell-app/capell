@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
+use Livewire\Component;
+use Livewire\Finder\Finder;
 use Livewire\LivewireManager;
 use Spatie\LaravelPackageTools\Package;
 
@@ -80,6 +83,32 @@ it('does not resolve the livewire facade when the finder is unbound', function (
     }
 });
 
+it('registers livewire aliases and version-supported namespaces', function (): void {
+    $provider = new LivewireCompatibilityTestServiceProvider(app());
+    $finder = app()->make('livewire.finder');
+
+    expect($finder)->toBeInstanceOf(Finder::class);
+
+    $provider->registerDefinitions([
+        'capell-test.component' => LivewireCompatibilityTestComponent::class,
+        'capell-test::component' => LivewireCompatibilityTestComponent::class,
+    ], [
+        'namespace' => 'capell-test',
+        'classNamespace' => 'Capell\\Tests\\Livewire',
+    ]);
+
+    $classComponents = new ReflectionProperty($finder, 'classComponents')->getValue($finder);
+
+    expect($finder->resolveClassComponentClassName('capell-test.component'))
+        ->toBe(LivewireCompatibilityTestComponent::class)
+        ->and($classComponents)->toMatchArray([
+            'capell-test.component' => LivewireCompatibilityTestComponent::class,
+            'capell-test::component' => LivewireCompatibilityTestComponent::class,
+        ])
+        ->and($finder->getClassNamespace('capell-test'))
+        ->toMatchArray(['classNamespace' => 'Capell\\Tests\\Livewire']);
+});
+
 it('uses the legacy development version when composer has no pretty version', function (): void {
     $provider = new LivewireCompatibilityTestServiceProvider(app());
 
@@ -87,6 +116,12 @@ it('uses the legacy development version when composer has no pretty version', fu
 
     expect(CapellCore::getPackage($provider::$packageName)->version)->toBe('dev')
         ->and(CapellCore::getPackage($provider::$packageName)->path)->toBe(realpath(dirname(__DIR__, 4)));
+});
+
+it('exposes the shared package surface registrar as the canonical provider contribution path', function (): void {
+    $provider = new LivewireCompatibilityTestServiceProvider(app());
+
+    expect($provider->packageSurface())->toBe(resolve(PackageSurfaceRegistrar::class));
 });
 
 final class InstalledLifecycleTestServiceProvider extends AbstractPackageServiceProvider
@@ -175,14 +210,23 @@ final class LivewireCompatibilityTestServiceProvider extends AbstractPackageServ
         $package->name(self::$name);
     }
 
-    public function registerDefinitions(): self
+    /**
+     * @param  array<string, class-string>  $components
+     * @param  array<string, string>|null  $namespace
+     */
+    public function registerDefinitions(array $components = [], ?array $namespace = null): self
     {
-        return $this->registerLivewireComponentDefinitions([]);
+        return $this->registerLivewireComponentDefinitions($components, $namespace);
     }
 
     public function registerMetadata(): self
     {
         return $this->registerPackageMetadata();
+    }
+
+    public function packageSurface(): PackageSurfaceRegistrar
+    {
+        return $this->surface();
     }
 
     public function registerPrivateDefinitions(): self
@@ -193,5 +237,13 @@ final class LivewireCompatibilityTestServiceProvider extends AbstractPackageServ
     private function registerLivewireComponents(): self
     {
         return $this;
+    }
+}
+
+final class LivewireCompatibilityTestComponent extends Component
+{
+    public function render(): string
+    {
+        return '<div></div>';
     }
 }

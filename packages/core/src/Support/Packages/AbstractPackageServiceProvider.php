@@ -45,11 +45,9 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $this->booted(function (): void {
             $this->bootPackage();
 
-            if ($this->isDiscoveringPackages() || ! $this->isPackageInstalled()) {
-                return;
-            }
-
-            $this->bootInstalledPackage();
+            $this->bootWhenInstalled(function (): void {
+                $this->bootInstalledPackage();
+            });
         });
     }
 
@@ -66,6 +64,15 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
     protected function bootInstalledPackage(): self
     {
         return $this;
+    }
+
+    protected function bootWhenInstalled(callable $callback): void
+    {
+        if ($this->isDiscoveringPackages() || ! $this->isPackageInstalled()) {
+            return;
+        }
+
+        $callback();
     }
 
     protected function isDiscoveringPackages(): bool
@@ -145,17 +152,11 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
             return $this;
         }
 
-        $livewire = Livewire::getFacadeRoot();
-
-        if (! is_object($livewire) || ! method_exists($livewire, 'component')) {
-            return $this;
-        }
-
         foreach ($components as $name => $component) {
             Livewire::component($name, $component);
         }
 
-        if ($namespace !== null && $this->isLivewireV3() === false && method_exists($livewire, 'addNamespace')) {
+        if ($namespace !== null && $this->isLivewireV3() === false) {
             Livewire::addNamespace(...$namespace);
         }
 

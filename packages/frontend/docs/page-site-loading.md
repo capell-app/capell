@@ -96,11 +96,11 @@ Contributors receive the resolved `FrontendContextReader` and mutable `FrontendR
 
 Frontend keeps request-specific rendering state out of public singletons wherever possible. When a singleton is unavoidable, it must implement `Capell\Core\Octane\Resettable` and be tagged with `Resettable::TAG` so Core can flush it after an Octane operation.
 
-The built-in resettable frontend services are:
+The built-in resettable frontend service is:
 
 - `ThemeViewRegistrar`, which restores the default `capell::` Blade namespace.
-- `CacheInvalidationRegistry`, which clears in-memory dependency registrations.
-- `FragmentCacheDirective`, which clears directive compile state.
+
+Cache invalidation dependency declarations live in a boot-lifetime singleton so package registrations survive between Octane operations. The execution registry and its request-aware collaborators are scoped and replaced automatically for each operation; neither lifetime is reset-tagged. Fragment cache directive compilation is also scoped and is not reset-tagged.
 
 Do not store the current site, page, language, theme, preview context, signed URL, or admin/editor state in an untagged singleton. Use scoped bindings for request state and use resettable singletons only for services that genuinely need to survive container boot.
 

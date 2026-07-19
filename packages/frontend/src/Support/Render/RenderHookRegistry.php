@@ -10,8 +10,10 @@ use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Data\RenderHookEntryData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Blade;
+use LogicException;
 
 /**
  * @template T of RenderHookContext
@@ -23,6 +25,10 @@ class RenderHookRegistry
 
     /** @var array<string, true> Stable keys already contributed, for dedupe. */
     protected array $contributedKeys = [];
+
+    public function __construct(
+        private readonly ?Container $container = null,
+    ) {}
 
     /**
      * Register an extension for a location, optionally scoped to a scenario and/or target (e.g., Blade file/component).
@@ -235,7 +241,7 @@ class RenderHookRegistry
             RenderHookRegistrationType::InlineBlade,
             RenderHookRegistrationType::LegacyString => Blade::render((string) $entry->extension, ['context' => $context]),
             RenderHookRegistrationType::Callable => ($entry->extension)($context),
-            RenderHookRegistrationType::ExtensionClass => $entry->extension->render($context),
+            RenderHookRegistrationType::ExtensionClass => $this->resolveExtension($entry->extension)->render($context),
         };
 
         if ($result instanceof View) {
@@ -243,5 +249,20 @@ class RenderHookRegistry
         }
 
         return $result;
+    }
+
+    private function resolveExtension(mixed $extension): RenderHookExtensionInterface
+    {
+        if ($extension instanceof RenderHookExtensionInterface) {
+            return $extension;
+        }
+
+        throw_unless(is_string($extension), LogicException::class, 'Render hook extension class must be a class-string.');
+
+        $resolved = ($this->container ?? app())->make($extension);
+
+        throw_unless($resolved instanceof RenderHookExtensionInterface, LogicException::class, 'Resolved render hook extension must implement RenderHookExtensionInterface.');
+
+        return $resolved;
     }
 }

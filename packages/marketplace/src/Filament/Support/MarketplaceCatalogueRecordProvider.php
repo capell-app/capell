@@ -688,10 +688,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'support_policy' => $extension->supportPolicy,
             'description' => $extension->description,
             'image_url' => $this->marketplaceImageUrl($extension->imageUrl),
-            'image_urls' => array_values(array_filter(array_map(
-                $this->marketplaceImageUrl(...),
-                $extension->imageUrls,
-            ))),
+            'image_urls' => $this->marketplaceImageUrls($extension->imageUrls),
             'price_cents' => $extension->priceCents,
             'price_label' => $this->priceLabel($extension),
             'is_paid' => $extension->isPaid,
@@ -928,14 +925,19 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
      */
     private function compatibilityWarnings(array $compatibilityDetails): array
     {
-        return array_values(collect($compatibilityDetails)
-            ->filter(fn (string $status): bool => $status === 'incompatible')
-            ->keys()
-            ->map(fn (string $platform): string => (string) __('capell-marketplace::marketplace.card.incompatible_platform', [
+        $warnings = [];
+
+        foreach ($compatibilityDetails as $platform => $status) {
+            if ($status !== 'incompatible') {
+                continue;
+            }
+
+            $warnings[] = (string) __('capell-marketplace::marketplace.card.incompatible_platform', [
                 'platform' => (string) __('capell-marketplace::marketplace.platform-builder.' . $platform),
-            ]))
-            ->values()
-            ->all());
+            ]);
+        }
+
+        return $warnings;
     }
 
     private function filterValue(array $filters, string $filter, string $field = 'value'): ?string
@@ -959,10 +961,15 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             return [];
         }
 
-        return array_values(array_filter(array_map(
-            fn (mixed $value): ?string => is_scalar($value) && (string) $value !== '' ? (string) $value : null,
-            $values,
-        ), is_string(...)));
+        $strings = [];
+
+        foreach ($values as $value) {
+            if (is_scalar($value) && (string) $value !== '') {
+                $strings[] = (string) $value;
+            }
+        }
+
+        return $strings;
     }
 
     private function moneyFilterToCents(mixed $value): ?int
@@ -1079,5 +1086,24 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     private function marketplaceImageUrl(?string $url): ?string
     {
         return MarketplaceAssetUrl::toUrl($url);
+    }
+
+    /**
+     * @param  list<string>  $urls
+     * @return list<string>
+     */
+    private function marketplaceImageUrls(array $urls): array
+    {
+        $resolvedUrls = [];
+
+        foreach ($urls as $url) {
+            $resolvedUrl = $this->marketplaceImageUrl($url);
+
+            if ($resolvedUrl !== null && $resolvedUrl !== '') {
+                $resolvedUrls[] = $resolvedUrl;
+            }
+        }
+
+        return $resolvedUrls;
     }
 }

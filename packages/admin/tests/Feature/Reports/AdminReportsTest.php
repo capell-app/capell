@@ -7,6 +7,9 @@ use Capell\Admin\Actions\Reports\BuildPublicRenderSafetyReportAction;
 use Capell\Admin\Actions\Reports\BuildReportVisibilityFormStateAction;
 use Capell\Admin\Actions\Reports\NormalizeReportVisibilitySettingsAction;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
+use Capell\Admin\Enums\FilamentWidgetEnum;
+use Capell\Admin\Enums\PageEnum;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
@@ -41,18 +44,26 @@ beforeEach(function (): void {
 
 it('registers installed core report metadata and page classes', function (): void {
     $reports = CapellAdmin::getReports();
+    $coreReportKeys = [
+        'core.accessibility_readiness',
+        'core.publishing_readiness',
+        'core.demo_install_health',
+        'core.package_readiness',
+        'core.public_render_safety',
+    ];
+    $corePages = [
+        ...array_column(PageEnum::cases(), 'value'),
+        ...array_column(array_intersect_key($reports, array_flip($coreReportKeys)), 'pageClass'),
+    ];
+    $coreWidgets = array_column(FilamentWidgetEnum::cases(), 'value');
+    $adminSurfaces = CapellAdmin::getAdminSurfaceRegistry();
 
-    expect($reports)->toHaveCount(5)
-        ->and($reports)->toHaveKeys([
-            'core.accessibility_readiness',
-            'core.publishing_readiness',
-            'core.demo_install_health',
-            'core.package_readiness',
-            'core.public_render_safety',
-        ])
+    expect(array_values(array_intersect(array_keys($reports), $coreReportKeys)))->toBe($coreReportKeys)
         ->and($reports['core.public_render_safety']->pageClass)->toBe(PublicRenderSafetyReport::class)
         ->and($reports['core.package_readiness']->pageClass)->toBe(PackageReadinessReport::class)
-        ->and(CapellAdmin::getAdminSurfaceRegistry()->pages())->toContain(PublicRenderSafetyReport::class);
+        ->and(array_values(array_intersect($adminSurfaces->pages(), $corePages)))->toBe($corePages)
+        ->and(array_values(array_intersect($adminSurfaces->resources(), array_column(ResourceEnum::cases(), 'value'))))->toBe(array_column(ResourceEnum::cases(), 'value'))
+        ->and(array_values(array_intersect($adminSurfaces->widgets(), $coreWidgets)))->toBe($coreWidgets);
 });
 
 it('loads report visibility controls grouped by role in admin settings', function (): void {

@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void setToCache(string $key, mixed $value, Closure|DateTimeInterface|DateInterval|int|null $ttl = null)
  * @method static bool cacheExists(string $key)
  * @method static void removeCacheKey(string $key)
+ * @method static int incrementCacheKey(string $key)
  * @method static void flushCache()
  * @method static void flushLocalCache()
  * @method static list<string> getCloneableRelations(string $model)
