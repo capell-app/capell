@@ -147,7 +147,7 @@ it('caches command checks within an operation and recomputes them for the next o
 
         public bool $phpAvailable = false;
 
-        private SymfonyProcessFactory $processes;
+        private readonly SymfonyProcessFactory $processes;
 
         public function __construct(private readonly string $fakePhpPath)
         {

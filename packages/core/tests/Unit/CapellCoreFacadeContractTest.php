@@ -6,6 +6,7 @@ use Capell\Core\Concerns\HasCache;
 use Capell\Core\Concerns\HasComponents;
 use Capell\Core\Concerns\HasModelInterceptors;
 use Capell\Core\Concerns\HasPackages;
+use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\CapellCoreManager;
 
@@ -40,7 +41,7 @@ function capellCoreFacadeContract(): array
             'markPackageInstalling' => '(string $name): void',
             'markPackageUninstalled' => '(string $name): void',
             'registerManifestPackage' => '(Capell\\Core\\Support\\Manifest\\CapellManifestData $manifest, ?string $version = null): static',
-            'registerPackage' => '(string $name, Capell\\Core\\Enums\\PackageTypeEnum $type = Capell\\Core\\Enums\\PackageTypeEnum::Plugin, ?string $serviceProviderClass = null, ?string $path = null, ?string $version = null, ?string $setting = null, array $permissions = [], Closure|string|null $description = null, ?string $setupCommand = null, array $setupParams = [], ?string $installCommand = null, array $installParams = [], bool $defaultSelected = false): static',
+            'registerPackage' => '(string $name, ' . PackageTypeEnum::class . ' $type = ' . PackageTypeEnum::class . '::Plugin, ?string $serviceProviderClass = null, ?string $path = null, ?string $version = null, ?string $setting = null, array $permissions = [], Closure|string|null $description = null, ?string $setupCommand = null, array $setupParams = [], ?string $installCommand = null, array $installParams = [], bool $defaultSelected = false): static',
         ],
         HasCache::class => [
             'cacheExists' => '(string $key): bool',
@@ -121,7 +122,7 @@ it('pins the extension-facing package, cache, interceptor, and component facade 
     expect($facadeRoot)->toBeInstanceOf(CapellCoreManager::class);
 
     foreach (capellCoreFacadeContract() as $concern => $expectedContract) {
-        $methods = (new ReflectionClass($concern))->getMethods(ReflectionMethod::IS_PUBLIC);
+        $methods = new ReflectionClass($concern)->getMethods(ReflectionMethod::IS_PUBLIC);
         $actualContract = [];
 
         foreach ($methods as $method) {

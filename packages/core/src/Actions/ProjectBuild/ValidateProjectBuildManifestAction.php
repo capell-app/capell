@@ -51,7 +51,7 @@ final class ValidateProjectBuildManifestAction
             'max:' . ProjectBuildManifestConstraints::MAX_ARTIFACT_PATH_LENGTH,
             static function (string $attribute, mixed $value, Closure $fail): void {
                 if (! is_string($value) || preg_match('~' . ProjectBuildManifestConstraints::ARTIFACT_PATH_PATTERN . '~D', $value) !== 1) {
-                    $fail("The {$attribute} field must be a safe relative POSIX path.");
+                    $fail(sprintf('The %s field must be a safe relative POSIX path.', $attribute));
                 }
             },
         ];
@@ -64,7 +64,7 @@ final class ValidateProjectBuildManifestAction
                 'string',
                 static function (string $attribute, mixed $value, Closure $fail): void {
                     if (! is_string($value) || preg_match('~' . ProjectBuildManifestConstraints::DATE_TIME_PATTERN . '~D', $value) !== 1) {
-                        $fail("The {$attribute} field must be an RFC 3339 date-time.");
+                        $fail(sprintf('The %s field must be an RFC 3339 date-time.', $attribute));
 
                         return;
                     }
@@ -82,10 +82,10 @@ final class ValidateProjectBuildManifestAction
                         $date = DateTimeImmutable::createFromFormat($format, $value);
                         $errors = DateTimeImmutable::getLastErrors();
                         if (! $date instanceof DateTimeImmutable || (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
-                            $fail("The {$attribute} field must be an RFC 3339 date-time.");
+                            $fail(sprintf('The %s field must be an RFC 3339 date-time.', $attribute));
                         }
                     } catch (Exception) {
-                        $fail("The {$attribute} field must be an RFC 3339 date-time.");
+                        $fail(sprintf('The %s field must be an RFC 3339 date-time.', $attribute));
                     }
                 },
             ],
@@ -138,7 +138,7 @@ final class ValidateProjectBuildManifestAction
                     $signature = is_string($value) ? base64_decode($value, true) : false;
 
                     if (! is_string($signature) || strlen($signature) !== ProjectBuildManifestConstraints::ED25519_SIGNATURE_BYTES) {
-                        $fail("The {$attribute} field must be a base64-encoded Ed25519 signature.");
+                        $fail(sprintf('The %s field must be a base64-encoded Ed25519 signature.', $attribute));
                     }
                 },
             ],
@@ -174,11 +174,11 @@ final class ValidateProjectBuildManifestAction
 
             $locales = is_array($site['locales'] ?? null) ? $site['locales'] : [];
             if (count($locales) !== count(array_unique($locales, SORT_REGULAR))) {
-                $validator->errors()->add("sites.{$index}.locales", 'Site locales must be unique.');
+                $validator->errors()->add(sprintf('sites.%s.locales', $index), 'Site locales must be unique.');
             }
 
             if (is_string($site['defaultLocale'] ?? null) && ! in_array($site['defaultLocale'], $locales, true)) {
-                $validator->errors()->add("sites.{$index}.defaultLocale", 'The default locale must be included in the site locales.');
+                $validator->errors()->add(sprintf('sites.%s.defaultLocale', $index), 'The default locale must be included in the site locales.');
             }
         }
 
@@ -194,15 +194,16 @@ final class ValidateProjectBuildManifestAction
             $path = $route['path'] ?? null;
             $site = is_string($siteKey) ? $sitesByKey->get($siteKey) : null;
             if (! is_array($site)) {
-                $validator->errors()->add("routes.{$index}.siteKey", 'The route references an unknown site.');
+                $validator->errors()->add(sprintf('routes.%s.siteKey', $index), 'The route references an unknown site.');
             } elseif (! is_string($locale) || ! in_array($locale, $site['locales'] ?? [], true)) {
-                $validator->errors()->add("routes.{$index}.locale", 'The route locale is not enabled for its site.');
+                $validator->errors()->add(sprintf('routes.%s.locale', $index), 'The route locale is not enabled for its site.');
             }
 
             $identity = implode('|', array_map(static fn (mixed $value): string => is_scalar($value) ? (string) $value : '', [$siteKey, $locale, $path]));
             if (isset($routeIdentities[$identity])) {
-                $validator->errors()->add("routes.{$index}", 'Route identities must be unique.');
+                $validator->errors()->add('routes.' . $index, 'Route identities must be unique.');
             }
+
             $routeIdentities[$identity] = true;
         }
     }
@@ -212,14 +213,19 @@ final class ValidateProjectBuildManifestAction
     {
         $seen = [];
         foreach ($items as $index => $item) {
-            if (! is_array($item) || ! is_scalar($item[$key] ?? null)) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            if (! is_scalar($item[$key] ?? null)) {
                 continue;
             }
 
             $value = (string) $item[$key];
             if (isset($seen[$value])) {
-                $validator->errors()->add("{$field}.{$index}.{$key}", ucfirst($key) . ' values must be unique.');
+                $validator->errors()->add(sprintf('%s.%d.%s', $field, $index, $key), ucfirst($key) . ' values must be unique.');
             }
+
             $seen[$value] = true;
         }
     }

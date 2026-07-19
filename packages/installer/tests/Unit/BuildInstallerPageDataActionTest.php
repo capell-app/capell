@@ -31,7 +31,7 @@ it('does not offer registered packages as downloadable packages', function (): v
         ...$data['corePackages'],
         ...$data['installedPackages'],
     ])->pluck('name');
-    $downloadablePackageNames = collect($data['downloadablePackages'])->pluck('name');
+    $downloadablePackageNames = collect([...$data['downloadablePackages']])->pluck('name');
 
     expect($downloadablePackageNames->intersect($registeredPackageNames))->toBeEmpty();
 });

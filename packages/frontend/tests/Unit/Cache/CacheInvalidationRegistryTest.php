@@ -52,6 +52,7 @@ it('keeps boot dependency registrations across scoped lifecycle resets', functio
     $nextRegistry = resolve(CacheInvalidationRegistry::class);
     $nextExecutor = resolve(CacheInvalidationExecutor::class);
     $nextExecutor->setToCache('persistent-key', 'cached');
+
     $plan = $nextRegistry->planForModel('Vendor\\Package\\PersistentModel');
     $nextRegistry->invalidateForModel('Vendor\\Package\\PersistentModel');
 

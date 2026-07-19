@@ -35,5 +35,5 @@ it('does not participate in singleton reset infrastructure', function (): void {
 
     expect($queue)->not->toBeInstanceOf(Resettable::class)
         ->and(collect(app()->tagged(Resettable::TAG))->contains($queue))->toBeFalse()
-        ->and((new ReflectionClass($queue))->getConstructor())->toBeNull();
+        ->and(new ReflectionClass($queue)->getConstructor())->toBeNull();
 });

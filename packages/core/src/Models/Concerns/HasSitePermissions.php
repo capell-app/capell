@@ -145,7 +145,7 @@ trait HasSitePermissions
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    public function scopeGlobalAdmins(Builder $query): Builder
+    protected function scopeGlobalAdmins(Builder $query): Builder
     {
         $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
         $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
@@ -157,7 +157,7 @@ trait HasSitePermissions
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    private function scopeGlobalRole(Builder $query, string $role): Builder
+    protected function scopeGlobalRole(Builder $query, string $role): Builder
     {
         $tableNames = config('permission.table_names', []);
         $modelHasRolesTable = is_array($tableNames) && is_string($tableNames['model_has_roles'] ?? null)
