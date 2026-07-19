@@ -7,6 +7,8 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionMapper;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 
@@ -119,9 +121,24 @@ it('reports selected theme keys only for installable theme candidates', function
 it('defaults catalogue selection to a local app theme when one exists', function (): void {
     writeThemePackageCandidatesLocalThemeManifest();
 
-    $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
+    $files = new Filesystem;
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $bootstrapPath = storage_path('framework/testing/theme-package-candidates-' . bin2hex(random_bytes(6)));
+    $this->app->useBootstrapPath($bootstrapPath);
+    $repository = new LocalAppThemeDefinitionRepository(
+        $this->app,
+        $files,
+        new LocalAppThemeDefinitionMapper,
+    );
 
-    expect($candidates->defaultThemeKeyForCatalogue())->toBe('local-client');
+    try {
+        $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner, $repository);
+
+        expect($candidates->defaultThemeKeyForCatalogue())->toBe('local-client');
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+        $files->deleteDirectory($bootstrapPath);
+    }
 });
 
 it('falls back to default as the catalogue default without local themes', function (): void {

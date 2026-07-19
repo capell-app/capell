@@ -6,6 +6,7 @@ use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecNavigationData;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Page;
@@ -150,6 +151,35 @@ it('round trips navigation media and extension state through the import command 
         ->and(CapellExtension::query()->where('composer_name', 'capell-app/navigation')->exists())->toBeTrue();
 
     Http::assertSentCount(2);
+});
+
+it('publishes only the coming soon page for a private import', function (): void {
+    Http::fake();
+    $payload = importSiteSpecPayload();
+    $payload['initialVisibility'] = 'private';
+    $payload['acknowledgePublic'] = false;
+    $payload['navigations'] = [];
+    $payload['media'] = ['sourceUrl' => null, 'logo' => null, 'images' => []];
+    $payload['extensions'] = [];
+    $path = writeSiteSpec($payload);
+
+    try {
+        artisanCommand('capell:site-spec-import', ['spec' => $path])
+            ->assertExitCode(Command::SUCCESS);
+    } finally {
+        unlink($path);
+    }
+
+    $site = Site::query()->where('name', 'Harbour Books')->firstOrFail();
+    $home = Page::query()->whereBelongsTo($site)->where('name', 'Home')->firstOrFail();
+    $about = Page::query()->whereBelongsTo($site)->where('name', 'About')->firstOrFail();
+
+    expect($home->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published)
+        ->and($about->publishVisibilityState())->toBe(PublishVisibilityStateEnum::draft)
+        ->and(Page::query()->whereBelongsTo($site)->published()->pluck('name')->all())->toBe(['Home'])
+        ->and(Page::query()->whereBelongsTo($site)->draft()->pluck('name')->all())->toBe(['About']);
+
+    Http::assertNothingSent();
 });
 
 it('refuses a spec whose requested extension is not installed before fetching media', function (): void {

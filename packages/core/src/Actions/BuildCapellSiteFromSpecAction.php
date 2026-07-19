@@ -13,6 +13,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
@@ -186,7 +187,9 @@ final class BuildCapellSiteFromSpecAction
             'name' => $page->name,
             'type_key' => $page->pageType,
             'layout_key' => $first ? 'home' : 'default',
-            'visible_from' => $public || $first ? now()->subDay()->toDateString() : null,
+            'visible_from' => $public || $first
+                ? now()->subDay()->toDateString()
+                : PublishSentinel::draftValue(),
             'meta' => array_merge($page->meta, ['visibility' => $page->visibility, 'noindex' => ! $public]),
             'translations' => [$language->code => [
                 'title' => ! $public && $first ? 'Coming soon' : $page->title,
