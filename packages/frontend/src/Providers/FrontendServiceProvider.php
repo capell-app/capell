@@ -161,12 +161,14 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
@@ -264,7 +266,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ErrorPageRegenerationQueue::class);
         $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
-        $this->app->singleton(PublicViewQueryGuard::class);
+        $this->app->scoped(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
         $this->app->singleton(FrontendHookRegistrar::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
@@ -417,6 +419,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerPaginateRoute()
             ->configureVite()
             ->bootstrapFrontendEvents()
+            ->registerPublicViewQueryListener()
             ->registerSiteCheckSchedule()
             ->registerSettingsSchemas()
             ->registerViewComposers();
@@ -610,6 +613,17 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function bootstrapFrontendEvents(): self
     {
         $this->app->make(FrontendEventBootstrapper::class)->boot();
+
+        return $this;
+    }
+
+    private function registerPublicViewQueryListener(): self
+    {
+        $application = $this->app;
+
+        DB::listen(static function (QueryExecuted $event) use ($application): void {
+            $application->make(PublicViewQueryGuard::class)->capture($event);
+        });
 
         return $this;
     }
