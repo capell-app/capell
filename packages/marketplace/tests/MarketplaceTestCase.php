@@ -77,6 +77,8 @@ abstract class MarketplaceTestCase extends AbstractTestCase
     {
         parent::getEnvironmentSetUp($app);
 
+        $app['config']->set('queue.connections.database.retry_after', 900);
+
         foreach (['installer', 'marketplace'] as $packageDirectory) {
             $manifest = json_decode(
                 (string) file_get_contents(dirname(__DIR__, 2) . '/' . $packageDirectory . '/capell.json'),
