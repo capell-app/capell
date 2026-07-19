@@ -304,8 +304,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(ActivityTrailQueryProvider::class, NullActivityTrailQueryProvider::class);
         $this->app->scoped(AdminDashboardDataRequestCache::class);
         // Filament swaps Livewire's data store so partial rendering can share component state.
-        // Keep that store stable for the request so Livewire validation state persists.
-        $this->app->singleton(DataStore::class, DataStoreOverride::class);
+        // Keep that store stable for one request so Livewire validation state persists
+        // without leaking component state into the next long-lived worker operation.
+        $this->app->scoped(DataStore::class, static fn (): DataStoreOverride => new DataStoreOverride);
         $this->app->singletonIf(PageExporter::class, NullPageExporter::class);
         $this->app->singletonIf(RedirectUrlRecorder::class, PageUrlRedirectUrlRecorder::class);
         $this->app->singleton(RegistryInspectorInterface::class, RegistryInspector::class);
