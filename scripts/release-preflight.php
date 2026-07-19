@@ -72,6 +72,10 @@ passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover &
 if ($exitCode !== 0) {
     exit($exitCode);
 }
+passthru('cd ' . escapeshellarg($consumer) . ' && php artisan capell:package-cache --no-interaction', $exitCode);
+if ($exitCode !== 0) {
+    exit($exitCode);
+}
 passthru('cd ' . escapeshellarg($consumer) . ' && npm install --no-audit --no-fund && npm run build', $exitCode);
 if ($exitCode !== 0) {
     exit($exitCode);
