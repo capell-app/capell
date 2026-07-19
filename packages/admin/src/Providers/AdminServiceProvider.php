@@ -285,7 +285,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->instance(CapellAdminManager::class, $manager);
         $this->app->instance(AdminSurfaceContributionRegistry::class, $manager->getAdminSurfaceRegistry());
         $this->app->instance(ReportRegistry::class, $manager->getReportRegistry());
-        $this->app->instance(AdminBridgeRegistry::class, $manager->getAdminBridgeRegistry());
         $this->app->singleton(AdminResourceResolverContract::class, AdminResourceResolver::class);
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);

@@ -36,8 +36,8 @@ use Illuminate\View\View;
 final class AdminBridgeRegistrar
 {
     public function __construct(
-        private readonly ?AdminBridgeRegistry $bridges = null,
-        private readonly ?SettingsSchemaRegistry $settings = null,
+        private readonly AdminBridgeRegistry $bridges,
+        private readonly SettingsSchemaRegistry $settings,
     ) {}
 
     /**
@@ -45,7 +45,7 @@ final class AdminBridgeRegistrar
      */
     public function bridge(string $packageName, string $bridgeClass): void
     {
-        ($this->bridges ?? resolve(AdminBridgeRegistry::class))->register($packageName, $bridgeClass);
+        $this->bridges->register($packageName, $bridgeClass);
     }
 
     /** @param class-string $pageClass */
@@ -260,7 +260,7 @@ final class AdminBridgeRegistrar
      */
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): void
     {
-        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->register($group, $schemaClass, $key);
+        $this->settings->register($group, $schemaClass, $key);
     }
 
     /**
@@ -268,11 +268,11 @@ final class AdminBridgeRegistrar
      */
     public function settingsClass(string $group, string $settingsClass): void
     {
-        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerSettingsClass($group, $settingsClass);
+        $this->settings->registerSettingsClass($group, $settingsClass);
     }
 
     public function settingsMetadata(SettingsGroupMetadata $metadata): void
     {
-        ($this->settings ?? resolve(SettingsSchemaRegistry::class))->registerMetadata($metadata);
+        $this->settings->registerMetadata($metadata);
     }
 }
