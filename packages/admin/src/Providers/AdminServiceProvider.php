@@ -266,6 +266,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(FlagIconRendererContract::class, FlagIconRenderer::class);
         $this->app->singletonIf(PageTableStatusResolver::class, DefaultPageTableStatusResolver::class);
 
+        // These concrete services are owned by Admin; unlike substitutable contracts above,
+        // their identity must remain the one shared by the manager, facade, and container.
         $this->app->singleton(ExtensionPageRegistry::class);
         $this->app->singleton(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
