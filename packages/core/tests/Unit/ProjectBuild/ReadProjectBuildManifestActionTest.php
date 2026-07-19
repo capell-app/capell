@@ -6,6 +6,7 @@ use Capell\Core\Actions\ProjectBuild\ReadProjectBuildManifestAction;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
+use Capell\Core\Tests\Support\ProjectBuildManifestFixture;
 use Illuminate\Validation\ValidationException;
 
 final class VersionZeroProjectBuildManifestMigration implements ProjectBuildManifestMigration
@@ -34,7 +35,7 @@ final class VersionZeroProjectBuildManifestMigration implements ProjectBuildMani
 
 it('reads a current manifest without migration', function (): void {
     $reader = new ReadProjectBuildManifestAction(new ProjectBuildManifestMigrationRegistry);
-    $manifest = $reader->handle(json_encode(validProjectBuildManifestPayload(), JSON_THROW_ON_ERROR));
+    $manifest = $reader->handle(json_encode(ProjectBuildManifestFixture::payload(), JSON_THROW_ON_ERROR));
 
     expect($manifest)->toBeInstanceOf(ProjectBuildManifestData::class)
         ->and($manifest->schemaVersion)->toBe(1);
@@ -43,7 +44,7 @@ it('reads a current manifest without migration', function (): void {
 it('migrates an explicitly supported legacy manifest before validation', function (): void {
     $registry = new ProjectBuildManifestMigrationRegistry;
     $registry->register(new VersionZeroProjectBuildManifestMigration);
-    $payload = validProjectBuildManifestPayload();
+    $payload = ProjectBuildManifestFixture::payload();
     $payload['schemaVersion'] = 0;
     $payload['legacyVersion'] = 'v0';
 

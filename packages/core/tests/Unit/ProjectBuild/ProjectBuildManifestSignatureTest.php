@@ -6,10 +6,11 @@ use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInpu
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Tests\Support\ProjectBuildManifestFixture;
 
 it('defines detached signing bytes and verifies Ed25519 signatures', function (): void {
     $keyPair = sodium_crypto_sign_keypair();
-    $payload = validProjectBuildManifestPayload();
+    $payload = ProjectBuildManifestFixture::payload();
     $unsigned = ValidateProjectBuildManifestAction::run($payload);
     $payload['signature']['value'] = base64_encode(sodium_crypto_sign_detached(
         CanonicalizeProjectBuildManifestSigningInputAction::run($unsigned),
@@ -27,7 +28,7 @@ it('defines detached signing bytes and verifies Ed25519 signatures', function ()
 
 it('refuses tampered manifests and the wrong public key', function (string $failure): void {
     $keyPair = sodium_crypto_sign_keypair();
-    $payload = validProjectBuildManifestPayload();
+    $payload = ProjectBuildManifestFixture::payload();
     $unsigned = ValidateProjectBuildManifestAction::run($payload);
     $payload['signature']['value'] = base64_encode(sodium_crypto_sign_detached(
         CanonicalizeProjectBuildManifestSigningInputAction::run($unsigned),
