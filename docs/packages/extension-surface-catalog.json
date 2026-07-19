@@ -33,6 +33,16 @@
             "contractTestId": "core.extension-contribution"
         },
         {
+            "id": "core.contract.frontend-route-reservation-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\FrontendRouteReservationContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation contributions.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.health-check",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ChecksExtensionHealth",
@@ -40,6 +50,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed extension health checks.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.interaction-target-capability-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\InteractionTargetCapabilityContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed interaction target capability contributions.",
             "contractTestId": null
         },
         {
@@ -51,6 +71,26 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed manifest contribution data.",
             "contractTestId": "core.extension-contribution-data"
+        },
+        {
+            "id": "core.dto.frontend-route-reservation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation data.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.frontend-route-reservation-type",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\FrontendRouteReservationType",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported frontend route reservation types.",
+            "contractTestId": null
         },
         {
             "id": "core.event.package-installed",
@@ -90,6 +130,26 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Container tag for extension health checks.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.frontend-route-reservation-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend-route-reservation-contributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for frontend route reservation contributors.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.interaction-target-capability-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.interaction-target-capability-contributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for interaction target capability contributors.",
             "contractTestId": null
         },
         {

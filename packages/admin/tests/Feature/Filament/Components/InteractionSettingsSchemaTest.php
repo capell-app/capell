@@ -40,15 +40,29 @@ it('hides the fragment interaction target when every valid contributor declines 
 });
 
 it('offers the fragment interaction target when any valid contributor supports it', function (): void {
-    $contributor = new class implements InteractionTargetCapabilityContributor
+    $decliningContributor = new class implements InteractionTargetCapabilityContributor
+    {
+        public function supports(InteractionTargetType $targetType): bool
+        {
+            return false;
+        }
+    };
+    $supportingContributor = new class implements InteractionTargetCapabilityContributor
     {
         public function supports(InteractionTargetType $targetType): bool
         {
             return $targetType === InteractionTargetType::Fragment;
         }
     };
-    app()->instance($contributor::class, $contributor);
-    app()->tag($contributor::class, InteractionTargetCapabilityContributor::TAG);
+    $invalidContributor = new stdClass;
+    app()->instance($decliningContributor::class, $decliningContributor);
+    app()->instance($supportingContributor::class, $supportingContributor);
+    app()->instance($invalidContributor::class, $invalidContributor);
+    app()->tag([
+        $decliningContributor::class,
+        $invalidContributor::class,
+        $supportingContributor::class,
+    ], InteractionTargetCapabilityContributor::TAG);
 
     $options = InteractionSettingsSchema::targetOptions();
 
