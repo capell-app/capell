@@ -31,6 +31,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
+use Symfony\Component\Process\Process;
 
 uses(CreatesAdminUser::class)->group('extension');
 
@@ -286,14 +287,21 @@ it('does not attempt to restore composer drift while building dashboard summarie
 
         return new class
         {
+            public function disableOutput(): self
+            {
+                return $this;
+            }
+
             public function setTimeout(int $timeout): void
             {
                 //
             }
 
-            public function run(): void
+            public function run(?callable $callback = null): void
             {
-                //
+                if ($callback !== null) {
+                    $callback(Process::OUT, 'composer require completed');
+                }
             }
 
             public function getErrorOutput(): string
@@ -383,14 +391,21 @@ it('records successful composer drift repair metadata and clears extension cache
 
         return new class
         {
+            public function disableOutput(): self
+            {
+                return $this;
+            }
+
             public function setTimeout(int $timeout): void
             {
                 //
             }
 
-            public function run(): void
+            public function run(?callable $callback = null): void
             {
-                //
+                if ($callback !== null) {
+                    $callback(Process::OUT, 'composer require completed');
+                }
             }
 
             public function getErrorOutput(): string
@@ -446,14 +461,21 @@ it('records failed composer drift repair metadata without throwing silently', fu
 
     RequirePackageAction::setProcessFactory(fn (): object => new class
     {
+        public function disableOutput(): self
+        {
+            return $this;
+        }
+
         public function setTimeout(int $timeout): void
         {
             //
         }
 
-        public function run(): void
+        public function run(?callable $callback = null): void
         {
-            //
+            if ($callback !== null) {
+                $callback(Process::ERR, 'composer failed');
+            }
         }
 
         public function getErrorOutput(): string
@@ -490,14 +512,21 @@ it('does not run all-package composer drift repair when the command config gate 
 
         return new class
         {
+            public function disableOutput(): self
+            {
+                return $this;
+            }
+
             public function setTimeout(int $timeout): void
             {
                 //
             }
 
-            public function run(): void
+            public function run(?callable $callback = null): void
             {
-                //
+                if ($callback !== null) {
+                    $callback(Process::OUT, 'composer require completed');
+                }
             }
 
             public function getErrorOutput(): string
@@ -555,14 +584,21 @@ it('repairs an explicit composer drift package from the command when the config 
 
         return new class
         {
+            public function disableOutput(): self
+            {
+                return $this;
+            }
+
             public function setTimeout(int $timeout): void
             {
                 //
             }
 
-            public function run(): void
+            public function run(?callable $callback = null): void
             {
-                //
+                if ($callback !== null) {
+                    $callback(Process::OUT, 'composer require completed');
+                }
             }
 
             public function getErrorOutput(): string
