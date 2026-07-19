@@ -42,7 +42,7 @@ function readmeEngineeringStandardsFixture(string $root): void
 
     file_put_contents($root . '/README.md', 'PHPStan-level%208 parameters%20typed-98.9%25 dependencies-audited test-full.yml?branch=main&style=flat-square&label=test%20matrix code-quality-and-styling.yml?branch=main&style=flat-square&label=quality%20gates img.shields.io/codecov/c/github/capell-app/capell');
     file_put_contents($root . '/phpstan/common.neon', "level: 8\nparam_type: 98.9\n");
-    file_put_contents($root . '/.github/workflows/code-quality-and-styling.yml', "pull_request:\n    branches:\n      - main\n      - 1.x\ncomposer run check:readme-engineering-standards\ncomposer phpstan\ncomposer audit --locked\n");
+    file_put_contents($root . '/.github/workflows/code-quality-and-styling.yml', "pull_request:\n    branches:\n      - main\ncomposer run check:readme-engineering-standards\ncomposer phpstan\ncomposer audit --locked\n");
     file_put_contents($root . '/.github/workflows/test-full.yml', "laravel: 12.*\nlaravel: 13.*\n");
     file_put_contents($root . '/.github/workflows/coverage-release.yml', '--coverage --min=90');
 }

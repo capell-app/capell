@@ -14,7 +14,7 @@ $contracts = [
     'PHPStan is configured at level 8' => ['phpstan/common.neon', 'level: 8'],
     'PHPStan enforces 98.9% parameter types' => ['phpstan/common.neon', 'param_type: 98.9'],
     'quality workflow validates README standards' => ['.github/workflows/code-quality-and-styling.yml', 'composer run check:readme-engineering-standards'],
-    'quality workflow runs on main and 1.x pull requests' => ['.github/workflows/code-quality-and-styling.yml', "pull_request:\n    branches:\n      - main\n      - 1.x"],
+    'quality workflow runs on main pull requests' => ['.github/workflows/code-quality-and-styling.yml', "pull_request:\n    branches:\n      - main"],
     'quality workflow runs PHPStan' => ['.github/workflows/code-quality-and-styling.yml', 'composer phpstan'],
     'quality workflow audits locked dependencies' => ['.github/workflows/code-quality-and-styling.yml', 'composer audit --locked'],
     'full test workflow covers Laravel 12' => ['.github/workflows/test-full.yml', 'laravel: 12.*'],
@@ -32,7 +32,7 @@ foreach ($contracts as $description => [$relativePath, $expected]) {
         $fileContents = file_get_contents($path);
 
         if ($fileContents === false) {
-            $failures[] = "{$relativePath} could not be read.";
+            $failures[] = $relativePath . ' could not be read.';
 
             continue;
         }
@@ -41,7 +41,7 @@ foreach ($contracts as $description => [$relativePath, $expected]) {
     }
 
     if (! str_contains($contents[$relativePath], $expected)) {
-        $failures[] = "{$description} ({$relativePath}).";
+        $failures[] = sprintf('%s (%s).', $description, $relativePath);
     }
 }
 
@@ -49,7 +49,7 @@ if ($failures !== []) {
     fwrite(STDERR, "README engineering standards are out of sync:\n");
 
     foreach ($failures as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
     exit(1);

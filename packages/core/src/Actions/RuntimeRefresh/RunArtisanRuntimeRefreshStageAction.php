@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\RuntimeRefresh;
 
 use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshStageResultData;
 use Illuminate\Contracts\Console\Kernel;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class RunArtisanRuntimeRefreshStageAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly Kernel $artisan) {}

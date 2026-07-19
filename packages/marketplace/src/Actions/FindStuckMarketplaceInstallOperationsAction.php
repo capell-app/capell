@@ -7,10 +7,12 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Database\Eloquent\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class FindStuckMarketplaceInstallOperationsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return Collection<int, MarketplaceInstallAttempt> */

@@ -41,7 +41,7 @@ it('runs every registered runtime warmer and aggregates failures', function (): 
         ->with(RuntimeRefreshWarmer::TAG)
         ->andReturn([$failing, $passing]);
 
-    $result = (new WarmRuntimeAction($application))->handle();
+    $result = new WarmRuntimeAction($application)->handle();
 
     expect($result->passed)->toBeFalse()
         ->and($result->message)->toContain('Failing warmer: upstream unavailable')

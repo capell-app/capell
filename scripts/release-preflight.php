@@ -73,7 +73,7 @@ passthru('cd ' . escapeshellarg($consumer) . ' && php artisan package:discover &
 if ($exitCode !== 0) {
     exit($exitCode);
 }
-passthru('cd ' . escapeshellarg($consumer) . ' && php artisan capell:package-cache', $exitCode);
+passthru('cd ' . escapeshellarg($consumer) . ' && php artisan capell:package-cache --no-interaction', $exitCode);
 if ($exitCode !== 0) {
     exit($exitCode);
 }

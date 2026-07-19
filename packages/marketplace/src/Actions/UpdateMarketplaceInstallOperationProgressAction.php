@@ -7,10 +7,12 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class UpdateMarketplaceInstallOperationProgressAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(

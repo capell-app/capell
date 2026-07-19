@@ -7,11 +7,13 @@ namespace Capell\Core\Actions\RuntimeRefresh;
 use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshResultData;
 use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshStageResultData;
 use Illuminate\Support\Collection;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class RunRuntimeRefreshAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class FinalizeMarketplaceInstallOperationTelemetryAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(
