@@ -8,11 +8,13 @@ Generated from executable metadata by `scripts/build-extension-surface-catalog.p
 | `core.config.roles-admin`              | config         | `capell.roles.admin`                                                  | `capell-app/core`  | experimental | Configured administrator role name.                  |
 | `core.contract.extension-contribution` | contract       | `Capell\Core\Contracts\Extensions\ExtensionContribution`              | `capell-app/core`  | stable       | Core contribution boundary.                          |
 | `core.contract.health-check`           | contract       | `Capell\Core\Contracts\Extensions\ChecksExtensionHealth`              | `capell-app/core`  | experimental | Typed extension health checks.                       |
+| `core.contract.site-spec-applier`      | contract       | `Capell\Core\Contracts\SiteSpec\SiteSpecApplier`                      | `capell-app/core`  | stable       | Package-owned SiteSpec application boundary.         |
 | `core.dto.extension-contribution`      | dto            | `Capell\Core\Data\Manifest\ExtensionContributionData`                 | `capell-app/core`  | stable       | Typed manifest contribution data.                    |
 | `core.event.package-installed`         | event          | `Capell\Core\Events\PackageInstalled`                                 | `capell-app/core`  | stable       | Package lifecycle completion event.                  |
 | `core.facade.capell-core`              | facade         | `Capell\Core\Facades\CapellCore`                                      | `capell-app/core`  | experimental | Runtime package and model registry facade.           |
 | `core.internal.registry-builder`       | internal       | `Capell\Core\Actions\Extensions\BuildExtensionContractRegistryAction` | `capell-app/core`  | internal     | Internal executable contribution index.              |
 | `core.tag.extension-health`            | tagged-service | `capell.extension-health-checks`                                      | `capell-app/core`  | experimental | Container tag for extension health checks.           |
+| `core.tag.site-spec-applier`           | tagged-service | `capell.site-spec.applier`                                            | `capell-app/core`  | stable       | Container tag for SiteSpec appliers.                 |
 | `core.testing.extension-harness`       | testing        | `Capell\Core\Testing\ExtensionTestHarness`                            | `capell-app/core`  | stable       | Single-package manifest and contribution assertions. |
 
 Stable entries have a direct contract test ID in the JSON catalogue. Experimental entries may change before the first public release. Internal entries are not extension APIs.

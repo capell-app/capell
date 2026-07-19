@@ -19,6 +19,7 @@ use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
+use Capell\Core\Console\Commands\ImportSiteSpecCommand;
 use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Console\Commands\InstallExtensionCommand;
 use Capell\Core\Console\Commands\MakeActionCommand;
@@ -131,6 +132,7 @@ use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaBootstrapper;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
@@ -171,6 +173,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function registeringPackage(): void
     {
         $this->app->scoped(RuntimeSchemaState::class);
+        $this->app->singleton(SiteSpecApplierRegistry::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);
         config(['media-library.media_model' => Media::class]);
@@ -214,6 +217,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
+            ImportSiteSpecCommand::class,
             InstallExtensionCommand::class,
             UninstallExtensionCommand::class,
             InstallCommand::class,

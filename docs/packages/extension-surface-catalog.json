@@ -43,6 +43,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.site-spec-applier",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned SiteSpec application boundary.",
+            "contractTestId": "core.site-spec-applier"
+        },
+        {
             "id": "core.dto.extension-contribution",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",
@@ -91,6 +101,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Container tag for extension health checks.",
             "contractTestId": null
+        },
+        {
+            "id": "core.tag.site-spec-applier",
+            "kind": "tagged-service",
+            "identifier": "capell.site-spec.applier",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for SiteSpec appliers.",
+            "contractTestId": "core.site-spec-applier-registration"
         },
         {
             "id": "core.testing.extension-harness",

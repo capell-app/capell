@@ -19,6 +19,20 @@ Core does not need to become an AI package to be useful for AI. It gives AI-capa
 
 That means an AI feature can ask better questions. It can understand which page is being edited, which language is active, which packages are installed, which public URLs may be affected, and where an editor review should happen.
 
+## Deterministic SiteSpec Handoffs
+
+Core provides one canonical SiteSpec contract for local imports and hosted provisioning. A spec declares the site, theme, language, pages, navigation references, remote media, required extensions, and initial visibility. It does not ask core to infer missing content or call an AI provider.
+
+Import a generated contract locally with:
+
+```bash
+php artisan capell:site-spec-import storage/app/site-spec.json
+```
+
+The importer validates the complete contract before writing, sanitises section HTML, requires requested extensions to be installed, and treats the normalized spec as idempotent. Remote media is accepted only from the declared public HTTPS origin, with redirect, size, aggregate-budget, and image-type controls.
+
+Optional packages own their records. For example, a navigation package registers a typed SiteSpec applier and receives the persisted site plus a page map inside the import transaction. Core therefore exposes a stable seam without importing package-specific models. AI generators remain commercial; deterministic import stays free.
+
 ## What AIOrchestrator Adds
 
 `capell-app/ai-orchestrator` is the commercial AI layer. It should own AI-specific dependencies and workflows instead of pushing provider clients into every free package.
@@ -37,7 +51,7 @@ Core stays lean. Packages opt into AI where the feature needs it.
 
 Capell is shaped for practical AI assistance across the CMS:
 
-| Area                  | How Capell helps                                                       |
+| Area                  | How Capell helps                                                      |
 | --------------------- | --------------------------------------------------------------------- |
 | Content planning      | Page trees and package state give prompts real context.               |
 | Draft page generation | Draft structures and section suggestions, still subject to review.    |
@@ -67,6 +81,7 @@ Start with the CMS foundation:
 2. Read [Blueprints](types.md) for how page, widget, layout, and package behaviour is shaped.
 3. Read [Package product groups](../packages/product-groups.md) to understand where AIOrchestrator belongs commercially.
 4. Read [Extension point API reference](../packages/extension-point-api-reference.md) before exposing package capabilities.
-5. Keep the [public HTML safety contract](../frontend/public-html-safety.md) close when touching public rendering, cache, themes, authoring, or AI-assisted output.
+5. Use the core Boost skill's SiteSpec reference when generating or applying deterministic site contracts.
+6. Keep the [public HTML safety contract](../frontend/public-html-safety.md) close when touching public rendering, cache, themes, authoring, or AI-assisted output.
 
 The practical rule is simple: let Capell core describe the site, let AIOrchestrator coordinate AI work, and keep public output boring.

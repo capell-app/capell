@@ -19,7 +19,11 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         'render-hook',
         'testing',
         'internal',
-    );
+    )
+        ->and(array_column($catalog, 'id'))->toContain(
+            'core.contract.site-spec-applier',
+            'core.tag.site-spec-applier',
+        );
 
     foreach ($catalog as $entry) {
         expect($entry->id)->not->toBe('')

@@ -41,7 +41,16 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 - Blade hooks: `RenderHookRegistry::register(RenderHookLocation::X, ...)`.
 - Settings: `SettingsSchemaRegistry::register()` and `registerSettingsClass()`.
 - Cache dependencies: `CacheInvalidationRegistry::registerDependency()`.
+- Package-owned SiteSpec blocks: implement `SiteSpecApplier` and register it with `SiteSpecApplier::TAG`.
 - Never use `php artisan capell:admin-publish-schemas`.
+
+## SiteSpec Import
+
+- Core owns deterministic SiteSpec validation and import; commercial packages own AI generation and provider calls.
+- Import a local JSON contract with `php artisan capell:site-spec-import path/to/site-spec.json`.
+- Navigation is applied by an installed package through the `navigation` SiteSpec applier.
+- Remote logo and page images must use the declared HTTPS origin and pass public-DNS, size, and image-type checks.
+- Full contract, registration, and security details live in `references/site-spec.md`.
 
 ## Fresh Demo Install
 
@@ -55,6 +64,7 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 - `references/architecture.md`: schema, models, routing, morph map, bootstrap order.
 - `references/extending.md`: full extension point examples.
 - `references/commands.md`: Capell commands and cache operations.
+- `references/site-spec.md`: deterministic import contract and package-owned appliers.
 - `references/testing.md`: Pest patterns and integration coverage.
 
 ## Verification
