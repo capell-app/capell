@@ -11,6 +11,7 @@ use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Security\LockdownStore;
@@ -138,6 +139,7 @@ it('registers singleton request-caching core services for Octane reset', functio
     $resettableServices = collect(app()->tagged(Resettable::TAG));
 
     expect($resettableServices->contains(fn (object $service): bool => $service instanceof CapellCoreManager))->toBeTrue()
+        ->and($resettableServices->contains(fn (object $service): bool => $service instanceof ComponentRegistry))->toBeTrue()
         ->and($resettableServices->contains(fn (object $service): bool => $service instanceof LockdownStore))->toBeTrue()
         ->and($resettableServices->contains(fn (object $service): bool => $service instanceof ImageUrlPolicy))->toBeFalse();
 });
@@ -244,6 +246,7 @@ it('runs two operations without leaking classified Capell state', function (): v
         ->toEqualCanonicalizing([
             CapellCoreManager::class,
             CapellCacheManager::class,
+            ComponentRegistry::class,
             LockdownStore::class,
             ThemeViewRegistrar::class,
         ]);
