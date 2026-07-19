@@ -30,7 +30,7 @@ final class ErrorPageFallbackManifestStore
     public function write(array $manifest): void
     {
         File::ensureDirectoryExists(dirname($this->path()));
-        File::put($this->path(), JsonCodec::encode(array_replace_recursive($this->defaults(), $manifest), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        File::replace($this->path(), JsonCodec::encode(array_replace_recursive($this->defaults(), $manifest), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     /** @param array<int, array<string, string>> $copy */
