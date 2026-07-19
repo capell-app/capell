@@ -7,11 +7,9 @@ namespace Capell\Frontend\Support\Cache;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\ContentGraphEdge;
-use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
-use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
@@ -20,15 +18,8 @@ use Illuminate\Database\Eloquent\Model;
 
 final class CacheInvalidationRegistry
 {
-    private array $modelDependencies = [
-        Site::class => ['sites', 'site-*', 'site-related-*'],
-        Language::class => ['languages', 'page-*', 'site-*'],
-        Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*'],
-        'Capell\Core\Models\Navigation' => ['navigation-*', 'site-navigations-*'],
-        SiteDomain::class => ['sites', 'site-*'],
-    ];
-
     public function __construct(
+        private readonly CacheInvalidationDependencyRegistry $dependencies,
         private readonly CacheInvalidationExecutor $executor,
         private readonly TranslationCacheDependencyRegistry $translationDependencies,
     ) {}
@@ -45,7 +36,7 @@ final class CacheInvalidationRegistry
 
     public function planForModel(string $modelClass): CacheInvalidationPlanData
     {
-        $patterns = $this->modelDependencies[$modelClass] ?? [];
+        $patterns = $this->dependencies->patternsFor($modelClass);
         $rules = [];
 
         foreach ($patterns as $pattern) {
@@ -89,13 +80,10 @@ final class CacheInvalidationRegistry
         ]));
     }
 
+    /** @param string|array<string> $cachePatterns */
     public function registerDependency(string $modelClass, string|array $cachePatterns): void
     {
-        $patterns = is_array($cachePatterns) ? $cachePatterns : [$cachePatterns];
-        $this->modelDependencies[$modelClass] = array_merge(
-            $this->modelDependencies[$modelClass] ?? [],
-            $patterns,
-        );
+        $this->dependencies->register($modelClass, $cachePatterns);
     }
 
     private function isSiteLogoMedia(Media $media): bool

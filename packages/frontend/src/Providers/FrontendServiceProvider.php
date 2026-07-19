@@ -74,6 +74,7 @@ use Capell\Frontend\Support\Blade\BuildAssetDirective;
 use Capell\Frontend\Support\Blade\FrontendAssetDirective;
 use Capell\Frontend\Support\Blade\WireNavigateDirective;
 use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
+use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationExecutor;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCache;
@@ -439,6 +440,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerCacheInvalidationBindings(): void
     {
+        $this->app->singleton(CacheInvalidationDependencyRegistry::class);
         $this->app->scoped(CacheInvalidationExecutor::class);
         $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
         $this->app->scoped(MediaTranslationCacheDependencyResolver::class);
