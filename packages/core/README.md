@@ -10,25 +10,23 @@
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/core?style=flat)](https://packagist.org/packages/capell-app/core)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-`capell-app/core` is the platform package for Capell CMS. It owns the shared content model, package registry, install and upgrade orchestration, settings infrastructure, and extension contracts used by Admin, Frontend, Installer, Marketplace, and first-party add-ons.
+Capell Core is the platform layer underneath every Capell CMS install. It holds the shared content model — sites, pages, URLs, themes and the rest — plus the install and upgrade machinery and the extension contracts that the other Capell packages build on. Reach for it directly when your Laravel app needs Capell's domain records and extension API without the full editor stack. On its own it gives you no admin UI and renders no public pages; those live in `capell-app/admin` and `capell-app/frontend`.
 
-Use this package when a Laravel app needs Capell's domain records and extension API. It is not an editor UI or public renderer by itself.
-
-## Package Boundary
+## Package boundary
 
 Core owns:
 
-- sites, domains, languages, pages, page URLs, layouts, themes, blueprints, media records, redirects, package state, and upgrade log records
-- install, upgrade, rollback, package cache, component cache, doctor, faker, and maker commands
-- package manifest validation, package registry state, settings schemas, subscribers, render blocks, maker registration, and model-level contracts
-- database migrations and settings migrations for the shared Capell schema
+- the shared content records: sites, domains, languages, pages, page URLs, layouts, themes, blueprints, media, redirects, package state, and upgrade logs
+- the lifecycle commands: install, upgrade, rollback, package cache, component cache, doctor, faker, and maker commands
+- the extension machinery: package manifest validation, registry state, settings schemas, subscribers, render blocks, maker registration, and model-level contracts
+- the database migrations and settings migrations for the shared Capell schema
 
 Core does not own:
 
-- the Filament admin panel, resources, dashboard surfaces, and editor workflow; that is `capell-app/admin`
+- the Filament admin panel and editor workflow; that is `capell-app/admin`
 - public request handling and public HTML rendering; that is `capell-app/frontend`
 - browser installer routes and setup removal; that is `capell-app/installer`
-- catalogue browsing, account linking, domain verification, and install authorization; that is `capell-app/marketplace`
+- catalogue browsing, account linking, domain verification, and install authorisation; that is `capell-app/marketplace`
 - visual layout building, frontend authoring, generated HTML cache, SEO, blog, navigation, or migration/recovery features; those live in add-on packages
 
 ## Install
@@ -47,9 +45,30 @@ php artisan capell:upgrade
 php artisan capell:doctor
 ```
 
-Use `php artisan list capell` in the host app to confirm the exact command set available after Composer discovery.
+Run `php artisan list capell` in the host app to see the exact command set available after Composer discovery.
 
-## Runtime Surfaces
+## Quick example
+
+Registering a page type from a service provider is the most common first extension. This makes your own model addressable as a Capell page subject:
+
+```php
+use Capell\Core\Data\PageTypeData;
+use Capell\Core\Facades\CapellCore;
+use Vendor\Example\Models\LandingExperience;
+
+public function boot(): void
+{
+    CapellCore::registerPageType(new PageTypeData(
+        name: 'landing-experience',
+        model: LandingExperience::class,
+        label: 'Landing experiences',
+    ));
+}
+```
+
+The [extending guide](docs/extending-capell.md) walks through this and the other extension surfaces.
+
+## Runtime surfaces
 
 - Provider: `Capell\Core\Providers\CapellServiceProvider`
 - Config: `config/capell.php`, `config/redirects.php`
@@ -57,9 +76,9 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 - Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make-*`
 - Test case support: `Capell\Core\Testing\ExtensionTestHarness`
 
-`Type` remains present for compatibility while the admin surface is moving toward Blueprint naming. New docs and UI copy should prefer Blueprint unless they are documenting a compatibility API that still uses type terminology.
+`Type` remains present for compatibility while the admin surface moves toward Blueprint naming. Prefer Blueprint in new docs and UI copy unless you are documenting a compatibility API that still uses type terminology.
 
-## Extension Points
+## Extension points
 
 Use these extension points instead of patching first-party models or providers:
 
@@ -75,17 +94,17 @@ Use these extension points instead of patching first-party models or providers:
 
 When adding a Core migration, also append it to `src/Concerns/HasMigrations.php`; otherwise package installs can miss the migration.
 
-## Data And Persistence
+## Data and persistence
 
-Core is schema-owning. It creates the tables used by most Capell packages, including page, site, language, layout, theme, blueprint, media, extension, redirect, and upgrade state.
+Core owns the schema. It creates the tables used by most Capell packages, including page, site, language, layout, theme, blueprint, media, extension, redirect, and upgrade state.
 
 Settings migrations are part of package installation and must be idempotent. Wrap new settings migrations in existence checks so upgrades and fresh installs behave the same way.
 
-Core records are used by public rendering and admin workflows, so avoid adding admin-only assumptions to models, casts, or public serialization paths.
+Core records feed both public rendering and admin workflows, so avoid adding admin-only assumptions to models, casts, or public serialisation paths.
 
 ## Verification
 
-From the split repository root, with development dependencies installed, run the smallest relevant check first:
+Core tests run from a checkout of the Capell monorepo, which supplies the Pest bootstrap and development dependencies this package needs. From the monorepo root, run the smallest relevant check first:
 
 ```bash
 vendor/bin/pest tests
@@ -97,7 +116,7 @@ For shared contract changes, also run the package boundary and manifest tests:
 vendor/bin/pest tests/Arch tests/Unit/Manifest
 ```
 
-## Requirements And Support Policy
+## Requirements and support policy
 
 | Surface                    | Supported versions                                             |
 | -------------------------- | -------------------------------------------------------------- |
@@ -116,27 +135,27 @@ Support covers the dependency ranges above. When an upstream PHP, Laravel, Filam
 
 - Missing package surfaces usually mean Composer discovery or the Capell package cache is stale. Run `composer dump-autoload`, then `php artisan capell:package-cache:clear`.
 - New migrations that work in tests but not on install are usually missing from `HasMigrations::getMigrations()`.
-- Missing default page records or Blueprint warnings should be checked with `php artisan capell:doctor` before changing seed or setup code.
-- Do not document moved features as Core behavior. Publishing Studio, generated HTML cache, site discovery, frontend authoring, SEO, blog, navigation, and Migration Assistant workflows are package-owned.
+- Check missing default page records or Blueprint warnings with `php artisan capell:doctor` before changing seed or setup code.
+- Do not document moved features as Core behaviour. Publishing Studio, generated HTML cache, site discovery, frontend authoring, SEO, blog, navigation, and Migration Assistant workflows are package-owned.
 
 ## Development
 
 Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
-## Further Reading
+## Further reading
 
 | Page                                                             | Covers                                                    |
 | ---------------------------------------------------------------- | --------------------------------------------------------- |
 | [Core overview](docs/overview.md)                                | Core responsibilities and the package docs index.         |
-| [Page management](docs/page-management.md)                       | Pages, URLs, types, and publishing state.                 |
+| [Page management](docs/page-management.md)                       | Pages, URLs, blueprints, and publishing state.            |
 | [Content management](docs/content-management.md)                 | Shared content records and ownership boundaries.          |
 | [Extending Capell](docs/extending-capell.md)                     | Core contracts and extension surfaces.                    |
-| [Cache](docs/cache.md)                                           | Shared cache helpers and invalidation behavior.           |
-| [Multi-site and multi-lingual](docs/multi-site-multi-lingual.md) | Sites, domains, languages, and localized URLs.            |
+| [Cache](docs/cache.md)                                           | Shared cache helpers and invalidation behaviour.          |
+| [Multi-site and multi-lingual](docs/multi-site-multi-lingual.md) | Sites, domains, languages, and localised URLs.            |
 | [Relationship diagnostics](docs/relationship-diagnostics.md)     | Debug missing active site domains for page URL rendering. |
 | [Subscriber manager](docs/subscriber-manager.md)                 | Lifecycle subscription registration.                      |
 | [Static-site extensions](docs/static-site-extensions.md)         | Static export integration points.                         |
-| [Authoring upgrade steps](docs/authoring-upgrade-steps.md)       | Upgrading packages that integrate authoring behavior.     |
+| [Authoring upgrade steps](docs/authoring-upgrade-steps.md)       | Upgrading packages that integrate authoring behaviour.    |
 | [Install debugging](docs/install-debugging.md)                   | Common install and setup failures.                        |
 
 The complete integration and extension guides are published at [docs.capell.app](https://docs.capell.app).

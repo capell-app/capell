@@ -11,16 +11,14 @@
 [![Filament](https://img.shields.io/badge/Filament-5.6.8-FDAE4B?style=flat-square&logo=filament&logoColor=000)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-`capell-app/admin` is the Filament panel package for Capell CMS. It adds the authenticated editor and operator surface for managing Core records, settings, package state, dashboards, permissions, and admin extension points.
+Capell Admin is the back-office for Capell CMS: a Filament panel where editors and operators manage pages, sites, media, users, settings, and upgrades. Reach for it when a Capell install needs an authenticated editing surface; it also carries the extension points that let your own packages add resources, form fields, and dashboard widgets to that surface. It depends on `capell-app/core`. Admin never renders public output; that is the frontend package's job.
 
-Use this package when a Capell install needs a back-office UI. It depends on `capell-app/core` and should not be used to render public frontend output.
-
-## Package Boundary
+## Package boundary
 
 Admin owns:
 
-- the Filament panel plugin, resources, pages, dashboard Filament widgets, actions, form/table components, policies, and admin routes
-- editor workflows for pages, sites, languages, layouts, themes, blueprints, media, redirects, users, roles, settings, package state, and upgrades
+- the Filament panel: resources, pages, dashboard widgets, actions, form and table components, policies, and admin routes
+- editor workflows for content, sites, themes, media, users, roles, settings, and upgrades
 - admin extension points for contributed resources, pages, widgets, header tools, form schemas, table queries, relation managers, and validation hooks
 - admin settings migrations and admin-specific cache commands
 
@@ -28,7 +26,7 @@ Admin does not own:
 
 - shared content records and migrations; those are Core records
 - public request handling or public HTML safety; that is Frontend and frontend add-ons
-- marketplace account linking and catalogue install authorization; that is Marketplace
+- marketplace account linking and catalogue install authorisation; that is Marketplace
 - migration/import execution; Admin can expose a recovery shell, but the recovery implementation is package-owned
 - heavy import handlers; packages register visible import menu entries through `ImportEntryRegistry` and own the execution behind those entries
 
@@ -51,7 +49,24 @@ php artisan capell:admin-clear-cache
 
 The admin entrypoint is controlled by `CAPELL_ADMIN_PATH`; `CAPELL_ADMIN_DOMAIN` can move the panel to a dedicated host. Clear config cache after changing either value.
 
-## Runtime Surfaces
+## Quick example
+
+To add your own Filament resource to the admin panel, contribute it from a service provider:
+
+```php
+use App\Filament\Resources\CustomResource;
+use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Facades\CapellAdmin;
+
+public function boot(): void
+{
+    CapellAdmin::contributeToAdminSurface(
+        AdminSurfaceContributionData::resource(CustomResource::class, group: 'Custom'),
+    );
+}
+```
+
+## Runtime surfaces
 
 - Provider: `Capell\Admin\Providers\AdminServiceProvider`
 - Config: `config/capell-admin.php`
@@ -65,7 +80,7 @@ The admin entrypoint is controlled by `CAPELL_ADMIN_PATH`; `CAPELL_ADMIN_DOMAIN`
 
 Admin routes include a signed theme preview route and authenticated internal API routes under the configured admin path. Theme preview URLs are temporary admin URLs with `signed` middleware, site access checks, and `no-store` response headers; do not embed them into public output, cached HTML, or long-lived editor content.
 
-## Extension Points
+## Extension points
 
 Use the documented extension points instead of extending Filament resources directly:
 
@@ -79,27 +94,27 @@ Use the documented extension points instead of extending Filament resources dire
 | Adjust tables, edit pages, exports, or relation managers | the matching tagged extender interface                       |
 | Add settings UI                                          | `SettingsSchemaRegistry::register()` from the owning package |
 
-Normal extension work should use the extenders and registries above. The advanced `php artisan capell:admin-publish-resources [--type=<group>] [--resource=<label-or-class>] [--force]` command publishes registered admin resources into the host application for direct customization. Published copies become host-maintained and can drift from package updates.
+The extenders and registries above cover normal extension work. As an advanced escape hatch, `php artisan capell:admin-publish-resources [--type=<group>] [--resource=<label-or-class>] [--force]` publishes registered admin resources into the host application for direct customisation. Published copies become host-maintained and can drift from package updates.
 
-## Data And Permissions
+## Data and permissions
 
 Admin operates mostly on Core models. Admin-owned persistence is limited to settings migrations and admin-specific operational state.
 
-Policy and permission behavior must be registered globally, not only through a Filament resource. Marketplace contributes additional permission-aware surfaces when it is installed.
+Policy and permission behaviour must be registered globally, not only through a Filament resource. Marketplace contributes additional permission-aware surfaces when it is installed.
 
 All editor-facing labels, notifications, and validation messages should use package translation files. Prefer Filament label method overrides over static label properties.
 
 ## Verification
 
-From the split repository root, with development dependencies installed, run Admin package tests after changing resources, policies, settings schemas, or panel registration:
+Admin tests run from a checkout of the Capell monorepo, which supplies the Pest bootstrap and development dependencies this package needs. From the monorepo root, run the Admin tests after changing resources, policies, settings schemas, or panel registration:
 
 ```bash
 vendor/bin/pest tests
 ```
 
-For resource or schema changes, include the matching focused test file first. For UI behavior, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
+For resource or schema changes, run the matching focused test file first. For UI behaviour, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
 
-## Requirements And Support Policy
+## Requirements and support policy
 
 | Surface  | Supported versions               |
 | -------- | -------------------------------- |
@@ -114,17 +129,17 @@ Support covers the dependency ranges above. When an upstream release reaches its
 
 ## Troubleshooting
 
-- Missing navigation usually means the resource/page contribution was not registered, a permission blocks it, or the package cache is stale.
+- Missing navigation usually means the resource or page contribution was not registered, a permission blocks it, or the package cache is stale.
 - Missing fields in an editor form should be checked at the tagged extender and settings schema level before editing first-party resources.
 - If Admin appears on the wrong host or path, check `CAPELL_ADMIN_PATH`, `CAPELL_ADMIN_DOMAIN`, and cached config.
-- If theme preview stops working after an entrypoint change, regenerate preview links against the current admin host/path; signed URLs are host/path-sensitive.
-- If cache commands do not affect newly added blocks or configurators, confirm the package registered its block/configurator classes and rerun the matching admin cache command.
+- If theme preview stops working after an entrypoint change, regenerate preview links against the current admin host and path; signed URLs are host- and path-sensitive.
+- If cache commands do not affect newly added blocks or configurators, confirm the package registered its block or configurator classes and rerun the matching admin cache command.
 
 ## Development
 
 Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
-## Further Reading
+## Further reading
 
 | Page                                                                              | Covers                                                      |
 | --------------------------------------------------------------------------------- | ----------------------------------------------------------- |

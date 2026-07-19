@@ -10,37 +10,35 @@
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-`capell-app/installer` provides the browser installation workflow for fresh Capell CMS applications. It owns the install routes, progress screens, install guide patches, not-installed dashboard warning, and post-install setup package removal.
+Capell Installer gives a fresh Laravel application a guided, browser-based Capell setup. You require one package, open `/install`, and the flow checks your environment, installs the Capell packages you pick, and creates the first admin user. Reach for it when you are bootstrapping a new Capell app; skip it if you prefer to wire packages together by hand. It is a setup tool, not a runtime dependency, and it can remove itself once installation finishes.
 
-Use this package while bootstrapping a new Capell app. It is designed to be removable after setup.
-
-## Package Boundary
+## Package boundary
 
 Installer owns:
 
-- `/install` browser setup routes and progress/report routes
+- the `/install` browser setup routes, plus the progress and report routes
 - Filament install pages and the not-installed dashboard Filament widget
 - install guide patch discovery and safe patch application
 - first-admin defaults, default package selection, environment preflight checks, and setup package removal
 
 Installer does not own:
 
-- Core install primitives, package manifests, or migration orchestration
-- Admin resources beyond installer-specific pages/widgets
-- runtime package management or marketplace install authorization
-- long-term public or admin runtime behavior after the app is installed
+- install primitives, package manifests, or migration orchestration (that is `capell-app/core`)
+- admin resources beyond installer-specific pages and widgets (that is `capell-app/admin`)
+- runtime package management, or marketplace install authorisation (that is `capell-app/marketplace`)
+- public or admin runtime behaviour after the app is installed
 
-The browser installer works without the Admin panel, but the Filament installer pages and dashboard Filament widget only register when `capell-app/admin` and Filament are present.
+The browser installer works without the Admin panel. The Filament installer pages and dashboard widget only register when `capell-app/admin` and Filament are present.
 
 ## Install
 
-This is the recommended entrypoint for installing Capell. Requiring it pulls in `capell-app/core`; the guided flow then composer-requires the admin and frontend packages you choose and can remove the installer afterwards (`--remove-installer`). Prefer to pick packages by hand? Skip this and require `capell-app/core` (plus `admin` or `frontend` as needed) directly. The complete install guide is published at [docs.capell.app](https://docs.capell.app).
+This is the recommended entry point for installing Capell. Requiring it pulls in `capell-app/core`; the guided flow then composer-requires the admin and frontend packages you choose, and can remove the installer afterwards (`--remove-installer`). If you prefer to pick packages by hand, skip this and require `capell-app/core` (plus `admin` or `frontend` as needed) directly. The complete install guide is published at [docs.capell.app](https://docs.capell.app).
 
 ```bash
 composer require capell-app/installer
 ```
 
-Open `/install` in the host app to run the browser flow. The route is guarded by `EnsureNotInstalled` unless reinstall is explicitly allowed. The installer package does not require `capell-app/admin`; selecting the admin package in the installer causes Capell to verify Composer can resolve it, require it during setup, scaffold the Filament panel, and then run the admin integration.
+Open `/install` in the host app to run the browser flow. The route is guarded by `EnsureNotInstalled` unless reinstall is explicitly allowed. The installer package does not require `capell-app/admin`. If you select the admin package during setup, Capell verifies that Composer can resolve it, requires it, scaffolds the Filament panel, and runs the admin integration.
 
 The package config supports these setup env values:
 
@@ -66,7 +64,19 @@ CAPELL_SETUP_ADMIN_PASSWORD=password123
 
 Do not pass an encrypted or already-hashed value to `CAPELL_SETUP_ADMIN_PASSWORD`. Use the password you want to type on the login form; Laravel stores the hashed password in the `users.password` column during setup.
 
-## Runtime Surfaces
+## Quick example
+
+The whole setup fits in one command and one page visit:
+
+```bash
+composer require capell-app/installer
+```
+
+Then open `/install` in your browser. The guided flow runs preflight
+checks, installs the Capell packages you select (admin, frontend, ...),
+creates the first admin user, and can remove itself when setup finishes.
+
+## Runtime surfaces
 
 - Provider: `Capell\Installer\Providers\InstallerServiceProvider`
 - Config: `config/capell-installer.php`
@@ -77,25 +87,25 @@ Do not pass an encrypted or already-hashed value to `CAPELL_SETUP_ADMIN_PASSWORD
 - Actions: `GetActiveInstallAction`, `RemoveSetupPackageAction`, `ApplyInstallGuidePatchesAction`
 - Patch registry: `Capell\Installer\Support\InstallGuide\PatchRegistry`
 
-The delete-installer route delegates to `RemoveSetupPackageAction`, which removes the setup package from the host app after installation. CLI installs can pass `--remove-installer` for prompt-free removal. Package removal is a final success-only action; failed Composer requirements, Filament scaffolding, package setup, admin integration, or health checks leave `capell-app/installer` installed for retry and debugging.
+The delete-installer route delegates to `RemoveSetupPackageAction`, which removes the setup package from the host app after installation. CLI installs can pass `--remove-installer` for prompt-free removal. Removal only happens after a fully successful install. If a Composer requirement, Filament scaffolding step, package setup step, admin integration, or health check fails, `capell-app/installer` stays installed so you can retry and debug.
 
-## Install Guide Patches
+## Install guide patches
 
-Install guide patches are explicit, reviewable changes for common host-app setup tasks. They are the Installer package's main extension point and should be small, idempotent, and safe to re-run.
+Install guide patches are explicit, reviewable changes for common host-app setup tasks. They are the Installer package's main extension point. Keep them small, idempotent, and safe to re-run.
 
-Patch classes implement the Core-owned `Capell\Core\Support\Patching\Patch` contract, live under `Capell\Installer\Support\InstallGuide\Patches`, and are registered through `PatchRegistry`. Patches that should also run during `capell:install` are contributed to Core's `Capell\Core\Support\Install\InstallPatchRegistry` from the installer service provider. Keep patch behavior covered by focused tests so a failed patch explains what went wrong instead of leaving a half-edited host file.
+Patch classes implement the Core-owned `Capell\Core\Support\Patching\Patch` contract, live under `Capell\Installer\Support\InstallGuide\Patches`, and are registered through `PatchRegistry`. Patches that should also run during `capell:install` are contributed to Core's `Capell\Core\Support\Install\InstallPatchRegistry` from the installer service provider. Cover patch behaviour with focused tests so a failed patch explains what went wrong instead of leaving a half-edited host file.
 
-The browser installer discovers package and theme choices from Capell package metadata. A package that should appear during setup must be installable by the web PHP process, present in Composer repositories, and described by `capell.json` metadata that the package registry can read. Install-time package selections are checked with Composer before the installer starts mutating the application.
+The browser installer discovers package and theme choices from Capell package metadata. To appear during setup, a package must be installable by the web PHP process, present in Composer repositories, and described by `capell.json` metadata that the package registry can read. The installer checks each selection with Composer before it starts mutating the application.
 
 ## Verification
 
-From the split repository root, with development dependencies installed, run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
+Installer tests run from a checkout of the Capell monorepo, which supplies the Pest bootstrap and development dependencies this package needs. From the monorepo root, run installer tests after changing installer routes, setup validation, preflight checks, patching, or package removal:
 
 ```bash
 vendor/bin/pest tests
 ```
 
-## Requirements And Support Policy
+## Requirements and support policy
 
 | Surface | Supported versions                          |
 | ------- | ------------------------------------------- |
@@ -124,7 +134,7 @@ Support covers the dependency ranges above. When an upstream release reaches its
 
 Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
-## Further Reading
+## Further reading
 
 | Page                                   | Covers                                           |
 | -------------------------------------- | ------------------------------------------------ |

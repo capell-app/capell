@@ -1,11 +1,11 @@
 # Contributing to Capell
 
-Thanks for your interest in improving Capell. This guide outlines workflow, coding standards, and test expectations for changes to this monorepo.
+Thanks for helping improve Capell. This guide covers the workflow, coding standards, and test expectations for changes to this monorepo.
 
-## Quick Start
+## Quick start
 
-1. Fork & clone the repository.
-2. Install PHP & Node dependencies:
+1. Fork and clone the repository.
+2. Install PHP and Node dependencies:
     ```bash
     composer install
     npm install
@@ -14,90 +14,93 @@ Thanks for your interest in improving Capell. This guide outlines workflow, codi
     ```bash
     composer test
     ```
-4. Create a feature branch and commit changes following conventions.
+4. Create a feature branch and commit your changes following the conventions below.
 
-## Branch & Commit Conventions
+## Branch and commit conventions
 
-- Prefix branches with type: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`.
-- Commits should be concise, imperative, and scoped: `feat(admin): add schema cache refresh option`.
+- Prefix branches with a type: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`.
+- Keep commits concise, imperative, and scoped: `feat(admin): add schema cache refresh option`.
 - Squash minor fixup commits before opening a PR.
 
-## Coding Standards
+## Coding standards
 
 - Read the [full coding standard](docs/standards/coding-standards.md) before changing production code or package extension points.
 - PHP: 8.4+. Use strict types.
-- Style: PSR-12 + project rules enforced via Laravel Pint.
+- Style: PSR-12 plus project rules, enforced via Laravel Pint.
     ```bash
     composer lint
     ```
-- Static Analysis: Run PHPStan (configuration in `phpstan.neon`).
+- Static analysis: run PHPStan (configuration in `phpstan.neon`).
     ```bash
     composer analyze
     ```
-- Rector: If refactors are needed, configure rules in `rector.php` and run locally; never commit bulk unrelated changes.
-- Use `final` for concrete classes that are not intended as extension points. Keep documented extension surfaces open and stable.
+- Rector: if a refactor needs new rules, configure them in `rector.php` and run locally. Never commit bulk unrelated changes.
+- Mark concrete classes `final` unless they are documented extension points. Keep documented extension surfaces open and stable.
 
 ## Tests
 
 - Framework: Pest.
-- Location: package tests live under `packages/{package}/tests`; repository-level tests live under `tests/` when the behavior crosses package boundaries.
-- For new commands or services, include:
-    - Happy path test.
-    - At least one edge case (invalid option, missing data, etc.).
-- Use factories / provided test helpers; avoid hitting external services.
-- Ensure tests are deterministic (no reliance on real time unless using Carbon::setTestNow()).
+- Location: package tests live under `packages/{package}/tests`; repository-level tests live under `tests/` when the behaviour crosses package boundaries.
+- For new commands or services, include a happy-path test and at least one edge case (invalid option, missing data, and so on).
+- Use factories and the provided test helpers; avoid hitting external services.
+- Keep tests deterministic — no reliance on real time unless you use `Carbon::setTestNow()`.
 
-## Adding A Page Type Or Admin Configurator
+## Adding a page type or admin configurator
 
-1. Register Type via a service provider using `CapellCore::registerPageType(new PageTypeData(...))`.
+1. Register the type via a service provider using `CapellCore::registerPageType(new PageTypeData(...))`.
 2. Add or extend a configurator under the owning package's `Filament/Configurators` namespace.
 3. Register configurators through Capell admin registration surfaces or `CapellAdminPlugin::discoverConfigurators(...)` in a consuming app.
-4. Add focused tests for discovery, form fields, and any action behavior behind the UI.
+4. Add focused tests for discovery, form fields, and any action behaviour behind the UI.
 
 Do not publish and edit generated admin schemas as an upgrade strategy. Extension packages should use documented registries, tagged extenders, lifecycle subscribers, and configurators instead of patching host package classes.
 
-## Frontend Output, Cache, And Sitemap Changes
+## Frontend output, cache, and sitemap changes
 
-If adjusting public rendering, cache generation, sitemap generation, or static output:
+If you are adjusting public rendering, cache generation, sitemap generation, or static output:
 
 - Add tests proving anonymous and non-admin responses do not expose authoring markers, signed admin URLs, model IDs, selectors, or package internals.
 - Keep data loading out of public Blade views; hydrate render data before the view is called.
-- Ensure invalidation remains targeted. Avoid broad cache purges unless they are intentional and documented.
+- Keep invalidation targeted. Avoid broad cache purges unless they are intentional and documented.
 
-## Performance Considerations
+## Performance considerations
 
-- Avoid N+1 queries in admin widgets/resources; use eager loading.
+- Avoid N+1 queries in admin widgets and resources; use eager loading.
 - Cache heavy computed lists where appropriate using existing facade abilities.
 - Consider pagination for large result sets in Filament tables.
 
 ## Security
 
 - Never commit secrets or `.env` files.
-- Validate/authorize actions in new controllers/commands with appropriate policies / gates.
-- Escape output in Blade unless intentionally rendering trusted HTML.
+- Validate and authorise actions in new controllers and commands with appropriate policies and gates.
+- Escape output in Blade unless you are intentionally rendering trusted HTML.
 
 ## Documentation
 
 - Update `README.md` for user-facing additions (commands, env vars, extension points).
-- Add new docs under `docs/` for deep dives (link them from README Next Steps section).
+- Add new docs under `docs/` for deep dives, and link them from the right hub page so they stay reachable — [docs/development/docs-ownership.md](docs/development/docs-ownership.md) explains where each page belongs.
 - Keep examples minimal but runnable.
 - The hosted docs at [docs.capell.app](https://docs.capell.app) rebuild automatically when a release is published — no manual step needed.
 
-## Release & Changelog
+## Release and changelog
 
-- Update `CHANGELOG.md` with summary: Added, Changed, Fixed, Deprecated, Removed.
+- Do not edit `CHANGELOG.md` by hand. A workflow (`.github/workflows/update-changelog.yml`) regenerates it from GitHub release notes when a release is published, and it overwrites manual edits. Write clear PR titles and release notes instead — that is what ends up in the changelog.
 - Follow semantic versioning for published packages.
 
-## CI Hints
+## Local checks
 
-- Include running: `composer validate`, Pint, PHPStan, Pest.
-- Optional: cache Composer & npm to speed builds.
+Run these before opening a PR — they mirror what CI runs:
 
-## Getting Help
+- `composer test` — the Pest suite.
+- `composer lint` — Pint on changed files.
+- `composer analyze` — PHPStan.
+- `composer preflight` — the full gate: static analysis, Rector check, code style, Prettier, ESLint, and the test preflight.
+- For documentation changes, the docs guards: `composer check:docs-links`, `check:docs-orphans`, `check:docs-requirements`, `check:docs-env`, and `check:root-docs`. `composer preflight:all` runs all of them plus everything above.
 
-Open a GitHub Discussion or Issue with reproduction steps and environment details.
+## Getting help
 
-## Package Independence
+Open a GitHub Issue with reproduction steps and environment details.
+
+## Package independence
 
 - Core MUST NOT depend on Admin or Frontend packages.
 - Admin and Frontend MUST remain independent of each other and of Core internals beyond documented public interfaces.
@@ -105,8 +108,8 @@ Open a GitHub Discussion or Issue with reproduction steps and environment detail
 - Cross-package coordination must use neutral boundaries:
     - Emit events or subscriber hooks via `CapellCore::subscriberManager()`.
     - Use shared cache/filesystem paths or Artisan command names (strings) without importing package classes.
-- When Core needs to trigger behavior in another package (e.g., clear Admin schemas cache), emit hook events only (e.g., `admin.schemas.clearing` / `admin.schemas.cleared`). The target package implements the actual behavior via a subscriber.
-- Treat any static analysis errors caused by cross-package references as blockers; fix imports/case names rather than suppressing.
+- When Core needs to trigger behaviour in another package (e.g., clear Admin schemas cache), emit hook events only (e.g., `admin.schemas.clearing` / `admin.schemas.cleared`). The target package implements the actual behaviour via a subscriber.
+- Treat any static analysis errors caused by cross-package references as blockers; fix imports and case names rather than suppressing.
 
 ### Sanctioned exception: event sourcing in Core
 
@@ -144,4 +147,4 @@ Known limitations:
   save after adopting event sourcing, so pre-existing pages show empty history until
   then. There is no backfill.
 
-Thanks for contributing! Your improvements help keep Capell fast, extensible, and a joy to build on.
+Thanks for contributing.

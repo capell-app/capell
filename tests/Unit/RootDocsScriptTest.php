@@ -81,10 +81,9 @@ function rootDocsFixture(): string
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
     file_put_contents($root . '/README.md', implode("\n", [
         '**Capell is a Laravel CMS built on Filament for teams.**',
-        'Editors work safely while developers keep the public frontend, deployment, and application architecture inside Laravel.',
         'Capell is not a hosted CMS and does not ship a public content-delivery API.',
-        'The canonical installation entry point for an existing Laravel application is `capell-app/installer`.',
-        'The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line.',
+        '`capell-app/installer` is the entry point for a guided install.',
+        'The `capell-app/capell` package installs all five foundation packages at the same version.',
     ]));
 
     return $root;

@@ -10,11 +10,9 @@
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/capell-app/marketplace?style=flat)](https://packagist.org/packages/capell-app/marketplace)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-`capell-app/marketplace` connects a Capell installation to the Capell extension marketplace. It owns catalogue browsing, Capell account linking, heartbeat/update advisory state, account-based Marketplace install eligibility decisions, queued local Composer install operations, free-install telemetry, and signed install/upgrade authorization records for protected extensions.
+Capell Marketplace connects a Capell installation to the Capell extension marketplace. It puts a catalogue browser inside the admin panel, links a Capell account for protected installs, queues local Composer install operations, and keeps signed authorisation records so protected extensions can prove their entitlement. Reach for it when an admin needs to discover, authorise, or maintain extensions from the marketplace. It is not a general extension manager: enable, disable, uninstall, and bulk management of already-installed extensions stay on the installed Extensions surface, which belongs to `capell-app/admin`.
 
-Use this package when an admin needs to discover, authorize, or maintain extensions from the Capell marketplace. Local enable, disable, uninstall, and bulk extension management remain part of the installed Extensions surface.
-
-## Package Boundary
+## Package boundary
 
 Marketplace owns:
 
@@ -24,12 +22,14 @@ Marketplace owns:
 
 Marketplace does not own:
 
-- Core package registry internals or generic package cache behavior
-- Admin's installed Extensions table and local extension management actions
+- package registry internals or generic package cache behaviour (that is `capell-app/core`)
+- the installed Extensions table and local extension management actions (that is `capell-app/admin`)
 - production deployment completion after a Composer change has been published by Deployments
-- public frontend rendering or theme output
+- public frontend rendering or theme output (that is `capell-app/frontend`)
 
 ## Install
+
+Marketplace builds on `capell-app/core` and `capell-app/admin`, so it normally arrives with the guided installer. To add it to an existing Capell install:
 
 ```bash
 composer require capell-app/marketplace
@@ -50,7 +50,28 @@ The package is enabled by default. Main config values:
 
 Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace APIs. The active public API path is versioned with `/api/v1`.
 
-## Runtime Surfaces
+## Quick example
+
+Install the package, run the migrations, and the Marketplace surfaces appear in the admin panel.
+
+```bash
+composer require capell-app/marketplace
+php artisan migrate
+```
+
+Then, in the admin panel:
+
+1. Open **Extensions** and launch the Marketplace browser.
+2. Connect your Capell account (needed for protected installs; free installs work without it).
+3. Browse the catalogue and queue an install — progress appears under **Package Operations**.
+
+Using a non-default endpoint? Set `CAPELL_MARKETPLACE_URL`, and check it with:
+
+```bash
+php artisan config:show capell-marketplace.marketplace.base_url
+```
+
+## Runtime surfaces
 
 - Provider: `Capell\Marketplace\Providers\MarketplaceServiceProvider`
 - Config: `config/capell-marketplace.php`
@@ -65,30 +86,30 @@ Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace AP
 
 The account connection callback is authenticated under the configured admin path.
 
-## How The Main Flows Work
+## How the main flows work
 
 | Flow                     | Classes                                                                                                                                                    | Notes                                                                                                                                                                                                                                                                                                                              |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Account connection       | `StartMarketplaceAccountConnectionAction`, `CompleteMarketplaceAccountConnectionAction`, `MarketplaceAccountConnectionCallbackController`                  | Creates a short-lived account connection session, redirects the admin to Capell App, validates the returned state/code, requires a verified account email, stores account identity in `marketplace_instances`, returns to Extensions, and opens the Marketplace setup cockpit.                                                     |
 | Catalogue browsing       | `MarketplaceClient`, `MarketplaceExtensionsBrowser`, `MarketplaceCatalogueTable`                                                                           | Fetches JSON catalogue pages from `/extensions`, scopes cache keys by query and connection context, hides already installed extensions by default with a ternary installed-status filter, serves stale cache only when the browser explicitly allows it, and keeps multi-extension selections instant in the browser until review. |
-| Install authorization    | `InstallMarketplaceExtensionAction`, `MarketplaceInstallEligibilityData`, `CreateExtensionAcquisitionAction`, `MarketplaceInstallActionPresenter`          | Orchestrates install lookup, selected options, eligibility, purchase/blocked handling, attempt recording, theme intent recording, free telemetry, local Composer queueing, notification handoff, and Deployments handoff status.                                                                                                   |
+| Install authorisation    | `InstallMarketplaceExtensionAction`, `MarketplaceInstallEligibilityData`, `CreateExtensionAcquisitionAction`, `MarketplaceInstallActionPresenter`          | Orchestrates install lookup, selected options, eligibility, purchase/blocked handling, attempt recording, theme intent recording, free telemetry, local Composer queueing, notification handoff, and Deployments handoff status.                                                                                                   |
 | Package operations       | `QueueMarketplaceInstallAttemptAction`, `RunMarketplaceInstallAttemptJob`, `CancelMarketplaceInstallAttemptAction`, `RetryMarketplaceInstallAttemptAction` | Runs one local Composer operation at a time, records preflight checks and timeline events, classifies failures, exposes the dedicated Package Operations page, and emails Package Operations subscribers when manual attention is needed.                                                                                          |
 | Theme install resolution | `RecordThemeInstallIntentAction`, `ResolvePendingThemeInstallsAction`                                                                                      | Records pending theme install choices and resolves them when the Composer package is present.                                                                                                                                                                                                                                      |
 | Heartbeat/update checks  | `PhoneHomeAction`, `CheckForUpdatesAction`, `RecordUpdateAdvisorySnapshotAction`                                                                           | Sends installed package snapshots and stores update/advisory results locally.                                                                                                                                                                                                                                                      |
 
 Extension detail pages include a collapsed manual install option for hosts where queued Composer is not appropriate. Revealing it shows the package-specific `composer require` command followed by `php artisan capell:extension-install <composer-name>`.
 
-## Account Trust Flow
+## Account trust flow
 
-Account linking is the trust path for protected extensions. An admin connects a Capell account, approves the connection in Capell App, returns to `/admin/extensions`, and the Extensions page opens the Marketplace setup cockpit for install readiness. Free extensions do not require a connected account.
+Account linking is the trust path for protected extensions. An admin connects a Capell account, approves the connection in Capell App, and returns to `/admin/extensions`, where the Extensions page opens the Marketplace setup cockpit for install readiness. Free extensions do not need a connected account.
 
-## Data And Security
+## Data and security
 
 Marketplace is schema-owning. Its current tables are `marketplace_instances`, `marketplace_update_advisory_snapshots`, `marketplace_update_notice_dismissals`, `marketplace_account_connection_sessions`, `marketplace_install_flow_sessions`, `marketplace_install_attempts`, the append-only `marketplace_install_attempt_events` timeline, and legacy `marketplace_install_intents`. Older installations may retain legacy domain tables, but this package no longer reads them for install access.
 
-The package stores Marketplace instance IDs and encrypted signing secrets. Authorization requests are signed before they are sent to Capell App. Do not expose instance credentials, signing secrets, or licence keys in public output or unauthenticated admin copy.
+The package stores Marketplace instance IDs and encrypted signing secrets. Authorisation requests are signed before they are sent to Capell App. Do not expose instance credentials, signing secrets, or licence keys in public output or unauthenticated admin copy.
 
-Signed authorization proves Marketplace entitlement and request integrity. It does not make a package's runtime code, screenshots, docs, or public/admin output inherently safe. Treat marketplace metadata as remote product data and treat installed extension code as normal executable application code.
+Signed authorisation proves Marketplace entitlement and request integrity. It does not make a package's runtime code, screenshots, docs, or public/admin output inherently safe. Treat marketplace metadata as remote product data, and treat installed extension code as normal executable application code.
 
 Catalogue responses are cached for a short period. The cache is scoped by query and Marketplace account context so connected-account state can affect visible actions without leaking one installation's state to another. The browser also checks local active install attempts so duplicate install actions for the same Composer package are blocked while an operation is queued, running, or cancellation is pending.
 
@@ -98,7 +119,7 @@ Active and attention-needed operations are opened from the Extensions page heade
 
 ## Verification
 
-From the split repository root, with development dependencies installed, run Marketplace package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorization behavior:
+From the repository root, with development dependencies installed, run the package tests after changing account connection, catalogue, heartbeat, permission, telemetry, or install authorisation behaviour:
 
 ```bash
 vendor/bin/pest tests
@@ -107,11 +128,11 @@ vendor/bin/pest tests
 Run focused action or HTTP tests first when changing a specific flow, for example:
 
 ```bash
-vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php --configuration=phpunit.xml
-vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/Actions/MarketplaceAccountConnectionActionTest.php
+vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControllerTest.php
 ```
 
-## Requirements And Support Policy
+## Requirements and support policy
 
 | Surface | Supported versions               |
 | ------- | -------------------------------- |
@@ -131,7 +152,7 @@ Support covers the dependency ranges above. When an upstream release reaches its
 | Marketplace API route errors                          | `php artisan config:show capell-marketplace.marketplace.base_url`                                                  | Use `https://capell.app/api/v1` and run `php artisan config:clear`.                                                                                                                                                                                                                                                                                  |
 | Connect account fails immediately                     | `php artisan config:show app.url` and the latest `marketplace_account_connection_sessions.last_error`              | Set `APP_URL` to a URL with a host, clear config cache, and retry before the 10-minute session expires.                                                                                                                                                                                                                                              |
 | Account callback says the session or state is invalid | Latest row in `marketplace_account_connection_sessions`                                                            | Retry from the same browser tab. Do not reuse old approval URLs after starting a newer connection.                                                                                                                                                                                                                                                   |
-| Catalogue loads but install is blocked                | Marketplace detail response `install_eligibility`, authorization response, and connected account state             | Resolve the Marketplace-provided account, email verification, entitlement, purchase, activation, or compatibility requirement, then request authorization again.                                                                                                                                                                                     |
+| Catalogue loads but install is blocked                | Marketplace detail response `install_eligibility`, authorisation response, and connected account state             | Resolve the Marketplace-provided account, email verification, entitlement, purchase, activation, or compatibility requirement, then request authorisation again.                                                                                                                                                                                     |
 | Install is queued or running for the same package     | Package Operations page or `marketplace_install_attempts.status`                                                   | Wait for completion or cancel from Package Operations.                                                                                                                                                                                                                                                                                               |
 | Preflight fails before Composer starts                | Package Operations timeline and `failure_stage = preflight`                                                        | Fix the reported PHP, Composer, writeability, duplicate install, or queue readiness issue, then retry from Package Operations.                                                                                                                                                                                                                       |
 | Local Composer install fails or times out             | Package Operations notification, `failure_type`, timeline, `failure_reason`, `output_excerpt`, and `error_excerpt` | Fix the Composer/runtime issue, confirm whether files were partially installed, then retry from Package Operations. If web-triggered Composer is unavailable on the host, run the recorded command in deployment, then run `php artisan package:discover`, `php artisan capell:extension-install <composer-name>`, and `php artisan optimize:clear`. |
@@ -145,7 +166,7 @@ Support covers the dependency ranges above. When an upstream release reaches its
 
 Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
-## Further Reading
+## Further reading
 
 | Page                                     | Covers                                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------------------ |

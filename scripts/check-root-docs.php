@@ -54,10 +54,10 @@ if (! is_string($readme)) {
 } else {
     $readmeContracts = [
         '**Capell is a Laravel CMS built on Filament',
-        'developers keep the public frontend, deployment, and application architecture inside Laravel.',
-        'Capell is not a hosted CMS and does not ship a public content-delivery API.',
-        'The canonical installation entry point for an existing Laravel application is `capell-app/installer`.',
-        'The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line',
+        'not a hosted CMS',
+        'does not ship a public content-delivery API',
+        '`capell-app/installer` is the entry point',
+        'installs all five foundation packages at the same version',
     ];
     $retiredClaims = [
         'private foundation',

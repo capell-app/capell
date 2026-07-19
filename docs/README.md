@@ -1,10 +1,10 @@
-# Capell Docs
+# Capell docs
 
 Use this page to find the shortest route to your next task.
 
 ![Capell Pages admin surface](images/capell-readme-banner.jpg)
 
-## Choose Your Path
+## Choose your path
 
 | I want to...                  | Start with                                                              | Then read                                                                                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -14,19 +14,19 @@ Use this page to find the shortest route to your next task.
 | Operate a production site     | [Operations](operations/index.md)                                       | [Back up the site](operations/backups.md), then follow the [upgrade runbook](operations/upgrading.md)                                            |
 | Maintain the Capell host repo | [Development](development/index.md)                                     | [Local development](development/local-development.md), then [CI and test shards](development/ci.md)                                              |
 
-## Visual Tour
+## Visual tour
 
-Use these pages to see a workflow before reading its implementation details.
+Use these pages to see a workflow before you read its implementation details.
 
 | Screen or flow         | Start with                                                          | What to look for                                                                 |
 | ---------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Admin workspace        | [Admin interface](admin/interface.md)                               | Dashboard, Pages, Media, Settings, Theme Library, and Site Health.               |
 | First page authoring   | [Create your first page](getting-started/create-your-first-page.md) | Site and parent selection, URL preview, content editor, draft actions, settings. |
-| Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customization, preview, and apply.  |
+| Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customisation, preview, and apply.  |
 | Operations diagnostics | [Site Health](operations/site-health.md)                            | Cache status, public-output safety, static generation, optimizer, server checks. |
 | Real content model     | [Music store CMS example](examples/music-store-cms.md)              | Pages, articles, events, products, artists, and navigation working together.     |
 
-## Documentation Sections
+## Documentation sections
 
 | Section                                            | Covers                                                                                                              |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -40,12 +40,12 @@ Use these pages to see a workflow before reading its implementation details.
 | [Development](development/index.md)                | Host repo setup, commands, configuration, seeders, diagnostics, and CI.                                             |
 | [Reference](reference/index.md)                    | Glossary, relationship maps, architecture diagrams, credits, and package boundaries.                                |
 
-## High-Risk Decisions
+## High-risk decisions
 
 | Before I...                                        | Read                                                                                                                         |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Move or rename published content                   | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
-| How should I build this page?                      | [Build a page](getting-started/building-pages.md)                                                                            |
+| Choose how to build a page                         | [Build a page](getting-started/building-pages.md)                                                                            |
 | Put feature code in the host, an add-on, or an app | [Host, package, or app code](development/package-boundaries.md)                                                              |
 | Change anonymous frontend output                   | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
 | Add or change an extension point                   | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |
@@ -55,9 +55,9 @@ Use these pages to see a workflow before reading its implementation details.
 
 Published URLs are durable. Capell creates redirect Page URLs when a published page URL changes because its slug or parent path changed. Add a manual redirect when replacing content, consolidating pages, or importing legacy routes.
 
-## Host Packages
+## Host packages
 
-The host repo owns these five packages. Optional add-on behavior belongs to the package that provides it.
+The host repo owns these five packages. Optional add-on behaviour belongs to the package that provides it.
 
 | Package     | Composer name            | Package documentation                                            |
 | ----------- | ------------------------ | ---------------------------------------------------------------- |
@@ -69,8 +69,8 @@ The host repo owns these five packages. Optional add-on behavior belongs to the 
 
 Use [Packages and extensions](packages/catalog.md) for add-on boundaries and authoring entry points.
 
-## Documentation Ownership
+## Documentation ownership
 
-Update an existing page before adding a new one, and link every new page from the narrowest relevant index. Keep optional-package behavior with its owning package and public frontend safety rules beside rendering guidance.
+Update an existing page before adding a new one, and link every new page from the narrowest relevant index. Keep optional-package behaviour with its owning package, and keep public frontend safety rules beside rendering guidance.
 
 Use [Docs ownership rules](development/docs-ownership.md) to choose the right location and avoid duplicate or orphaned pages.

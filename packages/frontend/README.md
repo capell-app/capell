@@ -11,29 +11,28 @@
 [![Livewire Compatibility](https://badge.laravel.cloud/livewire-badge/capell-app/frontend?style=flat)](https://packagist.org/packages/capell-app/frontend)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-`capell-app/frontend` is the public rendering package for Capell CMS. It resolves Core page, site, language, layout, and theme records into Laravel responses and exposes the frontend extension points used by themes and frontend add-ons.
+Capell Frontend turns the pages, sites, languages, layouts, and themes stored by Capell Core into public Laravel responses. Reach for it when your Capell install serves public pages; skip it entirely for headless setups. It ships a minimal built-in `default` theme so a fresh install renders something sensible, and it exposes the extension points that themes and frontend add-ons build on. Theme galleries and in-page editing live in separate packages.
 
-Use this package when a Capell install needs public page routing. It owns the minimal built-in `default` theme fallback, but richer visual themes and in-page authoring remain optional add-ons.
-
-## Package Boundary
+## Package boundary
 
 Frontend owns:
 
-- public page routes, frontend middleware, context resolution, page rendering actions, frontend settings, and page-view/cache integration hooks
-- Blade components, Livewire page integration, render hooks, frontend asset manifests, Tailwind source aggregation, and cache invalidation registries
-- the built-in `default` Blade theme fallback and its static navigation, content, listing, CTA, and footer views
-- frontend install, after-install, upgrade, static HTML generation, and public render performance reporting commands
+- public page routes, frontend middleware, context resolution, and page rendering actions
+- Blade components, Livewire page integration, render hooks, and cache invalidation registries
+- frontend asset manifests and Tailwind source aggregation
+- the built-in `default` Blade theme fallback and its static views
+- the frontend install, upgrade, and static HTML generation commands, plus public render performance reporting
 
 Frontend does not own:
 
 - editor UI, settings pages, or admin dashboards; those are Admin surfaces
-- opinionated theme demos, interactive widgets, carousels, lightboxes, or vertical-specific templates; those belong in optional theme/widget packages
+- opinionated theme demos, interactive widgets, or vertical-specific templates; those belong in optional theme and widget packages
 - generated static HTML cache packages; those are optional cache packages layered on top
 - in-page authoring controls; those must load after page load from an authenticated admin-only beacon package
 
 ## Install
 
-Frontend depends on `capell-app/core` and is optional — omit it for headless setups. The recommended path is the installer (`composer require capell-app/installer` → `php artisan capell:install`), which adds Frontend when you select it. To add it manually to an existing Capell app:
+Frontend depends on `capell-app/core`. The recommended path is the installer (`composer require capell-app/installer` → `php artisan capell:install`), which adds Frontend when you select it. To add it manually to an existing Capell app:
 
 ```bash
 composer require capell-app/frontend
@@ -51,7 +50,27 @@ php artisan capell:frontend-upgrade
 
 Public routing depends on the host app's web server sending unmatched public page requests to Laravel. See the server configuration docs before debugging route fall-through issues.
 
-## Runtime Surfaces
+## Quick example
+
+To inject markup into public page output from your own package, register a render hook:
+
+```php
+use Capell\Frontend\Data\RenderHookContext;
+use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Support\Render\RenderHookRegistry;
+
+// In your package's service provider:
+app(RenderHookRegistry::class)->register(
+    RenderHookLocation::AfterTitle,
+    function (RenderHookContext $context) {
+        return view('your-package::partials.asset-badge', ['context' => $context])->render();
+    },
+    10,      // priority
+    'asset', // scenario
+);
+```
+
+## Runtime surfaces
 
 - Provider: `Capell\Frontend\Providers\FrontendServiceProvider`
 - Config: `config/capell-frontend.php`
@@ -61,31 +80,31 @@ Public routing depends on the host app's web server sending unmatched public pag
 - Main commands: `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`, `capell:generate-html`
 - Main extension registries: `RenderHookRegistry`, `FrontendResourceRegistry`, `CacheInvalidationRegistry`, `ReservedFrontendPathRegistry`, `FrontendRouteMiddlewareRegistry`, `FrontendComponentRegistry`, `FrontendRuleConditionRegistry`, `FrontendResponseRendererRegistry`, `TailwindAssetsRegistry`
 
-The package always registers `index.php` and a fallback page route. `/` is only registered when `CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true`. Reserved paths prevent internal or package-owned routes from falling through to public theme rendering.
+The package always registers `index.php` and a fallback page route. `/` is only registered when `CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true`. Reserved paths stop internal or package-owned routes falling through to public theme rendering.
 
-## Public Output Safety
+## Public output safety
 
-Public frontend responses must not expose admin/editor implementation details. Blade views, cached HTML, theme output, and public assets should not include authoring JavaScript, editable markers, model IDs, field paths, package names, signed editor URLs, or permission hints.
+Public frontend responses must not expose admin or editor implementation details. Blade views, cached HTML, theme output, and public assets should not include authoring JavaScript, editable markers, model IDs, field paths, package names, signed editor URLs, or permission hints.
 
-Frontend authoring must be a post-load admin feature. The public page loads as ordinary HTML; only an authenticated admin beacon response may add edit controls.
+Frontend authoring is a post-load admin feature. The public page loads as ordinary HTML; only an authenticated admin beacon response may add edit controls.
 
-When changing public rendering, cache behavior, themes, or beacon integration, keep or add tests that prove anonymous and non-admin responses contain no authoring surface.
+When you change public rendering, cache behaviour, themes, or beacon integration, keep or add tests that prove anonymous and non-admin responses contain no authoring surface.
 
-Editor-authored rich text must cross a `SafeHtml` boundary before Blade renders it. Build the value with `SafeHtml::sanitize($html, $sanitizer)` (or use `RenderHtmlContentAction`) and output it with normal escaped Blade braces: `{{ $safeHtml }}`. The constructor is private so an arbitrary string cannot be mislabeled as safe HTML.
+Editor-authored rich text must cross a `SafeHtml` boundary before Blade renders it. Build the value with `SafeHtml::sanitize($html, $sanitizer)` (or use `RenderHtmlContentAction`) and output it with normal escaped Blade braces: `{{ $safeHtml }}`. The constructor is private, so an arbitrary string cannot be mislabelled as safe HTML.
 
-## Data And Cache Behavior
+## Data and cache behaviour
 
-Frontend reads Core records and owns frontend settings. Its main persistence impact is settings state; generated page cache files are owned by optional cache/static packages.
+Frontend reads Core records and owns frontend settings. Its main persistence impact is settings state; generated page cache files belong to the optional cache and static packages.
 
 The `capell:generate-html` command writes static artifact metadata to `storage/framework/capell-static-artifacts` by default. Set `CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH` when a deployment needs those artifacts written to a separate writable directory.
 
-Cache invalidation is model-event aware and can run through queues depending on package configuration. If async invalidation is enabled, a queue worker must be running.
+Cache invalidation is model-event aware and can run through queues, depending on package configuration. If async invalidation is enabled, a queue worker must be running.
 
-Tailwind source/import generation depends on installed packages declaring their frontend sources. Missing package sources usually show up as incomplete generated CSS, not as PHP exceptions.
+Tailwind source and import generation depends on installed packages declaring their frontend sources. Missing package sources usually show up as incomplete generated CSS, not as PHP exceptions.
 
 ## Verification
 
-From the split repository root, with development dependencies installed, run package tests after changing frontend routing, render actions, cache invalidation, or public safety checks:
+Frontend tests run from a checkout of the Capell monorepo, which supplies the Pest bootstrap and development dependencies this package needs. From the monorepo root, run the package tests after changing frontend routing, render actions, cache invalidation, or public safety checks:
 
 ```bash
 vendor/bin/pest tests
@@ -94,10 +113,10 @@ vendor/bin/pest tests
 For public output changes, include the safety-focused tests:
 
 ```bash
-vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaComponentMetadataTest.php
 ```
 
-## Requirements And Support Policy
+## Requirements and support policy
 
 | Surface  | Supported versions               |
 | -------- | -------------------------------- |
@@ -113,16 +132,16 @@ Support covers the dependency ranges above. When an upstream release reaches its
 ## Troubleshooting
 
 - A Capell route catching admin or package URLs usually means the frontend route regex or reserved path registry needs checking.
-- Published pages returning 404 should be debugged through site, domain, language, page URL, and layout resolution before changing theme code.
+- Debug published pages returning 404 through site, domain, language, page URL, and layout resolution before changing theme code.
 - Stale public output usually means cache invalidation did not run, the queue worker is stopped, or the optional cache package has stale artifacts.
-- Missing Tailwind styles usually mean a package did not register its source/import path or frontend assets were not regenerated.
+- Missing Tailwind styles usually mean a package did not register its source or import path, or frontend assets were not regenerated.
 - If `/` does not resolve, check `CAPELL_FRONTEND_REGISTER_HOME_ROUTE`; the package does not register the home route by default.
 
 ## Development
 
 Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
-## Further Reading
+## Further reading
 
 | Page                                               | Covers                                                |
 | -------------------------------------------------- | ----------------------------------------------------- |

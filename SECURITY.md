@@ -1,13 +1,13 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+## Supported versions
 
-Each Capell 1.x minor receives security fixes for 24 months from its release date. The latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix.
+Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Before requesting a fix, upgrade all installed Capell foundation packages together to the same supported release.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in Capell, email [security@capell.app](mailto:security@capell.app).
+If you find a security vulnerability in Capell, email [security@capell.app](mailto:security@capell.app). Do not open a public GitHub issue for an undisclosed vulnerability.
 
-Include the affected package/version, a short reproduction, impact, and any relevant logs or screenshots. Do not open a public GitHub issue for an undisclosed vulnerability.
+Include the affected package and version, a short reproduction, the impact, and any relevant logs or screenshots.
 
-We aim to acknowledge reports within 2 business days, confirm impact and affected versions after triage, and coordinate a fix or mitigation before public disclosure.
+We aim to acknowledge reports within 2 business days. After triage we confirm the impact and affected versions, then coordinate a fix or mitigation with you before public disclosure.
