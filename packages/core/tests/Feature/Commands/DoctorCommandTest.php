@@ -26,6 +26,8 @@ use Symfony\Component\Console\Command\Command;
 
 function seedHealthyDoctorInstall(): void
 {
+    config()->set('queue.connections.database.retry_after', 900);
+
     CapellCore::forcePackageInstalled('capell-app/core');
     CapellExtension::query()->updateOrCreate(
         ['composer_name' => 'capell-app/core'],
