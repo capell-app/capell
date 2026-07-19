@@ -125,6 +125,12 @@ it('rejects structurally unsafe or inconsistent manifests', function (Closure $m
     'calendar-invalid timestamp' => [static function (array &$payload): void {
         $payload['createdAt'] = '2026-02-30T12:00:00Z';
     }],
+    'empty Capell compatibility' => [static function (array &$payload): void {
+        $payload['compatibility']['capell'] = '';
+    }],
+    'empty PHP compatibility' => [static function (array &$payload): void {
+        $payload['compatibility']['php'] = '';
+    }],
     'unsafe artifact path' => [static function (array &$payload): void {
         $payload['artifacts'][0]['path'] = '../theme.zip';
     }],

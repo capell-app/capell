@@ -4,7 +4,7 @@
     "surfaces": {
         "core.action.project-build-signing-input": {
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
-            "signature": "9abb13fe698e7b74aff29720f293f4610388304c7f38d0be2ec52d4036dd5645",
+            "signature": "9e587ec08e9f70bdce43a2fe51ebd1aab6463051673492ba1a7e770b93d78743",
             "contractTestId": "core.project-build-manifest-signing"
         },
         "core.action.validate-project-build-bundle": {
@@ -14,7 +14,7 @@
         },
         "core.action.verify-project-build-signature": {
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildManifestSignatureAction",
-            "signature": "6713cac9c0a3f5e60fc34e3cd13d7655787d4d248f7bd6d23a2a27a8db47233e",
+            "signature": "5cc6ab6bba845d46253c3bdd98a9671af025989c3993ecf586065333140c97c4",
             "contractTestId": "core.project-build-manifest-signing"
         },
         "core.contract.extension-contribution": {

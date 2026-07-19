@@ -80,8 +80,8 @@ final class ProjectBuildManifestSchema
                 'compatibility' => self::object(
                     ['capell', 'php', 'platforms'],
                     [
-                        'capell' => ['type' => 'string', 'maxLength' => ProjectBuildManifestConstraints::MAX_COMPATIBILITY_LENGTH],
-                        'php' => ['type' => 'string', 'maxLength' => ProjectBuildManifestConstraints::MAX_COMPATIBILITY_LENGTH],
+                        'capell' => ['type' => 'string', 'minLength' => 1, 'maxLength' => ProjectBuildManifestConstraints::MAX_COMPATIBILITY_LENGTH],
+                        'php' => ['type' => 'string', 'minLength' => 1, 'maxLength' => ProjectBuildManifestConstraints::MAX_COMPATIBILITY_LENGTH],
                         'platforms' => ['type' => 'array', 'minItems' => 1, 'uniqueItems' => true, 'items' => ['type' => 'string', 'pattern' => ProjectBuildManifestConstraints::PLATFORM_PATTERN]],
                     ],
                 ),

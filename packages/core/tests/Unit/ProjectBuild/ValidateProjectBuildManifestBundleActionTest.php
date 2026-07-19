@@ -2,8 +2,34 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
+use Capell\Core\Actions\ProjectBuild\ReadProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
+use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
+use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
+use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
+
+final class BundleVersionZeroProjectBuildManifestMigration implements ProjectBuildManifestMigration
+{
+    public function fromVersion(): int
+    {
+        return 0;
+    }
+
+    public function toVersion(): int
+    {
+        return 1;
+    }
+
+    public function migrate(array $payload): array
+    {
+        $payload['schemaVersion'] = 1;
+        unset($payload['legacyVersion']);
+
+        return $payload;
+    }
+}
 
 function projectBuildFixturePath(string $path): string
 {
@@ -61,4 +87,32 @@ it('refuses artifact bytes that do not match the signed reference', function ():
             static fn (ProjectBuildArtifactReferenceData $artifact): string => 'tampered-bytes',
         );
     })->toThrow(RuntimeException::class, 'size does not match');
+});
+
+it('verifies legacy signed bytes before applying a trusted core migration', function (): void {
+    $payload = json_decode((string) file_get_contents(projectBuildFixturePath('one-site-one-locale.json')), true, 512, JSON_THROW_ON_ERROR);
+    $payload['schemaVersion'] = 0;
+    $payload['legacyVersion'] = 'v0';
+    $seed = hex2bin('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f');
+    expect($seed)->toBeString();
+    assert(is_string($seed));
+    $keyPair = sodium_crypto_sign_seed_keypair($seed);
+    $payload['signature']['value'] = base64_encode(sodium_crypto_sign_detached(
+        CanonicalizeProjectBuildManifestSigningInputAction::run($payload),
+        sodium_crypto_sign_secretkey($keyPair),
+    ));
+    $migrations = new ProjectBuildManifestMigrationRegistry;
+    $migrations->register(new BundleVersionZeroProjectBuildManifestMigration);
+    $action = new ValidateProjectBuildManifestBundleAction(
+        new ReadProjectBuildManifestAction($migrations),
+        resolve(ProjectBuildArtifactHandlerRegistry::class),
+    );
+
+    $manifest = $action->handle(
+        json_encode($payload, JSON_THROW_ON_ERROR),
+        sodium_crypto_sign_publickey($keyPair),
+        static fn (ProjectBuildArtifactReferenceData $artifact): string => (string) file_get_contents(projectBuildFixturePath($artifact->path)),
+    );
+
+    expect($manifest->schemaVersion)->toBe(1);
 });

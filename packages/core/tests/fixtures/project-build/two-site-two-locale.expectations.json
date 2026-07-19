@@ -1,0 +1,19 @@
+{
+    "launchSupported": false,
+    "routes": [
+        {"siteKey":"primary","locale":"en-GB","path":"/"},
+        {"siteKey":"primary","locale":"fr-FR","path":"/fr"},
+        {"siteKey":"secondary","locale":"en-GB","path":"/"},
+        {"siteKey":"secondary","locale":"fr-FR","path":"/fr"}
+    ],
+    "fallbacks": {
+        "primary:fr-FR": "en-GB",
+        "secondary:fr-FR": "en-GB"
+    },
+    "extensionResults": {
+        "packages": ["capell-app/navigation"],
+        "siteSpecExtensions": ["capell-app/navigation"],
+        "navigationKey": "main",
+        "pageSlugs": ["home"]
+    }
+}
