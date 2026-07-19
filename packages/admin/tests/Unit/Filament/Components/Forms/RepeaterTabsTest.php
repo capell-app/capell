@@ -180,6 +180,26 @@ it('uses a valid request language when add action arguments are missing', functi
     expect(collect($component->getState())->pluck('language_id')->all())->toBe([1, 2, 4]);
 });
 
+it('prepares tab and create-item icon presentation outside the Blade view', function (): void {
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')
+            ->tabs([TextInput::make('title')])
+            ->itemBadge(fn (): array => ['label' => 'Draft', 'color' => 'warning'])
+            ->itemIcon(fn (): string => 'flag-gb'),
+        ['english-tab' => ['language_id' => 1, 'title' => 'One']],
+    );
+
+    expect($component->getTabPresentation('english-tab'))->toBe([
+        'badge' => 'Draft',
+        'badgeColor' => 'warning',
+        'icon' => 'flag-gb',
+        'isFlagIcon' => true,
+        'label' => null,
+    ])->and($component->getCreateItemIcon(['icon' => 'flag-fr']))->toBeNull()
+        ->and($component->getCreateItemIcon(['icon' => 'heroicon-o-language']))->toBe('heroicon-o-language')
+        ->and($component->getCreateItemIcon([]))->toBeNull();
+});
+
 /**
  * @param  array<string, array<string, mixed>>  $state
  */

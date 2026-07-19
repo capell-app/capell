@@ -63,23 +63,14 @@
                 >
                     @foreach ($items as $itemKey => $item)
                         @php
-                            $badge = $getItemBadge($itemKey);
-                            $badgeColor = null;
-                            $itemLabel = $getItemLabel($itemKey);
-                            $itemIcon = $getItemIcon($itemKey);
-                            $isFlagIcon = is_string($itemIcon) && str_starts_with($itemIcon, 'flag-');
-
-                            if (is_array($badge)) {
-                                $badgeColor = $badge['color'] ?? null;
-                                $badge = $badge['label'];
-                            }
+                            $tab = $getTabPresentation($itemKey);
                         @endphp
 
                         <x-filament::tabs.item
                             :alpine-active="'tab === ' . $loop->iteration"
-                            :icon="$isFlagIcon ? null : $itemIcon"
-                            :badge="$badge"
-                            :badge-color="$badgeColor"
+                            :icon="$tab['isFlagIcon'] ? null : $tab['icon']"
+                            :badge="$tab['badge']"
+                            :badge-color="$tab['badgeColor']"
                             wire:key="{{ $this->getId() }}.{{ $item->getStatePath() }}.{{ $field::class }}.nav"
                             x-bind:aria-selected="tab === {{ $loop->iteration }}"
                             x-on:click.stop="tab = {{ $loop->iteration }}"
@@ -88,17 +79,19 @@
                             <span
                                 class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap"
                             >
-                                @if ($isFlagIcon)
+                                @if ($tab['isFlagIcon'])
                                     {!!
                                         $flagIconRenderer->render(
-                                            $itemIcon,
-                                            $itemLabel,
+                                            $tab['icon'],
+                                            $tab['label'],
                                             attributes: ['class' => 'text-sm'],
                                         )
                                     !!}
                                 @endif
 
-                                <span class="truncate">{{ $itemLabel }}</span>
+                                <span class="truncate">
+                                    {{ $tab['label'] }}
+                                </span>
                             </span>
                         </x-filament::tabs.item>
                     @endforeach
@@ -140,14 +133,7 @@
                                             >
                                                 <x-filament::dropdown.list>
                                                     @foreach ($createItems as $item)
-                                                        @php
-                                                            $createItemIcon = $item['icon'] ?? null;
-                                                            $createItemIcon = is_string($createItemIcon) && str_starts_with($createItemIcon, 'flag-')
-                                                                ? null
-                                                                : $createItemIcon;
-                                                        @endphp
-
-                                                        {{ $getAction('cloneItem')->arguments(['key' => $key, 'language_id' => $item['id']])->label($item['label'])->icon($createItemIcon) }}
+                                                        {{ $getAction('cloneItem')->arguments(['key' => $key, 'language_id' => $item['id']])->label($item['label'])->icon($getCreateItemIcon($item)) }}
                                                     @endforeach
                                                 </x-filament::dropdown.list>
                                             </div>
@@ -177,14 +163,7 @@
                                                 {{ $isAllAction ? $addAllAction : null }}
 
                                                 @foreach ($createItems as $createItem)
-                                                    @php
-                                                        $createItemIcon = $createItem['icon'] ?? null;
-                                                        $createItemIcon = is_string($createItemIcon) && str_starts_with($createItemIcon, 'flag-')
-                                                            ? null
-                                                            : $createItemIcon;
-                                                    @endphp
-
-                                                    {{ $addAction->arguments(['language_id' => $createItem['id']])->grouped()->label($createItem['label'])->icon($createItemIcon) }}
+                                                    {{ $addAction->arguments(['language_id' => $createItem['id']])->grouped()->label($createItem['label'])->icon($getCreateItemIcon($createItem)) }}
                                                 @endforeach
                                             </x-filament::dropdown.list>
                                         </x-filament::dropdown>
@@ -273,14 +252,7 @@
                         {{ $isAllAction ? $addAllAction : null }}
 
                         @foreach ($createItems as $createItem)
-                            @php
-                                $createItemIcon = $createItem['icon'] ?? null;
-                                $createItemIcon = is_string($createItemIcon) && str_starts_with($createItemIcon, 'flag-')
-                                    ? null
-                                    : $createItemIcon;
-                            @endphp
-
-                            {{ $addAction->arguments(['language_id' => $createItem['id']])->grouped()->label($createItem['label'])->icon($createItemIcon) }}
+                            {{ $addAction->arguments(['language_id' => $createItem['id']])->grouped()->label($createItem['label'])->icon($getCreateItemIcon($createItem)) }}
                         @endforeach
                     </x-filament::dropdown.list>
                 </x-filament::dropdown>

@@ -91,6 +91,38 @@ class RepeaterTabs extends Repeater
         return (array) $this->evaluate($this->createItems);
     }
 
+    /** @param array<string, mixed> $item */
+    public function getCreateItemIcon(array $item): mixed
+    {
+        $icon = $item['icon'] ?? null;
+
+        return is_string($icon) && str_starts_with($icon, 'flag-') ? null : $icon;
+    }
+
+    /**
+     * @return array{badge: mixed, badgeColor: mixed, icon: ?string, isFlagIcon: bool, label: mixed}
+     */
+    public function getTabPresentation(string|int $itemKey): array
+    {
+        $badge = $this->getItemBadge($itemKey);
+        $badgeColor = null;
+
+        if (is_array($badge)) {
+            $badgeColor = $badge['color'] ?? null;
+            $badge = $badge['label'];
+        }
+
+        $icon = $this->getItemIcon($itemKey);
+
+        return [
+            'badge' => $badge,
+            'badgeColor' => $badgeColor,
+            'icon' => $icon,
+            'isFlagIcon' => is_string($icon) && str_starts_with($icon, 'flag-'),
+            'label' => $this->getItemLabel((string) $itemKey),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
