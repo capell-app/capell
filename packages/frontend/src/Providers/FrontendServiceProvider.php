@@ -160,6 +160,7 @@ use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Filesystem\Filesystem;
@@ -619,10 +620,8 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerPublicViewQueryListener(): self
     {
-        $application = $this->app;
-
-        DB::listen(static function (QueryExecuted $event) use ($application): void {
-            $application->make(PublicViewQueryGuard::class)->capture($event);
+        DB::listen(static function (QueryExecuted $event): void {
+            LaravelContainer::getInstance()->make(PublicViewQueryGuard::class)->capture($event);
         });
 
         return $this;

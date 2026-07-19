@@ -10,6 +10,7 @@ use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
+use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -185,4 +186,51 @@ it('keeps nested guards active and restores state after exceptions', function ()
     }))->toThrow(RuntimeException::class, 'outer render failed');
 
     expect($guard->isActive())->toBeFalse();
+});
+
+it('resolves the query guard from the current container when a query is dispatched', function (): void {
+    config([
+        'capell-frontend.public_view_query_guard.enabled' => true,
+        'capell-frontend.public_view_query_guard.mode' => 'log',
+    ]);
+
+    $baseApplication = app();
+    $baseGuard = resolve(PublicViewQueryGuard::class);
+    $sandbox = new LaravelContainer;
+    $sandbox->instance('config', $baseApplication->make('config'));
+    $sandbox->scoped(PublicViewQueryGuard::class);
+    $sandboxGuard = $sandbox->make(PublicViewQueryGuard::class);
+    $reports = [];
+
+    Log::shouldReceive('warning')
+        ->once()
+        ->withArgs(function (string $message, array $context) use (&$reports): bool {
+            $reports[] = $context;
+
+            return $message === 'capell-frontend: public Blade rendering executed database queries';
+        });
+
+    $baseResult = $baseGuard->guard(
+        new FrontendRenderContextData((new Page)->setAttribute('id', 301), null, null, null, null),
+        function () use ($baseApplication, $sandbox, $sandboxGuard): string {
+            LaravelContainer::setInstance($sandbox);
+
+            try {
+                return $sandboxGuard->guard(
+                    new FrontendRenderContextData((new Page)->setAttribute('id', 401), null, null, null, null),
+                    fn (): string => DB::scalar('select "sandbox_operation"'),
+                );
+            } finally {
+                LaravelContainer::setInstance($baseApplication);
+            }
+        },
+    );
+
+    expect($baseResult)->toBe('sandbox_operation')
+        ->and($reports)->toHaveCount(1)
+        ->and($reports[0]['page_id'])->toBe(401)
+        ->and($reports[0]['queries'])->toHaveCount(1)
+        ->and($reports[0]['queries'][0]['sql_shape'])->toContain('sandbox_operation')
+        ->and($baseGuard->isActive())->toBeFalse()
+        ->and($sandboxGuard->isActive())->toBeFalse();
 });
