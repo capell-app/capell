@@ -163,6 +163,16 @@
             "contractTestId": "core.extension-test-harness"
         },
         {
+            "id": "frontend.contract.component-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\FrontendComponentContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend component contribution boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.contract.widget-resource-usage-contributor",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\FrontendWidgetResourceUsageContributor",
@@ -173,6 +183,16 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.dto.component-contribution",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\FrontendComponentContributionData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Named component contribution for a frontend runtime target.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.dto.widget-resource-usage",
             "kind": "dto",
             "identifier": "Capell\\Frontend\\Data\\Assets\\FrontendWidgetResourceUsageData",
@@ -180,6 +200,26 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed widget resource usage data.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.enum.component-target",
+            "kind": "enum",
+            "identifier": "Capell\\Frontend\\Enums\\FrontendComponentTarget",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported frontend component runtime targets.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.tag.component-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend.component-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for frontend component contributors.",
             "contractTestId": null
         },
         {

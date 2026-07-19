@@ -9,6 +9,7 @@ use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessUnionReturnDocblockRector;
 use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
+use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\Php83\Rector\ClassConst\AddTypeToConstRector;
@@ -96,6 +97,9 @@ return RectorConfig::configure()
         ],
         RemoveUselessReturnTagRector::class => [
             __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',
+        ],
+        StringClassNameToClassConstantRector::class => [
+            __DIR__ . '/packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php',
         ],
         NarrowObjectReturnTypeRector::class => [
             __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',
