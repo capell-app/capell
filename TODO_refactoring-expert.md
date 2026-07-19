@@ -1,291 +1,637 @@
-# TODO — Refactoring Expert Review: Capell Provider/Manager Simplification
+# TODO — Refactoring Expert: Capell Core, Installer, and Marketplace
 
-> Companion to the execution plan at `~/.claude/plans/continue-the-repository-wide-simplificat-recursive-trinket.md`.
-> Every task below is trackable; IDs are stable. Code blocks are **target-state sketches** — validate line
-> numbers and signatures against the current tree before applying (a concurrent session commits to
-> `hotfix/tweaks` continuously; freshness-check every target with `git log --oneline -3 -- <file>`).
+> Audit date: 2026-07-19. Source baseline: `f02a0d9be` plus the working-tree state inspected during the
+> audit. Existing unrelated SiteSpec, package-catalogue, installer-page-data, and frontend-contributor
+> changes are excluded from this roadmap. This document is self-contained and supersedes the stale
+> provider/manager plan previously stored here.
 
----
+## Context
 
-## Part A — Expert review of the plan (completeness verdict)
+- [x] **RF-CTX-1.1 [Scope and owner priorities]** — Prioritise behavior-preserving maintainability and
+      readability, then reduce regression-prone complexity on install and marketplace paths. Preserve public
+      HTML, HTTP/JSON response shapes, route names, translations, install ordering, entitlement decisions,
+      append-only marketplace ledgers, and existing extension interfaces. Performance work is in scope only
+      where the refactor can retain or improve a measurable HTTP/query/iteration count.
 
-### A.1 Traceability: audit findings → plan coverage
+- [x] **RF-CTX-1.2 [Metric method]** — Production PHP under `packages/*/src` was parsed with the already
+      installed `nikic/php-parser`. Class and method LOC use AST start/end lines. Cyclomatic complexity is
+      `1 + if/elseif/loop/catch/non-default-case/ternary/boolean/null-coalescing/match-arm decisions`. Coupling is the
+      count of unique referenced class names. Cohesion is an LCOM4-style approximation joining methods that
+      share instance fields or call each other; values above `1` are a review signal, not automatic proof of a
+      bad design. Git churn is the number of commits touching the file in the available branch history.
 
-- [x] **RF-REVIEW-1.1** Frontend provider top-10 findings — all 10 covered (plan Phases 0.2, 2.1–2.4).
-- [x] **RF-REVIEW-1.2** Admin/core provider top-10 findings — all covered (Phases 0, 1.1–1.3, 3.2–3.3), including honorable mentions (dir-scan, Blaze, morph guard, double binding, recipients query, dormant Macroable, inline `Builder::macro`, duplicated `class_exists`).
-- [x] **RF-REVIEW-1.3** Repo-wide sweep top-12 — items 1–6, 9, 11, 12 covered. **Gap found and fixed**: items 7 (`UpgradePage` ladder), 8 (`ContentBuilder` ladder), 10 (`@php`-heavy blades) were missing from Phase 6 — now added to the plan.
-- [x] **RF-REVIEW-1.4** Provider-matrix audit (8 divergences) — all 8 covered (Phases 0.1–0.5, 2.1, 4.5, 1.3).
-- [x] **RF-REVIEW-1.5** Registry-landscape audit (8 opportunities) — all 8 covered (Phases 4.1–4.6, 5.1–5.2).
+- [x] **RF-CTX-1.3 [Repository threshold scan]** — The audit snapshot contained 1,734 production classes
+      and 7,867 methods. There were 163 classes over 200 lines and 1,540 methods over 20 lines; the initial
+      decision-path scan found 242 methods over complexity 10. These thresholds are triage signals. Applying
+      them blindly to Data normalisers, declarative Filament schemas, and composition-root providers would
+      create shallow modules and more indirection, so this plan targets high-change orchestration code where
+      the metrics align with real responsibility mixing.
 
-### A.2 Review verdicts (strengths kept, weaknesses to address)
+### Current metric baselines
 
-- [ ] **RF-REVIEW-2.1 Add measurable success targets** (the plan states verification but not numeric goals). Adopt the targets table in §B below; record before/after in the ledger per phase. *Severity: Medium — without numbers, "improved" is unfalsifiable.*
-- [ ] **RF-REVIEW-2.2 Add an explicit rollback rule**: every slice = one revertable commit; if a slice's covering suite fails and the fix isn't obvious within the slice, `git revert` the slice rather than stacking fixes. *Severity: Low.*
-- [ ] **RF-REVIEW-2.3 Phase 0 conflict-surface warning**: Phase 0 touches all five providers at once — highest merge-conflict surface with the concurrent session. Slice 0.2 (base-method lift) per-method, not per-provider: one commit lifts `registerAboutInfo` across all 3 copies (tiny), next lifts `registerPackageMetadata` across 5, etc. Small cross-file commits conflict less than big per-file ones here. *Severity: Medium.*
-- [ ] **RF-REVIEW-2.4 Consistency micro-items missing from Phase 0** (from the matrix audit): only frontend provider is `final`; only installer/marketplace set `static $type` explicitly; `registerBlazeComponents` vs `registerBladeComponents` naming collision (Blaze ≠ Blade) invites mistakes — rename one during the 0.2 lift. Add as a Phase 0.6 sweep. *Severity: Low.*
-- [ ] **RF-REVIEW-2.5 No complexity tooling exists** in the repo (PHPStan ≠ complexity metrics). Either accept lines/branch-count as the metric (pragmatic, zero new deps) or add a dev-only metrics tool in Phase 7 — decision for the maintainer; do NOT block phases on it.
+| ID            | Target                                  | Class LOC | Methods | Average method LOC | Methods >20 | Max complexity | Coupling | LCOM4 | Churn |
+| ------------- | --------------------------------------- | --------: | ------: | -----------------: | ----------: | -------------: | -------: | ----: | ----: |
+| RF-METRIC-1.1 | `InstallCommand`                        |     1,055 |      43 |               21.3 |          12 |             27 |       70 |     4 |    11 |
+| RF-METRIC-1.2 | `InstallController`                     |       555 |      31 |               16.9 |           7 |             21 |       35 |    15 |     5 |
+| RF-METRIC-1.3 | `MarketplaceExtensionsBrowser`          |       961 |      44 |               18.0 |           9 |             29 |       45 |     4 |     4 |
+| RF-METRIC-1.4 | `MarketplaceCatalogueRecordProvider`    |     1,049 |      56 |               16.0 |          11 |             16 |       62 |     2 |     6 |
+| RF-METRIC-1.5 | `MarketplaceClient`                     |     1,085 |      48 |               19.5 |          15 |             20 |       58 |     2 |     2 |
+| RF-METRIC-1.6 | `InstallMarketplaceExtensionAction`     |       688 |      23 |               26.9 |          11 |             27 |       51 |     2 |     4 |
+| RF-METRIC-1.7 | `BuildExtensionOperationsSummaryAction` |       642 |      31 |               18.2 |           8 |             36 |       55 |     2 |     2 |
 
-### A.3 Suggested new features (owner-level; enabled by this refactor — optional, separate approval)
+- [x] **RF-CTX-1.4 [Target metrics]** — Re-measure with the same AST rules after each complete target.
 
-- [ ] **RF-FEAT-3.1 `capell:surfaces` introspection command** — lists every registry (post-4.1 they share a base, so enumeration is trivial), its bound lifetime, Octane classification, and registered entries. Turns the invisible registry landscape into a debuggable surface for extension developers; near-free once `AbstractKeyedRegistry` exists.
-- [ ] **RF-FEAT-3.2 Doctor checks** (repo has a doctor pipeline — `BuildDoctorReportAction`): add checks for (a) manifest cache present (else warn "boot runs discovery"), (b) any singleton failing the Octane classification, (c) provider-conventions Arch suite green. Ships the Phase 7 guards to end users, not just CI.
-- [ ] **RF-FEAT-3.3 `capell:boot-profile` command** — boots the app N times, reports median wall time + counts of listeners/observers/bindings registered. Makes the Phase 1–2 perf wins visible and regressions observable in production support.
-- [ ] **RF-FEAT-3.4 Extension-developer changelog artifact** — Phase 4/5 surface changes auto-summarized from the extension-surface-catalog diff (the check already exists) into a release-notes fragment. Third-party authors get told what moved instead of discovering it.
+| ID            | Target after the complete target                |       LOC | Max method LOC | Max complexity | Coupling |   LCOM4 |
+| ------------- | ----------------------------------------------- | --------: | -------------: | -------------: | -------: | ------: |
+| RF-TARGET-1.1 | `InstallCommand`                                |      ≤200 |            ≤20 |            ≤10 |      ≤25 |      ≤2 |
+| RF-TARGET-1.2 | `InstallController`                             |      ≤200 |            ≤20 |            ≤10 |      ≤20 |      ≤5 |
+| RF-TARGET-1.3 | `MarketplaceExtensionsBrowser`                  |      ≤200 |            ≤20 |            ≤10 |      ≤25 |      ≤2 |
+| RF-TARGET-1.4 | Catalogue coordinator and each extracted module | ≤200 each |            ≤20 |            ≤10 | ≤20 each | ≤2 each |
+| RF-TARGET-1.5 | Each protocol-specific marketplace client       | ≤200 each |            ≤20 |            ≤10 | ≤20 each | ≤2 each |
+| RF-TARGET-1.6 | `InstallMarketplaceExtensionAction`             |      ≤200 |            ≤20 |            ≤10 |      ≤25 |      ≤1 |
+| RF-TARGET-1.7 | Summary aggregator and package builder          | ≤200 each |            ≤20 |            ≤10 | ≤25 each | ≤2 each |
 
----
+- [x] **RF-CTX-1.5 [Highest-complexity methods]** — The actionable peaks are
+      `BuildExtensionOperationsSummaryAction::packageSummary()` (complexity 36, 91 LOC),
+      `MarketplaceExtensionsBrowser::marketplaceSelectionReview()` (29, 165),
+      `InstallCommand::handle()` (27, 268),
+      `InstallMarketplaceExtensionAction::handle()` (27, 149), and
+      `InstallController::runStep()` (21, 103). Higher raw scores in API/manifest Data factories were reviewed
+      and retained as input-normalisation seams rather than treated as polymorphism candidates.
 
-## Part B — Context: baselines, smells, priorities
+### Code smells and severity
 
-**Priorities (from maintainer):** (1) remove overcomplication/"AI slop" and pattern proliferation, (2) per-request performance, (3) maintainability of providers/managers. Readability over micro-perf except on the boot path.
+- [x] **RF-SMELL-1.1 [High — UI/domain responsibility mixing]** — `InstallController` owns session
+      sequencing, preflight execution, install execution, report assembly, and HTTP negotiation.
+      `MarketplaceExtensionsBrowser` owns recursive dependency resolution, eligibility presentation, install
+      option normalisation, hosted-flow decisions, notifications, and redirects. Both make framework adapters
+      the primary domain test surface.
 
-### B.1 Metric baselines (verified on `hotfix/tweaks`, 2026-07-18)
+- [x] **RF-SMELL-1.2 [High — long orchestration methods]** — `InstallCommand::handle()`,
+      `InstallMarketplaceExtensionAction::handle()`, and `marketplaceSelectionReview()` interleave input
+      resolution, policy decisions, side effects, presentation, and failure mapping. The code is covered but a
+      change requires understanding several abstraction levels at once.
 
-| Target | Baseline | Target after | Notes |
-|---|---|---|---|
-| `FrontendServiceProvider` | 924 lines (178 imports) | ≤ 700 | bindings already grouped (`ca667312d`) — do not re-touch |
-| `AdminServiceProvider` | 1,062 | ≤ 700 | |
-| `CapellServiceProvider` | 906 | ≤ 650 | |
-| `CapellAdminManager` | 756 (+7 traits) | ≤ ~350 | 4 inline stores + ~180 lines widget-sort out |
-| `CapellCoreManager` facade weight | 77 + 15 traits ≈ 2,596 | HasPackages/HasCache/HasModelInterceptors re-homed | facade signatures FROZEN (233 consumer files) |
-| Keyed-registry implementations | ~35 near-identical | 1 base + thin subclasses | verbs canonicalized |
-| Installed-gated boot mechanisms | 4 | 1 | admin's shape is canon |
-| Optional-integration idioms | 7 | 2 (tags + bridge registry) | |
-| Settings write paths | 5 | 2 (`surface()` + bridge registrar) | |
-| "Run when X resolves" idioms | 3 | 1 (`callAfterResolving`) | |
-| `registerAboutInfo` copies | 3 (byte-identical) | 1 (base) | |
-| `registerPackageMetadata` copies | 5 (divergent) | 1 (base) | |
-| Per-request reflection+`require` | 2 sites (core :323, :742) | 0 | |
-| Per-request FS work | ≥5 sites (theme CSS read, paginate translations, Blaze ×2, admin dir-scan) | 0 on web requests | |
-| Wildcard `eloquent.*` listeners | 3 | 0 or documented-bounded | |
-| `getPackages()` sorts per admin request | ≥3 | 1 (memoized) | |
-| Octane-reset participants | 3 of ~55 stateful classes | 100% of request-mutable classified | |
+- [x] **RF-SMELL-1.3 [High — broad marketplace modules]** — `MarketplaceClient` combines four protocols
+      (connection/install-flow, catalogue, authorization/telemetry, and heartbeat verification).
+      `MarketplaceCatalogueRecordProvider` combines remote pagination, local inventory state, filter parsing,
+      compatibility, price/rating formatting, image safety, and table record projection.
 
-### B.2 Code smells detected (severity)
+- [x] **RF-SMELL-1.4 [Medium — missing parameter object]** —
+      `RecordMarketplaceInstallAttemptAction::handle()` has 18 parameters and six call sites. Four callers in
+      `InstallMarketplaceExtensionAction` rebuild overlapping policy, actor, source, eligibility, context, and
+      failure arguments. The immutable ledger contract deserves one typed input.
 
-| Smell | Where | Severity |
-|---|---|---|
-| Potential cross-request state leak (Octane) | ~30 stateful singletons unclassified | **Critical** (multi-site data-bleed risk) |
-| Per-request reflection/FS/config work | core :314–370, :407–449, :740–786; frontend :734–805, :517, :595; admin :842, :851 | **High** |
-| God class + Feature Envy | `CapellCoreManager` traits; `HasPackages` (692) shadowing `CapellPackageRegistry` (124) | **High** |
-| Divergent duplicate abstractions | 35 keyed registries; 4 boot idioms; 7 integration idioms | **High** (the maintainer's core complaint) |
-| Duplicate code (providers) | aboutInfo ×3, packageMetadata ×5, blaze ×2, livewire ×3, schedule ×3 shapes | **High** |
-| Dead/unreachable code | 19-arm match `default` (frontend :651), `environment()` guard (core :464), Livewire v2 branch, dormant `Macroable`, `ThemeRegistry::reset()` unwired, `FileViewFinder` self-rebind | **Medium** |
-| Stringly-typed indirection | `implode('\\',[...])` classname + `is_callable` (admin :351–431) | **Medium** |
-| Inappropriate intimacy / triple ownership | AdminBridge manager+registry+registrar; `AdminBridgeRegistry` bound to manager's private field | **Medium** |
-| N+1-ish query smell | `defaultPackageOperationRecipients` loads all users, filters in PHP (admin :461–481) | **Medium** |
-| Long parameter-free repetition | overview stats ×4, interceptors ×5, dashboard widgets ×18, settings groups ×3 | **Medium** |
-| Internal defensive ladders | `ResolveFrontendResourcePlanAction` (24), `UpgradePage` (31), `ContentBuilder` (30) | **Low** |
-| Collection churn / `@php` blades | ~9 `collect()->all()` sites; nested array reshapes; 3 blades | **Low** |
+- [x] **RF-SMELL-1.5 [Medium — mutable per-run action state]** —
+      `InstallMarketplaceExtensionAction` stores `$activeRequest` and `$activePolicyEvidence` on the resolved
+      Action object. Both values belong to a single execution context and should travel explicitly through a
+      Data object, especially under long-lived workers.
 
-**Explicit non-goals (correct as-is; do not "fix"):** external-input validators (`MarketplaceClient`, `ManifestValidator`, `CapellManifestData` ladders), persisted `#[Computed]` Filament widgets, `ManifestLoader` discovery caching, `Contracts/*` single-implementation SDK interfaces.
+- [x] **RF-SMELL-1.6 [Medium — exact duplication]** — The AST scan found 69 exact duplicate method groups
+      of at least eight lines. The first actionable duplicates are the identical 27-line `parseListOption()` in
+      `InstallCommand`/`SetupCommand`, the 23-line doctor result renderer, repeated marketplace alert-signature
+      verification, and duplicated extension-management URL safety logic. Small Data coercion helpers and
+      framework-required resource methods are intentionally not centralised without a stronger locality gain.
 
----
+- [x] **RF-SMELL-1.7 [Critical findings]** — No new critical correctness or data-leak defect was validated
+      by this refactoring audit. Potential defects discovered during implementation must stop the structural
+      slice and be fixed in a separate behavior-change commit.
 
-## Part C — Refactoring plan (RF-PLAN, maps 1:1 to execution-plan phases)
+- [x] **RF-SMELL-1.8 [Medium — feature envy and inappropriate intimacy]** — The marketplace browser reads
+      presentation-record internals and Composer installation state to make dependency decisions;
+      `BuildExtensionOperationsSummaryAction` reaches into routing, schema, package, marketplace, health, and
+      runtime modules to project one package. Move each decision to the module that owns the required data.
 
-- [ ] **RF-PLAN-0.1 [Template Method / Pull Up]** — one installed-gated boot idiom on `AbstractPackageServiceProvider`.
-  **Target:** all 5 providers. **Reason:** 4 mechanisms for one concern; frontend leaks `registerLivewireComponents` outside its gate. **Risk:** Medium (boot-order sensitivity) — mitigate: provider tests + per-provider slices. **Priority: 1.**
-- [ ] **RF-PLAN-0.2 [Pull Up Method]** — lift `registerAboutInfo` / `registerPackageMetadata` / `registerBlazeComponents` / Livewire-registration helper into the base; delete the copies; drop first-party `class_exists` guards while lifting.
-  **Target:** base + 5 providers. **Reason:** 3–5× duplication with drift. **Risk:** Low. **Priority: 1.**
-- [ ] **RF-PLAN-0.3 [Canonical idiom]** — `callAfterResolving` everywhere; delete hand-rolled `afterResolving`+`resolved()` catch-ups (core :807–819, admin :371–380). **Risk:** Low. **Priority: 2.**
-- [ ] **RF-PLAN-0.4/0.5** — schedule-registration canon (admin's shape); decide `surface()` (adopt in providers or delete). **Risk:** Low. **Priority: 2.**
-- [ ] **RF-PLAN-1.1 [Memoization + Compose Method]** — `HasPackages::getPackages()` single-pass + instance memo; memo `getUninstalledExtensionNames()`; invalidate on mutation. **Risk:** Low-Medium (staleness) — mitigate: invalidation test. **Priority: 1.**
-- [ ] **RF-PLAN-1.2 [Move normalization to constructor / typed accessors]** — `CapellManifestData` accessors replace 14 reshape ternaries in `registerManifestPackage` (:147–167). **Risk:** Low. **Priority: 2.**
-- [ ] **RF-PLAN-1.3 [Extract Class ×3 + dead-code kills]** — `EventSourcingBootstrapper`, `PackageRegistryBootstrapper`, `SettingsBootstrapper`; kill dead guards; fix `CapellCoreManager` double binding (see RF-ITEM-G). **Risk:** Medium (boot path) — mitigate: `PackageCacheCommandTest`, `CorePackageTest`. **Priority: 1.**
-- [ ] **RF-PLAN-2.1 [Replace Conditional with Lookup]** — `scheduleSiteCheck` 19+19+dead-default → data map (RF-ITEM-A). Characterization test first. **Risk:** Low. **Priority: 2.**
-- [ ] **RF-PLAN-2.2 [Extract Class / Move Method]** — theme-runtime HeadClose closure → hook class via `FrontendHookRegistrar` (RF-ITEM-B). Characterization test first. **Risk:** Medium (render output) — pin output. **Priority: 2.**
-- [ ] **RF-PLAN-2.3 [Extract Class + bounded observers]** — component registrar dedup; delete Livewire v2 branch (verify v3+); event subscriber; **evaluate** scoping 3 wildcard `eloquent.*` listeners (RF-ITEM-L — behavior-adjacent; stop-and-surface if wildcard is load-bearing). **Risk:** Medium. **Priority: 2.**
-- [ ] **RF-PLAN-2.4 [Inline / delete]** — `FileViewFinder` self-rebind, one-line wrapper, `is_string` guard-loop helper, gate paginate/Blaze FS work. **Risk:** Low. **Priority: 3.**
-- [ ] **RF-PLAN-3.1 [Characterization tests]** — overview stats, dashboard widgets, model interceptors, settings schemas (no registration tests exist). **Risk:** —. **Priority: 1 (blocks 3.2).**
-- [ ] **RF-PLAN-3.2 [Replace repetition with data]** — the four admin registration walls + report catalog + 3-loop collapse (~250 → ~90 lines). **Risk:** Low after 3.1. **Priority: 2.**
-- [ ] **RF-PLAN-3.3 [Kills]** — implode-classname reservation → plain class-string + `callAfterResolving`; recipients → DB-scoped query resolver (RF-ITEM-H); ActAsOwner subscriber; dormant `Macroable`; inline `Builder::macro` → macros class. **Risk:** Low-Medium. **Priority: 2.**
-- [ ] **RF-PLAN-4.1 [Extract Superclass]** — `AbstractKeyedRegistry` + migrate ~35 Cluster-A registries per package (RF-ITEM-D). **Risk:** Medium (churn volume; concurrent session) — per-package slices, package suite green each. **Priority: 2.**
-- [ ] **RF-PLAN-4.2–4.6 [Consolidations]** — tag-wrapper collapse; one settings write path; bridge-trio dedup; integration idioms 7→2; lifetime/Octane rule fixes (`ThemeRegistry` dead reset, scoped/singleton outliers, bind the `new`'d registries). **Risk:** Medium. **Priority: 2–3.**
-- [ ] **RF-PLAN-4.7 [Octane leak sweep]** — classify all stateful singletons; leak-test harness; fix request-mutable ones. **Risk:** Medium; **Severity addressed: Critical.** **Priority: 1.**
-- [ ] **RF-PLAN-4.8 [Delete speculative surface]** — zero-writer registries keep-or-delete (pre-1.0 window). **Risk:** Low (unreleased). **Priority: 3.**
-- [ ] **RF-PLAN-5.1 [Extract Class ×4]** — CapellAdminManager inline stores → registries on the 4.1 base; facade delegates (RF-ITEM-J). **Risk:** Medium. **Priority: 2.**
-- [ ] **RF-PLAN-5.2 [Move Method / slim god class]** — `HasPackages` → `CapellPackageRegistry` ownership; `HasCache`/`HasModelInterceptors` → bound services; facade signatures frozen (RF-ITEM-K). **Risk:** High (233 consumers) — mitigate: PHPStan + full suite + per-trait slices. **Priority: 2 (after 1.1/1.2).**
-- [ ] **RF-PLAN-6.x [Clarity tail]** — resource-plan action ladders, marketplace reshapes, `SiteLoader` guards, `UpgradePage`/`ContentBuilder` ladders (characterize `ContentBuilder` first), `@php` blades, `collect()->all()` sweep. **Risk:** Low. **Priority: 4–5.**
-- [ ] **RF-PLAN-7.1–7.5 [Guardrails]** — pattern-ratchet Arch tests; boot-perf pins + benchmark; conventions doc; registry test dedup; CI wiring for the offline Playwright spec. **Risk:** Low. **Priority: 2 (each lands right after its canon).**
+### Dependencies and architectural constraints
 
----
+- [x] **RF-DEP-1.1 [Installer flow]** — HTTP routes call `InstallController`, which coordinates
+      `InstallerSessionRepository`, `InstallerPreflight`, `RunInstallAction`/`RunInstallStepAction`,
+      `AdminUserModelGuard`, and `InstallStepResponse`. The refactor must preserve session ownership, lock
+      replacement, completed-step replay, HTTP 409/410 behavior, CSRF refresh fields, peak-memory recording,
+      and the queue/synchronous/step modes.
 
-## Part D — Key refactoring items (before/after)
+- [x] **RF-DEP-1.2 [Console flow]** — `InstallCommand` is both a Symfony command and the
+      `InstallOrchestrationHost`. `InstallInputFactory`, `InstallUserPrompter`, `InstallPackageSetComposer`, and
+      `InstallPostInstallOptionResolver` already provide useful seams; deepen those instead of adding another
+      generic command framework.
 
-- [ ] **RF-ITEM-A `scheduleSiteCheck` → data map**
-  **Pattern:** Replace Conditional with Lookup Table. **Before:** 19-entry whitelist array + `in_array` + 19-arm `match` re-listing the same strings + unreachable `default` (47 lines, runs every web request). **After:** one `array<string, string>` map, one guarded dynamic call, `runningInConsole()` gate (~12 lines). **Metrics:** 47→~12 lines; branch count 20→2; web-request cost → 0.
+- [x] **RF-DEP-1.3 [Marketplace flow]** — `MarketplaceExtensionsBrowser` reads records from
+      `MarketplaceCatalogueRecordProvider`, which reads API Data through `MarketplaceClient`. Installation is
+      delegated through `MarketplaceCatalogueTable` to `InstallMarketplaceExtensionAction`. Selection review
+      and install authorization are related but distinct domain modules and must remain separate.
 
-- [ ] **RF-ITEM-B Theme-runtime render hook → class**
-  **Pattern:** Extract Class + route through existing seam. **Before:** 66-line inline closure in the provider doing theme resolution, token merging, `is_file`/`file_get_contents`, CSS emit — the only inline hook registration in the repo, bypassing `FrontendHookRegistrar`. **After:** `Support/Themes/ThemeRuntimeCssHook` registered via `FrontendHookRegistrar::contribute()`; provider one-liner. **Metrics:** provider −65 lines; hook independently testable; FS read memoizable.
+- [x] **RF-DEP-1.4 [Extension operations]** — `BuildExtensionOperationsSummaryAction` is a shared source
+      for dependency, runtime, update, diagnostics, audit, dashboard, and management-entry modules. Its output
+      Data and request-cache key are stable seams; consumers should not be rewritten during extraction.
 
-- [ ] **RF-ITEM-C `getPackages()` memoization**
-  **Pattern:** Memoization (repo's own instance-cache idiom). **Before:** `collect($this->packages)->sortBy(...)->values()->all()` then `collect($sortedArray)->keyBy(...)` on every call; ≥3 calls per admin request. **After:** single chain + `$this->packagesCache[$cacheKey] ??=`; cleared alongside the trait's existing caches. **Metrics:** O(n log n)×k per request → ×1; zero API change.
+- [x] **RF-DEP-1.5 [Pattern decision]** — Use Extract Class, Compose Method, Introduce Parameter Object,
+      Factory, and guard clauses. Do not add speculative interfaces, inheritance, Observer, Decorator, or
+      Strategy hierarchies: the current variations do not have two concrete adapters. Queue/synchronous/step
+      installer modes can delegate to three Actions through an enum/match without a new interface.
 
-- [ ] **RF-ITEM-D `AbstractKeyedRegistry`**
-  **Pattern:** Extract Superclass. **Before:** ~35 classes each re-implement `private array $items` + `register()` + reader + dump with divergent verbs (`get`/`provider`/`definition`/`classes`/`getSchema`; `all`/`definitions`/`getReports`). **After:** one base with `register/get/has/all/clear`; subclasses keep only domain logic (sorting, grouping); call sites renamed to canon verbs (unreleased — no aliases). **Metrics:** ~35 × ~40 lines of duplicate mechanics → 1 base + thin subclasses; one behavior test suite replaces ~35 copy-paste suites.
+- [x] **RF-DEP-1.6 [Modernisation decision]** — No JavaScript/TypeScript module is in the selected
+      production scope, so callback-to-async/await, optional chaining, destructuring, and TypeScript interface
+      work are not applicable. PHP changes must retain strict types, explicit return/parameter types, readonly
+      Data where appropriate, and current project syntax conventions.
 
-- [ ] **RF-ITEM-E `registerAboutInfo` ×3 → base**
-  **Pattern:** Pull Up Method + remove impossible-state guards. **Before:** byte-identical method in 3 providers, each guarding `class_exists(AboutCommand)` and `class_exists(InstalledVersions)` (always true). **After:** one base method using `static::$name`/`static::$packageName`; guards reduced to `runningInConsole()`. **Metrics:** 3 copies → 1; −2 dead guards ×3.
+### Test coverage inventory
 
-- [ ] **RF-ITEM-G Core manager double binding**
-  **Pattern:** Replace duplicate binding with alias (frontend's idiom is canon). **Before:** `scoped('capell-admin', fn() => new CapellCoreManager)` **and** `singleton(CapellCoreManager::class, fn() => new CapellCoreManager)` — two instances, two lifetimes, misleading string key. **After:** one `singleton(CapellCoreManager::class, ...)` + `alias('capell-admin', CapellCoreManager::class)` (verify `'capell-admin'` consumers first — may be public API). **Metrics:** 1 instance; state consistency between access paths.
+The counts below are static Pest test declarations in the named current files, not a fresh pass claim.
+`coverage/clover.xml` is dated 2026-07-12 and is too stale for current line-coverage decisions.
 
-- [ ] **RF-ITEM-H Package-operation recipients**
-  **Pattern:** Extract Class + push predicate into the query. **Before:** `$userModel::query()->get()->filter(fn ($user) => method_exists(...) && ...)` — full-table hydration + per-row reflection. **After:** dedicated resolver; DB-scoped query where the model supports it, preserving the optional-method tolerance for models that don't. **Metrics:** O(all users) hydration → bounded query; provider −20 lines. *Behavior-adjacent: keep result set identical; test with both user-model shapes.*
+| ID          | Seam                         |                                              Existing tests | Behavior already characterised                                                                                | Gap before extraction                                                               |
+| ----------- | ---------------------------- | ----------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| RF-TEST-1.1 | Web installer controller     |                                                         131 | page/session access, queue/sync/step runs, locks, reports, preflight, CSRF, success/removal                   | No direct step-runner or report-builder tests because logic lives in the controller |
+| RF-TEST-1.2 | Console install              |                                                          92 | options, prompts, profiles, fresh/demo/package/theme/user choices, failure and handoff paths                  | No typed resolved-console-input contract; `handle()` is the only integrated seam    |
+| RF-TEST-1.3 | Marketplace browser/review   |                                                          38 | direct/transitive dependencies, beta acknowledgement, hosted flow, filters, selection and local-state privacy | Review Data is an anonymous 17-key array and cannot be tested independently         |
+| RF-TEST-1.4 | Catalogue record provider    |                 68 direct table tests plus browser coverage | pagination, stale cache, filtering, local inventory, safety, compatibility and action state                   | Mapper/query responsibilities are only indirectly testable                          |
+| RF-TEST-1.5 | Marketplace client           |                                                          31 | connection, catalogue, context, heartbeat, authorization, telemetry and purchase failures                     | Protocol groups cannot be run or faked independently                                |
+| RF-TEST-1.6 | Marketplace install action   | 10 focused action/policy tests plus table integration tests | maturity, entitlement, authorization, ledger and queue outcomes                                               | UI notification behavior and install decision logic share one Action                |
+| RF-TEST-1.7 | Extension operations summary |                                                          11 | manifests, drift, alerts, safe links/images and downstream derived surfaces                                   | Per-package projection has no direct test seam                                      |
 
-- [ ] **RF-ITEM-I Manifest reshape ladders → typed accessors**
-  **Pattern:** Move normalization to construction. **Before:** 14 `is_string($manifest->commands['install'] ?? null) ? ... : null`-style reshapes per package per boot. **After:** `CapellManifestData::installCommand(): ?string` etc., normalized once. **Metrics:** per-boot reshapes → 0; `registerManifestPackage` −~14 branches.
+- [x] **RF-TEST-1.8 [Audit-time verification boundary]** — A focused 381-test invocation covering these
+      files was started, then stopped with exit 130 before results because unrelated Pest processes entered the
+      same shared checkout. No pass/fail claim is made. Run the commands below only when no other shared-database
+      suite is active.
 
-- [ ] **RF-ITEM-J CapellAdminManager inline stores → registries**
-  **Pattern:** Extract Class (finish the half-done migration). **Before:** four keyed-array stores (dashboard widgets + ~180 lines of sort helpers, marketing actions, user-menu items, overview stats) inline, beside three already-extracted registries in the same constructor. **After:** four `AbstractKeyedRegistry` subclasses; manager facade-delegates. **Metrics:** 756 → ~350 lines; zero facade signature changes.
+## Refactoring Plan
 
-- [ ] **RF-ITEM-K `HasPackages` → `CapellPackageRegistry`**
-  **Pattern:** Move Method (fix Feature Envy: the 692-line trait wraps the 124-line registry that already exists). **Before:** trait owns storage + logic; registry is `new`'d, unbound, shadowed. **After:** container-bound registry owns storage/logic; trait methods delegate (facade frozen). **Metrics:** god-manager −~550 effective lines; registry becomes swappable/testable.
+- [ ] **RF-PLAN-0.1 [Characterisation baseline]**
+    - **Target:** Existing tests named in `RF-CMD-1.1` and new direct tests for each extracted Action/Data pair.
+    - **Reason:** Preserve observable routes, payloads, install order, ledger rows, notifications, and cache
+      behavior before changing ownership.
+    - **Risk:** Low. Do not rewrite existing assertions to follow implementation details.
+    - **Priority:** 1.
+    - **Effort:** Small; one baseline commit only if genuinely missing behavior tests are added.
+    - **Success metric:** Existing assertions unchanged; every new module is tested through its public
+      interface; fresh focused coverage is recorded before its production extraction.
 
-- [ ] **RF-ITEM-L Wildcard eloquent listeners → bounded**
-  **Pattern:** Replace global hook with targeted observers. **Before:** 3 `eloquent.{created,updated,deleted}: *` listeners fire `ErrorPageModelInvalidationObserver` for every model event of every request. **After (if verified safe):** observer attached to the bounded model set that can affect error pages. **Metrics:** per-model-event global dispatch → targeted. *Stop-and-surface if arbitrary page-type models make the wildcard load-bearing.*
+- [ ] **RF-PLAN-1.1 [Introduce Parameter Object]**
+    - **Target:** `RecordMarketplaceInstallAttemptAction`, its six call sites, and new
+      `MarketplaceInstallAttemptData`.
+    - **Reason:** Replace an 18-parameter write interface and duplicated ledger-context assembly with one
+      immutable typed boundary while preserving the one-app-writer and append-only contracts.
+    - **Risk:** Medium; a missing field could silently change audit evidence. Compare complete persisted rows
+      in tests before and after.
+    - **Priority:** 1; preparatory for `RF-PLAN-2.1`.
+    - **Effort:** Medium; two independently revertible commits (Data + Action, then call-site migration).
+    - **Success metric:** Action parameters 18 → 2 (`Data`, optional user); all six callers migrated; database
+      attributes and enum values byte-for-byte equivalent.
 
----
+- [ ] **RF-PLAN-1.2 [Extract Class + Data boundary]**
+    - **Target:** `MarketplaceExtensionsBrowser::marketplaceSelectionReview()` and selection-only helpers;
+      add `BuildMarketplaceSelectionReviewAction`, `ExecuteMarketplaceSelectionAction`, and typed review/
+      execution Data.
+    - **Reason:** Move recursive dependency expansion and install-impact policy out of Livewire while keeping
+      authorization, notifications, redirects, and rendering in the UI adapter.
+    - **Risk:** Medium-high; transitive dependency and beta/entitlement decisions are commercial contracts.
+      Pin ordering and every returned key before extraction.
+    - **Priority:** 1; recommended first behavior-preserving extraction.
+    - **Effort:** Large; four slices (review Data/Action, execution Data/Action, then Livewire delegation).
+    - **Success metric:** `marketplaceSelectionReview()` 165 → ≤15 LOC and complexity 29 → ≤3;
+      component ≤200 LOC; extracted methods ≤20 LOC/complexity ≤10; returned array and order unchanged.
 
-## Part E — Proposed code changes (sketches; validate before applying)
+- [ ] **RF-PLAN-1.3 [Extract Actions + Compose Method]**
+    - **Target:** `InstallController::store()`, `runStep()`, `report()`, and `prepareStepBasedInstall()`; add
+      `StartInstallerRunAction`, `RunInstallerStepAction`, `BuildInstallerReportAction`, and typed result Data.
+    - **Reason:** Make the controller an HTTP adapter and put install session transitions behind an Action
+      interface that can be tested without route/request setup.
+    - **Risk:** High; session access, replay, status codes, CSRF and failure payloads are installer contracts.
+      Extract one route method per commit.
+    - **Priority:** 1.
+    - **Effort:** Large; four to five focused commits.
+    - **Success metric:** Controller ≤200 LOC; every route method ≤20 LOC and complexity ≤10; result Data is
+      the sole input to `InstallStepResponse`; all 131 existing tests retain their assertions.
 
-### E.1 Base provider additions (`packages/core/src/Support/Packages/AbstractPackageServiceProvider.php`)
+- [ ] **RF-PLAN-1.4 [Extract Class + Move Method]**
+    - **Target:** `InstallCommand::handle()` plus option/profile/package/theme/user resolution; add
+      `ResolveConsoleInstallInputAction`, `ResolvedConsoleInstallData`, and a focused console orchestration
+      host/presenter module. Move the exact `parseListOption()` clone to one CLI parser.
+    - **Reason:** Keep the Symfony command responsible for input/output dispatch while Actions/Data own the
+      resolved install request and existing `OrchestrateInstallAction` owns execution.
+    - **Risk:** High; interactive/non-interactive defaults and destructive confirmation order are public CLI
+      behavior. Preserve prompt order and exception strings.
+    - **Priority:** 1, after the web installer extraction so shared install concepts are clear.
+    - **Effort:** Large; four to six focused commits.
+    - **Success metric:** `handle()` 268 → ≤20 LOC and complexity 27 → ≤5; command ≤200 LOC; every extracted
+      class ≤200 LOC; `InstallInputData` equality asserted for all 92 existing scenarios.
 
-```php
-protected function bootWhenInstalled(): void
-{
-    $this->app->booted(function (): void {
-        if ($this->isDiscoveringPackages() || ! $this->isPackageInstalled()) {
-            return;
-        }
+- [ ] **RF-PLAN-2.1 [Extract Class + explicit execution context]**
+    - **Target:** `InstallMarketplaceExtensionAction`; add `MarketplaceInstallExecutionData`,
+      `ResolveMarketplaceInstallDecisionAction`, and `SendMarketplaceInstallOutcomeNotificationAction`.
+    - **Reason:** Separate entitlement/maturity/authorization decisions from Filament notifications and remove
+      mutable `$activeRequest`/`$activePolicyEvidence` state.
+    - **Risk:** High; checkout, authorization, telemetry, queueing and ledger outcomes must remain immutable.
+      Keep `InstallMarketplaceExtensionAction::run()` as the compatibility entrypoint until all callers migrate.
+    - **Priority:** 2; requires `RF-PLAN-1.1`.
+    - **Effort:** Large; four focused commits.
+    - **Success metric:** Action ≤200 LOC; `handle()` ≤20 LOC/complexity ≤5; zero mutable per-run properties;
+      domain Actions do not import Filament notifications; identical redirect/notification/ledger outcomes.
 
-        $this->bootInstalledPackage();
-    });
-}
+- [ ] **RF-PLAN-2.2 [Factory + Extract Class + Move Method]**
+    - **Target:** `MarketplaceCatalogueRecordProvider`; add `MarketplaceCatalogueQueryFactory`,
+      `MarketplaceCataloguePageReader`, and `MarketplaceCatalogueRecordMapper`.
+    - **Reason:** Separate filter/query normalisation, remote page/backfill traversal, and local/presentation
+      projection. These are cohesive modules with different change reasons and test surfaces.
+    - **Risk:** Medium-high; local-state privacy, hidden records, totals and page backfill are coupled contracts.
+    - **Priority:** 2.
+    - **Effort:** Large; three to four commits after direct characterisation tests.
+    - **Success metric:** Coordinator ≤200 LOC; each extracted class ≤200 LOC; max method complexity ≤10;
+      same API requests, page totals, record order, labels, safe URLs, and local-state redaction.
 
-// Providers override; canonical signature (today: admin `private self`, frontend `public void`).
-protected function bootInstalledPackage(): void {}
+- [ ] **RF-PLAN-2.3 [Extract Class by protocol]**
+    - **Target:** `MarketplaceClient`; split connection/install-flow, catalogue, authorization/telemetry, and
+      heartbeat into concrete clients. Share only a small request/response implementation module; add no
+      interface until a second adapter exists.
+    - **Reason:** Each protocol has different signing, caching, validation, and error modes. The current broad
+      interface forces unrelated callers/tests to know the whole implementation.
+    - **Risk:** High; signing inputs, cache keys, endpoint paths, exception text, 404 behavior and approval URL
+      validation are contracts. Verify the stable-extension catalogue before deleting the old class.
+    - **Priority:** 3; do after record-provider ownership is clear.
+    - **Effort:** Large; one protocol per commit.
+    - **Success metric:** Each client ≤200 LOC and method complexity ≤10; no endpoint/cache/signature/error
+      drift; callers depend only on the protocol they use; `check:stable-extension-api` remains green.
 
-protected function registerAboutInfo(): void
-{
-    if (! $this->app->runningInConsole()) {
-        return;
-    }
+- [ ] **RF-PLAN-2.4 [Introduce Parameter Object + Extract Class]**
+    - **Target:** `BuildExtensionOperationsSummaryAction::packageSummary()` and its URL/image/health helpers;
+      add `ExtensionOperationPackageContextData` and `BuildExtensionOperationPackageAction`.
+    - **Reason:** Keep summary aggregation/cache ownership local while moving per-package projection behind a
+      directly testable Action.
+    - **Risk:** Medium; downstream dependency/runtime/update/audit modules consume the exact Data fields.
+    - **Priority:** 2.
+    - **Effort:** Medium; two to three commits.
+    - **Success metric:** Aggregator ≤200 LOC; package builder ≤200 LOC; `packageSummary()` complexity 36 →
+      delegated call ≤3; `ExtensionOperationsSummaryData` remains identical for all fixtures.
 
-    AboutCommand::add('Capell', [
-        static::getName() => InstalledVersions::getPrettyVersion(static::$packageName),
-    ]);
-}
-```
+- [ ] **RF-PLAN-3.1 [Targeted duplicate consolidation]**
+    - **Target:** CLI list-option parser, doctor result presenter, marketplace alert-signature verifier, and
+      extension management-link resolver.
+    - **Reason:** These clones contain behavior or safety policy that can drift. Do not centralise trivial Data
+      coercers or framework boilerplate merely to reduce a duplicate count.
+    - **Risk:** Low-medium; move one exact clone group per commit and retain caller-level tests.
+    - **Priority:** 4.
+    - **Effort:** Small per clone group.
+    - **Success metric:** Four high-value exact clone groups → zero; no generic `Utils`/`Helpers` class; each
+      replacement module has a domain name and at least two callers.
 
-### E.2 `scheduleSiteCheck` replacement (frontend provider, currently L614–660)
+- [ ] **RF-PLAN-4.1 [Guardrails and documentation]**
+    - **Target:** Package Arch tests, `docs/packages/installer-extension-contracts.md`,
+      `docs/packages/marketplace-extension-contracts.md`, and relevant development command docs.
+    - **Reason:** Prevent controllers/Livewire modules from reacquiring domain execution and record the new
+      module interfaces for maintainers.
+    - **Risk:** Low.
+    - **Priority:** 2; land each guard immediately after the rule becomes true, and use documentation to
+      close each phase.
+    - **Effort:** Small.
+    - **Success metric:** Installer controllers no longer directly use core run Actions/jobs; the marketplace
+      browser no longer uses Composer runtime inspection or install-attempt models; marketplace decision
+      Actions do not use Filament notification classes.
 
-```php
-private const SCHEDULE_FREQUENCIES = [
-    'everyMinute' => 'everyMinute', 'everyFiveMinutes' => 'everyFiveMinutes',
-    // ... one entry per supported name; single source of truth
-];
+## Refactoring Items
 
-private function scheduleSiteCheck(): void
-{
-    if (! $this->app->runningInConsole()) {
-        return;
-    }
+- [ ] **RF-ITEM-1.1 [Controller-owned install step → Action result]**
+    - **Pattern Applied:** Extract Class, Compose Method, Data boundary.
+    - **Before:** `InstallController::runStep()` reads session state, validates sequence, executes preflight or
+      a step, records memory/status, clears locks, and constructs HTTP responses in 103 LOC/complexity 21.
+    - **After:** `RunInstallerStepAction` owns the state transition and returns `InstallerStepResultData`;
+      `InstallStepResponse` maps that result to the unchanged JSON contract.
+    - **Metrics:** Controller 555 → ≤200 LOC; route method 103 → ≤15 LOC; complexity 21 → ≤3.
 
-    $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
-        $frequency = self::SCHEDULE_FREQUENCIES[config('capell-frontend.schedule_page_cleaner')] ?? null;
-        if ($frequency === null) {
-            return; // invalid config: silently skip or Log::warning once — keep current logging behavior
-        }
-        $schedule->command(/* current command */)->{$frequency}();
-    });
-}
-```
+- [ ] **RF-ITEM-1.2 [Anonymous selection array → typed review module]**
+    - **Pattern Applied:** Extract Class, Introduce Parameter Object.
+    - **Before:** Livewire builds and caches a 17-key array, traverses dependencies, queries missing records,
+      derives beta/price/impact state, and recursively calls itself to return the cached value.
+    - **After:** `BuildMarketplaceSelectionReviewAction` returns `MarketplaceSelectionReviewData`; Livewire
+      caches the Data, delegates install-flow execution, and exposes `toArray()` only at the view boundary.
+    - **Metrics:** Component 961 → ≤200 LOC; method 165 → ≤15 LOC; complexity 29 → ≤3; duplicated
+      array-shape PHPDoc 2 → 0.
 
-### E.3 `getPackages()` memo (`packages/core/src/Concerns/HasPackages.php` L197–219)
+- [ ] **RF-ITEM-1.3 [18 ledger arguments → immutable record input]**
+    - **Pattern Applied:** Introduce Parameter Object.
+    - **Before:** Six call sites pass up to 18 named arguments and reconstruct actor/source/policy/context.
+    - **After:** One `MarketplaceInstallAttemptData` captures the immutable write contract; the Action adds only
+      persistence timestamp and authenticated-user projection.
+    - **Metrics:** Parameters 18 → 2; four repeated argument blocks in the install Action → 0.
 
-```php
-/** @var array<string, Collection<string, PackageData>> */
-private array $packagesCache = [];
+- [ ] **RF-ITEM-1.4 [Command god method → resolved console input]**
+    - **Pattern Applied:** Extract Class, Compose Method, Move Method.
+    - **Before:** `handle()` mixes destructive confirmation, package/theme/user choices, post-install options,
+      DTO construction, orchestration, presentation and failure mapping.
+    - **After:** a resolver returns `ResolvedConsoleInstallData`; the command chooses plan vs execute and the
+      existing orchestration Action performs the install.
+    - **Metrics:** 268 → ≤20 LOC; complexity 27 → ≤5; exact list parser copies 2 → 1.
 
-public function getPackages(bool $sortByDependencies = false /* keep current signature */): Collection
-{
-    $cacheKey = $sortByDependencies ? 'sorted' : 'unsorted';
+- [ ] **RF-ITEM-1.5 [UI-aware install Action → decision + presentation]**
+    - **Pattern Applied:** Extract Class, Replace Mutable State with Parameter.
+    - **Before:** one Action imports Filament, writes ledger entries, authorizes, queues, dispatches telemetry,
+      stores call state, and returns redirect strings.
+    - **After:** decision/execution Data flows through pure domain Actions; a notification Action presents the
+      outcome; the existing public entrypoint remains a thin compatibility module.
+    - **Metrics:** 688 → ≤200 LOC; mutable run fields 2 → 0; domain-to-Filament imports → 0.
 
-    return $this->packagesCache[$cacheKey] ??= collect($this->packages)
-        ->when($sortByDependencies, fn (Collection $packages) => $packages->sortBy($this->getSort(...))->values())
-        ->keyBy(fn (PackageData $package): string => $package->name);
-}
-// clearPackages()/clearExtensionCache()/registerManifestPackage(): $this->packagesCache = [];
-```
+- [ ] **RF-ITEM-1.6 [Broad catalogue provider → three deep modules]**
+    - **Pattern Applied:** Factory, Extract Class, Move Method.
+    - **Before:** one 1,049-line module owns filters, API traversal, local state, compatibility and rendering.
+    - **After:** query factory, page reader and record mapper each expose one cohesive interface; the provider
+      coordinates them for existing callers.
+    - **Metrics:** coordinator ≤200 LOC; max complexity 16 → ≤10; no change in remote request count.
 
-### E.4 Core manager binding fix (`CapellServiceProvider` L500/L510)
+- [ ] **RF-ITEM-1.7 [Summary projection wall → per-package Action]**
+    - **Pattern Applied:** Introduce Parameter Object, Extract Class.
+    - **Before:** a six-parameter, complexity-36 method derives every field and reaches into routing, schema,
+      package, marketplace, health and runtime state.
+    - **After:** an immutable context feeds one package builder; summary aggregation/cache ownership stays in
+      the original Action.
+    - **Metrics:** method 91 → ≤10 LOC; complexity 36 → ≤3; aggregator ≤200 LOC.
+
+## Proposed Code Changes
+
+- [ ] **RF-PATCH-1.1 [Installer step result seam]** — Implement the following shape; preserve current
+      response keys/status codes in `InstallStepResponse` rather than duplicating them in the Action.
 
 ```diff
-- $this->app->scoped('capell-admin', fn (): CapellCoreManager => new CapellCoreManager);
-  ...
-  $this->app->singleton(CapellCoreManager::class, fn (): CapellCoreManager => new CapellCoreManager);
-+ $this->app->alias(CapellCoreManager::class, 'capell-admin');
+diff --git a/packages/installer/src/Http/Controllers/InstallController.php b/packages/installer/src/Http/Controllers/InstallController.php
+@@
+-public function runStep(RunInstallStepRequest $request): JsonResponse
+-{
+-    // session lookup, ordering, preflight, execution, persistence, response mapping
+-}
++public function runStep(RunInstallStepRequest $request): JsonResponse
++{
++    abort_unless($this->canAccessInstall($request, (string) $request->validated('install_id')), 404);
++
++    return $this->stepResponse->fromResult(RunInstallerStepAction::run(
++        installId: (string) $request->validated('install_id'),
++        stepKey: (string) $request->validated('step'),
++    ));
++}
+diff --git a/packages/installer/src/Data/InstallerStepResultData.php b/packages/installer/src/Data/InstallerStepResultData.php
+new file mode 100644
+@@
++final readonly class InstallerStepResultData
++{
++    /** @param array<string, mixed> $additional */
++    public function __construct(
++        public string $installId,
++        public string $status,
++        public ?string $currentStep,
++        public ?string $nextStep,
++        public string $logPath,
++        public ?string $error = null,
++        public int $httpStatus = 200,
++        public array $additional = [],
++    ) {}
++}
 ```
 
-### E.5 `AbstractKeyedRegistry` (new, `packages/core/src/Support/Registries/`)
+- [ ] **RF-PATCH-1.2 [Typed marketplace selection review]** — Keep the public Livewire array shape while
+      moving construction and caching to typed modules.
 
-```php
-/** @template TItem */
-abstract class AbstractKeyedRegistry
-{
-    /** @var array<string, TItem> */
-    private array $items = [];
-
-    /** @param TItem $item */
-    public function register(string $key, mixed $item): void { $this->items[$key] = $item; }
-    /** @return TItem|null */
-    public function get(string $key): mixed { return $this->items[$key] ?? null; }
-    public function has(string $key): bool { return array_key_exists($key, $this->items); }
-    /** @return array<string, TItem> */
-    public function all(): array { return $this->items; }
-    public function clear(): void { $this->items = []; }
-}
-// Subclasses keep domain-specific readers (sorted dumps, grouping) and typed register() overloads
-// that extract the key from the DTO and forward to parent::register().
+```diff
+diff --git a/packages/marketplace/src/Filament/Livewire/MarketplaceExtensionsBrowser.php b/packages/marketplace/src/Filament/Livewire/MarketplaceExtensionsBrowser.php
+@@
+-private ?array $resolvedMarketplaceSelectionReview = null;
++private ?MarketplaceSelectionReviewData $resolvedMarketplaceSelectionReview = null;
+@@
+ public function marketplaceSelectionReview(): array
+ {
+-    // recursive dependency resolution and 17-key array construction
++    return ($this->resolvedMarketplaceSelectionReview ??= BuildMarketplaceSelectionReviewAction::run(
++        selectedComposerNames: $this->normalizedSelectedMarketplaceComposerNames(),
++        lockedKind: $this->lockedKind,
++        includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
++        canManageExtensions: ExtensionsPage::canManageExtensions(),
++    ))->toArray();
+ }
+diff --git a/packages/marketplace/src/Actions/BuildMarketplaceSelectionReviewAction.php b/packages/marketplace/src/Actions/BuildMarketplaceSelectionReviewAction.php
+new file mode 100644
+@@
++final class BuildMarketplaceSelectionReviewAction
++{
++    use AsFake;
++    use AsObject;
++
++    /** @param list<string> $selectedComposerNames */
++    public function handle(
++        array $selectedComposerNames,
++        ?string $lockedKind,
++        bool $includeLocalExtensionState,
++        bool $canManageExtensions,
++    ): MarketplaceSelectionReviewData {
++        // Compose focused methods: explicit records, dependency closure, totals, impact, final decision.
++    }
++}
 ```
 
----
+- [ ] **RF-PATCH-1.3 [Marketplace install attempt input]** — Preserve model fillable keys and row values.
 
-## Part F — Commands
+```diff
+diff --git a/packages/marketplace/src/Actions/RecordMarketplaceInstallAttemptAction.php b/packages/marketplace/src/Actions/RecordMarketplaceInstallAttemptAction.php
+@@
+-public function handle(
+-    string $extensionSlug,
+-    string $extensionName,
+-    string $composerName,
+-    string $kind,
+-    MarketplaceInstallIntentStatus $status,
+-    // 13 more parameters
+-): MarketplaceInstallAttempt {
++public function handle(
++    MarketplaceInstallAttemptData $attempt,
++    ?Authenticatable $user = null,
++): MarketplaceInstallAttempt {
+     return MarketplaceInstallAttempt::query()->create([
+-        'composer_name' => $composerName,
++        'composer_name' => $attempt->composerName,
+         // one explicit mapping for every existing persisted field
+     ]);
+ }
+```
+
+- [ ] **RF-PATCH-1.4 [Console install resolution]** — Reuse the existing install factory/planner modules;
+      do not create a second orchestration pipeline.
+
+```diff
+diff --git a/packages/core/src/Console/Commands/InstallCommand.php b/packages/core/src/Console/Commands/InstallCommand.php
+@@
+ public function handle(): int
+ {
+-    // 268 lines of option resolution and orchestration
++    $resolution = ResolveConsoleInstallInputAction::run(ConsoleInstallOptionsData::fromInput($this->input));
++
++    if ($resolution->exitCode !== null) {
++        return $resolution->exitCode;
++    }
++
++    return $resolution->planOnly
++        ? $this->finishPlanOnlyInstall($resolution->input)
++        : $this->runInstallOrchestrationFrom($resolution);
+ }
+```
+
+- [ ] **RF-PATCH-1.5 [Package summary context]** — Keep aggregation and request caching in the current Action.
+
+```diff
+diff --git a/packages/admin/src/Actions/Extensions/BuildExtensionOperationsSummaryAction.php b/packages/admin/src/Actions/Extensions/BuildExtensionOperationsSummaryAction.php
+@@
+-private function packageSummary(
+-    CapellManifestData $manifest,
+-    ?PackageData $package,
+-    ?CapellExtension $extension,
+-    Collection $alerts,
+-    bool $marketplaceAccountConnected,
+-    array $contributions,
+-): ExtensionOperationPackageData {
+-    // 91 lines of projection
+-}
++private function packageSummary(ExtensionOperationPackageContextData $context): ExtensionOperationPackageData
++{
++    return BuildExtensionOperationPackageAction::run($context);
++}
+```
+
+- [ ] **RF-PATCH-1.6 [No speculative pattern files]** — Do not add `*Strategy`, `*Observer`, `*Decorator`,
+      `Abstract*`, `Base*`, or generic `Utils`/`Helpers` files unless a concrete second implementation/caller is
+      present in the same slice and the deletion test shows that complexity would otherwise return to callers.
+
+## Refactoring Safety
+
+- [ ] **RF-SAFE-1.1 [Pre-refactoring]** — Freshness-check every target with `git status --short` and
+      `git log -3 --oneline -- <target>`. Start only when the target paths have no uncommitted owner changes;
+      preserve unrelated dirty paths. Record the focused test/coverage and metric baseline before production
+      edits.
+- [ ] **RF-SAFE-1.2 [During refactoring]** — Apply one named refactoring per commit, run its direct and
+      caller-level tests immediately, and stop the slice on any unexplained behavior difference. Do not stack
+      follow-up fixes on an unverified extraction.
+- [ ] **RF-SAFE-1.3 [Post-refactoring]** — Re-run focused tests, static analysis, format, full phase gates,
+      and the metric scan. Review the complete diff for public-interface drift and record any remaining debt.
+- [ ] **RF-SAFE-1.4 [Communication]** — Each commit/PR records the pattern, before/after metrics, preserved
+      contracts, verification commands/results, trade-offs, and rollback unit. Never describe planned or
+      partially verified work as complete.
+
+## Commands
+
+- [ ] **RF-CMD-1.1 [Focused behavior baseline]** — Run serially when no other shared-database Pest process
+      is active:
 
 ```bash
-# Freshness check before every task (concurrent session!)
-git status --short && git log --oneline -3 -- <target files>
-
-# Per slice
-vendor/bin/pest <covering test paths> --configuration=phpunit.xml
-composer analyze                     # PHPStan level 8, reportUnmatchedIgnoredErrors
-
-# Phase end
-composer test                        # clear + prepare + full parallel pest
-composer preflight                   # phpstan + rector-dry + pint + prettier + eslint + pest
-
-# JS/browser-touching slices (Phase 7.5)
-npm run test:installer-browser
-
-# Docs-touching slices
-composer check:docs-links && composer check:docs-orphans
-composer check:extension-surfaces && composer check:stable-extension-api
-
-# Boot benchmark (Phase 7.2; scratchpad script, numbers into ledger + commit messages)
-php <scratchpad>/boot-bench.php   # boots testbench app N times, prints median ms
+php -d memory_limit=2G -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest \
+  packages/installer/tests/Feature/InstallControllerTest.php \
+  packages/installer/tests/Unit/InstallerSessionRepositoryTest.php \
+  packages/core/tests/Feature/Commands/InstallCommandTest.php \
+  packages/core/tests/Feature/Commands/InstallCommandPlanCoverageTest.php \
+  packages/core/tests/Feature/Commands/InstallCommandWelcomeRouteTest.php \
+  packages/core/tests/Unit/Console/InstallCommandOptionResolutionTest.php \
+  packages/core/tests/Unit/Support/Install/Cli/InstallPackageSetComposerTest.php \
+  packages/core/tests/Unit/Support/InstallInputFactoryTest.php \
+  packages/marketplace/tests/Feature/Filament/MarketplaceExtensionsBrowserTest.php \
+  packages/marketplace/tests/Feature/Filament/MarketplaceInstallImpactReviewTest.php \
+  packages/marketplace/tests/Feature/Filament/MarketplaceCatalogueTableTest.php \
+  packages/marketplace/tests/Feature/Services/MarketplaceClientTest.php \
+  packages/marketplace/tests/Feature/Actions/InstallMarketplaceExtensionActionTest.php \
+  packages/marketplace/tests/Feature/Actions/MarketplaceInstallMaturityPolicyTest.php \
+  packages/admin/tests/Feature/Extensions/ExtensionOperationsSummaryTest.php \
+  --compact --configuration=phpunit.xml
 ```
 
----
+- [ ] **RF-CMD-1.2 [Per-slice static analysis and format]** — Example for the first installer extraction;
+      repeat with the exact owned paths for each later slice and never include unrelated working-tree changes.
 
-## Part G — Quality assurance checklist (verify before declaring any phase done)
+```bash
+XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon \
+  packages/installer/src/Actions/RunInstallerStepAction.php \
+  packages/installer/src/Data/InstallerStepResultData.php \
+  packages/installer/src/Http/Controllers/InstallController.php \
+  packages/installer/src/Http/Responses/InstallStepResponse.php
+vendor/bin/pint --test \
+  packages/installer/src/Actions/RunInstallerStepAction.php \
+  packages/installer/src/Data/InstallerStepResultData.php \
+  packages/installer/src/Http/Controllers/InstallController.php \
+  packages/installer/src/Http/Responses/InstallStepResponse.php
+git diff --check -- \
+  packages/installer/src/Actions/RunInstallerStepAction.php \
+  packages/installer/src/Data/InstallerStepResultData.php \
+  packages/installer/src/Http/Controllers/InstallController.php \
+  packages/installer/src/Http/Responses/InstallStepResponse.php
+```
 
-- [ ] **RF-QA-1** All existing tests pass **without modifying assertions** (exceptions: tests deleted with the dead code they pinned — named in the commit).
-- [ ] **RF-QA-2** Each slice is one revertable commit; no behavior change mixed into structural slices (behavior-adjacent items — RF-ITEM-H/L, sync-branch backlog — are their OWN commits with the equivalence argument in the message).
-- [ ] **RF-QA-3** Before/after metrics recorded in the ledger against the §B.1 table.
-- [ ] **RF-QA-4** Facade signatures (`CapellCore`, `CapellAdmin`) unchanged — PHPStan across 233/98 consumer files is the proof.
-- [ ] **RF-QA-5** Binding keys, container tags (`Resettable`!), and registration phases identical — `FrontendPackageTest`/`CorePackageTest`/`PolicyRegistrationTest` pass unmodified.
-- [ ] **RF-QA-6** No new pattern variants introduced: every new class uses the canon (keyed-registry base, `callAfterResolving`, tags/bridge integration) — enforced by the Phase 7 Arch tests once landed.
-- [ ] **RF-QA-7** Perf claims quantified (ops removed, with file:line) — no unmeasured "faster".
-- [ ] **RF-QA-8** Remaining debt logged: anything skipped due to concurrent-session collision goes to the ledger with a revisit note.
+- [ ] **RF-CMD-1.3 [Phase gates]** — Run sequentially after all focused checks are green:
+
+```bash
+composer test
+composer preflight
+```
+
+- [ ] **RF-CMD-1.4 [Contract and browser gates]** — Required when the corresponding installer or
+      marketplace phase changes documented extension seams or the rendered flow:
+
+```bash
+composer check:extension-surfaces
+composer check:stable-extension-api
+npm run test:installer-browser
+npm run test:marketplace-install-flow:required
+```
+
+- [ ] **RF-CMD-1.5 [Performance parity]** — For catalogue slices, add HTTP fakes that assert request count,
+      visited URLs, cache keys, and ordering. For installer slices, assert command/job/step invocation counts.
+      Do not claim a wall-time improvement from structural refactoring; benchmark only if implementation changes
+      a hot request path.
+
+## Quality Assurance Task Checklist
+
+- [ ] **RF-QA-1.1** All existing tests pass without changing existing behavior assertions; new tests exercise
+      the extracted module interface rather than source text or private methods.
+- [ ] **RF-QA-1.2** Each numbered plan slice is one focused, revertible commit. Structural and behavior
+      changes never share a commit.
+- [ ] **RF-QA-1.3** Before/after LOC, method length, complexity, coupling, and LCOM4 are remeasured and recorded
+      in the commit/PR against `RF-METRIC-1.x`.
+- [ ] **RF-QA-1.4** Every modified or new method is ≤20 LOC and complexity ≤10. Every extracted class is
+      ≤200 LOC; any remaining framework adapter above 200 must have a documented follow-up item and no mixed
+      domain behavior.
+- [ ] **RF-QA-1.5** Public routes, response status/key/order, translation keys, exception messages, cache
+      keys/TTLs, queue names, Composer commands, and package ordering are unchanged.
+- [ ] **RF-QA-1.6** Marketplace checkout/entitlement evidence and install-attempt rows are identical; the
+      append-only ledger retains one writer and no mutable execution state leaks across requests.
+- [ ] **RF-QA-1.7** Public frontend output remains free of admin/editor/marketplace implementation details.
+      None of the proposed slices requires a public rendering change.
+- [ ] **RF-QA-1.8** Performance has not degraded: catalogue HTTP/query/iteration counts and installer
+      command/job/step counts are equal or lower. Any benchmark uses the same fixtures and reports median plus
+      sample count.
+- [ ] **RF-QA-1.9** No new TODO/FIXME comments or compatibility shims are introduced silently. Deferred debt
+      is listed below with an owner-level effort/risk estimate.
+- [ ] **RF-QA-1.10** PHPStan, Pint, focused Pest, `composer test`, and `composer preflight` all pass from a
+      non-concurrent checkout before the complete roadmap is declared done.
+- [ ] **RF-QA-1.11** SOLID is applied pragmatically: each extracted module has one change reason, callers
+      depend on typed inputs/results, extension interfaces remain substitutable, and no dependency inversion is
+      added without a real second adapter.
+- [ ] **RF-QA-1.12** Touched nested conditionals are flattened to at most two levels with guard clauses or
+      composed methods; the four targeted duplicate groups are removed without creating a generic helper dump.
+- [ ] **RF-QA-1.13** New code follows repository naming, strict typing, translations, Action/Data ownership,
+      and PSR-12 conventions.
+
+## Remaining Technical Debt and Follow-up
+
+- [ ] **RF-DEBT-1.1 [Medium, large]** Re-run the threshold scan after this roadmap. Prioritise only classes
+      where size aligns with high churn, responsibility mixing, or weak tests; do not pursue a repository-wide
+      “under 200 lines” rewrite.
+- [ ] **RF-DEBT-1.2 [Medium, medium]** Review declarative Filament builders over 200 LOC when those screens are
+      next changed. Extract reusable schemas only where the same form behavior has at least two callers.
+- [ ] **RF-DEBT-1.3 [Low, small per group]** Re-run exact clone detection and assess the remaining 65 groups.
+      Keep local coercion methods where centralisation would increase coupling or erase domain names.
+- [ ] **RF-DEBT-1.4 [Medium, medium]** Generate fresh Clover coverage after concurrent work settles. The
+      2026-07-12 artifact must not be used to approve deletion or protocol splitting.
+- [ ] **RF-DEBT-1.5 [Low, small]** Record the final installer and marketplace module ownership in the named
+      contract docs and add Arch tests immediately after the dependencies become enforceable.
+
+## Prevention and Lessons
+
+- [ ] **RF-PREVENT-1.1** Keep controllers, Livewire components, Filament resources, and console commands as
+      adapters: validate/authorise, invoke one Action, present one typed result.
+- [ ] **RF-PREVENT-1.2** Introduce Data when an array crosses a request, UI, cache, job, or persistence seam,
+      or when an Action exceeds three related parameters. Do not introduce Data for a private two-value tuple.
+- [ ] **RF-PREVENT-1.3** Test Actions directly and retain one integration test at each framework adapter.
+      The interface is the test surface; avoid source-string assertions.
+- [ ] **RF-PREVENT-1.4** Apply the deletion test before extracting a module. Keep it only when deletion would
+      spread policy/complexity back across multiple callers and reduce locality.
+- [ ] **RF-PREVENT-1.5** Treat complexity thresholds as review triggers, not design goals. Prefer one deep,
+      domain-named module over several pass-through classes, and add a pattern only for a concrete variation.
