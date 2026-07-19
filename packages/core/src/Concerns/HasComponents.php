@@ -245,6 +245,12 @@ trait HasComponents
         return config('capell.cache_path', base_path('bootstrap/cache/capell')) . DIRECTORY_SEPARATOR . 'components.php';
     }
 
+    protected function flushComponentRuntimeState(): void
+    {
+        $this->discoveredComponents = null;
+        $this->hasCachedComponents = null;
+    }
+
     protected function discoverBladeFiles(string $type, ?string $for, string $directory): void
     {
         if (blank($directory) || blank($type)) {
