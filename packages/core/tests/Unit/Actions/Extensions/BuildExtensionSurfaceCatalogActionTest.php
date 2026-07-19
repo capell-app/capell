@@ -22,6 +22,7 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         'tagged-service',
         'config',
         'render-hook',
+        'registry',
         'testing',
         'internal',
     );
@@ -36,6 +37,42 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         if ($entry->stability === ExtensionSurfaceStability::Stable) {
             expect($entry->contractTestId)->not->toBeNull();
         }
+    }
+});
+
+it('classifies the admin tool seam as experimental', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'admin.contract.admin-tool-item',
+        'admin.tag.admin-tool-item',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds)
+        ->and($catalog->get('admin.contract.admin-tool-item')?->identifier)->toBe('Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem')
+        ->and($catalog->get('admin.tag.admin-tool-item')?->identifier)->toBe('capell-admin:admin-tool-items');
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/admin')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental);
+    }
+});
+
+it('classifies the frontend package dependency seam as experimental', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'frontend.dto.package-dependency',
+        'frontend.enum.package-dependency-type',
+        'frontend.registry.package-dependency',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds)
+        ->and($catalog->get('frontend.dto.package-dependency')?->identifier)->toBe('Capell\\Frontend\\Data\\Assets\\FrontendPackageDependencyData')
+        ->and($catalog->get('frontend.enum.package-dependency-type')?->identifier)->toBe('Capell\\Frontend\\Enums\\FrontendPackageDependencyType')
+        ->and($catalog->get('frontend.registry.package-dependency')?->identifier)->toBe('Capell\\Frontend\\Support\\Assets\\FrontendPackageDependencyRegistry');
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/frontend')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental);
     }
 });
 

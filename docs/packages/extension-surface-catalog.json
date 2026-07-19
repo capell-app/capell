@@ -3,6 +3,16 @@
     "generatedFrom": "Capell\\Core\\Actions\\Extensions\\BuildExtensionSurfaceCatalogAction",
     "surfaces": [
         {
+            "id": "admin.contract.admin-tool-item",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed admin header tool contribution boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.render-hook.navigation-after",
             "kind": "render-hook",
             "identifier": "panels::sidebar.nav.end",
@@ -10,6 +20,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Admin navigation contribution hook.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.tag.admin-tool-item",
+            "kind": "tagged-service",
+            "identifier": "capell-admin:admin-tool-items",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for admin header tool contributions.",
             "contractTestId": null
         },
         {
@@ -193,6 +213,16 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.dto.package-dependency",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\Assets\\FrontendPackageDependencyData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend package dependency declaration.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.dto.widget-resource-usage",
             "kind": "dto",
             "identifier": "Capell\\Frontend\\Data\\Assets\\FrontendWidgetResourceUsageData",
@@ -210,6 +240,26 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Supported frontend component runtime targets.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.enum.package-dependency-type",
+            "kind": "enum",
+            "identifier": "Capell\\Frontend\\Enums\\FrontendPackageDependencyType",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported frontend package dependency installation types.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.registry.package-dependency",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Assets\\FrontendPackageDependencyRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Registry for frontend package dependency declarations.",
             "contractTestId": null
         },
         {

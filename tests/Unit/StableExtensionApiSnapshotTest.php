@@ -51,3 +51,19 @@ it('classifies every compatibility-relevant form of stable drift', function (): 
         'configKeys',
     ]);
 });
+
+it('keeps experimental package extension seams out of the stable baseline', function (): void {
+    $surfaces = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 2) . '/docs/packages/stable-extension-api-baseline.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    )['surfaces'];
+
+    expect($surfaces)->not->toHaveKeys([
+        'admin.contract.admin-tool-item',
+        'admin.tag.admin-tool-item',
+        'frontend.dto.package-dependency',
+        'frontend.enum.package-dependency-type',
+        'frontend.registry.package-dependency',
+    ]);
+});
