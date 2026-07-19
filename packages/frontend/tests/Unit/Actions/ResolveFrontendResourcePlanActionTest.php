@@ -160,12 +160,13 @@ it('expands production vite entries with imported css and module preloads', func
             'file' => 'assets/app-123.js',
             'isEntry' => true,
             'css' => ['assets/app-123.css'],
-            'imports' => ['_vendor.js'],
+            'imports' => ['_vendor.js', '_missing.js', '_invalid.js'],
         ],
         '_vendor.js' => [
             'file' => 'assets/vendor-456.js',
             'css' => ['assets/vendor-456.css'],
         ],
+        '_invalid.js' => 'invalid manifest chunk',
     ], JSON_THROW_ON_ERROR));
 
     try {
@@ -213,4 +214,10 @@ it('warns about missing external integrity by default and can require it', funct
     expect(fn (): mixed => ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ]))->toThrow(FrontendResourcePlanException::class, 'requires an integrity hash');
+
+    config()->set('capell-frontend.external_resources.integrity_policy', 'off');
+
+    expect(ResolveFrontendResourcePlanAction::run([
+        new FrontendResourceContributionData($resource),
+    ])->diagnostics)->toBe([]);
 });

@@ -199,18 +199,15 @@ final class ResolveFrontendResourcePlanAction
     {
         $policy = ExternalResourceIntegrityPolicy::tryFrom((string) config('capell-frontend.external_resources.integrity_policy', 'warn'))
             ?? ExternalResourceIntegrityPolicy::Warn;
+
+        if ($policy === ExternalResourceIntegrityPolicy::Off) {
+            return [];
+        }
+
         $diagnostics = [];
 
         foreach ($declarations as $resource) {
-            if (! $resource->source instanceof ExternalResourceSourceData) {
-                continue;
-            }
-
-            if ($resource->source->integrity !== null) {
-                continue;
-            }
-
-            if ($policy === ExternalResourceIntegrityPolicy::Off) {
+            if (! $resource->source instanceof ExternalResourceSourceData || $resource->source->integrity !== null) {
                 continue;
             }
 
@@ -239,10 +236,6 @@ final class ResolveFrontendResourcePlanAction
         $activations = [];
 
         foreach ($contributions as $contribution) {
-            if (! $contribution instanceof FrontendResourceContributionData) {
-                continue;
-            }
-
             $activations[$contribution->resource->handle] ??= [];
             $activations[$contribution->resource->handle] = [...$activations[$contribution->resource->handle], ...$contribution->activations];
         }
@@ -508,16 +501,13 @@ final class ResolveFrontendResourcePlanAction
                     continue;
                 }
 
-                if (! isset($manifest[$import])) {
-                    continue;
-                }
+                $importChunk = $manifest[$import] ?? null;
 
-                if (! is_array($manifest[$import])) {
+                if (! is_array($importChunk)) {
                     continue;
                 }
 
                 $visited[$import] = true;
-                $importChunk = $manifest[$import];
 
                 if (isset($importChunk['file']) && is_string($importChunk['file'])) {
                     $importFiles[$importChunk['file']] = $importChunk['file'];
