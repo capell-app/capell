@@ -29,6 +29,8 @@ final class AeoRouteRegistry
         private readonly Container $container,
         private readonly FrontendRouteMiddlewareRegistry $middleware,
         private readonly Router $router,
+        /** @var iterable<AeoRouteProvider> */
+        private readonly iterable $fallbackProviders = [],
     ) {}
 
     public function register(AeoRouteProvider $provider): void
@@ -119,6 +121,14 @@ final class AeoRouteRegistry
 
         foreach ($this->container->tagged(AeoRouteProvider::TAG) as $provider) {
             if ($provider instanceof AeoRouteProvider) {
+                $this->register($provider);
+            }
+        }
+
+        foreach ($this->fallbackProviders as $provider) {
+            $path = $this->normalizePath($provider->path());
+
+            if (! isset($this->providers[$path])) {
                 $this->register($provider);
             }
         }

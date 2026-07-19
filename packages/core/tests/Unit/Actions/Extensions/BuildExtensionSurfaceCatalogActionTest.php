@@ -18,8 +18,10 @@ use Capell\Frontend\Actions\BuildPageSchemaGraphAction;
 use Capell\Frontend\Actions\ResolvePageSocialMetaAction;
 use Capell\Frontend\Contracts\AeoRouteProvider;
 use Capell\Frontend\Contracts\PageVariantNegotiator;
+use Capell\Frontend\Contracts\RobotsDirectiveContributor;
 use Capell\Frontend\Contracts\SchemaGraphContributor;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
+use Capell\Frontend\Data\RobotsDirectiveData;
 use Capell\Frontend\Data\SocialMetaData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
@@ -164,6 +166,26 @@ it('classifies schema graph contribution as a stable extension contract', functi
         ->and($catalog->get('frontend.action.build-page-schema-graph')?->identifier)->toBe(BuildPageSchemaGraphAction::class)
         ->and($catalog->get('frontend.contract.schema-graph-contributor')?->identifier)->toBe(SchemaGraphContributor::class)
         ->and($catalog->get('frontend.tag.schema-graph-contributor')?->identifier)->toBe(SchemaGraphContributor::TAG);
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/frontend')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Stable)
+            ->and($entry->contractTestId)->not->toBeNull();
+    }
+});
+
+it('classifies robots directive contribution as a stable extension contract', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'frontend.contract.robots-directive-contributor',
+        'frontend.dto.robots-directive',
+        'frontend.tag.robots-directive-contributor',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds)
+        ->and($catalog->get('frontend.contract.robots-directive-contributor')?->identifier)->toBe(RobotsDirectiveContributor::class)
+        ->and($catalog->get('frontend.dto.robots-directive')?->identifier)->toBe(RobotsDirectiveData::class)
+        ->and($catalog->get('frontend.tag.robots-directive-contributor')?->identifier)->toBe(RobotsDirectiveContributor::TAG);
 
     foreach ($catalog->only($surfaceIds) as $entry) {
         expect($entry->ownerPackage)->toBe('capell-app/frontend')

@@ -97,10 +97,20 @@
             "signature": "4522cb14c1f229ae7eabc83f4237320dd2d68cf32f564498930c1c9d90edef3c",
             "contractTestId": "frontend.page-variant-negotiator"
         },
+        "frontend.contract.robots-directive-contributor": {
+            "identifier": "Capell\\Frontend\\Contracts\\RobotsDirectiveContributor",
+            "signature": "ed27cd6dba59e0f4e8363fa83c2258fa32482d40c9d014ddd66836d35da6f62b",
+            "contractTestId": "frontend.robots-directive-contributor"
+        },
         "frontend.contract.schema-graph-contributor": {
             "identifier": "Capell\\Frontend\\Contracts\\SchemaGraphContributor",
             "signature": "500f2e16fb4291b73135c42b28f8502c114bfc28d74a5afc5164b2a7dcdd7fe1",
             "contractTestId": "frontend.schema-graph-contributor"
+        },
+        "frontend.dto.robots-directive": {
+            "identifier": "Capell\\Frontend\\Data\\RobotsDirectiveData",
+            "signature": "7f47a382b0e4ceccc4c5fc4330d4233f12e642e48ad508a93d0b2e5bfac2982a",
+            "contractTestId": "frontend.robots-directive-data"
         },
         "frontend.dto.social-meta": {
             "identifier": "Capell\\Frontend\\Data\\SocialMetaData",
@@ -116,6 +126,11 @@
             "identifier": "capell-frontend.page-variant-negotiator",
             "signature": "6d14145379962f9a55ddbea47accb056af7045eb270ddcad4d705fff5d79ca26",
             "contractTestId": "frontend.page-variant-negotiator-registration"
+        },
+        "frontend.tag.robots-directive-contributor": {
+            "identifier": "capell-frontend.robots-directive-contributor",
+            "signature": "e01730bf20b7657b3dce82660c023576e3452d522faaa1a847ede8bb383dfa46",
+            "contractTestId": "frontend.robots-directive-contributor-registration"
         },
         "frontend.tag.schema-graph-contributor": {
             "identifier": "capell-frontend.schema-graph-contributor",

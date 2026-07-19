@@ -373,6 +373,16 @@
             "contractTestId": "frontend.page-variant-negotiator"
         },
         {
+            "id": "frontend.contract.robots-directive-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\RobotsDirectiveContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed robots.txt crawler policy contribution boundary.",
+            "contractTestId": "frontend.robots-directive-contributor"
+        },
+        {
             "id": "frontend.contract.schema-graph-contributor",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\SchemaGraphContributor",
@@ -411,6 +421,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed frontend package dependency declaration.",
             "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.robots-directive",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\RobotsDirectiveData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed robots.txt user-agent policy.",
+            "contractTestId": "frontend.robots-directive-data"
         },
         {
             "id": "frontend.dto.social-meta",
@@ -491,6 +511,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Container tag for resolved-page response variant negotiators.",
             "contractTestId": "frontend.page-variant-negotiator-registration"
+        },
+        {
+            "id": "frontend.tag.robots-directive-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell-frontend.robots-directive-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for robots.txt crawler policy contributors.",
+            "contractTestId": "frontend.robots-directive-contributor-registration"
         },
         {
             "id": "frontend.tag.schema-graph-contributor",

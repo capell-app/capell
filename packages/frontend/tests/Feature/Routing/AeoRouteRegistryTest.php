@@ -66,6 +66,22 @@ it('discovers aeo route providers through the stable container tag', function ()
     expect($registry->providers())->toBe([$provider]);
 });
 
+it('uses a fallback provider only when a tagged provider has not claimed its path', function (): void {
+    $tagged = aeoTestProvider('robots.txt', 'package');
+    $fallback = aeoTestProvider('robots.txt', 'core');
+    $container = new Container;
+    $container->instance('test.robots-provider', $tagged);
+    $container->tag('test.robots-provider', AeoRouteProvider::TAG);
+    $registry = new AeoRouteRegistry(
+        $container,
+        new FrontendRouteMiddlewareRegistry,
+        new Router(new Dispatcher($container), $container),
+        [$fallback],
+    );
+
+    expect($registry->providers())->toBe([$tagged]);
+});
+
 it('rejects duplicate aeo paths after normalization', function (): void {
     $registry = resolve(AeoRouteRegistry::class);
 
@@ -73,7 +89,7 @@ it('rejects duplicate aeo paths after normalization', function (): void {
     {
         public function path(): string
         {
-            return '/robots.txt';
+            return '/duplicate.txt';
         }
 
         public function handle(Request $request): Response
@@ -86,7 +102,7 @@ it('rejects duplicate aeo paths after normalization', function (): void {
     {
         public function path(): string
         {
-            return 'robots.txt/';
+            return 'duplicate.txt/';
         }
 
         public function handle(Request $request): Response
@@ -96,7 +112,7 @@ it('rejects duplicate aeo paths after normalization', function (): void {
     };
 
     expect(fn () => $registry->register($duplicate))
-        ->toThrow(LogicException::class, 'robots.txt');
+        ->toThrow(LogicException::class, 'duplicate.txt');
 });
 
 it('rejects wildcard and unsafe aeo paths', function (string $path): void {
@@ -123,3 +139,24 @@ it('rejects wildcard and unsafe aeo paths', function (string $path): void {
     'uppercase' => ['LLMS.txt'],
     'too long' => [str_repeat('a', 65)],
 ]);
+
+function aeoTestProvider(string $path, string $body): AeoRouteProvider
+{
+    return new readonly class($path, $body) implements AeoRouteProvider
+    {
+        public function __construct(
+            private string $registeredPath,
+            private string $body,
+        ) {}
+
+        public function path(): string
+        {
+            return $this->registeredPath;
+        }
+
+        public function handle(Request $request): Response
+        {
+            return response($this->body);
+        }
+    };
+}

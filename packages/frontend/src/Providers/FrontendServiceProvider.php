@@ -134,6 +134,7 @@ use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendRequest;
+use Capell\Frontend\Support\Routing\RobotsTxtRouteProvider;
 use Capell\Frontend\Support\Routing\SiteUrlGenerator;
 use Capell\Frontend\Support\Rules\Conditions\AuthStateCondition;
 use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
@@ -271,7 +272,15 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ErrorPagePathResolver::class);
         $this->app->singleton(ErrorPageFallbackManifestStore::class);
         $this->app->scoped(ErrorPageRegenerationQueue::class);
-        $this->app->scoped(AeoRouteRegistry::class);
+        $this->app->scoped(
+            AeoRouteRegistry::class,
+            fn (Application $application): AeoRouteRegistry => new AeoRouteRegistry(
+                $application,
+                $application->make(FrontendRouteMiddlewareRegistry::class),
+                $application->make(Router::class),
+                [$application->make(RobotsTxtRouteProvider::class)],
+            ),
+        );
         $this->app->scoped(PageVariantNegotiatorRegistry::class);
         $this->app->scoped(SchemaGraphContributorRegistry::class);
         $this->app->scoped(FrontendResponseRendererRegistry::class);
