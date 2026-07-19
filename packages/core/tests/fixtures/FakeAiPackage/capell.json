@@ -1,0 +1,46 @@
+{
+    "manifest-version": 3,
+    "name": "capell-tests/fake-ai-package",
+    "slug": "fake-ai-package",
+    "displayName": "Fake AI Package",
+    "kind": "plugin",
+    "capellApiVersion": "^1.0",
+    "version": "1.0.0",
+    "description": "External draft-write contract fixture.",
+    "product": { "group": "Tests", "tier": "free", "bundle": null },
+    "surfaces": ["console"],
+    "dependencies": { "requires": ["capell-app/core"], "supports": [], "conflicts": [] },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": ["Vendor\\FakeAiPackage\\Providers\\FakeAiPackageServiceProvider"],
+        "admin": [],
+        "frontend": []
+    },
+    "contributes": [],
+    "database": { "migrations": false, "settings": false, "requiredTables": [] },
+    "commands": { "install": null, "setup": null, "demo": null, "doctor": null },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [],
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 0,
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [],
+    "commercial": {
+        "proposedLicense": "free",
+        "requestedCertification": "community",
+        "supportPolicy": "community",
+        "privateDocsRequested": false
+    },
+    "marketplace": { "summary": "External draft-write contract fixture.", "screenshots": [], "categories": ["tests"] }
+}

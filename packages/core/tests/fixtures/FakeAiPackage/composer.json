@@ -1,0 +1,8 @@
+{
+    "name": "capell-tests/fake-ai-package",
+    "autoload": {
+        "psr-4": {
+            "Vendor\\FakeAiPackage\\": "src/"
+        }
+    }
+}

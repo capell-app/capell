@@ -28,6 +28,17 @@ it('permits visibility-date writes inside PublicationDateGuard::allow', function
     expect($page->refresh()->visible_from?->equalTo($publishedAt))->toBeTrue();
 });
 
+it('permits bulk visibility-date updates inside an authorized scope', function (): void {
+    $page = Page::factory()->create();
+    $publishedAt = CarbonImmutable::now()->startOfSecond();
+
+    PublicationDateGuard::allow(
+        fn (): int => Page::query()->whereKey($page->id)->update(['visible_from' => $publishedAt]),
+    );
+
+    expect($page->refresh()->visible_from?->equalTo($publishedAt))->toBeTrue();
+});
+
 it('permits saves that do not touch visibility dates', function (): void {
     $page = Page::factory()->create();
 

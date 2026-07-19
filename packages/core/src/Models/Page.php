@@ -25,6 +25,7 @@ use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Builders\PageBuilder;
 use Capell\Core\Models\Concerns\CloneableExcept;
 use Capell\Core\Models\Concerns\HasAssets;
 use Capell\Core\Models\Concerns\HasBlueprint;
@@ -44,6 +45,7 @@ use Capell\Core\Observers\PageObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -219,6 +221,7 @@ use Staudenmeir\EloquentJsonRelations\Relations\BelongsToJson;
  * @mixin Model
  */
 #[ObservedBy(PageObserver::class)]
+#[UseEloquentBuilder(PageBuilder::class)]
 class Page extends Model implements Blueprintable, DraftableContract, EventSourced, HasMedia, HasMediaContract, Pageable, Publishable, Translatable, Userstampable
 {
     use Cloneable;
