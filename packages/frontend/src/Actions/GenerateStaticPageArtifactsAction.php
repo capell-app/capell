@@ -13,6 +13,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Url\UrlPathNormalizer;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicPageRenderData;
@@ -125,7 +126,7 @@ class GenerateStaticPageArtifactsAction
 
     private function render(PageUrl $pageUrl, SiteDomain $siteDomain): Response
     {
-        $url = rtrim($siteDomain->full_url, '/') . ($pageUrl->url);
+        $url = UrlPathNormalizer::joinPrefix($siteDomain->full_url, $pageUrl->url);
         $request = Request::create($url, \Symfony\Component\HttpFoundation\Request::METHOD_GET);
         $response = $this->kernel->handle($request);
         $this->kernel->terminate($request, $response);

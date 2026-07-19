@@ -95,6 +95,22 @@ it('has a full url attribute', function (): void {
     expect($pageUrl->full_url)->toBe('https://example.com/test');
 });
 
+it('normalizes slashes between the site domain path and page url', function (): void {
+    $siteDomain = SiteDomain::factory()->createOne([
+        'domain' => 'example.com',
+        'path' => '/tenant/',
+        'scheme' => 'https',
+    ]);
+
+    $pageUrl = PageUrl::factory()
+        ->recycle($siteDomain->site)
+        ->recycle($siteDomain->language)
+        ->createOne(['url' => '/test']);
+
+    expect($siteDomain->full_url)->toBe('https://example.com/tenant/')
+        ->and($pageUrl->full_url)->toBe('https://example.com/tenant/test');
+});
+
 it('diagnoses a missing active site domain for a page url', function (): void {
     $siteDomain = SiteDomain::factory()->createOne(['domain' => 'example.com', 'path' => null, 'scheme' => 'https']);
 

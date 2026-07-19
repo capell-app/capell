@@ -18,7 +18,11 @@ it('renders blade-only public pages without livewire or frontend runtime scripts
     config()->set('capell-frontend.write_html_cache', false);
     Cache::flush();
 
-    $site = Site::factory()->withTranslations()->create();
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'static-prefix.test',
+        'scheme' => 'https',
+        'path' => '/tenant',
+    ])->create();
 
     Page::factory()
         ->site($site)
@@ -27,13 +31,8 @@ it('renders blade-only public pages without livewire or frontend runtime scripts
         ->create(['meta' => null]);
 
     $domain = $site->siteDomains->first();
-    $server = ['HTTP_HOST' => $domain->domain];
 
-    if (($domain->scheme ?? 'https') === 'https') {
-        $server['HTTPS'] = 'on';
-    }
-
-    $response = $this->followingRedirects()->get($domain->path ?? '/', $server);
+    $response = $this->followingRedirects()->get($domain->full_url);
 
     $response
         ->assertOk()
@@ -64,13 +63,8 @@ it('does not expose the beacon runtime just because a beacon route exists', func
         ->create(['meta' => null]);
 
     $domain = $site->siteDomains->first();
-    $server = ['HTTP_HOST' => $domain->domain];
 
-    if (($domain->scheme ?? 'https') === 'https') {
-        $server['HTTPS'] = 'on';
-    }
-
-    $response = $this->followingRedirects()->get($domain->path ?? '/', $server);
+    $response = $this->followingRedirects()->get($domain->full_url);
 
     $response
         ->assertOk()
@@ -112,15 +106,10 @@ it('does not expose the beacon runtime to authenticated admins when a contributo
         ->create(['meta' => null]);
 
     $domain = $site->siteDomains->first();
-    $server = ['HTTP_HOST' => $domain->domain];
-
-    if (($domain->scheme ?? 'https') === 'https') {
-        $server['HTTPS'] = 'on';
-    }
 
     test()->actingAs(User::factory()->createOne());
 
-    $response = $this->followingRedirects()->get($domain->path ?? '/', $server);
+    $response = $this->followingRedirects()->get($domain->full_url);
 
     $response
         ->assertOk()
@@ -155,13 +144,8 @@ it('does not expose the beacon runtime to anonymous visitors when a contributor 
         ->create(['meta' => null]);
 
     $domain = $site->siteDomains->first();
-    $server = ['HTTP_HOST' => $domain->domain];
 
-    if (($domain->scheme ?? 'https') === 'https') {
-        $server['HTTPS'] = 'on';
-    }
-
-    $response = $this->followingRedirects()->get($domain->path ?? '/', $server);
+    $response = $this->followingRedirects()->get($domain->full_url);
 
     $response
         ->assertOk()

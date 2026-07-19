@@ -14,7 +14,8 @@ final class NormalizeDomainPathStep
     {
         $state = $work->state;
         $domain = $state->domain();
-        $path = $state->effectiveUrl() ?? ($state->relativePath() ?? '/');
+        $relativePath = $state->relativePath();
+        $path = $relativePath ?? ($state->effectiveUrl() ?? '/');
 
         // Ensure leading slash
         if ($path === '' || $path[0] !== '/') {
@@ -22,15 +23,12 @@ final class NormalizeDomainPathStep
         }
 
         // Strip domain path prefix if present (e.g., /en)
-        $prefix = $domain?->path ?? null;
-        if (is_string($prefix) && $prefix !== '') {
+        $prefix = $domain?->path;
+        if ($relativePath === null && is_string($prefix) && $prefix !== '') {
             $path = UrlPathNormalizer::stripPrefix($path, $prefix);
         }
 
-        // Normalize index.php to root after prefix handling
-        if ($path === '/index.php' || str_ends_with($path, '/index.php')) {
-            $path = '/';
-        }
+        $path = UrlPathNormalizer::stripIndexPhp($path);
 
         $state->setEffectiveUrl($path);
 

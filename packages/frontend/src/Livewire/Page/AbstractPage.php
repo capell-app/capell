@@ -13,6 +13,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\Url\UrlPathNormalizer;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
@@ -269,7 +270,7 @@ abstract class AbstractPage extends Component
         $path = $state->effectiveUrl() ?? $state->relativePath();
 
         if (is_string($baseUrl) && $baseUrl !== '' && is_string($path) && $path !== '') {
-            return rtrim($baseUrl, '/') . ($path === '/' ? '' : '/' . ltrim($path, '/'));
+            return UrlPathNormalizer::joinPrefix($baseUrl, $path);
         }
 
         $pageUrl = $page->relationLoaded('pageUrl') ? $page->getRelation('pageUrl') : null;

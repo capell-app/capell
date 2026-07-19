@@ -15,6 +15,7 @@ it('joins a domain prefix to a path without doubling slashes', function (): void
     expect(UrlPathNormalizer::joinPrefix('/blog/', '/article'))->toBe('/blog/article');
     expect(UrlPathNormalizer::joinPrefix('', '/article'))->toBe('/article');
     expect(UrlPathNormalizer::joinPrefix('/blog', '/'))->toBe('/blog');
+    expect(UrlPathNormalizer::joinPrefix('https://example.test/tenant/', '/article'))->toBe('https://example.test/tenant/article');
 });
 
 it('removes a domain prefix from a path', function (): void {

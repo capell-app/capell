@@ -32,3 +32,24 @@ it('bootstraps and returns context without redirect or error for normal page', f
         ->and($result->error)->toBeNull()
         ->and($result->context)->not()->toBeNull();
 });
+
+it('resolves a page path that repeats the site domain prefix', function (): void {
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'example.com',
+        'scheme' => 'https',
+        'path' => '/en',
+    ])->create();
+    $page = Page::factory()
+        ->site($site)
+        ->withTranslations(slug: 'en/products')
+        ->create();
+
+    $result = resolve(FrontendKernelInterface::class)->bootstrap(
+        Request::create('https://example.com/en/en/products'),
+    );
+
+    expect($page->pageUrl?->url)->toBe('/en/products')
+        ->and($result->redirect)->toBeNull()
+        ->and($result->error)->toBeNull()
+        ->and($result->context?->page?->getKey())->toBe($page->getKey());
+});

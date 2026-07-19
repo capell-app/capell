@@ -16,6 +16,7 @@ use Capell\Core\Models\Concerns\HasUserstamps;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\PageUrlObserver;
+use Capell\Core\Support\Url\UrlPathNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -316,7 +317,7 @@ class PageUrl extends Model implements Statusable, Userstampable
 
     private function fullUrlFor(SiteDomain $siteDomain, string $urlPath): string
     {
-        $url = $siteDomain->full_url . $urlPath;
+        $url = UrlPathNormalizer::joinPrefix($siteDomain->full_url, $urlPath);
 
         if (str_ends_with($url, '/*')) {
             $url = mb_substr($url, 0, -2);

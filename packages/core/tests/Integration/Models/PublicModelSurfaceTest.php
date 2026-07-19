@@ -107,7 +107,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
         ->and($child->isExpired())->toBeFalse()
         ->and($child->getSiblingsExcludingSelf()->contains($child))->toBeFalse()
         ->and($child->related()->pluck('id')->all())->toContain($parent->getKey())
-        ->and($childUrl->fresh()->full_url)->toBe('https://example.test//parent/child')
+        ->and($childUrl->fresh()->full_url)->toBe('https://example.test/parent/child')
         ->and(PageUrl::volatileUrls()->all())->toContain('/parent/child');
 
     $child->mergeMeta('seo.title', 'Nested title');

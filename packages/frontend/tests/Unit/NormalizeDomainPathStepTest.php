@@ -20,8 +20,39 @@ it('strips domain path prefix from effective url', function (): void {
     $work = new FrontendWork(Request::create('https://example.com/en/products'), $state);
 
     $step = resolve(NormalizeDomainPathStep::class);
-    $result = $step->handle($work, fn (FrontendWork $w): FrontendWork => $w);
+    $result = $step->handle($work, fn (FrontendWork $frontendWork): FrontendWork => $frontendWork);
 
     expect($result)->toBe($work)
         ->and($state->effectiveUrl())->toBe('/products');
+});
+
+it('does not strip the domain prefix from an already resolved relative path', function (): void {
+    $domain = SiteDomain::factory()->state([
+        'path' => '/en',
+    ])->make(['id' => 1]);
+
+    $state = (new FrontendState)
+        ->withDomain($domain)
+        ->withRelativePath('/en/products')
+        ->setEffectiveUrl('/en/products');
+    $work = new FrontendWork(Request::create('https://example.com/en/en/products'), $state);
+
+    resolve(NormalizeDomainPathStep::class)->handle(
+        $work,
+        fn (FrontendWork $frontendWork): FrontendWork => $frontendWork,
+    );
+
+    expect($state->effectiveUrl())->toBe('/en/products');
+});
+
+it('preserves the parent path when stripping a trailing index.php', function (): void {
+    $state = (new FrontendState)->setEffectiveUrl('/docs/index.php');
+    $work = new FrontendWork(Request::create('https://example.com/docs/index.php'), $state);
+
+    resolve(NormalizeDomainPathStep::class)->handle(
+        $work,
+        fn (FrontendWork $frontendWork): FrontendWork => $frontendWork,
+    );
+
+    expect($state->effectiveUrl())->toBe('/docs/');
 });

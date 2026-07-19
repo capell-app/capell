@@ -15,14 +15,27 @@ it('normalizes index.php and leading/trailing slashes', function (): void {
     $work = new FrontendWork($request, $state);
 
     $step = resolve(ParseUrlStep::class);
-    $result = $step->handle($work, fn (FrontendWork $w): FrontendWork => $w);
+    $result = $step->handle($work, fn (FrontendWork $frontendWork): FrontendWork => $frontendWork);
 
     expect($result)->toBe($work)
         ->and($state->effectiveUrl())->toBe('/');
 
-    $request2 = Request::create('https://example.com/path/');
-    $work2 = new FrontendWork($request2, new FrontendState);
-    $step->handle($work2, fn (FrontendWork $w): FrontendWork => $w);
+    $trailingSlashRequest = Request::create('https://example.com/path/');
+    $trailingSlashWork = new FrontendWork($trailingSlashRequest, new FrontendState);
+    $step->handle($trailingSlashWork, fn (FrontendWork $frontendWork): FrontendWork => $frontendWork);
 
-    expect($work2->state->effectiveUrl())->toBe('/path/');
+    expect($trailingSlashWork->state->effectiveUrl())->toBe('/path/');
+});
+
+it('preserves the parent path when stripping a trailing index.php', function (): void {
+    $state = new FrontendState;
+    $request = Request::create('https://example.com/docs/index.php');
+    $work = new FrontendWork($request, $state);
+
+    resolve(ParseUrlStep::class)->handle(
+        $work,
+        fn (FrontendWork $frontendWork): FrontendWork => $frontendWork,
+    );
+
+    expect($state->effectiveUrl())->toBe('/docs/');
 });
