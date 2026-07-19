@@ -13,10 +13,12 @@ use Capell\Core\Enums\ApiTokenAbility;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Frontend\Actions\BuildPageSchemaGraphAction;
+use Capell\Frontend\Actions\ResolvePageSocialMetaAction;
 use Capell\Frontend\Contracts\AeoRouteProvider;
 use Capell\Frontend\Contracts\PageVariantNegotiator;
 use Capell\Frontend\Contracts\SchemaGraphContributor;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
+use Capell\Frontend\Data\SocialMetaData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
@@ -157,6 +159,19 @@ it('classifies schema graph contribution as a stable extension contract', functi
             ->and($entry->stability)->toBe(ExtensionSurfaceStability::Stable)
             ->and($entry->contractTestId)->not->toBeNull();
     }
+});
+
+it('classifies public social metadata as a stable extension contract', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+
+    expect($catalog)->toHaveKeys([
+        'frontend.action.resolve-page-social-meta',
+        'frontend.dto.social-meta',
+    ])
+        ->and($catalog->get('frontend.action.resolve-page-social-meta')?->identifier)->toBe(ResolvePageSocialMetaAction::class)
+        ->and($catalog->get('frontend.dto.social-meta')?->identifier)->toBe(SocialMetaData::class)
+        ->and($catalog->get('frontend.action.resolve-page-social-meta')?->stability)->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('frontend.dto.social-meta')?->stability)->toBe(ExtensionSurfaceStability::Stable);
 });
 
 it('classifies the route reservation and interaction capability seams as experimental', function (): void {

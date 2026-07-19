@@ -10,12 +10,14 @@
     use Capell\Core\Enums\MediaConversionEnum;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
     use Capell\Frontend\Actions\ResolvePageRobotsDirectivesAction;
+    use Capell\Frontend\Actions\ResolvePageSocialMetaAction;
     use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
     use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
     use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
     use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Data\ColorData;
     use Capell\Frontend\Data\FrontendResourceContextData;
+    use Capell\Frontend\Data\FrontendRenderContextData;
     use Capell\Frontend\Data\FrontendRuntimeManifestData;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Actions\GetCriticalCssContentAction;
@@ -119,6 +121,7 @@
     $fonts = PublicModelMeta::get($theme, 'fonts');
 
     $canonicalUrl = ResolvePageCanonicalUrlAction::run($page, $language);
+    $socialMeta = ResolvePageSocialMetaAction::run(new FrontendRenderContextData($page, $site, $language, $layout, $theme));
     $robots = ResolvePageRobotsDirectivesAction::run($page, $language);
     $defaultAlternateUrl = $pageUrls->firstWhere('language_id', $site->language_id)?->full_url
         ?? $pageUrl?->full_url
@@ -221,6 +224,16 @@
             rel="canonical"
         />
     @endif
+
+    <meta property="og:title" content="{{ $socialMeta->title }}" />
+    <meta property="og:description" content="{{ $socialMeta->description }}" />
+    <meta property="og:url" content="{{ $socialMeta->canonicalUrl }}" />
+    <meta property="og:type" content="{{ $socialMeta->type }}" />
+    @if ($socialMeta->imageUrl)
+        <meta property="og:image" content="{{ $socialMeta->imageUrl }}" />
+    @endif
+    <meta name="twitter:card" content="{{ $socialMeta->twitterCard }}" />
+    <meta name="twitter:title" content="{{ $socialMeta->title }}" />
 
     @if ($icon)
         <link

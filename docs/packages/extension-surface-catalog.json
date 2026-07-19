@@ -313,6 +313,16 @@
             "contractTestId": "frontend.build-page-schema-graph"
         },
         {
+            "id": "frontend.action.resolve-page-social-meta",
+            "kind": "action",
+            "identifier": "Capell\\Frontend\\Actions\\ResolvePageSocialMetaAction",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Resolved Open Graph and Twitter metadata for public pages.",
+            "contractTestId": "frontend.resolve-page-social-meta"
+        },
+        {
             "id": "frontend.contract.aeo-route-provider",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\AeoRouteProvider",
@@ -381,6 +391,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed frontend package dependency declaration.",
             "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.social-meta",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\SocialMetaData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed public social metadata.",
+            "contractTestId": "frontend.social-meta-data"
         },
         {
             "id": "frontend.dto.widget-resource-usage",

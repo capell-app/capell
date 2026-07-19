@@ -72,6 +72,11 @@
             "signature": "b36284f58e2e0860fa9358547333dd8cf5e623cf8696b013e2be2fc11aeae0f3",
             "contractTestId": "frontend.build-page-schema-graph"
         },
+        "frontend.action.resolve-page-social-meta": {
+            "identifier": "Capell\\Frontend\\Actions\\ResolvePageSocialMetaAction",
+            "signature": "67fe9c129b9e96cb3355be6cb919f6a8d9bfdcfc77c8242c046f6909ebfd9a18",
+            "contractTestId": "frontend.resolve-page-social-meta"
+        },
         "frontend.contract.aeo-route-provider": {
             "identifier": "Capell\\Frontend\\Contracts\\AeoRouteProvider",
             "signature": "40d534608b95caadab1fc6a85da562efd83a2885dbb3cedf210f1f7f0baa1269",
@@ -86,6 +91,11 @@
             "identifier": "Capell\\Frontend\\Contracts\\SchemaGraphContributor",
             "signature": "500f2e16fb4291b73135c42b28f8502c114bfc28d74a5afc5164b2a7dcdd7fe1",
             "contractTestId": "frontend.schema-graph-contributor"
+        },
+        "frontend.dto.social-meta": {
+            "identifier": "Capell\\Frontend\\Data\\SocialMetaData",
+            "signature": "4d130c61f3e027c4675ef3cc6678d17b4927f645dcc9f987267abb49ce11c8f2",
+            "contractTestId": "frontend.social-meta-data"
         },
         "frontend.tag.aeo-route-provider": {
             "identifier": "capell-frontend.aeo-route-provider",
