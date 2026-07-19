@@ -141,9 +141,7 @@ use Capell\Core\ThemeStudio\Http\Middleware\ResolveThemePreviewContext;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewSigner;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
-use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
-use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -591,8 +589,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerThemeRuntime(): self
     {
         $this->app->singleton(ThemeRegistry::class);
-        $this->app->singleton(PagePresentationRegistry::class);
-        $this->app->singleton(WidgetPresentationRegistry::class);
         $this->app->singleton(ThemeTokenStore::class);
         $this->app->scoped(ThemeRuntimeSettings::class, ThemeStudioSettings::class);
         $this->app->singleton(

@@ -43,8 +43,6 @@ final class SingletonLifetimeInventory
             'Capell\Core\Support\Presentation\PresentationPresetRegistry' => self::boot('Presentation presets are package boot registrations.'),
             'Capell\Core\Support\Assets\VendorAssetConditionRegistry' => self::boot('Vendor asset conditions are package boot registrations.'),
             'Capell\Core\ThemeStudio\Theme\ThemeRegistry' => self::boot('Themes are package boot registrations.'),
-            'Capell\Core\ThemeStudio\Theme\PagePresentationRegistry' => self::boot('Page presentation definitions are package boot registrations.'),
-            'Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry' => self::boot('Widget presentation definitions are package boot registrations.'),
             'Capell\Core\ThemeStudio\Assets\ThemeTokenStore' => self::boot('Theme tokens are package boot registrations.'),
             'Capell\Core\Support\CapellCoreManager' => self::delegated('Boot registrations persist; its operation-derived component and cache state is flushed by the manager.'),
             'Capell\Core\Support\Cache\CapellCacheManager' => self::delegated('The core manager flushes this per-operation in-memory cache.'),
