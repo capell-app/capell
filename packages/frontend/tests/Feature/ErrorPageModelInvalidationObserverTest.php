@@ -217,6 +217,7 @@ final class ThirdPartyErrorPage extends Page
 {
     protected $table = 'pages';
 
+    #[Override]
     public function getMorphClass(): string
     {
         return (new Page)->getMorphClass();
@@ -227,7 +228,7 @@ final class ParentPageUpdateObserver
 {
     public static bool $handled = false;
 
-    public function updated(Page $page): void
+    public function updated(): void
     {
         self::$handled = true;
     }

@@ -16,7 +16,15 @@ it('keeps first-party wildcard model listeners to the documented bounded set', f
     $listeners = [];
 
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($sourceRoot)) as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php' || ! str_contains($file->getPathname(), '/src/')) {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        if (! str_contains((string) $file->getPathname(), '/src/')) {
             continue;
         }
 

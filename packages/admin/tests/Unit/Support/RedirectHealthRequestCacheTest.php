@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\DB;
 it('negative-caches a missing redirect health snapshot for one request', function (): void {
     $pageUrl = new PageUrl;
     $pageUrl->id = 999_999;
-    $cache = app(RedirectHealthRequestCache::class);
+
+    $cache = resolve(RedirectHealthRequestCache::class);
     DB::flushQueryLog();
     DB::enableQueryLog();
 

@@ -8,6 +8,7 @@ use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessUnionReturnDocblockRector;
+use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
@@ -18,6 +19,7 @@ use Rector\Privatization\Rector\Property\PrivatizeFinalClassPropertyRector;
 use Rector\TypeDeclaration\Rector\ClassMethod\NarrowObjectReturnTypeRector;
 use RectorLaravel\Rector\ArrayDimFetch\EnvVariableToEnvHelperRector;
 use RectorLaravel\Rector\ArrayDimFetch\ServerVariableToRequestFacadeRector;
+use RectorLaravel\Rector\Class_\AddHasFactoryToModelsRector;
 use RectorLaravel\Rector\ClassMethod\MakeModelAttributesAndScopesProtectedRector;
 use RectorLaravel\Rector\If_\AbortIfRector;
 use RectorLaravel\Set\LaravelSetList;
@@ -109,6 +111,14 @@ return RectorConfig::configure()
         ],
         MakeModelAttributesAndScopesProtectedRector::class => [
             __DIR__ . '/packages/core/src/Enums/Attribute/EnumAttributeHelper.php',
+        ],
+        AddHasFactoryToModelsRector::class => [
+            __DIR__ . '/packages/admin/tests/Fixtures/Models',
+        ],
+        // Fixture properties here are read via reflection by SingletonLifetimeGuard,
+        // which Rector cannot see, so it treats them as unused and deletes them.
+        RemoveUnusedPrivatePropertyRector::class => [
+            __DIR__ . '/packages/core/tests/Unit/Octane/SingletonLifetimeInventoryTest.php',
         ],
         EnvVariableToEnvHelperRector::class => [
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',

@@ -24,9 +24,11 @@ use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Filament\Actions\Action;
+use Override;
 
 final class MarketplaceAdminBridge extends AbstractAdminBridge
 {
+    #[Override]
     public function isEnabled(AdminBridgeContextData $context): bool
     {
         return (bool) config('capell-marketplace.enabled', true);

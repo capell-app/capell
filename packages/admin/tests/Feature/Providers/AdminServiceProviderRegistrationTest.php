@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Settings\AdminSettingsSchema;
@@ -62,12 +63,12 @@ it('registers the built-in overview stat contract', function (): void {
     ];
     $builtInStats = array_values(array_filter(
         CapellAdmin::getOverviewStats(false),
-        static fn ($stat): bool => array_key_exists($stat->key, $expected),
+        static fn (CapellOverviewStatData $stat): bool => array_key_exists($stat->key, $expected),
     ));
     $stats = collect($builtInStats)->keyBy('key');
     $enabledStats = collect(CapellAdmin::getOverviewStats())->keyBy('key');
 
-    expect(array_map(static fn ($stat): string => $stat->key, $builtInStats))
+    expect(array_map(static fn (CapellOverviewStatData $stat): string => $stat->key, $builtInStats))
         ->toBe(array_keys($expected));
 
     foreach ($expected as $key => $arguments) {

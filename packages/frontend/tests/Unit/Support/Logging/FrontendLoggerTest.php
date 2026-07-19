@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Psr\Log\LoggerInterface;
 
 it('preserves supplied context and appends the caller without synthetic request state', function (): void {
-    config()->set('logging.channels.capell', null);
+    config()->set('logging.channels.capell');
 
     $logger = Mockery::mock(LoggerInterface::class);
 

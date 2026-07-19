@@ -62,11 +62,11 @@ it('keeps contributor order and contributor precedence while deduplicating selec
     $first = widgetResourceUsage('gallery', 'package.gallery', 'gallery-1');
     $second = widgetResourceUsage('map', 'package.map', 'map-1', PresentationLoadingStrategy::Idle);
 
-    tagWidgetResourceUsageContributor('test.frontend-widget-usage.first', new class($first, $second) implements FrontendWidgetResourceUsageContributor
+    tagWidgetResourceUsageContributor('test.frontend-widget-usage.first', new readonly class($first, $second) implements FrontendWidgetResourceUsageContributor
     {
         public function __construct(
-            private readonly FrontendWidgetResourceUsageData $first,
-            private readonly FrontendWidgetResourceUsageData $second,
+            private FrontendWidgetResourceUsageData $first,
+            private FrontendWidgetResourceUsageData $second,
         ) {}
 
         public function usages(FrontendRenderContextData $context): array
@@ -75,9 +75,9 @@ it('keeps contributor order and contributor precedence while deduplicating selec
         }
     });
 
-    tagWidgetResourceUsageContributor('test.frontend-widget-usage.second', new class($second) implements FrontendWidgetResourceUsageContributor
+    tagWidgetResourceUsageContributor('test.frontend-widget-usage.second', new readonly class($second) implements FrontendWidgetResourceUsageContributor
     {
-        public function __construct(private readonly FrontendWidgetResourceUsageData $usage) {}
+        public function __construct(private FrontendWidgetResourceUsageData $usage) {}
 
         public function usages(FrontendRenderContextData $context): array
         {

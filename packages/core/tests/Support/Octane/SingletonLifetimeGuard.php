@@ -5,6 +5,27 @@ declare(strict_types=1);
 namespace Capell\Tests\Support\Octane;
 
 use PhpParser\Node;
+use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\ArrayDimFetch;
+use PhpParser\Node\Expr\ArrowFunction;
+use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\AssignOp;
+use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Expr\Closure;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\New_;
+use PhpParser\Node\Expr\PostDec;
+use PhpParser\Node\Expr\PostInc;
+use PhpParser\Node\Expr\PreDec;
+use PhpParser\Node\Expr\PreInc;
+use PhpParser\Node\Expr\StaticPropertyFetch;
+use PhpParser\Node\Identifier;
+use PhpParser\Node\Name;
+use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\Return_;
+use PhpParser\Node\Stmt\Unset_;
+use PhpParser\Node\VarLikeIdentifier;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
@@ -47,9 +68,11 @@ final class SingletonLifetimeGuard
         foreach ($this->productionFiles() as $file) {
             foreach ($this->bindingCalls($this->parse((string) file_get_contents($file)), ['singleton', 'singletonIf', 'scoped']) as $call) {
                 $concrete = $call->args[1]->value ?? null;
+                if (! $concrete instanceof Closure && ! $concrete instanceof ArrowFunction) {
+                    continue;
+                }
 
-                if ((! $concrete instanceof Node\Expr\Closure && ! $concrete instanceof Node\Expr\ArrowFunction)
-                    || $this->bindingTarget($call) !== null) {
+                if ($this->bindingTarget($call) !== null) {
                     continue;
                 }
 
@@ -74,15 +97,22 @@ final class SingletonLifetimeGuard
         foreach ($this->productionFiles() as $file) {
             $nodes = $this->parse((string) file_get_contents($file));
 
-            foreach ((new NodeFinder)->findInstanceOf($nodes, Node\Expr\MethodCall::class) as $call) {
-                if (! $call->name instanceof Node\Identifier || $call->name->toString() !== 'tag') {
+            foreach ((new NodeFinder)->findInstanceOf($nodes, MethodCall::class) as $call) {
+                if (! $call->name instanceof Identifier) {
+                    continue;
+                }
+
+                if ($call->name->toString() !== 'tag') {
                     continue;
                 }
 
                 $tag = $call->args[1]->value ?? null;
                 $services = $call->args[0]->value ?? null;
+                if ($this->classConstOwner($tag) !== $resettableClass) {
+                    continue;
+                }
 
-                if ($this->classConstOwner($tag) !== $resettableClass || ! $services instanceof Node\Expr\Array_) {
+                if (! $services instanceof Array_) {
                     continue;
                 }
 
@@ -128,8 +158,8 @@ final class SingletonLifetimeGuard
         $finder = new NodeFinder;
         $declared = [];
 
-        /** @var list<Node\Stmt\ClassLike> $classLikes */
-        $classLikes = $finder->find($nodes, static fn (Node $node): bool => $node instanceof Node\Stmt\ClassLike && $node->name !== null);
+        /** @var list<ClassLike> $classLikes */
+        $classLikes = $finder->find($nodes, static fn (Node $node): bool => $node instanceof ClassLike && $node->name instanceof Identifier);
 
         foreach ($classLikes as $classLike) {
             $class = $classLike->namespacedName?->toString();
@@ -159,27 +189,30 @@ final class SingletonLifetimeGuard
             }
 
             $mutationRoots = [];
-            $mutationRoots = [...$mutationRoots, ...array_map(static fn (Node\Expr\Assign|Node\Expr\AssignOp $node): Node\Expr => $node->var, $finder->find(
+            $mutationRoots = [...$mutationRoots, ...array_map(static fn (Assign|AssignOp $node): Expr => $node->var, $finder->find(
                 $classLike->stmts,
-                static fn (Node $node): bool => $node instanceof Node\Expr\Assign || $node instanceof Node\Expr\AssignOp,
+                static fn (Node $node): bool => $node instanceof Assign || $node instanceof AssignOp,
             ))];
-            $mutationRoots = [...$mutationRoots, ...array_map(static fn (Node\Expr\PreInc|Node\Expr\PostInc|Node\Expr\PreDec|Node\Expr\PostDec $node): Node\Expr => $node->var, $finder->find(
+            $mutationRoots = [...$mutationRoots, ...array_map(static fn (PreInc|PostInc|PreDec|PostDec $node): Expr => $node->var, $finder->find(
                 $classLike->stmts,
-                static fn (Node $node): bool => $node instanceof Node\Expr\PreInc || $node instanceof Node\Expr\PostInc || $node instanceof Node\Expr\PreDec || $node instanceof Node\Expr\PostDec,
+                static fn (Node $node): bool => $node instanceof PreInc || $node instanceof PostInc || $node instanceof PreDec || $node instanceof PostDec,
             ))];
 
-            foreach ($finder->findInstanceOf($classLike->stmts, Node\Stmt\Unset_::class) as $unset) {
+            foreach ($finder->findInstanceOf($classLike->stmts, Unset_::class) as $unset) {
                 $mutationRoots = [...$mutationRoots, ...$unset->vars];
             }
 
-            foreach ($finder->findInstanceOf($classLike->stmts, Node\Expr\MethodCall::class) as $methodCall) {
+            foreach ($finder->findInstanceOf($classLike->stmts, MethodCall::class) as $methodCall) {
                 $mutationRoots[] = $methodCall->var;
             }
 
             foreach ($mutationRoots as $root) {
                 $fetch = $this->staticPropertyRoot($root);
+                if (! $fetch instanceof StaticPropertyFetch) {
+                    continue;
+                }
 
-                if (! $fetch instanceof Node\Expr\StaticPropertyFetch || ! $fetch->name instanceof Node\VarLikeIdentifier) {
+                if (! $fetch->name instanceof VarLikeIdentifier) {
                     continue;
                 }
 
@@ -231,8 +264,11 @@ final class SingletonLifetimeGuard
                 $abstract = $this->className($call->args[0]->value ?? null);
                 $target = $this->bindingTarget($call)
                     ?? ($abstract !== null ? ($this->dynamicBindingTargets[$abstract] ?? $abstract) : null);
+                if ($target === null) {
+                    continue;
+                }
 
-                if ($target === null || ! str_starts_with($target, 'Capell\\')) {
+                if (! str_starts_with((string) $target, 'Capell\\')) {
                     continue;
                 }
 
@@ -245,36 +281,36 @@ final class SingletonLifetimeGuard
         return $targets;
     }
 
-    /** @return list<Node\Expr\MethodCall> */
+    /** @return list<MethodCall> */
     private function bindingCalls(array $nodes, array $methods): array
     {
         $calls = (new NodeFinder)->find(
             $nodes,
-            static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall
-                && $node->name instanceof Node\Identifier
+            static fn (Node $node): bool => $node instanceof MethodCall
+                && $node->name instanceof Identifier
                 && in_array($node->name->toString(), $methods, true),
         );
 
         return array_values(array_filter(
             $calls,
-            static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall,
+            static fn (Node $node): bool => $node instanceof MethodCall,
         ));
     }
 
-    private function bindingTarget(Node\Expr\MethodCall $call): ?string
+    private function bindingTarget(MethodCall $call): ?string
     {
         $concrete = $call->args[1]->value ?? null;
 
-        if (! $concrete instanceof Node\Expr\Closure && ! $concrete instanceof Node\Expr\ArrowFunction) {
+        if (! $concrete instanceof Closure && ! $concrete instanceof ArrowFunction) {
             return $this->className($concrete);
         }
 
-        if ($concrete instanceof Node\Expr\ArrowFunction) {
-            return $concrete->expr instanceof Node\Expr\New_ ? $this->newClassName($concrete->expr) : null;
+        if ($concrete instanceof ArrowFunction) {
+            return $concrete->expr instanceof New_ ? $this->newClassName($concrete->expr) : null;
         }
 
         foreach ($concrete->stmts as $statement) {
-            if ($statement instanceof Node\Stmt\Return_ && $statement->expr instanceof Node\Expr\New_) {
+            if ($statement instanceof Return_ && $statement->expr instanceof New_) {
                 return $this->newClassName($statement->expr);
             }
         }
@@ -284,10 +320,10 @@ final class SingletonLifetimeGuard
 
     private function className(?Node $node): ?string
     {
-        if (! $node instanceof Node\Expr\ClassConstFetch
-            || ! $node->name instanceof Node\Identifier
+        if (! $node instanceof ClassConstFetch
+            || ! $node->name instanceof Identifier
             || $node->name->toString() !== 'class'
-            || ! $node->class instanceof Node\Name) {
+            || ! $node->class instanceof Name) {
             return null;
         }
 
@@ -296,14 +332,14 @@ final class SingletonLifetimeGuard
 
     private function classConstOwner(?Node $node): ?string
     {
-        return $node instanceof Node\Expr\ClassConstFetch && $node->class instanceof Node\Name
+        return $node instanceof ClassConstFetch && $node->class instanceof Name
             ? $node->class->toString()
             : null;
     }
 
-    private function newClassName(Node\Expr\New_ $new): ?string
+    private function newClassName(New_ $new): ?string
     {
-        return $new->class instanceof Node\Name ? $new->class->toString() : null;
+        return $new->class instanceof Name ? $new->class->toString() : null;
     }
 
     /** @return list<string> */
@@ -336,18 +372,18 @@ final class SingletonLifetimeGuard
         return $traverser->traverse($nodes);
     }
 
-    private function staticPropertyRoot(Node\Expr $expression): ?Node\Expr\StaticPropertyFetch
+    private function staticPropertyRoot(Expr $expression): ?StaticPropertyFetch
     {
-        while ($expression instanceof Node\Expr\ArrayDimFetch) {
+        while ($expression instanceof ArrayDimFetch) {
             $expression = $expression->var;
         }
 
-        return $expression instanceof Node\Expr\StaticPropertyFetch ? $expression : null;
+        return $expression instanceof StaticPropertyFetch ? $expression : null;
     }
 
-    private function staticOwner(Node\Expr\StaticPropertyFetch $fetch, string $scope): ?string
+    private function staticOwner(StaticPropertyFetch $fetch, string $scope): ?string
     {
-        if (! $fetch->class instanceof Node\Name) {
+        if (! $fetch->class instanceof Name) {
             return null;
         }
 
@@ -368,7 +404,11 @@ final class SingletonLifetimeGuard
 
         for ($current = $class; $current instanceof ReflectionClass; $current = $current->getParentClass() ?: null) {
             foreach ($current->getProperties() as $property) {
-                if ($property->getDeclaringClass()->getName() !== $current->getName() || $property->isStatic()) {
+                if ($property->getDeclaringClass()->getName() !== $current->getName()) {
+                    continue;
+                }
+
+                if ($property->isStatic()) {
                     continue;
                 }
 
@@ -379,8 +419,15 @@ final class SingletonLifetimeGuard
                 }
 
                 $type = $property->getType();
+                if (! $type instanceof ReflectionNamedType) {
+                    continue;
+                }
 
-                if (! $type instanceof ReflectionNamedType || $type->isBuiltin() || ! class_exists($type->getName())) {
+                if ($type->isBuiltin()) {
+                    continue;
+                }
+
+                if (! class_exists($type->getName())) {
                     continue;
                 }
 
