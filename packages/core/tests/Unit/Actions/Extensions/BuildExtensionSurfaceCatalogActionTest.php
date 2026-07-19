@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Tokens\IssueApiTokenAction;
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
+use Capell\Core\Enums\ApiTokenAbility;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Frontend\Contracts\AeoRouteProvider;
@@ -76,6 +78,22 @@ it('classifies the admin tool seam as experimental', function (): void {
         expect($entry->ownerPackage)->toBe('capell-app/admin')
             ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental);
     }
+});
+
+it('classifies scoped API token issuance as a stable extension surface', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+
+    expect($catalog)->toHaveKeys([
+        'admin.action.issue-api-token',
+        'core.enum.api-token-ability',
+    ])
+        ->and($catalog->get('admin.action.issue-api-token')?->identifier)->toBe(IssueApiTokenAction::class)
+        ->and($catalog->get('admin.action.issue-api-token')?->ownerPackage)->toBe('capell-app/admin')
+        ->and($catalog->get('admin.action.issue-api-token')?->stability)->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('admin.action.issue-api-token')?->contractTestId)->toBe('admin.issue-api-token')
+        ->and($catalog->get('core.enum.api-token-ability')?->identifier)->toBe(ApiTokenAbility::class)
+        ->and($catalog->get('core.enum.api-token-ability')?->stability)->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.enum.api-token-ability')?->contractTestId)->toBe('core.api-token-ability');
 });
 
 it('classifies the frontend package dependency seam as experimental', function (): void {

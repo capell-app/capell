@@ -168,6 +168,7 @@
         "lara-zeus/spatie-translatable": "^1.0|^2.0",
         "laravel/framework": "^12.41.1|^13.0",
         "laravel/prompts": "^0.2|^0.3",
+        "laravel/sanctum": "^4.0",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
         "michaloravec/laravel-paginateroute": "^1.0",

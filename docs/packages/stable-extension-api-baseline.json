@@ -2,6 +2,11 @@
     "schemaVersion": 1,
     "status": "pending-first-public-release",
     "surfaces": {
+        "admin.action.issue-api-token": {
+            "identifier": "Capell\\Admin\\Actions\\Tokens\\IssueApiTokenAction",
+            "signature": "fef259079d2fc09f4c137c34b99a45dc8e4ce0251f3ab11169749717c8bdaa4a",
+            "contractTestId": "admin.issue-api-token"
+        },
         "core.action.project-build-signing-input": {
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
             "signature": "9e587ec08e9f70bdce43a2fe51ebd1aab6463051673492ba1a7e770b93d78743",
@@ -36,6 +41,11 @@
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",
             "signature": "391e3389ea0d7bcd6d702629028ac990efa19cb738d26c70f87bec568ac2a318",
             "contractTestId": "core.extension-contribution-data"
+        },
+        "core.enum.api-token-ability": {
+            "identifier": "Capell\\Core\\Enums\\ApiTokenAbility",
+            "signature": "32acab0569fc276259c7bb94803feedd40b475e91a36e6916cfb4649442f4b10",
+            "contractTestId": "core.api-token-ability"
         },
         "core.event.package-installed": {
             "identifier": "Capell\\Core\\Events\\PackageInstalled",
@@ -95,6 +105,7 @@
         "filament/support": "~5.6.8",
         "illuminate/database": "^12.41.1|^13.0",
         "illuminate/support": "^12.41.1|^13.0",
+        "laravel/sanctum": "^4.0",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
         "spatie/laravel-activitylog": "^4.0",
@@ -150,7 +161,8 @@
         "2026_06_26_000002_create_snapshots_table.php",
         "2026_06_26_000003_create_page_workflow_states_table.php",
         "2026_06_26_000004_create_page_revisions_table.php",
-        "2026_06_26_000005_drop_legacy_page_content_snapshots_table.php"
+        "2026_06_26_000005_drop_legacy_page_content_snapshots_table.php",
+        "2026_07_19_000001_create_personal_access_tokens_table.php"
     ],
     "configKeys": []
 }

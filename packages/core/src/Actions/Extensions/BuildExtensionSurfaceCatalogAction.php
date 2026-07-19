@@ -18,6 +18,7 @@ use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Enums\ApiTokenAbility;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Core\Events\PackageInstalled;
@@ -75,6 +76,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.action.project-build-signing-input', 'action', CanonicalizeProjectBuildManifestSigningInputAction::class, ExtensionSurfaceStability::Stable, 'Canonical detached-signature input for portable project manifests.', 'core.project-build-manifest-signing'),
             $this->entry('core.action.validate-project-build-bundle', 'action', ValidateProjectBuildManifestBundleAction::class, ExtensionSurfaceStability::Stable, 'Fail-closed signature and artifact validation for portable project manifests.', 'core.project-build-manifest-bundle'),
             $this->entry('core.action.verify-project-build-signature', 'action', VerifyProjectBuildManifestSignatureAction::class, ExtensionSurfaceStability::Stable, 'Ed25519 verification for portable project manifests.', 'core.project-build-manifest-signing'),
+            $this->entry('core.enum.api-token-ability', 'enum', ApiTokenAbility::class, ExtensionSurfaceStability::Stable, 'Closed set of agent API token abilities.', 'core.api-token-ability'),
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
@@ -89,6 +91,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.tag.site-spec-applier', 'tagged-service', SiteSpecApplier::TAG, ExtensionSurfaceStability::Stable, 'Container tag for SiteSpec appliers.', 'core.site-spec-applier-registration'),
             $this->entry('core.config.roles-admin', 'config', 'capell.roles.admin', ExtensionSurfaceStability::Experimental, 'Configured administrator role name.'),
             $this->entry('admin.contract.admin-tool-item', 'contract', 'Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem', ExtensionSurfaceStability::Experimental, 'Typed admin header tool contribution boundary.', owner: 'capell-app/admin'),
+            $this->entry('admin.action.issue-api-token', 'action', 'Capell\\Admin\\Actions\\Tokens\\IssueApiTokenAction', ExtensionSurfaceStability::Stable, 'Validated per-user scoped API token issuance.', 'admin.issue-api-token', owner: 'capell-app/admin'),
             $this->entry('admin.render-hook.navigation-after', 'render-hook', 'panels::sidebar.nav.end', ExtensionSurfaceStability::Experimental, 'Admin navigation contribution hook.', owner: 'capell-app/admin'),
             $this->entry('admin.tag.admin-tool-item', 'tagged-service', 'capell-admin:admin-tool-items', ExtensionSurfaceStability::Experimental, 'Container tag for admin header tool contributions.', owner: 'capell-app/admin'),
             $this->entry('marketplace.contract.composer-change-publisher', 'contract', 'Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher', ExtensionSurfaceStability::Experimental, 'Typed optional Composer change publication boundary.', owner: 'capell-app/marketplace'),

@@ -3,6 +3,16 @@
     "generatedFrom": "Capell\\Core\\Actions\\Extensions\\BuildExtensionSurfaceCatalogAction",
     "surfaces": [
         {
+            "id": "admin.action.issue-api-token",
+            "kind": "action",
+            "identifier": "Capell\\Admin\\Actions\\Tokens\\IssueApiTokenAction",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Validated per-user scoped API token issuance.",
+            "contractTestId": "admin.issue-api-token"
+        },
+        {
             "id": "admin.contract.admin-tool-item",
             "kind": "contract",
             "identifier": "Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem",
@@ -161,6 +171,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build manifest envelope.",
             "contractTestId": null
+        },
+        {
+            "id": "core.enum.api-token-ability",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\ApiTokenAbility",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Closed set of agent API token abilities.",
+            "contractTestId": "core.api-token-ability"
         },
         {
             "id": "core.enum.frontend-route-reservation-type",
