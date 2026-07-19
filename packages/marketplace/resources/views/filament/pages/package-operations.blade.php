@@ -3,7 +3,10 @@
         $selectedOperation = $this->selectedOperation();
     @endphp
 
-    <div class="space-y-6">
+    <div
+        class="space-y-6"
+        @if ($selectedOperation?->status->isActiveInstallOperation()) wire:poll.2s @endif
+    >
         <div
             class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
         >
@@ -97,6 +100,66 @@
                 </x-slot>
 
                 <dl class="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                    <div>
+                        <dt
+                            class="font-medium text-gray-500 dark:text-gray-400"
+                        >
+                            {{ __('capell-marketplace::marketplace.operations.progress') }}
+                        </dt>
+                        <dd class="mt-1 text-gray-950 dark:text-white">
+                            <div>
+                                {{ $selectedOperation->current_stage ?: '-' }}
+                                @if ($selectedOperation->progress_total)
+                                        ·
+                                        {{ $selectedOperation->progress_current }}/{{ $selectedOperation->progress_total }}
+                                @endif
+                            </div>
+                            @if ($selectedOperation->progress_total)
+                                <progress
+                                    class="mt-2 w-full"
+                                    max="{{ $selectedOperation->progress_total }}"
+                                    value="{{ $selectedOperation->progress_current }}"
+                                    aria-label="{{ __('capell-marketplace::marketplace.operations.progress') }}"
+                                ></progress>
+                            @endif
+                        </dd>
+                    </div>
+                    <div>
+                        <dt
+                            class="font-medium text-gray-500 dark:text-gray-400"
+                        >
+                            {{ __('capell-marketplace::marketplace.operations.heartbeat') }}
+                        </dt>
+                        <dd class="mt-1 text-gray-950 dark:text-white">
+                            {{ $selectedOperation->heartbeat_at?->diffForHumans() ?? '-' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt
+                            class="font-medium text-gray-500 dark:text-gray-400"
+                        >
+                            {{ __('capell-marketplace::marketplace.operations.runtime') }}
+                        </dt>
+                        <dd class="mt-1 text-gray-950 dark:text-white">
+                            {{ $selectedOperation->runtime_ms !== null ? $selectedOperation->runtime_ms . ' ms' : '-' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt
+                            class="font-medium text-gray-500 dark:text-gray-400"
+                        >
+                            {{ __('capell-marketplace::marketplace.operations.telemetry') }}
+                        </dt>
+                        <dd class="mt-1 text-gray-950 dark:text-white">
+                            {{
+                                __('capell-marketplace::marketplace.operations.telemetry_summary', [
+                                    'attempts' => $selectedOperation->attempt_count,
+                                    'queries' => $selectedOperation->query_count,
+                                    'memory' => $selectedOperation->peak_memory_bytes !== null ? Number::fileSize($selectedOperation->peak_memory_bytes) : '-',
+                                ])
+                            }}
+                        </dd>
+                    </div>
                     <div>
                         <dt
                             class="font-medium text-gray-500 dark:text-gray-400"

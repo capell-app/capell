@@ -11,10 +11,12 @@ use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Actions\ClassifyMarketplaceInstallFailureAction;
+use Capell\Marketplace\Actions\FinalizeMarketplaceInstallOperationTelemetryAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
 use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceInstallOperationProgressAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
@@ -32,6 +34,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use JsonException;
 use RuntimeException;
@@ -48,7 +51,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
 
     public int $timeout = 720;
 
-    public int $tries = 30;
+    public int $tries = 0;
 
     public int $uniqueFor = 3600;
 
@@ -69,18 +72,50 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
 
     public function handle(MarketplaceComposerRunner $composer): void
     {
-        $lock = Cache::lock('capell-marketplace:composer-install', self::COMPOSER_TIMEOUT_SECONDS + 120);
+        $startedAt = hrtime(true);
+        $peakMemoryBefore = memory_get_peak_usage(true);
+        $connection = DB::connection();
+        $wasLoggingQueries = $connection->logging();
+        $queryCountBefore = count($connection->getQueryLog());
 
-        if (! $lock->get()) {
-            $this->release(30);
-
-            return;
+        if (! $wasLoggingQueries) {
+            $connection->flushQueryLog();
+            $connection->enableQueryLog();
+            $queryCountBefore = 0;
         }
 
+        $lock = Cache::lock('capell-marketplace:composer-install', self::COMPOSER_TIMEOUT_SECONDS + 120);
+
         try {
-            $this->runWithLock($composer);
+            if (! $lock->get()) {
+                $this->release(30);
+
+                return;
+            }
+
+            try {
+                $this->runWithLock($composer);
+            } finally {
+                $lock->release();
+            }
         } finally {
-            $lock->release();
+            $queryCount = max(0, count($connection->getQueryLog()) - $queryCountBefore);
+
+            if (! $wasLoggingQueries) {
+                $connection->disableQueryLog();
+                $connection->flushQueryLog();
+            }
+
+            $attempt = MarketplaceInstallAttempt::query()->find($this->installAttemptId);
+
+            if ($attempt instanceof MarketplaceInstallAttempt && ! $attempt->status->isActiveInstallOperation()) {
+                FinalizeMarketplaceInstallOperationTelemetryAction::run(
+                    attempt: $attempt,
+                    runtimeMilliseconds: max(0, (int) round((hrtime(true) - $startedAt) / 1_000_000)),
+                    peakMemoryBytes: max($peakMemoryBefore, memory_get_peak_usage(true)),
+                    queryCount: $queryCount,
+                );
+            }
         }
     }
 
@@ -117,6 +152,8 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             'resolved_at' => null,
         ])->save();
 
+        FinalizeMarketplaceInstallOperationTelemetryAction::run($attempt);
+
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_queue_failed', MarketplaceInstallFailureStage::Queue, [
             'reason' => $reason,
         ]);
@@ -151,6 +188,8 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             ->update([
                 'status' => MarketplaceInstallIntentStatus::Running->value,
                 'started_at' => now(),
+                'attempt_count' => max($attempt->attempt_count, $this->attempts()),
+                'heartbeat_at' => now(),
                 'updated_at' => now(),
             ]);
 
@@ -417,6 +456,16 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         array $context = [],
         ?string $outputExcerpt = null,
     ): void {
+        if ($stage instanceof MarketplaceInstallFailureStage) {
+            UpdateMarketplaceInstallOperationProgressAction::run(
+                attempt: $attempt,
+                stage: $stage,
+                progressCurrent: $this->stageProgress($stage),
+                progressTotal: 5,
+                attemptCount: $this->attempts(),
+            );
+        }
+
         RecordMarketplaceInstallAttemptEventAction::run(
             attempt: $attempt,
             level: $level,
@@ -425,6 +474,19 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             context: $context,
             outputExcerpt: $outputExcerpt,
         );
+    }
+
+    private function stageProgress(MarketplaceInstallFailureStage $stage): int
+    {
+        return match ($stage) {
+            MarketplaceInstallFailureStage::Preflight,
+            MarketplaceInstallFailureStage::Queue => 0,
+            MarketplaceInstallFailureStage::Composer => 1,
+            MarketplaceInstallFailureStage::PackageDiscovery => 2,
+            MarketplaceInstallFailureStage::Lifecycle => 3,
+            MarketplaceInstallFailureStage::Notification,
+            MarketplaceInstallFailureStage::DeploymentHandoff => 4,
+        };
     }
 
     private function reloadPackageRegistry(): void
