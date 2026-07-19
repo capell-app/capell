@@ -110,6 +110,7 @@ use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
 use Capell\Admin\Support\AdminResourceResolver;
+use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
@@ -274,6 +275,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(WidgetDiscovery::class);
         $this->app->singleton(ActivityResourceLinkRegistry::class);
         $this->app->singleton(AdminSurfaceContributionRegistry::class);
+        $this->app->singleton(AdminSurfaceContributionCache::class);
         $this->app->singleton(ReportRegistry::class);
         $this->app->singleton(DashboardFilamentWidgetRegistry::class);
         $this->app->singleton(MarketingStudioActionRegistry::class);

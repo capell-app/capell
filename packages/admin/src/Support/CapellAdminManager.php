@@ -47,7 +47,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Filesystem\Filesystem;
 use ReflectionClass;
 use RuntimeException;
 use Throwable;
@@ -75,6 +74,7 @@ class CapellAdminManager
         private readonly MarketingStudioActionRegistry $marketingStudioActionRegistry,
         private readonly UserMenuItemRegistry $userMenuItemRegistry,
         private readonly OverviewStatRegistry $overviewStatRegistry,
+        private readonly AdminSurfaceContributionCache $adminSurfaceCache,
     ) {}
 
     /** @return list<string>|list<FilamentWidgetEnum> */
@@ -388,52 +388,27 @@ class CapellAdminManager
 
     public function cacheConfigurators(): void
     {
-        $filesystem = resolve(Filesystem::class);
-        $cachePath = $this->getConfiguratorCachePath();
-        $cacheDirectory = dirname($cachePath);
-
-        if (! $filesystem->isDirectory($cacheDirectory)) {
-            $filesystem->makeDirectory($cacheDirectory, 0755, true);
-        }
-
-        $filesystem->put($cachePath, '<?php return ' . var_export($this->serializableContributions(), true) . ';' . PHP_EOL);
-
+        $this->adminSurfaceCache->cache();
     }
 
     public function clearCachedConfigurators(): void
     {
-        resolve(Filesystem::class)->delete($this->getConfiguratorCachePath());
-
+        $this->adminSurfaceCache->clear();
     }
 
     public function hasCachedConfigurators(): bool
     {
-        return resolve(Filesystem::class)->exists($this->getConfiguratorCachePath());
+        return $this->adminSurfaceCache->exists();
     }
 
     public function getConfiguratorCachePath(): string
     {
-        return app()->bootstrapPath('cache/capell-admin-configurators.php');
+        return $this->adminSurfaceCache->path();
     }
 
     public function restoreCachedConfigurators(): void
     {
-        if (! $this->hasCachedConfigurators()) {
-            return;
-        }
-
-        /** @var array<string, array<string, array{type: string, class: string, key: string, group: string|null, name: string, tag: string|null}>> $cachedContributions */
-        $cachedContributions = require $this->getConfiguratorCachePath();
-        $contributions = $this->hydrateContributions($cachedContributions);
-
-        $this->adminSurfaceRegistry->clear();
-
-        foreach ($contributions as $groupedContributions) {
-            foreach ($groupedContributions as $contribution) {
-                $this->adminSurfaceRegistry->register($contribution);
-            }
-        }
-
+        $this->adminSurfaceCache->restore();
     }
 
     /**
@@ -490,46 +465,5 @@ class CapellAdminManager
         } catch (Throwable) {
             return;
         }
-    }
-
-    /** @return array<string, array<string, array{type: string, class: string, key: string, group: string|null, name: string, tag: string|null}>> */
-    private function serializableContributions(): array
-    {
-        return array_map(
-            static fn (array $groupedContributions): array => array_map(
-                static fn (AdminSurfaceContributionData $contribution): array => [
-                    'type' => $contribution->type->value,
-                    'class' => $contribution->class,
-                    'key' => $contribution->key,
-                    'group' => $contribution->group,
-                    'name' => $contribution->name,
-                    'tag' => $contribution->tag,
-                ],
-                $groupedContributions,
-            ),
-            $this->adminSurfaceRegistry->all(),
-        );
-    }
-
-    /**
-     * @param  array<string, array<string, array{type: string, class: string, key: string, group: string|null, name: string, tag: string|null}>>  $cachedContributions
-     * @return array<string, array<string, AdminSurfaceContributionData>>
-     */
-    private function hydrateContributions(array $cachedContributions): array
-    {
-        return array_map(
-            static fn (array $groupedContributions): array => array_map(
-                static fn (array $contribution): AdminSurfaceContributionData => new AdminSurfaceContributionData(
-                    type: AdminSurfaceContributionType::from($contribution['type']),
-                    class: $contribution['class'],
-                    key: $contribution['key'],
-                    group: $contribution['group'],
-                    name: $contribution['name'],
-                    tag: $contribution['tag'],
-                ),
-                $groupedContributions,
-            ),
-            $cachedContributions,
-        );
     }
 }

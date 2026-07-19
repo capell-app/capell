@@ -6,6 +6,7 @@ use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
+use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
@@ -33,7 +34,8 @@ it('shares one manager and its injected registries across the container and faca
         ->and(managerRegistry($manager, 'dashboardWidgetRegistry'))->toBe(resolve(DashboardFilamentWidgetRegistry::class))
         ->and(managerRegistry($manager, 'marketingStudioActionRegistry'))->toBe(resolve(MarketingStudioActionRegistry::class))
         ->and(managerRegistry($manager, 'userMenuItemRegistry'))->toBe(resolve(UserMenuItemRegistry::class))
-        ->and(managerRegistry($manager, 'overviewStatRegistry'))->toBe(resolve(OverviewStatRegistry::class));
+        ->and(managerRegistry($manager, 'overviewStatRegistry'))->toBe(resolve(OverviewStatRegistry::class))
+        ->and(managerRegistry($manager, 'adminSurfaceCache'))->toBe(resolve(AdminSurfaceContributionCache::class));
 });
 
 it('owns concrete collection bindings while preserving substitutable contract overrides', function (): void {
@@ -42,6 +44,7 @@ it('owns concrete collection bindings while preserving substitutable contract ov
         AdminNotificationGroupRegistry::class,
         ActivityResourceLinkRegistry::class,
         AdminSurfaceContributionRegistry::class,
+        AdminSurfaceContributionCache::class,
         ReportRegistry::class,
         DashboardFilamentWidgetRegistry::class,
         MarketingStudioActionRegistry::class,
@@ -86,6 +89,7 @@ it('owns concrete collection bindings while preserving substitutable contract ov
         ->and(managerRegistry($manager, 'marketingStudioActionRegistry'))->toBe(resolve(MarketingStudioActionRegistry::class))
         ->and(managerRegistry($manager, 'userMenuItemRegistry'))->toBe(resolve(UserMenuItemRegistry::class))
         ->and(managerRegistry($manager, 'overviewStatRegistry'))->toBe(resolve(OverviewStatRegistry::class))
+        ->and(managerRegistry($manager, 'adminSurfaceCache'))->toBe(resolve(AdminSurfaceContributionCache::class))
         ->and(resolve(FlagIconRendererContract::class))->toBe($renderer);
 });
 
