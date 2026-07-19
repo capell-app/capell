@@ -8,6 +8,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Data\InstalledPackageData;
+use Composer\InstalledVersions;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -25,7 +26,8 @@ final class BuildInstalledPackageSnapshotAction
     {
         $extensionRecords = $this->extensionRecords();
 
-        return CapellCore::getInstalledPackages()
+        return CapellCore::getPackages(withoutCore: false)
+            ->filter(fn (PackageData $package): bool => InstalledVersions::isInstalled($package->name))
             ->values()
             ->map(
                 function (PackageData $package) use ($extensionRecords): InstalledPackageData {
@@ -36,6 +38,7 @@ final class BuildInstalledPackageSnapshotAction
                         label: $package->getLabel(),
                         version: $package->version,
                         path: $package->path,
+                        lifecycleInstalled: CapellCore::isPackageInstalled($package->name),
                         paid: $extension instanceof CapellExtension && $extension->is_paid_marketplace_extension,
                         licenceStatus: $extension instanceof CapellExtension ? $extension->marketplace_runtime_status : null,
                         runtimeAllowed: $extension instanceof CapellExtension ? $extension->marketplace_runtime_allowed : null,
