@@ -248,12 +248,17 @@ final class SingletonLifetimeGuard
     /** @return list<Node\Expr\MethodCall> */
     private function bindingCalls(array $nodes, array $methods): array
     {
-        return (new NodeFinder)->find(
+        $calls = (new NodeFinder)->find(
             $nodes,
             static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall
                 && $node->name instanceof Node\Identifier
                 && in_array($node->name->toString(), $methods, true),
         );
+
+        return array_values(array_filter(
+            $calls,
+            static fn (Node $node): bool => $node instanceof Node\Expr\MethodCall,
+        ));
     }
 
     private function bindingTarget(Node\Expr\MethodCall $call): ?string
