@@ -17,6 +17,8 @@ use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
+use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
+use Illuminate\Container\Container;
 use Illuminate\Support\HtmlString;
 
 it('shares one manager and its injected registries across the container and facade', function (): void {
@@ -96,3 +98,15 @@ function managerRegistry(CapellAdminManager $manager, string $property): object
 
     return $registry;
 }
+
+it('keeps user menu definitions singleton while scoping resolved menu items', function (): void {
+    $registry = resolve(UserMenuItemRegistry::class);
+    $resolver = resolve(UserMenuItemResolver::class);
+
+    expect(resolve(UserMenuItemResolver::class))->toBe($resolver);
+
+    Container::getInstance()->forgetScopedInstances();
+
+    expect(resolve(UserMenuItemRegistry::class))->toBe($registry)
+        ->and(resolve(UserMenuItemResolver::class))->not->toBe($resolver);
+});

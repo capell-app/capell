@@ -154,6 +154,7 @@ use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
+use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
@@ -277,6 +278,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(DashboardFilamentWidgetRegistry::class);
         $this->app->singleton(MarketingStudioActionRegistry::class);
         $this->app->singleton(UserMenuItemRegistry::class);
+        $this->app->scoped(UserMenuItemResolver::class);
         $this->app->singleton(OverviewStatRegistry::class);
         $this->app->singleton(AdminBridgeRegistry::class);
         $this->app->singleton(AdminBridgeRegistrar::class);
