@@ -11,7 +11,7 @@
     ],
     "homepage": "https://capell.app",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
     "authors": [
         {
             "name": "Howdu",

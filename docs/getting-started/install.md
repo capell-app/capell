@@ -50,9 +50,9 @@ php artisan migrate:status
 
 ### 2. Install the public foundation
 
-Core, Admin, Frontend, Installer, and Marketplace are public Composer packages under the Capell licence. They do not require marketplace credentials.
+Capell Foundation is MIT-licensed. Core, Admin, Frontend, Installer, and Marketplace install from public Packagist repositories without a Capell account or marketplace credentials.
 
-Paid marketplace packages use authenticated Composer access. The credentials supplied for an entitled customer organisation are scoped to protected packages and are not needed for the public foundation.
+Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access. The credentials supplied for an entitled customer organisation are scoped to protected packages and are not needed for Foundation.
 
 ```bash
 composer require capell-app/installer

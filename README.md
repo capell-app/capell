@@ -91,7 +91,7 @@ Read [Theme Library](docs/admin/theme-library.md) to operate installed themes or
 
 The public foundation is split into five packages:
 
-Foundation packages install from public Packagist repositories. Paid marketplace packages require authenticated Composer access and an active entitlement.
+Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access.
 
 | Package     | Composer name            | Responsibility                                                                                                                             |
 | ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -153,11 +153,9 @@ For the shipped 1.x line, each minor receives security fixes for 24 months from 
 - [Current pricing and commercial availability](https://capell.app/pricing)
 - [Support boundaries](https://capell.app/support)
 - [Security policy](SECURITY.md)
-- [Capell licence](LICENSE.md)
+- [MIT licence](LICENSE.md)
 
-Commercial facts live on the Capell website so this README does not preserve stale prices, package counts, discounts, or checkout claims. Public source and Packagist availability do not change the Capell licence.
-
-Capell is commercial software (`"license": "proprietary"`) with public foundation source and Composer distribution. Public visibility does not change the Capell licence. See [LICENSE.md](LICENSE.md) for the full terms.
+Commercial facts live on the Capell website so this README does not preserve stale prices, package counts, discounts, or checkout claims. Capell Foundation is MIT-licensed. Paid marketplace packages remain commercially licensed under their separate terms; public visibility never grants protected package access. See [LICENSE.md](LICENSE.md) for the Foundation terms.
 
 ## Contributing to this repository
 

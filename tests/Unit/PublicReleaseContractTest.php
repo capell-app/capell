@@ -196,6 +196,7 @@ it('defines the public v1 split package release contract', function (): void {
     expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
 
     expect($localSplitScript)->toContain('config/release-packages.json')
+        ->toContain('basename((string) $package["path"])')
         ->and($packagistScript)->toContain('config/release-packages.json');
 });
 
@@ -218,7 +219,7 @@ it('warms the package manifest cache after installation and before release smoke
         ->and($assetBuildIndex)->toBeLessThan($serveIndex);
 });
 
-it('defines the paid root package as the aggregate of the public foundation', function (): void {
+it('defines the MIT root package as the aggregate of the public foundation', function (): void {
     $root = dirname(__DIR__, 2);
     $manifest = json_decode(
         file_get_contents($root . '/composer.json'),
@@ -228,7 +229,7 @@ it('defines the paid root package as the aggregate of the public foundation', fu
     );
 
     expect($manifest['name'])->toBe('capell-app/capell')
-        ->and($manifest['license'])->toBe('proprietary')
+        ->and($manifest['license'])->toBe('MIT')
         ->and($manifest['replace'])->toBe([
             'capell-app/admin' => 'self.version',
             'capell-app/core' => 'self.version',
@@ -276,17 +277,17 @@ it('documents one public distribution and commercial licensing story', function 
     $supportPolicy = file_get_contents($root . '/packages/core/README.md');
 
     expect($readme)
-        ->toContain('Foundation packages install from public Packagist repositories.')
+        ->toContain('Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account.')
         ->toContain('For the shipped 1.x line')
-        ->toContain('Capell is commercial software (`"license": "proprietary"`)')
-        ->toContain('Public visibility does not change the Capell licence.')
+        ->toContain('Capell Foundation is MIT-licensed')
+        ->toContain('Paid marketplace packages remain commercially licensed')
         ->not->toContain('not published through a public source repository')
         ->not->toContain('distributed through private Composer access')
         ->and($quickstart)
-        ->toContain('current 1.x foundation release is available through public Packagist packages')
+        ->toContain('current 1.x Capell Foundation release is MIT-licensed and available through public Packagist packages without a Capell account')
         ->and($install)
         ->toContain('Install the public foundation')
-        ->toContain('Paid marketplace packages use authenticated Composer access')
+        ->toContain('Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access')
         ->not->toContain('Configure private Capell access')
         ->not->toContain('Do not substitute public Packagist')
         ->and($supportPolicy)
@@ -308,7 +309,7 @@ it('defines the root package as the aligned aggregate of the foundation', functi
     );
 
     expect($manifest['name'])->toBe('capell-app/capell')
-        ->and($manifest['license'])->toBe('proprietary')
+        ->and($manifest['license'])->toBe('MIT')
         ->and($manifest['replace'])->toBe([
             'capell-app/admin' => 'self.version',
             'capell-app/core' => 'self.version',
@@ -330,6 +331,25 @@ it('defines the root package as the aligned aggregate of the foundation', functi
             InstallerServiceProvider::class,
             MarketplaceServiceProvider::class,
         );
+});
+
+it('includes the MIT licence in every foundation split', function (): void {
+    $root = dirname(__DIR__, 2);
+    $foundationPackages = ['core', 'admin', 'frontend', 'installer', 'marketplace'];
+
+    foreach ($foundationPackages as $package) {
+        $packageRoot = $root . '/packages/' . $package;
+        $packageManifest = json_decode(
+            file_get_contents($packageRoot . '/composer.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        expect($packageManifest['license'])->toBe('MIT')
+            ->and(file_get_contents($packageRoot . '/LICENSE.md'))
+            ->toContain('Permission is hereby granted, free of charge');
+    }
 });
 
 it('keeps split package readmes standalone', function (): void {
