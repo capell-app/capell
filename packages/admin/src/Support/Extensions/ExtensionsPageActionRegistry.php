@@ -11,16 +11,16 @@ use Filament\Actions\ActionGroup;
 
 final class ExtensionsPageActionRegistry
 {
-    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup> */
+    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)> */
     private array $headerActions = [];
 
-    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup> */
+    /** @var array<int|string, Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)> */
     private array $headerActionGroupActions = [];
 
     /** @var array<int|string, Action|Closure(ExtensionsPage): Action> */
     private array $tableActions = [];
 
-    /** @param  Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup  $action */
+    /** @param  Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)  $action */
     public function registerHeaderAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         if ($key === null) {
@@ -32,7 +32,7 @@ final class ExtensionsPageActionRegistry
         $this->headerActions[$key] = $action;
     }
 
-    /** @param  Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup  $action */
+    /** @param  Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)  $action */
     public function registerHeaderActionGroupAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         if ($key === null) {
@@ -75,7 +75,7 @@ final class ExtensionsPageActionRegistry
     }
 
     /**
-     * @param  array<int|string, Action|ActionGroup|Closure(ExtensionsPage): Action|ActionGroup>  $actions
+     * @param  array<int|string, Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup)>  $actions
      * @return array<int, Action|ActionGroup>
      */
     private function resolveActions(array $actions, ExtensionsPage $page): array
