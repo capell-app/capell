@@ -58,6 +58,8 @@ final class SingletonLifetimeInventory
             'Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry' => self::boot('Notification groups are package boot registrations.'),
             'Capell\Admin\Support\Activity\ActivityResourceLinkRegistry' => self::boot('Activity resource links are package boot registrations.'),
             'Capell\Admin\Support\AdminSurfaceContributionRegistry' => self::boot('Admin surfaces are package boot registrations.'),
+            'Capell\Admin\Support\AdminSurfaceContributionCache' => self::boot('Admin surface contributions are derived once from boot registrations and invalidated only by explicit registration changes.'),
+            'Capell\Admin\Support\AdminSurfaceContributionCache' => self::boot('The cache service retains only boot-lifetime collaborators and no operation-derived state.'),
             'Capell\Admin\Support\Reports\ReportRegistry' => self::boot('Reports are package boot registrations.'),
             'Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry' => self::boot('Dashboard widgets are package boot registrations.'),
             'Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry' => self::boot('Marketing actions are package boot registrations.'),
