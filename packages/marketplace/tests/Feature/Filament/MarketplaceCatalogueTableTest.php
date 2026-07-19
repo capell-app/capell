@@ -8,8 +8,11 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallPolicyEvidenceAction;
 use Capell\Marketplace\Actions\QueueMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\WarmMarketplaceCatalogueCacheAction;
+use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
@@ -57,45 +60,19 @@ beforeEach(function (): void {
 
 function ensureDeploymentPublisherTestContracts(): void
 {
-    if (! class_exists('Capell\\Deployments\\Data\\ComposerRequirementData')) {
-        eval(<<<'PHP'
-            namespace Capell\Deployments\Data;
+    app()->instance('test.marketplace.deployment-publisher-adapter', new class implements MarketplaceComposerChangePublisher
+    {
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
+        {
+            $result = app()->make('Capell\\Deployments\\Contracts\\PublishesComposerChanges')->publish($request);
 
-            final class ComposerRequirementData
-            {
-                public function __construct(
-                    public string $composerName,
-                    public string $versionConstraint = '*',
-                    public ?string $repositoryUrl = null,
-                    public ?string $label = null,
-                ) {}
-            }
-        PHP);
-    }
-
-    if (! interface_exists('Capell\\Deployments\\Contracts\\PublishesComposerChanges')) {
-        eval(<<<'PHP'
-            namespace Capell\Deployments\Contracts;
-
-            interface PublishesComposerChanges
-            {
-            }
-        PHP);
-    }
-
-    if (! class_exists('Capell\\Deployments\\Actions\\AuthorizeComposerPublicationAction')) {
-        eval(<<<'PHP'
-            namespace Capell\Deployments\Actions;
-
-            final class AuthorizeComposerPublicationAction
-            {
-                public static function run(string $operationId, object $requirement): object
-                {
-                    return (object) ['operationId' => $operationId, 'requirement' => $requirement];
-                }
-            }
-        PHP);
-    }
+            return new MarketplaceComposerPublicationResultData(
+                pullRequestUrl: is_string($result->pullRequestUrl ?? null) ? $result->pullRequestUrl : null,
+                commitSha: is_string($result->commitSha ?? null) ? $result->commitSha : null,
+            );
+        }
+    });
+    app()->tag(['test.marketplace.deployment-publisher-adapter'], MarketplaceComposerChangePublisher::TAG);
 }
 
 it('builds marketplace table records from filtered marketplace listings', function (): void {

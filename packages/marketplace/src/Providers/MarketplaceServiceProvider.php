@@ -13,6 +13,7 @@ use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 use Override;
@@ -62,6 +63,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             $this->app->scoped(MarketplaceInstanceResolver::class);
             $this->app->scoped(BuildMarketplaceInstallOperationsSummaryAction::class);
             $this->app->scoped(MarketplaceCatalogueRecordProvider::class);
+            $this->app->bind(MarketplaceComposerChangePublisherRegistry::class);
 
             $this->app->bind(
                 'capell.marketplace.activation-verifier',

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
@@ -94,45 +97,19 @@ function grantMarketplacePageOnlyAccess(): void
 
 function ensureMarketplaceBrowserDeploymentPublisherTestContracts(): void
 {
-    if (! class_exists('Capell\\Deployments\\Data\\ComposerRequirementData')) {
-        eval(<<<'PHP'
-            namespace Capell\Deployments\Data;
+    app()->instance('test.marketplace.browser-deployment-publisher-adapter', new class implements MarketplaceComposerChangePublisher
+    {
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
+        {
+            $result = app()->make('Capell\\Deployments\\Contracts\\PublishesComposerChanges')->publish($request);
 
-            final class ComposerRequirementData
-            {
-                public function __construct(
-                    public string $composerName,
-                    public string $versionConstraint = '*',
-                    public ?string $repositoryUrl = null,
-                    public ?string $label = null,
-                ) {}
-            }
-        PHP);
-    }
-
-    if (! interface_exists('Capell\\Deployments\\Contracts\\PublishesComposerChanges')) {
-        eval(<<<'PHP'
-            namespace Capell\Deployments\Contracts;
-
-            interface PublishesComposerChanges
-            {
-            }
-        PHP);
-    }
-
-    if (! class_exists('Capell\\Deployments\\Actions\\AuthorizeComposerPublicationAction')) {
-        eval(<<<'PHP'
-            namespace Capell\Deployments\Actions;
-
-            final class AuthorizeComposerPublicationAction
-            {
-                public static function run(string $operationId, object $requirement): object
-                {
-                    return (object) ['operationId' => $operationId, 'requirement' => $requirement];
-                }
-            }
-        PHP);
-    }
+            return new MarketplaceComposerPublicationResultData(
+                pullRequestUrl: is_string($result->pullRequestUrl ?? null) ? $result->pullRequestUrl : null,
+                commitSha: is_string($result->commitSha ?? null) ? $result->commitSha : null,
+            );
+        }
+    });
+    app()->tag(['test.marketplace.browser-deployment-publisher-adapter'], MarketplaceComposerChangePublisher::TAG);
 }
 
 it('renders author and rating information in the marketplace card', function (): void {

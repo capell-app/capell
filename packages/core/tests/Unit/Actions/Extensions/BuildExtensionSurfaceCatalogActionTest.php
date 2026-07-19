@@ -69,6 +69,27 @@ it('classifies the route reservation and interaction capability seams as experim
     }
 });
 
+it('classifies the marketplace composer publication seam as experimental', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'marketplace.contract.composer-change-publisher',
+        'marketplace.dto.composer-publication-request',
+        'marketplace.dto.composer-publication-result',
+        'marketplace.tag.composer-change-publisher',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds)
+        ->and($catalog->get('marketplace.contract.composer-change-publisher')?->identifier)->toBe('Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher')
+        ->and($catalog->get('marketplace.dto.composer-publication-request')?->identifier)->toBe('Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData')
+        ->and($catalog->get('marketplace.dto.composer-publication-result')?->identifier)->toBe('Capell\\Marketplace\\Data\\MarketplaceComposerPublicationResultData')
+        ->and($catalog->get('marketplace.tag.composer-change-publisher')?->identifier)->toBe('capell.marketplace.composer-change-publisher');
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/marketplace')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental);
+    }
+});
+
 it('rejects duplicate stable IDs', function (): void {
     $entry = new ExtensionSurfaceCatalogEntryData(
         id: 'core.contract.extension-contribution',

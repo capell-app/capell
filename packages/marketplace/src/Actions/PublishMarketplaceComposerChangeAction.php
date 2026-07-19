@@ -6,9 +6,10 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -19,16 +20,18 @@ final class PublishMarketplaceComposerChangeAction
     use AsFake;
     use AsObject;
 
+    public function __construct(
+        private readonly MarketplaceComposerChangePublisherRegistry $publishers,
+    ) {}
+
     /**
      * @return array{status: string, reference?: string, type?: string, failure_reason?: string, fallback?: string}
      */
     public function handle(ExtensionAcquisitionData $acquisition, ExtensionListingData $listing, MarketplaceInstallAttempt $attempt): array
     {
-        $publisherContract = 'Capell\\Deployments\\Contracts\\PublishesComposerChanges';
-        $requirementData = 'Capell\\Deployments\\Data\\ComposerRequirementData';
-        $authorizationAction = 'Capell\\Deployments\\Actions\\AuthorizeComposerPublicationAction';
+        $publisher = $this->publishers->first();
 
-        if (! interface_exists($publisherContract) || ! class_exists($requirementData) || ! class_exists($authorizationAction) || ! App::bound($publisherContract)) {
+        if ($publisher === null) {
             return [
                 'status' => 'unavailable',
                 'fallback' => 'composer_command',
@@ -36,14 +39,14 @@ final class PublishMarketplaceComposerChangeAction
         }
 
         try {
-            $requirement = new $requirementData(
+            $request = new MarketplaceComposerPublicationRequestData(
+                operationId: (string) $attempt->getKey(),
                 composerName: $acquisition->composerName,
                 versionConstraint: $acquisition->versionConstraint,
                 repositoryUrl: $acquisition->repositoryUrl,
                 label: $listing->name,
             );
-            $operation = $authorizationAction::run((string) $attempt->getKey(), $requirement);
-            $result = App::make($publisherContract)->publish($operation);
+            $result = $publisher->publish($request);
         } catch (ModelNotFoundException $throwable) {
             $reason = $this->redactedText($throwable->getMessage());
 

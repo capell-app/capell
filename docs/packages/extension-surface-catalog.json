@@ -161,6 +161,46 @@
             "introducedVersion": "1.0.0",
             "summary": "Single-package manifest and contribution assertions.",
             "contractTestId": "core.extension-test-harness"
+        },
+        {
+            "id": "marketplace.contract.composer-change-publisher",
+            "kind": "contract",
+            "identifier": "Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed optional Composer change publication boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.dto.composer-publication-request",
+            "kind": "dto",
+            "identifier": "Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed Composer publication request data.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.dto.composer-publication-result",
+            "kind": "dto",
+            "identifier": "Capell\\Marketplace\\Data\\MarketplaceComposerPublicationResultData",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed Composer publication result data.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.tag.composer-change-publisher",
+            "kind": "tagged-service",
+            "identifier": "capell.marketplace.composer-change-publisher",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for optional Composer change publishers.",
+            "contractTestId": null
         }
     ]
 }
