@@ -224,10 +224,6 @@ trait HasComponents
 
         $this->components = is_array($cache['components'] ?? null) ? $cache['components'] : [];
         $this->discoveredComponents = is_array($cache['discoveredComponents'] ?? null) ? $cache['discoveredComponents'] : [];
-
-        foreach ($this->discoveredComponents as $type => $components) {
-            $this->components[$type] = $components;
-        }
     }
 
     public function clearCachedComponents(): void

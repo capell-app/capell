@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Models\Site;
-use Capell\Core\Models\SiteDomain;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Cache\CapellCacheManager;
@@ -61,13 +60,15 @@ it('starts the next operation with fresh core runtime state and preserved boot r
         ->registerPageType(new PageTypeData('octane-page', Site::class))
         ->registerModels([Site::class]);
     $manager::registerModelRelations('octane-model', 'translations');
+    $bootModels = $manager->getModels();
 
     expect($manager->getComponent('Widgets', 'first'))->toBe('first')
-        ->and($manager->getModels())->toHaveKey('Site', Site::class)
+        ->and($bootModels)->toHaveKey('Site', Site::class)
         ->and($manager->getDefaultPages()->keys()->all())->toBe(['home'])
         ->and($manager->rememberCache('octane-operation', fn (): string => 'operation-one'))->toBe('operation-one');
 
     $manager->cacheComponents();
+    $manager->restoreCachedComponents();
     $manager->getPackages();
 
     File::delete($componentRoot . '/widgets/first.blade.php');
@@ -86,12 +87,10 @@ it('starts the next operation with fresh core runtime state and preserved boot r
 
     new FlushResettableState(app())->handle();
 
-    $manager->registerModels([SiteDomain::class]);
-
     expect($manager->hasComponent('Widgets', 'first'))->toBeFalse()
         ->and($manager->getComponent('Widgets', 'second'))->toBe('second')
         ->and($manager->hasCachedComponents())->toBeFalse()
-        ->and($manager->getModels())->toBe(['SiteDomain' => SiteDomain::class])
+        ->and($manager->getModels())->toBe($bootModels)
         ->and($manager->getDefaultPages()->keys()->all())->toBe(['contact'])
         ->and($manager->getFromCache('octane-operation'))->toBe('operation-two')
         ->and($manager->getComponents('Boot'))->toBe(['registered' => 'boot.registered'])

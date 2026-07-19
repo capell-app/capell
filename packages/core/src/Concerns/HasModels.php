@@ -56,9 +56,4 @@ trait HasModels
 
         return $this;
     }
-
-    protected function flushModelRuntimeState(): void
-    {
-        $this->models = null;
-    }
 }
