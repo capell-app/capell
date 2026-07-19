@@ -567,13 +567,12 @@ final class ReleaseEngine
             $tag = 'v' . $package['proposed_version'];
             $repository = $package['split_repository'];
             $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
-            $branch = 'capell-release-' . str_replace('/', '-', $name) . '-' . substr($plan['source']['commit'], 0, 12);
             if (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
-                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", "refs/heads/main:refs/remotes/{$branch}"], $this->root);
-                $parent = $this->git(['rev-parse', "refs/remotes/{$branch}"]);
+                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", 'refs/heads/main'], $this->root);
+                $parent = $this->git(['rev-parse', 'FETCH_HEAD']);
                 $splitSha = $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', "Release {$tag}"]);
             } else {
-                $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit'], '-b', $branch]);
+                $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit']]);
             }
             $splitTree = $this->git(['rev-parse', "{$splitSha}^{tree}"]);
             if (! hash_equals($package['subtree_hash'], $splitTree)) {

@@ -208,7 +208,8 @@ it('publishes a verified split and records atomic resumable state', function ():
     expect($state['packages']['capell-app/core']['split_sha'])->toBe($split)
         ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
         ->and(implode("\n", array_map(fn (array $command): string => implode(' ', $command), $runner->commands)))
-        ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0');
+        ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0')
+        ->toContain('rev-parse FETCH_HEAD')->not->toContain('capell-release-capell-')->not->toContain('refs/remotes/');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
