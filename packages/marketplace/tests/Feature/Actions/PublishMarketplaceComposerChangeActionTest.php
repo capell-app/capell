@@ -49,7 +49,7 @@ function publishMarketplaceFixture(): array
 {
     [$acquisition, $listing, $attempt] = marketplacePublicationFixture();
 
-    return resolve(PublishMarketplaceComposerChangeAction::class)->handle($acquisition, $listing, $attempt);
+    return PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $attempt);
 }
 
 it('falls back to the composer command when no publisher contributes', function (): void {

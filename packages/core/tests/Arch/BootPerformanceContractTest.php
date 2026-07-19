@@ -60,3 +60,26 @@ it('prevents non-console package discovery when the manifest cache is absent', f
     expect(fn () => $bootstrapper->bootstrap())
         ->toThrow(RuntimeException::class, 'Run [php artisan capell:package-cache] during deployment.');
 });
+
+it('fails once when a non-console invalid manifest cache cannot be removed', function (): void {
+    $cachePath = sys_get_temp_dir() . '/undeletable-capell-package-manifests-' . bin2hex(random_bytes(6));
+    mkdir($cachePath);
+
+    $registry = new CapellPackageRegistry;
+    $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->once()->with(CapellPackageRegistry::class)->andReturn($registry);
+    $application->shouldReceive('bootstrapPath')->once()->with('cache/capell-package-manifests.php')->andReturn($cachePath);
+    $application->shouldReceive('runningInConsole')->once()->andReturnFalse();
+
+    $bootstrapper = new PackageRegistryBootstrapper(
+        $application,
+        new ManifestLoader(new ManifestValidator),
+    );
+
+    try {
+        expect(fn () => $bootstrapper->bootstrap())
+            ->toThrow(RuntimeException::class, 'Run [php artisan capell:package-cache] during deployment.');
+    } finally {
+        rmdir($cachePath);
+    }
+});
