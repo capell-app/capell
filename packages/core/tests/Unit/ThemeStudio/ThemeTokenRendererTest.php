@@ -147,3 +147,58 @@ it('continues resolving runtime data when theme token css cannot be written', fu
     expect($runtime->tokenCssPath)->toBeNull()
         ->and($runtime->assetKey)->not->toBe('');
 });
+
+it('renders declared theme editor extras and rejects values outside their closed vocabulary', function (): void {
+    $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
+
+    app()->instance(ThemeTokenStore::class, new ThemeTokenStore($directory));
+    resolve(ThemeRegistry::class)->register(
+        new ThemeDefinitionData(
+            key: 'identity-token-theme',
+            name: 'Identity Token Theme',
+            description: 'Theme runtime identity token test.',
+            package: 'capell-app/identity-token-theme',
+            previewImage: '/preview.jpg',
+            tags: [],
+            bestFit: [],
+            presets: [
+                new ThemePresetData(
+                    key: 'default',
+                    name: 'Default',
+                    description: 'Default preset.',
+                    previewImage: '/preset.jpg',
+                    values: ['glassDepth' => 'balanced'],
+                ),
+            ],
+            frontend: [
+                'editor' => [
+                    'groups' => ['identity' => ['glassDepth']],
+                    'tokens' => ['glassDepth' => ['options' => ['restrained', 'balanced', 'prismatic']]],
+                ],
+            ],
+        ),
+    );
+
+    try {
+        $runtime = ResolveThemeRuntimeAction::run(
+            activeTheme: 'identity-token-theme',
+            activePreset: 'default',
+            brand: new BrandProfileData,
+            themeOverrides: [
+                'identity-token-theme' => [
+                    'glassDepth' => 'prismatic',
+                    'undeclaredToken' => 'unsafe; } body { display: none',
+                ],
+            ],
+        );
+
+        $css = File::get((string) $runtime->tokenCssPath);
+
+        expect($css)
+            ->toContain('--theme-glass-depth: prismatic;')
+            ->not->toContain('undeclared-token')
+            ->not->toContain('display: none');
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});

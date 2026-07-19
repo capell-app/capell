@@ -9,6 +9,7 @@ use Capell\Core\ThemeStudio\Assets\ThemeAssetKey;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
+use Capell\Core\ThemeStudio\Data\ThemeOverrideData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Data\ThemeRuntimeData;
 use Capell\Core\ThemeStudio\Exceptions\ThemePresetNotFoundException;
@@ -112,9 +113,14 @@ class ResolveThemeRuntimeAction
             ];
         }
 
-        return $brand
-            ->merge($defaultValues)
-            ->merge($overrideValues);
+        return ResolveBrandProfileAction::run(
+            brand: $brand,
+            definition: $definition,
+            override: new ThemeOverrideData(
+                themeKey: $definition->key,
+                values: [...$defaultValues, ...$overrideValues],
+            ),
+        );
     }
 
     /**
