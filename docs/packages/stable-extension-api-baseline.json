@@ -4,7 +4,7 @@
     "surfaces": {
         "admin.action.issue-api-token": {
             "identifier": "Capell\\Admin\\Actions\\Tokens\\IssueApiTokenAction",
-            "signature": "fef259079d2fc09f4c137c34b99a45dc8e4ce0251f3ab11169749717c8bdaa4a",
+            "signature": "00a0f8e2edf51306f1b7966fab0c666a42cf89c1e4a899141b20543b14145287",
             "contractTestId": "admin.issue-api-token"
         },
         "core.action.project-build-signing-input": {
@@ -67,6 +67,11 @@
             "signature": "65b878832a0022736ffe00ab1af12be5fbeb432c7ab4221c759c7a7dffe771ea",
             "contractTestId": "core.extension-test-harness"
         },
+        "frontend.action.build-page-schema-graph": {
+            "identifier": "Capell\\Frontend\\Actions\\BuildPageSchemaGraphAction",
+            "signature": "b36284f58e2e0860fa9358547333dd8cf5e623cf8696b013e2be2fc11aeae0f3",
+            "contractTestId": "frontend.build-page-schema-graph"
+        },
         "frontend.contract.aeo-route-provider": {
             "identifier": "Capell\\Frontend\\Contracts\\AeoRouteProvider",
             "signature": "40d534608b95caadab1fc6a85da562efd83a2885dbb3cedf210f1f7f0baa1269",
@@ -77,6 +82,11 @@
             "signature": "4522cb14c1f229ae7eabc83f4237320dd2d68cf32f564498930c1c9d90edef3c",
             "contractTestId": "frontend.page-variant-negotiator"
         },
+        "frontend.contract.schema-graph-contributor": {
+            "identifier": "Capell\\Frontend\\Contracts\\SchemaGraphContributor",
+            "signature": "500f2e16fb4291b73135c42b28f8502c114bfc28d74a5afc5164b2a7dcdd7fe1",
+            "contractTestId": "frontend.schema-graph-contributor"
+        },
         "frontend.tag.aeo-route-provider": {
             "identifier": "capell-frontend.aeo-route-provider",
             "signature": "969ec0877573b5be0aa73557b19cc2f0cb106890a7f92aad4015ae981621a77a",
@@ -86,6 +96,11 @@
             "identifier": "capell-frontend.page-variant-negotiator",
             "signature": "6d14145379962f9a55ddbea47accb056af7045eb270ddcad4d705fff5d79ca26",
             "contractTestId": "frontend.page-variant-negotiator-registration"
+        },
+        "frontend.tag.schema-graph-contributor": {
+            "identifier": "capell-frontend.schema-graph-contributor",
+            "signature": "36e8b5c0b1b65693e47792538fd1f5c6bc5287dc3a8762e8d496354b9f7a4571",
+            "contractTestId": "frontend.schema-graph-contributor-registration"
         }
     },
     "manifestRequirements": [

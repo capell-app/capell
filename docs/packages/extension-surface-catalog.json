@@ -303,6 +303,16 @@
             "contractTestId": "core.extension-test-harness"
         },
         {
+            "id": "frontend.action.build-page-schema-graph",
+            "kind": "action",
+            "identifier": "Capell\\Frontend\\Actions\\BuildPageSchemaGraphAction",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Merged per-page schema.org graph construction.",
+            "contractTestId": "frontend.build-page-schema-graph"
+        },
+        {
             "id": "frontend.contract.aeo-route-provider",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\AeoRouteProvider",
@@ -331,6 +341,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed resolved-page response variant negotiation boundary.",
             "contractTestId": "frontend.page-variant-negotiator"
+        },
+        {
+            "id": "frontend.contract.schema-graph-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\SchemaGraphContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Per-blueprint schema.org graph contribution boundary.",
+            "contractTestId": "frontend.schema-graph-contributor"
         },
         {
             "id": "frontend.contract.widget-resource-usage-contributor",
@@ -431,6 +451,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Container tag for resolved-page response variant negotiators.",
             "contractTestId": "frontend.page-variant-negotiator-registration"
+        },
+        {
+            "id": "frontend.tag.schema-graph-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell-frontend.schema-graph-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for schema.org graph contributors.",
+            "contractTestId": "frontend.schema-graph-contributor-registration"
         },
         {
             "id": "frontend.tag.widget-resource-usage-contributor",

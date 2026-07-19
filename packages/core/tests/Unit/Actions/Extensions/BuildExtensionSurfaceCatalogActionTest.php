@@ -12,8 +12,10 @@ use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Enums\ApiTokenAbility;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Frontend\Actions\BuildPageSchemaGraphAction;
 use Capell\Frontend\Contracts\AeoRouteProvider;
 use Capell\Frontend\Contracts\PageVariantNegotiator;
+use Capell\Frontend\Contracts\SchemaGraphContributor;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
@@ -129,6 +131,26 @@ it('classifies the aeo response seams as stable extension contracts', function (
         ->and($catalog->get('frontend.contract.page-variant-negotiator')?->identifier)->toBe(PageVariantNegotiator::class)
         ->and($catalog->get('frontend.tag.aeo-route-provider')?->identifier)->toBe(AeoRouteProvider::TAG)
         ->and($catalog->get('frontend.tag.page-variant-negotiator')?->identifier)->toBe(PageVariantNegotiator::TAG);
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/frontend')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Stable)
+            ->and($entry->contractTestId)->not->toBeNull();
+    }
+});
+
+it('classifies schema graph contribution as a stable extension contract', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'frontend.action.build-page-schema-graph',
+        'frontend.contract.schema-graph-contributor',
+        'frontend.tag.schema-graph-contributor',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds)
+        ->and($catalog->get('frontend.action.build-page-schema-graph')?->identifier)->toBe(BuildPageSchemaGraphAction::class)
+        ->and($catalog->get('frontend.contract.schema-graph-contributor')?->identifier)->toBe(SchemaGraphContributor::class)
+        ->and($catalog->get('frontend.tag.schema-graph-contributor')?->identifier)->toBe(SchemaGraphContributor::TAG);
 
     foreach ($catalog->only($surfaceIds) as $entry) {
         expect($entry->ownerPackage)->toBe('capell-app/frontend')

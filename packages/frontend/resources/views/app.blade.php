@@ -1,4 +1,5 @@
 @php
+    use Capell\Core\Data\SchemaGraphData;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
@@ -8,6 +9,7 @@
     $siteMeta = $site?->meta ?? [];
     $metaSchema = data_get($siteMeta, 'meta_schema');
     $customMetaSchema = data_get($siteMeta, 'custom_meta_schema');
+    $pageSchemaGraph = Frontend::getFrontendData('pageSchemaGraph');
     $runtimeManifest ??= null;
     $usesLivewire = $runtimeManifest?->usesLivewire ?? ($livewireEnabled ?? false);
 @endphp
@@ -66,6 +68,10 @@
             <script type="application/ld+json">
                 {!! JsonLdScriptSanitizer::sanitize((string) $customMetaSchema) !!}
             </script>
+        @endif
+
+        @if ($pageSchemaGraph instanceof SchemaGraphData)
+            {!! JsonLdScriptSanitizer::sanitizeScriptTag($pageSchemaGraph->toJsonLdScript()) !!}
         @endif
     </x-capell::app.body>
 </html>

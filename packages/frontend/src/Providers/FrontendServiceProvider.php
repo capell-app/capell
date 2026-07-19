@@ -127,6 +127,7 @@ use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\PageVariantNegotiatorRegistry;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Capell\Frontend\Support\Render\SchemaGraphContributorRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
 use Capell\Frontend\Support\Routing\AeoRouteRegistry;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
@@ -272,6 +273,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ErrorPageRegenerationQueue::class);
         $this->app->scoped(AeoRouteRegistry::class);
         $this->app->scoped(PageVariantNegotiatorRegistry::class);
+        $this->app->scoped(SchemaGraphContributorRegistry::class);
         $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->scoped(PublicViewQueryGuard::class);

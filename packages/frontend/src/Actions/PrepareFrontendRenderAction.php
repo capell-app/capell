@@ -50,6 +50,7 @@ final class PrepareFrontendRenderAction
             'performanceReport',
             BuildPublicRenderPerformanceReportAction::run($renderContext->publicRenderData, $renderContext),
         );
+        $context->setFrontendData('pageSchemaGraph', BuildPageSchemaGraphAction::run($renderContext));
 
         return new PreparedFrontendRenderData(
             runtime: $runtimeResolution->runtime,

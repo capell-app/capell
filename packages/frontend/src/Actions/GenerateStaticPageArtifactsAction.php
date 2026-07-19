@@ -142,6 +142,7 @@ class GenerateStaticPageArtifactsAction
         $context->setFrontendData('renderedFrontendResources', null);
         $context->setFrontendData('mediaHints', null);
         $context->setFrontendData('lcpMediaUrl', null);
+        $context->setFrontendData('pageSchemaGraph', null);
         $context->setFrontendData('publicHtmlSafetyInspected', null);
         $context->setFrontendData('publicHtmlSafetyInspectedHash', null);
     }
