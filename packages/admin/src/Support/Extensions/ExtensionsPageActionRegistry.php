@@ -81,8 +81,24 @@ final class ExtensionsPageActionRegistry
     private function resolveActions(array $actions, ExtensionsPage $page): array
     {
         return array_values(array_map(
-            fn (Action|ActionGroup|Closure $action): Action|ActionGroup => $action instanceof Closure ? $action($page) : $action,
+            fn (Action|ActionGroup|Closure $action): Action|ActionGroup => $action instanceof Closure
+                ? $action($page)
+                : $this->cloneAction($action),
             $actions,
         ));
+    }
+
+    private function cloneAction(Action|ActionGroup $action): Action|ActionGroup
+    {
+        $clone = (clone $action)->group(null);
+
+        if ($clone instanceof ActionGroup) {
+            $clone->actions(array_map(
+                fn (Action|ActionGroup $groupedAction): Action|ActionGroup => $this->cloneAction($groupedAction),
+                $clone->getActions(),
+            ));
+        }
+
+        return $clone;
     }
 }
