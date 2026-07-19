@@ -275,9 +275,7 @@ class GenerateThemeImageAction
         $admin['generated_image'] = $path;
         $admin['generated_image_status'] = 'ready';
 
-        Theme::withoutEvents(function () use ($theme, $admin): void {
-            $theme->forceFill(['admin' => $admin])->save();
-        });
+        $theme->writeGeneratedImageMetadata($admin);
     }
 
     private function markFailed(Theme $theme, string $signature, string $message): void
@@ -293,8 +291,6 @@ class GenerateThemeImageAction
         $admin['generated_image_status'] = 'failed';
         $admin['generated_image_error'] = mb_substr($message, 0, 500);
 
-        Theme::withoutEvents(function () use ($theme, $admin): void {
-            $theme->forceFill(['admin' => $admin])->save();
-        });
+        $theme->writeGeneratedImageMetadata($admin);
     }
 }

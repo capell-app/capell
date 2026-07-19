@@ -31,8 +31,6 @@ class InvalidateGeneratedThemeImageAction
         $admin['generated_image_signature'] = $signature;
         $admin['generated_image_status'] = 'pending';
 
-        Theme::withoutEvents(function () use ($theme, $admin): void {
-            $theme->forceFill(['admin' => $admin])->save();
-        });
+        $theme->writeGeneratedImageMetadata($admin);
     }
 }

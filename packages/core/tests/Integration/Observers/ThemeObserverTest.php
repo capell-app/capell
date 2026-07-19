@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\GenerateThemeImageAction;
+use Capell\Core\Actions\InvalidateGeneratedThemeImageAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\ThemeColorsUpdated;
 use Capell\Core\Models\Theme;
@@ -113,6 +114,32 @@ it('clears existing generated theme image and queues a replacement when saved', 
         ->and($theme->admin['generated_image_status'] ?? null)->toBe('pending');
 
     GenerateThemeImageAction::assertPushed(1);
+});
+
+it('does not bump the theme timestamp when writing generated image metadata', function (): void {
+    Storage::fake('public');
+    Queue::fake();
+
+    $theme = Theme::withoutEvents(fn (): Theme => Theme::factory()->createOne([
+        'admin' => [
+            'generated_image_signature' => 'old-signature',
+            'generated_image_status' => 'ready',
+        ],
+    ]));
+
+    Theme::query()->whereKey($theme->getKey())->update(['updated_at' => '2026-01-01 00:00:00']);
+
+    InvalidateGeneratedThemeImageAction::run($theme->refresh(), 'new-signature');
+
+    $theme->refresh();
+
+    expect($theme->admin['generated_image_status'] ?? null)->toBe('pending');
+    expect($theme->admin['generated_image_signature'] ?? null)->toBe('new-signature');
+
+    // Generated-image bookkeeping is derived metadata. Bumping `updated_at`
+    // here invalidates the frontend optimizer's render-profile signature and
+    // discards already-generated critical CSS for every page.
+    expect($theme->updated_at?->toDateTimeString())->toBe('2026-01-01 00:00:00');
 });
 
 it('does not queue generated theme images when a manual admin image exists', function (): void {
