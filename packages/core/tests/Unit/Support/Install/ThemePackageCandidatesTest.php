@@ -6,8 +6,12 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionMapper;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Collection;
 
 beforeEach(function (): void {
@@ -117,11 +121,47 @@ it('reports selected theme keys only for installable theme candidates', function
 });
 
 it('defaults catalogue selection to a local app theme when one exists', function (): void {
-    writeThemePackageCandidatesLocalThemeManifest();
+    $files = new Filesystem;
+    $applicationPath = sys_get_temp_dir() . '/capell-theme-candidates-' . bin2hex(random_bytes(6));
+    $themePath = $applicationPath . '/resources/views/capell/themes/capell-app/local-client';
 
-    $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
+    $files->ensureDirectoryExists($themePath);
+    $files->put($themePath . '/theme.json', JsonCodec::encode([
+        'key' => 'local-client',
+        'name' => 'Local Client',
+        'description' => 'Local client theme.',
+        'package' => 'capell-app/local-client',
+        'previewImage' => '/images/local-client.jpg',
+        'presets' => [
+            [
+                'key' => 'default',
+                'name' => 'Default',
+                'description' => 'Default preset.',
+                'previewImage' => '/images/local-client-default.jpg',
+            ],
+        ],
+    ]));
 
-    expect($candidates->defaultThemeKeyForCatalogue())->toBe('local-client');
+    try {
+        $application = Mockery::mock(Application::class);
+        $application->allows('resourcePath')
+            ->with(LocalAppThemeDefinitionRepository::THEME_ROOT)
+            ->andReturn($applicationPath . '/resources/' . LocalAppThemeDefinitionRepository::THEME_ROOT);
+        $application->allows('bootstrapPath')
+            ->with(LocalAppThemeDefinitionRepository::CACHE_FILE)
+            ->andReturn($applicationPath . '/bootstrap/' . LocalAppThemeDefinitionRepository::CACHE_FILE);
+
+        $repository = new LocalAppThemeDefinitionRepository(
+            $application,
+            $files,
+            new LocalAppThemeDefinitionMapper,
+        );
+        $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner, $repository);
+
+        expect($candidates->defaultThemeKeyForCatalogue())->toBe('local-client');
+    } finally {
+        $files->deleteDirectory($applicationPath);
+    }
 });
 
 it('falls back to default as the catalogue default without local themes', function (): void {
@@ -203,27 +243,4 @@ function bindThemePackageCandidatesRemotePackages(Collection $remotePackages): v
             return $this->remotePackages;
         }
     });
-}
-
-function writeThemePackageCandidatesLocalThemeManifest(): void
-{
-    $files = new Filesystem;
-    $path = resource_path('views/capell/themes/capell-app/local-client');
-
-    $files->ensureDirectoryExists($path);
-    $files->put($path . '/theme.json', json_encode([
-        'key' => 'local-client',
-        'name' => 'Local Client',
-        'description' => 'Local client theme.',
-        'package' => 'capell-app/local-client',
-        'previewImage' => '/images/local-client.jpg',
-        'presets' => [
-            [
-                'key' => 'default',
-                'name' => 'Default',
-                'description' => 'Default preset.',
-                'previewImage' => '/images/local-client-default.jpg',
-            ],
-        ],
-    ], JSON_THROW_ON_ERROR));
 }
