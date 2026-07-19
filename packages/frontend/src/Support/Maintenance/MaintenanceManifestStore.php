@@ -28,7 +28,10 @@ final class MaintenanceManifestStore
     public function write(array $manifest): void
     {
         File::ensureDirectoryExists(dirname($this->path()));
-        File::put($this->path(), json_encode(array_replace_recursive($this->defaults(), $manifest), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        File::put(
+            $this->path(),
+            JsonCodec::encode(array_replace_recursive($this->defaults(), $manifest), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        );
     }
 
     /** @param array<int, array<string, mixed>> $domains */

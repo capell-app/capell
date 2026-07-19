@@ -8,6 +8,10 @@ use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Illuminate\Support\Facades\File;
 
+afterEach(function (): void {
+    File::deleteDirectory(resolve(StaticPageArtifactStore::class)->root());
+});
+
 it('resolves safe static artifact paths under the site host folder', function (): void {
     $pageUrl = new PageUrl(['url' => '/about']);
     $siteDomain = new SiteDomain([
@@ -38,5 +42,15 @@ it('rejects direct store writes outside the artifact root', function (): void {
     expect(fn (): null => $store->putHtml('../escape.html', '<html></html>'))
         ->toThrow(InvalidArgumentException::class);
 
-    File::deleteDirectory($store->root());
+});
+
+it('falls back when a static artifact manifest is not a JSON object', function (): void {
+    $store = resolve(StaticPageArtifactStore::class);
+    File::ensureDirectoryExists($store->root());
+    File::put($store->manifestPath(), '["unexpected-list"]');
+
+    expect($store->readManifest())->toBe([
+        'generated_at' => null,
+        'artifacts' => [],
+    ]);
 });

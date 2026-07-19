@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Static;
 
+use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
@@ -37,7 +38,7 @@ final class StaticPageArtifactStore
     public function writeManifest(array $manifest): void
     {
         File::ensureDirectoryExists($this->root());
-        File::put($this->manifestPath(), json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        File::put($this->manifestPath(), JsonCodec::encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     /**
@@ -45,13 +46,24 @@ final class StaticPageArtifactStore
      */
     public function readManifest(): array
     {
+        $default = ['generated_at' => null, 'artifacts' => []];
+
         if (! File::exists($this->manifestPath())) {
-            return ['generated_at' => null, 'artifacts' => []];
+            return $default;
         }
 
-        $decoded = json_decode(File::get($this->manifestPath()), true);
+        $decoded = JsonCodec::decodeArray(File::get($this->manifestPath()), $default);
+        $manifest = [];
 
-        return is_array($decoded) ? $decoded : ['generated_at' => null, 'artifacts' => []];
+        foreach ($decoded as $key => $value) {
+            if (! is_string($key)) {
+                return $default;
+            }
+
+            $manifest[$key] = $value;
+        }
+
+        return $manifest;
     }
 
     private function pathWithinRoot(string $file): string

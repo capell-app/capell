@@ -14,11 +14,14 @@ class DismissHintAction extends Action
     public function handle(AuthenticatableUser $user, string $hintKey): void
     {
         $raw = DB::table('users')->where('id', $user->getKey())->value('dismissed_hints');
-        $dismissed = is_string($raw) ? JsonCodec::decodeArray($raw) : [];
+        $dismissed = array_values(array_filter(
+            is_string($raw) ? JsonCodec::decodeArray($raw) : [],
+            is_string(...),
+        ));
         $dismissed[] = $hintKey;
 
         DB::table('users')
             ->where('id', $user->getKey())
-            ->update(['dismissed_hints' => json_encode(array_unique($dismissed))]);
+            ->update(['dismissed_hints' => JsonCodec::encode(array_values(array_unique($dismissed)))]);
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\DismissHintAction;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +16,27 @@ it('records a dismissal for the given user and hint key', function (): void {
     $dismissed = json_decode((string) $raw, true);
 
     expect($dismissed)->toContain('welcome.tour');
+});
+
+it('normalizes legacy dismissal data to a unique list of hint keys', function (): void {
+    $user = User::factory()->createOne();
+
+    DB::table('users')->where('id', $user->getKey())->update([
+        'dismissed_hints' => JsonCodec::encode([
+            'legacy' => 'welcome.intro',
+            'invalid' => false,
+            'duplicate' => 'welcome.intro',
+        ]),
+    ]);
+
+    DismissHintAction::run($user, 'welcome.tour');
+
+    $raw = DB::table('users')->where('id', $user->getKey())->value('dismissed_hints');
+
+    expect(JsonCodec::decodeArray(is_string($raw) ? $raw : null))->toBe([
+        'welcome.intro',
+        'welcome.tour',
+    ]);
 });
 
 it('is idempotent — dismissing twice records the key once', function (): void {

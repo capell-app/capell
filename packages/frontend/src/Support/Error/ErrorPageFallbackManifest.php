@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Error;
 
+use Capell\Core\Support\Json\JsonCodec;
+
 /**
  * DB-free reader for the pre-rendered error-page fallback manifest.
  *
@@ -108,9 +110,7 @@ final class ErrorPageFallbackManifest
             return null;
         }
 
-        $decoded = json_decode($contents, true);
-
-        return is_array($decoded) ? $decoded : null;
+        return JsonCodec::decodeArray($contents) ?: null;
     }
 
     /**
