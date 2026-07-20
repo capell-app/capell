@@ -137,6 +137,7 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -416,6 +417,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(InstallPatchRegistry::class);
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
+        $this->app->singleton(SiteAccessPolicyRegistry::class);
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
             $app->make(SqliteDatabaseBackupDriver::class),
             $app->make(MySqlDatabaseBackupDriver::class),

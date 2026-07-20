@@ -1630,6 +1630,24 @@ it('stops immediately when explicit fresh install confirmation is rejected', fun
     expect($fake->callCount)->toBe(0);
 });
 
+it('explains how to force a fresh install when running non-interactively', function (): void {
+    setupInstallTest();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--fresh' => true,
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--no-interaction' => true,
+    ])
+        ->expectsOutput('Fresh install requires confirmation. Use --fresh=force for non-interactive runs.')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($fake->callCount)->toBe(0);
+});
+
 it('refuses destructive fresh installs in production mode before planning', function (): void {
     $fake = bindFakeRunInstallAction();
 

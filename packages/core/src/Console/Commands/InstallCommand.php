@@ -781,6 +781,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return true;
         }
 
+        if ((bool) $this->option('no-interaction')) {
+            $this->warn('Fresh install requires confirmation. Use --fresh=force for non-interactive runs.');
+
+            return false;
+        }
+
         if (confirm('Warning: this will delete all your data. Are you sure?', false)) {
             return true;
         }
