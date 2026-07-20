@@ -58,6 +58,8 @@ it('rejects tampered or incompatible target evidence', function (array $override
 })->with([
     'tampered signature' => [[], true],
     'incompatible PHP target' => [['target' => ['php_version' => '9.0.0']], false],
+    'wrong Core source reference' => [['package_releases' => [['source_reference' => str_repeat('0', 40)]]], false],
+    'wrong Core installed manifest' => [['package_releases' => [['install_manifest_sha256' => str_repeat('0', 64)]]], false],
 ])->throws(RuntimeException::class, 'compatibility evidence is missing, invalid, or incompatible');
 
 it('rejects removal of required evidence but permits an explicit trusted legacy response', function (): void {

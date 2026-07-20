@@ -77,27 +77,29 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
                 $this->fail();
             }
 
-            if ($name === 'capell-app/core') {
-                $reference = InstalledVersions::getReference($name);
-                if (! is_string($reference) || ! hash_equals('composer-reference:' . $reference, $release['release_identity'])) {
-                    $this->fail();
-                }
-
-                continue;
-            }
-
             $reference = InstalledVersions::getReference($name);
             $installPath = InstalledVersions::getInstallPath($name);
             $manifestPath = is_string($installPath) ? $installPath . DIRECTORY_SEPARATOR . 'composer.json' : null;
             $manifestSha256 = is_string($manifestPath) && is_file($manifestPath) ? hash_file('sha256', $manifestPath) : false;
             if (! is_string($reference)
                 || ! hash_equals($release['source_reference'], $reference)
-                || preg_match('/\A[a-f0-9]{64}\z/', $release['artifact_sha256']) !== 1
                 || ! is_string($manifestSha256)
                 || ! hash_equals($release['install_manifest_sha256'], $manifestSha256)
                 || ! is_string($installPath)
                 || ! is_dir($installPath)
                 || ! is_file($manifestPath)) {
+                $this->fail();
+            }
+
+            if ($name === 'capell-app/core') {
+                if (! hash_equals('composer-reference:' . $reference, $release['release_identity'])) {
+                    $this->fail();
+                }
+
+                continue;
+            }
+
+            if (preg_match('/\A[a-f0-9]{64}\z/', $release['artifact_sha256']) !== 1) {
                 $this->fail();
             }
 
