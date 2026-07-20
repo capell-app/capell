@@ -15,7 +15,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/create-packagist-packages.sh [options]
 
-Creates the Capell split packages on packagist.org from their GitHub repositories.
+Creates the public Capell packages on packagist.org from their GitHub repositories.
 
 Environment:
   PACKAGIST_USERNAME       Packagist account username.
@@ -23,8 +23,8 @@ Environment:
   CAPELL_SPLIT_ORG         GitHub org. Defaults to capell-app.
 
 Options:
-  --package <name>         Package/repository slug to create. Repeatable.
-                           Defaults to all public split packages.
+  --package <name>         Public package/repository slug to create. Repeatable.
+                           Defaults to all packages in config/packagist-packages.json.
   --setup-github-hooks     Add Packagist push webhooks to the GitHub repositories.
   --preflight              Read-only verification of repositories, package names,
                            Packagist registrations, and GitHub webhooks.
@@ -68,23 +68,21 @@ if [[ "${PREFLIGHT}" == true && ( "${DRY_RUN}" == true || "${SETUP_GITHUB_HOOKS}
   exit 1
 fi
 
-MATRIX_PACKAGES=()
+PUBLIC_PACKAGES=()
 while IFS= read -r package; do
-  MATRIX_PACKAGES+=("${package}")
+  PUBLIC_PACKAGES+=("${package}")
 done < <(php -r '
-  $packages = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
-  foreach ($packages as $package) {
-      echo basename((string) $package["path"]), PHP_EOL;
+  $catalogue = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+  foreach ($catalogue["packages"] as $package) {
+      echo $package, PHP_EOL;
   }
-' "${ROOT}/config/release-packages.json")
+' "${ROOT}/config/packagist-packages.json")
 
-PACKAGES=("${MATRIX_PACKAGES[@]}")
+PACKAGES=("${PUBLIC_PACKAGES[@]}")
 
 if [[ ${#SELECTED_PACKAGES[@]} -gt 0 ]]; then
   PACKAGES=("${SELECTED_PACKAGES[@]}")
 fi
-
-PACKAGES+=("capell")
 
 if [[ "${DRY_RUN}" != true && "${PREFLIGHT}" != true && ( -z "${PACKAGIST_USERNAME}" || -z "${PACKAGIST_API_TOKEN}" ) ]]; then
   echo "PACKAGIST_USERNAME and PACKAGIST_API_TOKEN are required." >&2
