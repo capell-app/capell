@@ -11,14 +11,24 @@ use RuntimeException;
 
 final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
 {
-    public function handle(string $registrationToken, string $payload, string $signature, string $installPackages): void
+    /** @param array<string, mixed>|null $evidence */
+    public function handle(string $registrationToken, ?array $evidence, string $installPackages): void
     {
-        if ($payload === '' && $signature === '') {
+        if (! is_array($evidence) || ! is_bool($evidence['required'] ?? null)) {
+            $this->fail();
+        }
+        if ($evidence['required'] === false) {
             return;
         }
 
+        $payload = $evidence['payload'] ?? null;
+        $signature = $evidence['signature'] ?? null;
+
+        if ($registrationToken === '' || ! is_string($payload) || $payload === '' || ! is_string($signature) || $signature === '') {
+            $this->fail();
+        }
         $expectedSignature = hash_hmac('sha256', $payload, $registrationToken);
-        if ($registrationToken === '' || $payload === '' || $signature === '' || ! hash_equals($expectedSignature, $signature)) {
+        if (! hash_equals($expectedSignature, $signature)) {
             $this->fail();
         }
 
@@ -55,6 +65,9 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
                 || ! is_string($release['name'] ?? null)
                 || ! is_string($release['version'] ?? null)
                 || ! is_string($release['release_identity'] ?? null)
+                || ! is_string($release['source_reference'] ?? null)
+                || ! is_string($release['artifact_sha256'] ?? null)
+                || ! is_string($release['install_manifest_sha256'] ?? null)
                 || ! is_array($release['compatibility'] ?? null)) {
                 $this->fail();
             }
@@ -71,6 +84,21 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
                 }
 
                 continue;
+            }
+
+            $reference = InstalledVersions::getReference($name);
+            $installPath = InstalledVersions::getInstallPath($name);
+            $manifestPath = is_string($installPath) ? $installPath . DIRECTORY_SEPARATOR . 'composer.json' : null;
+            $manifestSha256 = is_string($manifestPath) && is_file($manifestPath) ? hash_file('sha256', $manifestPath) : false;
+            if (! is_string($reference)
+                || ! hash_equals($release['source_reference'], $reference)
+                || preg_match('/\A[a-f0-9]{64}\z/', $release['artifact_sha256']) !== 1
+                || ! is_string($manifestSha256)
+                || ! hash_equals($release['install_manifest_sha256'], $manifestSha256)
+                || ! is_string($installPath)
+                || ! is_dir($installPath)
+                || ! is_file($manifestPath)) {
+                $this->fail();
             }
 
             $envelopePackages[] = $name;

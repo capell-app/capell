@@ -68,8 +68,7 @@ class CloudBootstrapCommand extends Command
 
                 resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class)->handle(
                     $registrationToken,
-                    $this->cloudConfigString('site_build_compatibility_payload'),
-                    $this->cloudConfigString('site_build_compatibility_signature'),
+                    is_array($bootstrap['_site_build_compatibility'] ?? null) ? $bootstrap['_site_build_compatibility'] : null,
                     $this->cloudConfigString('install_packages'),
                 );
                 $this->installCapell($appUrl, $bootstrap);
@@ -190,6 +189,8 @@ class CloudBootstrapCommand extends Command
             if (is_array($siteSpec)) {
                 $bootstrap['_site_spec'] = $siteSpec;
             }
+            $compatibility = $response->json('data.site_build_compatibility');
+            $bootstrap['_site_build_compatibility'] = is_array($compatibility) ? $compatibility : null;
         }
 
         return is_array($bootstrap) ? $bootstrap : null;

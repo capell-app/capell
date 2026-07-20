@@ -227,8 +227,6 @@ return [
         'registration_token' => env('CAPELL_REGISTRATION_TOKEN'),
         'site_url' => env('CAPELL_SITE_URL'),
         'install_packages' => env('CAPELL_INSTALL_PACKAGES', ''),
-        'site_build_compatibility_payload' => env('CAPELL_SITE_BUILD_COMPATIBILITY_PAYLOAD', ''),
-        'site_build_compatibility_signature' => env('CAPELL_SITE_BUILD_COMPATIBILITY_SIGNATURE', ''),
         'install_theme' => env('CAPELL_INSTALL_THEME', 'default'),
         'admin_user' => [
             'name' => env('CAPELL_ADMIN_NAME', 'Admin'),

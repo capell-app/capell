@@ -25,6 +25,9 @@ function cloudCompatibilityEnvelope(array $overrides = []): array
             'version' => ltrim($coreVersion, 'v'),
             'release_identity' => 'composer-reference:' . $coreReference,
             'compatibility' => [],
+            'source_reference' => $coreReference,
+            'artifact_sha256' => '',
+            'install_manifest_sha256' => hash_file('sha256', (string) InstalledVersions::getInstallPath('capell-app/core') . '/composer.json'),
         ]],
     ];
 
@@ -37,8 +40,7 @@ it('accepts a signed envelope bound to the observed target', function (): void {
 
     resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class)->handle(
         $token,
-        $payload,
-        hash_hmac('sha256', $payload, $token),
+        ['required' => true, 'payload' => $payload, 'signature' => hash_hmac('sha256', $payload, $token)],
         '',
     );
 })->throwsNoExceptions();
@@ -48,8 +50,51 @@ it('rejects tampered or incompatible target evidence', function (array $override
     $payload = base64_encode(json_encode(cloudCompatibilityEnvelope($overrides), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
     $signature = $tamperSignature ? str_repeat('0', 64) : hash_hmac('sha256', $payload, $token);
 
-    resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class)->handle($token, $payload, $signature, '');
+    resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class)->handle(
+        $token,
+        ['required' => true, 'payload' => $payload, 'signature' => $signature],
+        '',
+    );
 })->with([
     'tampered signature' => [[], true],
     'incompatible PHP target' => [['target' => ['php_version' => '9.0.0']], false],
+])->throws(RuntimeException::class, 'compatibility evidence is missing, invalid, or incompatible');
+
+it('rejects removal of required evidence but permits an explicit trusted legacy response', function (): void {
+    $action = resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class);
+
+    expect(fn () => $action->handle(str_repeat('c', 64), ['required' => true], ''))
+        ->toThrow(RuntimeException::class, 'compatibility evidence is missing')
+        ->and(fn () => $action->handle(str_repeat('c', 64), ['required' => false], ''))
+        ->not->toThrow(RuntimeException::class);
+});
+
+it('rejects a signed envelope with the wrong installed source or manifest evidence', function (string $field, string $value): void {
+    $token = str_repeat('d', 64);
+    $envelope = cloudCompatibilityEnvelope();
+    $installPath = (string) InstalledVersions::getInstallPath('capell-app/frontend');
+    $release = [
+        'name' => 'capell-app/frontend',
+        'version' => ltrim((string) InstalledVersions::getPrettyVersion('capell-app/frontend'), 'v'),
+        'release_identity' => 'sha256:' . str_repeat('1', 64),
+        'compatibility' => [
+            'capell_api' => '*', 'core' => '*', 'php' => '*', 'laravel' => '*', 'filament' => '*',
+            'platform' => strtolower(PHP_OS_FAMILY),
+        ],
+        'source_reference' => (string) InstalledVersions::getReference('capell-app/frontend'),
+        'artifact_sha256' => str_repeat('2', 64),
+        'install_manifest_sha256' => hash_file('sha256', $installPath . '/composer.json'),
+    ];
+    $release[$field] = $value;
+    $envelope['package_releases'][] = $release;
+    $payload = base64_encode(json_encode($envelope, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+    resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class)->handle(
+        $token,
+        ['required' => true, 'payload' => $payload, 'signature' => hash_hmac('sha256', $payload, $token)],
+        'capell-app/frontend',
+    );
+})->with([
+    'wrong source reference' => ['source_reference', str_repeat('0', 40)],
+    'wrong installed manifest' => ['install_manifest_sha256', str_repeat('0', 64)],
 ])->throws(RuntimeException::class, 'compatibility evidence is missing, invalid, or incompatible');
