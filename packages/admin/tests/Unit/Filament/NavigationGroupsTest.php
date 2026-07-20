@@ -48,6 +48,7 @@ it('uses clearer admin navigation groups without conflicting group icons', funct
         'capell-admin::navigation.group_marketing' => null,
         'capell-admin::navigation.group_reports' => null,
         'capell-admin::navigation.group_monitoring' => null,
+        'capell-admin::navigation.group_settings' => null,
         'capell-admin::navigation.group_system' => null,
     ]);
 });
@@ -55,7 +56,7 @@ it('uses clearer admin navigation groups without conflicting group icons', funct
 it('promotes workspace activity into the workspace navigation group', function (): void {
     $navigationTranslations = require __DIR__ . '/../../../resources/lang/en/navigation.php';
 
-    expect($navigationTranslations['group_workflow'])->toBe('Workspace')
+    expect($navigationTranslations['group_workflow'])->toBe('Publishing')
         ->and(ActivityResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_workflow'));
 });
 
@@ -74,11 +75,11 @@ it('groups web page authoring tools in the requested order', function (): void {
         ->and(MediaResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_content'))
         ->and(MediaResource::getNavigationParentItem())->toBeNull()
         ->and(SiteResource::getNavigationSort())->toBe(6)
-        ->and(SiteResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
+        ->and(SiteResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(LanguageResource::getNavigationSort())->toBe(7)
         ->and(LanguageResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(ThemeResource::getNavigationSort())->toBe(8)
-        ->and(ThemeResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
+        ->and(ThemeResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(RedirectResource::getNavigationSort())->toBe(9)
         ->and(RedirectResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(BlueprintResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
@@ -107,7 +108,7 @@ it('keeps users top-level with roles nested underneath', function (): void {
         ->and(RoleResource::getActiveNavigationIcon())->toBe(Heroicon::Key);
 });
 
-it('keeps operational system pages out of the sidebar navigation', function (): void {
+it('separates customer settings from operational system pages', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     Permission::create(['name' => 'View:SiteHealthPage', 'guard_name' => 'web']);
 
@@ -118,18 +119,18 @@ it('keeps operational system pages out of the sidebar navigation', function (): 
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    $systemNavigationGroup = collect(Filament::getNavigation())
-        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_system'));
+    $settingsNavigationGroup = collect(Filament::getNavigation())
+        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_settings'));
 
-    expect($systemNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
-    assert($systemNavigationGroup instanceof NavigationGroup);
+    expect($settingsNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
+    assert($settingsNavigationGroup instanceof NavigationGroup);
 
-    $systemNavigationLabels = collect($systemNavigationGroup->getItems())
+    $settingsNavigationLabels = collect($settingsNavigationGroup->getItems())
         ->filter(fn (mixed $navigationItem): bool => $navigationItem instanceof NavigationItem)
         ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
         ->all();
 
-    expect($systemNavigationLabels)
+    expect($settingsNavigationLabels)
         ->toContain(SettingsPage::getNavigationLabel())
         ->not->toContain(SiteHealthPage::getNavigationLabel());
 });
