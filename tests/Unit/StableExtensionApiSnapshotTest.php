@@ -34,7 +34,7 @@ it('hashes only the declared action entrypoint and excludes dependency trait met
         $parameter->getName(),
         (string) $parameter->getType(),
     ), $reflection->getParameters());
-    $expected = hash('sha256', 'handle(' . implode(',', $parameters) . '):' . (string) $reflection->getReturnType());
+    $expected = hash('sha256', 'handle(' . implode(',', $parameters) . '):' . $reflection->getReturnType());
 
     expect(capellStableApiSignature($identifier))->toBe($expected);
 });
@@ -52,7 +52,7 @@ it('excludes registry dependency injection constructors while retaining declared
             $parameter->getName(),
             (string) $parameter->getType(),
         ), $method->getParameters());
-        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . (string) $method->getReturnType();
+        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . $method->getReturnType();
     }
 
     sort($methods);
@@ -79,7 +79,6 @@ it('classifies every compatibility-relevant form of stable drift', function (): 
         'configKeys' => ['capell.renamed'],
     ];
 
-    /** @phpstan-ignore-next-line function.notFound (Function is loaded from the required executable script above.) */
     expect(capellStableApiDrift($baseline, $current))->toBe([
         'removed class: stable.removed',
         'changed public signature: stable.changed',

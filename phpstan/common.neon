@@ -50,4 +50,5 @@ parameters:
     scanFiles:
         - stubs/optional-packages.stub
         - ../scripts/release/ReleaseEngine.php
+        - ../scripts/check-stable-extension-api.php
         - ../tests/Pest.php
