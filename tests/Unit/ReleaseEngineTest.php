@@ -287,7 +287,7 @@ it('verifies source tags against the declared source checkout origin', function 
     $tree = str_repeat('b', 40);
     $split = str_repeat('c', 40);
     $root = releaseEngineRootForPlan(releaseEnginePlan($sha, $tree));
-    $runner = new class($sha, $tree, $split, $root) implements CommandRunner
+    $runner = new class($sha, $tree, $split) implements CommandRunner
     {
         public ?string $sourceTagWorkingDirectory = null;
 
@@ -295,7 +295,6 @@ it('verifies source tags against the declared source checkout origin', function 
             private readonly string $sha,
             private readonly string $tree,
             private readonly string $split,
-            private readonly string $root,
         ) {}
 
         public function run(array $command, ?string $workingDirectory = null): array

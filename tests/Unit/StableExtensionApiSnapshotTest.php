@@ -62,6 +62,9 @@ it('keeps experimental package extension seams out of the stable baseline', func
     expect($surfaces)->not->toHaveKeys([
         'admin.contract.admin-tool-item',
         'admin.tag.admin-tool-item',
+        'core.action.project-build-signing-input',
+        'core.action.validate-project-build-bundle',
+        'core.action.verify-project-build-signature',
         'frontend.dto.package-dependency',
         'frontend.enum.package-dependency-type',
         'frontend.registry.package-dependency',

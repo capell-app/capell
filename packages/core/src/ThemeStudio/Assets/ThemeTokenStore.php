@@ -6,7 +6,9 @@ namespace Capell\Core\ThemeStudio\Assets;
 
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 class ThemeTokenStore
 {
@@ -38,7 +40,7 @@ class ThemeTokenStore
             return $path;
         }
 
-        File::put($path, $css);
+        $this->publish($path, $css);
 
         return $path;
     }
@@ -54,5 +56,18 @@ class ThemeTokenStore
     public function issues(BrandProfileData $brand): array
     {
         return (new ThemeTokenRenderer)->contrastIssues($brand);
+    }
+
+    private function publish(string $path, string $css): void
+    {
+        $temporaryPath = $path . '.' . Str::random(12) . '.tmp';
+
+        try {
+            File::put($temporaryPath, $css, true);
+
+            throw_unless(File::move($temporaryPath, $path), RuntimeException::class, 'Unable to publish theme token CSS.');
+        } finally {
+            File::delete($temporaryPath);
+        }
     }
 }

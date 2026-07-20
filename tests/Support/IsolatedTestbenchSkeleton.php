@@ -85,11 +85,17 @@ final class IsolatedTestbenchSkeleton
     /**
      * The parallel process identifier.
      *
-     * Paratest, used by Pest's parallel runner, sets TEST_TOKEN for each worker.
+     * ParaTest provides UNIQUE_TEST_TOKEN per run and process. Prefer it so simultaneous test
+     * suites cannot reuse and delete each other's skeletons, while retaining TEST_TOKEN as a
+     * compatibility fallback.
      */
     private static function token(): ?string
     {
-        $token = getenv('TEST_TOKEN');
+        $token = getenv('UNIQUE_TEST_TOKEN');
+
+        if (! is_string($token) || $token === '') {
+            $token = getenv('TEST_TOKEN');
+        }
 
         if (! is_string($token) || $token === '') {
             return null;

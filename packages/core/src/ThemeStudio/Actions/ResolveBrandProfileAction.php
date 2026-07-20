@@ -63,6 +63,10 @@ class ResolveBrandProfileAction
                 continue;
             }
 
+            if (! BrandProfileData::supportsCustomToken($key)) {
+                continue;
+            }
+
             if (! is_array($declaration)) {
                 continue;
             }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Media\Tables;
 
+use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Actions\ReplaceMediaFileAction;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
@@ -23,7 +24,6 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
-use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
 use Filament\Actions\Action;
@@ -306,19 +306,7 @@ class MediaTable implements TableConfigurator
                     return;
                 }
 
-                $record = $media->model;
-                $roleRestrictions = $data['admin']['role_restrictions'] ?? null;
-                unset($data['admin']['role_restrictions']);
-
-                $record->update($data);
-
-                if (auth()->user()?->can('manageRestrictions', Page::class) !== true) {
-                    return;
-                }
-
-                if (is_array($roleRestrictions)) {
-                    $record->syncRoleRestrictions(array_values(array_map(intval(...), $roleRestrictions)));
-                }
+                UpdateBlueprintAction::run($media->model, $data);
             });
     }
 

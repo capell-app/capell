@@ -8,6 +8,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\ThemeStudio\Assets\ThemeTokenRenderer;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
@@ -43,12 +44,13 @@ it('uses editor active preset when rendering theme token css hook', function ():
                 'themeKey' => $themeKey,
                 'presetKey' => $presetKey,
                 'headingScale' => $brand->headingScale,
+                'customTokens' => $brand->customTokens,
             ];
 
             $path = storage_path('app/testing/' . $themeKey . '-' . $presetKey . '.css');
 
             File::ensureDirectoryExists(dirname($path));
-            File::put($path, ':root { --heading-scale: ' . $brand->headingScale . '; }');
+            File::put($path, (new ThemeTokenRenderer)->css($brand));
 
             return $path;
         }
@@ -160,6 +162,15 @@ it('uses editor active preset when rendering theme token css hook', function ():
                     values: ['headingScale' => 'compact'],
                 ),
             ],
+            frontend: [
+                'editor' => [
+                    'tokens' => [
+                        'safeIdentity' => ['options' => ['balanced']],
+                        'x; } body { displayNone' => ['options' => ['unsafe']],
+                        'radiusValue' => ['options' => ['999px']],
+                    ],
+                ],
+            ],
         ),
     );
 
@@ -190,20 +201,26 @@ it('uses editor active preset when rendering theme token css hook', function ():
             'themeKey' => 'hook-theme',
             'presetKey' => 'launch',
             'headingScale' => 'expressive',
+            'customTokens' => [],
         ],
         [
             'themeKey' => 'hook-theme',
             'presetKey' => 'launch',
             'headingScale' => 'compact',
+            'customTokens' => [],
         ],
         [
             'themeKey' => 'hook-theme',
             'presetKey' => 'launch',
             'headingScale' => 'compact',
+            'customTokens' => [],
         ],
     ])
-        ->and($firstHtml)->toBe('<style data-capell-theme-tokens>:root { --heading-scale: expressive; }</style>')
+        ->and($firstHtml)->toContain('<style data-capell-theme-tokens>:root {')
+        ->and($firstHtml)->toContain('--theme-heading-scale: expressive;')
+        ->and($firstHtml)->not->toContain('--theme-x;')
+        ->and($firstHtml)->not->toContain('--theme-radius-value: 999px;')
         ->and($sameRequestHtml)->toBe($firstHtml)
-        ->and($nextRequestHtml)->toBe('<style data-capell-theme-tokens>:root { --heading-scale: compact; }</style>')
+        ->and($nextRequestHtml)->toContain('--theme-heading-scale: compact;')
         ->and($nextRequestHtml)->not->toContain('/tokens/hook-theme-launch.css');
 });

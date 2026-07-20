@@ -67,6 +67,20 @@ it('reports invalid foreground and surface contrast tokens', function (): void {
         ->and($issues[0])->toContain('invalid color');
 });
 
+it('publishes token css without leaving partial files', function (): void {
+    $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
+
+    try {
+        $path = new ThemeTokenStore($directory)->put('atomic-theme', 'default', new BrandProfileData);
+
+        expect(File::get($path))->toStartWith(':root {')
+            ->and(File::glob($directory . '/*.tmp'))->toBe([])
+            ->and(File::files($directory))->toHaveCount(1);
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});
+
 it('returns fallback token css and exposes token issues for invalid runtime profiles', function (): void {
     $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
 
@@ -146,4 +160,68 @@ it('continues resolving runtime data when theme token css cannot be written', fu
 
     expect($runtime->tokenCssPath)->toBeNull()
         ->and($runtime->assetKey)->not->toBe('');
+});
+
+it('renders declared theme editor extras and rejects values outside their closed vocabulary', function (): void {
+    $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
+
+    app()->instance(ThemeTokenStore::class, new ThemeTokenStore($directory));
+    resolve(ThemeRegistry::class)->register(
+        new ThemeDefinitionData(
+            key: 'identity-token-theme',
+            name: 'Identity Token Theme',
+            description: 'Theme runtime identity token test.',
+            package: 'capell-app/identity-token-theme',
+            previewImage: '/preview.jpg',
+            tags: [],
+            bestFit: [],
+            presets: [
+                new ThemePresetData(
+                    key: 'default',
+                    name: 'Default',
+                    description: 'Default preset.',
+                    previewImage: '/preset.jpg',
+                    values: ['glassDepth' => 'balanced'],
+                ),
+            ],
+            frontend: [
+                'editor' => [
+                    'groups' => ['identity' => ['glassDepth']],
+                    'tokens' => [
+                        'glassDepth' => ['options' => ['restrained', 'balanced', 'prismatic']],
+                        'x; } body { displayNone' => ['options' => ['unsafe']],
+                        'radiusValue' => ['options' => ['999px']],
+                    ],
+                ],
+            ],
+        ),
+    );
+
+    try {
+        $runtime = ResolveThemeRuntimeAction::run(
+            activeTheme: 'identity-token-theme',
+            activePreset: 'default',
+            brand: new BrandProfileData,
+            themeOverrides: [
+                'identity-token-theme' => [
+                    'glassDepth' => 'prismatic',
+                    'undeclaredToken' => 'unsafe; } body { display: none',
+                    'x; } body { displayNone' => 'unsafe',
+                    'radiusValue' => '999px',
+                ],
+            ],
+        );
+
+        $css = File::get((string) $runtime->tokenCssPath);
+
+        expect($css)
+            ->toContain('--theme-glass-depth: prismatic;')
+            ->toContain('--theme-radius-value: 0.5rem;')
+            ->not->toContain('undeclared-token')
+            ->not->toContain('--theme-x;')
+            ->not->toContain('--theme-radius-value: 999px;')
+            ->not->toContain('display: none');
+    } finally {
+        File::deleteDirectory($directory);
+    }
 });
