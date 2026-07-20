@@ -44,7 +44,7 @@ Source: `packages/core/config/capell.php`
 | `CAPELL_BLAZE_ENABLED`                       | `BLAZE_ENABLED`, then `true`              | Enables Blaze support where installed                                                               |
 | `BLAZE_DEBUG`                                | `false`                                   | Enables Blaze debug behaviour                                                                       |
 | `CAPELL_BLAZE_THROW`                         | `false`                                   | Throws during Blaze candidate auditing                                                              |
-| `CAPELL_DISABLE_CACHE`                       | `true`                                    | Disables Capell's general cache layer                                                               |
+| `CAPELL_DISABLE_CACHE`                       | `false`                                   | Disables Capell's general cache layer; set to `true` only for explicit uncached operation           |
 | `CAPELL_DISABLE_CACHE_SAVE_KEYS`             | `[]`                                      | Cache keys or patterns that should not be saved                                                     |
 | `CAPELL_RELATIONSHIP_DIAGNOSTICS`            | `false`                                   | Enables extra relationship diagnostics for page URL/site-domain checks                              |
 | `CAPELL_WORKSPACES_PRUNE_SCHEDULE`           | `false`                                   | Enables the publishing workspace prune schedule                                                     |
