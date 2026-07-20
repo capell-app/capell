@@ -52,9 +52,14 @@ function capellStableApiSignature(string $identifier): string
 
     $reflection = new ReflectionClass($identifier);
     $methods = [];
+    $classFile = $reflection->getFileName();
+    $isAction = str_contains($identifier, '\\Actions\\');
+    $hasDependencyInjectionConstructor = $isAction || str_ends_with($reflection->getShortName(), 'Registry');
 
     foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-        if ($method->getDeclaringClass()->getName() !== $identifier) {
+        if ($method->getFileName() !== $classFile
+            || ($isAction && $method->getName() !== 'handle')
+            || ($hasDependencyInjectionConstructor && $method->isConstructor())) {
             continue;
         }
 
@@ -115,10 +120,10 @@ function capellStableApiMain(array $arguments): void
     if (! in_array('--check', $arguments, true)) {
         file_put_contents($baselinePath, json_encode([
             'schemaVersion' => 1,
-            'status' => 'pending-first-public-release',
+            'status' => 'active',
             ...$current,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
-        fwrite(STDOUT, 'Stable extension API baseline generated in pending state.' . PHP_EOL);
+        fwrite(STDOUT, 'Active stable extension API baseline generated.' . PHP_EOL);
 
         return;
     }
@@ -128,12 +133,6 @@ function capellStableApiMain(array $arguments): void
 
     if ($drift === []) {
         fwrite(STDOUT, 'Stable extension API baseline is current.' . PHP_EOL);
-
-        return;
-    }
-
-    if (($baseline['status'] ?? null) === 'pending-first-public-release') {
-        fwrite(STDOUT, 'Pending stable API drift (compatibility not active): ' . implode(', ', $drift) . PHP_EOL);
 
         return;
     }

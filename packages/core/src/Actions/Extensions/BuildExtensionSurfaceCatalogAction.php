@@ -17,11 +17,19 @@ use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Testing\ExtensionTestHarness;
 use InvalidArgumentException;
@@ -79,7 +87,14 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),
-            $this->entry('core.dto.project-build-manifest', 'dto', ProjectBuildManifestData::class, ExtensionSurfaceStability::Experimental, 'Typed portable project build manifest envelope.'),
+            $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-manifest', 'dto', ProjectBuildManifestData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build manifest envelope.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-package', 'dto', ProjectBuildPackageData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build package reference.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-route', 'dto', ProjectBuildRouteData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build route.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-signature', 'dto', ProjectBuildSignatureData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build signature.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-site', 'dto', ProjectBuildSiteData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build site.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-site-spec-reference', 'dto', ProjectBuildSiteSpecReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build SiteSpec reference.', 'core.project-build-manifest-data'),
             $this->entry('core.enum.frontend-route-reservation-type', 'enum', FrontendRouteReservationType::class, ExtensionSurfaceStability::Experimental, 'Supported frontend route reservation types.'),
             $this->entry('core.event.package-installed', 'event', PackageInstalled::class, ExtensionSurfaceStability::Stable, 'Package lifecycle completion event.', 'core.package-installed-event'),
             $this->entry('core.tag.extension-health', 'tagged-service', 'capell.extension-health-checks', ExtensionSurfaceStability::Experimental, 'Container tag for extension health checks.'),
@@ -87,6 +102,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.tag.interaction-target-capability-contributor', 'tagged-service', InteractionTargetCapabilityContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for interaction target capability contributors.'),
             $this->entry('core.tag.project-build-artifact-handler', 'tagged-service', ProjectBuildArtifactHandler::TAG, ExtensionSurfaceStability::Stable, 'Container tag for project build artifact handlers.', 'core.project-build-artifact-handler-registration'),
             $this->entry('core.tag.site-spec-applier', 'tagged-service', SiteSpecApplier::TAG, ExtensionSurfaceStability::Stable, 'Container tag for SiteSpec appliers.', 'core.site-spec-applier-registration'),
+            $this->entry('core.registry.project-build-artifact-handler', 'registry', ProjectBuildArtifactHandlerRegistry::class, ExtensionSurfaceStability::Stable, 'Runtime registry for portable project build artifact handlers.', 'core.project-build-artifact-handler-registry'),
             $this->entry('core.config.roles-admin', 'config', 'capell.roles.admin', ExtensionSurfaceStability::Experimental, 'Configured administrator role name.'),
             $this->entry('admin.contract.admin-tool-item', 'contract', 'Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem', ExtensionSurfaceStability::Experimental, 'Typed admin header tool contribution boundary.', owner: 'capell-app/admin'),
             $this->entry('admin.render-hook.navigation-after', 'render-hook', 'panels::sidebar.nav.end', ExtensionSurfaceStability::Experimental, 'Admin navigation contribution hook.', owner: 'capell-app/admin'),
