@@ -26,3 +26,16 @@ it('normalizes index.php and leading/trailing slashes', function (): void {
 
     expect($work2->state->effectiveUrl())->toBe('/path/');
 });
+
+it('preserves the path before a trailing front controller segment', function (): void {
+    $state = new FrontendState;
+    $request = Request::create('https://example.com/products/index.php');
+    $work = new FrontendWork($request, $state);
+
+    resolve(ParseUrlStep::class)->handle(
+        $work,
+        fn (FrontendWork $frontendWork): FrontendWork => $frontendWork,
+    );
+
+    expect($state->effectiveUrl())->toBe('/products/');
+});
