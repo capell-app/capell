@@ -8,8 +8,10 @@ use Composer\InstalledVersions;
 
 function cloudCompatibilityEnvelope(array $overrides = []): array
 {
-    $coreVersion = (string) InstalledVersions::getPrettyVersion('capell-app/core');
-    $coreReference = (string) InstalledVersions::getReference('capell-app/core');
+    $root = InstalledVersions::getRootPackage();
+    $coreVersion = (string) ($root['pretty_version'] ?? '');
+    $coreReference = (string) ($root['reference'] ?? '');
+    $coreInstallPath = dirname(__DIR__, 3);
     $facts = [
         'schema_version' => 1,
         'target' => [
@@ -27,7 +29,7 @@ function cloudCompatibilityEnvelope(array $overrides = []): array
             'compatibility' => [],
             'source_reference' => $coreReference,
             'artifact_sha256' => '',
-            'install_manifest_sha256' => hash_file('sha256', (string) InstalledVersions::getInstallPath('capell-app/core') . '/composer.json'),
+            'install_manifest_sha256' => hash_file('sha256', $coreInstallPath . '/composer.json'),
         ]],
     ];
 
@@ -74,16 +76,17 @@ it('rejects removal of required evidence but permits an explicit trusted legacy 
 it('rejects a signed envelope with the wrong installed source or manifest evidence', function (string $field, string $value): void {
     $token = str_repeat('d', 64);
     $envelope = cloudCompatibilityEnvelope();
-    $installPath = (string) InstalledVersions::getInstallPath('capell-app/frontend');
+    $root = InstalledVersions::getRootPackage();
+    $installPath = dirname(__DIR__, 4) . '/frontend';
     $release = [
         'name' => 'capell-app/frontend',
-        'version' => ltrim((string) InstalledVersions::getPrettyVersion('capell-app/frontend'), 'v'),
+        'version' => ltrim((string) ($root['pretty_version'] ?? ''), 'v'),
         'release_identity' => 'sha256:' . str_repeat('1', 64),
         'compatibility' => [
             'capell_api' => '*', 'core' => '*', 'php' => '*', 'laravel' => '*', 'filament' => '*',
             'platform' => strtolower(PHP_OS_FAMILY),
         ],
-        'source_reference' => (string) InstalledVersions::getReference('capell-app/frontend'),
+        'source_reference' => (string) ($root['reference'] ?? ''),
         'artifact_sha256' => str_repeat('2', 64),
         'install_manifest_sha256' => hash_file('sha256', $installPath . '/composer.json'),
     ];

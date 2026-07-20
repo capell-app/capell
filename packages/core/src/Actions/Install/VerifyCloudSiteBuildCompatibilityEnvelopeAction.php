@@ -17,6 +17,7 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
         if (! is_array($evidence) || ! is_bool($evidence['required'] ?? null)) {
             $this->fail();
         }
+
         if ($evidence['required'] === false) {
             return;
         }
@@ -27,6 +28,7 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
         if ($registrationToken === '' || ! is_string($payload) || $payload === '' || ! is_string($signature) || $signature === '') {
             $this->fail();
         }
+
         $expectedSignature = hash_hmac('sha256', $payload, $registrationToken);
         if (! hash_equals($expectedSignature, $signature)) {
             $this->fail();
@@ -45,10 +47,10 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
         $target = $envelope['target'];
         $observed = [
             'capell_api_version' => CapellExtensionApi::CURRENT_VERSION,
-            'core_version' => $this->installedVersion('capell-app/core'),
+            'core_version' => $this->installedPackageEvidence('capell-app/core')['version'],
             'php_version' => PHP_VERSION,
             'laravel_version' => app()->version(),
-            'filament_version' => $this->installedVersion('filament/filament'),
+            'filament_version' => $this->installedPackageEvidence('filament/filament')['version'],
             'platform' => strtolower(PHP_OS_FAMILY),
         ];
         foreach ($observed as $fact => $version) {
@@ -73,26 +75,18 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
             }
 
             $name = $release['name'];
-            if (! hash_equals(ltrim($this->installedVersion($name), 'v'), ltrim($release['version'], 'v'))) {
+            $installedPackage = $this->installedPackageEvidence($name);
+            if (! hash_equals(ltrim($installedPackage['version'], 'v'), ltrim($release['version'], 'v'))) {
                 $this->fail();
             }
 
-            $reference = InstalledVersions::getReference($name);
-            $installPath = InstalledVersions::getInstallPath($name);
-            $manifestPath = is_string($installPath) ? $installPath . DIRECTORY_SEPARATOR . 'composer.json' : null;
-            $manifestSha256 = is_string($manifestPath) && is_file($manifestPath) ? hash_file('sha256', $manifestPath) : false;
-            if (! is_string($reference)
-                || ! hash_equals($release['source_reference'], $reference)
-                || ! is_string($manifestSha256)
-                || ! hash_equals($release['install_manifest_sha256'], $manifestSha256)
-                || ! is_string($installPath)
-                || ! is_dir($installPath)
-                || ! is_file($manifestPath)) {
+            if (! hash_equals($release['source_reference'], $installedPackage['reference'])
+                || ! hash_equals($release['install_manifest_sha256'], $installedPackage['manifestSha256'])) {
                 $this->fail();
             }
 
             if ($name === 'capell-app/core') {
-                if (! hash_equals('composer-reference:' . $reference, $release['release_identity'])) {
+                if (! hash_equals('composer-reference:' . $installedPackage['reference'], $release['release_identity'])) {
                     $this->fail();
                 }
 
@@ -113,17 +107,66 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
         }
     }
 
-    private function installedVersion(string $package): string
+    /** @return array{version: string, reference: string, manifestSha256: string} */
+    private function installedPackageEvidence(string $package): array
     {
-        $version = InstalledVersions::isInstalled($package) ? InstalledVersions::getPrettyVersion($package) : null;
-        if (! is_string($version) || trim($version) === '') {
+        if (InstalledVersions::isInstalled($package)) {
+            return $this->verifiedPackageEvidence(
+                InstalledVersions::getPrettyVersion($package),
+                InstalledVersions::getReference($package),
+                InstalledVersions::getInstallPath($package),
+            );
+        }
+
+        $root = InstalledVersions::getRootPackage();
+        $rootInstallPath = $root['install_path'] ?? null;
+        $embeddedInstallPath = is_string($rootInstallPath)
+            ? $rootInstallPath . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . basename(str_replace('\\', '/', $package))
+            : null;
+        $embeddedManifestPath = is_string($embeddedInstallPath)
+            ? $embeddedInstallPath . DIRECTORY_SEPARATOR . 'composer.json'
+            : null;
+        $embeddedManifest = is_string($embeddedManifestPath) && is_file($embeddedManifestPath)
+            ? json_decode((string) file_get_contents($embeddedManifestPath), true)
+            : null;
+
+        if (($root['name'] ?? null) !== 'capell-app/capell'
+            || ! is_array($embeddedManifest)
+            || ($embeddedManifest['name'] ?? null) !== $package) {
             $this->fail();
         }
 
-        return $version;
+        return $this->verifiedPackageEvidence(
+            $root['pretty_version'] ?? null,
+            $root['reference'] ?? null,
+            $embeddedInstallPath,
+        );
     }
 
-    /** @param array<string, mixed> $compatibility @param array<string, string> $observed */
+    /** @return array{version: string, reference: string, manifestSha256: string} */
+    private function verifiedPackageEvidence(mixed $version, mixed $reference, mixed $installPath): array
+    {
+        $manifestPath = is_string($installPath) ? $installPath . DIRECTORY_SEPARATOR . 'composer.json' : null;
+        $manifestSha256 = is_string($manifestPath) && is_file($manifestPath) ? hash_file('sha256', $manifestPath) : false;
+
+        if (! is_string($version) || trim($version) === ''
+            || ! is_string($reference) || trim($reference) === ''
+            || ! is_string($installPath) || ! is_dir($installPath)
+            || ! is_string($manifestSha256)) {
+            $this->fail();
+        }
+
+        return [
+            'version' => $version,
+            'reference' => $reference,
+            'manifestSha256' => $manifestSha256,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $compatibility
+     * @param  array<string, string>  $observed
+     */
     private function verifyCompatibility(array $compatibility, array $observed): void
     {
         $constraints = [
@@ -141,7 +184,7 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
         }
 
         $platforms = is_string($compatibility['platform'] ?? null)
-            ? array_map('trim', explode('|', strtolower($compatibility['platform'])))
+            ? array_map(trim(...), explode('|', strtolower($compatibility['platform'])))
             : [];
         if (! in_array($observed['platform'], $platforms, true)) {
             $this->fail();

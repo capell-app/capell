@@ -189,6 +189,7 @@ class CloudBootstrapCommand extends Command
             if (is_array($siteSpec)) {
                 $bootstrap['_site_spec'] = $siteSpec;
             }
+
             $compatibility = $response->json('data.site_build_compatibility');
             $bootstrap['_site_build_compatibility'] = is_array($compatibility) ? $compatibility : null;
         }

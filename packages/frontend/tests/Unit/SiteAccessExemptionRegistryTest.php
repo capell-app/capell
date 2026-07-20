@@ -24,6 +24,6 @@ it('requires a code contributor to exempt a site access request', function (): v
         }
     };
 
-    expect((new SiteAccessExemptionRegistry([$deny]))->exempts($context))->toBeFalse()
-        ->and((new SiteAccessExemptionRegistry([$deny, $allow]))->exempts($context))->toBeTrue();
+    expect(new SiteAccessExemptionRegistry([$deny])->exempts($context))->toBeFalse()
+        ->and(new SiteAccessExemptionRegistry([$deny, $allow])->exempts($context))->toBeTrue();
 });

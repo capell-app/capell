@@ -46,8 +46,8 @@ final class TransitionPublicationAction
 
         try {
             event(new PublicationTransitioning($transitionId, $request, $result));
-        } catch (Throwable $exception) {
-            report($exception);
+        } catch (Throwable $throwable) {
+            report($throwable);
         }
 
         try {
@@ -66,8 +66,8 @@ final class TransitionPublicationAction
 
         try {
             event(new PublicationTransitioned($transitionId, $request, $result));
-        } catch (Throwable $exception) {
-            report($exception);
+        } catch (Throwable $throwable) {
+            report($throwable);
         }
 
         return $result;
