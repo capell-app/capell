@@ -161,7 +161,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->and($localSplitScript)->toContain('BRANCH="${CAPELL_SPLIT_BRANCH:-main}"')
         ->toContain('rollback_release_tags')
         ->toContain('git push "${remote_url}" ":refs/tags/${TAG}"')
-        ->and($packagistScript)->toContain('PACKAGES+=("capell")')
+        ->and($packagistScript)->toContain('config/packagist-packages.json')
         ->and($packagistScript)->toContain('--preflight')
         ->and($packagistScript)->toContain('repos/${repository}/contents/composer.json')
         ->and($packagistScript)->toContain('https://packagist.org/api/github')
@@ -197,7 +197,7 @@ it('defines the public v1 split package release contract', function (): void {
 
     expect($localSplitScript)->toContain('config/release-packages.json')
         ->toContain('basename((string) $package["path"])')
-        ->and($packagistScript)->toContain('config/release-packages.json');
+        ->and($packagistScript)->toContain('config/packagist-packages.json');
 });
 
 it('runs the release validator without a Laravel bootstrap', function (): void {
@@ -216,7 +216,7 @@ it('runs the release validator without a Laravel bootstrap', function (): void {
         ->and(implode(PHP_EOL, $output))->toContain('Plan is valid.');
 });
 
-it('reads public Packagist package slugs from the release matrix', function (): void {
+it('reads public Packagist package slugs from the Packagist catalogue', function (): void {
     $root = dirname(__DIR__, 2);
     $temporary = sys_get_temp_dir() . '/capell-packagist-test-' . bin2hex(random_bytes(8));
     mkdir($temporary, 0700, true);
