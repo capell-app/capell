@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
+use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
+use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
+use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
@@ -57,6 +60,35 @@ it('catalogues every supported extension surface kind from explicit metadata', f
             expect($entry->contractTestId)->not->toBeNull();
         }
     }
+});
+
+it('keeps the project build producer actions on their approved stable contracts', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+
+    expect($catalog->get('core.action.project-build-signing-input')?->identifier)
+        ->toBe(CanonicalizeProjectBuildManifestSigningInputAction::class)
+        ->and($catalog->get('core.action.project-build-signing-input')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.project-build-signing-input')?->contractTestId)
+        ->toBe('core.project-build-manifest-signing')
+        ->and($catalog->get('core.action.verify-project-build-signature')?->identifier)
+        ->toBe(VerifyProjectBuildManifestSignatureAction::class)
+        ->and($catalog->get('core.action.verify-project-build-signature')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.verify-project-build-signature')?->contractTestId)
+        ->toBe('core.project-build-manifest-signing')
+        ->and($catalog->get('core.action.validate-project-build-bundle')?->identifier)
+        ->toBe(ValidateProjectBuildManifestBundleAction::class)
+        ->and($catalog->get('core.action.validate-project-build-bundle')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.validate-project-build-bundle')?->contractTestId)
+        ->toBe('core.project-build-manifest-bundle')
+        ->and($catalog->get('core.dto.project-build-manifest')?->stability)
+        ->toBe(ExtensionSurfaceStability::Experimental)
+        ->and($catalog->get('core.schema.project-build-manifest-v1')?->stability)
+        ->toBe(ExtensionSurfaceStability::Experimental)
+        ->and($catalog->get('core.contract.project-build-artifact-handler')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable);
 });
 
 it('classifies the admin tool seam as experimental', function (): void {

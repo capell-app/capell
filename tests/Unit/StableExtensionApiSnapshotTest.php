@@ -62,11 +62,27 @@ it('keeps experimental package extension seams out of the stable baseline', func
     expect($surfaces)->not->toHaveKeys([
         'admin.contract.admin-tool-item',
         'admin.tag.admin-tool-item',
-        'core.action.project-build-signing-input',
-        'core.action.validate-project-build-bundle',
-        'core.action.verify-project-build-signature',
+        'core.dto.project-build-manifest',
+        'core.schema.project-build-manifest-v1',
         'frontend.dto.package-dependency',
         'frontend.enum.package-dependency-type',
         'frontend.registry.package-dependency',
     ]);
+});
+
+it('keeps the approved project build producer actions in the stable baseline', function (): void {
+    $surfaces = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 2) . '/docs/packages/stable-extension-api-baseline.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    )['surfaces'];
+
+    expect($surfaces)->toHaveKeys([
+        'core.action.project-build-signing-input',
+        'core.action.validate-project-build-bundle',
+        'core.action.verify-project-build-signature',
+    ])
+        ->and($surfaces['core.action.project-build-signing-input']['contractTestId'])->toBe('core.project-build-manifest-signing')
+        ->and($surfaces['core.action.validate-project-build-bundle']['contractTestId'])->toBe('core.project-build-manifest-bundle')
+        ->and($surfaces['core.action.verify-project-build-signature']['contractTestId'])->toBe('core.project-build-manifest-signing');
 });

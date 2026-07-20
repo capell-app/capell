@@ -2,6 +2,21 @@
     "schemaVersion": 1,
     "status": "pending-first-public-release",
     "surfaces": {
+        "core.action.project-build-signing-input": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
+            "signature": "bfd8828bde8123312bee26baa0fd0a8039ba939ef229d4b59d271d5d6b0bb187",
+            "contractTestId": "core.project-build-manifest-signing"
+        },
+        "core.action.validate-project-build-bundle": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
+            "signature": "d08c4de5930cc8f43b67e994392010434e62a930a2d668f3ce5779264e55347b",
+            "contractTestId": "core.project-build-manifest-bundle"
+        },
+        "core.action.verify-project-build-signature": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildManifestSignatureAction",
+            "signature": "c716e50df97cb9b3d6053da49583ba8194ec1414774907b1a5c78c88b6e2f442",
+            "contractTestId": "core.project-build-manifest-signing"
+        },
         "core.contract.extension-contribution": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
