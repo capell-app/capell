@@ -1,0 +1,10 @@
+{
+    "packages": [
+        "capell",
+        "core",
+        "admin",
+        "frontend",
+        "installer",
+        "marketplace"
+    ]
+}
