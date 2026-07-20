@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
+use Capell\Core\Actions\Install\VerifyCloudSiteBuildCompatibilityEnvelopeAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\ThemePackageCandidates;
@@ -65,6 +66,12 @@ class CloudBootstrapCommand extends Command
                     return CommandAlias::FAILURE;
                 }
 
+                resolve(VerifyCloudSiteBuildCompatibilityEnvelopeAction::class)->handle(
+                    $registrationToken,
+                    $this->cloudConfigString('site_build_compatibility_payload'),
+                    $this->cloudConfigString('site_build_compatibility_signature'),
+                    $this->cloudConfigString('install_packages'),
+                );
                 $this->installCapell($appUrl, $bootstrap);
                 $this->forceAdminPasswordChange($bootstrap);
             }
