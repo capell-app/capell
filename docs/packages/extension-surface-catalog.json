@@ -33,6 +33,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.install-project-build-manifest",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\InstallProjectBuildManifestAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Target-compatible ordered package installation followed by deterministic SiteSpec application.",
+            "contractTestId": "core.project-build-manifest-install"
+        },
+        {
             "id": "core.action.project-build-signing-input",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
@@ -61,6 +71,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Ed25519 verification for portable project manifests.",
             "contractTestId": "core.project-build-manifest-signing"
+        },
+        {
+            "id": "core.action.verify-project-build-target",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildTargetCompatibilityAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Fail-closed Capell, PHP, and platform compatibility verification for project build targets.",
+            "contractTestId": "core.project-build-manifest-install"
         },
         {
             "id": "core.config.roles-admin",
@@ -123,6 +143,16 @@
             "contractTestId": "core.project-build-artifact-handler"
         },
         {
+            "id": "core.contract.project-build-package-installer",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildPackageInstaller",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Consumer-owned exact package acquisition and installed-release evidence boundary.",
+            "contractTestId": "core.project-build-manifest-install"
+        },
+        {
             "id": "core.contract.site-spec-applier",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
@@ -171,6 +201,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build compatibility requirements.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-installed-package",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildInstalledPackageData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Verified installed package release evidence for project build consumers.",
+            "contractTestId": "core.project-build-manifest-install"
         },
         {
             "id": "core.dto.project-build-manifest",

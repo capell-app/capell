@@ -5,20 +5,24 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
+use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
+use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
+use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildInstalledPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
@@ -80,6 +84,9 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),
             $this->entry('core.contract.interaction-target-capability-contributor', 'contract', InteractionTargetCapabilityContributor::class, ExtensionSurfaceStability::Experimental, 'Typed interaction target capability contributions.'),
             $this->entry('core.contract.project-build-artifact-handler', 'contract', ProjectBuildArtifactHandler::class, ExtensionSurfaceStability::Stable, 'Package-owned project artifact verification boundary.', 'core.project-build-artifact-handler'),
+            $this->entry('core.contract.project-build-package-installer', 'contract', ProjectBuildPackageInstaller::class, ExtensionSurfaceStability::Stable, 'Consumer-owned exact package acquisition and installed-release evidence boundary.', 'core.project-build-manifest-install'),
+            $this->entry('core.action.install-project-build-manifest', 'action', InstallProjectBuildManifestAction::class, ExtensionSurfaceStability::Stable, 'Target-compatible ordered package installation followed by deterministic SiteSpec application.', 'core.project-build-manifest-install'),
+            $this->entry('core.action.verify-project-build-target', 'action', VerifyProjectBuildTargetCompatibilityAction::class, ExtensionSurfaceStability::Stable, 'Fail-closed Capell, PHP, and platform compatibility verification for project build targets.', 'core.project-build-manifest-install'),
             $this->entry('core.action.project-build-signing-input', 'action', CanonicalizeProjectBuildManifestSigningInputAction::class, ExtensionSurfaceStability::Stable, 'Canonical detached-signature input for portable project manifests.', 'core.project-build-manifest-signing'),
             $this->entry('core.action.validate-project-build-bundle', 'action', ValidateProjectBuildManifestBundleAction::class, ExtensionSurfaceStability::Stable, 'Fail-closed signature and artifact validation for portable project manifests.', 'core.project-build-manifest-bundle'),
             $this->entry('core.action.verify-project-build-signature', 'action', VerifyProjectBuildManifestSignatureAction::class, ExtensionSurfaceStability::Stable, 'Ed25519 verification for portable project manifests.', 'core.project-build-manifest-signing'),
@@ -89,6 +96,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),
             $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.project-build-installed-package', 'dto', ProjectBuildInstalledPackageData::class, ExtensionSurfaceStability::Stable, 'Verified installed package release evidence for project build consumers.', 'core.project-build-manifest-install'),
             $this->entry('core.dto.project-build-manifest', 'dto', ProjectBuildManifestData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build manifest envelope.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-package', 'dto', ProjectBuildPackageData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build package reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-route', 'dto', ProjectBuildRouteData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build route.', 'core.project-build-manifest-data'),

@@ -5,14 +5,18 @@ declare(strict_types=1);
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
+use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
+use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
+use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildInstalledPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
@@ -49,6 +53,9 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         ->and(array_column($catalog, 'id'))->toContain(
             'core.contract.site-spec-applier',
             'core.contract.project-build-artifact-handler',
+            'core.contract.project-build-package-installer',
+            'core.action.install-project-build-manifest',
+            'core.action.verify-project-build-target',
             'core.action.project-build-signing-input',
             'core.action.validate-project-build-bundle',
             'core.action.verify-project-build-signature',
@@ -95,7 +102,13 @@ it('keeps the project build producer actions on their approved stable contracts'
         ->and($catalog->get('core.schema.project-build-manifest-v1')?->stability)
         ->toBe(ExtensionSurfaceStability::Experimental)
         ->and($catalog->get('core.contract.project-build-artifact-handler')?->stability)
-        ->toBe(ExtensionSurfaceStability::Stable);
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.install-project-build-manifest')?->identifier)
+        ->toBe(InstallProjectBuildManifestAction::class)
+        ->and($catalog->get('core.contract.project-build-package-installer')?->identifier)
+        ->toBe(ProjectBuildPackageInstaller::class)
+        ->and($catalog->get('core.action.verify-project-build-target')?->identifier)
+        ->toBe(VerifyProjectBuildTargetCompatibilityAction::class);
 });
 
 it('closes the stable project build action signatures over typed data and registry surfaces', function (): void {
@@ -103,6 +116,7 @@ it('closes the stable project build action signatures over typed data and regist
     $closure = [
         'core.dto.project-build-artifact-reference' => ProjectBuildArtifactReferenceData::class,
         'core.dto.project-build-compatibility' => ProjectBuildCompatibilityData::class,
+        'core.dto.project-build-installed-package' => ProjectBuildInstalledPackageData::class,
         'core.dto.project-build-manifest' => ProjectBuildManifestData::class,
         'core.dto.project-build-package' => ProjectBuildPackageData::class,
         'core.dto.project-build-route' => ProjectBuildRouteData::class,

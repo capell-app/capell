@@ -2,6 +2,11 @@
     "schemaVersion": 1,
     "status": "active",
     "surfaces": {
+        "core.action.install-project-build-manifest": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\InstallProjectBuildManifestAction",
+            "signature": "ae061abf248e94f4bb008b6d9c8e89f6cbf078301c062a913f9c8d7e8ecf1ba5",
+            "contractTestId": "core.project-build-manifest-install"
+        },
         "core.action.project-build-signing-input": {
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
             "signature": "821a0cb1a456a244b91d5f140d7842d0faa704dd779a30ba1e449291efed3cd5",
@@ -17,6 +22,11 @@
             "signature": "b8f7839bcc77da82f5711e696ccfe35dc31a332c874ed1dab370ea2c8a41a8bd",
             "contractTestId": "core.project-build-manifest-signing"
         },
+        "core.action.verify-project-build-target": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildTargetCompatibilityAction",
+            "signature": "1496423461d9bb84de8c2622362486ede1453e064fdb84e0914878d8b4221dc5",
+            "contractTestId": "core.project-build-manifest-install"
+        },
         "core.contract.extension-contribution": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
@@ -26,6 +36,11 @@
             "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildArtifactHandler",
             "signature": "268cd49b5a7fbd8166312e916f2e6405866a4c2106a618233a8fc160c8d0f32b",
             "contractTestId": "core.project-build-artifact-handler"
+        },
+        "core.contract.project-build-package-installer": {
+            "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildPackageInstaller",
+            "signature": "43ea708a6a5072c55a47421e7ddd354c2e72bdd063ed9a57403860e1acf75412",
+            "contractTestId": "core.project-build-manifest-install"
         },
         "core.contract.site-spec-applier": {
             "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
@@ -46,6 +61,11 @@
             "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildCompatibilityData",
             "signature": "b3d4a6f36b671ace04f28ff52d3e3b38de3dc7f55363de6f59ed17c26441645a",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-installed-package": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildInstalledPackageData",
+            "signature": "18c12a03faadbc739df6084d90ff5e4d92c8f76b7236eafe4a2c11a535099deb",
+            "contractTestId": "core.project-build-manifest-install"
         },
         "core.dto.project-build-manifest": {
             "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildManifestData",
