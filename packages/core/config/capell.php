@@ -72,8 +72,8 @@ return [
         'throw' => env('CAPELL_BLAZE_THROW', false),
     ],
 
-    // Skip caching if in debug mode
-    'disable_cache' => env('CAPELL_DISABLE_CACHE', true),
+    // Set explicitly when debugging cache behaviour or rendering uncached previews.
+    'disable_cache' => env('CAPELL_DISABLE_CACHE', false),
 
     'debug' => [
         'relationship_diagnostics' => env('CAPELL_RELATIONSHIP_DIAGNOSTICS', false),

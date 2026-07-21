@@ -13,6 +13,7 @@ final class CapellSiteSpecData extends Data
      * @param  array<int, CapellSiteSpecPageData>  $pages
      * @param  array<int, CapellSiteSpecNavigationData>  $navigations
      * @param  list<string>  $extensions
+     * @param  array<string, array<string, mixed>>  $packageData
      */
     public function __construct(
         public readonly CapellSiteSpecSiteData $site,
@@ -24,6 +25,7 @@ final class CapellSiteSpecData extends Data
         public readonly array $navigations = [],
         public readonly CapellSiteSpecMediaData $media = new CapellSiteSpecMediaData,
         public readonly array $extensions = [],
+        public readonly array $packageData = [],
         public readonly string $initialVisibility = 'private',
         public readonly bool $acknowledgePublic = false,
     ) {}
@@ -35,6 +37,8 @@ final class CapellSiteSpecData extends Data
             'navigations' => ['sometimes', 'array'],
             'extensions' => ['sometimes', 'array'],
             'extensions.*' => ['string', 'distinct'],
+            'packageData' => ['sometimes', 'array'],
+            'packageData.*' => ['array'],
         ];
     }
 }

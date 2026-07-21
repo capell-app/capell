@@ -12,17 +12,29 @@ beforeEach(function (): void {
     CapellAdmin::clearResolvedInstance(CapellAdminManager::class);
 });
 
-it('collapses default navigation groups without group icons', function (): void {
+it('keeps the frequent website group open and collapses secondary groups', function (): void {
     $navigationGroups = CapellAdmin::getDefaultNavigationGroups();
-
-    expect($navigationGroups)->toHaveCount(9);
 
     foreach ($navigationGroups as $navigationGroup) {
         expect($navigationGroup)
             ->toBeInstanceOf(NavigationGroup::class)
-            ->and($navigationGroup->isCollapsed())->toBeTrue()
             ->and($navigationGroup->getIcon())->toBeNull();
     }
+
+    $navigationGroups = collect($navigationGroups);
+    $websiteGroup = $navigationGroups->firstOrFail(
+        fn (NavigationGroup $navigationGroup): bool => $navigationGroup->getLabel() === __('capell-admin::navigation.group_websites'),
+    );
+    $settingsGroup = $navigationGroups->firstOrFail(
+        fn (NavigationGroup $navigationGroup): bool => $navigationGroup->getLabel() === __('capell-admin::navigation.group_settings'),
+    );
+    $systemGroup = $navigationGroups->firstOrFail(
+        fn (NavigationGroup $navigationGroup): bool => $navigationGroup->getLabel() === __('capell-admin::navigation.group_system'),
+    );
+
+    expect($websiteGroup->isCollapsed())->toBeFalse()
+        ->and($settingsGroup->isCollapsed())->toBeFalse()
+        ->and($systemGroup->isCollapsed())->toBeTrue();
 });
 
 it('registers navigation groups, merges duplicates, and applies relative ordering', function (): void {
