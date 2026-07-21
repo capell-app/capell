@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\SiteAccessContextData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -13,6 +14,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicPageRenderData;
@@ -127,6 +129,18 @@ class GenerateStaticPageArtifactsAction
     {
         $url = rtrim($siteDomain->full_url, '/') . ($pageUrl->url);
         $request = Request::create($url, \Symfony\Component\HttpFoundation\Request::METHOD_GET);
+        $policy = resolve(SiteAccessPolicyRegistry::class)->resolve(new SiteAccessContextData(
+            request: $request,
+            site: $pageUrl->site,
+            siteDomain: $siteDomain,
+        ));
+
+        throw_if(
+            $policy?->active === true,
+            RuntimeException::class,
+            sprintf('Static generation is prohibited for protected site host [%s].', $siteDomain->domain),
+        );
+
         $response = $this->kernel->handle($request);
         $this->kernel->terminate($request, $response);
 

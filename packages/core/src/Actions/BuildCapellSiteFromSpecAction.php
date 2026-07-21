@@ -73,8 +73,19 @@ final class BuildCapellSiteFromSpecAction
                     $pagesBySlug[$page->slug] = $createdPage;
                 }
 
+                $appliedSiteSpecKeys = [];
+
                 if ($spec->navigations !== []) {
                     resolve(SiteSpecApplierRegistry::class)->apply('navigation', $spec, $site, $pagesBySlug);
+                    $appliedSiteSpecKeys[] = 'navigation';
+                }
+
+                foreach (array_keys($spec->packageData) as $key) {
+                    if (in_array($key, $appliedSiteSpecKeys, true)) {
+                        continue;
+                    }
+
+                    resolve(SiteSpecApplierRegistry::class)->apply($key, $spec, $site, $pagesBySlug);
                 }
 
                 AttachSiteSpecMediaAction::run($site, $pagesBySlug, $downloads);
