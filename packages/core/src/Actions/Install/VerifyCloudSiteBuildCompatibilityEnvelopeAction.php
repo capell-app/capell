@@ -111,11 +111,15 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
     private function installedPackageEvidence(string $package): array
     {
         if (InstalledVersions::isInstalled($package)) {
-            return $this->verifiedPackageEvidence(
-                InstalledVersions::getPrettyVersion($package),
-                InstalledVersions::getReference($package),
-                InstalledVersions::getInstallPath($package),
-            );
+            $version = InstalledVersions::getPrettyVersion($package);
+            $reference = InstalledVersions::getReference($package);
+            $installPath = InstalledVersions::getInstallPath($package);
+
+            if (is_string($version) && trim($version) !== ''
+                && is_string($reference) && trim($reference) !== ''
+                && is_string($installPath) && is_dir($installPath)) {
+                return $this->verifiedPackageEvidence($version, $reference, $installPath);
+            }
         }
 
         $root = InstalledVersions::getRootPackage();
