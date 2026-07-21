@@ -61,7 +61,7 @@ class SettingsPage extends AbstractAdminSettingsPage
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return (string) __('capell-admin::navigation.group_settings');
     }
 
     #[Override]
