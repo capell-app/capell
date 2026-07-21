@@ -15,7 +15,7 @@ it('keeps the active public-release baseline current', function (): void {
 
     $output = $process->getOutput();
 
-    expect($process->getExitCode())->toBe(0)
+    expect($process->getExitCode())->toBe(0, trim($process->getErrorOutput()))
         ->and(
             str_contains($output, 'baseline is current'),
         )->toBeTrue()
@@ -32,9 +32,9 @@ it('hashes only the declared action entrypoint and excludes dependency trait met
         '%s%s:%s',
         $parameter->isOptional() ? '?' : '',
         $parameter->getName(),
-        (string) $parameter->getType(),
+        capellStableApiType($parameter->getType(), $reflection->getDeclaringClass()),
     ), $reflection->getParameters());
-    $expected = hash('sha256', 'handle(' . implode(',', $parameters) . '):' . $reflection->getReturnType());
+    $expected = hash('sha256', 'handle(' . implode(',', $parameters) . '):' . capellStableApiType($reflection->getReturnType(), $reflection->getDeclaringClass()));
 
     expect(capellStableApiSignature($identifier))->toBe($expected);
 });
@@ -50,9 +50,9 @@ it('excludes registry dependency injection constructors while retaining declared
             '%s%s:%s',
             $parameter->isOptional() ? '?' : '',
             $parameter->getName(),
-            (string) $parameter->getType(),
+            capellStableApiType($parameter->getType(), $method->getDeclaringClass()),
         ), $method->getParameters());
-        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . $method->getReturnType();
+        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . capellStableApiType($method->getReturnType(), $method->getDeclaringClass());
     }
 
     sort($methods);

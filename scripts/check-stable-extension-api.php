@@ -67,14 +67,34 @@ function capellStableApiSignature(string $identifier): string
             '%s%s:%s',
             $parameter->isOptional() ? '?' : '',
             $parameter->getName(),
-            (string) $parameter->getType(),
+            capellStableApiType($parameter->getType(), $method->getDeclaringClass()),
         ), $method->getParameters());
-        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . (string) $method->getReturnType();
+        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . capellStableApiType($method->getReturnType(), $method->getDeclaringClass());
     }
 
     sort($methods);
 
     return hash('sha256', implode('|', $methods));
+}
+
+function capellStableApiType(?ReflectionType $type, ReflectionClass $declaringClass): string
+{
+    if ($type === null) {
+        return '';
+    }
+
+    $rendered = (string) $type;
+    $parentClass = $declaringClass->getParentClass();
+    $replacements = [
+        'self' => $declaringClass->getName(),
+        'parent' => $parentClass === false ? 'parent' : $parentClass->getName(),
+    ];
+
+    return preg_replace_callback(
+        '/(?<![A-Za-z0-9_\\\\])(self|parent)(?![A-Za-z0-9_\\\\])/',
+        static fn (array $matches): string => $replacements[$matches[1]],
+        $rendered,
+    ) ?? $rendered;
 }
 
 /**
