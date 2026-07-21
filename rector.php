@@ -137,6 +137,9 @@ return RectorConfig::configure()
             __DIR__ . '/packages/core/src/Support/Sitemap/XmlSitemapGenerator.php',
             __DIR__ . '/packages/frontend/src/Livewire/Page/Sitemap.php',
         ],
+        // This release checker is an intentionally framework-free executable. Changed-file
+        // Rector must not introduce Laravel facades or runtime-dependent rewrites into it.
+        __DIR__ . '/scripts/check-stable-extension-api.php',
         __DIR__ . '/tests/.pest',
     ])
     ->withPhpSets();
