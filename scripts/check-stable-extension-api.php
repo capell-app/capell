@@ -111,6 +111,9 @@ function capellStableApiDrift(array $baseline, array $current): array
     return $drift;
 }
 
+/**
+ * @param  list<string>  $arguments
+ */
 function capellStableApiMain(array $arguments): void
 {
     $root = dirname(__DIR__);
@@ -147,5 +150,7 @@ function capellStableApiMain(array $arguments): void
 }
 
 if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
-    capellStableApiMain($argv);
+    $arguments = $_SERVER['argv'] ?? [];
+
+    capellStableApiMain(is_array($arguments) ? array_values(array_filter($arguments, is_string(...))) : []);
 }
