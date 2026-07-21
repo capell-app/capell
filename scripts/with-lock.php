@@ -45,6 +45,10 @@ if ($command === []) {
 $runCommand = static function (array $command): int {
     // The stages this wraps are interactive-ish (progress bars, coloured
     // output); passthru keeps them attached to the real terminal.
+    if (preg_match('/\A[A-Za-z_][A-Za-z0-9_]*=.*/', $command[0]) === 1) {
+        array_unshift($command, 'env');
+    }
+
     $quoted = implode(' ', array_map(escapeshellarg(...), $command));
 
     passthru($quoted, $status);
