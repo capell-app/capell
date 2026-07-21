@@ -4,12 +4,24 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
+use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
+use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
+use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
+use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
@@ -56,6 +68,56 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         if ($entry->stability === ExtensionSurfaceStability::Stable) {
             expect($entry->contractTestId)->not->toBeNull();
         }
+    }
+});
+
+it('keeps the project build producer actions on their approved stable contracts', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+
+    expect($catalog->get('core.action.project-build-signing-input')?->identifier)
+        ->toBe(CanonicalizeProjectBuildManifestSigningInputAction::class)
+        ->and($catalog->get('core.action.project-build-signing-input')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.project-build-signing-input')?->contractTestId)
+        ->toBe('core.project-build-manifest-signing')
+        ->and($catalog->get('core.action.verify-project-build-signature')?->identifier)
+        ->toBe(VerifyProjectBuildManifestSignatureAction::class)
+        ->and($catalog->get('core.action.verify-project-build-signature')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.verify-project-build-signature')?->contractTestId)
+        ->toBe('core.project-build-manifest-signing')
+        ->and($catalog->get('core.action.validate-project-build-bundle')?->identifier)
+        ->toBe(ValidateProjectBuildManifestBundleAction::class)
+        ->and($catalog->get('core.action.validate-project-build-bundle')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable)
+        ->and($catalog->get('core.action.validate-project-build-bundle')?->contractTestId)
+        ->toBe('core.project-build-manifest-bundle')
+        ->and($catalog->get('core.schema.project-build-manifest-v1')?->stability)
+        ->toBe(ExtensionSurfaceStability::Experimental)
+        ->and($catalog->get('core.contract.project-build-artifact-handler')?->stability)
+        ->toBe(ExtensionSurfaceStability::Stable);
+});
+
+it('closes the stable project build action signatures over typed data and registry surfaces', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $closure = [
+        'core.dto.project-build-artifact-reference' => ProjectBuildArtifactReferenceData::class,
+        'core.dto.project-build-compatibility' => ProjectBuildCompatibilityData::class,
+        'core.dto.project-build-manifest' => ProjectBuildManifestData::class,
+        'core.dto.project-build-package' => ProjectBuildPackageData::class,
+        'core.dto.project-build-route' => ProjectBuildRouteData::class,
+        'core.dto.project-build-signature' => ProjectBuildSignatureData::class,
+        'core.dto.project-build-site' => ProjectBuildSiteData::class,
+        'core.dto.project-build-site-spec-reference' => ProjectBuildSiteSpecReferenceData::class,
+        'core.registry.project-build-artifact-handler' => ProjectBuildArtifactHandlerRegistry::class,
+    ];
+
+    expect($catalog)->toHaveKeys(array_keys($closure));
+
+    foreach ($closure as $id => $identifier) {
+        expect($catalog->get($id)?->identifier)->toBe($identifier)
+            ->and($catalog->get($id)?->stability)->toBe(ExtensionSurfaceStability::Stable)
+            ->and($catalog->get($id)?->contractTestId)->not->toBeNull();
     }
 });
 

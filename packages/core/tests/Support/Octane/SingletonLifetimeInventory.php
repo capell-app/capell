@@ -49,6 +49,7 @@ use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
@@ -128,6 +129,7 @@ final class SingletonLifetimeInventory
             LockdownStore::class => self::tagged('Lockdown decisions are operation-derived and explicitly flushed.'),
             RollbackValidatorRegistry::class => self::boot('Rollback validators are package boot registrations.'),
             SettingsSchemaRegistry::class => self::boot('Settings schemas and metadata are package boot registrations.'),
+            SiteAccessPolicyRegistry::class => self::boot('Site access policy providers are package boot registrations.'),
 
             // Admin boot registration state.
             ExtensionPageRegistry::class => self::boot('Extension pages are package boot registrations.'),

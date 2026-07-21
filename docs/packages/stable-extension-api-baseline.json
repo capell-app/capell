@@ -1,7 +1,22 @@
 {
     "schemaVersion": 1,
-    "status": "pending-first-public-release",
+    "status": "active",
     "surfaces": {
+        "core.action.project-build-signing-input": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
+            "signature": "821a0cb1a456a244b91d5f140d7842d0faa704dd779a30ba1e449291efed3cd5",
+            "contractTestId": "core.project-build-manifest-signing"
+        },
+        "core.action.validate-project-build-bundle": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
+            "signature": "cc42e87f8811201f766b130fbb446cb9cc98b1183703960f1c269850f71ad294",
+            "contractTestId": "core.project-build-manifest-bundle"
+        },
+        "core.action.verify-project-build-signature": {
+            "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildManifestSignatureAction",
+            "signature": "b8f7839bcc77da82f5711e696ccfe35dc31a332c874ed1dab370ea2c8a41a8bd",
+            "contractTestId": "core.project-build-manifest-signing"
+        },
         "core.contract.extension-contribution": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
@@ -22,10 +37,55 @@
             "signature": "391e3389ea0d7bcd6d702629028ac990efa19cb738d26c70f87bec568ac2a318",
             "contractTestId": "core.extension-contribution-data"
         },
+        "core.dto.project-build-artifact-reference": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildArtifactReferenceData",
+            "signature": "b9dc1411b6985f9643a217809f591c605fda91734b56148249cbf22f6dd25440",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-compatibility": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildCompatibilityData",
+            "signature": "b3d4a6f36b671ace04f28ff52d3e3b38de3dc7f55363de6f59ed17c26441645a",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-manifest": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildManifestData",
+            "signature": "0270a801cf42d701f5e1f1fef01d43c65cfc712e307872498dc490bb481b7fe1",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-package": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildPackageData",
+            "signature": "c5effa2030dc7309401e3a2d5f4f39f0550180fef6f841cdb4f32ef67acdac00",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-route": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildRouteData",
+            "signature": "d3483190987017675af8c60cd52a435d3300281d36965a2a5636fed058a31213",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-signature": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildSignatureData",
+            "signature": "db73ec9cb2905b6d52c41262dd1ff931054eca78129312be768629bb1be35e0b",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-site": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildSiteData",
+            "signature": "2e853b96389932d13b0bf1700c7c94011a28ec7552b27c6f2fa235b50675e6dd",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        "core.dto.project-build-site-spec-reference": {
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildSiteSpecReferenceData",
+            "signature": "94407a0d9f11315b075f2b3386acfbcf7176ad13bb2bdfe2a7eaa39a346ebe4a",
+            "contractTestId": "core.project-build-manifest-data"
+        },
         "core.event.package-installed": {
             "identifier": "Capell\\Core\\Events\\PackageInstalled",
             "signature": "9791d008a221f76abdf3bd0e7c8f5da09d16901defbaa456e009a71b27636672",
             "contractTestId": "core.package-installed-event"
+        },
+        "core.registry.project-build-artifact-handler": {
+            "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildArtifactHandlerRegistry",
+            "signature": "90e22a203cb0ccaed70bfb14e83296be9d024c2300647ed76b83d7ddc1ca4175",
+            "contractTestId": "core.project-build-artifact-handler-registry"
         },
         "core.tag.project-build-artifact-handler": {
             "identifier": "capell.project-build.artifact-handler",

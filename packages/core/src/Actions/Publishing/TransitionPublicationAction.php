@@ -8,7 +8,10 @@ use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
+use Capell\Core\Events\PublicationTransitioned;
+use Capell\Core\Events\PublicationTransitioning;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -39,6 +42,14 @@ final class TransitionPublicationAction
             return $result;
         }
 
+        $transitionId = Str::uuid()->toString();
+
+        try {
+            event(new PublicationTransitioning($transitionId, $request, $result));
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+
         try {
             DB::transaction(function () use ($request, $result): void {
                 $request->record->setAttribute('visible_from', $result->visibleFrom);
@@ -51,6 +62,12 @@ final class TransitionPublicationAction
                 PublicationTransitionOutcome::Failed,
                 'publication.transition.persistence-failed',
             );
+        }
+
+        try {
+            event(new PublicationTransitioned($transitionId, $request, $result));
+        } catch (Throwable $throwable) {
+            report($throwable);
         }
 
         return $result;

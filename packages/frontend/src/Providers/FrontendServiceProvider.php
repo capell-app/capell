@@ -47,6 +47,7 @@ use Capell\Frontend\Contracts\NullCacheBypassResolver;
 use Capell\Frontend\Contracts\RedirectResolver;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
+use Capell\Frontend\Contracts\SiteAccessExemptionContributor;
 use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Contracts\UrlSignatureVerifierInterface;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
@@ -151,6 +152,7 @@ use Capell\Frontend\Support\Rules\Conditions\SiteCondition;
 use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
 use Capell\Frontend\Support\Security\FilamentAdminAccessChecker;
 use Capell\Frontend\Support\Security\FrontendUrlSignatureService;
+use Capell\Frontend\Support\SiteAccess\SiteAccessExemptionRegistry;
 use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
@@ -318,6 +320,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ThemeChainResolver::class);
         $this->app->singleton(FrontendCachePolicy::class);
         $this->app->singleton(FrontendRouteMiddlewareRegistry::class);
+        $this->app->singleton(
+            SiteAccessExemptionRegistry::class,
+            fn (Application $application): SiteAccessExemptionRegistry => new SiteAccessExemptionRegistry(
+                $application->tagged(SiteAccessExemptionContributor::TAG),
+            ),
+        );
         $this->app->scoped(PageCacheInvalidator::class);
         $this->app->alias(PageCacheInvalidator::class, 'capell.frontend.page-cache-invalidator');
         $this->app->scoped(PageListingCache::class);
