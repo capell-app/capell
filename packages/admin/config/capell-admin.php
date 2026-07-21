@@ -204,6 +204,18 @@ return [
             'label' => 'Go to Sites',
         ],
         [
+            'sequence' => 'g t',
+            'action' => 'navigate',
+            'target' => 'themes',
+            'label' => 'Go to Themes',
+        ],
+        [
+            'sequence' => 'g ,',
+            'action' => 'navigate',
+            'target' => 'settings',
+            'label' => 'Go to Settings',
+        ],
+        [
             'sequence' => 'g w',
             'action' => 'navigate',
             'target' => 'publishing-studio',

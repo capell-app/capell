@@ -819,7 +819,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 group: $group,
                 label: $settings['label'],
                 icon: $settings['icon'],
-                navigationGroup: 'capell-admin::navigation.group_system',
+                navigationGroup: 'capell-admin::navigation.group_settings',
                 navigationSort: $settings['sort'],
                 packageName: $settings['package'],
             ));

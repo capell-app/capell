@@ -97,6 +97,7 @@ trait HasNavigation
             ),
             new NavigationGroupData(
                 label: 'capell-admin::navigation.group_websites',
+                collapsed: false,
             ),
             new NavigationGroupData(
                 label: 'capell-admin::navigation.group_content',
@@ -115,6 +116,10 @@ trait HasNavigation
             ),
             new NavigationGroupData(
                 label: 'capell-admin::navigation.group_monitoring',
+            ),
+            new NavigationGroupData(
+                label: 'capell-admin::navigation.group_settings',
+                collapsed: false,
             ),
             new NavigationGroupData(
                 label: 'capell-admin::navigation.group_system',

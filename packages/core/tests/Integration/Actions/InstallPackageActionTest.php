@@ -305,7 +305,7 @@ it('keeps the original extension installed timestamp when install metadata is re
 });
 
 it('refreshes installed extension names when a package is installed', function (): void {
-    config()->set('capell-core.disable_cache', false);
+    config()->set('capell.disable_cache', false);
 
     CapellCore::registerPackage('vendor/cache-refresh-package', version: '^1.0');
 

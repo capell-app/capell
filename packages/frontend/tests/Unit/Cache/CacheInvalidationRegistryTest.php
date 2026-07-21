@@ -106,7 +106,7 @@ it('bumps the frontend generation for wildcard dependencies on non-atomic cache 
     config()->set('cache.stores.file.path', $cachePath);
     Cache::purge('file');
 
-    $generationKey = 'capell.cache.generation.' . config('capell-core.cache_tag', 'capell-app');
+    $generationKey = 'capell.cache.generation.' . config('capell.cache_tag', 'capell-app');
     Cache::store()->forget($generationKey);
 
     try {
