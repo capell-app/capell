@@ -74,11 +74,14 @@ jobs:
           php artisan package:discover --ansi
           php artisan migrate --force --ansi
           php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --all-packages --theme=none --name='Release Smoke' --email=release@example.test --password='release-smoke-password' --clear-cache --install-welcome-route
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
           php artisan serve --no-reload --host=127.0.0.1 --port=8000 > "${RUNNER_TEMP}/capell.log" 2>&1 &
-          trap 'kill $!' EXIT
+          server_pid=$!
+          trap 'status=$?; if [ "${status}" -ne 0 ]; then cat "${RUNNER_TEMP}/capell.log"; tail -200 storage/logs/laravel.log || true; fi; kill "${server_pid}" || true; exit "${status}"' EXIT
           for path in / /admin/login; do
             # shellcheck disable=SC2034 # attempt is a retry counter; the body breaks on success
-            for attempt in {1..15}; do curl --fail --silent --show-error "http://127.0.0.1:8000${path}" >/dev/null && break; sleep 1; done
-            curl --location --fail --silent --show-error "http://127.0.0.1:8000${path}" > "${RUNNER_TEMP}/response.html"
+            for attempt in {1..15}; do curl --max-time 10 --fail --silent --show-error "http://127.0.0.1:8000${path}" >/dev/null && break; sleep 1; done
+            curl --max-time 10 --location --fail --silent --show-error "http://127.0.0.1:8000${path}" > "${RUNNER_TEMP}/response.html"
             test -s "${RUNNER_TEMP}/response.html"
           done
