@@ -39,7 +39,7 @@ it('prohibits static generation when a site access provider protects the host', 
             return 'protected-static-test';
         }
 
-        public function resolve(SiteAccessContextData $context): ?SiteAccessPolicyData
+        public function resolve(SiteAccessContextData $context): SiteAccessPolicyData
         {
             return new SiteAccessPolicyData(active: true, methods: ['shared_password']);
         }
