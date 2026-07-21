@@ -13,11 +13,16 @@ function run(command, args) {
     return result.status ?? 1
 }
 
-for (const [command, args] of [
+const checks = [
     ['npm', ['run', 'docs:screenshot-coverage']],
     ['npm', ['run', 'docs:filament-action-screenshots']],
-    ['npm', ['run', 'screenshots:check']],
-]) {
+]
+
+if (process.env.CAPELL_REPO || process.env.CAPELL_PACKAGES_REPO) {
+    checks.push(['npm', ['run', 'screenshots:check']])
+}
+
+for (const [command, args] of checks) {
     const status = run(command, args)
 
     if (status !== 0) {
