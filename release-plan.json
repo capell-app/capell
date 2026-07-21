@@ -2,8 +2,8 @@
     "schema_version": 1,
     "source": {
         "repository": "https://github.com/capell-app/capell.git",
-        "commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-        "ref": "refs/commits/7a56a34527b880c649d966d5699d36a58a8c12ab"
+        "commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+        "ref": "refs/commits/66f7968423b2118538e5c94cf922e630d0d38fd4"
     },
     "inventory": [
         {
@@ -45,8 +45,8 @@
             "repository": "capell-app/core",
             "version": "1.0.15",
             "previous_version": "1.0.14",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-            "subtree_hash": "9e60b46140ffe941ae98c2a3e78a0c140e6ad6d5",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+            "subtree_hash": "07269b973a1c321edb02adc404d0018a6448263e",
             "direct_capell_dependencies": [],
             "resolved_minimum_versions": [],
             "maturity": "stable"
@@ -57,7 +57,7 @@
             "repository": "capell-app/admin",
             "version": "1.0.15",
             "previous_version": "1.0.14",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
             "subtree_hash": "d664de9d89a75f21300e95d62d8c305033f4f6ac",
             "direct_capell_dependencies": [
                 "capell-app/core"
@@ -73,7 +73,7 @@
             "repository": "capell-app/frontend",
             "version": "1.0.15",
             "previous_version": "1.0.14",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
             "subtree_hash": "14811293855ccb2297cde8fff49a4cc5f536bde7",
             "direct_capell_dependencies": [
                 "capell-app/core"
@@ -89,7 +89,7 @@
             "repository": "capell-app/installer",
             "version": "1.0.15",
             "previous_version": "1.0.14",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
             "subtree_hash": "e7bfb8d9a72687921894a0b93d88a46bebe2e68a",
             "direct_capell_dependencies": [
                 "capell-app/core"
@@ -105,7 +105,7 @@
             "repository": "capell-app/marketplace",
             "version": "1.0.15",
             "previous_version": "1.0.14",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
             "subtree_hash": "fee34adfe97827b64342e5b5d7f65aa3f8ebfc5e",
             "direct_capell_dependencies": [
                 "capell-app/admin",
@@ -125,10 +125,10 @@
             "split_repository": "capell-app/core",
             "current_version": "1.0.14",
             "proposed_version": "1.0.15",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-            "source_ref": "refs/commits/7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+            "source_ref": "refs/commits/66f7968423b2118538e5c94cf922e630d0d38fd4",
             "source_tag": "core/v1.0.15",
-            "subtree_hash": "9e60b46140ffe941ae98c2a3e78a0c140e6ad6d5",
+            "subtree_hash": "07269b973a1c321edb02adc404d0018a6448263e",
             "direct_capell_dependencies": [],
             "resolved_minimum_versions": [],
             "reason": "Lockstep patch foundation release.",
@@ -143,8 +143,8 @@
             "split_repository": "capell-app/admin",
             "current_version": "1.0.14",
             "proposed_version": "1.0.15",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-            "source_ref": "refs/commits/7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+            "source_ref": "refs/commits/66f7968423b2118538e5c94cf922e630d0d38fd4",
             "source_tag": "admin/v1.0.15",
             "subtree_hash": "d664de9d89a75f21300e95d62d8c305033f4f6ac",
             "direct_capell_dependencies": [
@@ -165,8 +165,8 @@
             "split_repository": "capell-app/frontend",
             "current_version": "1.0.14",
             "proposed_version": "1.0.15",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-            "source_ref": "refs/commits/7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+            "source_ref": "refs/commits/66f7968423b2118538e5c94cf922e630d0d38fd4",
             "source_tag": "frontend/v1.0.15",
             "subtree_hash": "14811293855ccb2297cde8fff49a4cc5f536bde7",
             "direct_capell_dependencies": [
@@ -187,8 +187,8 @@
             "split_repository": "capell-app/installer",
             "current_version": "1.0.14",
             "proposed_version": "1.0.15",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-            "source_ref": "refs/commits/7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+            "source_ref": "refs/commits/66f7968423b2118538e5c94cf922e630d0d38fd4",
             "source_tag": "installer/v1.0.15",
             "subtree_hash": "e7bfb8d9a72687921894a0b93d88a46bebe2e68a",
             "direct_capell_dependencies": [
@@ -209,8 +209,8 @@
             "split_repository": "capell-app/marketplace",
             "current_version": "1.0.14",
             "proposed_version": "1.0.15",
-            "source_commit": "7a56a34527b880c649d966d5699d36a58a8c12ab",
-            "source_ref": "refs/commits/7a56a34527b880c649d966d5699d36a58a8c12ab",
+            "source_commit": "66f7968423b2118538e5c94cf922e630d0d38fd4",
+            "source_ref": "refs/commits/66f7968423b2118538e5c94cf922e630d0d38fd4",
             "source_tag": "marketplace/v1.0.15",
             "subtree_hash": "fee34adfe97827b64342e5b5d7f65aa3f8ebfc5e",
             "direct_capell_dependencies": [
