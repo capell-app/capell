@@ -79,7 +79,6 @@ it('classifies every compatibility-relevant form of stable drift', function (): 
         'configKeys' => ['capell.renamed'],
     ];
 
-    /** @phpstan-ignore-next-line function.notFound (Function is loaded from the required executable script above.) */
     expect(capellStableApiDrift($baseline, $current))->toBe([
         'removed class: stable.removed',
         'changed public signature: stable.changed',
