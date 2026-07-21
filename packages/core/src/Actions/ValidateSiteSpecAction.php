@@ -44,6 +44,7 @@ final class ValidateSiteSpecAction
 
                 $this->validatePageReferences($validator, $payload);
                 $this->validateMediaSource($validator, $payload);
+                $this->validatePackageData($validator, $payload);
             });
             $validator->validate();
             $spec = CapellSiteSpecData::validateAndCreate($payload);
@@ -125,6 +126,8 @@ final class ValidateSiteSpecAction
                 CapellSiteSpecConstraints::validationRegex(CapellSiteSpecConstraints::COMPOSER_PACKAGE_PATTERN),
                 'distinct',
             ],
+            'packageData' => ['sometimes', 'array', 'max:' . CapellSiteSpecConstraints::MAX_EXTENSIONS],
+            'packageData.*' => ['array'],
         ];
     }
 
@@ -203,6 +206,33 @@ final class ValidateSiteSpecAction
 
         if (($hasLogo || $hasImages) && (! is_string($media['sourceUrl'] ?? null) || $media['sourceUrl'] === '')) {
             $validator->errors()->add('media.sourceUrl', 'A source URL is required when the site spec imports remote media.');
+        }
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function validatePackageData(LaravelValidator $validator, array $payload): void
+    {
+        $packageData = $payload['packageData'] ?? [];
+
+        if (! is_array($packageData)) {
+            return;
+        }
+
+        if (strlen(json_encode($packageData, JSON_THROW_ON_ERROR)) > CapellSiteSpecConstraints::MAX_TOTAL_CONTENT_LENGTH) {
+            $validator->errors()->add(
+                'packageData',
+                sprintf('SiteSpec package data may not exceed %d bytes.', CapellSiteSpecConstraints::MAX_TOTAL_CONTENT_LENGTH),
+            );
+        }
+
+        foreach (array_keys($packageData) as $key) {
+            if (! is_string($key)
+                || preg_match('/' . CapellSiteSpecConstraints::SLUG_PATTERN . '/', $key) !== 1) {
+                $validator->errors()->add(
+                    'packageData.' . (string) $key,
+                    sprintf('SiteSpec package data key [%s] is invalid.', (string) $key),
+                );
+            }
         }
     }
 

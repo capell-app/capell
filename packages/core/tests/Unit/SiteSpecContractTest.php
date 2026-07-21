@@ -47,6 +47,7 @@ it('normalizes deterministic navigation media and extension inputs', function ()
         'images' => ['home' => 'https://example.com/home.png'],
     ];
     $payload['extensions'] = ['capell-app/navigation'];
+    $payload['packageData'] = ['access-gate' => ['site' => ['enabled' => true]]];
 
     $spec = CapellSiteSpecData::validateAndCreate($payload);
 
@@ -54,7 +55,8 @@ it('normalizes deterministic navigation media and extension inputs', function ()
         ->and($spec->navigations[0]->pageSlugs)->toBe(['home'])
         ->and($spec->media->logo)->toBe('https://example.com/logo.png')
         ->and($spec->media->images)->toBe(['home' => 'https://example.com/home.png'])
-        ->and($spec->extensions)->toBe(['capell-app/navigation']);
+        ->and($spec->extensions)->toBe(['capell-app/navigation'])
+        ->and($spec->packageData)->toBe(['access-gate' => ['site' => ['enabled' => true]]]);
 });
 
 it('publishes a bounded schema matching the contract', function (): void {
@@ -68,7 +70,8 @@ it('publishes a bounded schema matching the contract', function (): void {
         ->toBe(CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH)
         ->and($schema['properties']['navigations']['maxItems'])->toBe(CapellSiteSpecConstraints::MAX_NAVIGATIONS)
         ->and($schema['properties']['media']['properties']['images']['maxProperties'])->toBe(CapellSiteSpecConstraints::MAX_MEDIA_IMAGES)
-        ->and($schema['properties']['extensions']['maxItems'])->toBe(CapellSiteSpecConstraints::MAX_EXTENSIONS);
+        ->and($schema['properties']['extensions']['maxItems'])->toBe(CapellSiteSpecConstraints::MAX_EXTENSIONS)
+        ->and($schema['properties']['packageData']['maxProperties'])->toBe(CapellSiteSpecConstraints::MAX_EXTENSIONS);
 });
 
 it('sanitizes unsafe section html and rejects oversized input', function (): void {
@@ -103,6 +106,16 @@ it('enforces the page and total content limits', function (): void {
 
     expect($result['valid'])->toBeFalse()
         ->and($result['errors'])->toHaveKeys(['pages', 'pages.0.sections.0.content']);
+});
+
+it('rejects invalid or oversized package-owned SiteSpec data', function (): void {
+    $payload = validSiteSpecPayload();
+    $payload['packageData'] = ['Invalid Key' => ['value' => str_repeat('x', 200001)]];
+
+    $result = ValidateSiteSpecAction::run($payload, ['default'], ['page'], ['content']);
+
+    expect($result['valid'])->toBeFalse()
+        ->and($result['errors'])->toHaveKeys(['packageData', 'packageData.Invalid Key']);
 });
 
 it('rejects excessive aggregate section content', function (): void {

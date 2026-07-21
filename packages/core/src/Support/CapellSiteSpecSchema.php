@@ -87,6 +87,12 @@ final class CapellSiteSpecSchema
                     'uniqueItems' => true,
                     'items' => ['type' => 'string', 'pattern' => CapellSiteSpecConstraints::COMPOSER_PACKAGE_PATTERN],
                 ],
+                'packageData' => [
+                    'type' => 'object',
+                    'maxProperties' => CapellSiteSpecConstraints::MAX_EXTENSIONS,
+                    'propertyNames' => ['pattern' => CapellSiteSpecConstraints::SLUG_PATTERN],
+                    'additionalProperties' => ['type' => 'object'],
+                ],
             ],
         ];
     }
