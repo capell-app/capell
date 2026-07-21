@@ -13,4 +13,4 @@ parameters:
     paths:
         - packages
         - tests
-    tmpDir: /tmp/phpstan/capell
+    tmpDir: %currentWorkingDirectory%/var/phpstan/full

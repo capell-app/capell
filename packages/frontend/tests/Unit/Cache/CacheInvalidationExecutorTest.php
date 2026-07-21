@@ -52,7 +52,7 @@ it('flushes the frontend tag and resolved local cache state', function (): void 
     $pageModelCache = resolve(PageModelCache::class);
     $pageModelCache->setToCache(CacheEnum::pageModel(Page::class, 10, 20, 30), 'cached');
 
-    $generationKey = 'capell.cache.generation.' . config('capell-core.cache_tag', 'capell-app');
+    $generationKey = 'capell.cache.generation.' . config('capell.cache_tag', 'capell-app');
     Cache::store()->forget($generationKey);
 
     try {

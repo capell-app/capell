@@ -34,7 +34,7 @@ final class CapellCacheManager
         Closure $callback,
         Closure|DateTimeInterface|DateInterval|int|null $ttl = null,
     ): mixed {
-        if (config('capell-core.disable_cache') === true) {
+        if (config('capell.disable_cache') === true) {
             return $callback();
         }
 
@@ -163,7 +163,7 @@ final class CapellCacheManager
         // analysis cannot resolve it to a constant and raise unreachable code
         // warnings.
         try {
-            $store->tags(config('capell-core.cache_tag', 'capell-app'))->flush();
+            $store->tags(config('capell.cache_tag', 'capell-app'))->flush();
 
             return;
         } catch (Throwable) {
@@ -200,7 +200,7 @@ final class CapellCacheManager
         }
 
         return Cache::supportsTags()
-            ? Cache::tags(config('capell-core.cache_tag', 'capell-app'))
+            ? Cache::tags(config('capell.cache_tag', 'capell-app'))
             : Cache::store();
     }
 
@@ -282,7 +282,7 @@ final class CapellCacheManager
         }
 
         $request = app()->bound('request') ? resolve('request') : null;
-        $requestCacheKey = 'capell.cache.generation.' . config('capell-core.cache_tag', 'capell-app');
+        $requestCacheKey = 'capell.cache.generation.' . config('capell.cache_tag', 'capell-app');
 
         if ($request instanceof Request && $request->attributes->has($requestCacheKey)) {
             return (int) $request->attributes->get($requestCacheKey);
@@ -309,7 +309,7 @@ final class CapellCacheManager
 
         if ($request instanceof Request) {
             $request->attributes->set(
-                'capell.cache.generation.' . config('capell-core.cache_tag', 'capell-app'),
+                'capell.cache.generation.' . config('capell.cache_tag', 'capell-app'),
                 $generation,
             );
         }
@@ -317,7 +317,7 @@ final class CapellCacheManager
 
     private function cacheNamespaceGenerationKey(): string
     {
-        return 'capell.cache.generation.' . config('capell-core.cache_tag', 'capell-app');
+        return 'capell.cache.generation.' . config('capell.cache_tag', 'capell-app');
     }
 
     private function incrementRawCacheKey(string $key): int
@@ -330,14 +330,14 @@ final class CapellCacheManager
 
     /**
      * Determine whether saving to cache is disabled for a given key.
-     * Uses config('capell-core.disable_cache_save_keys'), which may be:
+     * Uses config('capell.disable_cache_save_keys'), which may be:
      *  - array of exact strings
      *  - array of regex patterns (prefixed and suffixed with '/')
      *  - array of wildcards using '*' (e.g., 'page-*')
      */
     private function isCacheSaveDisabledForKey(string $key): bool
     {
-        $rules = config('capell-core.disable_cache_save_keys', []);
+        $rules = config('capell.disable_cache_save_keys', []);
 
         if (! is_array($rules) || $rules === []) {
             return false;

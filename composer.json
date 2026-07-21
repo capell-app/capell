@@ -49,7 +49,7 @@
         "lint:changed": "bash ./scripts/lint-changed.sh",
         "cs:fix": "@php vendor/bin/pint --parallel packages tests",
         "cs:check": "@php vendor/bin/pint --parallel --test packages tests",
-        "analyze": "XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon",
+        "analyze": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon",
         "phpstan": "@analyze",
         "phpstan:baseline-check": "bash scripts/check-phpstan-baseline-growth.sh",
         "phpstan:deprecations": "XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/deprecations.neon",

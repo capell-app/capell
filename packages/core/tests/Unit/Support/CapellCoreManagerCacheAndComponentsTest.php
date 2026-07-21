@@ -11,19 +11,53 @@ use Illuminate\Support\Facades\File;
 afterEach(function (): void {
     config([
         'cache.default' => 'array',
-        'capell-core.disable_cache' => false,
-        'capell-core.disable_cache_save_keys' => [],
-        'capell-core.cache_tag' => 'capell-app',
+        'capell.disable_cache' => false,
+        'capell.disable_cache_save_keys' => [],
+        'capell.cache_tag' => 'capell-app',
         'capell.cache_path' => base_path('bootstrap/cache/capell'),
     ]);
 
     Cache::flush();
 });
 
+it('enables the core cache by default', function (): void {
+    $config = require dirname(__DIR__, 3) . '/config/capell.php';
+
+    expect($config['disable_cache'])->toBeFalse();
+});
+
+it('reuses a persisted cache value after the request cache is flushed', function (): void {
+    config([
+        'cache.default' => 'array',
+        'capell.disable_cache' => false,
+    ]);
+
+    $manager = new CapellCoreManager;
+    $callbackRuns = 0;
+
+    $first = $manager->rememberCache('cache-hit-contract', function () use (&$callbackRuns): string {
+        $callbackRuns++;
+
+        return 'cached-value';
+    });
+
+    $manager->flushLocalCache();
+
+    $second = $manager->rememberCache('cache-hit-contract', function () use (&$callbackRuns): string {
+        $callbackRuns++;
+
+        return 'unexpected-miss';
+    });
+
+    expect($first)->toBe('cached-value')
+        ->and($second)->toBe('cached-value')
+        ->and($callbackRuns)->toBe(1);
+});
+
 it('caches values, null sentinels, disabled saves, and cache increments through the core manager', function (): void {
     config([
         'cache.default' => 'array',
-        'capell-core.disable_cache_save_keys' => [
+        'capell.disable_cache_save_keys' => [
             'draft.exact',
             'draft.wildcard.*',
             '/^draft\.regex\.\d+$/',
@@ -79,7 +113,7 @@ it('caches values, null sentinels, disabled saves, and cache increments through 
         ->and($manager->getFromCache('draft.wildcard.preview'))->toBeNull()
         ->and($manager->getFromCache('draft.regex.123'))->toBeNull();
 
-    config(['capell-core.disable_cache' => true]);
+    config(['capell.disable_cache' => true]);
 
     $disabledRuns = 0;
     $manager->rememberCache('disabled-cache', function () use (&$disabledRuns): string {

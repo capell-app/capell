@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 it('caches installed extension names and clears on demand', function (): void {
-    config()->set('capell-core.disable_cache', false);
+    config()->set('capell.disable_cache', false);
 
     CapellCore::registerPackage('alpha');
     CapellCore::registerPackage('beta');

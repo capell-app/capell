@@ -1270,7 +1270,7 @@ it('returns a json cache-store remediation before queueing when progress cache i
         installPostPayload(['run_as_job' => '1']),
         ['Accept' => 'application/json'],
     )
-        ->assertStatus(422)
+        ->assertUnprocessable()
         ->assertJsonValidationErrors(['cache_store'])
         ->assertJsonPath('message', 'CACHE_STORE=database requires the cache table before the web installer can track progress.');
 
@@ -1747,7 +1747,7 @@ it('does not cancel another session active install before preparing an ajax inst
         route('capell-installer.store'),
         installPostPayload(['install_id' => $newInstallId]),
         ['Accept' => 'application/json'],
-    )->assertStatus(409)->assertJsonPath('message', 'Another install is already running in a different browser session.');
+    )->assertConflict()->assertJsonPath('message', 'Another install is already running in a different browser session.');
 
     expect(Cache::get('capell.install.lock'))->toBe(['installId' => $previousInstallId])
         ->and(Cache::get(sprintf('capell.install.%s.status', $previousInstallId)))->toBe('running')
@@ -1874,7 +1874,7 @@ it('returns a json error when diagnostic report generation fails', function (): 
 
     withSession(installerAccessSessionData('88888888-8888-4888-a888-888888888888'))
         ->get(route('capell-installer.progress.download', ['installId' => '88888888-8888-4888-a888-888888888888']))
-        ->assertStatus(500)
+        ->assertInternalServerError()
         ->assertHeader('content-type', 'application/json')
         ->assertJsonPath('error', 'Preflight unavailable.');
 });
@@ -1925,7 +1925,7 @@ PHP);
             ]),
             ['Accept' => 'application/json'],
         )
-            ->assertStatus(422)
+            ->assertUnprocessable()
             ->assertJsonValidationErrors(['user_model'])
             ->assertJsonPath('message', 'The installer could not automatically update app/Models/User.php for Capell admin roles because the user model patch status is "customised". Apply the user model install guide patch, then rerun the installer.');
     } finally {
@@ -2005,7 +2005,7 @@ PHP);
             ]),
             ['Accept' => 'application/json'],
         )
-            ->assertStatus(422)
+            ->assertUnprocessable()
             ->assertJsonValidationErrors(['user_model']);
     } finally {
         if (is_dir(base_path('app'))) {
@@ -2037,7 +2037,7 @@ it('returns 422 with field errors on validation failure when ajax', function ():
         ['Accept' => 'application/json'],
     );
 
-    $response->assertStatus(422);
+    $response->assertUnprocessable();
     $response->assertJsonValidationErrors(['site_url', 'language', 'new_user_name', 'new_user_email', 'new_user_password']);
 });
 
@@ -2117,7 +2117,7 @@ it('rejects run-step requests ahead of the current installer step', function ():
         ],
         ['Accept' => 'application/json'],
     )
-        ->assertStatus(409)
+        ->assertConflict()
         ->assertJson([
             'installId' => $installId,
             'currentStep' => $lastPlanStep['key'],
@@ -2470,13 +2470,13 @@ it('returns validation errors when run-step payload is malformed', function (): 
         ['install_id' => 'not-a-uuid'],
         ['Accept' => 'application/json'],
     )
-        ->assertStatus(422)
+        ->assertUnprocessable()
         ->assertJsonValidationErrors(['install_id', 'step']);
 });
 
 it('returns json validation errors for malformed run-step payloads without an accept header', function (): void {
     post(route('capell-installer.run-step'), ['install_id' => 'not-a-uuid'])
-        ->assertStatus(422)
+        ->assertUnprocessable()
         ->assertHeader('content-type', 'application/json')
         ->assertJsonValidationErrors(['install_id', 'step']);
 });
@@ -2492,7 +2492,7 @@ it('returns 410 when run-step is called for an unknown install', function (): vo
         ],
         ['Accept' => 'application/json'],
     )
-        ->assertStatus(410)
+        ->assertGone()
         ->assertJson(['status' => 'failed']);
 });
 
@@ -2605,7 +2605,7 @@ it('returns duplicate email errors as json for ajax installs', function (): void
         installPostPayload(['new_user_email' => 'taken@example.com']),
         ['Accept' => 'application/json'],
     )
-        ->assertStatus(422)
+        ->assertUnprocessable()
         ->assertJsonValidationErrors(['new_user_email']);
 });
 
