@@ -10,10 +10,10 @@ require_once dirname(__DIR__, 2) . '/scripts/check-stable-extension-api.php';
 
 it('keeps the active public-release baseline current', function (): void {
     $root = dirname(__DIR__, 2);
-    $process = new Process([PHP_BINARY, 'scripts/check-stable-extension-api.php', '--check'], $root);
+    $process = new Process([PHP_BINARY, '-d', 'memory_limit=1G', 'scripts/check-stable-extension-api.php', '--check'], $root);
     $process->run();
 
-    $output = $process->getOutput();
+    $output = $process->getOutput() . $process->getErrorOutput();
 
     expect($process->getExitCode())->toBe(0)
         ->and(
