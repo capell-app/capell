@@ -37,30 +37,30 @@
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\CanonicalizeProjectBuildManifestSigningInputAction",
             "ownerPackage": "capell-app/core",
-            "stability": "experimental",
+            "stability": "stable",
             "introducedVersion": "1.0.0",
             "summary": "Canonical detached-signature input for portable project manifests.",
-            "contractTestId": null
+            "contractTestId": "core.project-build-manifest-signing"
         },
         {
             "id": "core.action.validate-project-build-bundle",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
             "ownerPackage": "capell-app/core",
-            "stability": "experimental",
+            "stability": "stable",
             "introducedVersion": "1.0.0",
             "summary": "Fail-closed signature and artifact validation for portable project manifests.",
-            "contractTestId": null
+            "contractTestId": "core.project-build-manifest-bundle"
         },
         {
             "id": "core.action.verify-project-build-signature",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\VerifyProjectBuildManifestSignatureAction",
             "ownerPackage": "capell-app/core",
-            "stability": "experimental",
+            "stability": "stable",
             "introducedVersion": "1.0.0",
             "summary": "Ed25519 verification for portable project manifests.",
-            "contractTestId": null
+            "contractTestId": "core.project-build-manifest-signing"
         },
         {
             "id": "core.config.roles-admin",
@@ -153,14 +153,84 @@
             "contractTestId": null
         },
         {
+            "id": "core.dto.project-build-artifact-reference",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildArtifactReferenceData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build artifact reference.",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-compatibility",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildCompatibilityData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build compatibility requirements.",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
             "id": "core.dto.project-build-manifest",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildManifestData",
             "ownerPackage": "capell-app/core",
-            "stability": "experimental",
+            "stability": "stable",
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build manifest envelope.",
-            "contractTestId": null
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-package",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildPackageData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build package reference.",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-route",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildRouteData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build route.",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-signature",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildSignatureData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build signature.",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-site",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildSiteData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build site.",
+            "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.project-build-site-spec-reference",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildSiteSpecReferenceData",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed portable project build SiteSpec reference.",
+            "contractTestId": "core.project-build-manifest-data"
         },
         {
             "id": "core.enum.frontend-route-reservation-type",
@@ -211,6 +281,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Internal executable contribution index.",
             "contractTestId": null
+        },
+        {
+            "id": "core.registry.project-build-artifact-handler",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildArtifactHandlerRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Runtime registry for portable project build artifact handlers.",
+            "contractTestId": "core.project-build-artifact-handler-registry"
         },
         {
             "id": "core.schema.project-build-manifest-v1",
