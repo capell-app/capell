@@ -4,22 +4,19 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
-use Symfony\Component\Process\Process;
 
 require_once dirname(__DIR__, 2) . '/scripts/check-stable-extension-api.php';
 
 it('keeps the active public-release baseline current', function (): void {
     $root = dirname(__DIR__, 2);
-    $process = new Process([PHP_BINARY, '-d', 'memory_limit=1G', 'scripts/check-stable-extension-api.php', '--check'], $root);
-    $process->run();
+    $baseline = json_decode(
+        (string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
 
-    $output = $process->getOutput() . $process->getErrorOutput();
-
-    expect($process->getExitCode())->toBe(0)
-        ->and(
-            str_contains($output, 'baseline is current'),
-        )->toBeTrue()
-        ->and(json_decode((string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'), true, flags: JSON_THROW_ON_ERROR)['status'])
+    expect(capellStableApiDrift($baseline, capellStableApiSnapshot($root)))->toBe([])
+        ->and($baseline['status'])
         ->toBe('active')
         ->and((string) file_get_contents($root . '/scripts/check-stable-extension-api.php'))
         ->not->toContain('pending-first-public-release');
