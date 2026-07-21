@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\SiteAccessPolicyProvider;
+use Capell\Core\Data\SiteAccessContextData;
+use Capell\Core\Data\SiteAccessPolicyData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
@@ -23,6 +27,28 @@ use Symfony\Component\HttpFoundation\Response;
 
 afterEach(function (): void {
     File::deleteDirectory(resolve(StaticPageArtifactStore::class)->root());
+    app()->forgetInstance(SiteAccessPolicyRegistry::class);
+});
+
+it('prohibits static generation when a site access provider protects the host', function (): void {
+    [, $site] = staticPageArtifactsRenderData('/protected-static-test');
+    resolve(SiteAccessPolicyRegistry::class)->register(new class implements SiteAccessPolicyProvider
+    {
+        public function key(): string
+        {
+            return 'protected-static-test';
+        }
+
+        public function resolve(SiteAccessContextData $context): ?SiteAccessPolicyData
+        {
+            return new SiteAccessPolicyData(active: true, methods: ['shared_password']);
+        }
+    });
+
+    expect(fn (): array => GenerateStaticPageArtifactsAction::run(
+        siteId: $site->id,
+        urls: ['/protected-static-test'],
+    ))->toThrow(RuntimeException::class, 'Static generation is prohibited for protected site host');
 });
 
 it('generates static html artifacts and writes a metadata manifest for published urls', function (): void {
