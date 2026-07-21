@@ -40,6 +40,7 @@ jobs:
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       CAPELL_CORE_REPO_PATH: ${{ github.workspace }}/repositories/capell
+      CAPELL_PACKAGES_REPO: ${{ github.workspace }}/repositories/capell-packages
       CAPELL_SCREENSHOT_RUNNER_PATH: ${{ github.workspace }}/services/capell-screenshot-runner
       CAPELL_REPO: ${{ github.workspace }}/repositories/capell
       CAPELL_SCREENSHOT_APP_PATH: ${{ github.workspace }}/services/capell-screenshot-runner
@@ -95,6 +96,15 @@ jobs:
           ref: ${{ inputs.screenshot_runner_ref || 'main' }}
           token: ${{ secrets.ACCESS_TOKEN }}
           path: services/capell-screenshot-runner
+
+      - name: Checkout package repository
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: capell-app/capell-packages
+          ref: main
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: repositories/capell-packages
 
       - name: Setup PHP
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
