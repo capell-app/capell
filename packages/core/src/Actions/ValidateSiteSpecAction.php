@@ -229,7 +229,7 @@ final class ValidateSiteSpecAction
             if (! is_string($key)
                 || preg_match('/' . CapellSiteSpecConstraints::SLUG_PATTERN . '/', $key) !== 1) {
                 $validator->errors()->add(
-                    'packageData.' . (string) $key,
+                    'packageData.' . $key,
                     sprintf('SiteSpec package data key [%s] is invalid.', (string) $key),
                 );
             }

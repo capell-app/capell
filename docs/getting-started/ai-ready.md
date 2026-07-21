@@ -33,6 +33,12 @@ The importer validates the complete contract before writing, sanitises section H
 
 Optional packages own their records. For example, a navigation package registers a typed SiteSpec applier and receives the persisted site plus a page map inside the import transaction. Core therefore exposes a stable seam without importing package-specific models. AI generators remain commercial; deterministic import stays free.
 
+## Signed Project Build Manifests
+
+Project Build Manifest v1 wraps exact SiteSpec bytes with package versions, release identities, install order, target compatibility, routes, artifact digests, and an Ed25519 signature. Core verifies the signature and every artifact before checking the target Capell, PHP, and platform constraints.
+
+Existing-site consumers bind `ProjectBuildPackageInstaller` to their authorised Composer transport. `InstallProjectBuildManifestAction` then skips exact installed releases, delegates missing or mismatched packages in manifest order, verifies the returned release evidence, and applies only the SiteSpec bytes that passed bundle validation. Account authority, entitlements, credentials, and provider-specific delivery remain outside Core.
+
 ## What AIOrchestrator Adds
 
 `capell-app/ai-orchestrator` is the commercial AI layer. It should own AI-specific dependencies and workflows instead of pushing provider clients into every free package.

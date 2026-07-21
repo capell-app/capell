@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
+use Symfony\Component\Process\Process;
 
 require_once dirname(__DIR__, 2) . '/scripts/check-stable-extension-api.php';
 
-it('keeps the active public-release baseline enabled', function (): void {
+it('keeps the active public-release baseline current', function (): void {
     $root = dirname(__DIR__, 2);
-    $baseline = json_decode(
-        (string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
+    $process = new Process([PHP_BINARY, 'scripts/check-stable-extension-api.php', '--check'], $root);
+    $process->run();
 
-    expect($baseline['status'])->toBe('active')
+    $output = $process->getOutput();
+
+    expect($process->getExitCode())->toBe(0, trim($process->getErrorOutput()))
+        ->and(
+            str_contains($output, 'baseline is current'),
+        )->toBeTrue()
+        ->and(json_decode((string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'), true, flags: JSON_THROW_ON_ERROR)['status'])
+        ->toBe('active')
         ->and((string) file_get_contents($root . '/scripts/check-stable-extension-api.php'))
         ->not->toContain('pending-first-public-release');
 });
@@ -27,9 +32,9 @@ it('hashes only the declared action entrypoint and excludes dependency trait met
         '%s%s:%s',
         $parameter->isOptional() ? '?' : '',
         $parameter->getName(),
-        (string) $parameter->getType(),
+        capellStableApiType($parameter->getType(), $reflection->getDeclaringClass()),
     ), $reflection->getParameters());
-    $expected = hash('sha256', 'handle(' . implode(',', $parameters) . '):' . $reflection->getReturnType());
+    $expected = hash('sha256', 'handle(' . implode(',', $parameters) . '):' . capellStableApiType($reflection->getReturnType(), $reflection->getDeclaringClass()));
 
     expect(capellStableApiSignature($identifier))->toBe($expected);
 });
@@ -45,9 +50,9 @@ it('excludes registry dependency injection constructors while retaining declared
             '%s%s:%s',
             $parameter->isOptional() ? '?' : '',
             $parameter->getName(),
-            (string) $parameter->getType(),
+            capellStableApiType($parameter->getType(), $method->getDeclaringClass()),
         ), $method->getParameters());
-        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . $method->getReturnType();
+        $methods[] = $method->getName() . '(' . implode(',', $parameters) . '):' . capellStableApiType($method->getReturnType(), $method->getDeclaringClass());
     }
 
     sort($methods);
