@@ -190,6 +190,30 @@
         },
         {
             "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/Extensions/Tables/Actions/DeleteExtensionAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/Extensions/Tables/Actions/EnableExtensionAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/Extensions/Tables/Actions/InstallExtensionAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Pages/Extensions/Tables/Actions/UninstallExtensionAction.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
             "file": "packages/admin/src/Filament/Pages/Extensions/Tables/ExtensionsTable.php",
             "actions": ["Action"],
             "reasons": ["custom action maker"]
@@ -258,18 +282,6 @@
             "repo": "current",
             "file": "packages/admin/src/Filament/Resources/Media/Tables/MediaTable.php",
             "actions": ["Action"],
-            "reasons": ["custom action maker"]
-        },
-        {
-            "repo": "current",
-            "file": "packages/admin/src/Filament/Resources/Pages/Actions/BulkPublishPagesBulkAction.php",
-            "actions": ["BulkPublishPagesAction"],
-            "reasons": ["custom action maker"]
-        },
-        {
-            "repo": "current",
-            "file": "packages/admin/src/Filament/Resources/Pages/Actions/BulkRevertToDraftBulkAction.php",
-            "actions": ["BulkRevertPagesToDraftAction"],
             "reasons": ["custom action maker"]
         },
         {

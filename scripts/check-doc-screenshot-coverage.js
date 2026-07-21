@@ -11,6 +11,7 @@ const ignoredDirectories = new Set([
 
 const ignoredMarkdownPrefixes = [
     '.github/',
+    '.superpowers/',
     'docs/', // documentation pages may be text-only; referenced visuals are still validated
     'packages/core/resources/boost/skills/',
 ]
@@ -109,8 +110,14 @@ function localImagePaths(markdown) {
 
 function shouldRequireVisual(filePath) {
     const normalizedPath = filePath.replace(/^\.\//, '')
+    const basename = path.basename(normalizedPath)
 
-    if (ignoredMarkdownFiles.has(normalizedPath)) {
+    if (
+        ignoredMarkdownFiles.has(normalizedPath) ||
+        ignoredMarkdownFiles.has(basename) ||
+        basename === 'AGENTS.md' ||
+        normalizedPath.includes('/docs/')
+    ) {
         return false
     }
 

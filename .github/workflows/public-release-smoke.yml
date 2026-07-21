@@ -24,6 +24,7 @@ jobs:
           tools: composer:v2
           coverage: none
       - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: npm ci --ignore-scripts
       - name: Required non-mutating product gates
         run: |
           before="$(git status --porcelain)"
