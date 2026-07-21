@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Added fail-closed Project Build target compatibility verification and a consumer-owned package installation boundary for applying signed manifests in exact release order.
+
 ### Fixed
 
 - Emitted declared package-specific theme identity tokens while rejecting malformed names, reserved core-property collisions, and values outside their declared vocabulary.
