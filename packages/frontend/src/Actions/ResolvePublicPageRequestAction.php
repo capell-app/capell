@@ -223,6 +223,22 @@ final class ResolvePublicPageRequestAction
         }
 
         $params = $urlParts['params'] ?? [];
+
+        // Fail closed when a wildcard page declares only positional/label
+        // url_params (no free-form "slug" segment) yet the requested path
+        // resolved none of them. Such a path does not genuinely match the
+        // page's declared shape, so it must 404 instead of silently serving
+        // the wildcard/home-level page. Slug pages are exempt: they legitimately
+        // extract no params here and resolve the concrete record downstream.
+        if ($params === [] && ! array_key_exists('slug', $page->url_params ?? [])) {
+            $this->logger->info('[Frontend] Wildcard page declares params but none matched the path, returning 404', [
+                'url' => $input->url,
+                'pageUrl' => $pageUrl->full_url,
+            ]);
+
+            return new PageResolutionData(page: null, attemptedWildcard: true);
+        }
+
         $slug = isset($urlParts['pageSlug']) && is_string($urlParts['pageSlug'])
             ? $urlParts['pageSlug']
             : null;
