@@ -71,6 +71,8 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\MetricCollectionRun;
+use Capell\Core\Models\MetricDailyRollup;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRoleRestriction;
 use Capell\Core\Models\PageUrl;
@@ -265,6 +267,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerMacros()
             ->registerOctaneStateReset()
             ->registerModels()
+            ->registerProtectedTables()
             ->bindManagers()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
@@ -498,6 +501,18 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 name: 'page',
                 model: Page::class,
             ),
+        );
+
+        return $this;
+    }
+
+    private function registerProtectedTables(): self
+    {
+        CapellCore::registerProtectedTable(
+            static fn (): string => (new MetricCollectionRun)->getTable(),
+        );
+        CapellCore::registerProtectedTable(
+            static fn (): string => (new MetricDailyRollup)->getTable(),
         );
 
         return $this;
