@@ -250,12 +250,12 @@ trait ManagesPackages
             return false;
         }
 
-        if ($this->extensionLifecycle()->status($name, collect($this->packages)) === ExtensionStatusEnum::Uninstalled) {
-            return false;
-        }
-
         if ($package->isCore()) {
             return $this->corePackageIsAvailable($package);
+        }
+
+        if ($this->extensionLifecycle()->status($name, collect($this->packages)) === ExtensionStatusEnum::Uninstalled) {
+            return false;
         }
 
         if (array_key_exists($name, $this->forcedPackageInstallStates)) {

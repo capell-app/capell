@@ -24,12 +24,14 @@ use Capell\Core\Actions\RunNpmBuildAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
+use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use RuntimeException;
 use Throwable;
 
@@ -429,6 +431,8 @@ final class InstallStepExecutor
                 'is_paid_marketplace_extension' => false,
             ],
         );
+
+        Event::dispatch(new CapellInstallationCompleted);
 
         $state->reporter->report('✓ Installation complete!');
     }

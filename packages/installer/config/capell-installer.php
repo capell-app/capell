@@ -3,6 +3,16 @@
 declare(strict_types=1);
 
 return [
+    'installation_state_cache' => [
+        'key' => 'capell-installer.installation-state',
+        'host' => null,
+    ],
+
+    'database_table_cache' => [
+        'key' => 'capell-installer.database-tables',
+        'store' => 'file',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Allow Reinstall

@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Capell\Installer\Providers;
 
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Events\CapellInstallationCompleted;
+use Capell\Core\Events\DatabaseSchemaChanged;
+use Capell\Core\Events\PackageInstalled;
+use Capell\Core\Events\PackageUninstalled;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
@@ -28,11 +32,14 @@ use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\ViteThemeInputPatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Capell\Installer\Support\InstallerDatabaseTableState;
+use Capell\Installer\Support\InstallerInstallationState;
+use Capell\Installer\Support\InstallerRuntimeMemo;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Support\Facades\Event;
 use Override;
 use Spatie\LaravelPackageTools\Package;
-use Throwable;
 
 class InstallerServiceProvider extends AbstractPackageServiceProvider
 {
@@ -61,6 +68,18 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
     {
         $this->app->singleton(PatchRegistry::class, fn (): PatchRegistry => new PatchRegistry);
         $this->app->scoped(InstallerPreflight::class);
+        $this->app->scoped(InstallerRuntimeMemo::class);
+
+        Event::listen([
+            CapellInstallationCompleted::class,
+            DatabaseSchemaChanged::class,
+            MigrationsEnded::class,
+            PackageInstalled::class,
+            PackageUninstalled::class,
+        ], static function (): void {
+            InstallerInstallationState::forget();
+            InstallerDatabaseTableState::forget();
+        });
     }
 
     /**
@@ -88,34 +107,25 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
             return;
         }
 
-        $this->fallbackDatabaseBackedDriverIfTableIsMissing(
-            configuredDriverKey: 'session.driver',
-            configuredTableKey: 'session.table',
-            defaultTable: 'sessions',
-        );
+        $databaseDrivers = array_filter([
+            'session.driver' => config('session.driver') === 'database'
+                ? (string) config('session.table', 'sessions')
+                : null,
+            'cache.default' => config('cache.default') === 'database'
+                ? (string) config('cache.stores.database.table', 'cache')
+                : null,
+        ]);
 
-        $this->fallbackDatabaseBackedDriverIfTableIsMissing(
-            configuredDriverKey: 'cache.default',
-            configuredTableKey: 'cache.stores.database.table',
-            defaultTable: 'cache',
-        );
-    }
-
-    private function fallbackDatabaseBackedDriverIfTableIsMissing(
-        string $configuredDriverKey,
-        string $configuredTableKey,
-        string $defaultTable,
-    ): void {
-        if (config($configuredDriverKey) !== 'database') {
+        if ($databaseDrivers === []) {
             return;
         }
 
-        try {
-            if (! Schema::hasTable(config($configuredTableKey, $defaultTable))) {
+        $availableTables = InstallerDatabaseTableState::availableTables();
+
+        foreach ($databaseDrivers as $configuredDriverKey => $table) {
+            if (! in_array($table, $availableTables, true)) {
                 config([$configuredDriverKey => 'file']);
             }
-        } catch (Throwable) {
-            config([$configuredDriverKey => 'file']);
         }
     }
 
