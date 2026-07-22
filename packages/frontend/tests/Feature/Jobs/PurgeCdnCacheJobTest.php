@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
+use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
 use Capell\Frontend\Jobs\PurgeCdnCacheJob;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Http\Client\Request;
@@ -23,21 +24,21 @@ it('deduplicates equivalent CDN purge jobs and retries transient failures', func
 it('dispatches a purge job when frontend surrogate keys are invalidated', function (): void {
     config(['capell-frontend.cdn_provider' => 'fastly']);
 
-    Bus::fake([PurgeCdnCacheJob::class]);
+    Bus::fake([FlushCdnPurgeBatchJob::class]);
 
     event(new FrontendSurrogateKeysInvalidated(['site-1', 'site-1', 'page-2']));
 
-    Bus::assertDispatched(PurgeCdnCacheJob::class);
+    Bus::assertDispatched(FlushCdnPurgeBatchJob::class);
 });
 
 it('does not dispatch a purge job when frontend surrogate keys are invalidated without a configured provider', function (): void {
     config(['capell-frontend.cdn_provider' => null]);
 
-    Bus::fake([PurgeCdnCacheJob::class]);
+    Bus::fake([FlushCdnPurgeBatchJob::class]);
 
     event(new FrontendSurrogateKeysInvalidated(['site-1', 'page-2']));
 
-    Bus::assertNotDispatched(PurgeCdnCacheJob::class);
+    Bus::assertNotDispatched(FlushCdnPurgeBatchJob::class);
 });
 
 // ---------------------------------------------------------------------------
@@ -73,19 +74,13 @@ it('logs an info message when no cdn provider is configured', function (): void 
 // Unknown provider
 // ---------------------------------------------------------------------------
 
-it('logs a warning for an unrecognised cdn provider', function (): void {
+it('fails for an unrecognised cdn provider', function (): void {
     config(['capell-frontend.cdn_provider' => 'acme-cdn']);
-
-    Log::shouldReceive('warning')
-        ->once()
-        ->withArgs(fn (string $message): bool => str_contains($message, 'Unknown CDN provider'));
-
-    Log::shouldReceive('info')->zeroOrMoreTimes();
-    Log::shouldReceive('error')->zeroOrMoreTimes();
 
     Http::fake();
 
-    dispatch_sync(new PurgeCdnCacheJob(['page-1']));
+    expect(fn () => dispatch_sync(new PurgeCdnCacheJob(['page-1'])))
+        ->toThrow(LogicException::class, 'Unknown CDN provider');
 
     Http::assertNothingSent();
 });
@@ -125,7 +120,7 @@ it('sends surrogate keys to the cloudflare purge endpoint', function (): void {
 // Cloudflare — missing credentials
 // ---------------------------------------------------------------------------
 
-it('logs a warning and sends no request when cloudflare credentials are absent', function (): void {
+it('fails when cloudflare credentials are absent', function (): void {
     config([
         'capell-frontend.cdn_provider' => 'cloudflare',
         'capell-frontend.cloudflare_purge_token' => '',
@@ -134,14 +129,8 @@ it('logs a warning and sends no request when cloudflare credentials are absent',
 
     Http::fake();
 
-    Log::shouldReceive('warning')
-        ->once()
-        ->withArgs(fn (string $message): bool => str_contains($message, 'missing credentials'));
-
-    Log::shouldReceive('info')->zeroOrMoreTimes();
-    Log::shouldReceive('error')->zeroOrMoreTimes();
-
-    dispatch_sync(new PurgeCdnCacheJob(['page-1']));
+    expect(fn () => dispatch_sync(new PurgeCdnCacheJob(['page-1'])))
+        ->toThrow(LogicException::class, 'missing credentials');
 
     Http::assertNothingSent();
 });
@@ -175,10 +164,11 @@ it('logs an error and rethrows when the cloudflare api returns a failure', funct
 // Fastly — happy path
 // ---------------------------------------------------------------------------
 
-it('sends a purge request per surrogate key to the fastly api', function (): void {
+it('bulk purges surrogate keys when the fastly service id is configured', function (): void {
     config([
         'capell-frontend.cdn_provider' => 'fastly',
         'capell-frontend.fastly_api_key' => 'fastly-key',
+        'capell-frontend.fastly_service_id' => 'service-id',
     ]);
 
     Http::fake([
@@ -195,8 +185,11 @@ it('sends a purge request per surrogate key to the fastly api', function (): voi
 
     dispatch_sync(new PurgeCdnCacheJob(['page-1', 'site-3']));
 
-    // One request per key
-    Http::assertSentCount(2);
+    Http::assertSentCount(1);
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.fastly.com/service/service-id/purge'
+        && $request->method() === 'POST'
+        && $request['surrogate_keys'] === ['page-1', 'site-3']
+        && $request->hasHeader('Fastly-Soft-Purge', '1'));
 });
 
 it('drops invalid surrogate keys before sending fastly purge requests', function (): void {
@@ -247,7 +240,7 @@ it('no-ops when no valid surrogate keys remain', function (): void {
 // Fastly — missing API key
 // ---------------------------------------------------------------------------
 
-it('logs a warning and sends no request when fastly api key is absent', function (): void {
+it('fails when fastly api key is absent', function (): void {
     config([
         'capell-frontend.cdn_provider' => 'fastly',
         'capell-frontend.fastly_api_key' => '',
@@ -255,14 +248,8 @@ it('logs a warning and sends no request when fastly api key is absent', function
 
     Http::fake();
 
-    Log::shouldReceive('warning')
-        ->once()
-        ->withArgs(fn (string $message): bool => str_contains($message, 'missing API key'));
-
-    Log::shouldReceive('info')->zeroOrMoreTimes();
-    Log::shouldReceive('error')->zeroOrMoreTimes();
-
-    dispatch_sync(new PurgeCdnCacheJob(['page-1']));
+    expect(fn () => dispatch_sync(new PurgeCdnCacheJob(['page-1'])))
+        ->toThrow(LogicException::class, 'missing API key');
 
     Http::assertNothingSent();
 });
@@ -299,7 +286,7 @@ it('sends a ban request with comma-joined surrogate keys to varnish', function (
 // Varnish — missing URL
 // ---------------------------------------------------------------------------
 
-it('logs a warning and sends no request when varnish url is absent', function (): void {
+it('fails when varnish url is absent', function (): void {
     config([
         'capell-frontend.cdn_provider' => 'varnish',
         'capell-frontend.varnish_url' => '',
@@ -307,14 +294,8 @@ it('logs a warning and sends no request when varnish url is absent', function ()
 
     Http::fake();
 
-    Log::shouldReceive('warning')
-        ->once()
-        ->withArgs(fn (string $message): bool => str_contains($message, 'missing URL'));
-
-    Log::shouldReceive('info')->zeroOrMoreTimes();
-    Log::shouldReceive('error')->zeroOrMoreTimes();
-
-    dispatch_sync(new PurgeCdnCacheJob(['page-1']));
+    expect(fn () => dispatch_sync(new PurgeCdnCacheJob(['page-1'])))
+        ->toThrow(LogicException::class, 'missing URL');
 
     Http::assertNothingSent();
 });
