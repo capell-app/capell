@@ -46,7 +46,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
                 '2026_05_25_000001_create_marketplace_install_flow_sessions_table',
                 '2026_05_25_000004_create_marketplace_install_attempt_events_table',
                 '2026_07_14_000001_add_policy_evidence_to_marketplace_install_attempts',
-                '2026_07_19_000001_add_runtime_tracking_to_marketplace_install_attempts',
+                '2026_07_19_000002_add_runtime_tracking_to_marketplace_install_attempts',
             ]);
     }
 

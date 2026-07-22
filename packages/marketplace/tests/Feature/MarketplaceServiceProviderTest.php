@@ -26,6 +26,7 @@ use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Spatie\LaravelPackageTools\Package;
 
 uses(CreatesAdminUser::class);
 
@@ -33,6 +34,17 @@ it('registers the marketplace package metadata', function (): void {
     expect(CapellCore::hasPackage(MarketplaceServiceProvider::$packageName))->toBeTrue()
         ->and(CapellCore::getPackage(MarketplaceServiceProvider::$packageName)->serviceProviderClass)
         ->toBe(MarketplaceServiceProvider::class);
+});
+
+it('keeps the runtime tracking migration on its historical published filename', function (): void {
+    $package = new Package;
+    new MarketplaceServiceProvider(app())->configurePackage($package);
+    $migrationDirectory = dirname(__DIR__, 2) . '/database/migrations';
+    $historicalMigrationName = '2026_07_19_000002_add_runtime_tracking_to_marketplace_install_attempts';
+
+    expect($package->migrationFileNames)->toContain($historicalMigrationName)
+        ->and($migrationDirectory . '/' . $historicalMigrationName . '.php')->toBeFile()
+        ->and($migrationDirectory . '/2026_07_19_000001_add_runtime_tracking_to_marketplace_install_attempts.php')->not->toBeFile();
 });
 
 it('registers marketplace pages in the admin surface', function (): void {
