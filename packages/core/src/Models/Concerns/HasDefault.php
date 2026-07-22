@@ -8,7 +8,6 @@ use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * @method static Builder<static> default(bool $default = true)
@@ -43,13 +42,13 @@ trait HasDefault
         });
 
         static::saved(function (Model $model): void {
-            Cache::forget(
+            CapellCore::removeCacheKey(
                 CacheEnum::modelDefaultKey($model::class),
             );
         });
 
         static::deleted(function (Model $model): void {
-            Cache::forget(
+            CapellCore::removeCacheKey(
                 CacheEnum::modelDefaultKey($model::class),
             );
         });

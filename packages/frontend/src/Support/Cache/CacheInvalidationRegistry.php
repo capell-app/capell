@@ -15,6 +15,7 @@ use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use RuntimeException;
 
 final class CacheInvalidationRegistry
 {
@@ -22,7 +23,11 @@ final class CacheInvalidationRegistry
         private readonly CacheInvalidationDependencyRegistry $dependencies,
         private readonly CacheInvalidationExecutor $executor,
         private readonly TranslationCacheDependencyRegistry $translationDependencies,
-    ) {}
+    ) {
+        foreach ($this->dependencies->allPatterns() as $pattern) {
+            $this->executor->registerCacheInvalidationPattern($pattern);
+        }
+    }
 
     public function invalidateForModel(string $modelClass): void
     {
@@ -41,7 +46,9 @@ final class CacheInvalidationRegistry
 
         foreach ($patterns as $pattern) {
             if (str_contains((string) $pattern, '*')) {
-                return new CacheInvalidationPlanData([CacheInvalidationRule::flushFrontendTag()]);
+                $rules[] = CacheInvalidationRule::invalidatePattern((string) $pattern);
+
+                continue;
             }
 
             if (is_string($pattern)) {
@@ -54,6 +61,27 @@ final class CacheInvalidationRegistry
 
     public function planForChangedModel(Model $model): CacheInvalidationPlanData
     {
+        try {
+            return $this->planForChangedModelWithinBounds($model);
+        } catch (RuntimeException) {
+            return new CacheInvalidationPlanData([CacheInvalidationRule::flushFrontendTag()]);
+        }
+    }
+
+    /** @param string|array<string> $cachePatterns */
+    public function registerDependency(string $modelClass, string|array $cachePatterns): void
+    {
+        $this->dependencies->register($modelClass, $cachePatterns);
+
+        foreach ((array) $cachePatterns as $pattern) {
+            if (is_string($pattern)) {
+                $this->executor->registerCacheInvalidationPattern($pattern);
+            }
+        }
+    }
+
+    private function planForChangedModelWithinBounds(Model $model): CacheInvalidationPlanData
+    {
         if ($model instanceof Page) {
             return new CacheInvalidationPlanData($this->uniqueRules($this->pageRulesWithDependents($model)));
         }
@@ -63,9 +91,10 @@ final class CacheInvalidationRegistry
         }
 
         if ($model instanceof Media && $this->isSiteLogoMedia($model)) {
-            return new CacheInvalidationPlanData([
-                CacheInvalidationRule::flushFrontendTag(),
-            ]);
+            return new CacheInvalidationPlanData($this->uniqueRules([
+                ...$this->planForModel(Site::class)->rules,
+                ...$this->planForModel(Page::class)->rules,
+            ]));
         }
 
         $classRules = $this->planForModel($model::class)->rules;
@@ -78,12 +107,6 @@ final class CacheInvalidationRegistry
             ...$classRules,
             ...$pageRules,
         ]));
-    }
-
-    /** @param string|array<string> $cachePatterns */
-    public function registerDependency(string $modelClass, string|array $cachePatterns): void
-    {
-        $this->dependencies->register($modelClass, $cachePatterns);
     }
 
     private function isSiteLogoMedia(Media $media): bool
@@ -129,7 +152,10 @@ final class CacheInvalidationRegistry
         }
 
         if ($root instanceof Media && $this->isSiteLogoMedia($root)) {
-            return [CacheInvalidationRule::flushFrontendTag()];
+            return $this->uniqueRules([
+                ...$this->planForModel(Site::class)->rules,
+                ...$this->planForModel(Page::class)->rules,
+            ]);
         }
 
         $classRules = $this->planForModel($root::class)->rules;
@@ -190,35 +216,63 @@ final class CacheInvalidationRegistry
     private function dependentPages(string $targetType, int $targetId): EloquentCollection
     {
         $pageIds = [];
-        $queue = [sprintf('%s:%d', $targetType, $targetId)];
+        $frontier = [[$targetType, $targetId]];
         $visited = [];
+        $visitedCount = 0;
+        $edgeCount = 0;
+        $maxDepth = max(1, (int) config('capell-frontend.cache_invalidation.graph_max_depth', 20));
+        $maxNodes = max(1, (int) config('capell-frontend.cache_invalidation.graph_max_nodes', 5000));
+        $maxEdges = max(1, (int) config('capell-frontend.cache_invalidation.graph_max_edges', 10000));
 
-        while ($queue !== []) {
-            $node = array_shift($queue);
-            if (! is_string($node)) {
-                continue;
+        for ($depth = 0; $frontier !== []; $depth++) {
+            if ($depth >= $maxDepth) {
+                throw new RuntimeException('Content graph invalidation exceeded its maximum traversal depth.');
             }
 
-            if (isset($visited[$node])) {
-                continue;
+            $targetsByType = [];
+
+            foreach ($frontier as [$type, $id]) {
+                $node = sprintf('%s:%d', $type, $id);
+
+                if (isset($visited[$node])) {
+                    continue;
+                }
+
+                $visited[$node] = true;
+                $visitedCount++;
+
+                if ($visitedCount > $maxNodes) {
+                    throw new RuntimeException('Content graph invalidation exceeded its maximum node count.');
+                }
+
+                $targetsByType[$type][] = $id;
             }
 
-            $visited[$node] = true;
-            [$type, $id] = explode(':', $node, 2);
+            $nextFrontier = [];
 
-            ContentGraphEdge::query()
-                ->where('target_type', $type)
-                ->where('target_id', (int) $id)
-                ->get(['source_type', 'source_id'])
-                ->each(function (ContentGraphEdge $edge) use (&$pageIds, &$queue): void {
-                    if ($edge->source_type === Page::class) {
-                        $pageIds[] = $edge->source_id;
+            foreach ($targetsByType as $type => $ids) {
+                ContentGraphEdge::query()
+                    ->where('target_type', $type)
+                    ->whereIn('target_id', array_values(array_unique($ids)))
+                    ->get(['source_type', 'source_id'])
+                    ->each(function (ContentGraphEdge $edge) use (&$pageIds, &$nextFrontier, &$edgeCount, $maxEdges): void {
+                        $edgeCount++;
 
-                        return;
-                    }
+                        if ($edgeCount > $maxEdges) {
+                            throw new RuntimeException('Content graph invalidation exceeded its maximum edge count.');
+                        }
 
-                    $queue[] = sprintf('%s:%d', $edge->source_type, $edge->source_id);
-                });
+                        if ($edge->source_type === Page::class) {
+                            $pageIds[] = $edge->source_id;
+
+                            return;
+                        }
+
+                        $nextFrontier[] = [$edge->source_type, $edge->source_id];
+                    });
+            }
+
+            $frontier = $nextFrontier;
         }
 
         return Page::query()

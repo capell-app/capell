@@ -49,6 +49,8 @@ function capellCoreFacadeContract(): array
             'flushLocalCache' => '(): void',
             'getFromCache' => '(string $key): mixed',
             'incrementCacheKey' => '(string $key): int',
+            'invalidateCachePattern' => '(string $pattern): void',
+            'registerCacheInvalidationPattern' => '(string $pattern): void',
             'rememberCache' => '(BackedEnum|string $key, Closure $callback, Closure|DateTimeInterface|DateInterval|int|null $ttl = null): mixed',
             'removeCacheKey' => '(string $key): void',
             'setToCache' => '(string $key, mixed $value, Closure|DateTimeInterface|DateInterval|int|null $ttl = null): void',

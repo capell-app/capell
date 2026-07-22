@@ -35,4 +35,10 @@ final class CacheInvalidationDependencyRegistry
     {
         return $this->modelDependencies[$modelClass] ?? [];
     }
+
+    /** @return list<string> */
+    public function allPatterns(): array
+    {
+        return array_values(array_unique(array_merge(...array_values($this->modelDependencies))));
+    }
 }

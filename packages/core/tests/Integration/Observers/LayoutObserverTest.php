@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\LayoutContentSnapshot;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Illuminate\Support\Facades\Cache;
 
 it('flushes layout-related caches on save/delete/restore', function (): void {
@@ -17,6 +18,19 @@ it('flushes layout-related caches on save/delete/restore', function (): void {
 
     $registry = Cache::driver('array')->get('capell-core-cache-keys', []);
     expect($registry)->not()->toContain(CacheEnum::RelationExists->value . '-' . Layout::class . '-' . $layout->id . '-pages');
+});
+
+it('invalidates the normalized default-model cache when a default changes', function (): void {
+    $first = Layout::factory()->createOne(['default' => true]);
+
+    expect(Layout::getDefault()?->is($first))->toBeTrue();
+
+    $first->update(['default' => false]);
+    $second = Layout::factory()->createOne(['default' => true]);
+
+    resolve(CapellCacheManager::class)->flushLocalCache();
+
+    expect(Layout::getDefault()?->is($second))->toBeTrue();
 });
 
 it('captures layout content before soft deletion', function (): void {

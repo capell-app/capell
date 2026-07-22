@@ -50,7 +50,7 @@ class CapellCoreManager implements Resettable
 
     public function flushOctaneState(): void
     {
-        resolve(CapellCacheManager::class)->flushLocalCache();
+        resolve(CapellCacheManager::class)->flushRuntimeState();
         resolve(CapellPackageRegistry::class)->flushRuntimeState();
 
         $this->defaultPages = null;
