@@ -38,7 +38,7 @@ it('registers the marketplace package metadata', function (): void {
 
 it('keeps the runtime tracking migration on its historical published filename', function (): void {
     $package = new Package;
-    (new MarketplaceServiceProvider(app()))->configurePackage($package);
+    new MarketplaceServiceProvider(app())->configurePackage($package);
     $migrationDirectory = dirname(__DIR__, 2) . '/database/migrations';
     $historicalMigrationName = '2026_07_19_000002_add_runtime_tracking_to_marketplace_install_attempts';
 
