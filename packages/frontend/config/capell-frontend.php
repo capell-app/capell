@@ -54,7 +54,7 @@ return [
         'enabled' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED', true),
         'mode' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE', 'exception'),
         'ignored_connections' => [],
-        'docs_url' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL', 'https://docs.capell.app/security/public-rendering#public-view-query-guard'),
+        'docs_url' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL', 'https://docs.capell.app/core/frontend/debugging-public-output/#symptom-table'),
     ],
     'public_render_contract_events' => [
         'record_passed' => env('CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_PASSED', false),
