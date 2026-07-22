@@ -14,6 +14,7 @@ use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Override;
 use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
@@ -33,6 +34,13 @@ class MediaResource extends Resource
 
     /** @var class-string<MediaTable> */
     protected static string $tableConfigurator = MediaTable::class;
+
+    #[Override]
+    public static function table(Table $table): Table
+    {
+        return static::getTableConfigurator()::configure($table)
+            ->extraAttributes(['data-tour-id' => 'welcome-tour-media']);
+    }
 
     #[Override]
     public static function getEloquentQuery(): Builder
