@@ -89,6 +89,10 @@ it('starts the next operation with fresh core runtime state and preserved boot r
         ->and($manager->getDefaultPages()->keys()->all())->toBe(['home'])
         ->and($manager->rememberCache('octane-operation', fn (): string => 'operation-one'))->toBe('operation-one');
 
+    /** @var CapellCacheManager $cache */
+    $cache = resolve(CapellCacheManager::class);
+    expect($cache->runtimeDiagnostics()->fillCount)->toBeGreaterThan(0);
+
     $manager->cacheComponents();
     $manager->restoreCachedComponents();
     $manager->getPackages();
@@ -96,8 +100,6 @@ it('starts the next operation with fresh core runtime state and preserved boot r
     File::delete($componentRoot . '/widgets/first.blade.php');
     File::put($componentRoot . '/widgets/second.blade.php', '<div>Second</div>');
     File::delete($manager->getComponentCachePath());
-    /** @var CapellCacheManager $cache */
-    $cache = resolve(CapellCacheManager::class);
     $normalizeCacheKey = new ReflectionMethod($cache, 'normalizeCacheKey');
     $cacheRepository = new ReflectionMethod($cache, 'getCacheInstance');
     $cacheRepository->invoke($cache)->put(
@@ -120,7 +122,8 @@ it('starts the next operation with fresh core runtime state and preserved boot r
         ->and($manager->hasPageType('octane-page'))->toBeTrue()
         ->and($manager::getModelRelations('octane-model'))->toBe(['translations'])
         ->and($manager->getPackages()->keys()->all())->toContain('vendor/operation-two')
-        ->and(array_keys($packages->all()))->toBe($manifestNames);
+        ->and(array_keys($packages->all()))->toBe($manifestNames)
+        ->and($cache->runtimeDiagnostics()->fillCount)->toBeGreaterThan(0);
 
     File::deleteDirectory($componentRoot);
     File::deleteDirectory($cacheRoot);
