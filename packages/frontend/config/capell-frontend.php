@@ -19,6 +19,11 @@ return [
         'integrity_policy' => env('CAPELL_FRONTEND_EXTERNAL_INTEGRITY_POLICY', 'warn'),
     ],
     'public_aggressive_prefetch' => env('CAPELL_FRONTEND_PUBLIC_AGGRESSIVE_PREFETCH', false),
+    'cache_invalidation' => [
+        'graph_max_depth' => (int) env('CAPELL_CACHE_INVALIDATION_GRAPH_MAX_DEPTH', 20),
+        'graph_max_nodes' => (int) env('CAPELL_CACHE_INVALIDATION_GRAPH_MAX_NODES', 5000),
+        'graph_max_edges' => (int) env('CAPELL_CACHE_INVALIDATION_GRAPH_MAX_EDGES', 10000),
+    ],
 
     // Caching & Performance
     'html_cache' => env('CAPELL_HTML_CACHE', true),

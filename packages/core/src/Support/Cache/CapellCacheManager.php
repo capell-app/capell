@@ -29,6 +29,12 @@ final class CapellCacheManager
      */
     protected array $localCache = [];
 
+    /** @var array<string, true> */
+    private array $cacheInvalidationPatterns = [];
+
+    /** @var array<string, int> */
+    private array $cacheInvalidationPatternGenerations = [];
+
     public function rememberCache(
         string|BackedEnum $key,
         Closure $callback,
@@ -75,14 +81,13 @@ final class CapellCacheManager
             return $value;
         }
 
-        $value = $callback();
         $ttl = $this->getCacheTtl($ttl);
 
         if ($this->isCacheSaveDisabledForKey($key)) {
-            return $value;
+            return $callback();
         }
 
-        $this->saveToCache($cache, $normalizedKey, $value, $ttl, $sentinel);
+        $value = $this->rememberCacheMiss($cache, $normalizedKey, $callback, $ttl, $sentinel);
 
         // Keep local cache in sync with backend save (use sentinel for null)
         $this->localCache[$normalizedKey] = $value ?? $sentinel;
@@ -177,6 +182,27 @@ final class CapellCacheManager
     public function flushLocalCache(): void
     {
         $this->localCache = [];
+        $this->cacheInvalidationPatternGenerations = [];
+    }
+
+    public function registerCacheInvalidationPattern(string $pattern): void
+    {
+        if ($pattern !== '' && str_contains($pattern, '*')) {
+            $this->cacheInvalidationPatterns[$pattern] = true;
+        }
+    }
+
+    public function invalidateCachePattern(string $pattern): void
+    {
+        $this->registerCacheInvalidationPattern($pattern);
+
+        if (! isset($this->cacheInvalidationPatterns[$pattern])) {
+            return;
+        }
+
+        $generation = $this->incrementRawCacheKey($this->cacheInvalidationPatternGenerationKey($pattern));
+        $this->localCache = [];
+        $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
     }
 
     public function incrementCacheKey(string $key): int
@@ -191,6 +217,65 @@ final class CapellCacheManager
             'normalized:' . $normalizedKey,
             fn (): int => $this->incrementRepositoryKey($cache, $normalizedKey),
         );
+    }
+
+    private function rememberCacheMiss(
+        CacheRepository $cache,
+        string $normalizedKey,
+        Closure $callback,
+        DateTimeInterface|DateInterval|int $ttl,
+        string $sentinel,
+    ): mixed {
+        $callbackStarted = false;
+
+        try {
+            return Cache::lock(
+                'capell.cache.remember.' . $normalizedKey,
+                max(1, (int) config('capell.cache_lock_seconds', 30)),
+            )->block(
+                max(1, (int) config('capell.cache_lock_wait_seconds', 10)),
+                function () use ($cache, $normalizedKey, $callback, $ttl, $sentinel, &$callbackStarted): mixed {
+                    $cached = $cache->get($normalizedKey);
+
+                    if ($cached === $sentinel) {
+                        return null;
+                    }
+
+                    if ($cached !== null && (! is_object($cached) || $cached::class !== '__PHP_Incomplete_Class')) {
+                        return $cached;
+                    }
+
+                    if (is_object($cached) && $cached::class === '__PHP_Incomplete_Class') {
+                        $cache->forget($normalizedKey);
+                    }
+
+                    $callbackStarted = true;
+                    $resolved = $callback();
+                    $this->saveToCache($cache, $normalizedKey, $resolved, $ttl, $sentinel);
+
+                    return $resolved;
+                },
+            );
+        } catch (Throwable $throwable) {
+            if ($callbackStarted) {
+                throw $throwable;
+            }
+
+            $cached = $cache->get($normalizedKey);
+
+            if ($cached === $sentinel) {
+                return null;
+            }
+
+            if ($cached !== null && (! is_object($cached) || $cached::class !== '__PHP_Incomplete_Class')) {
+                return $cached;
+            }
+
+            $resolved = $callback();
+            $this->saveToCache($cache, $normalizedKey, $resolved, $ttl, $sentinel);
+
+            return $resolved;
+        }
     }
 
     private function getCacheInstance(): CacheRepository
@@ -268,7 +353,41 @@ final class CapellCacheManager
     {
         // Hash long/complex keys to ensure backend compatibility (indexes, length,
         // allowed characters) and keep a consistent fixed-length key.
-        return hash('sha256', $this->cacheNamespaceGeneration() . '|' . $key);
+        $patternGenerations = [];
+
+        foreach (array_keys($this->cacheInvalidationPatterns) as $pattern) {
+            if ($this->cacheKeyMatchesPattern($key, $pattern)) {
+                $patternGenerations[$pattern] = $this->cacheInvalidationPatternGeneration($pattern);
+            }
+        }
+
+        return hash('sha256', serialize([
+            $this->cacheNamespaceGeneration(),
+            $patternGenerations,
+            $key,
+        ]));
+    }
+
+    private function cacheKeyMatchesPattern(string $key, string $pattern): bool
+    {
+        return preg_match('/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/', $key) === 1;
+    }
+
+    private function cacheInvalidationPatternGeneration(string $pattern): int
+    {
+        if (array_key_exists($pattern, $this->cacheInvalidationPatternGenerations)) {
+            return $this->cacheInvalidationPatternGenerations[$pattern];
+        }
+
+        $generation = (int) Cache::store()->get($this->cacheInvalidationPatternGenerationKey($pattern), 0);
+        $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
+
+        return $generation;
+    }
+
+    private function cacheInvalidationPatternGenerationKey(string $pattern): string
+    {
+        return 'capell.cache.pattern-generation.' . hash('sha256', $pattern);
     }
 
     private function cacheNamespaceGeneration(): int

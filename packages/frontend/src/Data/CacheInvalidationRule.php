@@ -12,6 +12,8 @@ final class CacheInvalidationRule extends Data
 
     public const string KIND_FLUSH_FRONTEND_TAG = 'flush-frontend-tag';
 
+    public const string KIND_INVALIDATE_PATTERN = 'invalidate-pattern';
+
     public const string KIND_PAGE_MODEL = 'page-model';
 
     public const string KIND_PAGE_LISTING = 'page-listing';
@@ -35,6 +37,11 @@ final class CacheInvalidationRule extends Data
     public static function flushFrontendTag(): self
     {
         return new self(kind: self::KIND_FLUSH_FRONTEND_TAG);
+    }
+
+    public static function invalidatePattern(string $cachePattern): self
+    {
+        return new self(kind: self::KIND_INVALIDATE_PATTERN, cacheKey: $cachePattern);
     }
 
     public static function pageModel(string $modelType, int $modelId, int $siteId, int $languageId): self
