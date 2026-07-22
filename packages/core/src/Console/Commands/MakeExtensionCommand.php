@@ -16,6 +16,9 @@ final class MakeExtensionCommand extends Command
 {
     use DescribesCommandOptions;
 
+    /** @var array<int, string> */
+    protected $aliases = ['capell:make:extension'];
+
     protected $signature = 'capell:make-extension
         {package? : Composer package name, for example vendor/example}
         {--name= : Human-readable display name}

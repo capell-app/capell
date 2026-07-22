@@ -46,6 +46,7 @@ final class ScaffoldThemePackageAction
             'require' => [
                 'capell-app/core' => '^1.0',
                 'capell-app/frontend' => '^1.0',
+                'capell-app/theme-foundation' => '^1.0',
                 'spatie/laravel-package-tools' => '^1.14',
             ],
             'autoload' => [
@@ -57,6 +58,14 @@ final class ScaffoldThemePackageAction
                 'psr-4' => [
                     $input->namespace . '\\Tests\\' => 'tests/',
                 ],
+            ],
+            'require-dev' => [
+                'orchestra/testbench' => '^11.0',
+                'pestphp/pest' => '^4.1',
+                'pestphp/pest-plugin-laravel' => '^4.0',
+            ],
+            'scripts' => [
+                'test' => 'pest',
             ],
             'extra' => [
                 'laravel' => [

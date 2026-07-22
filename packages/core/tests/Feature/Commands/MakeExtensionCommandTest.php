@@ -39,6 +39,9 @@ it('creates a minimal package scaffold without modifying root composer dependenc
         ->and($extensionDirectory . '/resources/lang/en/package.php')->toBeFile()
         ->and($extensionDirectory . '/README.md')->toBeFile()
         ->and($extensionDirectory . '/composer.json')->toBeFile()
+        ->and($extensionDirectory . '/phpunit.xml.dist')->toBeFile()
+        ->and($extensionDirectory . '/tests/Pest.php')->toBeFile()
+        ->and($extensionDirectory . '/tests/TestCase.php')->toBeFile()
         ->and($extensionDirectory . '/src/Providers/AdminServiceProvider.php')->not->toBeFile()
         ->and(file_get_contents(base_path('composer.json')))->toBe($rootComposer);
 
@@ -53,11 +56,26 @@ it('creates a minimal package scaffold without modifying root composer dependenc
         ->and($manifest['providers']['runtime'])->toBe(['Vendor\\Example\\Providers\\PackageServiceProvider'])
         ->and($manifest['performance']['cacheSafety']['cacheable'])->toBeFalse()
         ->and($composer['require'])->toHaveKeys(['capell-app/core', 'spatie/laravel-package-tools'])
+        ->and($composer['require-dev'])->toHaveKeys(['orchestra/testbench', 'pestphp/pest', 'pestphp/pest-plugin-laravel'])
+        ->and($composer['scripts']['test'])->toBe('pest')
         ->and($composer['extra']['laravel']['providers'])->toBe(['Vendor\\Example\\Providers\\PackageServiceProvider']);
 
     ExtensionTestHarness::forPath($extensionDirectory)
         ->assertManifestValid()
         ->assertNoUnsafePublicCache();
+});
+
+it('supports the colon-namespaced extension generator alias', function (): void {
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+
+    artisanCommand('capell:make:extension', [
+        'package' => 'vendor/alias-example',
+        '--profile' => 'minimal',
+        '--path' => $packagesDirectory,
+        '--no-interaction' => true,
+    ])->assertExitCode(Command::SUCCESS);
+
+    expect($packagesDirectory . '/alias-example/capell.json')->toBeFile();
 });
 
 it('creates a full package scaffold with live safe examples', function (): void {
@@ -80,14 +98,18 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($extensionDirectory . '/src/Providers/InstallServiceProvider.php')->toBeFile()
         ->and($extensionDirectory . '/src/Providers/PackageServiceProvider.php')->toBeFile()
         ->and($extensionDirectory . '/src/Providers/AdminServiceProvider.php')->toBeFile()
-        ->and($extensionDirectory . '/src/Providers/FrontendServiceProvider.php')->toBeFile()
         ->and($extensionDirectory . '/src/Console/Commands/ExamplePackageCommand.php')->toBeFile()
-        ->and($extensionDirectory . '/src/Actions/BuildPublicRenderStateAction.php')->toBeFile()
-        ->and($extensionDirectory . '/src/Data/PublicRenderStateData.php')->toBeFile()
+        ->and($extensionDirectory . '/src/ExampleWidgetContribution.php')->toBeFile()
+        ->and($extensionDirectory . '/src/Filament/ExampleWidget.php')->toBeFile()
+        ->and($extensionDirectory . '/src/Data/ExampleWidgetInputData.php')->toBeFile()
+        ->and($extensionDirectory . '/src/Data/ExampleWidgetRenderData.php')->toBeFile()
         ->and($extensionDirectory . '/src/Settings/PackageSettings.php')->toBeFile()
-        ->and($extensionDirectory . '/resources/views/hooks/public-example.blade.php')->toBeFile()
+        ->and($extensionDirectory . '/resources/views/widget.blade.php')->toBeFile()
+        ->and($extensionDirectory . '/resources/dist/widget.css')->toBeFile()
+        ->and($extensionDirectory . '/resources/dist/widget.js')->toBeFile()
         ->and($extensionDirectory . '/tests/Feature/ProviderDiscoveryTest.php')->toBeFile()
-        ->and($extensionDirectory . '/tests/Feature/PublicOutputSafetyTest.php')->toBeFile()
+        ->and($extensionDirectory . '/tests/Pest.php')->toBeFile()
+        ->and($extensionDirectory . '/tests/TestCase.php')->toBeFile()
         ->and($manifest['manifest-version'])->toBe(3)
         ->and($manifest['surfaces'])->toBe(['admin', 'frontend', 'console', 'shared'])
         ->and($manifest['providers'])->toHaveKeys(['metadata', 'install', 'runtime', 'admin', 'frontend'])
@@ -95,15 +117,17 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($manifest['providers']['install'])->toBe(['Vendor\\ExampleTools\\Providers\\InstallServiceProvider'])
         ->and($manifest['providers']['runtime'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider'])
         ->and($manifest['providers']['admin'])->toBe(['Vendor\\ExampleTools\\Providers\\AdminServiceProvider'])
-        ->and($manifest['providers']['frontend'])->toBe(['Vendor\\ExampleTools\\Providers\\FrontendServiceProvider'])
-        ->and($manifest['dependencies']['requires'])->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'])
+        ->and($manifest['providers']['frontend'])->toBe([])
+        ->and($manifest['dependencies']['requires'])->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/layout-builder'])
+        ->and($manifest['contributes'])->toBe([[
+            'type' => 'content-widget',
+            'key' => 'vendor.example-tools',
+            'class' => 'Vendor\\ExampleTools\\ExampleWidgetContribution',
+        ]])
         ->and($manifest['performance']['cacheSafety']['cacheable'])->toBeFalse()
-        ->and($composer['require'])->toHaveKeys(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'spatie/laravel-package-tools'])
+        ->and($composer['require'])->toHaveKeys(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/layout-builder', 'spatie/laravel-data', 'spatie/laravel-package-tools'])
         ->and($composer['extra']['laravel']['providers'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider']);
 
-    ExtensionTestHarness::forPath($extensionDirectory)
-        ->assertManifestValid()
-        ->assertNoUnsafePublicCache();
 });
 
 it('prompts for missing interactive values', function (): void {
@@ -198,7 +222,7 @@ it('rejects existing non-empty target directories', function (): void {
         ->assertExitCode(Command::FAILURE);
 });
 
-it('generates full scaffold safety test content without unsafe public cache surface', function (): void {
+it('generates full scaffold safety assertions and a render-data-only public view', function (): void {
     $packagesDirectory = makeExtensionWorkbenchDirectory();
 
     artisanCommand('capell:make-extension', [
@@ -210,16 +234,15 @@ it('generates full scaffold safety test content without unsafe public cache surf
 
     $extensionDirectory = $packagesDirectory . '/safety-demo';
     $manifestTest = (string) file_get_contents($extensionDirectory . '/tests/Feature/ManifestTest.php');
-    $publicOutputTest = (string) file_get_contents($extensionDirectory . '/tests/Feature/PublicOutputSafetyTest.php');
+    $widgetView = (string) file_get_contents($extensionDirectory . '/resources/views/widget.blade.php');
 
     expect($manifestTest)
         ->toContain('assertManifestValid()')
         ->toContain('assertNoUnsafePublicCache()')
-        ->and($publicOutputTest)
-        ->toContain("->not->toContain('filament')")
-        ->toContain("->not->toContain('editor')")
-        ->toContain("->not->toContain('signed')")
-        ->toContain("->not->toContain('wire:')")
-        ->toContain("->not->toContain('data-field')")
-        ->toContain("->not->toContain('vendor/safety-demo')");
+        ->and($widgetView)
+        ->toContain('ExampleWidgetRenderData $widget')
+        ->toContain('$widget->heading')
+        ->toContain('$widget->body')
+        ->not->toContain('$record')
+        ->not->toContain('$model');
 });

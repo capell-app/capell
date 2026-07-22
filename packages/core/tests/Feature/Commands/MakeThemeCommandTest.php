@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Testing\ExtensionTestHarness;
 use Symfony\Component\Console\Command\Command;
 
@@ -33,23 +34,50 @@ it('creates a project-local theme package scaffold', function (): void {
         ->and($themeDirectory . '/resources/views/page.blade.php')->toBeFile()
         ->and($heroViewPath)->toBeFile()
         ->and($themeDirectory . '/resources/css/theme.css')->toBeFile()
+        ->and($themeDirectory . '/resources/dist/preview.svg')->toBeFile()
         ->and($themeDirectory . '/tests/Feature/ThemeContractTest.php')->toBeFile()
+        ->and($themeDirectory . '/tests/Pest.php')->toBeFile()
+        ->and($themeDirectory . '/tests/TestCase.php')->toBeFile()
+        ->and($themeDirectory . '/phpunit.xml.dist')->toBeFile()
         ->and($lintExitCode)->toBe(0)
         ->and($manifest['kind'])->toBe('theme')
         ->and($manifest['themeKey'])->toBe('equidynamics')
         ->and($manifest['displayName'])->toBe('Ben\'s "Launch" Theme')
         ->and($manifest['extends'])->toBe('default')
         ->and($manifest['visibility'])->toBe('support')
+        ->and($manifest['capabilities'])->toBe(['frontend-rendering', 'tailwind-assets'])
         ->and($manifest['providers']['runtime'])->toBe(['App\\EquidynamicsTheme\\EquidynamicsThemeServiceProvider'])
         ->and($composer['extra']['laravel']['providers'])->toBe(['App\\EquidynamicsTheme\\EquidynamicsThemeServiceProvider'])
-        ->and(file_get_contents($themeDirectory . '/resources/views/page.blade.php'))->toContain('@frontendAsset')
+        ->and($composer['require'])->toHaveKey('capell-app/theme-foundation')
+        ->and($composer['require-dev'])->toHaveKeys(['orchestra/testbench', 'pestphp/pest', 'pestphp/pest-plugin-laravel'])
+        ->and($composer['scripts']['test'])->toBe('pest')
+        ->and(file_get_contents($themeDirectory . '/resources/views/page.blade.php'))->not->toContain('@frontendAsset')
         ->and(file_get_contents($heroViewPath))->toContain('{{ $body }}')
         ->and(file_get_contents($heroViewPath))->not->toContain('{!! $body !!}');
+
+    expect((string) file_get_contents($providerPath))
+        ->toContain("'theme-css:equidynamics'")
+        ->toContain('ThemeFrontendBuildAssetsData')
+        ->toContain('VendorAssetEnum::TailwindImport');
 
     ExtensionTestHarness::forPath($themeDirectory)
         ->assertManifestValid()
         ->assertThemeManifest('equidynamics')
         ->assertThemeUsesSafeAssetUrls();
+
+    expect(AuditExtensionContractsAction::run($themeDirectory))->toBe([]);
+});
+
+it('supports the colon-namespaced theme generator alias', function (): void {
+    $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-alias-' . bin2hex(random_bytes(6));
+    mkdir($packagesDirectory, 0755, true);
+
+    artisanCommand('capell:make:theme', [
+        'theme' => 'alias-theme',
+        '--path' => $packagesDirectory,
+    ])->assertExitCode(Command::SUCCESS);
+
+    expect($packagesDirectory . '/alias-theme-theme/capell.json')->toBeFile();
 });
 
 it('rejects unsafe parent theme keys', function (): void {

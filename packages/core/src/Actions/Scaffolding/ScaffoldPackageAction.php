@@ -48,6 +48,8 @@ final class ScaffoldPackageAction
         if ($input->profile === PackageScaffoldProfile::Full) {
             $requires['capell-app/admin'] = '^1.0';
             $requires['capell-app/frontend'] = '^1.0';
+            $requires['capell-app/layout-builder'] = '^1.0';
+            $requires['spatie/laravel-data'] = '^4.0';
         }
 
         return [
@@ -64,6 +66,14 @@ final class ScaffoldPackageAction
                 'psr-4' => [
                     $input->namespace . '\\Tests\\' => 'tests/',
                 ],
+            ],
+            'require-dev' => [
+                'orchestra/testbench' => '^11.0',
+                'pestphp/pest' => '^4.1',
+                'pestphp/pest-plugin-laravel' => '^4.0',
+            ],
+            'scripts' => [
+                'test' => 'pest',
             ],
             'extra' => [
                 'laravel' => [

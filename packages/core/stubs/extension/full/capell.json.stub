@@ -16,7 +16,7 @@
     "namespace": "{{ escapedNamespace }}",
     "surfaces": ["admin", "frontend", "console", "shared"],
     "dependencies": {
-        "requires": ["capell-app/core", "capell-app/admin", "capell-app/frontend"],
+        "requires": ["capell-app/core", "capell-app/admin", "capell-app/frontend", "capell-app/layout-builder"],
         "supports": [],
         "conflicts": []
     },
@@ -25,9 +25,15 @@
         "install": ["{{ escapedInstallProvider }}"],
         "runtime": ["{{ escapedRuntimeProvider }}"],
         "admin": ["{{ escapedAdminProvider }}"],
-        "frontend": ["{{ escapedFrontendProvider }}"]
+        "frontend": []
     },
-    "contributes": [],
+    "contributes": [
+        {
+            "type": "content-widget",
+            "key": "{{ widgetKey }}",
+            "class": "{{ escapedNamespace }}\\ExampleWidgetContribution"
+        }
+    ],
     "database": {
         "migrations": false,
         "settings": true,
@@ -41,7 +47,7 @@
     },
     "settings": ["{{ settingsGroup }}"],
     "permissions": [],
-    "capabilities": ["render-hook", "frontend-assets"],
+    "capabilities": ["frontend-assets", "frontend-rendering"],
     "performance": {
         "frontendRenderBudgetMs": 10,
         "adminQueryBudget": 20,
