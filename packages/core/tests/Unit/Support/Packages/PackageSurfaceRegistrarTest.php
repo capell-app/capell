@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -15,6 +16,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
     $core = Mockery::mock(CapellCoreManager::class);
     $settings = Mockery::mock(SettingsSchemaRegistry::class);
     $subscribers = Mockery::mock(SubscriberRegistry::class);
+    $metricCollectors = new MetricCollectorRegistry(app());
 
     $core->shouldReceive('registerPageType')->once()->with($pageType);
     $core->shouldReceive('registerComponent')->once()->with('page', 'hero', 'hero-component');
@@ -27,7 +29,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
     $metadata = new SettingsGroupMetadata(group: 'seo', label: 'SEO');
     $settings->shouldReceive('registerMetadata')->once()->with($metadata);
 
-    $registrar = new PackageSurfaceRegistrar($core, $settings);
+    $registrar = new PackageSurfaceRegistrar($core, $settings, $metricCollectors);
 
     expect($registrar->pageType($pageType))->toBe($registrar)
         ->and($registrar->component('page', 'hero', 'hero-component'))->toBe($registrar)

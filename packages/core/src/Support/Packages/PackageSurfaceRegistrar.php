@@ -9,6 +9,7 @@ use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchema;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -34,6 +35,7 @@ final class PackageSurfaceRegistrar
     public function __construct(
         private readonly CapellCoreManager $core,
         private readonly SettingsSchemaRegistry $settings,
+        private readonly MetricCollectorRegistry $metricCollectors,
     ) {}
 
     public function pageType(PageTypeData $type): self
@@ -127,6 +129,14 @@ final class PackageSurfaceRegistrar
     public function settingsMetadata(SettingsGroupMetadata $metadata): self
     {
         $this->settings->registerMetadata($metadata);
+
+        return $this;
+    }
+
+    /** @param class-string $collectorClass */
+    public function metricCollector(string $collectorClass): self
+    {
+        $this->metricCollectors->register($collectorClass);
 
         return $this;
     }

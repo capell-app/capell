@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void flushOctaneState()
  * @method static ?string getInstalledPrettyVersion(string $packageName)
  * @method static CoreSettings settings()
+ * @method static static registerMetricCollector(string $collectorClass)
  * @method static static registerAsset(AssetData $asset)
  * @method static Collection<string, AssetData> getAssets()
  * @method static AssetData getAsset(AssetEnum|string $name)
