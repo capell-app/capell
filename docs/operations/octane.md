@@ -67,18 +67,18 @@ Two rules that catch most bugs:
   static, because the first request in a worker's life will fix that value for all the
   others.
 
-## Known issues in the current release
+## Hosting audit findings
 
-These are open findings from the [July 2026 hosting audit](hosting-audit-2026-07.md),
-listed so operators can judge their own exposure:
+The [July 2026 hosting audit](hosting-audit-2026-07.md) identified these
+Octane-sensitive areas:
 
 | Issue | Effect under Octane |
 | --- | --- |
-| `HasEnumOptions` memoizes translated option labels in a method static | Filament select labels freeze to the locale of the first request the worker served |
+| `HasEnumOptions` memoizes translated option labels per locale | Filament select labels remain correct when a worker serves requests in different locales |
 | `RenderHtmlContentAction` caches a config-built `HtmlSanitizer` statically | Only matters if the HTML attribute allowlist varies per site |
 
-If you run a multi-locale admin under Octane, the first issue is the one you will
-notice.
+Extensions that introduce similar static memoization should include every
+request-varying input in the memo key or use a resettable service.
 
 ## Operating notes
 

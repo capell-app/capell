@@ -35,8 +35,8 @@ describe('HasEnumOptions', function (): void {
     it('recomputes translated labels when the locale changes', function (): void {
         // Uses throwaway locales because the memo is a method static that
         // survives for the life of the process, including across tests.
-        Lang::addLines(['capell::media.image_source.url' => 'From a URL'], 'enum-options-first');
-        Lang::addLines(['capell::media.image_source.url' => 'Depuis une URL'], 'enum-options-second');
+        Lang::addLines(['media.image_source.url' => 'From a URL'], 'enum-options-first', 'capell');
+        Lang::addLines(['media.image_source.url' => 'Depuis une URL'], 'enum-options-second', 'capell');
 
         $originalLocale = app()->getLocale();
 

@@ -231,9 +231,9 @@ declarations, 278 are declarative configuration; three are genuine runtime mutat
   Note that Livewire's `flush-state` reset for this flag is triggered only from
   `SupportTesting`, not from any Octane hook — so the safety here comes from `boot()`
   re-asserting the value, not from a per-request flush.
-- **MEDIUM —** [HasEnumOptions.php](../../packages/core/src/Enums/Concerns/HasEnumOptions.php)
-  line 21 memoizes `::options()` in a method static while ~19 consumers translate labels
-  via `__()`. The first request in a worker freezes select labels to its locale.
+- **RESOLVED —** [HasEnumOptions.php](../../packages/core/src/Enums/Concerns/HasEnumOptions.php)
+  memoizes `::options()` by locale, so translated labels remain correct when an Octane
+  worker serves requests in different locales.
 - **LOW —** `RenderHtmlContentAction.php` line 21 caches a config-built `HtmlSanitizer`
   statically. Harmless while the allowlist is app-global; wrong the moment it varies
   per site.
