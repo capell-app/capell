@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Backup\Drivers;
 
 use Capell\Core\Contracts\Backup\DatabaseBackupDriver;
+use Capell\Core\Support\Backup\DatabaseBackupProcessError;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
 use InvalidArgumentException;
@@ -36,7 +37,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
             $connection['database'],
         ];
 
-        $this->run($command, $this->environment($connection), 'create', $connectionName);
+        $this->run($command, $this->environment($connection), 'create', $connectionName, $command[0], 'backup.binaries.mysqldump');
     }
 
     public function restore(string $connectionName, string $sourcePath, string $scratchDatabase): string
@@ -54,7 +55,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
             $binary,
             ...$arguments,
             '--execute=CREATE DATABASE `' . $scratchDatabase . '`',
-        ], $environment, 'create scratch database', $connectionName);
+        ], $environment, 'create scratch database', $connectionName, $binary, 'backup.binaries.mysql');
 
         $input = fopen($sourcePath, 'rb');
 
@@ -65,8 +66,10 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
             $process->setTimeout($this->processTimeout());
             $process->setInput($input);
             $process->mustRun();
-        } catch (Throwable) {
-            throw new RuntimeException(sprintf('MySQL restore failed for connection [%s].', $connectionName));
+        } catch (Throwable $throwable) {
+            throw new RuntimeException(
+                DatabaseBackupProcessError::message('restore', $connectionName, $binary, 'backup.binaries.mysql', $throwable),
+            );
         } finally {
             fclose($input);
         }
@@ -133,15 +136,17 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
      * @param  list<string>  $command
      * @param  array<string, string>  $environment
      */
-    private function run(array $command, array $environment, string $operation, string $connectionName): Process
+    private function run(array $command, array $environment, string $operation, string $connectionName, string $binary, string $binaryConfigKey): Process
     {
         try {
             $process = $this->processes->make($command, environment: $environment);
             $process->setTimeout($this->processTimeout());
 
             return $process->mustRun();
-        } catch (Throwable) {
-            throw new RuntimeException(sprintf('MySQL backup %s failed for connection [%s].', $operation, $connectionName));
+        } catch (Throwable $throwable) {
+            throw new RuntimeException(
+                DatabaseBackupProcessError::message($operation, $connectionName, $binary, $binaryConfigKey, $throwable),
+            );
         }
     }
 

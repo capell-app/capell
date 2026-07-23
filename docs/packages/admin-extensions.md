@@ -258,7 +258,7 @@ $registrar->extensionDashboardFilamentWidget(ExampleExtensionHealthFilamentWidge
 
 Every extension dashboard Filament widget must use a globally unique `settingsKey()`, preferably package-prefixed, so dashboard customisation can enable, disable, reorder, and resize it without colliding with core widgets.
 
-Extension dashboard Filament widgets may implement `Capell\Admin\Contracts\Extensions\ExtensionFilamentDashboardWidgetContract` when they want to expose their package-author metadata explicitly. The contract defines the widget settings key, label, description, default span, default order, dashboard scope, and `canView()` gate. Existing `CapellFilamentWidgetContract` widgets remain supported; the contract is for packages that want their dashboard contribution to be self-describing.
+Extension dashboard Filament widgets may implement `Capell\Admin\Contracts\Extensions\ExtensionDashboardFilamentWidgetContract` when they want to expose their package-author metadata explicitly. The contract defines the widget settings key, label, description, default span, default order, dashboard scope, and `canView()` gate. Existing `CapellFilamentWidgetContract` widgets remain supported; the contract is for packages that want their dashboard contribution to be self-describing.
 
 Packages can also contribute operation data without coupling to the Filament UI. Register providers from an admin bridge:
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Cache\QueueFrontendBuildAction;
 use Capell\Admin\Actions\Cache\QueueStaticSiteGenerationAction;
 use Capell\Admin\Contracts\Cache\StaticSiteGenerationDispatcher;
+use Capell\Admin\Enums\FrontendBuildQueueResultEnum;
 use Capell\Admin\Jobs\RunFrontendBuildJob;
 use Capell\Core\Models\Site;
 use Illuminate\Support\Facades\Cache;
@@ -17,11 +18,30 @@ beforeEach(function (): void {
 it('queues one frontend build while one is already pending', function (): void {
     Queue::fake();
 
-    expect(QueueFrontendBuildAction::run())->toBeTrue()
-        ->and(QueueFrontendBuildAction::run())->toBeFalse()
+    expect(QueueFrontendBuildAction::run())->toBe(FrontendBuildQueueResultEnum::Queued)
+        ->and(QueueFrontendBuildAction::run())->toBe(FrontendBuildQueueResultEnum::AlreadyRunning)
         ->and(data_get(Cache::get(RunFrontendBuildJob::STATUS_KEY), 'status'))->toBe('queued');
 
     Queue::assertPushed(RunFrontendBuildJob::class, 1);
+});
+
+it('reports lock contention separately from an in-progress build', function (): void {
+    Queue::fake();
+
+    // Hold the dispatch lock so the action cannot acquire it within its wait window.
+    $blockingLock = Cache::lock(RunFrontendBuildJob::STATUS_KEY . '.dispatch', 30);
+
+    expect($blockingLock->get())->toBeTrue();
+
+    try {
+        expect(QueueFrontendBuildAction::run())->toBe(FrontendBuildQueueResultEnum::Contended);
+    } finally {
+        $blockingLock->release();
+    }
+
+    // Contention must not leave a phantom "queued" status behind.
+    expect(Cache::get(RunFrontendBuildJob::STATUS_KEY))->toBeNull();
+    Queue::assertNotPushed(RunFrontendBuildJob::class);
 });
 
 it('persists a generic failed frontend build status', function (): void {

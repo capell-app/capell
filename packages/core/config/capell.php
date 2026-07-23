@@ -11,6 +11,7 @@ return [
     'cache_ttl' => (int) env('CAPELL_CACHE_TTL', 60),
     'cache_lock_seconds' => (int) env('CAPELL_CACHE_LOCK_SECONDS', 30),
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
+    'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
 
     'assets' => [
         'disk' => env('CAPELL_ASSETS_DISK', 'local'),

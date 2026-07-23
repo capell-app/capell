@@ -35,3 +35,14 @@
 - Static analysis: `composer analyze`
 - Repository gate: `composer preflight`
 - Documentation contracts: `composer check:docs-links`, `composer check:docs-orphans`, `composer check:extension-surfaces`, and `composer check:stable-extension-api`
+
+## Internal Ledger
+
+- Use `/Users/ben/Sites/internal-ledger/projects/capell/TODO.md` for
+  cross-repository Capell programmes, residual verification, release evidence,
+  and live-only gates.
+- Read it before substantial work, reuse task IDs, and reconcile state, next
+  action, verification, review date, and sources at closeout.
+- Keep package contracts and code-coupled documentation in this repository.
+- Never place secrets, customer data, credentials, or production exports in the
+  ledger.

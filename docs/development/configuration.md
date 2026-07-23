@@ -39,6 +39,7 @@ Source: `packages/core/config/capell.php`
 | `CAPELL_CACHE_TTL`                           | `60`                                      | Default TTL in seconds for Capell's general cache helpers                                           |
 | `CAPELL_CACHE_LOCK_SECONDS`                  | `30`                                      | Lifetime in seconds of the lock Capell holds while filling a cache entry, preventing stampedes      |
 | `CAPELL_CACHE_LOCK_WAIT_SECONDS`             | `10`                                      | How long a request waits for another process to finish filling the same cache entry before failing  |
+| `CAPELL_MULTI_NODE`                          | `false`                                   | Declare a multi-node deployment so Doctor requires a shared cache store                              |
 | `CAPELL_ASSETS_DISK`                         | `local`                                   | Filesystem disk checked by Capell Doctor for writable asset storage                                 |
 | `CAPELL_SITEMAP_MAX_URLS_PER_FILE`           | `50000`                                   | Maximum URLs per generated sitemap file                                                             |
 | `CAPELL_SITEMAP_XML_PATH`                    | `/sitemap-xml`                            | Public path used for sitemap index entries                                                          |
@@ -242,6 +243,60 @@ If you set this connection to `sync`, the Composer install runs inside the web r
 and will be killed by `max_execution_time`. Keep it on a real queue connection.
 
 Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace APIs. If Marketplace reports that `api/registration-sessions` cannot be found, the app is probably using an old unversioned API URL.
+
+## Security-Relevant Keys Without Env Vars
+
+These change what anonymous visitors can reach, or what protections apply. None has an
+env var, so they are only settable by publishing the config file — and easy to miss.
+
+| Config key | Default | Effect |
+| --- | --- | --- |
+| `capell-admin.security_headers.headers` | `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `X-Frame-Options: SAMEORIGIN` | Literal header map stamped on every admin response. Publishing replaces the whole map, so add a CSP or change the frame policy here. Only the `enabled` flag has an env var. |
+| `capell-frontend.fallback_public_views.view_names` | `[]` | Allowlist of full Blade view names an unresolved public path may render |
+| `capell-frontend.fallback_public_views.prefixes` | `['pages']` | Permitted leading view segments for fallback views. Widening this exposes more application templates to anonymous visitors. |
+| `capell-frontend.route.reserved_domains` | `[]` | Hosts the frontend catch-all must never serve. The admin domain is reserved automatically. |
+| `capell-frontend.route.reserved_prefixes` | `[]` | Path prefixes excluded from frontend catch-all routing |
+| `capell-frontend.route.reserved_exact_paths` | `[]` | Exact paths excluded from frontend catch-all routing |
+| `capell-frontend.route.url_regex` | negative-lookahead regex | Decides which URLs the frontend catch-all claims. Excludes admin, api, livewire, storage, and asset extensions; allows `.html`. |
+| `capell-frontend.public_view_query_guard.ignored_connections` | `[]` | Connections exempt from the public-render query guard. Adding one silently disables leak detection for it. |
+| `capell-frontend.public_html_authoring_markers` | `[]` | Extra substrings treated as unsafe authoring markers when inspecting public HTML |
+| `capell-frontend.cache_skip_authenticated` | `true` | Bypasses the frontend HTML cache for signed-in requests. Leave enabled unless you are certain no per-user content is rendered. |
+| `capell.runtime.auth_paths` | `login`, `register`, `forgot-password`, `reset-password/*`, `email/verify*`, `confirm-password`, `two-factor-challenge` | Path patterns the runtime resolver classifies as auth context |
+| `capell-admin.user_resource.role_schema_types` | `['super_admin' => 'administrator']` | Maps a role to the user form schema it sees, controlling which fields that role can edit |
+| `redirects.auto_redirects.status_code` | `301` | HTTP status for redirects created automatically when a page URL changes. Only `enabled` has an env var. |
+
+## Other Keys Without Env Vars
+
+Commonly adjusted, and not settable through the environment:
+
+| Config key | Default | Effect |
+| --- | --- | --- |
+| `capell.default_pages` | `home`, `error_404`, `maintenance`, `welcome` | Pages created automatically for a new site |
+| `capell.media.crop_presets` | `thumbnail` 320×320, `card` 800×600, `hero` 1600×900, `open_graph` 1200×630 | Named crop presets offered on media edit; changing these changes generated derivative sizes |
+| `capell.media.model` | `Capell\Core\Models\Media` | Media model class override |
+| `capell-frontend.default_layout` / `foundation_theme` | `default` / `default` | Fallbacks when a site or page specifies none |
+| `capell-frontend.redirect_default_site` | `true` | Redirects unmatched hosts to the default site instead of returning 404 |
+| `capell-frontend.pagination_limit` | `12` | Page-list page size when a caller passes no limit |
+| `capell-frontend.meta_title_seperator` | `' \| '` | Separator between site and page name in `<title>`. Note the spelling of the key. |
+| `capell-frontend.date_format` | `M jS, Y` | Publish-date format on asset cards and tiles |
+| `capell-frontend.tailwind.sources` | `resources/views/**/*.blade.php` | Globs scanned for Tailwind class extraction |
+| `capell-frontend.tailwind.validate_sources` | `false` | Validates those globs before generating assets |
+| `capell-admin.navigation_badge_counts` | `false` | Global switch for admin navigation badge count queries |
+| `capell-admin.shortcuts` | `g p`, `g s`, `g t`, `g ,`, `g w`, `/` | Admin keyboard shortcut map |
+| `capell-admin.social_types` | 8 networks | Social link types offered in the site social-icons form |
+| `capell-installer.database_table_cache.store` | `file` | Cache store for the installer's table-existence cache |
+
+### Keys with no effect
+
+These are present in the shipped config but have no consumer in this repository. They
+are listed so you do not spend time tuning them: `capell-frontend.cache_ttl`,
+`capell-frontend.cache_vary_headers` (the ETag middleware hardcodes `Accept-Encoding`),
+`capell-frontend.append_site_meta_description`, `capell-frontend.breakpoints.lg`,
+`capell.sitemap.disk`, `capell.sitemap.directory`,
+`capell-admin.layout_builder.allowed_editor_modes`, and the
+`capell.publishing-studio.*` notification, review-policy, and release-window keys.
+The publishing-studio block reads like access-control policy but is not wired to
+anything in this repository — do not rely on it to restrict publishing.
 
 ## Optional Static HTML Cache Disk
 

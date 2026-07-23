@@ -4,36 +4,49 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Cache;
 
+use Capell\Admin\Enums\FrontendBuildQueueResultEnum;
 use Capell\Admin\Jobs\RunFrontendBuildJob;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** @method static bool run() */
+/** @method static FrontendBuildQueueResultEnum run() */
 final class QueueFrontendBuildAction
 {
     use AsFake;
     use AsObject;
 
-    public function handle(): bool
+    private const int LOCK_SECONDS = 10;
+
+    private const int LOCK_WAIT_SECONDS = 3;
+
+    public function handle(): FrontendBuildQueueResultEnum
     {
-        $queued = Cache::lock(RunFrontendBuildJob::STATUS_KEY . '.dispatch', 10)->get(function (): bool {
-            $status = data_get(Cache::get(RunFrontendBuildJob::STATUS_KEY), 'status');
+        $lock = Cache::lock(RunFrontendBuildJob::STATUS_KEY . '.dispatch', self::LOCK_SECONDS);
 
-            if (in_array($status, ['queued', 'running'], true)) {
-                return false;
-            }
+        try {
+            // Wait briefly rather than failing instantly: the lock is held only for
+            // the few milliseconds it takes to read the status and dispatch, so a
+            // collision is almost always transient.
+            return $lock->block(self::LOCK_WAIT_SECONDS, function (): FrontendBuildQueueResultEnum {
+                $status = data_get(Cache::get(RunFrontendBuildJob::STATUS_KEY), 'status');
 
-            Cache::put(RunFrontendBuildJob::STATUS_KEY, [
-                'status' => 'queued',
-                'queued_at' => now()->toIso8601String(),
-            ], RunFrontendBuildJob::STATUS_TTL_SECONDS);
+                if (in_array($status, ['queued', 'running'], true)) {
+                    return FrontendBuildQueueResultEnum::AlreadyRunning;
+                }
 
-            dispatch(new RunFrontendBuildJob);
+                Cache::put(RunFrontendBuildJob::STATUS_KEY, [
+                    'status' => 'queued',
+                    'queued_at' => now()->toIso8601String(),
+                ], RunFrontendBuildJob::STATUS_TTL_SECONDS);
 
-            return true;
-        });
+                dispatch(new RunFrontendBuildJob);
 
-        return $queued === true;
+                return FrontendBuildQueueResultEnum::Queued;
+            });
+        } catch (LockTimeoutException) {
+            return FrontendBuildQueueResultEnum::Contended;
+        }
     }
 }

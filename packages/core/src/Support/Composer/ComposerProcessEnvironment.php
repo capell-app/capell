@@ -45,6 +45,11 @@ final class ComposerProcessEnvironment
                 $composerEnvironment['COMPOSER_HOME'] = $composerHome;
             } elseif (isset($composerEnvironment['HOME']) && $composerEnvironment['HOME'] !== '') {
                 $composerEnvironment['COMPOSER_HOME'] = rtrim($composerEnvironment['HOME'], DIRECTORY_SEPARATOR) . '/.composer';
+            } else {
+                // Web SAPIs commonly run without HOME. Leaving COMPOSER_HOME unset
+                // makes Composer abort with its own opaque "HOME or COMPOSER_HOME
+                // must be set" error, so fall back to a path we know we own.
+                $composerEnvironment['COMPOSER_HOME'] = storage_path('framework/composer');
             }
         }
 

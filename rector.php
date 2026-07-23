@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
+use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
@@ -90,6 +91,13 @@ return RectorConfig::configure()
         AddTypeToConstRector::class,
         PrivatizeFinalClassPropertyRector::class,
         ReadOnlyClassRector::class,
+        // Backup process exceptions retain environment variables such as database
+        // passwords. Keep them out of the public exception chain after extracting
+        // a deliberately sanitized operator-facing message.
+        ThrowWithPreviousExceptionRector::class => [
+            __DIR__ . '/packages/core/src/Support/Backup/Drivers/MySqlDatabaseBackupDriver.php',
+            __DIR__ . '/packages/core/src/Support/Backup/Drivers/PostgresDatabaseBackupDriver.php',
+        ],
         RemoveUselessVarTagRector::class => [
             __DIR__ . '/packages/admin/src/Settings/AdminSettings.php',
             __DIR__ . '/packages/core/src/ThemeStudio/Settings/ThemeStudioSettings.php',

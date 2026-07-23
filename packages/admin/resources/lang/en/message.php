@@ -46,6 +46,7 @@ return [
     'frontend_build_error' => 'Frontend build failed.',
     'frontend_build_queued' => 'Frontend build queued.',
     'frontend_build_already_running' => 'Frontend build is already queued or running.',
+    'frontend_build_contended' => 'Another request is starting a frontend build. Try again in a moment.',
     'frontend_build_queued_body' => 'Capell will rebuild the public frontend assets in the background.',
     'frontend_build_success' => 'Frontend build complete.',
     'frontend_build_success_body' => 'Capell rebuilt the public frontend assets from the configured npm build.',

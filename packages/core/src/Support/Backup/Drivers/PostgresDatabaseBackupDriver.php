@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Backup\Drivers;
 
 use Capell\Core\Contracts\Backup\DatabaseBackupDriver;
+use Capell\Core\Support\Backup\DatabaseBackupProcessError;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
 use InvalidArgumentException;
@@ -35,7 +36,7 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
             '--no-privileges',
             '--file=' . $destinationPath,
             $connection['database'],
-        ], $this->environment($connection), 'create', $connectionName);
+        ], $this->environment($connection), 'create', $connectionName, 'backup.binaries.pg_dump');
     }
 
     public function restore(string $connectionName, string $sourcePath, string $scratchDatabase): string
@@ -54,14 +55,14 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
             ...$arguments,
             '--dbname=postgres',
             '--command=CREATE DATABASE "' . $scratchDatabase . '"',
-        ], $environment, 'create scratch database', $connectionName);
+        ], $environment, 'create scratch database', $connectionName, 'backup.binaries.psql');
         $this->run([
             $binary,
             ...$arguments,
             '--set=ON_ERROR_STOP=1',
             '--dbname=' . $scratchDatabase,
             '--file=' . $sourcePath,
-        ], $environment, 'restore', $connectionName);
+        ], $environment, 'restore', $connectionName, 'backup.binaries.psql');
 
         return $scratchDatabase;
     }
@@ -118,15 +119,17 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
      * @param  list<string>  $command
      * @param  array<string, string>  $environment
      */
-    private function run(array $command, array $environment, string $operation, string $connectionName): Process
+    private function run(array $command, array $environment, string $operation, string $connectionName, string $binaryConfigKey): Process
     {
         try {
             $process = $this->processes->make($command, environment: $environment);
             $process->setTimeout(max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600)));
 
             return $process->mustRun();
-        } catch (Throwable) {
-            throw new RuntimeException(sprintf('PostgreSQL backup %s failed for connection [%s].', $operation, $connectionName));
+        } catch (Throwable $throwable) {
+            throw new RuntimeException(
+                DatabaseBackupProcessError::message($operation, $connectionName, $command[0], $binaryConfigKey, $throwable),
+            );
         }
     }
 }
