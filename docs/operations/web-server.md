@@ -101,8 +101,11 @@ Read the [hosting audit](hosting-audit-2026-07.md) before scaling out. The short
 - **Build assets once, deploy them everywhere.** The admin's "rebuild frontend assets"
   action writes to the local `public/` of whichever worker ran it; other nodes will 404
   the hashed filenames.
-- **Never run an upgrade from two nodes at once.** The upgrade lock is only as global as
-  your cache store.
+- **Run only one upgrade at a time.** Current installs enforce this in the shared
+  database through `capell_upgrade_locks`, independently of cache topology. An
+  installation upgrading from a version before that table existed temporarily falls
+  back to the configured cache lock until its migrations run, so the shared-cache
+  requirement still applies during that first upgrade.
 - **Use sticky sessions**, or a shared disk for Livewire temporary uploads. Filament
   uploads a file in one request and consumes it in a later one.
 

@@ -44,7 +44,16 @@ final class DatabaseUpgradeLock
     {
         $ttlSeconds = max(1, $ttlSeconds);
 
-        if (! $this->tableExists()) {
+        try {
+            $tableExists = $this->tableExists();
+        } catch (Throwable) {
+            // A schema lookup failure is not evidence that this is a legacy
+            // installation. Falling back here could let nodes with private cache
+            // stores acquire independent locks while the database recovers.
+            return null;
+        }
+
+        if (! $tableExists) {
             return $this->acquireThroughCache($name, $ttlSeconds);
         }
 
@@ -101,17 +110,20 @@ final class DatabaseUpgradeLock
      */
     public function isHeld(string $name): bool
     {
-        if (! $this->tableExists()) {
-            return $this->isHeldThroughCache($name);
-        }
-
         try {
+            if (! $this->tableExists()) {
+                return $this->isHeldThroughCache($name);
+            }
+
             return DB::table(self::TABLE)
                 ->where('name', $name)
                 ->where('expires_at', '>', Carbon::now())
                 ->exists();
         } catch (Throwable) {
-            return false;
+            // If lock state cannot be established, readiness must fail closed.
+            // Treating an unavailable coordination backend as "not held" would
+            // allow an upgrade to start without mutual exclusion.
+            return true;
         }
     }
 
@@ -133,7 +145,9 @@ final class DatabaseUpgradeLock
 
             return false;
         } catch (Throwable) {
-            return false;
+            // An unavailable fallback cache cannot prove the lock is free.
+            // Readiness must block rather than allow an uncoordinated upgrade.
+            return true;
         }
     }
 
@@ -148,10 +162,10 @@ final class DatabaseUpgradeLock
 
             return self::CACHE_TOKEN_PREFIX . $lock->owner();
         } catch (Throwable) {
-            // With no lock table and no usable cache there is nothing to coordinate
-            // through. Refusing every upgrade would be worse than proceeding, which
-            // is what this code did before the table existed.
-            return self::CACHE_TOKEN_PREFIX;
+            // With no lock table and no usable cache there is no safe way to
+            // coordinate concurrent upgrades. Fail closed rather than proceeding
+            // without the mutual exclusion this class promises.
+            return null;
         }
     }
 
@@ -170,11 +184,7 @@ final class DatabaseUpgradeLock
 
     private function tableExists(): bool
     {
-        try {
-            return Schema::hasTable(self::TABLE);
-        } catch (Throwable) {
-            return false;
-        }
+        return Schema::hasTable(self::TABLE);
     }
 
     private function releaseExpired(string $name, Carbon $now): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -90,4 +91,50 @@ it('reports a held lock without acquiring it', function (): void {
     expect($lock->isHeld('capell:upgrade'))->toBeTrue()
         // Still held after the read, and still owned by the original holder.
         ->and($lock->isHeld('capell:upgrade'))->toBeTrue();
+});
+
+it('refuses to acquire when neither database nor cache coordination is available', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with(DatabaseUpgradeLock::TABLE)
+        ->andReturnFalse();
+    Cache::shouldReceive('lock')
+        ->once()
+        ->with('capell:upgrade', 60)
+        ->andThrow(new RuntimeException('Cache unavailable.'));
+
+    expect(new DatabaseUpgradeLock()->acquire('capell:upgrade', 60))->toBeNull();
+});
+
+it('reports a held lock when fallback coordination state cannot be established', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with(DatabaseUpgradeLock::TABLE)
+        ->andReturnFalse();
+    Cache::shouldReceive('lock')
+        ->once()
+        ->with('capell:upgrade', 1)
+        ->andThrow(new RuntimeException('Cache unavailable.'));
+
+    expect(new DatabaseUpgradeLock()->isHeld('capell:upgrade'))->toBeTrue();
+});
+
+it('refuses to fall back to cache when the database schema cannot be inspected', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with(DatabaseUpgradeLock::TABLE)
+        ->andThrow(new RuntimeException('Database unavailable.'));
+    Cache::shouldReceive('lock')->never();
+
+    expect(new DatabaseUpgradeLock()->acquire('capell:upgrade', 60))->toBeNull();
+});
+
+it('reports a held lock when the database schema cannot be inspected', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with(DatabaseUpgradeLock::TABLE)
+        ->andThrow(new RuntimeException('Database unavailable.'));
+    Cache::shouldReceive('lock')->never();
+
+    expect(new DatabaseUpgradeLock()->isHeld('capell:upgrade'))->toBeTrue();
 });
