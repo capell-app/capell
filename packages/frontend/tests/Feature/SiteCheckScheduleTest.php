@@ -5,8 +5,10 @@ declare(strict_types=1);
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Console\Command\Command;
 
 function frontendScheduledEventFor(string $commandName): ?Event
 {
@@ -19,12 +21,19 @@ function frontendScheduledEventFor(string $commandName): ?Event
     return null;
 }
 
-function registerFrontendSiteCheckSchedule(mixed $frequency, bool $runningInConsole = true): ?Event
-{
+function registerFrontendSiteCheckSchedule(
+    mixed $frequency,
+    bool $runningInConsole = true,
+    bool $commandAvailable = true,
+): ?Event {
     config()->set('capell-frontend.schedule_page_cleaner', $frequency);
 
     $schedule = new Schedule(app());
     app()->instance(Schedule::class, $schedule);
+
+    if ($commandAvailable) {
+        resolve(ConsoleKernel::class)->registerCommand(new Command('capell:frontend-site-check'));
+    }
 
     $application = app();
     $runningInConsoleProperty = new ReflectionProperty(Application::class, 'isRunningInConsole');
@@ -47,11 +56,15 @@ function registerFrontendSiteCheckSchedule(mixed $frequency, bool $runningInCons
 }
 
 it('registers the frontend site check with its configured default frequency', function (): void {
-    $event = frontendScheduledEventFor('capell:frontend-site-check');
+    $event = registerFrontendSiteCheckSchedule('daily');
 
     expect($event)->not->toBeNull()
         ->and(Event::normalizeCommand((string) $event?->command))->toBe('php artisan capell:frontend-site-check')
         ->and($event?->getExpression())->toBe('0 0 * * *');
+});
+
+it('does not schedule the optional frontend site check when its command is unavailable', function (): void {
+    expect(registerFrontendSiteCheckSchedule('daily', commandAvailable: false))->toBeNull();
 });
 
 it('registers every supported frontend site check frequency', function (string $frequency, string $expression): void {

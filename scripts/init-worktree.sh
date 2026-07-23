@@ -128,8 +128,9 @@ Done. Remember that this repo's tooling needs an explicit memory limit:
   php -d memory_limit=1G vendor/bin/pest --compact --configuration=phpunit.xml <path>
   php -d memory_limit=2G vendor/bin/phpstan analyse --no-progress <path>
 
-vendor/ is shared with the primary checkout. Never run composer install/require
-/update from this worktree — it would rewrite the primary tree's packages.
+Parts of vendor/ are shared with the primary checkout. Composer scripts are safe,
+but never run composer install/require/update/remove from this worktree — dependency
+mutations can write through the shared package symlinks.
 
 KNOWN LIMITATION — read before trusting a full-suite run.
 Third-party packages are symlinked, so any code that walks upward from inside

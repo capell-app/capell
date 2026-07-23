@@ -1,9 +1,10 @@
 # Git worktrees
 
 Use a git worktree when more than one person or agent session is working in this repo
-at once. The working tree is shared mutable state with no lock: another session's
-`git checkout`, `git reset --hard`, or branch switch silently reverts your uncommitted
-edits and makes test runs fail or hang. Commits survive that; uncommitted work does not.
+at once. Each linked worktree has its own checked-out files, branch, `HEAD`, and index,
+while the repository objects and local branch refs remain shared. That isolates
+uncommitted edits and staging, but deleting or moving a shared branch ref still affects
+every checkout.
 
 ```bash
 git worktree add ../capell-4-my-feature -b feature/my-feature
@@ -70,11 +71,12 @@ php -r 'require "vendor/autoload.php"; echo (new ReflectionClass("Capell\Core\En
 The path must be inside your worktree. If it points at the primary checkout, delete
 `vendor/` and start again — every green test you have seen is meaningless.
 
-### Never run Composer from a worktree
+### Never mutate dependencies from a hybrid worktree
 
-`composer install`, `require`, `update`, and `remove` would write through the symlinks
-into the primary checkout's packages. Manage dependencies in the primary checkout, then
-re-run `scripts/init-worktree.sh --force` in each worktree.
+Composer scripts such as `composer test:unit` are safe. Dependency-mutating commands
+such as `install`, `require`, `update`, and `remove` are not: the hybrid `vendor/`
+contains symlinks into the primary checkout. Manage dependencies in the primary
+checkout, then re-run `scripts/init-worktree.sh --force` in each worktree.
 
 ## Running tests in a worktree
 
@@ -95,16 +97,13 @@ php -d memory_limit=1G vendor/bin/pest --compact --configuration=phpunit.xml pac
 php -d memory_limit=2G vendor/bin/phpstan analyse --no-progress packages/core/src
 ```
 
-`--parallel` is unavailable in a worktree built this way; runs are serial. The full core
-unit suite takes roughly three minutes.
-
 ## Committing from a worktree
 
-The shared-checkout rules still apply, because the index is shared:
+Each worktree has its own index. Path-scoped commits are still useful when more than one
+task is active in the same worktree:
 
 - Commit by pathspec — `git commit -F - -- path/one path/two`. Plain `git add X && git commit`
-  commits the **whole index**, so a concurrent session's staged files ride along in your
-  commit, at whatever revision they staged, which can silently revert their work.
+  commits the **whole index**, including unrelated files staged in that checkout.
 - For a new file, `git add -N <path>` first, or the pathspec commit errors.
 - Verify immediately with `git show --stat`: the file count must match your pathspec.
 - Commit each slice as its edits land rather than batching until the end. Isolation
