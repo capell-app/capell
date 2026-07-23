@@ -72,13 +72,16 @@ final class ProcessCommandRunner implements CommandRunner
     {
         $outputPath = tempnam(sys_get_temp_dir(), 'capell-release-output-');
         $errorPath = tempnam(sys_get_temp_dir(), 'capell-release-error-');
-        throw_if($outputPath === false || $errorPath === false, RuntimeException::class, 'Unable to allocate command output files.');
+        if ($outputPath === false || $errorPath === false) {
+            throw new RuntimeException('Unable to allocate command output files.');
+        }
 
         try {
             $descriptor = [1 => ['file', $outputPath, 'w'], 2 => ['file', $errorPath, 'w']];
             $process = proc_open(array_map(strval(...), $command), $descriptor, $pipes, $workingDirectory);
-            throw_unless(is_resource($process), RuntimeException::class, 'Unable to start command.');
-
+            if (! is_resource($process)) {
+                throw new RuntimeException('Unable to start command.');
+            }
             $exitCode = proc_close($process);
             $output = file_get_contents($outputPath);
             $error = file_get_contents($errorPath);
@@ -102,17 +105,16 @@ final class DependencyGraph
         $visiting = [];
         $visited = [];
         $visit = function (string $package) use (&$visit, &$result, &$visiting, &$visited, $dependencies): void {
-            throw_if(isset($visiting[$package]), ReleaseException::class, sprintf('Dependency cycle includes %s.', $package));
-
+            if (isset($visiting[$package])) {
+                throw new ReleaseException("Dependency cycle includes {$package}.");
+            }
             if (isset($visited[$package])) {
                 return;
             }
-
             $visiting[$package] = true;
             foreach ($dependencies[$package] ?? [] as $dependency) {
                 $visit($dependency);
             }
-
             unset($visiting[$package]);
             $visited[$package] = true;
             $result[] = $package;
@@ -124,7 +126,6 @@ final class DependencyGraph
         return $result;
     }
 }
-
 // LOCKSTEP-END command-runner
 
 final class PlanValidator
@@ -132,13 +133,15 @@ final class PlanValidator
     // LOCKSTEP-BEGIN maturity-vocabulary
     public static function assertMaturity(mixed $maturity, string $context): string
     {
-        throw_if($maturity === 'labs', ReleaseException::class, $context . ' declares maturity labs, which is not yet supported.');
-
-        throw_unless(in_array($maturity, ['stable', 'beta'], true), ReleaseException::class, $context . ' must declare maturity stable or beta.');
+        if ($maturity === 'labs') {
+            throw new ReleaseException("{$context} declares maturity labs, which is not yet supported.");
+        }
+        if (! in_array($maturity, ['stable', 'beta'], true)) {
+            throw new ReleaseException("{$context} must declare maturity stable or beta.");
+        }
 
         return $maturity;
     }
-
     // LOCKSTEP-END maturity-vocabulary
 
     // LOCKSTEP-BEGIN declared-maturity
@@ -158,23 +161,21 @@ final class PlanValidator
         foreach ($definitions as $definition) {
             $declared[$definition['name']] = self::assertMaturity(
                 $definition['maturity'] ?? 'stable',
-                'Release package definition ' . $definition['name'],
+                "Release package definition {$definition['name']}",
             );
         }
-
-        throw_if(array_column($plan['ledger'], 'name') !== array_keys($declared), ReleaseException::class, 'Plan ledger must exactly match declared release package inventory.');
-
+        if (array_column($plan['ledger'], 'name') !== array_keys($declared)) {
+            throw new ReleaseException('Plan ledger must exactly match declared release package inventory.');
+        }
         foreach ($plan['ledger'] as $entry) {
             $expected = $declared[$entry['name']];
             if ($entry['maturity'] === $expected) {
                 continue;
             }
-
             $remedy = $expected === 'beta' ? 'beta' : 'promote';
-            throw new ReleaseException(sprintf('Package %s declares maturity %s in config/release-packages.json but the plan resolves %s. Re-plan with --bump=%s=%s, or align the declaration.', $entry['name'], $expected, $entry['maturity'], $entry['name'], $remedy));
+            throw new ReleaseException("Package {$entry['name']} declares maturity {$expected} in config/release-packages.json but the plan resolves {$entry['maturity']}. Re-plan with --bump={$entry['name']}={$remedy}, or align the declaration.");
         }
     }
-
     // LOCKSTEP-END declared-maturity
 
     // LOCKSTEP-BEGIN version-transition
@@ -183,29 +184,25 @@ final class PlanValidator
     {
         $type = $package['release_type'];
         if (! in_array($type, ['baseline', 'patch', 'minor', 'major', 'beta', 'promote'], true)) {
-            throw new ReleaseException(sprintf('Invalid release transition for %s.', $package['name']));
+            throw new ReleaseException("Invalid release transition for {$package['name']}.");
         }
-
         if ($type === 'baseline') {
             $expected = $package['maturity'] === 'beta' ? '1.0.0-beta.1' : '1.0.0';
             if ($package['current_version'] !== null || $package['proposed_version'] !== $expected) {
-                throw new ReleaseException(sprintf('Invalid release transition for %s.', $package['name']));
+                throw new ReleaseException("Invalid release transition for {$package['name']}.");
             }
 
             return;
         }
-
         if (! is_string($package['current_version'])) {
-            throw new ReleaseException(sprintf('Invalid release transition for %s.', $package['name']));
+            throw new ReleaseException("Invalid release transition for {$package['name']}.");
         }
-
         $expected = ReleaseEngine::bump($package['current_version'], $type);
         $expectedMaturity = str_contains($expected, '-beta.') ? 'beta' : 'stable';
         if ($package['proposed_version'] !== $expected || $package['maturity'] !== $expectedMaturity) {
-            throw new ReleaseException(sprintf('Invalid release transition for %s.', $package['name']));
+            throw new ReleaseException("Invalid release transition for {$package['name']}.");
         }
     }
-
     // LOCKSTEP-END version-transition
 
     /**
@@ -357,10 +354,13 @@ final class PlanValidator
     /** @param array<string,mixed> $manifest */
     public function validateManifest(array $manifest): void
     {
-        throw_if(array_key_exists('version', $manifest), ReleaseException::class, 'Composer manifests must not declare self.version.');
-
+        if (array_key_exists('version', $manifest)) {
+            throw new ReleaseException('Composer manifests must not declare self.version.');
+        }
         foreach (($manifest['require'] ?? []) as $name => $constraint) {
-            throw_if(str_starts_with((string) $name, 'capell-app/') && $this->isLegacyConstraint((string) $constraint), ReleaseException::class, sprintf('Legacy production constraint %s:%s.', $name, $constraint));
+            if (str_starts_with($name, 'capell-app/') && self::isLegacyConstraint((string) $constraint)) {
+                throw new ReleaseException("Legacy production constraint {$name}:{$constraint}.");
+            }
         }
     }
 
@@ -377,12 +377,11 @@ final class PlanValidator
         };
     }
 
-    private function isLegacyConstraint(string $constraint): bool
+    private static function isLegacyConstraint(string $constraint): bool
     {
         if (preg_match('/(?:\*|\bdev-|\.x-dev|\b0\.0(?:\.|\b))/i', $constraint)) {
             return true;
         }
-
         preg_match_all('/(?<![0-9.])(\d+)(?:\.\d+)?/', $constraint, $matches);
         foreach ($matches[1] as $major) {
             if ((int) $major < 1 || ((int) $major < 5 && (int) $major !== 1 && ! str_contains($constraint, '<' . $major))) {
@@ -392,7 +391,6 @@ final class PlanValidator
 
         return (bool) preg_match('/(?:\^|~|>=?|=)?\s*[234](?:\D|$)/', $constraint);
     }
-
     // LOCKSTEP-END manifest-and-version-rules
 }
 
@@ -404,15 +402,12 @@ final class ResumeDecision
         if ($existingSha === null) {
             return 'publish';
         }
-
         if (hash_equals($expectedSha, $existingSha)) {
             return 'resume';
         }
-
         throw new ReleaseException('Existing immutable tag does not match the planned split SHA.');
     }
 }
-
 // LOCKSTEP-END resume-decision
 
 final class ReleaseEngine
@@ -424,27 +419,27 @@ final class ReleaseEngine
     {
         $isBeta = (bool) preg_match('/^(\d+)\.(\d+)\.(\d+)-beta\.([1-9]\d*)$/', $version, $beta);
         if ($type === 'promote') {
-            throw_unless($isBeta, ReleaseException::class, sprintf('Cannot promote stable version %s.', $version));
+            if (! $isBeta) {
+                throw new ReleaseException("Cannot promote stable version {$version}.");
+            }
 
-            return sprintf('%s.%s.%s', $beta[1], $beta[2], $beta[3]);
+            return "{$beta[1]}.{$beta[2]}.{$beta[3]}";
         }
-
         if ($type === 'beta' && $isBeta) {
-            return sprintf('%s.%s.%s-beta.', $beta[1], $beta[2], $beta[3]) . ((int) $beta[4] + 1);
+            return "{$beta[1]}.{$beta[2]}.{$beta[3]}-beta." . ((int) $beta[4] + 1);
         }
-
-        throw_if($isBeta, ReleaseException::class, sprintf('Cannot %s bump prerelease version %s; promote the beta first.', $type, $version));
-
+        if ($isBeta) {
+            throw new ReleaseException("Cannot {$type} bump prerelease version {$version}; promote the beta first.");
+        }
         [$major,$minor,$patch] = array_map(intval(...), explode('.', $version));
 
         return match ($type) {
             'major' => ($major + 1) . '.0.0',
             'minor' => $major . '.' . ($minor + 1) . '.0',
             'beta' => $major . '.' . ($minor + 1) . '.0-beta.1',
-            default => sprintf('%d.%d.', $major, $minor) . ($patch + 1),
+            default => "{$major}.{$minor}." . ($patch + 1),
         };
     }
-
     // LOCKSTEP-END bump
 
     /**
@@ -548,117 +543,116 @@ final class ReleaseEngine
         $planHash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : ['plan_sha256' => $planHash, 'source_commit' => $plan['source']['commit'], 'packages' => []];
-        throw_if(($state['plan_sha256'] ?? null) !== $planHash || ($state['source_commit'] ?? null) !== $plan['source']['commit'], ReleaseException::class, 'Existing release state belongs to a different plan or source commit.');
-
+        if (($state['plan_sha256'] ?? null) !== $planHash || ($state['source_commit'] ?? null) !== $plan['source']['commit']) {
+            throw new ReleaseException('Existing release state belongs to a different plan or source commit.');
+        }
         $this->assertExactSource($plan);
         $preflightScript = null;
         if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
-            throw_if(! is_string($preflightScript) || $preflightScript === '' || ! is_file($preflightScript), ReleaseException::class, 'RELEASE_PREFLIGHT_SCRIPT must name a repository-owned preflight script.');
+            if (! is_string($preflightScript) || $preflightScript === '' || ! is_file($preflightScript)) {
+                throw new ReleaseException('RELEASE_PREFLIGHT_SCRIPT must name a repository-owned preflight script.');
+            }
         }
-
         $releases = [];
         foreach ($plan['dependency_order'] as $name) {
             $package = current(array_filter($plan['packages'], fn (array $item): bool => $item['name'] === $name));
             $tag = 'v' . $package['proposed_version'];
             $repository = $package['split_repository'];
-            $main = $this->optional(['gh', 'api', sprintf('repos/%s/git/ref/heads/main', $repository), '--jq', '.object.sha']);
+            $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             $record = $state['packages'][$name] ?? null;
             $recordedSplit = is_array($record) ? ($record['split_sha'] ?? null) : null;
             $recordedState = is_array($record) ? ($record['state'] ?? null) : null;
             $resumeRecordedMain = in_array($recordedState, ['main_pushed', 'published'], true);
 
             if ($resumeRecordedMain) {
-                throw_if(! is_string($recordedSplit) || preg_match('/^[a-f0-9]{40}$/', $recordedSplit) !== 1 || ($record['tag'] ?? null) !== $tag, ReleaseException::class, sprintf('Recorded main push state for %s is incomplete.', $name));
-
-                throw_if(! is_string($main) || ! hash_equals($recordedSplit, $main), ReleaseException::class, sprintf('Remote main drift after recorded push for %s.', $name));
-
-                $this->required(['git', 'fetch', '--no-tags', sprintf('https://github.com/%s.git', $repository), 'refs/heads/main'], $this->root);
+                if (! is_string($recordedSplit) || preg_match('/^[a-f0-9]{40}$/', $recordedSplit) !== 1 || ($record['tag'] ?? null) !== $tag) {
+                    throw new ReleaseException("Recorded main push state for {$name} is incomplete.");
+                }
+                if (! is_string($main) || ! hash_equals($recordedSplit, $main)) {
+                    throw new ReleaseException("Remote main drift after recorded push for {$name}.");
+                }
+                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", 'refs/heads/main'], $this->root);
                 $splitSha = $recordedSplit;
             } elseif (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
-                $this->required(['git', 'fetch', '--no-tags', sprintf('https://github.com/%s.git', $repository), 'refs/heads/main'], $this->root);
+                $this->required(['git', 'fetch', '--no-tags', "https://github.com/{$repository}.git", 'refs/heads/main'], $this->root);
                 $parent = $this->git(['rev-parse', 'FETCH_HEAD']);
-                $parentTree = $this->git(['rev-parse', $parent . '^{tree}']);
+                $parentTree = $this->git(['rev-parse', "{$parent}^{tree}"]);
                 $splitSha = hash_equals($package['subtree_hash'], $parentTree)
                     ? $parent
-                    : $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', 'Release ' . $tag]);
+                    : $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', "Release {$tag}"]);
             } else {
                 $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit']]);
             }
-
-            $splitTree = $this->git(['rev-parse', $splitSha . '^{tree}']);
-            throw_unless(hash_equals($package['subtree_hash'], $splitTree), ReleaseException::class, sprintf('Split tree mismatch for %s.', $name));
-
-            $existing = $this->optional(['gh', 'api', sprintf('repos/%s/git/ref/tags/%s', $repository, $tag), '--jq', '.object.sha']);
-            $peeled = $existing === null ? null : $this->optional(['gh', 'api', sprintf('repos/%s/git/tags/%s', $repository, $existing), '--jq', '.object.sha']) ?? $existing;
+            $splitTree = $this->git(['rev-parse', "{$splitSha}^{tree}"]);
+            if (! hash_equals($package['subtree_hash'], $splitTree)) {
+                throw new ReleaseException("Split tree mismatch for {$name}.");
+            }
+            $existing = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
+            $peeled = $existing === null ? null : $this->optional(['gh', 'api', "repos/{$repository}/git/tags/{$existing}", '--jq', '.object.sha']) ?? $existing;
             $decision = ResumeDecision::forTag($peeled, $splitSha);
             $sourceTag = $package['source_tag'];
             $localSourceTagSha = $this->optional(['git', 'rev-parse', '-q', '--verify', 'refs/tags/' . $sourceTag . '^{commit}']);
             $localSourceTagSha = $localSourceTagSha === '' ? null : $localSourceTagSha;
             $sourceLine = $this->optional(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $sourceTag]);
             $sourceTagSha = $sourceLine === null || $sourceLine === '' ? null : strtok($sourceLine, "\t ");
-            throw_if(($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit']), ReleaseException::class, sprintf('Existing source tag %s does not match the planned source commit.', $sourceTag));
-
+            if (($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit'])) {
+                throw new ReleaseException("Existing source tag {$sourceTag} does not match the planned source commit.");
+            }
             if ($sourceTagSha !== null) {
                 $record = $state['packages'][$name] ?? null;
-                throw_if(($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash || ($record['source_tag_sha'] ?? null) !== $sourceTagSha, ReleaseException::class, sprintf("Existing source tag %s is not backed by this plan's passed preflight state.", $sourceTag));
+                if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash || ($record['source_tag_sha'] ?? null) !== $sourceTagSha) {
+                    throw new ReleaseException("Existing source tag {$sourceTag} is not backed by this plan's passed preflight state.");
+                }
             }
-
             if ($decision === 'resume') {
                 $record = $state['packages'][$name] ?? null;
-                throw_if(($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash
-                    || ($record['split_sha'] ?? null) !== $splitSha || ($record['tag'] ?? null) !== $tag, ReleaseException::class, sprintf("Existing matching tag for %s is not backed by this plan's passed preflight state.", $name));
+                if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash
+                    || ($record['split_sha'] ?? null) !== $splitSha || ($record['tag'] ?? null) !== $tag) {
+                    throw new ReleaseException("Existing matching tag for {$name} is not backed by this plan's passed preflight state.");
+                }
             }
-
-            $maturity = PlanValidator::assertMaturity($package['maturity'], 'Package ' . $name);
-            $releases[] = ['name' => $name, 'repository' => $repository, 'tag' => $tag, 'splitSha' => $splitSha, 'decision' => $decision, 'sourceTag' => $sourceTag, 'sourceTagSha' => $sourceTagSha, 'localSourceTagSha' => $localSourceTagSha, 'maturity' => $maturity];
+            $maturity = PlanValidator::assertMaturity($package['maturity'], "Package {$name}");
+            $releases[] = compact('name', 'repository', 'tag', 'splitSha', 'decision', 'sourceTag', 'sourceTagSha', 'localSourceTagSha', 'maturity');
         }
-
         foreach ($releases as $release) {
             ['name' => $name,'repository' => $repository,'tag' => $tag,'splitSha' => $splitSha] = $release;
             $token = getenv('GH_TOKEN');
-            throw_if(! is_string($token) || $token === '', ReleaseException::class, 'GH_TOKEN is required.');
-
-            $main = $this->optional(['gh', 'api', sprintf('repos/%s/git/ref/heads/main', $repository), '--jq', '.object.sha']);
+            if (! is_string($token) || $token === '') {
+                throw new ReleaseException('GH_TOKEN is required.');
+            }
+            $main = $this->optional(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             if ($main !== $splitSha) {
                 $lease = is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main) ? $main : null;
-                $this->required($this->pushCommand($repository, $splitSha . ':refs/heads/main', $lease), $this->root);
+                $this->required($this->pushCommand($repository, "{$splitSha}:refs/heads/main", $lease), $this->root);
             }
-
             $state['packages'][$name] = array_merge($state['packages'][$name] ?? [], ['state' => 'main_pushed', 'split_sha' => $splitSha, 'tag' => $tag]);
             $this->writeState($planPath, $state);
         }
-
         if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $this->required([PHP_BINARY, $preflightScript, $planPath, $statePath], $this->root);
             $state['preflight'] = ['state' => 'passed', 'plan_sha256' => $planHash];
             $this->writeState($planPath, $state);
         }
-
         foreach ($releases as $release) {
             ['name' => $name,'repository' => $repository,'tag' => $tag,'splitSha' => $splitSha,'decision' => $decision,'sourceTag' => $sourceTag,'sourceTagSha' => $sourceTagSha,'localSourceTagSha' => $localSourceTagSha,'maturity' => $maturity] = $release;
             if ($sourceTagSha === null) {
                 if ($localSourceTagSha === null) {
                     $this->required(['git', 'tag', $sourceTag, $plan['source']['commit']], $this->root);
                 }
-
                 $this->required(['git', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
             }
-
             if ($decision === 'publish') {
-                $this->required($this->pushCommand($repository, sprintf('%s:refs/tags/%s', $splitSha, $tag)), $this->root);
+                $this->required($this->pushCommand($repository, "{$splitSha}:refs/tags/{$tag}"), $this->root);
             }
-
             if ($this->optional(['gh', 'release', 'view', $tag, '--repo', $repository, '--json', 'tagName']) === null) {
                 $this->required(['gh', 'release', 'create', $tag, '--repo', $repository, '--verify-tag', '--generate-notes', ...($maturity === 'beta' ? ['--prerelease'] : [])]);
             }
-
-            $tagSha = $this->required(['gh', 'api', sprintf('repos/%s/git/ref/tags/%s', $repository, $tag), '--jq', '.object.sha']);
+            $tagSha = $this->required(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
             $state['packages'][$name] = ['state' => 'published', 'split_sha' => $splitSha, 'tag' => $tag, 'tag_sha' => $tagSha, 'source_tag' => $sourceTag, 'source_tag_sha' => $plan['source']['commit'], 'maturity' => $maturity];
             $this->writeState($planPath, $state);
         }
     }
-
     // LOCKSTEP-END publish
 
     // LOCKSTEP-BEGIN verify
@@ -671,27 +665,25 @@ final class ReleaseEngine
         foreach ($plan['packages'] as $package) {
             $tag = 'v' . $package['proposed_version'];
             $repository = $package['split_repository'];
-            $tagSha = $this->required(['gh', 'api', sprintf('repos/%s/git/ref/tags/%s', $repository, $tag), '--jq', '.object.sha']);
+            $tagSha = $this->required(['gh', 'api', "repos/{$repository}/git/ref/tags/{$tag}", '--jq', '.object.sha']);
             if (($state['packages'][$package['name']]['tag_sha'] ?? null) !== $tagSha) {
-                throw new ReleaseException(sprintf('Remote tag drift for %s.', $package['name']));
+                throw new ReleaseException("Remote tag drift for {$package['name']}.");
             }
-
             $isPrerelease = $this->required(['gh', 'release', 'view', $tag, '--repo', $repository, '--json', 'isPrerelease', '--jq', '.isPrerelease']);
             $expectedPrerelease = $package['maturity'] === 'beta' ? 'true' : 'false';
             if ($isPrerelease !== $expectedPrerelease) {
-                throw new ReleaseException(sprintf('Remote release stability drift for %s.', $package['name']));
+                throw new ReleaseException("Remote release stability drift for {$package['name']}.");
             }
-
-            $main = $this->required(['gh', 'api', sprintf('repos/%s/git/ref/heads/main', $repository), '--jq', '.object.sha']);
+            $main = $this->required(['gh', 'api', "repos/{$repository}/git/ref/heads/main", '--jq', '.object.sha']);
             if ($main !== $state['packages'][$package['name']]['split_sha']) {
-                throw new ReleaseException(sprintf('Remote main drift for %s.', $package['name']));
+                throw new ReleaseException("Remote main drift for {$package['name']}.");
             }
             $sourceLine = $this->required(
                 ['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $package['source_tag']],
                 $this->root,
             );
             if (! str_starts_with($sourceLine, $plan['source']['commit'])) {
-                throw new ReleaseException(sprintf('Source tag drift for %s.', $package['name']));
+                throw new ReleaseException("Source tag drift for {$package['name']}.");
             }
         }
     }
@@ -729,20 +721,28 @@ final class ReleaseEngine
     // LOCKSTEP-BEGIN push-command
     private function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
-        return ['git', 'push', ...($lease === null ? [] : ['--force-with-lease=refs/heads/main:' . $lease]), sprintf('https://github.com/%s.git', $repository), $refspec];
+        return ['git', 'push', ...($lease === null ? [] : ["--force-with-lease=refs/heads/main:{$lease}"]), "https://github.com/{$repository}.git", $refspec];
     }
+    // LOCKSTEP-END push-command
 
+    // LOCKSTEP-BEGIN release-definitions
+    /** @return array<array-key,mixed> */
+    private function releaseDefinitions(): array
+    {
+        return json_decode((string) file_get_contents($this->root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
+    }
     // LOCKSTEP-END release-definitions
 
     // LOCKSTEP-BEGIN engine-helpers
     private function assertExactSource(array $plan): void
     {
         $this->assertCleanSource();
-        throw_if($this->git(['rev-parse', 'HEAD']) !== $plan['source']['commit'], ReleaseException::class, 'Current checkout does not match planned source commit.');
-
+        if ($this->git(['rev-parse', 'HEAD']) !== $plan['source']['commit']) {
+            throw new ReleaseException('Current checkout does not match planned source commit.');
+        }
         foreach ($plan['packages'] as $package) {
             if ($this->git(['rev-parse', $plan['source']['commit'] . ':' . $package['path']]) !== $package['subtree_hash']) {
-                throw new ReleaseException(sprintf('Source tree drift for %s.', $package['name']));
+                throw new ReleaseException("Source tree drift for {$package['name']}.");
             }
         }
     }
@@ -753,7 +753,7 @@ final class ReleaseEngine
         if ($result['exitCode'] !== 0) {
             $error = $command[0] === 'git' ? $this->sanitiseError((string) ($result['error'] ?? '')) : '';
             $description = (string) ($command[0] ?? 'unknown');
-            throw new ReleaseException('Command failed: ' . $description . ($error === '' ? '' : ': ' . $error));
+            throw new ReleaseException('Command failed: ' . $description . ($error === '' ? '' : ": {$error}"));
         }
 
         return $result['output'];
@@ -781,21 +781,23 @@ final class ReleaseEngine
         $path = $planPath . '.state.json';
         $temporary = $path . '.' . bin2hex(random_bytes(8)) . '.tmp';
         $handle = fopen($temporary, 'xb');
-        throw_if($handle === false, ReleaseException::class, 'Unable to create release state file.');
-
+        if ($handle === false) {
+            throw new ReleaseException('Unable to create release state file.');
+        }
         fwrite($handle, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
         fflush($handle);
         if (function_exists('fsync')) {
             fsync($handle);
         }
-
         fclose($handle);
         rename($temporary, $path);
     }
 
     private function assertCleanSource(): void
     {
-        throw_if($this->git(['status', '--porcelain']) !== '', ReleaseException::class, 'Refusing to plan from a dirty source tree.');
+        if ($this->git(['status', '--porcelain']) !== '') {
+            throw new ReleaseException('Refusing to plan from a dirty source tree.');
+        }
     }
 
     private function git(array $arguments): string
@@ -807,6 +809,5 @@ final class ReleaseEngine
 
         return $result['output'];
     }
-
     // LOCKSTEP-END engine-helpers
 }
