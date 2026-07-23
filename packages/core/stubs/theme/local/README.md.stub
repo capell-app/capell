@@ -23,12 +23,28 @@ Add the host app path repository if it is not already present:
 }
 ```
 
-Then run Composer and install Capell with this theme:
+Then run Composer, clear the cached package manifest, generate the per-theme
+Tailwind bundle, and install Capell with this theme:
 
 ```bash
 composer update {{ packageName }} --with-dependencies
+php artisan capell:package-cache:clear
+php artisan config:clear
+php artisan capell:frontend-tailwind-assets
 php artisan capell:install --theme={{ themeKey }}
 php artisan capell:theme:doctor {{ themeKey }} --path=packages/{{ slug }}
+```
+
+The provider registers `resources/css/theme.css` with the `theme-css:{{ themeKey }}`
+condition. Keep that key aligned with `themeKey`; a mismatch produces a valid-looking
+theme whose CSS never reaches the generated per-theme bundle.
+
+From the package directory, run the standalone theme contract test before
+loading it in the host app:
+
+```bash
+composer install
+composer test
 ```
 
 Local theme providers intentionally register their runtime unconditionally. The

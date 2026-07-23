@@ -15,7 +15,7 @@
     "namespace": "{{ escapedNamespace }}",
     "surfaces": ["frontend", "shared"],
     "dependencies": {
-        "requires": ["capell-app/core", "capell-app/frontend"],
+        "requires": ["capell-app/core", "capell-app/frontend", "capell-app/theme-foundation"],
         "supports": [],
         "conflicts": []
     },
@@ -40,7 +40,7 @@
     },
     "settings": [],
     "permissions": [],
-    "capabilities": ["theme", "frontend-rendering"],
+    "capabilities": ["frontend-rendering", "tailwind-assets"],
     "security": {
         "riskTier": "low",
         "publicSurface": {

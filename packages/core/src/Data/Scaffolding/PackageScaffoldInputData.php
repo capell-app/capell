@@ -37,6 +37,7 @@ final readonly class PackageScaffoldInputData
             '{{ escapedFrontendProvider }}' => str_replace('\\', '\\\\', $this->namespace . '\\Providers\\FrontendServiceProvider'),
             '{{ packageClass }}' => class_basename($this->namespace),
             '{{ settingsGroup }}' => str_replace('-', '_', $this->slug),
+            '{{ widgetKey }}' => str_replace('/', '.', $this->packageName),
         ];
     }
 }

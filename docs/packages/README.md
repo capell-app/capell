@@ -6,6 +6,7 @@ Use this section if you build or maintain a Capell package.
 
 | I need to...                               | Read                                                               |
 | ------------------------------------------ | ------------------------------------------------------------------ |
+| Get from a scaffold to a rendering package | [Extension and theme development](../../packages/core/docs/extension-development.md) |
 | Decide between host, package, and app code | [Host, package, or app code](../development/package-boundaries.md) |
 | Build a package from start to finish       | [Build an extension end to end](build-extension-end-to-end.md)     |
 | Find the shortest path for a package task  | [Package authoring jobs](package-authoring-jobs.md)                |

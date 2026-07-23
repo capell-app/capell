@@ -1,5 +1,3 @@
 <div class="{{ themeKey }}-page" data-theme="{{ themeKey }}">
-    <link rel="stylesheet" href="@frontendAsset('vendor/{{ slug }}/theme.css')">
-
     {!! $content !!}
 </div>

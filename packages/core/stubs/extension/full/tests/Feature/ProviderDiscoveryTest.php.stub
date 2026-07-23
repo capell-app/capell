@@ -15,5 +15,5 @@ it('declares every provider bucket used by the full scaffold', function (): void
         ->and($manifest['providers']['install'])->toBe(['{{ namespace }}\\Providers\\InstallServiceProvider'])
         ->and($manifest['providers']['runtime'])->toBe(['{{ namespace }}\\Providers\\PackageServiceProvider'])
         ->and($manifest['providers']['admin'])->toBe(['{{ namespace }}\\Providers\\AdminServiceProvider'])
-        ->and($manifest['providers']['frontend'])->toBe(['{{ namespace }}\\Providers\\FrontendServiceProvider']);
+        ->and($manifest['providers']['frontend'])->toBe([]);
 });

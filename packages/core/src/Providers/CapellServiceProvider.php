@@ -32,6 +32,7 @@ use Capell\Core\Console\Commands\MakeSchemaCommand;
 use Capell\Core\Console\Commands\MakeThemeCommand;
 use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Console\Commands\PackageClearCacheCommand;
+use Capell\Core\Console\Commands\PackageLintCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
@@ -239,6 +240,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             MakeExtensionCommand::class,
             MakeSchemaCommand::class,
             MakeThemeCommand::class,
+            PackageLintCommand::class,
             MakeBlueprintCommand::class,
             UpgradeCommand::class,
             RollbackCommand::class,

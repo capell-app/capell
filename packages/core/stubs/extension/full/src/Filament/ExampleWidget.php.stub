@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Filament;
+
+use Capell\Admin\Contracts\Widgets\FilamentWidget;
+use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\TextInput;
+
+final class ExampleWidget implements FilamentWidget
+{
+    public static function getWidgetName(): string
+    {
+        return '{{ widgetKey }}';
+    }
+
+    public static function make(): Block
+    {
+        return Block::make(self::getWidgetName())
+            ->label('{{ displayName }} example')
+            ->schema([
+                TextInput::make('heading')->required()->maxLength(120),
+                TextInput::make('body')->required()->maxLength(280),
+            ]);
+    }
+}
