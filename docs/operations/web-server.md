@@ -1,7 +1,7 @@
 # Web server configuration
 
 Capell runs on a standard Laravel web server configuration. This page covers the parts
-that are *not* standard: serving the static HTML cache, and what changes when you run
+that are _not_ standard: serving the static HTML cache, and what changes when you run
 more than one node.
 
 ## Three different things called "cache"
@@ -9,11 +9,11 @@ more than one node.
 Confusing these is the most common source of "why is my page stale" tickets, so it is
 worth being precise:
 
-| Name | Where it lives | Who serves it |
-| --- | --- | --- |
-| Object cache | Your Laravel cache store | Capell, in PHP — see [page cache architecture](../architecture/page-cache.md) |
-| Static HTML cache | `public/page-cache` | Your **web server**, before PHP runs |
-| Static artifacts | `storage/framework/capell-static-artifacts` | Nobody — export output from `capell:generate-html` |
+| Name              | Where it lives                              | Who serves it                                                                 |
+| ----------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
+| Object cache      | Your Laravel cache store                    | Capell, in PHP — see [page cache architecture](../architecture/page-cache.md) |
+| Static HTML cache | `public/page-cache`                         | Your **web server**, before PHP runs                                          |
+| Static artifacts  | `storage/framework/capell-static-artifacts` | Nobody — export output from `capell:generate-html`                            |
 
 Only the middle one needs web-server rules. The static HTML cache is provided by the
 optional `capell-app/html-cache` package; if you have not installed it, you can skip the
@@ -22,7 +22,7 @@ rest of this page.
 ## Serving the static HTML cache
 
 The point of the static HTML cache is to answer anonymous requests from disk without
-booting PHP. That only happens if the web server checks for a cached file *before*
+booting PHP. That only happens if the web server checks for a cached file _before_
 falling through to `index.php`.
 
 Cached files are written as `public/page-cache/<path>.html`.
@@ -88,7 +88,7 @@ pipeline rather than your site. Under Octane, restart the workers afterwards.
 ## Multiple nodes
 
 Capell was designed for single-node hosting, and several subsystems still assume it.
-Read the [hosting audit](hosting-audit-2026-07.md) before scaling out. The short version:
+Before scaling out, account for these operating constraints:
 
 - **Use a shared cache store.** Redis or Memcached reachable by every node. The `file`
   and `array` drivers make each node's cache — and every lock built on it — private to
@@ -111,7 +111,6 @@ Read the [hosting audit](hosting-audit-2026-07.md) before scaling out. The short
 
 ## Further reading
 
-- [Hosting audit — July 2026](hosting-audit-2026-07.md)
 - [Running Capell on Laravel Octane](octane.md)
 - [Page cache architecture](../architecture/page-cache.md)
 - [Install guide](../getting-started/install.md)

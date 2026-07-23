@@ -132,6 +132,33 @@ function capellStableApiDrift(array $baseline, array $current): array
 }
 
 /**
+ * @param  array<string, mixed>  $decision
+ * @param  list<string>  $drift
+ */
+function capellStableApiDecisionAccepts(array $decision, array $drift): bool
+{
+    $declaredDrift = $decision['drift'] ?? null;
+
+    if (($decision['schemaVersion'] ?? null) !== 1
+        || ($decision['decision'] ?? null) !== 'accepted'
+        || ! is_string($decision['reason'] ?? null)
+        || trim($decision['reason']) === ''
+        || ! is_array($declaredDrift)
+        || ! array_is_list($declaredDrift)
+        || array_filter($declaredDrift, is_string(...)) !== $declaredDrift
+        || count(array_unique($declaredDrift)) !== count($declaredDrift)) {
+        return false;
+    }
+
+    $observed = array_values(array_unique($drift));
+    $declared = array_values(array_unique($declaredDrift));
+    sort($observed);
+    sort($declared);
+
+    return $declared === $observed;
+}
+
+/**
  * @param  list<string>  $arguments
  */
 function capellStableApiMain(array $arguments): void
@@ -164,6 +191,15 @@ function capellStableApiMain(array $arguments): void
 
     if (! is_file($decisionPath)) {
         throw new RuntimeException('Active stable API drift requires docs/packages/stable-extension-api-decision.json.');
+    }
+
+    $decision = json_decode((string) file_get_contents($decisionPath), true, flags: JSON_THROW_ON_ERROR);
+
+    if (! is_array($decision) || ! capellStableApiDecisionAccepts($decision, $drift)) {
+        throw new RuntimeException(
+            'Stable API compatibility decision must be accepted, explain the change, and exactly match the observed drift: '
+            . implode(', ', $drift),
+        );
     }
 
     fwrite(STDOUT, 'Stable API drift has an explicit compatibility decision: ' . implode(', ', $drift) . PHP_EOL);

@@ -13,7 +13,6 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 | Plan a reversible migration away            | [Export and exit plan](export-and-exit.md)        |
 | Configure nginx/Apache or scale to >1 node  | [Web server configuration](web-server.md)         |
 | Run Capell on Laravel Octane                | [Octane](octane.md)                               |
-| Review known hosting risks                  | [Hosting audit — July 2026](hosting-audit-2026-07.md) |
 
 ## First Checks
 
@@ -21,7 +20,7 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Public pages are stale          | Cache state, queue worker, optional HTML Cache package, CDN purge.                                                  |
 | Admin is missing pages/settings | `php artisan optimize:clear`, permissions, package install state.                                                   |
-| Install exhausts PHP memory     | Resume the installer and identify the unbounded step in the installation report.                                   |
+| Install exhausts PHP memory     | Resume the installer and identify the unbounded step in the installation report.                                    |
 | Jobs or scheduled work are idle | Check the [queue worker](troubleshooting.md#queue-worker) and [scheduler](troubleshooting.md#scheduler) separately. |
 | Install fails in CI             | Missing non-interactive flags or private Composer credentials.                                                      |
 | Marketplace cannot install      | Account connection, Marketplace URL, webhook URL, package compatibility.                                            |
@@ -128,7 +127,7 @@ For deeper Marketplace incidents, use [Debugging Marketplace](debugging-marketpl
 | Frontend shows Laravel's welcome page            | [Laravel's default welcome page](troubleshooting.md#the-frontend-shows-laravels-default-welcome-page)                                   |
 | Non-interactive install fails with `Required.`   | [`NonInteractiveValidationException: Required.`](troubleshooting.md#laravelpromptsexceptionsnoninteractivevalidationexception-required) |
 | Composer cannot find Capell packages             | [`composer require` cannot find the package](troubleshooting.md#composer-require-capell-appinstaller-cannot-find-the-package)           |
-| PHP runs out of memory during install            | [Resume and isolate the interrupted installer step](troubleshooting.md#browser-install-timeout)                                       |
+| PHP runs out of memory during install            | [Resume and isolate the interrupted installer step](troubleshooting.md#browser-install-timeout)                                         |
 | A queued install or task never starts            | [Configure and check the queue worker](troubleshooting.md#queue-worker)                                                                 |
 | Scheduled tasks never run                        | [Configure Laravel's scheduler](troubleshooting.md#scheduler)                                                                           |
 | The visible error is too generic                 | [Find the installation logs](troubleshooting.md#installation-logs)                                                                      |

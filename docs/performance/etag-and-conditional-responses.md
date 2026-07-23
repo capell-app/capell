@@ -13,7 +13,8 @@ Automatic 304 responses cut bandwidth on repeat visits by skipping response bodi
 
 ## How it's wired
 
-The ETag middleware is registered as a route alias `frontend.etag` in `packages/frontend/src/Providers/FrontendServiceProvider.php` (line 280):
+The ETag middleware is registered as the `frontend.etag` route alias in
+[`FrontendServiceProvider`](../../packages/frontend/src/Providers/FrontendServiceProvider.php):
 
 ```php
 Route::aliasMiddleware('frontend.etag', ETagMiddleware::class);
@@ -27,13 +28,13 @@ The middleware (`packages/frontend/src/Http/Middleware/ETagMiddleware.php`) work
 
 - **Computes a weak ETag** from the response body using xxHash128 (64-bit truncated to 16 hex characters) and prefixes it with `W/` to indicate a weak validator.
 - **Compares to `If-None-Match`** header sent by the client:
-  - If the header value matches the computed ETag exactly, the middleware returns a **304 Not Modified** response with an empty body, preserving the original `Cache-Control` and `Vary` headers.
-  - If no match or no header, the response passes through with the `ETag` header set.
+    - If the header value matches the computed ETag exactly, the middleware returns a **304 Not Modified** response with an empty body, preserving the original `Cache-Control` and `Vary` headers.
+    - If no match or no header, the response passes through with the `ETag` header set.
 - **Sets `Last-Modified`** header if not already present on the response, using the current request time in RFC 2822 GMT format.
 - **Skips ETag generation** for:
-  - Non-200 and non-404 status codes.
-  - Responses without a `Content-Type` header.
-  - Response content types other than `text/html` or `application/json` (checked via string position matching).
+    - Non-200 and non-404 status codes.
+    - Responses without a `Content-Type` header.
+    - Response content types other than `text/html` or `application/json` (checked via string position matching).
 
 ## Enabling on a route
 

@@ -84,14 +84,14 @@ Admin execution uses `QueueCapellUpgradeAction`, which returns structured queue 
 
 `RunCapellUpgradeJob` accepts an upgrade run id. It atomically claims queued runs, records timeline events through the database reporter, calls `RunCapellUpgradeAction`, and marks terminal success or failure from both `handle()` and `failed()`.
 
-`RunCapellUpgradeAction` remains the pipeline owner. It still handles the cache lock, version audit, migrations, tagged upgrade steps, legacy per-package commands, version snapshots, and cache clearing. The reporter boundary now lets the same pipeline write console output, durable database events, or both.
+`RunCapellUpgradeAction` remains the pipeline owner. It still handles the database-backed coordination lock, version audit, migrations, tagged upgrade steps, legacy per-package commands, version snapshots, and cache clearing. Installations upgrading from a version before the lock table existed use the configured cache lock for that one migration boundary. The reporter boundary lets the same pipeline write console output, durable database events, or both.
 
 Readiness checks cover:
 
 - upgrade operation table availability;
 - queue driver;
 - database queue table when the database driver is active;
-- cache lock availability;
+- upgrade coordination lock availability;
 - migration lock path writability;
 - database connectivity;
 - legacy package upgrade command availability.

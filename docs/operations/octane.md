@@ -33,7 +33,7 @@ $this->app->tag([MyRegistry::class], Resettable::TAG);
 event and calls `flushOctaneState()` on every tagged service, resolving them from the
 request's sandbox container rather than the root container so per-request overrides are
 respected. Registration lives in
-[CapellServiceProvider::registerOctaneStateReset()](../../packages/core/src/Providers/CapellServiceProvider.php) (line 330).
+[CapellServiceProvider::registerOctaneStateReset()](../../packages/core/src/Providers/CapellServiceProvider.php).
 
 The listener is guarded by `interface_exists(OperationTerminated::class)`. Without
 Octane installed the whole mechanism silently does nothing, so there is no cost to
@@ -67,15 +67,14 @@ Two rules that catch most bugs:
   static, because the first request in a worker's life will fix that value for all the
   others.
 
-## Hosting audit findings
+## Hosting constraints
 
-The [July 2026 hosting audit](hosting-audit-2026-07.md) identified these
-Octane-sensitive areas:
+The Core hosting review identified these Octane-sensitive areas:
 
-| Issue | Effect under Octane |
-| --- | --- |
-| `HasEnumOptions` memoizes translated option labels per locale | Filament select labels remain correct when a worker serves requests in different locales |
-| `RenderHtmlContentAction` caches a config-built `HtmlSanitizer` statically | Only matters if the HTML attribute allowlist varies per site |
+| Issue                                                                      | Effect under Octane                                                                      |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `HasEnumOptions` memoizes translated option labels per locale              | Filament select labels remain correct when a worker serves requests in different locales |
+| `RenderHtmlContentAction` caches a config-built `HtmlSanitizer` statically | Only matters if the HTML attribute allowlist varies per site                             |
 
 Extensions that introduce similar static memoization should include every
 request-varying input in the memo key or use a resettable service.
@@ -83,7 +82,7 @@ request-varying input in the memo key or use a resettable service.
 ## Operating notes
 
 - Octane does not change any of Capell's other hosting requirements. Multi-node caveats
-  in the [hosting audit](hosting-audit-2026-07.md) apply exactly as they do under
+  in the [web server configuration guide](web-server.md#multiple-nodes) apply exactly as they do under
   PHP-FPM.
 - Run `php artisan capell:runtime-refresh` as part of your deploy, then restart Octane.
   Refreshing caches without restarting leaves workers holding the previous boot state.
@@ -93,6 +92,6 @@ request-varying input in the memo key or use a resettable service.
 
 ## Further reading
 
-- [Hosting audit — July 2026](hosting-audit-2026-07.md)
+- [Web server configuration](web-server.md)
 - [Artisan commands reference](../development/artisan-commands.md)
 - [Package boot lifecycle](../packages/package-boot-lifecycle.md)
