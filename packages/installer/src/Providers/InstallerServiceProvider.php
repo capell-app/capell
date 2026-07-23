@@ -9,6 +9,7 @@ use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Events\PackageUninstalled;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
@@ -53,6 +54,13 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
     {
         $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
         $this->fallbackDatabaseDriversIfNeeded();
+
+        // The installed-state probe answers "is there a site yet?", and its result
+        // is cached without expiry. The events below cover installer-driven setup,
+        // while this model event catches sites created by seeders or application code.
+        Site::created(static function (): void {
+            InstallerInstallationState::forget();
+        });
     }
 
     public function configurePackage(Package $package): void
@@ -80,6 +88,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
             InstallerInstallationState::forget();
             InstallerDatabaseTableState::forget();
         });
+
     }
 
     /**
