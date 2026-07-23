@@ -6,12 +6,27 @@ use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Data\CacheInvalidationRule;
 use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationExecutor;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+
+it('invalidates page caches when site-level data changes', function (): void {
+    // Site data is rendered into pages — the site name reaches the page title —
+    // so a site or domain change must clear page caches, not only site caches.
+    // Without this a rename leaves every cached page showing the old name.
+    foreach ([Site::class, SiteDomain::class] as $modelClass) {
+        $plan = resolve(CacheInvalidationRegistry::class)->planForModel($modelClass);
+
+        expect(collect($plan->rules)->contains(
+            fn (CacheInvalidationRule $rule): bool => $rule->kind === CacheInvalidationRule::KIND_INVALIDATE_PATTERN
+                && $rule->cacheKey === 'page-*',
+        ))->toBeTrue($modelClass . ' must invalidate page-*');
+    }
+});
 
 it('plans scoped pattern invalidation for wildcard model dependencies', function (): void {
     $plan = resolve(CacheInvalidationRegistry::class)->planForModel(Page::class);

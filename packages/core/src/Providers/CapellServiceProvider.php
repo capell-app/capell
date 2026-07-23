@@ -47,6 +47,7 @@ use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
+use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
@@ -122,6 +123,8 @@ use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
+use Capell\Core\Support\Metrics\DenyMetricScopeAuthorizer;
+use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Migration\MigrationFilesystem;
@@ -418,6 +421,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PackageSurfaceRegistrar::class, fn ($app): PackageSurfaceRegistrar => new PackageSurfaceRegistrar(
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
+            $app->make(MetricCollectorRegistry::class),
         ));
         $this->app->singleton(SubscriberRegistry::class);
         $this->app->alias(SubscriberRegistry::class, SubscriberManager::class);
@@ -441,7 +445,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(MigrationFilesystemInterface::class, MigrationFilesystem::class);
         $this->app->singleton(ProcessFactoryInterface::class, SymfonyProcessFactory::class);
         $this->app->singleton(MetricEventRegistry::class);
+        $this->app->singleton(MetricCollectorRegistry::class);
         $this->app->singleton(MetricsManager::class);
+        $this->app->bindIf(MetricScopeAuthorizer::class, DenyMetricScopeAuthorizer::class);
 
         return $this;
     }

@@ -10,6 +10,22 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumns('marketplace_install_attempts', [
+            'idempotency_key',
+            'current_stage',
+            'progress_current',
+            'progress_total',
+            'heartbeat_at',
+            'attempt_count',
+            'runtime_ms',
+            'peak_memory_bytes',
+            'query_count',
+            'stage_telemetry',
+            'failure_context',
+        ])) {
+            return;
+        }
+
         Schema::table('marketplace_install_attempts', function (Blueprint $table): void {
             $table->string('idempotency_key', 64)->nullable()->unique();
             $table->string('current_stage')->nullable()->index();

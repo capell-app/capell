@@ -5,8 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Actions\Upgrade\BuildUpgradeReadinessReportAction;
 use Capell\Core\Enums\Upgrade\UpgradeReadinessResult;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -40,13 +40,14 @@ it('passes readiness checks for an asynchronous queue driver', function (): void
 
 it('blocks queued upgrades when the readiness cache lock is already held', function (): void {
     config(['queue.default' => 'array']);
-    $lock = Cache::lock('capell:upgrade', 60);
+    $lock = new DatabaseUpgradeLock;
+    $token = $lock->acquire('capell:upgrade', 60);
 
-    expect($lock->get())->toBeTrue();
+    expect($token)->not->toBeNull();
 
     $report = BuildUpgradeReadinessReportAction::run();
 
-    $lock->release();
+    $lock->release('capell:upgrade', (string) $token);
 
     expect($report->result)->toBe(UpgradeReadinessResult::ManualRequired)
         ->and(implode("\n", $report->errors))->toContain('Upgrade coordination lock is already held');

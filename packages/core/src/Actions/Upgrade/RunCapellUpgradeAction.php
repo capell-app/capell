@@ -14,10 +14,10 @@ use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Capell\Core\Support\Upgrade\NullUpgradeReporter;
 use Capell\Core\Support\Upgrade\UpgradePipelineIo;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -36,10 +36,15 @@ final class RunCapellUpgradeAction
     {
         $io = new UpgradePipelineIo($reporter ?? new NullUpgradeReporter);
 
-        $lock = Cache::lock(CacheEnum::UpgradeLock->value, self::UPGRADE_LOCK_SECONDS);
+        // Held in the database, not the cache: an upgrade runs migrations, and two
+        // at once against the same database is a corruption risk. A cache lock is
+        // only global if the configured store is shared, which is not something
+        // this code can assume.
+        $lock = resolve(DatabaseUpgradeLock::class);
+        $token = $lock->acquire(CacheEnum::UpgradeLock->value, self::UPGRADE_LOCK_SECONDS, owner: gethostname() ?: null);
 
-        if ($lock->get() === false) {
-            $io->error(sprintf('Another upgrade is running (cache lock "%s" held). Aborting. If no upgrade is active, retry after the lock TTL expires, up to 25 minutes after a hard process kill.', CacheEnum::UpgradeLock->value));
+        if ($token === null) {
+            $io->error('Another upgrade is running. Aborting. If no upgrade is active, the lock frees itself within 25 minutes of a hard process kill.');
 
             return self::UPGRADE_LOCKED;
         }
@@ -47,7 +52,7 @@ final class RunCapellUpgradeAction
         try {
             return $this->runPipeline($options, $io);
         } finally {
-            $lock->release();
+            $lock->release(CacheEnum::UpgradeLock->value, $token);
         }
     }
 

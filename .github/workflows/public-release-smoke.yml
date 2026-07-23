@@ -85,3 +85,57 @@ jobs:
             curl --max-time 10 --location --fail --silent --show-error "http://127.0.0.1:8000${path}" > "${RUNNER_TEMP}/response.html"
             test -s "${RUNNER_TEMP}/response.html"
           done
+
+  n-minus-one-upgrade:
+    needs: product-contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.plan_artifact }}
+          path: ${{ runner.temp }}/approved-plan
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+      - name: Upgrade the previous public foundation release
+        env:
+          RELEASE_PLAN: ${{ runner.temp }}/approved-plan/${{ inputs.plan_path }}
+        run: |
+          php "${GITHUB_WORKSPACE}/scripts/release.php" validate "${RELEASE_PLAN}"
+          test "$(jq -r '[.packages[].current_version] | unique | length' "${RELEASE_PLAN}")" = 1
+          previous_version="$(jq -er '.packages[0].current_version' "${RELEASE_PLAN}")"
+          test -n "${previous_version}"
+
+          cd "$(mktemp -d)"
+          composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel consumer
+          cd consumer
+          while IFS=$'\t' read -r package version; do
+            composer require --no-interaction --no-update "${package}:${version}"
+          done < <(jq -r '.packages[] | [.name, .current_version] | @tsv' "${RELEASE_PLAN}")
+          composer update --no-interaction --no-progress --prefer-dist
+          touch database/database.sqlite
+          php artisan package:discover --ansi
+          php artisan migrate --force --ansi
+          php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --all-packages --theme=none --name='N-1 Upgrade Smoke' --email=upgrade@example.test --password='n-minus-one-upgrade-password' --clear-cache --install-welcome-route
+
+          while IFS=$'\t' read -r package version; do
+            composer require --no-interaction --no-update "${package}:${version}"
+          done < <(jq -r '.packages[] | [.name, .proposed_version] | @tsv' "${RELEASE_PLAN}")
+          composer update --no-interaction --no-progress --prefer-dist
+          php artisan package:discover --ansi
+          php artisan capell:upgrade --force --no-clear-cache
+          php artisan migrate:status --no-interaction --ansi
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
+          php artisan serve --no-reload --host=127.0.0.1 --port=8000 > "${RUNNER_TEMP}/capell-upgrade.log" 2>&1 &
+          server_pid=$!
+          trap 'status=$?; if [ "${status}" -ne 0 ]; then cat "${RUNNER_TEMP}/capell-upgrade.log"; tail -200 storage/logs/laravel.log || true; fi; kill "${server_pid}" || true; exit "${status}"' EXIT
+          for path in / /admin/login; do
+            # shellcheck disable=SC2034 # attempt is a retry counter; the body breaks on success
+            for attempt in {1..15}; do curl --max-time 10 --fail --silent --show-error "http://127.0.0.1:8000${path}" >/dev/null && break; sleep 1; done
+            curl --max-time 10 --location --fail --silent --show-error "http://127.0.0.1:8000${path}" > "${RUNNER_TEMP}/upgrade-response.html"
+            test -s "${RUNNER_TEMP}/upgrade-response.html"
+          done

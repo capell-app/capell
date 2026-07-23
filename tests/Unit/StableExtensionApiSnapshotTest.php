@@ -90,6 +90,35 @@ it('classifies every compatibility-relevant form of stable drift', function (): 
     ]);
 });
 
+it('accepts only explicit compatibility decisions for the exact observed drift', function (): void {
+    $decision = [
+        'schemaVersion' => 1,
+        'decision' => 'accepted',
+        'reason' => 'The migration is additive.',
+        'drift' => ['migrations', 'configKeys'],
+    ];
+
+    expect(capellStableApiDecisionAccepts($decision, ['configKeys', 'migrations']))->toBeTrue()
+        ->and(capellStableApiDecisionAccepts(
+            [...$decision, 'decision' => 'pending'],
+            ['configKeys', 'migrations'],
+        ))->toBeFalse()
+        ->and(capellStableApiDecisionAccepts(
+            [...$decision, 'reason' => '  '],
+            ['configKeys', 'migrations'],
+        ))->toBeFalse()
+        ->and(capellStableApiDecisionAccepts(
+            [...$decision, 'drift' => ['migrations', 'migrations', 'configKeys']],
+            ['configKeys', 'migrations'],
+        ))->toBeFalse()
+        ->and(capellStableApiDecisionAccepts(
+            [...$decision, 'drift' => ['migrations' => 'migrations', 'configKeys' => 'configKeys']],
+            ['configKeys', 'migrations'],
+        ))->toBeFalse()
+        ->and(capellStableApiDecisionAccepts($decision, ['migrations']))->toBeFalse()
+        ->and(capellStableApiDecisionAccepts($decision, ['configKeys', 'migrations', 'packageConstraints']))->toBeFalse();
+});
+
 it('keeps experimental package extension seams out of the stable baseline', function (): void {
     $surfaces = json_decode(
         (string) file_get_contents(dirname(__DIR__, 2) . '/docs/packages/stable-extension-api-baseline.json'),

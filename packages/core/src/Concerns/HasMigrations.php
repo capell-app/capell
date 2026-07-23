@@ -55,6 +55,8 @@ trait HasMigrations
             '2026_07_22_000001_create_metric_collection_runs_table',
             '2026_07_22_000002_create_metric_daily_rollups_table',
             '2026_07_22_000003_create_metric_events_table',
+            '2026_07_23_000001_create_capell_upgrade_locks_table',
+            '2026_07_23_000002_enforce_global_permission_team_uniqueness',
         ];
     }
 

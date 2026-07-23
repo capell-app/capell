@@ -36,6 +36,7 @@ Upgrade state is split between two responsibilities:
 | `capell_upgrade_runs`       | One row per upgrade operation: queued, running, succeeded, failed, or manual-required. Stores user, options, stage, failure reason, manual commands, readiness warnings/errors, and a safe output excerpt. |
 | `capell_upgrade_run_events` | Append-only timeline for readiness checks, queue decisions, phase changes, warnings, errors, success events, and safe output excerpts.                                                                     |
 | `capell_upgrade_log`        | Step/version ledger only. Keeps `UpgradeStepContract` outcomes and package version snapshots.                                                                                                              |
+| `capell_upgrade_locks`      | Database-backed mutual exclusion for upgrades and rollbacks. Expired rows can be replaced safely after a hard process kill.                                                                                |
 
 Do not use `capell_upgrade_log` for queue state or admin operation status. A run can fail before a step writes to the ledger, and an admin needs to see that failure even when no upgrade step reached the log.
 
@@ -48,7 +49,7 @@ Admin upgrades never execute inline in a web request. Before queueing, Capell ch
 - queue driver is not `sync`;
 - upgrade operation tables exist;
 - database queue table exists when the database queue driver is active;
-- cache locks are available;
+- the upgrade coordination lock is available;
 - migration lock path is writable;
 - database connection is available;
 - legacy package upgrade commands exist when installed packages still declare `commands.upgrade`.
@@ -119,7 +120,11 @@ Capell treats upgrades as part of the product, not a pile of release-note errand
 
 ## What `capell:upgrade` does
 
-`capell:upgrade` takes the cache lock `capell:upgrade` for its entire duration — concurrent runs fail fast — then executes four phases:
+`capell:upgrade` takes the database-backed `capell:upgrade` coordination lock for its
+entire duration, so concurrent runs against the same database fail fast even when
+application nodes do not share a cache. During the first upgrade from a version that
+predates `capell_upgrade_locks`, it falls back to the configured cache lock until the
+new table has been migrated. It then executes four phases:
 
 1. **Version audit.** Compares Composer's installed versions against the last-known values in the `capell_upgrade_log` table. Flags new packages, removed packages, and downgrades. Downgrades abort unless `--force-downgrade` is passed.
 2. **Migrations.** Publishes pending schema migrations into `database/migrations/` and settings migrations into `database/settings/`, then runs `migrate --force` and `settings:migrate --force`. Already-applied migrations are skipped by Laravel's and Spatie's own tracking.
@@ -193,7 +198,10 @@ Exit code is `0` on success, `1` on failure (including lock contention and downg
 
 ## Troubleshooting
 
-**"Another upgrade is running"** — a crashed run may have left the lock. `php artisan cache:forget capell:upgrade`.
+**"Another upgrade is running"** — another upgrade or rollback holds the coordination
+lock. A database-backed lock expires automatically within 25 minutes after a hard
+process kill. On the one-time legacy fallback path, inspect the configured cache lock;
+do not delete a lock while an upgrade could still be active.
 
 **Admin shows manual required** — check the readiness timeline on the Upgrades page. Common causes are `QUEUE_CONNECTION=sync`, a missing `jobs` table for the database queue driver, an unwritable `storage/framework/cache` directory, or a legacy package command that is no longer registered.
 

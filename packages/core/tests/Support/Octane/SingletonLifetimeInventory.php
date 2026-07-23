@@ -42,6 +42,7 @@ use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Manifest\ManifestLoader;
+use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
@@ -133,6 +134,7 @@ final class SingletonLifetimeInventory
             SettingsSchemaRegistry::class => self::boot('Settings schemas and metadata are package boot registrations.'),
             SiteAccessPolicyRegistry::class => self::boot('Site access policy providers are package boot registrations.'),
             MetricEventRegistry::class => self::boot('Metric event definitions are package boot registrations.'),
+            MetricCollectorRegistry::class => self::boot('Metric collectors are package boot registrations.'),
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.

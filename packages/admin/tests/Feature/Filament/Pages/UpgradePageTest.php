@@ -12,10 +12,10 @@ use Capell\Core\Data\UpgradeRunOptions;
 use Capell\Core\Enums\Upgrade\UpgradeReadinessResult;
 use Capell\Core\Enums\Upgrade\UpgradeRunStatus;
 use Capell\Core\Models\UpgradeRun;
+use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
@@ -148,24 +148,21 @@ it('runs the core upgrade action from the queued job', function (): void {
 
     new RunCapellUpgradeJob((int) $run->getKey())->handle();
 
-    $lock = Cache::lock('capell:upgrade', 1);
-
     expect($run->refresh()->status)->toBe(UpgradeRunStatus::Succeeded)
-        ->and($lock->get())->toBeTrue();
-
-    $lock->release();
+        // A finished upgrade must leave the lock free for the next one.
+        ->and(new DatabaseUpgradeLock()->isHeld('capell:upgrade'))->toBeFalse();
 });
 
 it('requeues the queued job when the core upgrade action cannot acquire the upgrade lock', function (): void {
     $run = queuedUpgradeRun();
 
-    $lock = Cache::lock('capell:upgrade', 60);
-    $lock->get();
+    $lock = new DatabaseUpgradeLock;
+    $token = (string) $lock->acquire('capell:upgrade', 60);
 
     try {
         new RunCapellUpgradeJob((int) $run->getKey())->handle();
     } finally {
-        $lock->release();
+        $lock->release('capell:upgrade', $token);
     }
 
     expect($run->refresh()->status)->toBe(UpgradeRunStatus::Queued)
