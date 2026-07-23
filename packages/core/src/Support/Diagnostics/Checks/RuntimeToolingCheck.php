@@ -31,7 +31,13 @@ final class RuntimeToolingCheck extends AbstractDoctorCheck
     {
         $label = 'Runtime tooling is available';
         $missing = [];
-        $evidence = [];
+
+        // Only an installation that installs extensions or builds assets on the
+        // server actually needs this tooling. A deployment that runs Composer and
+        // builds assets in CI ships a server with neither, which is correct and
+        // must not fail the health gate that capell:install exits on.
+        $serverSideTooling = config('capell.server_side_tooling', false) === true;
+        $evidence = ['server_side_tooling' => $serverSideTooling];
 
         $processExecution = $this->processExecutionAvailable();
         $evidence['proc_open'] = $processExecution;
@@ -39,9 +45,9 @@ final class RuntimeToolingCheck extends AbstractDoctorCheck
         if (! $processExecution) {
             return new DoctorCheckResultData(
                 $label,
-                false,
+                ! $serverSideTooling,
                 'Process execution (proc_open) is disabled, so Capell cannot install extensions, run package setup, or create database backups.',
-                'Remove proc_open from disable_functions in php.ini, or install extensions and take backups from a machine that allows it.',
+                'Remove proc_open from disable_functions in php.ini, or install extensions and take backups from a machine that allows it. Set CAPELL_SERVER_SIDE_TOOLING=false when this server deliberately does none of that.',
                 severity: $this->severity(),
                 evidence: $evidence,
             );
@@ -58,16 +64,20 @@ final class RuntimeToolingCheck extends AbstractDoctorCheck
             }
         }
 
-        return $missing === []
-            ? new DoctorCheckResultData($label, true, 'Process execution is allowed and the expected binaries were found.', severity: $this->severity(), evidence: $evidence)
-            : new DoctorCheckResultData(
-                $label,
-                false,
-                sprintf('Executable(s) not found on PATH: %s.', implode('; ', $missing)),
-                'Install the listed tools on the server, or perform those operations during your build and deploy the result.',
-                severity: $this->severity(),
-                evidence: $evidence,
-            );
+        if ($missing === []) {
+            return new DoctorCheckResultData($label, true, 'Process execution is allowed and the expected binaries were found.', severity: $this->severity(), evidence: $evidence);
+        }
+
+        return new DoctorCheckResultData(
+            $label,
+            ! $serverSideTooling,
+            $serverSideTooling
+                ? sprintf('Executable(s) not found on PATH: %s.', implode('; ', $missing))
+                : sprintf('Executable(s) not found on PATH: %s. This installation is not configured to run that tooling on the server, so it is reported for information only.', implode('; ', $missing)),
+            'Install the listed tools on the server, or perform those operations during your build and deploy the result. Set CAPELL_SERVER_SIDE_TOOLING=true when the server must run them itself.',
+            severity: $this->severity(),
+            evidence: $evidence,
+        );
     }
 
     /**
