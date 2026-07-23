@@ -149,14 +149,14 @@ it('separates persistent installation state by configured database', function ()
     }
 });
 
-it('invalidates cached installation state when installation or migrations complete', function (): void {
+it('invalidates cached installation state when a site is created or migrations complete', function (): void {
     Site::query()->delete();
 
     expect(InstallerInstallationState::capellIsInstalled())->toBeFalse();
 
     Site::factory()->createOne();
 
-    expect(InstallerInstallationState::capellIsInstalled())->toBeFalse();
+    expect(InstallerInstallationState::capellIsInstalled())->toBeTrue();
 
     event(new CapellInstallationCompleted);
 
