@@ -79,7 +79,7 @@ final class DatabaseBackupProcessError
         }
 
         if (mb_strlen($output) > self::MAX_OUTPUT_LENGTH) {
-            $output = mb_substr($output, 0, self::MAX_OUTPUT_LENGTH) . '…';
+            return mb_substr($output, 0, self::MAX_OUTPUT_LENGTH) . '…';
         }
 
         return $output;

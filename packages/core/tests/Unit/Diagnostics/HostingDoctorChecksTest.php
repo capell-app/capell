@@ -12,6 +12,7 @@ describe('SharedCacheStoreCheck', function (): void {
     it('fails for a node-local cache driver and explains the multi-node consequence', function (): void {
         Config::set('cache.default', 'file');
         Config::set('cache.stores.file.driver', 'file');
+        Config::set('capell.multi_node', true);
 
         $result = new SharedCacheStoreCheck()->check();
 
@@ -19,6 +20,17 @@ describe('SharedCacheStoreCheck', function (): void {
             ->and($result->id)->toBe('core.cache.shared-store')
             ->and($result->message)->toContain('local to one node')
             ->and($result->remediation)->toContain('shared Redis or Memcached');
+    });
+
+    it('passes for a node-local cache driver on a declared single-node installation', function (): void {
+        Config::set('cache.default', 'file');
+        Config::set('cache.stores.file.driver', 'file');
+        Config::set('capell.multi_node', false);
+
+        $result = new SharedCacheStoreCheck()->check();
+
+        expect($result->passed)->toBeTrue()
+            ->and($result->message)->toContain('single application node');
     });
 
     it('passes for a shareable cache driver', function (): void {

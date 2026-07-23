@@ -38,7 +38,8 @@ final class SharedCacheStoreCheck extends AbstractDoctorCheck
         $label = 'Cache store can be shared between nodes';
         $storeName = (string) config('cache.default');
         $driver = (string) config(sprintf('cache.stores.%s.driver', $storeName));
-        $evidence = ['store' => $storeName, 'driver' => $driver];
+        $multiNode = config('capell.multi_node', false) === true;
+        $evidence = ['store' => $storeName, 'driver' => $driver, 'multi_node' => $multiNode];
 
         if ($driver === '') {
             return new DoctorCheckResultData(
@@ -60,6 +61,16 @@ final class SharedCacheStoreCheck extends AbstractDoctorCheck
             );
         }
 
+        if (! $multiNode) {
+            return new DoctorCheckResultData(
+                $label,
+                true,
+                sprintf('Cache store [%s] uses the node-local [%s] driver, which is safe because this installation is configured for a single application node.', $storeName, $driver),
+                severity: $this->severity(),
+                evidence: $evidence,
+            );
+        }
+
         return new DoctorCheckResultData(
             $label,
             false,
@@ -68,7 +79,7 @@ final class SharedCacheStoreCheck extends AbstractDoctorCheck
                 $storeName,
                 $driver,
             ),
-            'On a single server no action is needed. If you run more than one application node, point CACHE_STORE at a shared Redis or Memcached instance.',
+            'Point CACHE_STORE at a shared Redis or Memcached instance, or set CAPELL_MULTI_NODE=false when this installation runs on one application node.',
             severity: $this->severity(),
             evidence: $evidence,
         );
