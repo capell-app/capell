@@ -204,21 +204,31 @@ final class TailwindSourceRegistrar
     /** @return array<string, string> */
     private function sourceTreeCapellPackagePaths(): array
     {
-        return collect($this->sourceTreePackageRootCandidates())
-            ->flatMap(fn (string $packagesPath): array => collect(['admin', 'core', 'frontend'])
-                ->mapWithKeys(function (string $packageDirectory) use ($packagesPath): array {
-                    $packagePath = $packagesPath . DIRECTORY_SEPARATOR . $packageDirectory;
-                    $composerJson = $this->readComposerJson($packagePath . DIRECTORY_SEPARATOR . 'composer.json');
-                    $packageName = (string) ($composerJson['name'] ?? '');
+        $packages = [];
 
-                    if (! str_starts_with($packageName, 'capell-app/')) {
-                        return [];
-                    }
+        foreach ($this->sourceTreePackageRootCandidates() as $packagesPath) {
+            foreach (['admin', 'core', 'frontend'] as $packageDirectory) {
+                $packagePath = $packagesPath . DIRECTORY_SEPARATOR . $packageDirectory;
+                $composerJson = $this->readComposerJson($packagePath . DIRECTORY_SEPARATOR . 'composer.json');
+                $packageName = (string) ($composerJson['name'] ?? '');
 
-                    return [$packageName => rtrim($packagePath, DIRECTORY_SEPARATOR)];
-                })
-                ->all())
-            ->all();
+                if (! str_starts_with($packageName, 'capell-app/')) {
+                    continue;
+                }
+
+                // Candidates are ordered nearest-first: an ancestor directory that
+                // happens to contain another checkout of the same packages (for
+                // example a git worktree nested inside the primary checkout) must
+                // not override the package directory this code is running from.
+                if (isset($packages[$packageName])) {
+                    continue;
+                }
+
+                $packages[$packageName] = rtrim($packagePath, DIRECTORY_SEPARATOR);
+            }
+        }
+
+        return $packages;
     }
 
     /** @return array<int, string> */
@@ -256,7 +266,16 @@ final class TailwindSourceRegistrar
             return null;
         }
 
-        $relativePath = $this->relativePath(dirname($themeCss), $viewsPath);
+        // Canonicalise both ends so that two spellings of the same directory
+        // (symlinks, "../" segments, differing checkout roots) produce one
+        // stable @source entry and the de-duplication below keeps holding.
+        $realViewsPath = realpath($viewsPath);
+        $realThemeCssDirectory = realpath(dirname($themeCss));
+
+        $relativePath = $this->relativePath(
+            $realThemeCssDirectory !== false ? $realThemeCssDirectory : dirname($themeCss),
+            $realViewsPath !== false ? $realViewsPath : $viewsPath,
+        );
 
         return sprintf("@source '%s/**/*.blade.php';", $relativePath);
     }

@@ -83,9 +83,19 @@ it('keeps database-backed drivers with one cold schema discovery and none after 
 
         new InstallerServiceProvider($this->app)->bootingPackage();
 
+        // The provider performs a single schema read (one table listing) on the
+        // cold path. SQLite's schema builder prefixes every listing with a
+        // `pragma_compile_options` capability probe for table-size support;
+        // that probe is a driver detail of the test connection, not work the
+        // installer asks for, so it is excluded from the count.
+        $schemaQueries = array_values(array_filter(
+            array_column(DB::getQueryLog(), 'query'),
+            static fn (string $query): bool => ! str_contains($query, 'pragma_compile_options'),
+        ));
+
         expect(config('session.driver'))->toBe('database')
             ->and(config('cache.default'))->toBe('database')
-            ->and(DB::getQueryLog())->toHaveCount(2);
+            ->and($schemaQueries)->toHaveCount(1);
 
         resolve(InstallerRuntimeMemo::class)->flush();
         DB::flushQueryLog();
