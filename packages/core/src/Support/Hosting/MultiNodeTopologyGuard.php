@@ -8,6 +8,9 @@ use RuntimeException;
 
 final class MultiNodeTopologyGuard
 {
+    /** @var list<string> */
+    private const array NODE_LOCAL_CACHE_DRIVERS = ['array', 'file', 'null'];
+
     public function assertNodeLocalOperationIsAllowed(string $operation): void
     {
         if (! $this->isMultiNode()) {
@@ -44,6 +47,35 @@ final class MultiNodeTopologyGuard
             '%s cannot run while CAPELL_MULTI_NODE=true because the [%s] filesystem disk uses the node-local [%s] driver. Configure shared storage for that disk, or set CAPELL_MULTI_NODE=false for a single-node installation.',
             $operation,
             $disk,
+            $driver,
+        ));
+    }
+
+    public function assertCacheStoreIsShared(string $operation): void
+    {
+        if (! $this->isMultiNode()) {
+            return;
+        }
+
+        $store = (string) config('cache.default');
+        $driver = config(sprintf('cache.stores.%s.driver', $store));
+
+        if (! is_string($driver) || $driver === '') {
+            throw new RuntimeException(sprintf(
+                '%s cannot run while CAPELL_MULTI_NODE=true because cache store [%s] has no resolvable driver. Configure a shared Redis or Memcached cache store, or set CAPELL_MULTI_NODE=false for a single-node installation.',
+                $operation,
+                $store,
+            ));
+        }
+
+        if (! in_array($driver, self::NODE_LOCAL_CACHE_DRIVERS, true)) {
+            return;
+        }
+
+        throw new RuntimeException(sprintf(
+            '%s cannot run while CAPELL_MULTI_NODE=true because cache store [%s] uses the node-local [%s] driver. Configure a shared Redis or Memcached cache store, or set CAPELL_MULTI_NODE=false for a single-node installation.',
+            $operation,
+            $store,
             $driver,
         ));
     }

@@ -11,6 +11,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Jobs\RunCapellInstallJob;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallInputFactory;
@@ -31,6 +32,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -44,6 +46,7 @@ final class InstallController
         private readonly InstallStepResponse $stepResponse,
         private readonly InstallerRemediation $remediation,
         private readonly AdminUserModelGuard $adminUserModelGuard,
+        private readonly MultiNodeTopologyGuard $topologyGuard,
     ) {}
 
     public function show(Request $request): Response
@@ -86,6 +89,12 @@ final class InstallController
 
         $installId = $validated['install_id'] ?? (string) Str::uuid();
         $runAsJob = (bool) ($validated['run_as_job'] ?? false);
+
+        try {
+            $this->topologyGuard->assertCacheStoreIsShared('The web installer');
+        } catch (RuntimeException $exception) {
+            return $this->installerStateUnavailableResponse($request, $exception);
+        }
 
         if (! $this->sessions->cacheStoreIsUsable()) {
             return $this->cacheStoreUnavailableResponse($request);
@@ -593,6 +602,20 @@ final class InstallController
         }
 
         return back()->withErrors(['cache_store' => $message . ' ' . $remediation])->withInput();
+    }
+
+    private function installerStateUnavailableResponse(
+        Request $request,
+        RuntimeException $exception,
+    ): Response {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => ['cache_store' => [$exception->getMessage()]],
+            ], 422);
+        }
+
+        return back()->withErrors(['cache_store' => $exception->getMessage()])->withInput();
     }
 
     private function queueConnectionUnavailableResponse(

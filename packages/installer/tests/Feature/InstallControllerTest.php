@@ -1310,6 +1310,27 @@ it('returns a json cache-store remediation before queueing when progress cache i
     Queue::assertNothingPushed();
 });
 
+it('refuses node-local installer state in a multi-node installation', function (): void {
+    Queue::fake();
+    config()->set('capell.multi_node', true);
+    config()->set('cache.default', 'file');
+    config()->set('cache.stores.file.driver', 'file');
+
+    post(
+        route('capell-installer.store'),
+        installPostPayload(['run_as_job' => '1']),
+        ['Accept' => 'application/json'],
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['cache_store'])
+        ->assertJsonPath(
+            'message',
+            'The web installer cannot run while CAPELL_MULTI_NODE=true because cache store [file] uses the node-local [file] driver. Configure a shared Redis or Memcached cache store, or set CAPELL_MULTI_NODE=false for a single-node installation.',
+        );
+
+    Queue::assertNothingPushed();
+});
+
 it('redirects back with cache-store remediation when a non-ajax install cannot track progress', function (): void {
     Queue::fake();
     config()->set('cache.default', 'database');

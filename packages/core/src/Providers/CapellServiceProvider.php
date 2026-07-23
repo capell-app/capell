@@ -64,6 +64,7 @@ use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
@@ -292,6 +293,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerMakers()
             ->registerContentGraphExtractors()
             ->registerThemeRuntime()
+            ->registerMultiNodeUploadGuard()
             ->registerOptimization()
             ->registerLockdownStore()
             ->registerRedirectBehavior()
@@ -694,6 +696,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->callAfterResolving(Router::class, function (Router $router): void {
             $this->registerThemePreviewMiddleware($router);
+        });
+
+        return $this;
+    }
+
+    private function registerMultiNodeUploadGuard(): self
+    {
+        $this->callAfterResolving(Router::class, static function (Router $router): void {
+            $router->pushMiddlewareToGroup('web', EnsureMultiNodeUploadsUseSharedStorage::class);
         });
 
         return $this;
