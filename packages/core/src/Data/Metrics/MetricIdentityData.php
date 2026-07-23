@@ -18,14 +18,10 @@ final class MetricIdentityData extends Data
         public readonly string $collectorKey,
         public readonly string $metricKey,
     ) {
-        if (preg_match('/\A[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*\z/', $this->ownerPackage) !== 1) {
-            throw new InvalidArgumentException('Metric owner package must be a Composer package name.');
-        }
+        throw_if(preg_match('/\A[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*\z/', $this->ownerPackage) !== 1, InvalidArgumentException::class, 'Metric owner package must be a Composer package name.');
 
         foreach ([$this->collectorKey, $this->metricKey] as $identifier) {
-            if (preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $identifier) !== 1) {
-                throw new InvalidArgumentException('Metric identity keys must be stable lowercase identifiers.');
-            }
+            throw_if(preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $identifier) !== 1, InvalidArgumentException::class, 'Metric identity keys must be stable lowercase identifiers.');
         }
     }
 

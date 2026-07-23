@@ -58,14 +58,15 @@ it('persists sampled facade events after the request with their sampling weight'
         occurredAt: CarbonImmutable::parse('2026-07-21 12:00:00', 'Europe/London'),
     );
 
-    expect(MetricEvent::query()->sole())
-        ->value->toBe(3)
-        ->weight->toBe(10)
-        ->occurred_at->utcOffset()->toBe(0);
+    $event = MetricEvent::query()->sole();
+
+    expect($event->value)->toBe(3)
+        ->and($event->weight)->toBe(10)
+        ->and($event->occurred_at->utcOffset())->toBe(0);
 });
 
 it('never lets invalid calls or unavailable event storage escape the request path', function (): void {
-    Log::spy();
+    $log = Log::spy();
     Metrics::record('missing', 0, 0);
     Metrics::register(metricEventPipelineDefinition());
     $this->withoutDefer();
@@ -78,7 +79,7 @@ it('never lets invalid calls or unavailable event storage escape the request pat
         $migration->up();
     }
 
-    Log::shouldHaveReceived('warning')->atLeast()->once();
+    $log->shouldHaveReceived('warning')->atLeast()->once();
 });
 
 it('stores only canonical positive UTC integer count events', function (): void {
@@ -119,6 +120,7 @@ it('rolls up weighted events once and adds late arrivals without double counting
     $store = resolve(StoreMetricEventAction::class);
     $store->execute($definition, 2, 5, MetricScopeData::global('UTC'), CarbonImmutable::parse('2026-07-21 00:00:00 UTC'));
     $store->execute($definition, 3, 2, MetricScopeData::global('UTC'), CarbonImmutable::parse('2026-07-21 23:59:59 UTC'));
+
     $action = resolve(RollupMetricEventsAction::class);
 
     expect($action->handle('2026-07-21'))->toBe(2)
@@ -127,10 +129,12 @@ it('rolls up weighted events once and adds late arrivals without double counting
 
     $store->execute($definition, 4, 1, MetricScopeData::global('UTC'), CarbonImmutable::parse('2026-07-21 12:00:00 UTC'));
 
-    expect($action->handlePending())->toBe(1)
-        ->and(MetricDailyRollup::query()->sole())
-        ->value->toBe('20')
-        ->point_state->toBe(MetricPointState::Present);
+    expect($action->handlePending())->toBe(1);
+
+    $rollup = MetricDailyRollup::query()->sole();
+
+    expect($rollup->value)->toBe('20')
+        ->and($rollup->point_state)->toBe(MetricPointState::Present);
 });
 
 it('leaves events arriving after the day snapshot for the next idempotent run', function (): void {
@@ -139,6 +143,7 @@ it('leaves events arriving after the day snapshot for the next idempotent run', 
     resolve(MetricEventRegistry::class)->register($definition);
     $store = resolve(StoreMetricEventAction::class);
     $store->execute($definition, 2, 1, MetricScopeData::global('UTC'), CarbonImmutable::parse('2026-07-21 01:00:00 UTC'));
+
     $lateEventStored = false;
 
     DB::listen(function (QueryExecuted $query) use (&$lateEventStored, $definition, $store): void {

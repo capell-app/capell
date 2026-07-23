@@ -25,27 +25,17 @@ final class MetricScopeData extends Data
         $hasSite = $this->siteUuid !== null;
         $hasLanguage = $this->language !== null;
 
-        if (($this->type === MetricScopeType::Global && ($hasSite || $hasLanguage))
+        throw_if(($this->type === MetricScopeType::Global && ($hasSite || $hasLanguage))
             || ($this->type === MetricScopeType::Site && (! $hasSite || $hasLanguage))
-            || ($this->type === MetricScopeType::SiteLanguage && (! $hasSite || ! $hasLanguage))) {
-            throw new InvalidArgumentException('Metric scope identifiers do not match its type.');
-        }
+            || ($this->type === MetricScopeType::SiteLanguage && (! $hasSite || ! $hasLanguage)), InvalidArgumentException::class, 'Metric scope identifiers do not match its type.');
 
-        if ($hasSite && preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $this->siteUuid) !== 1) {
-            throw new InvalidArgumentException('Metric site UUID must be a canonical lowercase UUID.');
-        }
+        throw_if($hasSite && preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $this->siteUuid) !== 1, InvalidArgumentException::class, 'Metric site UUID must be a canonical lowercase UUID.');
 
-        if ($hasLanguage && $this->language !== self::canonicalLanguage($this->language)) {
-            throw new InvalidArgumentException('Metric language must be a canonical language tag.');
-        }
+        throw_if($hasLanguage && $this->language !== $this->canonicalLanguage($this->language), InvalidArgumentException::class, 'Metric language must be a canonical language tag.');
 
-        if (! in_array($this->timezone, DateTimeZone::listIdentifiers(), true)) {
-            throw new InvalidArgumentException('Metric timezone must be an IANA timezone identifier.');
-        }
+        throw_unless(in_array($this->timezone, DateTimeZone::listIdentifiers(), true), InvalidArgumentException::class, 'Metric timezone must be an IANA timezone identifier.');
 
-        if (preg_match('/\A(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\z/', $this->dayStartsAt) !== 1) {
-            throw new InvalidArgumentException('Metric day boundary must use HH:MM:SS.');
-        }
+        throw_if(preg_match('/\A(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\z/', $this->dayStartsAt) !== 1, InvalidArgumentException::class, 'Metric day boundary must use HH:MM:SS.');
     }
 
     public static function global(string $timezone, string $dayStartsAt = '00:00:00'): self
@@ -93,7 +83,7 @@ final class MetricScopeData extends Data
         ];
     }
 
-    private static function canonicalLanguage(string $language): string
+    private function canonicalLanguage(string $language): string
     {
         if (preg_match('/\A[a-zA-Z]{2,3}(?:-[a-zA-Z]{4})?(?:-(?:[a-zA-Z]{2}|\d{3}))?\z/', $language) !== 1) {
             return '';

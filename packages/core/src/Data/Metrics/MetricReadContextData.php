@@ -22,17 +22,11 @@ final class MetricReadContextData extends Data
         public readonly string $purpose,
         public readonly ?string $readerIdentifier = null,
     ) {
-        if (($this->readerType === MetricReaderType::Anonymous) !== ($this->readerIdentifier === null)) {
-            throw new InvalidArgumentException('Only anonymous metric readers omit a reader identifier.');
-        }
+        throw_if(($this->readerType === MetricReaderType::Anonymous) !== ($this->readerIdentifier === null), InvalidArgumentException::class, 'Only anonymous metric readers omit a reader identifier.');
 
-        if ($this->readerIdentifier !== null && trim($this->readerIdentifier) === '') {
-            throw new InvalidArgumentException('Identified metric readers require a non-empty identifier.');
-        }
+        throw_if($this->readerIdentifier !== null && trim($this->readerIdentifier) === '', InvalidArgumentException::class, 'Identified metric readers require a non-empty identifier.');
 
-        if (trim($this->purpose) === '') {
-            throw new InvalidArgumentException('Metric read context requires an explicit purpose.');
-        }
+        throw_if(trim($this->purpose) === '', InvalidArgumentException::class, 'Metric read context requires an explicit purpose.');
     }
 
     /**

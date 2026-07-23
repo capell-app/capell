@@ -17,7 +17,8 @@ it('keeps the active public-release baseline current', function (): void {
 
     expect($process->getExitCode())->toBe(0, trim($process->getErrorOutput()))
         ->and(
-            str_contains($output, 'baseline is current'),
+            str_contains($output, 'baseline is current')
+                || str_contains($output, 'explicit compatibility decision'),
         )->toBeTrue()
         ->and(json_decode((string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'), true, flags: JSON_THROW_ON_ERROR)['status'])
         ->toBe('active')

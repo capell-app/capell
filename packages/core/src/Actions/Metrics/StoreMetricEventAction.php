@@ -25,25 +25,17 @@ final class StoreMetricEventAction
         MetricScopeData $scope,
         CarbonImmutable $occurredAt,
     ): MetricEvent {
-        if ($definition->status !== MetricDefinitionStatus::Active
+        throw_if($definition->status !== MetricDefinitionStatus::Active
             || $definition->semantics->semantic !== MetricSemantic::Event
             || $definition->semantics->aggregation !== MetricAggregation::Sum
             || $definition->representation->unit !== MetricUnitEnum::Count
-            || $definition->representation->valueType !== MetricValueType::Integer) {
-            throw new InvalidArgumentException('Metric events require an active summed integer count definition.');
-        }
+            || $definition->representation->valueType !== MetricValueType::Integer, InvalidArgumentException::class, 'Metric events require an active summed integer count definition.');
 
-        if ($definition->scopeType !== $scope->type) {
-            throw new InvalidArgumentException('Metric event scope must match its definition.');
-        }
+        throw_if($definition->scopeType !== $scope->type, InvalidArgumentException::class, 'Metric event scope must match its definition.');
 
-        if ($value < 1 || $weight < 1) {
-            throw new InvalidArgumentException('Metric event value and weight must be positive integers.');
-        }
+        throw_if($value < 1 || $weight < 1, InvalidArgumentException::class, 'Metric event value and weight must be positive integers.');
 
-        if ($occurredAt->utcOffset() !== 0) {
-            throw new InvalidArgumentException('Metric event occurrence must be UTC.');
-        }
+        throw_if($occurredAt->utcOffset() !== 0, InvalidArgumentException::class, 'Metric event occurrence must be UTC.');
 
         $siteId = $scope->siteUuid === null
             ? null

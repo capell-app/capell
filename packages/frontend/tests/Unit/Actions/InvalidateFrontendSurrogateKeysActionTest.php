@@ -51,6 +51,7 @@ it('invalidates local fragments without queueing when no CDN is configured', fun
 it('retains surrogate keys recorded while a CDN purge batch is in flight', function (): void {
     $buffer = resolve(CdnPurgeBuffer::class);
     $buffer->record(['site-1']);
+
     $batch = $buffer->snapshot();
     $buffer->record(['site-1', 'page-2']);
 

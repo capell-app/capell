@@ -490,8 +490,8 @@ trait ManagesPackages
                 ->values()
                 ->all();
 
-            $this->setUninstalledExtensionNames($names);
             $this->clearExtensionCache();
+            $this->setUninstalledExtensionNames($names);
 
             return;
         }

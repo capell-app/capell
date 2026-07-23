@@ -271,6 +271,7 @@ final class CapellCacheManager
     {
         $storeName = config('cache.default');
         $storeName = is_string($storeName) && $storeName !== '' ? $storeName : 'default';
+
         $driver = config(sprintf('cache.stores.%s.driver', $storeName));
 
         $persisted = $this->persistedRuntimeDiagnostics();
@@ -375,9 +376,7 @@ final class CapellCacheManager
                 },
             );
         } catch (Throwable $throwable) {
-            if ($callbackStarted) {
-                throw $throwable;
-            }
+            throw_if($callbackStarted, $throwable);
 
             $this->cacheBackendFailureCount++;
 
@@ -519,6 +518,7 @@ final class CapellCacheManager
             $this->cacheBackendFailureCount++;
             $generation = 0;
         }
+
         $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
 
         return $generation;
@@ -764,9 +764,7 @@ final class CapellCacheManager
 
     private function rethrowProgrammingFailure(Throwable $throwable): void
     {
-        if ($throwable instanceof Error || $throwable instanceof LogicException) {
-            throw $throwable;
-        }
+        throw_if($throwable instanceof Error || $throwable instanceof LogicException, $throwable);
     }
 
     private function persistRuntimeDiagnostics(): void
@@ -829,7 +827,7 @@ final class CapellCacheManager
                 'fills' => (int) $cache->get($this->runtimeDiagnosticKey('fills'), 0),
                 'backend_failures' => (int) $cache->get($this->runtimeDiagnosticKey('backend_failures'), 0),
                 'sampled_key_hashes' => is_array($samples)
-                    ? array_values(array_filter($samples, 'is_string'))
+                    ? array_values(array_filter($samples, is_string(...)))
                     : [],
             ];
         } catch (Throwable $throwable) {

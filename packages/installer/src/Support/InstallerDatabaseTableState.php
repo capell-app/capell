@@ -26,13 +26,16 @@ final class InstallerDatabaseTableState
             $cached = $cache->get($cacheKey);
 
             if (is_array($cached) && array_is_list($cached)) {
-                $tables = array_values(array_filter($cached, 'is_string'));
+                $tables = array_values(array_filter($cached, is_string(...)));
                 $memo->put($cacheKey, $tables);
 
                 return $tables;
             }
 
-            $tables = Schema::getTableListing(schemaQualified: false);
+            $tables = array_values(array_filter(
+                Schema::getTableListing(schemaQualified: false),
+                is_string(...),
+            ));
             $cache->forever($cacheKey, $tables);
 
             $memo->put($cacheKey, $tables);
@@ -73,7 +76,7 @@ final class InstallerDatabaseTableState
         ));
         $host = trim((string) config('capell-installer.installation_state_cache.host', ''));
         $connection = (string) config('database.default', '');
-        $database = (string) config("database.connections.{$connection}.database", '');
+        $database = (string) config(sprintf('database.connections.%s.database', $connection), '');
 
         if ($host === '') {
             $configuredUrl = trim((string) config('app.url', ''));
@@ -88,7 +91,7 @@ final class InstallerDatabaseTableState
             '%s.%s.%s',
             $baseKey !== '' ? $baseKey : 'capell-installer.database-tables',
             $host,
-            substr(hash('xxh128', "{$connection}:{$database}"), 0, 8),
+            substr(hash('xxh128', sprintf('%s:%s', $connection, $database)), 0, 8),
         );
     }
 }

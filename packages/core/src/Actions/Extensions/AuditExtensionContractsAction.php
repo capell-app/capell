@@ -249,6 +249,7 @@ final class AuditExtensionContractsAction
     }
 
     /**
+     * @param  array<string, mixed>  $composerJson
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson): array
@@ -402,7 +403,11 @@ final class AuditExtensionContractsAction
 
             /** @var SplFileInfo $file */
             foreach ($files as $file) {
-                if (! $file->isFile() || $file->getExtension() !== 'php') {
+                if (! $file->isFile()) {
+                    continue;
+                }
+
+                if ($file->getExtension() !== 'php') {
                     continue;
                 }
 

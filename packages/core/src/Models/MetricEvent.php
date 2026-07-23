@@ -8,6 +8,8 @@ use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Enums\Metrics\MetricScopeType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
@@ -38,6 +40,9 @@ use Override;
  */
 final class MetricEvent extends Model
 {
+    /** @use HasFactory<Factory<self>> */
+    use HasFactory;
+
     /** @var list<string> */
     protected $fillable = [
         'occurred_at',
@@ -69,17 +74,9 @@ final class MetricEvent extends Model
     protected static function booted(): void
     {
         self::saving(static function (self $event): void {
-            if (preg_match('/\A[a-f0-9]{64}\z/', $event->definition_hash) !== 1) {
-                throw new InvalidArgumentException('Metric event definition hash must be SHA-256.');
-            }
+            throw_if(preg_match('/\A[a-f0-9]{64}\z/', $event->definition_hash) !== 1, InvalidArgumentException::class, 'Metric event definition hash must be SHA-256.');
 
-            if ($event->value < 1 || $event->weight < 1) {
-                throw new InvalidArgumentException('Metric event value and weight must be positive integers.');
-            }
-
-            if ($event->occurred_at->utcOffset() !== 0) {
-                throw new InvalidArgumentException('Metric event occurrence must be UTC.');
-            }
+            throw_if($event->value < 1 || $event->weight < 1, InvalidArgumentException::class, 'Metric event value and weight must be positive integers.');
 
             $scope = new MetricScopeData(
                 type: $event->scope_type,
@@ -89,9 +86,7 @@ final class MetricEvent extends Model
                 language: $event->language,
             );
 
-            if ($scope->key() !== $event->scope_key) {
-                throw new InvalidArgumentException('Metric event scope key must be canonical.');
-            }
+            throw_if($scope->key() !== $event->scope_key, InvalidArgumentException::class, 'Metric event scope key must be canonical.');
         });
     }
 

@@ -70,6 +70,8 @@ it('selects dashboard Filament widgets from install state and available sites', 
         );
     CapellCore::shouldReceive('isPackageInstalled')
         ->andReturnTrue();
+    CapellCore::shouldReceive('removeCacheKey')
+        ->zeroOrMoreTimes();
 
     expect((new CapellDashboard)->getWidgets())->toBe(['not-installed-widget']);
 

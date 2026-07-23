@@ -13,6 +13,8 @@ use Capell\Core\Enums\Metrics\MetricValueType;
 use Capell\Core\Enums\MetricUnitEnum;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
@@ -48,6 +50,9 @@ use Override;
  */
 final class MetricDailyRollup extends Model
 {
+    /** @use HasFactory<Factory<self>> */
+    use HasFactory;
+
     /** @var list<string> */
     protected $fillable = [
         'metric_collection_run_id',
@@ -93,9 +98,7 @@ final class MetricDailyRollup extends Model
     protected static function booted(): void
     {
         self::saving(static function (self $rollup): void {
-            if (preg_match('/\A[a-f0-9]{64}\z/', $rollup->definition_hash) !== 1) {
-                throw new InvalidArgumentException('Metric rollup definition hash must be SHA-256.');
-            }
+            throw_if(preg_match('/\A[a-f0-9]{64}\z/', $rollup->definition_hash) !== 1, InvalidArgumentException::class, 'Metric rollup definition hash must be SHA-256.');
 
             $scopeType = $rollup->scope_type instanceof MetricScopeType
                 ? $rollup->scope_type
@@ -108,9 +111,7 @@ final class MetricDailyRollup extends Model
                 language: $rollup->language,
             );
 
-            if ($scope->key() !== $rollup->scope_key) {
-                throw new InvalidArgumentException('Metric rollup scope key must be canonical.');
-            }
+            throw_if($scope->key() !== $rollup->scope_key, InvalidArgumentException::class, 'Metric rollup scope key must be canonical.');
 
             $valueType = $rollup->value_type instanceof MetricValueType
                 ? $rollup->value_type
@@ -129,20 +130,16 @@ final class MetricDailyRollup extends Model
                 ? $rawState
                 : MetricPointState::tryFrom((string) $rawState);
 
-            if ($state === null) {
-                throw new InvalidArgumentException('Metric rollup point state must be supported.');
-            }
+            throw_if($state === null, InvalidArgumentException::class, 'Metric rollup point state must be supported.');
 
             self::assertStoredValue($rollup, $representation, $state);
 
             $run = $rollup->collectionRun()->first();
 
-            if ($run === null
+            throw_if($run === null
                 || $run->day->toDateString() !== $rollup->day->toDateString()
                 || $run->owner_package !== $rollup->owner_package
-                || $run->collector_key !== $rollup->collector_key) {
-                throw new InvalidArgumentException('Metric rollup identity must match its collection run.');
-            }
+                || $run->collector_key !== $rollup->collector_key, InvalidArgumentException::class, 'Metric rollup identity must match its collection run.');
         });
     }
 
@@ -168,16 +165,12 @@ final class MetricDailyRollup extends Model
         MetricPointState $state,
     ): void {
         if ($rollup->value === null) {
-            if (! in_array($state, [MetricPointState::Missing, MetricPointState::Stale, MetricPointState::Unsupported], true)) {
-                throw new InvalidArgumentException('Present and zero metric points require a value.');
-            }
+            throw_unless(in_array($state, [MetricPointState::Missing, MetricPointState::Stale, MetricPointState::Unsupported], true), InvalidArgumentException::class, 'Present and zero metric points require a value.');
 
             return;
         }
 
-        if (in_array($state, [MetricPointState::Missing, MetricPointState::Stale, MetricPointState::Unsupported], true)) {
-            throw new InvalidArgumentException('Non-value metric point states cannot persist a value.');
-        }
+        throw_if(in_array($state, [MetricPointState::Missing, MetricPointState::Stale, MetricPointState::Unsupported], true), InvalidArgumentException::class, 'Non-value metric point states cannot persist a value.');
 
         $value = match ($representation->valueType) {
             MetricValueType::Integer => MetricValueData::integer(self::canonicalInteger($rollup->value)),
@@ -193,18 +186,14 @@ final class MetricDailyRollup extends Model
         $isZero = ($value->integer ?? $value->minorUnits) === 0
             || ($value->decimal !== null && preg_match('/\A0(?:\.0+)?\z/', $value->decimal) === 1);
 
-        if (($state === MetricPointState::Zero) !== $isZero) {
-            throw new InvalidArgumentException('Metric zero state must agree with its value.');
-        }
+        throw_if(($state === MetricPointState::Zero) !== $isZero, InvalidArgumentException::class, 'Metric zero state must agree with its value.');
     }
 
     private static function canonicalInteger(string $value): int
     {
         $integer = filter_var($value, FILTER_VALIDATE_INT);
 
-        if ($integer === false || (string) $integer !== $value) {
-            throw new InvalidArgumentException('Metric integer values must be canonical and in range.');
-        }
+        throw_if($integer === false || (string) $integer !== $value, InvalidArgumentException::class, 'Metric integer values must be canonical and in range.');
 
         return $integer;
     }

@@ -22,9 +22,7 @@ final class MetricGovernanceData extends Data
         public readonly MetricSensitivity $sensitivity,
         public readonly MetricVisibility $visibility,
     ) {
-        if (preg_match('/\A[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*\z/', $this->authoritativeSourceKey) !== 1) {
-            throw new InvalidArgumentException('Metric authoritative source key must be a stable lowercase identifier.');
-        }
+        throw_if(preg_match('/\A[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*\z/', $this->authoritativeSourceKey) !== 1, InvalidArgumentException::class, 'Metric authoritative source key must be a stable lowercase identifier.');
     }
 
     /** @return array{source: string, authoritative_source_key: string, sensitivity: string, visibility: string} */

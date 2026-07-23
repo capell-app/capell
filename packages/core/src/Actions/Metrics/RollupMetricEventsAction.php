@@ -14,7 +14,7 @@ use Capell\Core\Models\MetricEvent;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -75,11 +75,9 @@ final class RollupMetricEventsAction
             foreach ($events as $event) {
                 $definition = $this->registry->definition($event->metric_key);
 
-                if ($definition->identity->ownerPackage !== $event->owner_package
+                throw_if($definition->identity->ownerPackage !== $event->owner_package
                     || $definition->identity->collectorKey !== $event->collector_key
-                    || $definition->semanticHash() !== $event->definition_hash) {
-                    throw new RuntimeException('Metric event definition is missing or has drifted.');
-                }
+                    || $definition->semanticHash() !== $event->definition_hash, RuntimeException::class, 'Metric event definition is missing or has drifted.');
 
                 $definitions[$event->metric_key] = $definition;
             }
@@ -137,9 +135,7 @@ final class RollupMetricEventsAction
             foreach ($group as $sample) {
                 $weightedValue = $sample->value * $sample->weight;
 
-                if (! is_int($weightedValue) || ($weightedValue > 0 && $increment > PHP_INT_MAX - $weightedValue)) {
-                    throw new RuntimeException('Metric event weighted sum exceeds the integer range.');
-                }
+                throw_if(! is_int($weightedValue) || ($weightedValue > 0 && $increment > PHP_INT_MAX - $weightedValue), RuntimeException::class, 'Metric event weighted sum exceeds the integer range.');
 
                 $increment += $weightedValue;
             }
@@ -152,7 +148,7 @@ final class RollupMetricEventsAction
                 language: $event->language,
             );
             $rollup = MetricDailyRollup::query()
-                ->where('day', $day)
+                ->whereDate('day', $day)
                 ->where('owner_package', $event->owner_package)
                 ->where('collector_key', $event->collector_key)
                 ->where('metric_key', $event->metric_key)
@@ -173,9 +169,7 @@ final class RollupMetricEventsAction
             } else {
                 $existingValue = filter_var($rollup->value, FILTER_VALIDATE_INT);
 
-                if ($existingValue === false || $existingValue > PHP_INT_MAX - $increment) {
-                    throw new RuntimeException('Metric daily rollup exceeds the integer range.');
-                }
+                throw_if($existingValue === false || $existingValue > PHP_INT_MAX - $increment, RuntimeException::class, 'Metric daily rollup exceeds the integer range.');
 
                 $value = $existingValue + $increment;
                 $rollup->fill([
@@ -217,13 +211,9 @@ final class RollupMetricEventsAction
 
         $resolved = CarbonImmutable::createFromFormat('!Y-m-d', $day, 'UTC');
 
-        if ($resolved === false || $resolved->format('Y-m-d') !== $day) {
-            throw new InvalidArgumentException('Metric rollup day must use Y-m-d.');
-        }
+        throw_if(! $resolved instanceof CarbonImmutable || $resolved->format('Y-m-d') !== $day, InvalidArgumentException::class, 'Metric rollup day must use Y-m-d.');
 
-        if ($resolved->isAfter(CarbonImmutable::now('UTC')->startOfDay())) {
-            throw new InvalidArgumentException('Metric rollup day cannot be in the future.');
-        }
+        throw_if($resolved->isAfter(CarbonImmutable::now('UTC')->startOfDay()), InvalidArgumentException::class, 'Metric rollup day cannot be in the future.');
 
         return $resolved;
     }

@@ -30,50 +30,32 @@ final class MetricCollectionResultData extends Data
     ) {
         $parsedDay = DateTimeImmutable::createFromFormat('!Y-m-d', $this->day);
 
-        if ($parsedDay === false || $parsedDay->format('Y-m-d') !== $this->day) {
-            throw new InvalidArgumentException('Metric collection day must use YYYY-MM-DD.');
-        }
+        throw_if($parsedDay === false || $parsedDay->format('Y-m-d') !== $this->day, InvalidArgumentException::class, 'Metric collection day must use YYYY-MM-DD.');
 
-        if ($this->status === MetricCollectionStatus::Complete
-            && ($this->coveredScopes === [] || trim($this->sourceWatermark ?? '') === '' || $this->sourceChecksum === null || $this->reason !== null)) {
-            throw new InvalidArgumentException('Complete metric collections require coverage and source identity, without a failure reason.');
-        }
+        throw_if($this->status === MetricCollectionStatus::Complete
+            && ($this->coveredScopes === [] || trim($this->sourceWatermark ?? '') === '' || $this->sourceChecksum === null || $this->reason !== null), InvalidArgumentException::class, 'Complete metric collections require coverage and source identity, without a failure reason.');
 
-        if ($this->status !== MetricCollectionStatus::Complete && trim($this->reason ?? '') === '') {
-            throw new InvalidArgumentException('Incomplete metric collections require a reason.');
-        }
+        throw_if($this->status !== MetricCollectionStatus::Complete && trim($this->reason ?? '') === '', InvalidArgumentException::class, 'Incomplete metric collections require a reason.');
 
-        if ($this->status === MetricCollectionStatus::Failed && $this->samples !== []) {
-            throw new InvalidArgumentException('Failed metric collections cannot contain samples.');
-        }
+        throw_if($this->status === MetricCollectionStatus::Failed && $this->samples !== [], InvalidArgumentException::class, 'Failed metric collections cannot contain samples.');
 
-        if ($this->status === MetricCollectionStatus::Unsupported
-            && ($this->coveredScopes !== [] || $this->samples !== [] || $this->sourceWatermark !== null || $this->sourceChecksum !== null)) {
-            throw new InvalidArgumentException('Unsupported metric collections may only report their reason.');
-        }
+        throw_if($this->status === MetricCollectionStatus::Unsupported
+            && ($this->coveredScopes !== [] || $this->samples !== [] || $this->sourceWatermark !== null || $this->sourceChecksum !== null), InvalidArgumentException::class, 'Unsupported metric collections may only report their reason.');
 
-        if ($this->sourceChecksum !== null && preg_match('/\A[a-f0-9]{64}\z/', $this->sourceChecksum) !== 1) {
-            throw new InvalidArgumentException('Metric source checksum must be SHA-256.');
-        }
+        throw_if($this->sourceChecksum !== null && preg_match('/\A[a-f0-9]{64}\z/', $this->sourceChecksum) !== 1, InvalidArgumentException::class, 'Metric source checksum must be SHA-256.');
 
         $scopeKeys = array_map(static fn (MetricScopeData $scope): string => $scope->key(), $this->coveredScopes);
 
-        if (count($scopeKeys) !== count(array_unique($scopeKeys))) {
-            throw new InvalidArgumentException('Metric collection coverage cannot contain duplicate scopes.');
-        }
+        throw_if(count($scopeKeys) !== count(array_unique($scopeKeys)), InvalidArgumentException::class, 'Metric collection coverage cannot contain duplicate scopes.');
 
         $sampleKeys = [];
 
         foreach ($this->samples as $sample) {
-            if ($sample->day !== $this->day || ! in_array($sample->scope->key(), $scopeKeys, true)) {
-                throw new InvalidArgumentException('Metric samples must belong to the result day and covered scopes.');
-            }
+            throw_if($sample->day !== $this->day || ! in_array($sample->scope->key(), $scopeKeys, true), InvalidArgumentException::class, 'Metric samples must belong to the result day and covered scopes.');
 
             $sampleKey = $sample->identity->key() . ':' . $sample->scope->key();
 
-            if (isset($sampleKeys[$sampleKey])) {
-                throw new InvalidArgumentException('Metric collections cannot contain duplicate samples for an identity and scope.');
-            }
+            throw_if(isset($sampleKeys[$sampleKey]), InvalidArgumentException::class, 'Metric collections cannot contain duplicate samples for an identity and scope.');
 
             $sampleKeys[$sampleKey] = true;
         }

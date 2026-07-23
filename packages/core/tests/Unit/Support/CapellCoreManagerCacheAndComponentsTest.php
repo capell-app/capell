@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\CacheEnum;
-use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\CapellCoreManager;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\Store;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
-use RuntimeException;
 
 afterEach(function (): void {
     config([
@@ -64,17 +63,17 @@ it('uses an atomic lock for a cold cache fill', function (): void {
         'cache.default' => 'array',
         'capell.disable_cache' => false,
     ]);
-    Cache::spy();
+    $cache = Cache::spy();
 
     $value = resolve(CapellCacheManager::class)
         ->rememberCache('single-fill-contract', fn (): string => 'filled');
 
     expect($value)->toBe('filled');
 
-    Cache::shouldHaveReceived('lock')
+    $cache->shouldHaveReceived('lock')
         ->once()
         ->with(
-            \Mockery::on(static fn (string $key): bool => str_starts_with($key, 'capell.cache.remember.')),
+            Mockery::on(static fn (string $key): bool => str_starts_with($key, 'capell.cache.remember.')),
             30,
         );
 });
@@ -90,6 +89,7 @@ it('waits through a contended lock lease before filling', function (): void {
     $normalizeCacheKey = new ReflectionMethod($manager, 'normalizeCacheKey');
     $lock = Cache::lock('capell.cache.remember.' . $normalizeCacheKey->invoke($manager, 'contended-fill'), 2);
     $lock->get();
+
     $callbackRuns = 0;
 
     try {

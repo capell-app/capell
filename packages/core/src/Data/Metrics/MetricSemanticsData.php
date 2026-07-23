@@ -28,31 +28,21 @@ final class MetricSemanticsData extends Data
 
     public function assertCompatibleWith(MetricRepresentationData $representation): void
     {
-        if ($this->aggregation === MetricAggregation::Average && $representation->valueType !== MetricValueType::Decimal) {
-            throw new InvalidArgumentException('Average aggregation requires a fixed-decimal representation.');
-        }
+        throw_if($this->aggregation === MetricAggregation::Average && $representation->valueType !== MetricValueType::Decimal, InvalidArgumentException::class, 'Average aggregation requires a fixed-decimal representation.');
 
-        if ($this->semantic === MetricSemantic::Event
+        throw_if($this->semantic === MetricSemantic::Event
             && ($representation->unit !== MetricUnitEnum::Count
                 || $representation->valueType !== MetricValueType::Integer
-                || $this->aggregation !== MetricAggregation::Sum)) {
-            throw new InvalidArgumentException('Event metrics must be summed integer counts.');
-        }
+                || $this->aggregation !== MetricAggregation::Sum), InvalidArgumentException::class, 'Event metrics must be summed integer counts.');
 
-        if ($this->semantic === MetricSemantic::Ratio
+        throw_if($this->semantic === MetricSemantic::Ratio
             && ($representation->unit !== MetricUnitEnum::Percentage
                 || $representation->valueType !== MetricValueType::Decimal
-                || $this->aggregation !== MetricAggregation::Average)) {
-            throw new InvalidArgumentException('Ratio metrics must be averaged fixed-decimal percentages.');
-        }
+                || $this->aggregation !== MetricAggregation::Average), InvalidArgumentException::class, 'Ratio metrics must be averaged fixed-decimal percentages.');
 
-        if ($this->semantic === MetricSemantic::Counter && $this->aggregation !== MetricAggregation::Sum) {
-            throw new InvalidArgumentException('Counter metrics must use sum aggregation.');
-        }
+        throw_if($this->semantic === MetricSemantic::Counter && $this->aggregation !== MetricAggregation::Sum, InvalidArgumentException::class, 'Counter metrics must use sum aggregation.');
 
-        if ($this->semantic === MetricSemantic::Gauge && $this->aggregation === MetricAggregation::Sum) {
-            throw new InvalidArgumentException('Gauge metrics cannot use sum aggregation.');
-        }
+        throw_if($this->semantic === MetricSemantic::Gauge && $this->aggregation === MetricAggregation::Sum, InvalidArgumentException::class, 'Gauge metrics cannot use sum aggregation.');
     }
 
     /** @return array{semantic: string, aggregation: string, gap_policy: string, backfill_policy: string} */

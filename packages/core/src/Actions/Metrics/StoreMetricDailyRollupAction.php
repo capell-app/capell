@@ -24,24 +24,22 @@ final class StoreMetricDailyRollupAction
         ?MetricValueData $value,
         ?int $siteId = null,
     ): MetricDailyRollup {
-        if (! $run->exists || $run->status !== MetricCollectionRunStatus::Started
+        throw_if(! $run->exists || $run->status !== MetricCollectionRunStatus::Started
             || $run->day->toDateString() !== $day
             || $run->owner_package !== $definition->identity->ownerPackage
-            || $run->collector_key !== $definition->identity->collectorKey) {
-            throw new InvalidArgumentException('Metric rollup identity must match its collection run.');
-        }
+            || $run->collector_key !== $definition->identity->collectorKey, InvalidArgumentException::class, 'Metric rollup identity must match its collection run.');
 
-        if ($definition->scopeType !== $scope->type) {
-            throw new InvalidArgumentException('Metric rollup scope must match its definition.');
-        }
+        throw_if($definition->scopeType !== $scope->type, InvalidArgumentException::class, 'Metric rollup scope must match its definition.');
 
         $this->assertStateValue($state, $value);
 
-        if ($value !== null) {
+        if ($value instanceof MetricValueData) {
             $value->assertMatches($definition->representation);
         }
 
-        $storedValue = $value?->integer ?? $value?->decimal ?? $value?->minorUnits;
+        $storedValue = $value instanceof MetricValueData
+            ? $value->integer ?? $value->decimal ?? $value->minorUnits
+            : (null);
 
         return MetricDailyRollup::query()->create([
             'metric_collection_run_id' => $run->getKey(),
@@ -69,22 +67,16 @@ final class StoreMetricDailyRollupAction
     private function assertStateValue(MetricPointState $state, ?MetricValueData $value): void
     {
         if (in_array($state, [MetricPointState::Missing, MetricPointState::Stale, MetricPointState::Unsupported], true)) {
-            if ($value !== null) {
-                throw new InvalidArgumentException('Non-value metric point states cannot persist a value.');
-            }
+            throw_if($value instanceof MetricValueData, InvalidArgumentException::class, 'Non-value metric point states cannot persist a value.');
 
             return;
         }
 
-        if ($value === null) {
-            throw new InvalidArgumentException('Present and zero metric point states require a value.');
-        }
+        throw_if(! $value instanceof MetricValueData, InvalidArgumentException::class, 'Present and zero metric point states require a value.');
 
         $isZero = ($value->integer ?? $value->minorUnits) === 0
             || ($value->decimal !== null && preg_match('/\A0(?:\.0+)?\z/', $value->decimal) === 1);
 
-        if (($state === MetricPointState::Zero) !== $isZero) {
-            throw new InvalidArgumentException('Metric zero state must agree with its value.');
-        }
+        throw_if(($state === MetricPointState::Zero) !== $isZero, InvalidArgumentException::class, 'Metric zero state must agree with its value.');
     }
 }

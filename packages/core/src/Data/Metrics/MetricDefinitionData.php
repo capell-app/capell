@@ -34,28 +34,22 @@ final class MetricDefinitionData extends Data
     ) {
         $this->semantics->assertCompatibleWith($this->representation);
 
-        if ($this->status === MetricDefinitionStatus::Active && $this->replacedBy !== null) {
-            throw new InvalidArgumentException('Only tombstoned metric definitions may point to a replacement.');
-        }
+        throw_if($this->status === MetricDefinitionStatus::Active && $this->replacedBy instanceof MetricIdentityData, InvalidArgumentException::class, 'Only tombstoned metric definitions may point to a replacement.');
 
-        if ($this->status === MetricDefinitionStatus::Tombstoned && $this->replaces !== null) {
-            throw new InvalidArgumentException('Tombstoned metric definitions cannot replace another metric.');
-        }
+        throw_if($this->status === MetricDefinitionStatus::Tombstoned && $this->replaces instanceof MetricIdentityData, InvalidArgumentException::class, 'Tombstoned metric definitions cannot replace another metric.');
 
         foreach ([$this->replaces, $this->replacedBy] as $relatedIdentity) {
-            if ($relatedIdentity !== null
+            throw_if($relatedIdentity instanceof MetricIdentityData
                 && ($relatedIdentity->ownerPackage !== $this->identity->ownerPackage
                     || $relatedIdentity->collectorKey !== $this->identity->collectorKey
-                    || $relatedIdentity->metricKey === $this->identity->metricKey)) {
-                throw new InvalidArgumentException('Metric replacements must be distinct identities within the same owner and collector.');
-            }
+                    || $relatedIdentity->metricKey === $this->identity->metricKey), InvalidArgumentException::class, 'Metric replacements must be distinct identities within the same owner and collector.');
         }
 
         $this->assertTranslations($this->labels);
         $this->assertTranslations($this->descriptions);
     }
 
-    public function retentionDays(): ?int
+    public function retentionDays(): null
     {
         return null;
     }
@@ -105,9 +99,7 @@ final class MetricDefinitionData extends Data
     private function assertTranslations(array $translations): void
     {
         foreach ($translations as $language => $translation) {
-            if ($language === '' || trim($translation) === '') {
-                throw new InvalidArgumentException('Metric translations require a language and non-empty text.');
-            }
+            throw_if($language === '' || trim($translation) === '', InvalidArgumentException::class, 'Metric translations require a language and non-empty text.');
         }
     }
 }

@@ -115,13 +115,13 @@ final class InstallerInstallationState
         }
 
         $connection = (string) config('database.default', '');
-        $database = (string) config("database.connections.{$connection}.database", '');
+        $database = (string) config(sprintf('database.connections.%s.database', $connection), '');
 
         return sprintf(
             '%s.%s.%s',
             $baseKey !== '' ? $baseKey : 'capell-installer.installation-state',
             $host,
-            substr(hash('xxh128', "{$connection}:{$database}"), 0, 8),
+            substr(hash('xxh128', sprintf('%s:%s', $connection, $database)), 0, 8),
         );
     }
 }

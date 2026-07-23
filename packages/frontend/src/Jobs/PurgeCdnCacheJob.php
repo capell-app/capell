@@ -110,9 +110,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         $token = config('capell-frontend.cloudflare_purge_token');
         $zone = config('capell-frontend.cloudflare_zone_id');
 
-        if (! is_string($token) || $token === '' || ! is_string($zone) || $zone === '') {
-            throw new LogicException('Cloudflare purge configured but missing credentials');
-        }
+        throw_if(! is_string($token) || $token === '' || ! is_string($zone) || $zone === '', LogicException::class, 'Cloudflare purge configured but missing credentials');
 
         try {
             Http::withToken($token)
@@ -139,9 +137,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         $key = config('capell-frontend.fastly_api_key');
         $serviceId = config('capell-frontend.fastly_service_id');
 
-        if (! is_string($key) || $key === '') {
-            throw new LogicException('Fastly purge configured but missing API key');
-        }
+        throw_if(! is_string($key) || $key === '', LogicException::class, 'Fastly purge configured but missing API key');
 
         try {
             if (is_string($serviceId) && $serviceId !== '') {
@@ -185,9 +181,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
     {
         $url = config('capell-frontend.varnish_url');
 
-        if (! is_string($url) || $url === '') {
-            throw new LogicException('Varnish purge configured but missing URL');
-        }
+        throw_if(! is_string($url) || $url === '', LogicException::class, 'Varnish purge configured but missing URL');
 
         try {
             Http::withHeaders(['X-Surrogate-Key' => implode(',', $this->surrogateKeys)])

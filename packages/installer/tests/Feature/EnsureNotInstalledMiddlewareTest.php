@@ -10,6 +10,7 @@ use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Installer\Http\Middleware\EnsureNotInstalled;
 use Capell\Installer\Support\InstallerInstallationState;
+use Capell\Installer\Support\InstallerRuntimeMemo;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -42,7 +43,7 @@ it('uses one query for a mid-install state and none after either cache tier is w
     expect(installerStateQueryCount(fn (): bool => InstallerInstallationState::capellIsInstalled()))
         ->toBe(['result' => false, 'queries' => 0]);
 
-    InstallerInstallationState::resetRuntimeMemo();
+    resolve(InstallerRuntimeMemo::class)->flush();
     resolve(CapellCacheManager::class)->flushLocalCache();
 
     expect(installerStateQueryCount(fn (): bool => InstallerInstallationState::capellIsInstalled()))
@@ -58,7 +59,7 @@ it('uses one query for an installed state and none after either cache tier is wa
     expect(installerStateQueryCount(fn (): bool => InstallerInstallationState::capellIsInstalled()))
         ->toBe(['result' => true, 'queries' => 0]);
 
-    InstallerInstallationState::resetRuntimeMemo();
+    resolve(InstallerRuntimeMemo::class)->flush();
     resolve(CapellCacheManager::class)->flushLocalCache();
 
     expect(installerStateQueryCount(fn (): bool => InstallerInstallationState::capellIsInstalled()))
@@ -85,7 +86,6 @@ it('treats an unavailable fresh database as not installed without caching the in
     } finally {
         config(['database.default' => $originalDefaultConnection]);
         DB::purge('installer_state_missing_connection');
-        DB::purge(is_string($originalDefaultConnection) ? $originalDefaultConnection : null);
     }
 
     Site::factory()->createOne();
@@ -113,7 +113,6 @@ it('treats a missing fresh schema as not installed without caching the indetermi
     } finally {
         config(['database.default' => $originalDefaultConnection]);
         DB::purge('installer_state_fresh_database');
-        DB::purge(is_string($originalDefaultConnection) ? $originalDefaultConnection : null);
     }
 
     Site::factory()->createOne();
@@ -136,17 +135,17 @@ it('separates persistent installation state by configured host', function (): vo
 it('separates persistent installation state by configured database', function (): void {
     Site::query()->delete();
     $connection = (string) config('database.default');
-    $originalDatabase = config("database.connections.{$connection}.database");
+    $originalDatabase = config(sprintf('database.connections.%s.database', $connection));
 
     expect(InstallerInstallationState::capellIsInstalled())->toBeFalse();
 
     Site::factory()->createOne();
-    config(["database.connections.{$connection}.database" => "{$originalDatabase}_other"]);
+    config([sprintf('database.connections.%s.database', $connection) => $originalDatabase . '_other']);
 
     try {
         expect(InstallerInstallationState::capellIsInstalled())->toBeTrue();
     } finally {
-        config(["database.connections.{$connection}.database" => $originalDatabase]);
+        config([sprintf('database.connections.%s.database', $connection) => $originalDatabase]);
     }
 });
 

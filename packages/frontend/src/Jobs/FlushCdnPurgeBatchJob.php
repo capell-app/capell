@@ -38,17 +38,17 @@ final class FlushCdnPurgeBatchJob implements ShouldBeUniqueUntilProcessing, Shou
         $batch = $buffer->snapshot();
 
         if ($batch !== []) {
-            (new PurgeCdnCacheJob(array_keys($batch)))->handle();
+            new PurgeCdnCacheJob(array_keys($batch))->handle();
             $buffer->acknowledge($batch);
 
             if ($buffer->hasPending()) {
-                self::dispatch()->delay(now()->addSeconds(2));
+                dispatch(new self)->delay(now()->addSeconds(2));
             }
         }
     }
 
     public function failed(?Throwable $exception): void
     {
-        self::dispatch()->delay(now()->addMinutes(5));
+        dispatch(new self)->delay(now()->addMinutes(5));
     }
 }

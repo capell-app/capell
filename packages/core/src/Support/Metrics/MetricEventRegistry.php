@@ -19,13 +19,11 @@ final class MetricEventRegistry
 
     public function register(MetricDefinitionData $definition): self
     {
-        if ($definition->status !== MetricDefinitionStatus::Active
+        throw_if($definition->status !== MetricDefinitionStatus::Active
             || $definition->semantics->semantic !== MetricSemantic::Event
             || $definition->semantics->aggregation !== MetricAggregation::Sum
             || $definition->representation->unit !== MetricUnitEnum::Count
-            || $definition->representation->valueType !== MetricValueType::Integer) {
-            throw new InvalidArgumentException('Event metric registry accepts only active summed integer count events.');
-        }
+            || $definition->representation->valueType !== MetricValueType::Integer, InvalidArgumentException::class, 'Event metric registry accepts only active summed integer count events.');
 
         $metricKey = $definition->identity->metricKey;
         $existing = $this->definitions[$metricKey] ?? null;

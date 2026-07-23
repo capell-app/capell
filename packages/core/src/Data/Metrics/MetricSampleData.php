@@ -24,15 +24,11 @@ final class MetricSampleData extends Data
     ) {
         $this->value->assertMatches($this->representation);
 
-        if (preg_match('/\A[a-f0-9]{64}\z/', $this->definitionHash) !== 1) {
-            throw new InvalidArgumentException('Metric sample definition hash must be SHA-256.');
-        }
+        throw_if(preg_match('/\A[a-f0-9]{64}\z/', $this->definitionHash) !== 1, InvalidArgumentException::class, 'Metric sample definition hash must be SHA-256.');
 
         $parsedDay = DateTimeImmutable::createFromFormat('!Y-m-d', $this->day);
 
-        if ($parsedDay === false || $parsedDay->format('Y-m-d') !== $this->day) {
-            throw new InvalidArgumentException('Metric sample day must use YYYY-MM-DD.');
-        }
+        throw_if($parsedDay === false || $parsedDay->format('Y-m-d') !== $this->day, InvalidArgumentException::class, 'Metric sample day must use YYYY-MM-DD.');
     }
 
     /**

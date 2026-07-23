@@ -27,36 +27,24 @@ final class MetricValueData extends Data
             static fn (int|string|null $value): bool => $value !== null,
         ));
 
-        if ($populatedValues !== 1
+        throw_if($populatedValues !== 1
             || ($this->type === MetricValueType::Integer && $this->integer === null)
             || ($this->type === MetricValueType::Decimal && $this->decimal === null)
-            || ($this->type === MetricValueType::MinorCurrencyUnit && $this->minorUnits === null)) {
-            throw new InvalidArgumentException('Metric value payload does not match its type.');
-        }
+            || ($this->type === MetricValueType::MinorCurrencyUnit && $this->minorUnits === null), InvalidArgumentException::class, 'Metric value payload does not match its type.');
 
-        if ($this->type === MetricValueType::Integer && ($this->scale !== null || $this->currency !== null)) {
-            throw new InvalidArgumentException('Integer metric values cannot define scale or currency.');
-        }
+        throw_if($this->type === MetricValueType::Integer && ($this->scale !== null || $this->currency !== null), InvalidArgumentException::class, 'Integer metric values cannot define scale or currency.');
 
         if ($this->type === MetricValueType::Decimal) {
-            if ($this->scale === null || $this->scale < 0 || $this->scale > 18 || preg_match('/\A-?(?:0|[1-9]\d*)(?:\.\d+)?\z/', $this->decimal ?? '') !== 1) {
-                throw new InvalidArgumentException('Decimal metric values require a canonical decimal string and scale.');
-            }
-
+            throw_if($this->scale === null || $this->scale < 0 || $this->scale > 18 || preg_match('/\A-?(?:0|[1-9]\d*)(?:\.\d+)?\z/', $this->decimal ?? '') !== 1, InvalidArgumentException::class, 'Decimal metric values require a canonical decimal string and scale.');
             $decimalParts = explode('.', $this->decimal);
             $fraction = isset($decimalParts[1]) ? strlen($decimalParts[1]) : 0;
-
-            if ($fraction !== $this->scale
+            throw_if($fraction !== $this->scale
                 || preg_match('/\A-0(?:\.0+)?\z/', $this->decimal) === 1
-                || $this->currency !== null) {
-                throw new InvalidArgumentException('Decimal metric scale must match its fixed precision and cannot define currency.');
-            }
+                || $this->currency !== null, InvalidArgumentException::class, 'Decimal metric scale must match its fixed precision and cannot define currency.');
         }
 
-        if ($this->type === MetricValueType::MinorCurrencyUnit
-            && ($this->scale === null || $this->scale < 0 || $this->scale > 18 || preg_match('/\A[A-Z]{3}\z/', $this->currency ?? '') !== 1)) {
-            throw new InvalidArgumentException('Minor-unit metric values require an uppercase ISO currency and scale.');
-        }
+        throw_if($this->type === MetricValueType::MinorCurrencyUnit
+            && ($this->scale === null || $this->scale < 0 || $this->scale > 18 || preg_match('/\A[A-Z]{3}\z/', $this->currency ?? '') !== 1), InvalidArgumentException::class, 'Minor-unit metric values require an uppercase ISO currency and scale.');
     }
 
     public static function integer(int $value): self
@@ -76,11 +64,9 @@ final class MetricValueData extends Data
 
     public function assertMatches(MetricRepresentationData $representation): void
     {
-        if ($this->type !== $representation->valueType
+        throw_if($this->type !== $representation->valueType
             || $this->scale !== $representation->scale
-            || $this->currency !== $representation->currency) {
-            throw new InvalidArgumentException('Metric sample value does not match its definition representation.');
-        }
+            || $this->currency !== $representation->currency, InvalidArgumentException::class, 'Metric sample value does not match its definition representation.');
     }
 
     /**

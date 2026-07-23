@@ -1,0 +1,8 @@
+{
+    "schemaVersion": 1,
+    "decision": "accepted",
+    "reason": "The metrics storage migrations are additive Core-owned tables and do not change an existing stable extension surface.",
+    "drift": [
+        "migrations"
+    ]
+}

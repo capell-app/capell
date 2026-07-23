@@ -47,9 +47,7 @@ final class MetricsManager
         ?CarbonImmutable $occurredAt = null,
     ): void {
         try {
-            if ($value < 1 || $sampleEvery < 1) {
-                throw new InvalidArgumentException('Metric event value and sampling interval must be positive integers.');
-            }
+            throw_if($value < 1 || $sampleEvery < 1, InvalidArgumentException::class, 'Metric event value and sampling interval must be positive integers.');
 
             $definition = $this->registry->definition($metric);
 

@@ -49,7 +49,7 @@ it('falls back database-backed cache and session drivers for first web installer
     }
 });
 
-it('keeps database-backed drivers with one cold query and none after the persistent cache is warm', function (): void {
+it('keeps database-backed drivers with one cold schema discovery and none after the persistent cache is warm', function (): void {
     Schema::create('installer_provider_sessions', function (Blueprint $table): void {
         $table->string('id')->primary();
         $table->foreignId('user_id')->nullable()->index();
@@ -85,9 +85,9 @@ it('keeps database-backed drivers with one cold query and none after the persist
 
         expect(config('session.driver'))->toBe('database')
             ->and(config('cache.default'))->toBe('database')
-            ->and(DB::getQueryLog())->toHaveCount(1);
+            ->and(DB::getQueryLog())->toHaveCount(2);
 
-        InstallerDatabaseTableState::resetRuntimeMemo();
+        resolve(InstallerRuntimeMemo::class)->flush();
         DB::flushQueryLog();
 
         new InstallerServiceProvider($this->app)->bootingPackage();

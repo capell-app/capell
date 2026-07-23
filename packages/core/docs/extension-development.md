@@ -110,12 +110,12 @@ clean from its first run.
 
 Useful failures and their fixes:
 
-| Failure | What to check |
-| --- | --- |
-| A theme reports no `theme-css:<key>` registration | Use the exact `theme` key from `capell.json` in the provider's conditional Tailwind CSS registration. |
-| A theme CSS source is missing | Restore or configure the source file that the provider registers, then regenerate the frontend assets. |
+| Failure                                                         | What to check                                                                                                      |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| A theme reports no `theme-css:<key>` registration               | Use the exact `theme` key from `capell.json` in the provider's conditional Tailwind CSS registration.              |
+| A theme CSS source is missing                                   | Restore or configure the source file that the provider registers, then regenerate the frontend assets.             |
 | A contribution or settings class cannot be found after a rename | Run `capell:package-cache:clear` and `config:clear`; confirm the manifest class name and Composer PSR-4 namespace. |
-| A screenshot or Marketplace asset is missing | Keep the referenced path package-relative and commit the file before publishing. |
+| A screenshot or Marketplace asset is missing                    | Keep the referenced path package-relative and commit the file before publishing.                                   |
 
 Run the generated package tests as you extend the blueprint. The README names
 the smallest relevant command for that package.

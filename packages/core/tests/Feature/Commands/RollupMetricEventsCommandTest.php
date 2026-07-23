@@ -7,13 +7,13 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 
 it('rejects malformed and future metric rollup days', function (string $day): void {
-    $this->artisan('capell:metrics:rollup', ['--day' => $day])->assertFailed();
+    artisanCommand('capell:metrics:rollup', ['--day' => $day])->assertFailed();
 })->with(['2026-2-1', 'not-a-date', '2999-01-01']);
 
 it('processes pending completed UTC days by default', function (): void {
     CarbonImmutable::setTestNow('2026-07-22 00:10:00 Pacific/Auckland');
 
-    $this->artisan('capell:metrics:rollup')->assertSuccessful()->expectsOutputToContain('0 metric event row(s)');
+    artisanCommand('capell:metrics:rollup')->assertSuccessful()->expectsOutputToContain('0 metric event row(s)');
 });
 
 it('schedules metric rollups at 00:20 UTC with overlap and server guards', function (): void {

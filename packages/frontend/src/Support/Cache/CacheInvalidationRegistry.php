@@ -151,6 +151,10 @@ final class CacheInvalidationRegistry
             return $this->pageRulesWithDependents($root);
         }
 
+        if ($root instanceof Site) {
+            return [CacheInvalidationRule::flushFrontendTag()];
+        }
+
         if ($root instanceof Media && $this->isSiteLogoMedia($root)) {
             return $this->uniqueRules([
                 ...$this->planForModel(Site::class)->rules,
@@ -225,9 +229,7 @@ final class CacheInvalidationRegistry
         $maxEdges = max(1, (int) config('capell-frontend.cache_invalidation.graph_max_edges', 10000));
 
         for ($depth = 0; $frontier !== []; $depth++) {
-            if ($depth >= $maxDepth) {
-                throw new RuntimeException('Content graph invalidation exceeded its maximum traversal depth.');
-            }
+            throw_if($depth >= $maxDepth, RuntimeException::class, 'Content graph invalidation exceeded its maximum traversal depth.');
 
             $targetsByType = [];
 
@@ -241,9 +243,7 @@ final class CacheInvalidationRegistry
                 $visited[$node] = true;
                 $visitedCount++;
 
-                if ($visitedCount > $maxNodes) {
-                    throw new RuntimeException('Content graph invalidation exceeded its maximum node count.');
-                }
+                throw_if($visitedCount > $maxNodes, RuntimeException::class, 'Content graph invalidation exceeded its maximum node count.');
 
                 $targetsByType[$type][] = $id;
             }
@@ -258,9 +258,7 @@ final class CacheInvalidationRegistry
                     ->each(function (ContentGraphEdge $edge) use (&$pageIds, &$nextFrontier, &$edgeCount, $maxEdges): void {
                         $edgeCount++;
 
-                        if ($edgeCount > $maxEdges) {
-                            throw new RuntimeException('Content graph invalidation exceeded its maximum edge count.');
-                        }
+                        throw_if($edgeCount > $maxEdges, RuntimeException::class, 'Content graph invalidation exceeded its maximum edge count.');
 
                         if ($edge->source_type === Page::class) {
                             $pageIds[] = $edge->source_id;

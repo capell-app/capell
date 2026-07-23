@@ -45,11 +45,11 @@ it('creates portable rollup storage with non-null scope identity', function (): 
 });
 
 it('enforces daily identity for global site and site-language scopes', function (MetricScopeData $scope): void {
-    $rollup = storeMetricRollup(scope: $scope, definition: storageMetricDefinition(scopeType: $scope->type));
+    $rollup = storeMetricRollup(definition: storageMetricDefinition(scopeType: $scope->type), scope: $scope);
 
     expect($rollup->scope_key)->toBe($scope->key());
 
-    expect(fn (): MetricDailyRollup => storeMetricRollup(scope: $scope, definition: storageMetricDefinition(scopeType: $scope->type)))
+    expect(fn (): MetricDailyRollup => storeMetricRollup(definition: storageMetricDefinition(scopeType: $scope->type), scope: $scope))
         ->toThrow(QueryException::class);
 })->with([
     'global' => [fn (): MetricScopeData => MetricScopeData::global('UTC')],
@@ -119,8 +119,8 @@ it('retains portable scope identity after its local site is deleted', function (
     $site = Site::factory()->create();
     $scope = MetricScopeData::site('018f0f21-c72b-7c29-8471-18f58db0be27', 'UTC');
     $rollup = storeMetricRollup(
-        scope: $scope,
         definition: storageMetricDefinition(scopeType: MetricScopeType::Site),
+        scope: $scope,
         value: MetricValueData::integer(42),
         siteId: $site->getKey(),
     );

@@ -48,7 +48,6 @@ final class CoreCacheHealthCheck implements ChecksExtensionHealth
     private static function enabledCheck(CacheRuntimeDiagnosticsData $diagnostics): DoctorCheckResultData
     {
         return new DoctorCheckResultData(
-            id: 'core.cache-enabled',
             label: (string) __('capell-core::health.cache.enabled.label'),
             passed: $diagnostics->enabled,
             message: $diagnostics->enabled
@@ -57,6 +56,7 @@ final class CoreCacheHealthCheck implements ChecksExtensionHealth
             remediation: $diagnostics->enabled
                 ? null
                 : (string) __('capell-core::health.cache.enabled.remediation'),
+            id: 'core.cache-enabled',
             evidence: self::evidence($diagnostics),
         );
     }
@@ -64,7 +64,6 @@ final class CoreCacheHealthCheck implements ChecksExtensionHealth
     private static function backendCheck(CacheRuntimeDiagnosticsData $diagnostics): DoctorCheckResultData
     {
         return new DoctorCheckResultData(
-            id: 'core.cache-backend',
             label: (string) __('capell-core::health.cache.backend.label'),
             passed: $diagnostics->backendReachable,
             message: $diagnostics->backendReachable
@@ -79,6 +78,7 @@ final class CoreCacheHealthCheck implements ChecksExtensionHealth
             remediation: $diagnostics->backendReachable
                 ? null
                 : (string) __('capell-core::health.cache.backend.remediation'),
+            id: 'core.cache-backend',
             evidence: self::evidence($diagnostics),
         );
     }
