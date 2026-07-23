@@ -23,11 +23,11 @@ return new class extends Migration
             $table->string('token', 64);
 
             $table->string('owner')->nullable();
-            $table->timestamp('acquired_at');
+            $table->dateTime('acquired_at');
 
             // A hard-killed process cannot release its lock, so the row carries its
             // own expiry rather than stranding upgrades until someone intervenes.
-            $table->timestamp('expires_at')->index();
+            $table->dateTime('expires_at')->index();
             $table->timestamps();
         });
     }
