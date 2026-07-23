@@ -37,6 +37,8 @@ Source: `packages/core/config/capell.php`
 | `CAPELL_VERSION`                             | _(null)_                                  | Optional Capell version override for Marketplace health reports                                     |
 | `CAPELL_CACHE_PATH`                          | `bootstrap/cache/capell`                  | Directory used for Capell component cache files                                                     |
 | `CAPELL_CACHE_TTL`                           | `60`                                      | Default TTL in seconds for Capell's general cache helpers                                           |
+| `CAPELL_CACHE_LOCK_SECONDS`                  | `30`                                      | Lifetime in seconds of the lock Capell holds while filling a cache entry, preventing stampedes      |
+| `CAPELL_CACHE_LOCK_WAIT_SECONDS`             | `10`                                      | How long a request waits for another process to finish filling the same cache entry before failing  |
 | `CAPELL_ASSETS_DISK`                         | `local`                                   | Filesystem disk checked by Capell Doctor for writable asset storage                                 |
 | `CAPELL_SITEMAP_MAX_URLS_PER_FILE`           | `50000`                                   | Maximum URLs per generated sitemap file                                                             |
 | `CAPELL_SITEMAP_XML_PATH`                    | `/sitemap-xml`                            | Public path used for sitemap index entries                                                          |
@@ -159,6 +161,22 @@ Source: `packages/frontend/config/capell-frontend.php`
 | `CAPELL_FRONTEND_FASTLY_API_KEY`             | _(null)_      | Fastly API key for surrogate-key purges                             |
 | `CAPELL_FRONTEND_VARNISH_URL`                | _(null)_      | Varnish endpoint used for BAN requests                              |
 | `CAPELL_DEBUG_LOG`                           | `false`       | Adds frontend resolution debug logging                              |
+| `CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH`      | _(null)_      | Override directory for `capell:generate-html` output; defaults to storage |
+| `CAPELL_FRONTEND_TAILWIND_OUTPUT_CSS`        | `resources/css/capell/frontend.css` | Path the generated frontend Tailwind stylesheet is written to |
+| `CAPELL_FRONTEND_EXTERNAL_INTEGRITY_POLICY`  | `warn`        | Subresource-integrity policy for external assets: `off`, `warn`, or `require` |
+| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_DEPTH`  | `20`          | Maximum traversal depth when resolving which cache entries a change invalidates |
+| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_NODES`  | `5000`        | Safety bound on nodes visited during cache-invalidation traversal   |
+| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_EDGES`  | `10000`       | Safety bound on edges walked during cache-invalidation traversal    |
+| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED` | `true`   | Detects database queries executed from public Blade views           |
+| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE` | `exception` | Guard reaction: `exception` to fail loudly, or `log` to record and continue |
+| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL` | _(docs.capell.app symptom table)_ | Help URL embedded in the guard's error message |
+| `CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_PASSED` | `false` | Records passing public render-contract checks as events           |
+| `CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_FAILED` | `true`  | Records failing public render-contract checks as events            |
+
+The public view query guard is a development safeguard: queries belong in the render
+pipeline, not in Blade. Set `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE=log` in
+production if you would rather record violations than return an error page. Any value
+other than `log` is treated as `exception`.
 
 HTML content rendering is sanitized by `RenderHtmlContentAction`; Blade directives are not evaluated. Allow only attributes that are safe for public CMS output through `capell-frontend.html_content_allowed_attributes`. See `packages/frontend/docs/security.md`.
 
@@ -207,6 +225,21 @@ Source: `packages/marketplace/config/capell-marketplace.php`
 | `CAPELL_MARKETPLACE_WEBHOOK_URL`                           | _(null)_                                                   | Explicit public callback URL for Marketplace events |
 | `CAPELL_MARKETPLACE_WEBHOOK_SECRET`                        | _(null)_                                                   | Shared secret for Marketplace webhook verification  |
 | `CAPELL_MARKETPLACE_TROUBLESHOOTING_URL`                   | `https://docs.capell.app/extensions/marketplace-heartbeat` | Help URL shown in Marketplace diagnostics           |
+| `CAPELL_MARKETPLACE_QUEUE_CONNECTION`                      | `database`                                                 | Queue connection Marketplace install jobs are sent to |
+| `CAPELL_MARKETPLACE_QUEUE`                                 | `capell-marketplace`                                       | Named queue Marketplace install jobs are sent to     |
+
+Marketplace installs do not use `QUEUE_CONNECTION`. They are pinned to
+`CAPELL_MARKETPLACE_QUEUE_CONNECTION` (default `database`) and the named queue
+`capell-marketplace`. A worker started as plain `php artisan queue:work` consumes the
+`default` queue and will never pick these jobs up — the admin UI stays at "queued"
+with no error. Run a worker that names the queue, and allow enough time for Composer:
+
+```bash
+php artisan queue:work database --queue=capell-marketplace --timeout=900
+```
+
+If you set this connection to `sync`, the Composer install runs inside the web request
+and will be killed by `max_execution_time`. Keep it on a real queue connection.
 
 Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace APIs. If Marketplace reports that `api/registration-sessions` cannot be found, the app is probably using an old unversioned API URL.
 
