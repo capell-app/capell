@@ -124,6 +124,7 @@ return [
     'cloudflare_purge_token' => env('CAPELL_FRONTEND_CLOUDFLARE_PURGE_TOKEN'),
     'cloudflare_zone_id' => env('CAPELL_FRONTEND_CLOUDFLARE_ZONE_ID'),
     'fastly_api_key' => env('CAPELL_FRONTEND_FASTLY_API_KEY'),
+    'fastly_service_id' => env('CAPELL_FRONTEND_FASTLY_SERVICE_ID'),
     'varnish_url' => env('CAPELL_FRONTEND_VARNISH_URL'),
 
     // Debug & Diagnostics
