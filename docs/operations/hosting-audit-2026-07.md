@@ -267,8 +267,9 @@ too large for one pass; the highest-value items, in order:
    resources, settings, render hooks) — the primary reason to write an extension.
 2. Publish lifecycle events: `PublicationTransitioning` / `PublicationTransitioned`,
    `PageUrlChanged`, and the `AuthorizesPublicationTransition` contract.
-3. `ServingCapell` / `ServingAdmin` / `ServingFrontend` — the canonical answer to
-   "where do I register things".
+3. `ServingCapell` and `ServingAdmin` — the canonical answer to "where do I register
+   things". (`ServingFrontend` was declared but never dispatched, so a listener would
+   silently never run. It has been removed rather than left as a trap.)
 4. Frontend route middleware aliases (`frontend.resolve`, `frontend.rendering_strategy`,
    `frontend.maintenance`, `frontend.anonymous_cacheable_render`) — anyone adding a
    custom frontend route must apply `frontend.resolve`.
@@ -290,7 +291,8 @@ install/upgrade internals) is correctly left undocumented and should stay that w
 | Doctor had no coverage of hosting prerequisites | Three checks added: `core.runtime.tooling` (proc_open, composer, npm), `core.backup.database-binaries` (driver-aware, only when backups are enabled), `core.cache.shared-store` (warns on `file`/`array`/`null`). |
 | Frontend build reported contention as "already running" | `QueueFrontendBuildAction` now waits briefly for the lock and returns `FrontendBuildQueueResultEnum`, so genuine contention is a distinct message. |
 | Composer install job repeated a failing run for an hour | `maxExceptions = 3`. |
-| A nonexistent command was scheduled daily | `capell:frontend-site-check` is supplied by an optional package but was scheduled unconditionally, so the scheduler invoked a missing command on every tick. Registration is now guarded on the command existing. |
+| A nonexistent command was scheduled daily | `capell:frontend-site-check` exists in no package in this repository or the packages repository, but was scheduled unconditionally, so the scheduler invoked a missing command on every tick. Registration is now guarded on the command existing. |
+| Three config keys were never read | Removed `capell-frontend.cache_ttl` (the real TTL is the `frontend.cache_ttl` **setting**, so the config key was a misleading second source of truth), `cache_vary_headers`, and `append_site_meta_description`. Verified unused in this repository *and* in `capell-packages-4` before removal. |
 | Enum option labels froze to one locale under Octane | `HasEnumOptions` memoizes per locale. |
 | Docs claimed `ExtensionFilamentDashboardWidgetContract` | Corrected to `ExtensionDashboardFilamentWidgetContract`; the documented name did not exist, so copying that line failed. |
 
