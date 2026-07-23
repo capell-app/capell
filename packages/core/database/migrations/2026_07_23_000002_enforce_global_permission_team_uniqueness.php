@@ -26,9 +26,11 @@ return new class extends Migration
             if (! Schema::hasTable($contract['table'])) {
                 continue;
             }
+
             if (! Schema::hasColumn($contract['table'], $contract['teamColumn'])) {
                 continue;
             }
+
             $this->assertGlobalRowsAreUnique($contract['table'], $contract['teamColumn'], $contract['identityColumns']);
         }
 
@@ -36,9 +38,11 @@ return new class extends Migration
             if (! Schema::hasTable($contract['table'])) {
                 continue;
             }
+
             if (! Schema::hasColumn($contract['table'], $contract['teamColumn'])) {
                 continue;
             }
+
             if ($this->hasNormalizedIndex($contract)) {
                 continue;
             }
@@ -74,9 +78,11 @@ return new class extends Migration
             if (! Schema::hasTable($contract['table'])) {
                 continue;
             }
+
             if (! $this->hasScopeColumn($contract['table'])) {
                 continue;
             }
+
             if (! Schema::hasIndex($contract['table'], $contract['legacyColumns'], 'unique')) {
                 Schema::table($contract['table'], function (Blueprint $table) use ($contract): void {
                     $table->unique($contract['legacyColumns'], $contract['legacyIndex']);
