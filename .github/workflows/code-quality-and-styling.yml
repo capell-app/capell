@@ -24,6 +24,8 @@ on:
       - 'rector.php'
       - 'scripts/rector-changed.sh'
       - 'scripts/check-docs-env-vars.php'
+      - 'scripts/check-docs-config-keys.php'
+      - 'scripts/docs-config-key-classifications.php'
       - 'scripts/check-docs-links.php'
       - 'scripts/check-docs-orphans.php'
       - 'scripts/check-docs-requirements.php'
@@ -83,6 +85,9 @@ jobs:
 
       - name: Check documented env vars
         run: composer run check:docs-env
+
+      - name: Check documented config keys
+        run: composer run check:docs-config
 
       - name: Cache Composer dependencies
         id: composer-cache
