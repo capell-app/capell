@@ -27,6 +27,7 @@ use Capell\Frontend\Console\Commands\GenerateErrorPagesCommand;
 use Capell\Frontend\Console\Commands\GenerateHtmlCommand;
 use Capell\Frontend\Console\Commands\GenerateTailwindAssetsCommand;
 use Capell\Frontend\Console\Commands\InstallCommand;
+use Capell\Frontend\Console\Commands\InvalidateDueScheduledPublicationCachesCommand;
 use Capell\Frontend\Console\Commands\UpgradeCommand;
 use Capell\Frontend\Contracts\AdminAccessCheckerInterface;
 use Capell\Frontend\Contracts\AssetsRegistryInterface;
@@ -163,6 +164,7 @@ use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Events\QueryExecuted;
@@ -371,6 +373,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 GenerateTailwindAssetsCommand::class,
                 GenerateHtmlCommand::class,
                 GenerateErrorPagesCommand::class,
+                InvalidateDueScheduledPublicationCachesCommand::class,
             ])
             ->hasConfigFile()
             ->hasTranslations()
@@ -408,6 +411,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->configureVite()
             ->bootstrapFrontendEvents()
             ->registerPublicViewQueryListener()
+            ->registerScheduledPublicationInvalidation()
             ->registerSettingsSchemas()
             ->registerViewComposers();
     }
@@ -601,6 +605,18 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 );
             },
         );
+
+        return $this;
+    }
+
+    private function registerScheduledPublicationInvalidation(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('capell:invalidate-due-scheduled-publications')
+                ->everyMinute()
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
 
         return $this;
     }
