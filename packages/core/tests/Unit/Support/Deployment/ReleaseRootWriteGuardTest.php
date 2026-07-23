@@ -20,7 +20,10 @@ it('blocks runtime tooling when the deployment does not opt in', function (): vo
 });
 
 it('accepts a directly addressed mutable release root', function (): void {
-    $root = sys_get_temp_dir() . '/capell-mutable-release-' . bin2hex(random_bytes(4));
+    $temporaryRoot = realpath(sys_get_temp_dir());
+    expect($temporaryRoot)->toBeString();
+    assert(is_string($temporaryRoot));
+    $root = $temporaryRoot . '/capell-mutable-release-' . bin2hex(random_bytes(4));
     mkdir($root . '/database', 0755, true);
 
     config()->set('capell.release_root_mode', 'mutable');
