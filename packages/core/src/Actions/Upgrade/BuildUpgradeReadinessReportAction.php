@@ -10,8 +10,8 @@ use Capell\Core\Data\Upgrade\UpgradeReadinessReportData;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeReadinessResult;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
@@ -139,9 +139,10 @@ final class BuildUpgradeReadinessReportAction
     private function cacheLockCheck(): UpgradeReadinessCheckData
     {
         try {
-            $lock = Cache::lock(CacheEnum::UpgradeLock->value, 1);
-
-            if ($lock->get() === false) {
+            // Read the lock rather than taking it. Acquiring a real lock here, even
+            // for a moment, made the readiness report reject the very upgrade it was
+            // being asked to clear.
+            if (resolve(DatabaseUpgradeLock::class)->isHeld(CacheEnum::UpgradeLock->value)) {
                 return new UpgradeReadinessCheckData(
                     key: 'cache_lock',
                     passed: false,
@@ -149,8 +150,6 @@ final class BuildUpgradeReadinessReportAction
                     blocking: true,
                 );
             }
-
-            $lock->release();
         } catch (Throwable $throwable) {
             return new UpgradeReadinessCheckData(
                 key: 'cache_lock',

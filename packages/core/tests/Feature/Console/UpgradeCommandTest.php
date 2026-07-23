@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\UpgradeLogEntry;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Models\UpgradeRunEvent;
+use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Capell\Core\Tests\Feature\Console\Fixtures\CmdTrackedStep;
 use Capell\Core\Tests\Feature\Console\Fixtures\MissingDependencyStep;
 use Capell\Core\Tests\Feature\Console\Fixtures\ReportOnlyMutatingStep;
@@ -177,7 +178,9 @@ it('does not record versions when interactive upgrade steps are declined', funct
 });
 
 it('aborts when another upgrade holds the lock', function (): void {
-    Cache::lock('capell:upgrade', 60)->get();
+    // The lock is held in the database, so simulating a concurrent upgrade means
+    // taking the real lock rather than a cache lock.
+    new DatabaseUpgradeLock()->acquire('capell:upgrade', 60);
 
     artisanCommand('capell:upgrade', ['--force' => true, '--no-clear-cache' => true])
         ->expectsOutputToContain('Another upgrade is running')

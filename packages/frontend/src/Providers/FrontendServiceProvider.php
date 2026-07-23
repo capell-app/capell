@@ -592,15 +592,23 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             return $this;
         }
 
-        $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
-            // The site-check command is supplied by an optional package. Scheduling
-            // it when that package is absent makes the scheduler invoke a command
-            // that does not exist on every tick, which fails quietly under cron.
+        // The site-check command is supplied by an optional package, so it is only
+        // scheduled when it is actually installed.
+        //
+        // The existence check must wait until every provider has booted. Artisan::all()
+        // constructs the console application, and commands registered through
+        // ServiceProvider::commands() are attached to it via Artisan::starting().
+        // Building it while providers are still booting therefore drops the commands
+        // of every provider that boots after this one — which is how `filament:upgrade`
+        // came to report "There are no commands defined in the filament namespace".
+        $this->app->booted(function () use ($frequency): void {
             if (! array_key_exists(self::SITE_CHECK_COMMAND, Artisan::all())) {
                 return;
             }
 
-            $schedule->command(self::SITE_CHECK_COMMAND)->{$frequency}();
+            $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
+                $schedule->command(self::SITE_CHECK_COMMAND)->{$frequency}();
+            });
         });
 
         return $this;

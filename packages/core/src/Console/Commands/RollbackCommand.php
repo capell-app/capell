@@ -6,12 +6,13 @@ namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Upgrade\BuildUpgradePlanAction;
 use Capell\Core\Actions\Upgrade\RollbackUpgradeStepAction;
+use Capell\Core\Actions\Upgrade\RunCapellUpgradeAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Contracts\UpgradeStepContract;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
+use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 
 use function Laravel\Prompts\confirm;
 
@@ -58,8 +59,13 @@ class RollbackCommand extends Command
             return Command::SUCCESS;
         }
 
-        $lock = Cache::lock(CacheEnum::UpgradeLock->value, 600);
-        if ($lock->get() === false) {
+        // Same durable lock as the upgrade itself, and the same TTL: a rollback that
+        // assumed a shorter lifetime than the upgrade holding it could start while
+        // that upgrade was still mid-migration.
+        $lock = resolve(DatabaseUpgradeLock::class);
+        $token = $lock->acquire(CacheEnum::UpgradeLock->value, RunCapellUpgradeAction::UPGRADE_LOCK_SECONDS, owner: gethostname() ?: null);
+
+        if ($token === null) {
             $this->error('Another upgrade is running. Aborting.');
 
             return Command::FAILURE;
@@ -86,7 +92,7 @@ class RollbackCommand extends Command
 
             return $status === UpgradeStepStatus::RolledBack ? Command::SUCCESS : Command::FAILURE;
         } finally {
-            $lock->release();
+            $lock->release(CacheEnum::UpgradeLock->value, $token);
         }
     }
 
