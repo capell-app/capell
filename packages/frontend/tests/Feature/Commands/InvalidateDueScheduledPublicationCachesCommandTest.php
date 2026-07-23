@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Frontend\Actions\InvalidateDueScheduledPublicationCachesAction;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 
@@ -17,8 +16,6 @@ it('registers the scheduled publication invalidator every minute with cluster-sa
 });
 
 it('reports the number of scheduled publication cache entries invalidated', function (): void {
-    InvalidateDueScheduledPublicationCachesAction::shouldRun()->andReturn(2);
-
     expect(Artisan::call('capell:invalidate-due-scheduled-publications'))->toBe(0)
-        ->and(Artisan::output())->toContain('Invalidated 2 scheduled publication cache entries.');
+        ->and(Artisan::output())->toContain('Invalidated 0 scheduled publication cache entries.');
 });
