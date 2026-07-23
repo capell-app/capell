@@ -14,10 +14,22 @@ use Illuminate\Support\Facades\Queue;
 
 beforeEach(function (): void {
     config([
+        'capell.multi_node' => false,
         'queue.default' => 'background',
         'queue.connections.background' => ['driver' => 'array'],
     ]);
     Cache::forget(RunFrontendBuildJob::STATUS_KEY);
+});
+
+it('refuses to queue a node-local frontend build in a multi-node installation', function (): void {
+    Queue::fake();
+    config()->set('capell.multi_node', true);
+
+    expect(fn (): FrontendBuildQueueResultEnum => QueueFrontendBuildAction::run())
+        ->toThrow(RuntimeException::class, 'Frontend asset build dispatch cannot run while CAPELL_MULTI_NODE=true');
+
+    expect(Cache::get(RunFrontendBuildJob::STATUS_KEY))->toBeNull();
+    Queue::assertNotPushed(RunFrontendBuildJob::class);
 });
 
 it('queues one frontend build while one is already pending', function (): void {

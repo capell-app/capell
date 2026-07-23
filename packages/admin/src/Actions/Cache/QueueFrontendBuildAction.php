@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Cache;
 use Capell\Admin\Enums\FrontendBuildQueueResultEnum;
 use Capell\Admin\Jobs\RunFrontendBuildJob;
 use Capell\Core\Actions\AssertQueueConnectionReadyAction;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -22,8 +23,13 @@ final class QueueFrontendBuildAction
 
     private const int LOCK_WAIT_SECONDS = 3;
 
+    public function __construct(
+        private readonly MultiNodeTopologyGuard $topologyGuard,
+    ) {}
+
     public function handle(): FrontendBuildQueueResultEnum
     {
+        $this->topologyGuard->assertNodeLocalOperationIsAllowed('Frontend asset build dispatch');
         AssertQueueConnectionReadyAction::run();
 
         $lock = Cache::lock(RunFrontendBuildJob::STATUS_KEY . '.dispatch', self::LOCK_SECONDS);

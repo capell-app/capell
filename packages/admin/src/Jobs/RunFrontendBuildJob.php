@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Jobs;
 
 use Capell\Core\Actions\RunNpmBuildAction;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -30,8 +31,10 @@ final class RunFrontendBuildJob implements ShouldBeUnique, ShouldQueue
         return 'frontend-build';
     }
 
-    public function handle(): void
+    public function handle(MultiNodeTopologyGuard $topologyGuard): void
     {
+        $topologyGuard->assertNodeLocalOperationIsAllowed('Frontend asset build');
+
         Cache::put(self::STATUS_KEY, [
             'status' => 'running',
             'started_at' => now()->toIso8601String(),

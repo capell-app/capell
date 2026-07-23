@@ -4,25 +4,35 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Date;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use RuntimeException;
 use SplFileInfo;
 
 final class LockdownStaticCacheSwitcher
 {
     private const string MARKER_FILE = '.capell-lockdown-cache.json';
 
-    public function __construct(private readonly Filesystem $files) {}
+    public function __construct(
+        private readonly Filesystem $files,
+        private readonly MultiNodeTopologyGuard $topologyGuard,
+        private readonly ReleaseRootWriteGuard $releaseRootWriteGuard,
+    ) {}
 
     /**
      * @return array<string, mixed>
      */
     public function activate(): array
     {
+        $this->topologyGuard->assertNodeLocalOperationIsAllowed('Lockdown static cache activation');
+
         $root = $this->pageCacheRoot();
+        $this->assertReleaseRootIsWritable($root);
         $preservedRoot = null;
 
         if ($this->files->exists($this->markerPath($root))) {
@@ -54,6 +64,8 @@ final class LockdownStaticCacheSwitcher
      */
     public function deactivate(array $lockdownData): void
     {
+        $this->topologyGuard->assertNodeLocalOperationIsAllowed('Lockdown static cache deactivation');
+
         $staticCache = $lockdownData['static_cache'] ?? [];
 
         if (! is_array($staticCache)) {
@@ -61,6 +73,7 @@ final class LockdownStaticCacheSwitcher
         }
 
         $root = $this->stringValue($staticCache['root'] ?? null) ?? $this->pageCacheRoot();
+        $this->assertReleaseRootIsWritable($root);
         $preservedRoot = $this->stringValue($staticCache['preserved_root'] ?? null);
 
         if ($this->files->exists($this->markerPath($root))) {
@@ -84,6 +97,29 @@ final class LockdownStaticCacheSwitcher
     private function preservedRoot(string $root): string
     {
         return $root . '.capell-live-' . Date::now()->format('YmdHis') . '-' . bin2hex(random_bytes(4));
+    }
+
+    private function assertReleaseRootIsWritable(string $root): void
+    {
+        $releaseRoot = rtrim(base_path(), DIRECTORY_SEPARATOR);
+        $normalizedRoot = rtrim($root, DIRECTORY_SEPARATOR);
+
+        if ($normalizedRoot === $releaseRoot) {
+            throw new RuntimeException(
+                'Switching the lockdown page cache is blocked because the page cache root resolves to the application release root.',
+            );
+        }
+
+        if (! str_starts_with($normalizedRoot, $releaseRoot . DIRECTORY_SEPARATOR)) {
+            return;
+        }
+
+        $relativePath = ltrim(substr($normalizedRoot, strlen($releaseRoot)), DIRECTORY_SEPARATOR);
+
+        $this->releaseRootWriteGuard->assertWritable(
+            operation: 'Switching the lockdown page cache',
+            relativePaths: [$relativePath],
+        );
     }
 
     private function markerPath(string $root): string
