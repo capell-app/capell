@@ -28,6 +28,46 @@ The base page editing path does not call those workflow transitions automaticall
 
 Publishing Studio owns the full editorial workflow: isolated drafts, comparison, assignments, field comments, approvals, scheduling, release checks, and editorial recovery UI. It builds on Core history and rollback rather than moving those engine contracts into the package.
 
+## Publication Transition Integration
+
+UI and package code should call
+`Capell\Core\Actions\Publishing\TransitionPublicationAction` with a
+`PublicationTransitionRequestData`. Core first asks the container-bound
+`Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition` whether the actor can
+update the publishable record. The default
+`GatePublicationTransitionAuthorizer` checks the record's `update` policy; an application
+may replace that binding when it needs a different authorization boundary.
+
+For a permitted transition that changes visibility, Core emits:
+
+1. `PublicationTransitioning` after evaluation and before persistence.
+2. `PublicationTransitioned` after `visible_from` and `visible_until` are saved
+   successfully.
+
+Both events expose the same `transitionId`,
+`PublicationTransitionRequestData`, and evaluated `PublicationTransitionResultData`, so
+listeners can correlate before/after work without reconstructing the transition. They
+are notifications rather than veto hooks: listener exceptions are reported and do not
+cancel persistence or change the returned result. Put authorization in
+`AuthorizesPublicationTransition`, and keep event listeners safe to retry when they
+dispatch queued follow-up work.
+
+No transition event is emitted for an unauthorized, unchanged, invalid, or failed
+transition. If persistence fails after `PublicationTransitioning`, there is no matching
+`PublicationTransitioned`; integrations that record both should use `transitionId` to
+identify an incomplete attempt.
+
+## Page URL Changes
+
+`Capell\Core\Events\PageUrlChanged` is emitted after an existing `PageUrl` changes its
+`url` or `target_url`. It carries the Page URL, site, and language IDs, the previous URL,
+and the new URL. `page_id` is populated only when the URL belongs to Core's `Page` model;
+it is `null` for other pageable models.
+
+Use this event for redirect history, search-index updates, or other work that reacts to
+a completed URL change. It is not emitted for a newly created URL or for saves that leave
+both URL fields unchanged.
+
 ## Previewing and Applying Rollback
 
 Use the Actions instead of calling `RollbackService` from UI code:
