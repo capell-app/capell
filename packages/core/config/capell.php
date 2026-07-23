@@ -13,6 +13,15 @@ return [
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
     'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
 
+    /*
+     * Whether this installation installs extensions and builds frontend assets on
+     * the server itself. Leave this false when Composer runs and assets are built
+     * during deployment, which is the usual production shape: the server then needs
+     * no Composer or Node toolchain, and Capell Doctor reports their absence as
+     * information rather than a failure.
+     */
+    'server_side_tooling' => (bool) env('CAPELL_SERVER_SIDE_TOOLING', false),
+
     'assets' => [
         'disk' => env('CAPELL_ASSETS_DISK', 'local'),
     ],
