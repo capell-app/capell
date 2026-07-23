@@ -136,9 +136,9 @@ final class QueueMarketplaceInstallAttemptAction
 
         try {
             AssertQueueConnectionReadyAction::run($queueConnection);
-        } catch (QueueConnectionNotReadyException $exception) {
+        } catch (QueueConnectionNotReadyException $queueConnectionNotReadyException) {
             throw ValidationException::withMessages([
-                'queue_connection' => $exception->getMessage(),
+                'queue_connection' => $queueConnectionNotReadyException->getMessage(),
             ]);
         }
 

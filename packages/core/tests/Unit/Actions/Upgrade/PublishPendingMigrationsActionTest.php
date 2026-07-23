@@ -83,6 +83,7 @@ it('blocks migration publication for immutable releases before calling artisan',
 
     $kernel = Mockery::mock(Kernel::class);
     $kernel->shouldNotReceive('call');
+
     $this->app->instance(Kernel::class, $kernel);
 
     expect(fn (): mixed => PublishPendingMigrationsAction::run())

@@ -85,7 +85,9 @@ it('refuses to restore a single node page cache in a multi-node installation', f
         new ReleaseRootWriteGuard,
     );
 
-    expect(fn (): mixed => $switcher->deactivate(['static_cache' => ['root' => $root]]))
+    expect(function () use ($root, $switcher): void {
+        $switcher->deactivate(['static_cache' => ['root' => $root]]);
+    })
         ->toThrow(RuntimeException::class, 'Lockdown static cache deactivation cannot run while CAPELL_MULTI_NODE=true');
 
     expect(File::get($root . '/index.html'))->toBe('<h1>Lockdown</h1>');

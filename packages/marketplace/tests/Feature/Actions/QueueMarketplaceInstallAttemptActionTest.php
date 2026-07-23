@@ -117,9 +117,9 @@ it('blocks an install before recording it when the operations queue is not ready
     try {
         QueueMarketplaceInstallAttemptAction::run(...$arguments);
         test()->fail('Expected the unavailable operations queue to block the install.');
-    } catch (ValidationException $exception) {
-        expect($exception->errors())->toHaveKey('queue_connection')
-            ->and($exception->errors()['queue_connection'][0])->toContain('uses the sync driver');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->toHaveKey('queue_connection')
+            ->and($validationException->errors()['queue_connection'][0])->toContain('uses the sync driver');
     }
 
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0);

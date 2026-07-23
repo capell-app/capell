@@ -8,12 +8,14 @@ it('blocks runtime tooling when the deployment does not opt in', function (): vo
     config()->set('capell.release_root_mode', 'mutable');
     config()->set('capell.server_side_tooling', false);
 
-    expect(fn (): mixed => (new ReleaseRootWriteGuard)->assertWritable(
-        operation: 'Installing a Marketplace extension with Composer',
-        relativePaths: ['composer.json'],
-        releaseRoot: base_path(),
-        requiresServerSideTooling: true,
-    ))->toThrow(
+    expect(function (): void {
+        (new ReleaseRootWriteGuard)->assertWritable(
+            operation: 'Installing a Marketplace extension with Composer',
+            relativePaths: ['composer.json'],
+            releaseRoot: base_path(),
+            requiresServerSideTooling: true,
+        );
+    })->toThrow(
         RuntimeException::class,
         'Installing a Marketplace extension with Composer is blocked because CAPELL_SERVER_SIDE_TOOLING is disabled',
     );
@@ -21,8 +23,10 @@ it('blocks runtime tooling when the deployment does not opt in', function (): vo
 
 it('accepts a directly addressed mutable release root', function (): void {
     $temporaryRoot = realpath(sys_get_temp_dir());
-    expect($temporaryRoot)->toBeString();
-    assert(is_string($temporaryRoot));
+    if (! is_string($temporaryRoot)) {
+        throw new RuntimeException('The system temporary directory must resolve to a canonical path.');
+    }
+
     $root = $temporaryRoot . '/capell-mutable-release-' . bin2hex(random_bytes(4));
     mkdir($root . '/database', 0755, true);
 
@@ -35,6 +39,8 @@ it('accepts a directly addressed mutable release root', function (): void {
             relativePaths: ['database/migrations'],
             releaseRoot: $root,
         );
+
+        expect(is_dir($root . '/database'))->toBeTrue();
     } finally {
         rmdir($root . '/database');
         rmdir($root);
@@ -45,11 +51,13 @@ it('blocks explicitly immutable and atomic release layouts', function (string $m
     config()->set('capell.release_root_mode', $mode);
     config()->set('capell.server_side_tooling', true);
 
-    expect(fn (): mixed => (new ReleaseRootWriteGuard)->assertWritable(
-        operation: 'Installing a Marketplace extension with Composer',
-        relativePaths: ['composer.json'],
-        releaseRoot: base_path(),
-    ))->toThrow(
+    expect(function (): void {
+        (new ReleaseRootWriteGuard)->assertWritable(
+            operation: 'Installing a Marketplace extension with Composer',
+            relativePaths: ['composer.json'],
+            releaseRoot: base_path(),
+        );
+    })->toThrow(
         RuntimeException::class,
         'Installing a Marketplace extension with Composer is blocked because CAPELL_RELEASE_ROOT_MODE is ' . $mode,
     );
@@ -66,11 +74,13 @@ it('blocks a mutable mode root that traverses an atomic release symlink', functi
     config()->set('capell.server_side_tooling', true);
 
     try {
-        expect(fn (): mixed => (new ReleaseRootWriteGuard)->assertWritable(
-            operation: 'Installing a Marketplace extension with Composer',
-            relativePaths: ['composer.json'],
-            releaseRoot: $current,
-        ))->toThrow(
+        expect(function () use ($current): void {
+            (new ReleaseRootWriteGuard)->assertWritable(
+                operation: 'Installing a Marketplace extension with Composer',
+                relativePaths: ['composer.json'],
+                releaseRoot: $current,
+            );
+        })->toThrow(
             RuntimeException::class,
             'Writing through an atomic current-release symlink can modify an old release',
         );
@@ -86,9 +96,11 @@ it('rejects release-root paths with parent traversal', function (): void {
     config()->set('capell.release_root_mode', 'mutable');
     config()->set('capell.server_side_tooling', true);
 
-    expect(fn (): mixed => (new ReleaseRootWriteGuard)->assertWritable(
-        operation: 'Unsafe write',
-        relativePaths: ['../outside'],
-        releaseRoot: base_path(),
-    ))->toThrow(InvalidArgumentException::class, 'without parent traversal');
+    expect(function (): void {
+        (new ReleaseRootWriteGuard)->assertWritable(
+            operation: 'Unsafe write',
+            relativePaths: ['../outside'],
+            releaseRoot: base_path(),
+        );
+    })->toThrow(InvalidArgumentException::class, 'without parent traversal');
 });

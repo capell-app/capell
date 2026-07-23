@@ -104,11 +104,7 @@ final class LockdownStaticCacheSwitcher
         $releaseRoot = rtrim(base_path(), DIRECTORY_SEPARATOR);
         $normalizedRoot = rtrim($root, DIRECTORY_SEPARATOR);
 
-        if ($normalizedRoot === $releaseRoot) {
-            throw new RuntimeException(
-                'Switching the lockdown page cache is blocked because the page cache root resolves to the application release root.',
-            );
-        }
+        throw_if($normalizedRoot === $releaseRoot, RuntimeException::class, 'Switching the lockdown page cache is blocked because the page cache root resolves to the application release root.');
 
         if (! str_starts_with($normalizedRoot, $releaseRoot . DIRECTORY_SEPARATOR)) {
             return;

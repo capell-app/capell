@@ -40,6 +40,7 @@ final class AssertQueueConnectionReadyAction
 
         $table = config(sprintf('queue.connections.%s.table', $connection), 'jobs');
         $table = is_string($table) && $table !== '' ? $table : 'jobs';
+
         $databaseConnection = config(sprintf('queue.connections.%s.connection', $connection));
         $databaseConnection = is_string($databaseConnection) && $databaseConnection !== ''
             ? $databaseConnection
@@ -53,7 +54,7 @@ final class AssertQueueConnectionReadyAction
             throw new QueueConnectionNotReadyException((string) __('capell-core::queue.database_storage_unavailable', [
                 'connection' => $connection,
                 'table' => $table,
-            ]), previous: $throwable);
+            ]), $throwable->getCode(), previous: $throwable);
         }
 
         if (! $tableExists) {

@@ -11,7 +11,9 @@ it('accepts a configured asynchronous queue connection', function (): void {
         'queue.connections.background' => ['driver' => 'array'],
     ]);
 
-    expect(AssertQueueConnectionReadyAction::run())->toBeNull();
+    AssertQueueConnectionReadyAction::run();
+
+    expect(true)->toBeTrue();
 });
 
 it('rejects a sync queue connection', function (): void {

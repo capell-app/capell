@@ -68,11 +68,11 @@ class AdminTools extends Component
 
         try {
             $result = QueueFrontendBuildAction::run();
-        } catch (QueueConnectionNotReadyException $exception) {
+        } catch (QueueConnectionNotReadyException $queueConnectionNotReadyException) {
             $this->successResponse(
                 name: 'build_frontend',
                 title: __('capell-admin::message.frontend_build_queue_unavailable'),
-                body: $exception->getMessage(),
+                body: $queueConnectionNotReadyException->getMessage(),
                 type: 'danger',
             );
 

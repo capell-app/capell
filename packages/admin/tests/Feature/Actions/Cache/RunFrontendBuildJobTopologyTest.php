@@ -16,7 +16,9 @@ it('refuses an already queued node-local frontend build in a multi-node installa
     config()->set('capell.multi_node', true);
     RunNpmBuildAction::shouldNotRun();
 
-    expect(fn (): mixed => (new RunFrontendBuildJob)->handle(new MultiNodeTopologyGuard))
+    expect(function (): void {
+        (new RunFrontendBuildJob)->handle(new MultiNodeTopologyGuard);
+    })
         ->toThrow(RuntimeException::class, 'Frontend asset build cannot run while CAPELL_MULTI_NODE=true');
 
     expect(Cache::get(RunFrontendBuildJob::STATUS_KEY))->toBeNull();
