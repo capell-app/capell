@@ -185,17 +185,19 @@ Packages should contribute through `Capell\Frontend\Contracts\FrontendComponentC
 instead, tagged with that interface's `TAG` constant. Contributor entries take precedence
 over config.
 
-## Contracts That Exist Twice
+## Deprecated Downstream Contract Aliases
 
 Three contracts exist in both Core and a downstream package. In each case Core owns the
-definition and the downstream copy is an empty extending alias — bind the Core one unless
-you specifically want the narrower scope.
+definition and the downstream copy is a deprecated, empty extending alias. Existing
+implementations of a downstream alias remain valid implementations of the Core contract,
+but new code must import and bind the Core contract. Migrate existing imports before the
+downstream aliases are removed in the next major release.
 
-| Contract | Bind this | Note |
+| Deprecated alias | Replace with | Note |
 | --- | --- | --- |
-| `RedirectResolver` | `Capell\Core\Contracts\RedirectResolver` | Public page resolution reads the **Core** contract. Binding only the Frontend alias will not change redirect behaviour. |
-| `SettingsSchemaContract` | `Capell\Core\Contracts\SettingsSchemaContract` | Use the Admin alias only for admin-panel-only settings. |
-| `ThemePreviewRendererInterface` | `Capell\Core\Contracts\Themes\ThemePreviewRendererInterface` | Only the Core contract is bound; the Admin alias has no binding and no implementer. |
+| `Capell\Frontend\Contracts\RedirectResolver` | `Capell\Core\Contracts\RedirectResolver` | Public page resolution reads the Core contract. Binding only the deprecated alias does not change redirect behaviour. |
+| `Capell\Admin\Contracts\SettingsSchemaContract` | `Capell\Core\Contracts\SettingsSchemaContract` | Settings discovery accepts the Core contract. |
+| `Capell\Admin\Contracts\Themes\ThemePreviewRendererInterface` | `Capell\Core\Contracts\Themes\ThemePreviewRendererInterface` | The frontend renderer is bound to the Core contract. |
 
 ## Rules
 
@@ -203,6 +205,7 @@ you specifically want the narrower scope.
 - Return `null`, an empty array, or no-op output when the package does not support the current context.
 - Test both the expected contribution and the safe fallback.
 - Public frontend extensions must pass [public HTML safety](../frontend/public-html-safety.md).
+- The HTML sanitizer configuration is application-global and process-cached. Extensions must not vary `capell-frontend.html_content_allowed_attributes` by site, tenant, request, or authenticated user.
 
 ## Next
 
