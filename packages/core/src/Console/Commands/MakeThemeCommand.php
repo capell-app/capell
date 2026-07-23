@@ -15,6 +15,9 @@ final class MakeThemeCommand extends Command
 {
     use DescribesCommandOptions;
 
+    /** @var array<int, string> */
+    protected $aliases = ['capell:make:theme'];
+
     protected $signature = 'capell:make-theme
         {theme? : Theme key, for example equidynamics}
         {--package= : Composer package name, for example vendor/equidynamics-theme}

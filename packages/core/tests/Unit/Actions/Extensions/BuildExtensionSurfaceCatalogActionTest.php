@@ -201,6 +201,45 @@ it('classifies the route reservation and interaction capability seams as experim
     }
 });
 
+it('classifies the complete consumer metrics contract closure as experimental', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaceIds = [
+        'core.contract.collects-daily-metrics',
+        'core.contract.metric-scope-authorizer',
+        'core.dto.metric-collection-result',
+        'core.dto.metric-definition',
+        'core.dto.metric-governance',
+        'core.dto.metric-identity',
+        'core.dto.metric-read-context',
+        'core.dto.metric-representation',
+        'core.dto.metric-sample',
+        'core.dto.metric-scope',
+        'core.dto.metric-semantics',
+        'core.dto.metric-value',
+        'core.enum.metric-aggregation',
+        'core.enum.metric-backfill-policy',
+        'core.enum.metric-collection-status',
+        'core.enum.metric-definition-status',
+        'core.enum.metric-gap-policy',
+        'core.enum.metric-reader-type',
+        'core.enum.metric-scope-type',
+        'core.enum.metric-semantic',
+        'core.enum.metric-sensitivity',
+        'core.enum.metric-source',
+        'core.enum.metric-unit',
+        'core.enum.metric-value-type',
+        'core.enum.metric-visibility',
+    ];
+
+    expect($catalog)->toHaveKeys($surfaceIds);
+
+    foreach ($catalog->only($surfaceIds) as $entry) {
+        expect($entry->ownerPackage)->toBe('capell-app/core')
+            ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental)
+            ->and($entry->contractTestId)->toBeNull();
+    }
+});
+
 it('classifies the marketplace composer publication seam as experimental', function (): void {
     $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
     $surfaceIds = [

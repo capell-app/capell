@@ -630,6 +630,26 @@ it('bulk loads extension records when checking multiple registered packages', fu
     expect($extensionQueries)->toHaveCount(1);
 });
 
+it('does not query the extension ledger when checking a trusted core package', function (): void {
+    CapellCore::clearPackages();
+
+    $packagePath = makeComposerPackageFixture('capell-app/admin');
+    CapellCore::registerPackage('capell-app/admin', path: $packagePath);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    expect(CapellCore::isPackageInstalled('capell-app/admin'))->toBeTrue();
+
+    $extensionQueries = collect(DB::getQueryLog())->filter(
+        fn (array $query): bool => str_contains($query['query'], 'capell_extensions'),
+    );
+
+    DB::disableQueryLog();
+
+    expect($extensionQueries)->toHaveCount(0);
+});
+
 it('retries package installation state after an extension record is created later in the request', function (): void {
     $packageName = 'capell-app/later-enabled-' . bin2hex(random_bytes(4));
 

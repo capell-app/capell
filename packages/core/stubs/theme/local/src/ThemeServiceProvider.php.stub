@@ -4,15 +4,26 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
+use Capell\Core\Data\VendorAssetData;
+use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Enums\VendorAssetEnum;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
+use Capell\Core\ThemeStudio\Data\ThemeFrontendBuildAssetsData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Spatie\LaravelPackageTools\Package;
 
 final class {{ providerClass }} extends AbstractPackageServiceProvider
 {
+    private const string CSS_SOURCE = 'resources/css/theme.css';
+
+    private const string CSS_BUILD_INPUT = 'resources/css/capell/themes/{{ themeKey }}.css';
+
+    private const string CSS_CONDITION = 'theme-css:{{ themeKey }}';
+
     public static string $name = {{ phpSlug }};
 
     public static string $packageName = {{ phpPackageName }};
@@ -23,7 +34,8 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
     {
         $package
             ->name({{ phpSlug }})
-            ->hasViews({{ phpSlug }});
+            ->hasViews({{ phpSlug }})
+            ->hasAssets();
     }
 
     public function packageBooted(): void
@@ -31,6 +43,8 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
         if (! {{ localRegistration }} && ! $this->isPackageInstalled()) {
             return;
         }
+
+        $this->registerTailwindAssets();
 
         resolve(ThemeRegistry::class)->register($this->definition());
     }
@@ -42,7 +56,7 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
             name: {{ phpDisplayName }},
             description: {{ phpDisplayName }} . ' theme for Capell.',
             package: {{ phpPackageName }},
-            previewImage: '/vendor/' . {{ phpSlug }} . '/preview.jpg',
+            previewImage: '/vendor/' . {{ phpSlug }} . '/preview.svg',
             tags: ['Client Theme'],
             bestFit: ['Client websites'],
             presets: [
@@ -50,13 +64,32 @@ final class {{ providerClass }} extends AbstractPackageServiceProvider
                     key: 'default',
                     name: 'Default',
                     description: {{ phpDisplayName }} . ' default preset.',
-                    previewImage: '/vendor/' . {{ phpSlug }} . '/preview.jpg',
+                    previewImage: '/vendor/' . {{ phpSlug }} . '/preview.svg',
                     values: [],
                 ),
             ],
             includedSections: ['hero'],
-            assets: ['vendor/' . {{ phpSlug }} . '/theme.css'],
+            assets: [],
+            runtime: FrontendRuntime::Blade,
+            frontend: [
+                'assets' => new ThemeFrontendBuildAssetsData(
+                    cssSource: self::CSS_SOURCE,
+                    cssBuildInput: self::CSS_BUILD_INPUT,
+                    condition: self::CSS_CONDITION,
+                ),
+            ],
             extends: {{ phpExtends }},
         );
+    }
+
+    private function registerTailwindAssets(): void
+    {
+        CapellCore::registerVendorAsset(new VendorAssetData(
+            type: VendorAssetEnum::TailwindImport,
+            value: self::CSS_SOURCE,
+            packageName: self::$packageName,
+            condition: self::CSS_CONDITION,
+        ));
+        CapellCore::registerVendorAsset(VendorAssetData::tailwindSource('resources/views/**/*.blade.php', self::$packageName));
     }
 }

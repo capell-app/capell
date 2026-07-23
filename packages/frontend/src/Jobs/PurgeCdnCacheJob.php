@@ -14,6 +14,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use LogicException;
 
 class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
 {
@@ -89,7 +90,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
             'cloudflare' => $this->purgeCloudflare(),
             'fastly' => $this->purgeFastly(),
             'varnish' => $this->purgeVarnish(),
-            default => Log::warning('Unknown CDN provider: ' . $provider),
+            default => throw new LogicException('Unknown CDN provider: ' . $provider),
         };
     }
 
@@ -109,11 +110,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         $token = config('capell-frontend.cloudflare_purge_token');
         $zone = config('capell-frontend.cloudflare_zone_id');
 
-        if (! is_string($token) || $token === '' || ! is_string($zone) || $zone === '') {
-            Log::warning('Cloudflare purge configured but missing credentials');
-
-            return;
-        }
+        throw_if(! is_string($token) || $token === '' || ! is_string($zone) || $zone === '', LogicException::class, 'Cloudflare purge configured but missing credentials');
 
         try {
             Http::withToken($token)
@@ -138,14 +135,27 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
     private function purgeFastly(): void
     {
         $key = config('capell-frontend.fastly_api_key');
+        $serviceId = config('capell-frontend.fastly_service_id');
 
-        if (! is_string($key) || $key === '') {
-            Log::warning('Fastly purge configured but missing API key');
-
-            return;
-        }
+        throw_if(! is_string($key) || $key === '', LogicException::class, 'Fastly purge configured but missing API key');
 
         try {
+            if (is_string($serviceId) && $serviceId !== '') {
+                Http::withHeaders([
+                    'Fastly-Key' => $key,
+                    'Fastly-Soft-Purge' => '1',
+                ])
+                    ->timeout(10)
+                    ->post('https://api.fastly.com/service/' . rawurlencode($serviceId) . '/purge', [
+                        'surrogate_keys' => $this->surrogateKeys,
+                    ])
+                    ->throw();
+
+                Log::info('Fastly CDN purge successful', ['keys' => $this->surrogateKeys]);
+
+                return;
+            }
+
             foreach ($this->surrogateKeys as $surrogateKey) {
                 Http::withHeaders([
                     'Fastly-Key' => $key,
@@ -171,11 +181,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
     {
         $url = config('capell-frontend.varnish_url');
 
-        if (! is_string($url) || $url === '') {
-            Log::warning('Varnish purge configured but missing URL');
-
-            return;
-        }
+        throw_if(! is_string($url) || $url === '', LogicException::class, 'Varnish purge configured but missing URL');
 
         try {
             Http::withHeaders(['X-Surrogate-Key' => implode(',', $this->surrogateKeys)])

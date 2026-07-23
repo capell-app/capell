@@ -78,7 +78,8 @@ class PageResource extends Resource implements ValidatesDelete
     #[Override]
     public static function table(Table $table): Table
     {
-        return static::configuredTable($table, ConfiguratorTypeEnum::Page);
+        return static::configuredTable($table, ConfiguratorTypeEnum::Page)
+            ->extraAttributes(['data-tour-id' => 'welcome-tour-pages']);
     }
 
     #[Override]

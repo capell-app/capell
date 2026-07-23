@@ -111,6 +111,29 @@ it('plans exact cache invalidation for changed pages and pages depending on them
         ))->toBeTrue();
 });
 
+it('falls back to a bounded frontend flush when graph traversal exceeds its configured depth', function (): void {
+    config()->set('capell-frontend.cache_invalidation.graph_max_depth', 1);
+
+    $changedLayout = Layout::factory()->createOne();
+    $dependentLayout = Layout::factory()->createOne();
+
+    ContentGraphEdge::query()->create([
+        'source_type' => Layout::class,
+        'source_id' => $dependentLayout->id,
+        'target_type' => Layout::class,
+        'target_id' => $changedLayout->id,
+        'kind' => ContentGraphEdgeKind::UsesLayout,
+        'strength' => ContentGraphEdgeStrength::Strong,
+        'source_package' => 'capell-app/core',
+        'site_id' => null,
+    ]);
+
+    $plan = resolve(CacheInvalidationRegistry::class)->planForChangedModel($changedLayout);
+
+    expect($plan->rules)->toHaveCount(1)
+        ->and($plan->rules[0]->kind)->toBe(CacheInvalidationRule::KIND_FLUSH_FRONTEND_TAG);
+});
+
 it('keeps registered class rules when graph dependents also exist', function (): void {
     $registry = resolve(CacheInvalidationRegistry::class);
     $layout = Layout::factory()->createOne();

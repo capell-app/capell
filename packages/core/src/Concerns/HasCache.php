@@ -54,4 +54,14 @@ trait HasCache
     {
         resolve(CapellCacheManager::class)->flushLocalCache();
     }
+
+    public function registerCacheInvalidationPattern(string $pattern): void
+    {
+        resolve(CapellCacheManager::class)->registerCacheInvalidationPattern($pattern);
+    }
+
+    public function invalidateCachePattern(string $pattern): void
+    {
+        resolve(CapellCacheManager::class)->invalidateCachePattern($pattern);
+    }
 }

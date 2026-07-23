@@ -32,12 +32,14 @@ use Capell\Core\Console\Commands\MakeSchemaCommand;
 use Capell\Core\Console\Commands\MakeThemeCommand;
 use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Console\Commands\PackageClearCacheCommand;
+use Capell\Core\Console\Commands\PackageLintCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
+use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
@@ -71,6 +73,9 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\MetricCollectionRun;
+use Capell\Core\Models\MetricDailyRollup;
+use Capell\Core\Models\MetricEvent;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRoleRestriction;
 use Capell\Core\Models\PageUrl;
@@ -117,6 +122,8 @@ use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
+use Capell\Core\Support\Metrics\MetricEventRegistry;
+use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
@@ -153,6 +160,7 @@ use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -239,9 +247,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             MakeExtensionCommand::class,
             MakeSchemaCommand::class,
             MakeThemeCommand::class,
+            PackageLintCommand::class,
             MakeBlueprintCommand::class,
             UpgradeCommand::class,
             RollbackCommand::class,
+            RollupMetricEventsCommand::class,
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
             ThemeDoctorCommand::class,
@@ -265,6 +275,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerMacros()
             ->registerOctaneStateReset()
             ->registerModels()
+            ->registerProtectedTables()
+            ->registerMetricSchedule()
             ->bindManagers()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
@@ -428,6 +440,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PluginPackagesFetcher::class);
         $this->app->singleton(MigrationFilesystemInterface::class, MigrationFilesystem::class);
         $this->app->singleton(ProcessFactoryInterface::class, SymfonyProcessFactory::class);
+        $this->app->singleton(MetricEventRegistry::class);
+        $this->app->singleton(MetricsManager::class);
 
         return $this;
     }
@@ -499,6 +513,34 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 model: Page::class,
             ),
         );
+
+        return $this;
+    }
+
+    private function registerProtectedTables(): self
+    {
+        CapellCore::registerProtectedTable(
+            static fn (): string => (new MetricCollectionRun)->getTable(),
+        );
+        CapellCore::registerProtectedTable(
+            static fn (): string => (new MetricDailyRollup)->getTable(),
+        );
+        CapellCore::registerProtectedTable(
+            static fn (): string => (new MetricEvent)->getTable(),
+        );
+
+        return $this;
+    }
+
+    private function registerMetricSchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('capell:metrics:rollup')
+                ->dailyAt('00:20')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
 
         return $this;
     }

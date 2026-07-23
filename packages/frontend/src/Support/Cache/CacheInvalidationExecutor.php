@@ -26,6 +26,10 @@ final class CacheInvalidationExecutor
                 $this->removeCacheKey($rule->cacheKey);
             }
 
+            if ($rule->kind === CacheInvalidationRule::KIND_INVALIDATE_PATTERN && $rule->cacheKey !== null) {
+                $this->invalidateCachePattern($rule->cacheKey);
+            }
+
             if (
                 $rule->kind === CacheInvalidationRule::KIND_PAGE_MODEL
                 && $rule->modelType !== null

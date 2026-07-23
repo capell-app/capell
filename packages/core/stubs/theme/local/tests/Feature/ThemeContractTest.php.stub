@@ -10,3 +10,11 @@ it('has a valid Capell theme manifest', function (): void {
         ->assertThemeManifest('{{ themeKey }}')
         ->assertThemeUsesSafeAssetUrls();
 });
+
+it('renders the generated theme page', function (): void {
+    $html = view('{{ slug }}::page', ['content' => '<p>Generated theme content</p>'])->render();
+
+    expect($html)
+        ->toContain('{{ themeKey }}-page')
+        ->toContain('<p>Generated theme content</p>');
+});

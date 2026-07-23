@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Data;
+
+use Spatie\LaravelData\Data;
+
+final class ExampleWidgetInputData extends Data
+{
+    public function __construct(
+        public string $heading,
+        public string $body,
+    ) {}
+
+    /** @return array<string, list<string>> */
+    public static function rules(): array
+    {
+        return [
+            'heading' => ['required', 'string', 'max:120'],
+            'body' => ['required', 'string', 'max:280'],
+        ];
+    }
+}

@@ -13,8 +13,12 @@ use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 use Throwable;
 
 /**
@@ -31,8 +35,19 @@ final class AuditExtensionContractsAction
     public function handle(?string $path = null): array
     {
         $results = [];
+        $manifestPaths = $this->manifestPaths($path);
 
-        foreach ($this->manifestPaths($path) as $manifestPath) {
+        if ($path !== null && $path !== '' && $manifestPaths === []) {
+            return [$this->result(
+                package: 'unknown',
+                manifestPath: $path,
+                severity: 'error',
+                message: 'No capell.json manifests were found at the supplied path.',
+                context: ['remediation' => 'Pass a package directory, a capell.json file, or a directory whose immediate children are packages.'],
+            )];
+        }
+
+        foreach ($manifestPaths as $manifestPath) {
             $directory = dirname($manifestPath);
             $data = $this->readJsonFile($manifestPath);
             $composerJson = $this->readJsonFile($directory . '/composer.json');
@@ -75,7 +90,7 @@ final class AuditExtensionContractsAction
 
             array_push(
                 $results,
-                ...$this->derivedResults($manifest, $manifestPath),
+                ...$this->derivedResults($manifest, $manifestPath, $composerJson ?? []),
             );
         }
 
@@ -197,44 +212,294 @@ final class AuditExtensionContractsAction
             ? $composerJson['autoload']['psr-4']
             : [];
 
-        foreach ($autoload as $namespace => $relativePath) {
+        foreach ($autoload as $namespace => $relativePaths) {
             if (! is_string($namespace)) {
                 continue;
             }
 
-            if (! is_string($relativePath)) {
+            $paths = is_string($relativePaths) ? [$relativePaths] : $relativePaths;
+
+            if (! is_array($paths)) {
                 continue;
             }
 
             $prefix = rtrim($namespace, '\\') . '\\';
-            $basePath = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . trim($relativePath, DIRECTORY_SEPARATOR);
 
-            spl_autoload_register(static function (string $class) use ($basePath, $prefix): void {
-                if (! str_starts_with($class, $prefix)) {
-                    return;
+            foreach ($paths as $relativePath) {
+                if (! is_string($relativePath)) {
+                    continue;
                 }
 
-                $relativeClass = substr($class, strlen($prefix));
-                $file = rtrim($basePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+                $basePath = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . trim($relativePath, DIRECTORY_SEPARATOR);
 
-                if (file_exists($file)) {
-                    require_once $file;
-                }
-            });
+                spl_autoload_register(static function (string $class) use ($basePath, $prefix): void {
+                    if (! str_starts_with($class, $prefix)) {
+                        return;
+                    }
+
+                    $relativeClass = substr($class, strlen($prefix));
+                    $file = rtrim($basePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+
+                    if (file_exists($file)) {
+                        require_once $file;
+                    }
+                });
+            }
         }
     }
 
     /**
+     * @param  array<string, mixed>  $composerJson
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    private function derivedResults(CapellManifestData $manifest, string $manifestPath): array
+    private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson): array
     {
         return [
+            ...$this->packageContractResults($manifest, $manifestPath, $composerJson),
             ...$this->capabilityResults($manifest, $manifestPath),
             ...$this->cacheSafetyResults($manifest, $manifestPath),
             ...$this->declarationResults($manifest, $manifestPath),
             ...$this->apiCompatibilityResults($manifest, $manifestPath),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $composerJson
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function packageContractResults(CapellManifestData $manifest, string $manifestPath, array $composerJson): array
+    {
+        $results = [];
+        $composerName = is_string($composerJson['name'] ?? null) ? $composerJson['name'] : '';
+        $composerSlug = str_contains($composerName, '/') ? substr($composerName, strrpos($composerName, '/') + 1) : '';
+
+        if ($composerSlug !== '' && $composerSlug !== $manifest->slug) {
+            $results[] = $this->result(
+                package: $manifest->name,
+                manifestPath: $manifestPath,
+                severity: 'error',
+                message: 'Manifest slug must match the package segment of composer.json name.',
+                context: ['slug' => $manifest->slug, 'composerPackageSegment' => $composerSlug],
+            );
+        }
+
+        try {
+            (new VersionParser)->normalize($manifest->version);
+        } catch (Throwable) {
+            $results[] = $this->result(
+                package: $manifest->name,
+                manifestPath: $manifestPath,
+                severity: 'error',
+                message: 'Manifest version must be a valid Composer version such as 1.0.0 or 1.x-dev.',
+                context: ['version' => $manifest->version],
+            );
+        }
+
+        $packageDirectory = dirname($manifestPath);
+
+        foreach ($manifest->marketplaceScreenshots as $screenshot) {
+            if ($screenshot->path === '') {
+                continue;
+            }
+
+            $relativePath = ltrim($screenshot->path, '/');
+            $resolvedPath = realpath($packageDirectory . DIRECTORY_SEPARATOR . $relativePath);
+            $packageRoot = realpath($packageDirectory);
+
+            if ($packageRoot === false || $resolvedPath === false || ! str_starts_with($resolvedPath, $packageRoot . DIRECTORY_SEPARATOR)) {
+                $results[] = $this->result(
+                    package: $manifest->name,
+                    manifestPath: $manifestPath,
+                    severity: 'error',
+                    message: 'Marketplace screenshot path must reference an existing file inside the package.',
+                    context: ['path' => $screenshot->path],
+                );
+            }
+        }
+
+        if ($manifest->kind === 'theme' && $manifest->extends !== null && $manifest->extends !== '') {
+            array_push($results, ...$this->themeAssetResults($manifest, $manifestPath, $composerJson));
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param  array<string, mixed>  $composerJson
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function themeAssetResults(CapellManifestData $manifest, string $manifestPath, array $composerJson): array
+    {
+        $results = [];
+        $packageDirectory = dirname($manifestPath);
+        $themeKey = $manifest->themeKey ?? '';
+        $expectedCondition = 'theme-css:' . $themeKey;
+        $registeredCssSources = $this->registeredThemeCssSources($packageDirectory, $composerJson, $expectedCondition);
+
+        if ($themeKey === '' || $registeredCssSources === []) {
+            $results[] = $this->result(
+                package: $manifest->name,
+                manifestPath: $manifestPath,
+                severity: 'error',
+                message: sprintf('Theme CSS must be registered as a conditional Tailwind import with condition "%s".', $expectedCondition),
+                context: [
+                    'expectedCondition' => $expectedCondition,
+                    'remediation' => 'Register the CSS source with VendorAssetData type TailwindImport and this exact condition.',
+                ],
+            );
+
+            return $results;
+        }
+
+        $missingSources = array_values(array_filter(
+            $registeredCssSources,
+            static fn (string $source): bool => ! file_exists($packageDirectory . DIRECTORY_SEPARATOR . ltrim($source, DIRECTORY_SEPARATOR)),
+        ));
+
+        if ($missingSources !== []) {
+            $results[] = $this->result(
+                package: $manifest->name,
+                manifestPath: $manifestPath,
+                severity: 'error',
+                message: 'Theme Tailwind registration must reference an existing package CSS source.',
+                context: [
+                    'missingSources' => $missingSources,
+                    'remediation' => 'Set VendorAssetData value (or CSS_SOURCE) to a committed package-relative CSS file.',
+                ],
+            );
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param  array<string, mixed>  $composerJson
+     * @return list<string>
+     */
+    private function registeredThemeCssSources(string $packageDirectory, array $composerJson, string $expectedCondition): array
+    {
+        $registeredSources = [];
+        $psr4Paths = is_array($composerJson['autoload']['psr-4'] ?? null)
+            ? array_values($composerJson['autoload']['psr-4'])
+            : ['src/'];
+        $sourcePaths = collect($psr4Paths)
+            ->flatMap(static fn (mixed $paths): array => is_array($paths) ? $paths : [$paths])
+            ->filter(static fn (mixed $path): bool => is_string($path))
+            ->values()
+            ->all();
+
+        foreach ($sourcePaths as $sourcePath) {
+            if (! is_string($sourcePath)) {
+                continue;
+            }
+
+            $directory = $packageDirectory . DIRECTORY_SEPARATOR . trim($sourcePath, DIRECTORY_SEPARATOR);
+
+            if (! is_dir($directory)) {
+                continue;
+            }
+
+            $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory));
+
+            /** @var SplFileInfo $file */
+            foreach ($files as $file) {
+                if (! $file->isFile()) {
+                    continue;
+                }
+
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+
+                array_push(
+                    $registeredSources,
+                    ...$this->registeredThemeCssSourcesInPhp((string) file_get_contents($file->getPathname()), $expectedCondition),
+                );
+            }
+        }
+
+        return array_values(array_unique($registeredSources));
+    }
+
+    /** @return list<string> */
+    private function registeredThemeCssSourcesInPhp(string $php, string $expectedCondition): array
+    {
+        $php = $this->phpWithoutCommentsOrEmbeddedRegistrationStrings($php);
+        $constants = [];
+
+        if (preg_match_all('/const(?:\\s+string)?\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([\'\"])(.*?)\\2/', $php, $matches, PREG_SET_ORDER) > 0) {
+            foreach ($matches as $match) {
+                $constants[$match[1]] = $match[3];
+            }
+        }
+
+        $registeredSources = [];
+
+        if (preg_match_all('/[\\\\A-Za-z_][\\\\A-Za-z0-9_]*::registerVendorAsset\\s*\\(\\s*new\\s+[\\\\A-Za-z_][\\\\A-Za-z0-9_]*\\s*\\((.*?)\\)\\s*\\)\\s*;/s', $php, $matches) > 0) {
+            foreach ($matches[1] as $arguments) {
+                if (! preg_match('/type:\\s*[\\\\A-Za-z_][\\\\A-Za-z0-9_]*::TailwindImport/', $arguments)) {
+                    continue;
+                }
+
+                $condition = $this->namedStringArgument($arguments, 'condition', $constants);
+                $source = $this->namedStringArgument($arguments, 'value', $constants);
+
+                if ($condition === $expectedCondition && $source !== null) {
+                    $registeredSources[] = $source;
+                }
+            }
+        }
+
+        if (preg_match_all('/bootLayoutNativeThemeDefaults\\s*\\((.*?)\\);/s', $php, $matches) > 0) {
+            foreach ($matches[1] as $arguments) {
+                $condition = $this->namedStringArgument($arguments, 'cssCondition', $constants);
+                $source = $this->namedStringArgument($arguments, 'cssSource', $constants);
+
+                if ($condition === $expectedCondition && $source !== null) {
+                    $registeredSources[] = $source;
+                }
+            }
+        }
+
+        return array_values(array_unique($registeredSources));
+    }
+
+    private function phpWithoutCommentsOrEmbeddedRegistrationStrings(string $php): string
+    {
+        return collect(token_get_all($php))
+            ->map(static function (array|string $token): string {
+                if (is_string($token)) {
+                    return $token;
+                }
+
+                [$type, $text] = $token;
+
+                if (in_array($type, [T_COMMENT, T_DOC_COMMENT], true)) {
+                    return str_repeat(' ', strlen($text));
+                }
+
+                if (in_array($type, [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)
+                    && (str_contains($text, 'registerVendorAsset') || str_contains($text, 'bootLayoutNativeThemeDefaults'))) {
+                    return "''";
+                }
+
+                return $text;
+            })
+            ->implode('');
+    }
+
+    /** @param array<string, string> $constants */
+    private function namedStringArgument(string $arguments, string $name, array $constants): ?string
+    {
+        if (preg_match(sprintf('/%s:\\s*([\'\"])(.*?)\\1/', preg_quote($name, '/')), $arguments, $matches) === 1) {
+            return $matches[2];
+        }
+
+        if (preg_match(sprintf('/%s:\\s*(?:self|static)::([A-Z][A-Z0-9_]*)/', preg_quote($name, '/')), $arguments, $matches) === 1) {
+            return $constants[$matches[1]] ?? null;
+        }
+
+        return null;
     }
 
     /**

@@ -1,0 +1,5 @@
+@php /** @var \{{ namespace }}\Data\ExampleWidgetRenderData $widget */ @endphp
+<section class="{{ slug }}-example-widget">
+    <h2>{{ $widget->heading }}</h2>
+    <p>{{ $widget->body }}</p>
+</section>

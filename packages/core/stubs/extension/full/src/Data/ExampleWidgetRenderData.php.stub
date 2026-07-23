@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Data;
+
+use Spatie\LaravelData\Data;
+
+final class ExampleWidgetRenderData extends Data
+{
+    public function __construct(
+        public string $heading,
+        public string $body,
+    ) {}
+}

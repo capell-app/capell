@@ -2,10 +2,44 @@
 
 {{ displayName }} is a Capell package scaffolded with the `full` profile.
 
-It demonstrates provider buckets, a package-owned console command, settings registration, safe frontend render-hook output, public render state through an Action and Data object, and focused package tests.
+It demonstrates provider buckets, a package-owned console command, settings registration, a working Layout Builder content widget with typed input and render Data objects, package-owned widget assets, and focused package tests.
+
+## Local installation
+
+Use a standard Composer path repository in the host app while developing:
+
+```json
+{
+    "repositories": [
+        {"type": "path", "url": "packages/{{ slug }}", "options": {"symlink": true}}
+    ],
+    "require": {
+        "{{ packageName }}": "*"
+    }
+}
+```
+
+Then install the package, clear Capell's cached package manifests, and generate frontend assets:
+
+```bash
+composer update {{ packageName }} --with-dependencies
+php artisan capell:package-cache:clear
+php artisan config:clear
+php artisan capell:frontend-tailwind-assets
+```
 
 ## Verification
 
+From the package directory:
+
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+composer install
+composer test
+```
+
+From the host app:
+
+```bash
+php artisan capell:package:lint packages/{{ slug }}
+php artisan capell:extension-audit packages/{{ slug }}
 ```

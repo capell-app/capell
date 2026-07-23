@@ -19,7 +19,7 @@ use Throwable;
 
 final class PublicViewQueryGuard
 {
-    private const string DOCS_URL = 'https://docs.capell.app/security/public-rendering#public-view-query-guard';
+    private const string DOCS_URL = 'https://docs.capell.app/core/frontend/debugging-public-output/#symptom-table';
 
     private int $activeDepth = 0;
 

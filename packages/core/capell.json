@@ -60,7 +60,15 @@
             "queueInvalidation": false
         }
     },
-    "healthChecks": [],
+    "healthChecks": [
+        {
+            "key": "core.cache-runtime",
+            "label": "Core cache enablement, backend reachability, and sampled runtime activity.",
+            "class": "Capell\\Core\\Health\\CoreCacheHealthCheck",
+            "severity": "critical",
+            "surface": "cache"
+        }
+    ],
     "commercial": {
         "proposedLicense": "free",
         "requestedCertification": "first-party",

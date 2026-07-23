@@ -5,19 +5,26 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Cache;
 
 use BackedEnum;
+use Capell\Core\Data\Cache\CacheRuntimeDiagnosticsData;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Closure;
 use DateInterval;
 use DateTimeInterface;
+use Error;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use LogicException;
 use Throwable;
 
 final class CapellCacheManager
 {
+    private const int SAMPLED_KEY_LIMIT = 8;
+
+    private const int TELEMETRY_TTL_SECONDS = 86400;
+
     /**
      * In-memory, per-request cache to avoid repeated backend calls for the
      * same cache key during a single request lifecycle.
@@ -28,6 +35,28 @@ final class CapellCacheManager
      * @var array<string, mixed>
      */
     protected array $localCache = [];
+
+    /** @var array<string, true> */
+    private array $cacheInvalidationPatterns = [];
+
+    /** @var array<string, int> */
+    private array $cacheInvalidationPatternGenerations = [];
+
+    private int $cacheHitCount = 0;
+
+    private int $cacheMissCount = 0;
+
+    private int $cacheFillCount = 0;
+
+    private int $cacheBackendFailureCount = 0;
+
+    /** @var list<string> */
+    private array $sampledKeyHashes = [];
+
+    public function __construct()
+    {
+        app()->terminating(fn () => $this->persistRuntimeDiagnostics());
+    }
 
     public function rememberCache(
         string|BackedEnum $key,
@@ -51,10 +80,21 @@ final class CapellCacheManager
         if (array_key_exists($normalizedKey, $this->localCache)) {
             $cached = $this->localCache[$normalizedKey];
 
+            $this->recordCacheRead($key, $cached !== null);
+
             return $cached === $sentinel ? null : $cached;
         }
 
-        $value = $cache->get($normalizedKey);
+        try {
+            $value = $cache->get($normalizedKey);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+            $this->cacheMissCount++;
+            $this->sampleCacheKey($key);
+
+            return $this->resolveUncached($normalizedKey, $callback, $sentinel);
+        }
 
         // A deserialized value whose class cannot be found produces an
         // __PHP_Incomplete_Class instance. Discard it and treat the entry as a
@@ -68,21 +108,30 @@ final class CapellCacheManager
         $this->localCache[$normalizedKey] = $value;
 
         if ($value === $sentinel) {
+            $this->recordCacheRead($key, true);
+
             return null;
         }
 
         if ($value !== null) {
+            $this->recordCacheRead($key, true);
+
             return $value;
         }
 
-        $value = $callback();
+        $this->recordCacheRead($key, false);
+
         $ttl = $this->getCacheTtl($ttl);
 
         if ($this->isCacheSaveDisabledForKey($key)) {
-            return $value;
+            unset($this->localCache[$normalizedKey]);
+            $resolved = $callback();
+            $this->cacheFillCount++;
+
+            return $resolved;
         }
 
-        $this->saveToCache($cache, $normalizedKey, $value, $ttl, $sentinel);
+        $value = $this->rememberCacheMiss($cache, $normalizedKey, $callback, $ttl, $sentinel);
 
         // Keep local cache in sync with backend save (use sentinel for null)
         $this->localCache[$normalizedKey] = $value ?? $sentinel;
@@ -98,13 +147,24 @@ final class CapellCacheManager
         if (array_key_exists($normalizedKey, $this->localCache)) {
             $cached = $this->localCache[$normalizedKey];
 
+            $this->recordCacheRead($key, $cached !== null);
+
             return $cached === $sentinel ? null : $cached;
         }
 
         $cache = $this->getCacheInstance();
-        $value = $cache->get($normalizedKey);
+        try {
+            $value = $cache->get($normalizedKey);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+            $this->recordCacheRead($key, false);
+
+            return null;
+        }
 
         $this->localCache[$normalizedKey] = $value;
+        $this->recordCacheRead($key, $value !== null);
 
         return $value === $sentinel ? null : $value;
     }
@@ -120,7 +180,12 @@ final class CapellCacheManager
         $sentinel = $this->getCacheSentinel();
         $ttl = $this->getCacheTtl($ttl);
 
-        $this->saveToCache($cache, $normalizedKey, $value, $ttl, $sentinel);
+        try {
+            $this->saveToCache($cache, $normalizedKey, $value, $ttl, $sentinel);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+        }
 
         // Sync local cache
         $this->localCache[$normalizedKey] = $value ?? $sentinel;
@@ -134,13 +199,24 @@ final class CapellCacheManager
         if (array_key_exists($normalizedKey, $this->localCache)) {
             $cached = $this->localCache[$normalizedKey];
 
+            $this->recordCacheRead($key, $cached !== null);
+
             return $cached !== null && $cached !== $sentinel;
         }
 
         $cache = $this->getCacheInstance();
-        $value = $cache->get($normalizedKey);
+        try {
+            $value = $cache->get($normalizedKey);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+            $this->recordCacheRead($key, false);
+
+            return false;
+        }
 
         $this->localCache[$normalizedKey] = $value;
+        $this->recordCacheRead($key, $value !== null);
 
         return $value !== null && $value !== $sentinel;
     }
@@ -177,6 +253,63 @@ final class CapellCacheManager
     public function flushLocalCache(): void
     {
         $this->localCache = [];
+        $this->cacheInvalidationPatternGenerations = [];
+    }
+
+    public function flushRuntimeState(): void
+    {
+        $this->persistRuntimeDiagnostics();
+        $this->flushLocalCache();
+        $this->cacheHitCount = 0;
+        $this->cacheMissCount = 0;
+        $this->cacheFillCount = 0;
+        $this->cacheBackendFailureCount = 0;
+        $this->sampledKeyHashes = [];
+    }
+
+    public function runtimeDiagnostics(): CacheRuntimeDiagnosticsData
+    {
+        $storeName = config('cache.default');
+        $storeName = is_string($storeName) && $storeName !== '' ? $storeName : 'default';
+
+        $driver = config(sprintf('cache.stores.%s.driver', $storeName));
+
+        $persisted = $this->persistedRuntimeDiagnostics();
+
+        return new CacheRuntimeDiagnosticsData(
+            enabled: config('capell.disable_cache') !== true,
+            backendReachable: $this->cacheBackendIsReachable(),
+            store: $storeName,
+            driver: is_string($driver) && $driver !== '' ? $driver : 'unknown',
+            hitCount: $persisted['hits'] + $this->cacheHitCount,
+            missCount: $persisted['misses'] + $this->cacheMissCount,
+            fillCount: $persisted['fills'] + $this->cacheFillCount,
+            backendFailureCount: $persisted['backend_failures'] + $this->cacheBackendFailureCount,
+            sampledKeyHashes: array_values(array_slice(array_unique([
+                ...$persisted['sampled_key_hashes'],
+                ...$this->sampledKeyHashes,
+            ]), 0, self::SAMPLED_KEY_LIMIT)),
+        );
+    }
+
+    public function registerCacheInvalidationPattern(string $pattern): void
+    {
+        if ($pattern !== '' && str_contains($pattern, '*')) {
+            $this->cacheInvalidationPatterns[$pattern] = true;
+        }
+    }
+
+    public function invalidateCachePattern(string $pattern): void
+    {
+        $this->registerCacheInvalidationPattern($pattern);
+
+        if (! isset($this->cacheInvalidationPatterns[$pattern])) {
+            return;
+        }
+
+        $generation = $this->incrementRawCacheKey($this->cacheInvalidationPatternGenerationKey($pattern));
+        $this->localCache = [];
+        $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
     }
 
     public function incrementCacheKey(string $key): int
@@ -191,6 +324,90 @@ final class CapellCacheManager
             'normalized:' . $normalizedKey,
             fn (): int => $this->incrementRepositoryKey($cache, $normalizedKey),
         );
+    }
+
+    private function rememberCacheMiss(
+        CacheRepository $cache,
+        string $normalizedKey,
+        Closure $callback,
+        DateTimeInterface|DateInterval|int $ttl,
+        string $sentinel,
+    ): mixed {
+        $callbackStarted = false;
+        $lockSeconds = max(1, (int) config('capell.cache_lock_seconds', 30));
+        $lockWaitSeconds = max(
+            $lockSeconds + 1,
+            (int) config('capell.cache_lock_wait_seconds', 10),
+        );
+
+        try {
+            return Cache::lock(
+                'capell.cache.remember.' . $normalizedKey,
+                $lockSeconds,
+            )->block(
+                $lockWaitSeconds,
+                function () use ($cache, $normalizedKey, $callback, $ttl, $sentinel, &$callbackStarted): mixed {
+                    $cached = $cache->get($normalizedKey);
+
+                    if ($cached === $sentinel) {
+                        return null;
+                    }
+
+                    if ($cached !== null && (! is_object($cached) || $cached::class !== '__PHP_Incomplete_Class')) {
+                        return $cached;
+                    }
+
+                    if (is_object($cached) && $cached::class === '__PHP_Incomplete_Class') {
+                        $cache->forget($normalizedKey);
+                    }
+
+                    $callbackStarted = true;
+                    $resolved = $callback();
+                    $this->cacheFillCount++;
+
+                    try {
+                        $this->saveToCache($cache, $normalizedKey, $resolved, $ttl, $sentinel);
+                    } catch (Throwable $throwable) {
+                        $this->rethrowProgrammingFailure($throwable);
+                        $this->cacheBackendFailureCount++;
+                    }
+
+                    return $resolved;
+                },
+            );
+        } catch (Throwable $throwable) {
+            throw_if($callbackStarted, $throwable);
+
+            $this->cacheBackendFailureCount++;
+
+            try {
+                $cached = $cache->get($normalizedKey);
+            } catch (Throwable $throwable) {
+                $this->rethrowProgrammingFailure($throwable);
+                $this->cacheBackendFailureCount++;
+                $cached = null;
+            }
+
+            if ($cached === $sentinel) {
+                return null;
+            }
+
+            if ($cached !== null && (! is_object($cached) || $cached::class !== '__PHP_Incomplete_Class')) {
+                return $cached;
+            }
+
+            $resolved = $callback();
+            $this->cacheFillCount++;
+
+            try {
+                $this->saveToCache($cache, $normalizedKey, $resolved, $ttl, $sentinel);
+            } catch (Throwable $throwable) {
+                $this->rethrowProgrammingFailure($throwable);
+                $this->cacheBackendFailureCount++;
+            }
+
+            return $resolved;
+        }
     }
 
     private function getCacheInstance(): CacheRepository
@@ -268,7 +485,48 @@ final class CapellCacheManager
     {
         // Hash long/complex keys to ensure backend compatibility (indexes, length,
         // allowed characters) and keep a consistent fixed-length key.
-        return hash('sha256', $this->cacheNamespaceGeneration() . '|' . $key);
+        $patternGenerations = [];
+
+        foreach (array_keys($this->cacheInvalidationPatterns) as $pattern) {
+            if ($this->cacheKeyMatchesPattern($key, $pattern)) {
+                $patternGenerations[$pattern] = $this->cacheInvalidationPatternGeneration($pattern);
+            }
+        }
+
+        return hash('sha256', serialize([
+            $this->cacheNamespaceGeneration(),
+            $patternGenerations,
+            $key,
+        ]));
+    }
+
+    private function cacheKeyMatchesPattern(string $key, string $pattern): bool
+    {
+        return preg_match('/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/', $key) === 1;
+    }
+
+    private function cacheInvalidationPatternGeneration(string $pattern): int
+    {
+        if (array_key_exists($pattern, $this->cacheInvalidationPatternGenerations)) {
+            return $this->cacheInvalidationPatternGenerations[$pattern];
+        }
+
+        try {
+            $generation = (int) Cache::store()->get($this->cacheInvalidationPatternGenerationKey($pattern), 0);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+            $generation = 0;
+        }
+
+        $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
+
+        return $generation;
+    }
+
+    private function cacheInvalidationPatternGenerationKey(string $pattern): string
+    {
+        return 'capell.cache.pattern-generation.' . hash('sha256', $pattern);
     }
 
     private function cacheNamespaceGeneration(): int
@@ -288,7 +546,13 @@ final class CapellCacheManager
             return (int) $request->attributes->get($requestCacheKey);
         }
 
-        $generation = (int) Cache::store()->get($this->cacheNamespaceGenerationKey(), 0);
+        try {
+            $generation = (int) Cache::store()->get($this->cacheNamespaceGenerationKey(), 0);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+            $generation = 0;
+        }
 
         if ($request instanceof Request) {
             $request->attributes->set($requestCacheKey, $generation);
@@ -436,5 +700,151 @@ final class CapellCacheManager
         $driver = config(sprintf('cache.stores.%s.driver', $storeName));
 
         return in_array($driver, ['redis', 'memcached', 'dynamodb'], true);
+    }
+
+    private function resolveUncached(string $normalizedKey, Closure $callback, string $sentinel): mixed
+    {
+        $resolved = $callback();
+        $this->cacheFillCount++;
+        $this->localCache[$normalizedKey] = $resolved ?? $sentinel;
+
+        return $resolved;
+    }
+
+    private function recordCacheRead(string $key, bool $hit): void
+    {
+        if ($hit) {
+            $this->cacheHitCount++;
+        } else {
+            $this->cacheMissCount++;
+        }
+
+        $this->sampleCacheKey($key);
+    }
+
+    private function sampleCacheKey(string $key): void
+    {
+        if (count($this->sampledKeyHashes) >= self::SAMPLED_KEY_LIMIT) {
+            return;
+        }
+
+        $hash = substr(hash('sha256', $key), 0, 16);
+
+        if (! in_array($hash, $this->sampledKeyHashes, true)) {
+            $this->sampledKeyHashes[] = $hash;
+        }
+    }
+
+    private function cacheBackendIsReachable(): bool
+    {
+        if (! $this->configuredCacheStoreIsAvailable()) {
+            return false;
+        }
+
+        $key = 'capell.cache.health.' . bin2hex(random_bytes(8));
+        try {
+            $cache = Cache::store();
+
+            if (! $cache->put($key, 'reachable', 10)) {
+                return false;
+            }
+
+            if ($cache->get($key) !== 'reachable') {
+                return false;
+            }
+
+            return $cache->forget($key);
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+            $this->cacheBackendFailureCount++;
+
+            return false;
+        }
+    }
+
+    private function rethrowProgrammingFailure(Throwable $throwable): void
+    {
+        throw_if($throwable instanceof Error || $throwable instanceof LogicException, $throwable);
+    }
+
+    private function persistRuntimeDiagnostics(): void
+    {
+        if ($this->cacheHitCount === 0
+            && $this->cacheMissCount === 0
+            && $this->cacheFillCount === 0
+            && $this->cacheBackendFailureCount === 0
+            && $this->sampledKeyHashes === []) {
+            return;
+        }
+
+        try {
+            $cache = Cache::store();
+
+            foreach ($this->runtimeDiagnosticCounters() as $name => $value) {
+                if ($value === 0) {
+                    continue;
+                }
+
+                $key = $this->runtimeDiagnosticKey($name);
+                $cache->add($key, 0, self::TELEMETRY_TTL_SECONDS);
+                $cache->increment($key, $value);
+            }
+
+            $samplesKey = $this->runtimeDiagnosticKey('sampled_key_hashes');
+            $samples = $cache->get($samplesKey, []);
+            $samples = is_array($samples) ? $samples : [];
+            $cache->put(
+                $samplesKey,
+                array_values(array_slice(array_unique([...$samples, ...$this->sampledKeyHashes]), 0, self::SAMPLED_KEY_LIMIT)),
+                self::TELEMETRY_TTL_SECONDS,
+            );
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+        }
+    }
+
+    /** @return array{hits: int, misses: int, fills: int, backend_failures: int} */
+    private function runtimeDiagnosticCounters(): array
+    {
+        return [
+            'hits' => $this->cacheHitCount,
+            'misses' => $this->cacheMissCount,
+            'fills' => $this->cacheFillCount,
+            'backend_failures' => $this->cacheBackendFailureCount,
+        ];
+    }
+
+    /** @return array{hits: int, misses: int, fills: int, backend_failures: int, sampled_key_hashes: list<string>} */
+    private function persistedRuntimeDiagnostics(): array
+    {
+        try {
+            $cache = Cache::store();
+            $samples = $cache->get($this->runtimeDiagnosticKey('sampled_key_hashes'), []);
+
+            return [
+                'hits' => (int) $cache->get($this->runtimeDiagnosticKey('hits'), 0),
+                'misses' => (int) $cache->get($this->runtimeDiagnosticKey('misses'), 0),
+                'fills' => (int) $cache->get($this->runtimeDiagnosticKey('fills'), 0),
+                'backend_failures' => (int) $cache->get($this->runtimeDiagnosticKey('backend_failures'), 0),
+                'sampled_key_hashes' => is_array($samples)
+                    ? array_values(array_filter($samples, is_string(...)))
+                    : [],
+            ];
+        } catch (Throwable $throwable) {
+            $this->rethrowProgrammingFailure($throwable);
+
+            return [
+                'hits' => 0,
+                'misses' => 0,
+                'fills' => 0,
+                'backend_failures' => 0,
+                'sampled_key_hashes' => [],
+            ];
+        }
+    }
+
+    private function runtimeDiagnosticKey(string $metric): string
+    {
+        return 'capell.cache.runtime.' . $metric;
     }
 }

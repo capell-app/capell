@@ -27,7 +27,9 @@ This page is the short command map for the host packages in this repository. Run
 | `capell:extensions:repair-composer-drift` | Repair Composer-actionable drift between `capell_extensions` and Composer state |
 | `capell:extension-audit`                  | Validate a package directory or `capell.json` against extension contracts       |
 | `capell:extension-playground`             | Inspect an extension from a package name, directory, or manifest path           |
-| `capell:make-extension`                   | Scaffold a local package with a minimal or full manifest profile                |
+| `capell:package:lint`                     | Lint package manifests, naming, versions, assets, and extension contracts       |
+| `capell:make:extension`                   | Scaffold a local package with a minimal or full manifest profile                |
+| `capell:make:theme`                       | Scaffold a theme with conditional frontend CSS registration                    |
 
 ## Developer Makers
 

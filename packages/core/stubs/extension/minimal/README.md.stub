@@ -12,5 +12,6 @@
 ## Verification
 
 ```bash
-vendor/bin/pest tests --configuration=phpunit.xml
+composer install
+composer test
 ```

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\CacheEnum;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
+use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Store;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 
@@ -14,6 +17,7 @@ afterEach(function (): void {
         'capell.disable_cache' => false,
         'capell.disable_cache_save_keys' => [],
         'capell.cache_tag' => 'capell-app',
+        'capell.cache_lock_wait_seconds' => 10,
         'capell.cache_path' => base_path('bootstrap/cache/capell'),
     ]);
 
@@ -32,7 +36,7 @@ it('reuses a persisted cache value after the request cache is flushed', function
         'capell.disable_cache' => false,
     ]);
 
-    $manager = new CapellCoreManager;
+    $manager = resolve(CapellCacheManager::class);
     $callbackRuns = 0;
 
     $first = $manager->rememberCache('cache-hit-contract', function () use (&$callbackRuns): string {
@@ -52,6 +56,178 @@ it('reuses a persisted cache value after the request cache is flushed', function
     expect($first)->toBe('cached-value')
         ->and($second)->toBe('cached-value')
         ->and($callbackRuns)->toBe(1);
+});
+
+it('uses an atomic lock for a cold cache fill', function (): void {
+    config([
+        'cache.default' => 'array',
+        'capell.disable_cache' => false,
+    ]);
+    $cache = Cache::spy();
+
+    $value = resolve(CapellCacheManager::class)
+        ->rememberCache('single-fill-contract', fn (): string => 'filled');
+
+    expect($value)->toBe('filled');
+
+    $cache->shouldHaveReceived('lock')
+        ->once()
+        ->with(
+            Mockery::on(static fn (string $key): bool => str_starts_with($key, 'capell.cache.remember.')),
+            30,
+        );
+});
+
+it('waits through a contended lock lease before filling', function (): void {
+    config([
+        'cache.default' => 'array',
+        'capell.cache_lock_seconds' => 2,
+        'capell.cache_lock_wait_seconds' => 1,
+    ]);
+
+    $manager = resolve(CapellCacheManager::class);
+    $normalizeCacheKey = new ReflectionMethod($manager, 'normalizeCacheKey');
+    $lock = Cache::lock('capell.cache.remember.' . $normalizeCacheKey->invoke($manager, 'contended-fill'), 2);
+    $lock->get();
+
+    $callbackRuns = 0;
+
+    try {
+        $value = $manager->rememberCache('contended-fill', function () use (&$callbackRuns): string {
+            $callbackRuns++;
+
+            return 'filled-after-lease';
+        });
+
+        expect($value)->toBe('filled-after-lease')
+            ->and($callbackRuns)->toBe(1);
+    } finally {
+        $lock->release();
+    }
+});
+
+it('reports safe runtime cache activity and backend reachability', function (): void {
+    config([
+        'cache.default' => 'array',
+        'capell.disable_cache' => false,
+    ]);
+
+    $manager = resolve(CapellCacheManager::class);
+
+    $manager->rememberCache('customer:alice@example.test', fn (): string => 'cached');
+    $manager->flushLocalCache();
+    $manager->rememberCache('customer:alice@example.test', fn (): string => 'unexpected');
+
+    $diagnostics = $manager->runtimeDiagnostics();
+
+    expect($diagnostics->enabled)->toBeTrue()
+        ->and($diagnostics->backendReachable)->toBeTrue()
+        ->and($diagnostics->store)->toBe('array')
+        ->and($diagnostics->hitCount)->toBeGreaterThanOrEqual(1)
+        ->and($diagnostics->missCount)->toBeGreaterThanOrEqual(1)
+        ->and($diagnostics->sampledKeyHashes)->not->toContain('customer:alice@example.test')
+        ->and($diagnostics->sampledKeyHashes)->each->toMatch('/^[a-f0-9]{16}$/');
+
+    $manager->flushRuntimeState();
+    $persistedDiagnostics = $manager->runtimeDiagnostics();
+
+    expect($persistedDiagnostics->hitCount)->toBeGreaterThanOrEqual(1)
+        ->and($persistedDiagnostics->missCount)->toBeGreaterThanOrEqual(1)
+        ->and($persistedDiagnostics->sampledKeyHashes)->not->toBeEmpty();
+});
+
+it('returns resolved values when the configured cache backend is unavailable', function (): void {
+    $failingStore = new class implements Store
+    {
+        public function get($key): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function many(array $keys): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function put($key, $value, $seconds): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function putMany(array $values, $seconds): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function increment($key, $value = 1): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function decrement($key, $value = 1): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function forever($key, $value): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function touch($key, $seconds): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function forget($key): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function flush(): never
+        {
+            throw new RuntimeException('Cache backend unavailable.');
+        }
+
+        public function getPrefix(): string
+        {
+            return 'failing:';
+        }
+    };
+
+    Cache::extend('failing', fn (): Repository => new Repository($failingStore));
+    config([
+        'cache.default' => 'failing',
+        'cache.stores.failing.driver' => 'failing',
+    ]);
+    Cache::purge('failing');
+
+    try {
+        $manager = resolve(CapellCacheManager::class);
+        $callbackRuns = 0;
+
+        $first = $manager->rememberCache('backend-down', function () use (&$callbackRuns): string {
+            $callbackRuns++;
+
+            return 'resolved';
+        });
+        $second = $manager->rememberCache('backend-down', function () use (&$callbackRuns): string {
+            $callbackRuns++;
+
+            return 'unexpected';
+        });
+        $diagnostics = $manager->runtimeDiagnostics();
+
+        expect($first)->toBe('resolved')
+            ->and($second)->toBe('resolved')
+            ->and($callbackRuns)->toBe(1)
+            ->and($manager->getFromCache('missing-backend-key'))->toBeNull()
+            ->and($diagnostics->backendReachable)->toBeFalse()
+            ->and($diagnostics->backendFailureCount)->toBeGreaterThan(0);
+    } finally {
+        config(['cache.default' => 'array']);
+        Cache::purge('failing');
+    }
 });
 
 it('caches values, null sentinels, disabled saves, and cache increments through the core manager', function (): void {
@@ -107,11 +283,26 @@ it('caches values, null sentinels, disabled saves, and cache increments through 
 
     $manager->setToCache('draft.exact', 'not saved through setter');
 
+    $disabledSaveRuns = 0;
+    $firstDisabledSave = $manager->rememberCache('draft.exact', function () use (&$disabledSaveRuns): string {
+        $disabledSaveRuns++;
+
+        return 'first uncached value';
+    });
+    $secondDisabledSave = $manager->rememberCache('draft.exact', function () use (&$disabledSaveRuns): string {
+        $disabledSaveRuns++;
+
+        return 'second uncached value';
+    });
+
     $manager->flushLocalCache();
 
     expect($manager->getFromCache('draft.exact'))->toBeNull()
         ->and($manager->getFromCache('draft.wildcard.preview'))->toBeNull()
-        ->and($manager->getFromCache('draft.regex.123'))->toBeNull();
+        ->and($manager->getFromCache('draft.regex.123'))->toBeNull()
+        ->and($firstDisabledSave)->toBe('first uncached value')
+        ->and($secondDisabledSave)->toBe('second uncached value')
+        ->and($disabledSaveRuns)->toBe(2);
 
     config(['capell.disable_cache' => true]);
 

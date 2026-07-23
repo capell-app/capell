@@ -12,6 +12,7 @@ use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Enums\ExtensionStatusEnum;
+use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Install\InstallPlan;
@@ -33,6 +34,7 @@ use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Process\Factory;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
@@ -805,6 +807,8 @@ it('integrates the admin panel with resolved schema and feature flags', function
 });
 
 it('reports completion and rejects unknown install steps clearly', function (): void {
+    Event::fake([CapellInstallationCompleted::class]);
+
     $lines = [];
     $state = new InstallRunState(
         installStepExecutorInputData(),
@@ -819,6 +823,8 @@ it('reports completion and rejects unknown install steps clearly', function (): 
     expect($lines)->toContain(['type' => 'info', 'line' => '✓ Installation complete!'])
         ->and(CapellExtension::query()->where('composer_name', 'capell-app/core')->value('status'))
         ->toBe(ExtensionStatusEnum::Enabled);
+
+    Event::assertDispatched(CapellInstallationCompleted::class);
 
     expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute('unknown-step', $state))
         ->toThrow(RuntimeException::class, 'Unknown install step: unknown-step');

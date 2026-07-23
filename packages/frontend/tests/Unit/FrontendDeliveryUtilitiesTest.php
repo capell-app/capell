@@ -18,7 +18,7 @@ use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Data\FrontendRuleContextData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtmlCacheable;
-use Capell\Frontend\Jobs\PurgeCdnCacheJob;
+use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
 use Capell\Frontend\Support\Cache\FragmentCache;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
@@ -124,7 +124,7 @@ it('runs the static HTML generator command with selected site and URL filters', 
 it('purges CDN and fragment caches for page surrogate keys', function (): void {
     config(['capell-frontend.cdn_provider' => 'fastly']);
 
-    Bus::fake([PurgeCdnCacheJob::class]);
+    Bus::fake([FlushCdnPurgeBatchJob::class]);
 
     $language = Language::factory()->english()->createOne();
     $theme = Theme::factory()->createOne(['default' => true]);
@@ -150,13 +150,13 @@ it('purges CDN and fragment caches for page surrogate keys', function (): void {
 
     expect(Cache::has('fragment:page-fragment'))->toBeFalse();
 
-    Bus::assertDispatched(PurgeCdnCacheJob::class, fn (PurgeCdnCacheJob $job): bool => $job->queue === config('capell-frontend.purge_queue', 'default'));
+    Bus::assertDispatched(FlushCdnPurgeBatchJob::class, fn (FlushCdnPurgeBatchJob $job): bool => $job->queue === config('capell-frontend.purge_queue', 'default'));
 });
 
 it('skips CDN purge jobs without skipping fragment invalidation when no provider is configured', function (): void {
     config(['capell-frontend.cdn_provider' => null]);
 
-    Bus::fake([PurgeCdnCacheJob::class]);
+    Bus::fake([FlushCdnPurgeBatchJob::class]);
 
     $language = Language::factory()->english()->createOne();
     $theme = Theme::factory()->createOne(['default' => true]);
@@ -182,7 +182,7 @@ it('skips CDN purge jobs without skipping fragment invalidation when no provider
 
     expect(Cache::has('fragment:page-fragment'))->toBeFalse();
 
-    Bus::assertNotDispatched(PurgeCdnCacheJob::class);
+    Bus::assertNotDispatched(FlushCdnPurgeBatchJob::class);
 });
 
 it('generates maintenance caches only for enabled sites in display order', function (): void {

@@ -53,7 +53,8 @@ class SiteResource extends Resource
     #[Override]
     public static function table(Table $table): Table
     {
-        return static::configuredTable($table, ConfiguratorTypeEnum::Site);
+        return static::configuredTable($table, ConfiguratorTypeEnum::Site)
+            ->extraAttributes(['data-tour-id' => 'welcome-tour-sites']);
     }
 
     #[Override]

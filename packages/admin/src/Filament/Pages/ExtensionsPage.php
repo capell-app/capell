@@ -169,6 +169,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
         return ExtensionsTable::configure($table)
             ->heading(null)
             ->description(null)
+            ->extraAttributes(['data-tour-id' => 'welcome-tour-extensions'])
             ->queryStringIdentifier('installed-extensions');
     }
 

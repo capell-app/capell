@@ -19,6 +19,11 @@ return [
         'integrity_policy' => env('CAPELL_FRONTEND_EXTERNAL_INTEGRITY_POLICY', 'warn'),
     ],
     'public_aggressive_prefetch' => env('CAPELL_FRONTEND_PUBLIC_AGGRESSIVE_PREFETCH', false),
+    'cache_invalidation' => [
+        'graph_max_depth' => (int) env('CAPELL_CACHE_INVALIDATION_GRAPH_MAX_DEPTH', 20),
+        'graph_max_nodes' => (int) env('CAPELL_CACHE_INVALIDATION_GRAPH_MAX_NODES', 5000),
+        'graph_max_edges' => (int) env('CAPELL_CACHE_INVALIDATION_GRAPH_MAX_EDGES', 10000),
+    ],
 
     // Caching & Performance
     'html_cache' => env('CAPELL_HTML_CACHE', true),
@@ -54,7 +59,7 @@ return [
         'enabled' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED', true),
         'mode' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE', 'exception'),
         'ignored_connections' => [],
-        'docs_url' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL', 'https://docs.capell.app/security/public-rendering#public-view-query-guard'),
+        'docs_url' => env('CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL', 'https://docs.capell.app/core/frontend/debugging-public-output/#symptom-table'),
     ],
     'public_render_contract_events' => [
         'record_passed' => env('CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_PASSED', false),
@@ -119,6 +124,7 @@ return [
     'cloudflare_purge_token' => env('CAPELL_FRONTEND_CLOUDFLARE_PURGE_TOKEN'),
     'cloudflare_zone_id' => env('CAPELL_FRONTEND_CLOUDFLARE_ZONE_ID'),
     'fastly_api_key' => env('CAPELL_FRONTEND_FASTLY_API_KEY'),
+    'fastly_service_id' => env('CAPELL_FRONTEND_FASTLY_SERVICE_ID'),
     'varnish_url' => env('CAPELL_FRONTEND_VARNISH_URL'),
 
     // Debug & Diagnostics

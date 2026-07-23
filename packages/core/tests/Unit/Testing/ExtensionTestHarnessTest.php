@@ -161,8 +161,34 @@ it('fails clearly when route and scheduled job contributions are missing ownersh
 it('asserts theme manifests and safe theme asset urls', function (): void {
     $directory = makeExtensionHarnessPackage('vendor/theme-harness', 'Vendor\\ThemeHarness', []);
 
+    mkdir($directory . '/resources/css', 0755, true);
     mkdir($directory . '/resources/views', 0755, true);
+    file_put_contents($directory . '/resources/css/theme.css', '@import "tailwindcss";');
     file_put_contents($directory . '/resources/views/page.blade.php', '<link href="@frontendAsset(\'vendor/theme-harness/theme.css\')" rel="stylesheet">');
+    file_put_contents($directory . '/src/Providers/PackageServiceProvider.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Vendor\ThemeHarness\Providers;
+
+use Capell\Core\Data\VendorAssetData;
+use Capell\Core\Enums\VendorAssetEnum;
+use Capell\Core\Facades\CapellCore;
+use Illuminate\Support\ServiceProvider;
+
+final class PackageServiceProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        CapellCore::registerVendorAsset(new VendorAssetData(
+            type: VendorAssetEnum::TailwindImport,
+            value: 'resources/css/theme.css',
+            condition: 'theme-css:harness',
+        ));
+    }
+}
+PHP);
 
     $manifest = capellManifestV3Array(
         name: 'vendor/theme-harness',

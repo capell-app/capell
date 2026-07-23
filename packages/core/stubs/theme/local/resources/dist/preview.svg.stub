@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title description">
+    <title id="title">{{ displayName }} theme preview</title>
+    <desc id="description">A placeholder preview for the generated {{ displayName }} theme.</desc>
+    <rect width="1200" height="675" fill="#111827" />
+    <rect x="96" y="96" width="1008" height="483" rx="24" fill="#f9fafb" />
+    <text x="600" y="320" text-anchor="middle" font-family="sans-serif" font-size="64" fill="#111827">{{ displayName }}</text>
+    <text x="600" y="390" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#4b5563">Replace this generated preview before listing</text>
+</svg>

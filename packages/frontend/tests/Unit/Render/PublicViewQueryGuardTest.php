@@ -39,7 +39,10 @@ it('throws when public blade rendering executes database queries', function (): 
     expect(fn () => resolve(PublicViewQueryGuard::class)->guard(
         new FrontendRenderContextData(null, null, null, null, null),
         fn (): array => DB::select('select 1 as guard_probe'),
-    ))->toThrow(RuntimeException::class, 'CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED=false');
+    ))->toThrow(
+        RuntimeException::class,
+        'https://docs.capell.app/core/frontend/debugging-public-output/#symptom-table',
+    );
 });
 
 it('reports the blade view that executed a public render query', function (): void {

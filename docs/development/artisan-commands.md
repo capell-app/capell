@@ -172,14 +172,14 @@ scheduling, retention, restore drills, and the deliberate no-in-place boundary.
 
 ## Extension Lifecycle
 
-### `capell:make-theme`
+### `capell:make:theme` (`capell:make-theme` alias)
 
 Scaffolds a Capell theme package. Use `--local` for app-owned client themes that
 should register runtime views during fresh installs before package install state
 exists.
 
 ```bash
-php artisan capell:make-theme equidynamics \
+php artisan capell:make:theme equidynamics \
   --package=app/equidynamics-theme \
   --name=Equidynamics \
   --local
@@ -308,6 +308,17 @@ php artisan capell:extension-audit packages/example
 php artisan capell:extension-audit packages/example/capell.json
 ```
 
+### `capell:package:lint`
+
+Checks manifest validity, package naming, version syntax, referenced assets,
+theme CSS registration, and the shared extension-audit contract. Errors return
+a failing exit code.
+
+```bash
+php artisan capell:package:lint packages/example
+php artisan capell:package:lint packages
+```
+
 ### `capell:extension-playground`
 
 Inspects an extension package or manifest without installing it.
@@ -316,14 +327,14 @@ Inspects an extension package or manifest without installing it.
 php artisan capell:extension-playground capell-app/blog --path=packages
 ```
 
-### `capell:make-extension`
+### `capell:make:extension` (`capell:make-extension` alias)
 
 Scaffolds a local Capell package and manifest. In interactive mode, the command asks for any missing package name, profile, target directory, and display name. In non-interactive scripts, pass `package`, `--profile`, and `--path`.
 
 ```bash
-php artisan capell:make-extension
-php artisan capell:make-extension vendor/example --profile=minimal --path=packages --name="Example Extension"
-php artisan capell:make-extension vendor/example-tools --profile=full --path=packages --premium
+php artisan capell:make:extension
+php artisan capell:make:extension vendor/example --profile=minimal --path=packages --name="Example Extension"
+php artisan capell:make:extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
 ## Developer Makers

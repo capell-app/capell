@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
@@ -119,6 +120,7 @@ it('keeps the install guide inaccessible to guests and installed sites', functio
         ->and(InstallGuidePage::shouldRegisterNavigation())->toBeTrue();
 
     Site::factory()->createOne();
+    event(new CapellInstallationCompleted);
 
     expect(InstallGuidePage::shouldRegisterNavigation())->toBeFalse();
 });

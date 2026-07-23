@@ -2,6 +2,9 @@
 
 Capell treats package authoring as a platform surface, not a side effect of Laravel auto-discovery. A package should declare what it owns in `capell.json`, route runtime work through provider buckets, and keep public output safe for anonymous users and cached HTML.
 
+For the complete third-party path from scaffold through a rendering proof and
+Marketplace submission, read [Extension and theme development](../../packages/core/docs/extension-development.md).
+
 ## Scaffold First
 
 Use the existing `capell:make-extension` command to create new packages:
@@ -25,16 +28,16 @@ Interactive mode asks for the package name, scaffold profile, target directory, 
 
 `full` creates live, harmless examples:
 
-- Metadata, install, runtime, admin, and frontend providers.
+- Metadata, install, runtime, and admin providers.
 - A package-owned console command.
 - Settings registration with translated labels.
-- A safe frontend render hook backed by an Action and Data object.
-- Frontend asset registration.
-- Tests for manifest validity, provider bucket shape, and unsafe public-output regressions.
+- A working Layout Builder content widget with typed input and render Data objects.
+- Package-owned widget CSS and JavaScript assets.
+- Tests for manifest validity and provider bucket shape.
 
 ## Safety Rules
 
-Public package output must not expose admin or editor details. Render hooks and Blade views should receive hydrated public state from Actions or view models, not query models directly. Cached HTML must remain safe to serve to anonymous visitors, signed-in users, admins, crawlers, and static exports.
+Public package output must not expose admin or editor details. Widgets, render hooks, and Blade views should receive hydrated public state from Actions or view models, not query models directly. Cached HTML must remain safe to serve to anonymous visitors, signed-in users, admins, crawlers, and static exports.
 
 Use the generated tests as the baseline, then add package-specific tests for settings, commands, admin surfaces, routes, migrations, and frontend rendering before release.
 
