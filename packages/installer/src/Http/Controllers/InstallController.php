@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Controllers;
 
+use Capell\Core\Actions\AssertQueueConnectionReadyAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
@@ -96,6 +98,12 @@ final class InstallController
         $this->grantInstallAccess($request, $installId);
 
         if ($runAsJob) {
+            try {
+                AssertQueueConnectionReadyAction::run();
+            } catch (QueueConnectionNotReadyException $exception) {
+                return $this->queueConnectionUnavailableResponse($request, $exception);
+            }
+
             $queueReporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
             try {
                 if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
@@ -585,5 +593,19 @@ final class InstallController
         }
 
         return back()->withErrors(['cache_store' => $message . ' ' . $remediation])->withInput();
+    }
+
+    private function queueConnectionUnavailableResponse(
+        Request $request,
+        QueueConnectionNotReadyException $exception,
+    ): Response {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => ['queue_connection' => [$exception->getMessage()]],
+            ], 422);
+        }
+
+        return back()->withErrors(['queue_connection' => $exception->getMessage()])->withInput();
     }
 }

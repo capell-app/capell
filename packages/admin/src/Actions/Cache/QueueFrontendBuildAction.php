@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Cache;
 
 use Capell\Admin\Enums\FrontendBuildQueueResultEnum;
 use Capell\Admin\Jobs\RunFrontendBuildJob;
+use Capell\Core\Actions\AssertQueueConnectionReadyAction;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -23,6 +24,8 @@ final class QueueFrontendBuildAction
 
     public function handle(): FrontendBuildQueueResultEnum
     {
+        AssertQueueConnectionReadyAction::run();
+
         $lock = Cache::lock(RunFrontendBuildJob::STATUS_KEY . '.dispatch', self::LOCK_SECONDS);
 
         try {

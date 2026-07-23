@@ -103,6 +103,7 @@ function bindInstallerDeveloperToolingInstallationState(bool $installed): void
 
 beforeEach(function (): void {
     bindInstallerDeveloperToolingInstallationState(false);
+    config(['queue.default' => 'database']);
 });
 
 function bindSetupRemoveProcessFactory(): void
@@ -1196,6 +1197,38 @@ it('dispatches RunCapellInstallJob when run_as_job is on', function (): void {
 
     Queue::assertPushed(RunCapellInstallJob::class);
     $spy->shouldNotHaveReceived('handle');
+});
+
+it('returns queue remediation before a sync web install can be dispatched', function (): void {
+    Queue::fake();
+    config(['queue.default' => 'sync']);
+
+    post(
+        route('capell-installer.store'),
+        installPostPayload(['run_as_job' => '1']),
+        ['Accept' => 'application/json'],
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['queue_connection'])
+        ->assertJsonPath(
+            'message',
+            'Queue connection "sync" uses the sync driver. Configure an asynchronous queue and start a worker before continuing.',
+        );
+
+    expect(Cache::get('capell.install.lock'))->toBeNull();
+    Queue::assertNothingPushed();
+});
+
+it('returns queue remediation before a database web install without job storage can be dispatched', function (): void {
+    Queue::fake();
+    config(['queue.connections.database.table' => 'missing_installer_jobs']);
+
+    post(route('capell-installer.store'), installPostPayload(['run_as_job' => '1']))
+        ->assertRedirect()
+        ->assertSessionHasErrors(['queue_connection']);
+
+    expect(Cache::get('capell.install.lock'))->toBeNull();
+    Queue::assertNothingPushed();
 });
 
 it('stores the install lock in cache for the queue path', function (): void {

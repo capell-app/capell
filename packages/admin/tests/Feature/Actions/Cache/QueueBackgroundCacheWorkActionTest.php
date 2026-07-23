@@ -7,11 +7,16 @@ use Capell\Admin\Actions\Cache\QueueStaticSiteGenerationAction;
 use Capell\Admin\Contracts\Cache\StaticSiteGenerationDispatcher;
 use Capell\Admin\Enums\FrontendBuildQueueResultEnum;
 use Capell\Admin\Jobs\RunFrontendBuildJob;
+use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Models\Site;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function (): void {
+    config([
+        'queue.default' => 'background',
+        'queue.connections.background' => ['driver' => 'array'],
+    ]);
     Cache::forget(RunFrontendBuildJob::STATUS_KEY);
 });
 
@@ -51,6 +56,22 @@ it('persists a generic failed frontend build status', function (): void {
         'status' => 'failed',
         'message' => 'Frontend asset build failed. Review the queue worker log for details.',
     ])->not->toContain('secret process output');
+});
+
+it('blocks frontend builds when the queue runs synchronously', function (): void {
+    config([
+        'queue.default' => 'sync',
+        'queue.connections.sync' => ['driver' => 'sync'],
+    ]);
+
+    expect(fn () => QueueFrontendBuildAction::run())
+        ->toThrow(
+            QueueConnectionNotReadyException::class,
+            'Queue connection "sync" uses the sync driver. Configure an asynchronous queue and start a worker before continuing.',
+        );
+
+    expect(Cache::get(RunFrontendBuildJob::STATUS_KEY))->toBeNull();
+    Queue::assertNothingPushed();
 });
 
 it('delegates static site generation through the installed cache extension', function (): void {
