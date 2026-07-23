@@ -23,9 +23,7 @@ it('blocks runtime tooling when the deployment does not opt in', function (): vo
 
 it('accepts a directly addressed mutable release root', function (): void {
     $temporaryRoot = realpath(sys_get_temp_dir());
-    if (! is_string($temporaryRoot)) {
-        throw new RuntimeException('The system temporary directory must resolve to a canonical path.');
-    }
+    throw_unless(is_string($temporaryRoot), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
 
     $root = $temporaryRoot . '/capell-mutable-release-' . bin2hex(random_bytes(4));
     mkdir($root . '/database', 0755, true);
