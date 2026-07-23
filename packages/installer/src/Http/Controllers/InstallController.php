@@ -92,8 +92,8 @@ final class InstallController
 
         try {
             $this->topologyGuard->assertCacheStoreIsShared('The web installer');
-        } catch (RuntimeException $exception) {
-            return $this->installerStateUnavailableResponse($request, $exception);
+        } catch (RuntimeException $runtimeException) {
+            return $this->installerStateUnavailableResponse($request, $runtimeException);
         }
 
         if (! $this->sessions->cacheStoreIsUsable()) {

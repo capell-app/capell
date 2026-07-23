@@ -6,5 +6,5 @@ use Capell\Core\Contracts\RedirectResolver as CoreRedirectResolver;
 use Capell\Frontend\Contracts\RedirectResolver as DeprecatedRedirectResolver;
 
 it('keeps the deprecated redirect resolver alias compatible with the core contract', function (): void {
-    expect(is_a(DeprecatedRedirectResolver::class, CoreRedirectResolver::class, true))->toBeTrue();
+    expect(class_implements(DeprecatedRedirectResolver::class))->toContain(CoreRedirectResolver::class);
 });

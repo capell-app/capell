@@ -9,9 +9,10 @@ use Illuminate\Routing\Route;
 
 function livewireUploadRequest(): Request
 {
-    $request = Request::create('/livewire/upload-file', 'POST');
+    $request = Request::create('/livewire/upload-file', Symfony\Component\HttpFoundation\Request::METHOD_POST);
     $route = new Route('POST', '/livewire/upload-file', static fn (): null => null);
     $route->name('livewire.upload-file');
+
     $request->setRouteResolver(static fn (): Route => $route);
 
     return $request;
@@ -21,7 +22,7 @@ it('refuses node-local Livewire temporary upload storage in a multi-node install
     config()->set('capell.multi_node', true);
     config()->set('filesystems.default', 'local');
     config()->set('filesystems.disks.local.driver', 'local');
-    config()->set('livewire.temporary_file_upload.disk', null);
+    config()->set('livewire.temporary_file_upload.disk');
 
     $middleware = new EnsureMultiNodeUploadsUseSharedStorage(new MultiNodeTopologyGuard);
 
@@ -44,9 +45,10 @@ it('does not apply the upload storage guard to other web routes', function (): v
     config()->set('filesystems.default', 'local');
     config()->set('filesystems.disks.local.driver', 'local');
 
-    $request = Request::create('/admin', 'GET');
+    $request = Request::create('/admin', Symfony\Component\HttpFoundation\Request::METHOD_GET);
     $route = new Route('GET', '/admin', static fn (): null => null);
     $route->name('filament.admin.pages.dashboard');
+
     $request->setRouteResolver(static fn (): Route => $route);
 
     $middleware = new EnsureMultiNodeUploadsUseSharedStorage(new MultiNodeTopologyGuard);

@@ -8,6 +8,6 @@ use Capell\Core\Contracts\SettingsSchemaContract as CoreSettingsSchemaContract;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface as CoreThemePreviewRendererInterface;
 
 it('keeps deprecated admin contract aliases compatible with their core contracts', function (): void {
-    expect(is_a(DeprecatedSettingsSchemaContract::class, CoreSettingsSchemaContract::class, true))->toBeTrue()
-        ->and(is_a(DeprecatedThemePreviewRendererInterface::class, CoreThemePreviewRendererInterface::class, true))->toBeTrue();
+    expect(class_implements(DeprecatedSettingsSchemaContract::class))->toContain(CoreSettingsSchemaContract::class)
+        ->and(class_implements(DeprecatedThemePreviewRendererInterface::class))->toContain(CoreThemePreviewRendererInterface::class);
 });
