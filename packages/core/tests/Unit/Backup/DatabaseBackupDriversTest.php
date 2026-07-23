@@ -130,6 +130,7 @@ it('reports failed process operations without leaking connection secrets', funct
             'username' => 'capell',
             'password' => 'never-print-this',
         ],
+        'backup.binaries.mysqldump' => '/definitely-missing-capell-backup-command',
     ]);
 
     try {
