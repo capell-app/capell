@@ -13,16 +13,21 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function (): void {
-    config([
-        'capell.multi_node' => false,
-        'queue.default' => 'background',
-        'queue.connections.background' => ['driver' => 'array'],
-    ]);
+    config()->set('capell.multi_node', false);
     Cache::forget(RunFrontendBuildJob::STATUS_KEY);
 });
 
-it('refuses to queue a node-local frontend build in a multi-node installation', function (): void {
+function fakeAsynchronousFrontendBuildQueue(): void
+{
+    config([
+        'queue.default' => 'background',
+        'queue.connections.background' => ['driver' => 'sqs'],
+    ]);
     Queue::fake();
+}
+
+it('refuses to queue a node-local frontend build in a multi-node installation', function (): void {
+    fakeAsynchronousFrontendBuildQueue();
     config()->set('capell.multi_node', true);
 
     expect(fn (): FrontendBuildQueueResultEnum => QueueFrontendBuildAction::run())
@@ -33,7 +38,7 @@ it('refuses to queue a node-local frontend build in a multi-node installation', 
 });
 
 it('queues one frontend build while one is already pending', function (): void {
-    Queue::fake();
+    fakeAsynchronousFrontendBuildQueue();
 
     expect(QueueFrontendBuildAction::run())->toBe(FrontendBuildQueueResultEnum::Queued)
         ->and(QueueFrontendBuildAction::run())->toBe(FrontendBuildQueueResultEnum::AlreadyRunning)
@@ -43,7 +48,7 @@ it('queues one frontend build while one is already pending', function (): void {
 });
 
 it('reports lock contention separately from an in-progress build', function (): void {
-    Queue::fake();
+    fakeAsynchronousFrontendBuildQueue();
 
     // Hold the dispatch lock so the action cannot acquire it within its wait window.
     $blockingLock = Cache::lock(RunFrontendBuildJob::STATUS_KEY . '.dispatch', 30);
@@ -71,6 +76,7 @@ it('persists a generic failed frontend build status', function (): void {
 });
 
 it('blocks frontend builds when the queue runs synchronously', function (): void {
+    Queue::fake();
     config([
         'queue.default' => 'sync',
         'queue.connections.sync' => ['driver' => 'sync'],
