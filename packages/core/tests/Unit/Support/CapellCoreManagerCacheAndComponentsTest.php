@@ -331,6 +331,11 @@ it('respects ttl callbacks and namespace bumps on cache stores without tag suppo
         'cache.stores.file.path' => $cachePath,
     ]);
 
+    // The cache manager memoizes resolved stores, so a 'file' store resolved by an
+    // earlier test would keep its old path and this test would read someone else's
+    // state. Purge it so the config above actually takes effect.
+    Cache::purge('file');
+
     $manager = new CapellCoreManager;
 
     try {
@@ -347,6 +352,8 @@ it('respects ttl callbacks and namespace bumps on cache stores without tag suppo
             ->and($manager->rememberCache('file-backed-key', fn (): string => 'fresh'))->toBe('fresh');
 
     } finally {
+        // Do not leave a store pointing at a directory we are about to delete.
+        Cache::purge('file');
         File::deleteDirectory($cachePath);
     }
 });

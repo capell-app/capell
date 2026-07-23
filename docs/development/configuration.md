@@ -286,17 +286,21 @@ Commonly adjusted, and not settable through the environment:
 | `capell-admin.social_types` | 8 networks | Social link types offered in the site social-icons form |
 | `capell-installer.database_table_cache.store` | `file` | Cache store for the installer's table-existence cache |
 
-### Keys with no effect
+### Keys read by optional packages, not by this repository
 
-These are present in the shipped config but have no consumer in this repository. They
-are listed so you do not spend time tuning them: `capell-frontend.cache_ttl`,
-`capell-frontend.cache_vary_headers` (the ETag middleware hardcodes `Accept-Encoding`),
-`capell-frontend.append_site_meta_description`, `capell-frontend.breakpoints.lg`,
-`capell.sitemap.disk`, `capell.sitemap.directory`,
-`capell-admin.layout_builder.allowed_editor_modes`, and the
-`capell.publishing-studio.*` notification, review-policy, and release-window keys.
-The publishing-studio block reads like access-control policy but is not wired to
-anything in this repository — do not rely on it to restrict publishing.
+Several keys live in a host config file but are consumed by an optional package. They do
+nothing until that package is installed, and searching this repository for a consumer
+finds none — which does not mean they are dead. Do not remove them.
+
+| Config key | Read by |
+| --- | --- |
+| `capell.publishing-studio.release_windows.*`, `.notifications.*`, `.review_policy.*` | `capell-app/publishing-studio` (`ReleaseWindowGuard`) and `capell-app/automation-studio` |
+| `capell.sitemap.xml_path`, `.disk`, `.directory` | `capell-app/site-discovery` |
+| `capell-admin.layout_builder.allowed_editor_modes` | `capell-app/layout-builder` (`LayoutBuilderConfiguration`) |
+| `capell-frontend.breakpoints.lg` | `capell-app/theme-foundation` views |
+
+Release windows in particular are enforced by the Publishing Studio package. Without it
+installed, setting those keys restricts nothing.
 
 ## Optional Static HTML Cache Disk
 

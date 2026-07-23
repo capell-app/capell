@@ -30,7 +30,6 @@ return [
     'write_html_cache' => env('CAPELL_WRITE_HTML_CACHE', true),
     'public_render_data_cache' => env('CAPELL_PUBLIC_RENDER_DATA_CACHE', true),
     'minify_html' => env('CAPELL_MINIFY_HTML', true),
-    'cache_vary_headers' => ['Accept-Encoding'],
     'cache_skip_authenticated' => true,
     'static_artifacts_path' => env('CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH'),
     'public_html_authoring_markers' => [],
@@ -130,9 +129,6 @@ return [
     // Debug & Diagnostics
     'debug_log' => env('CAPELL_DEBUG_LOG', false),
 
-    // Appends site meta description to page meta for improved SEO relevance
-    'append_site_meta_description' => true,
-
     // Separator for meta title construction (site | page)
     'meta_title_seperator' => ' | ',
 
@@ -149,8 +145,4 @@ return [
         'validate_sources' => false,
         'output_css' => env('CAPELL_FRONTEND_TAILWIND_OUTPUT_CSS', 'resources/css/capell/frontend.css'),
     ],
-
-    // Cache time-to-live in seconds (controls HTML cache expiry)
-    'cache_ttl' => 3600,
-    // 'cache_vary_headers' => ['Accept-Encoding']
 ];
