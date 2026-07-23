@@ -13,6 +13,8 @@ use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
+use Capell\Core\Contracts\Metrics\CollectsDailyMetrics;
+use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
@@ -20,6 +22,16 @@ use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
+use Capell\Core\Data\Metrics\MetricCollectionResultData;
+use Capell\Core\Data\Metrics\MetricDefinitionData;
+use Capell\Core\Data\Metrics\MetricGovernanceData;
+use Capell\Core\Data\Metrics\MetricIdentityData;
+use Capell\Core\Data\Metrics\MetricReadContextData;
+use Capell\Core\Data\Metrics\MetricRepresentationData;
+use Capell\Core\Data\Metrics\MetricSampleData;
+use Capell\Core\Data\Metrics\MetricScopeData;
+use Capell\Core\Data\Metrics\MetricSemanticsData;
+use Capell\Core\Data\Metrics\MetricValueData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildInstalledPackageData;
@@ -31,6 +43,19 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Core\Enums\Metrics\MetricAggregation;
+use Capell\Core\Enums\Metrics\MetricBackfillPolicy;
+use Capell\Core\Enums\Metrics\MetricCollectionStatus;
+use Capell\Core\Enums\Metrics\MetricDefinitionStatus;
+use Capell\Core\Enums\Metrics\MetricGapPolicy;
+use Capell\Core\Enums\Metrics\MetricReaderType;
+use Capell\Core\Enums\Metrics\MetricScopeType;
+use Capell\Core\Enums\Metrics\MetricSemantic;
+use Capell\Core\Enums\Metrics\MetricSensitivity;
+use Capell\Core\Enums\Metrics\MetricSource;
+use Capell\Core\Enums\Metrics\MetricValueType;
+use Capell\Core\Enums\Metrics\MetricVisibility;
+use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
@@ -83,6 +108,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.frontend-route-reservation-contributor', 'contract', FrontendRouteReservationContributor::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation contributions.'),
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),
             $this->entry('core.contract.interaction-target-capability-contributor', 'contract', InteractionTargetCapabilityContributor::class, ExtensionSurfaceStability::Experimental, 'Typed interaction target capability contributions.'),
+            $this->entry('core.contract.collects-daily-metrics', 'contract', CollectsDailyMetrics::class, ExtensionSurfaceStability::Experimental, 'Typed daily metric collection boundary.'),
+            $this->entry('core.contract.metric-scope-authorizer', 'contract', MetricScopeAuthorizer::class, ExtensionSurfaceStability::Experimental, 'Metric scope read authorization boundary.'),
             $this->entry('core.contract.project-build-artifact-handler', 'contract', ProjectBuildArtifactHandler::class, ExtensionSurfaceStability::Stable, 'Package-owned project artifact verification boundary.', 'core.project-build-artifact-handler'),
             $this->entry('core.contract.project-build-package-installer', 'contract', ProjectBuildPackageInstaller::class, ExtensionSurfaceStability::Stable, 'Consumer-owned exact package acquisition and installed-release evidence boundary.', 'core.project-build-manifest-install'),
             $this->entry('core.action.install-project-build-manifest', 'action', InstallProjectBuildManifestAction::class, ExtensionSurfaceStability::Stable, 'Target-compatible ordered package installation followed by deterministic SiteSpec application.', 'core.project-build-manifest-install'),
@@ -94,6 +121,16 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),
+            $this->entry('core.dto.metric-collection-result', 'dto', MetricCollectionResultData::class, ExtensionSurfaceStability::Experimental, 'Typed metric collection result.'),
+            $this->entry('core.dto.metric-definition', 'dto', MetricDefinitionData::class, ExtensionSurfaceStability::Experimental, 'Versioned metric definition.'),
+            $this->entry('core.dto.metric-governance', 'dto', MetricGovernanceData::class, ExtensionSurfaceStability::Experimental, 'Metric source and access governance.'),
+            $this->entry('core.dto.metric-identity', 'dto', MetricIdentityData::class, ExtensionSurfaceStability::Experimental, 'Package-owned metric identity.'),
+            $this->entry('core.dto.metric-read-context', 'dto', MetricReadContextData::class, ExtensionSurfaceStability::Experimental, 'Explicit metric read context.'),
+            $this->entry('core.dto.metric-representation', 'dto', MetricRepresentationData::class, ExtensionSurfaceStability::Experimental, 'Fixed metric numeric representation.'),
+            $this->entry('core.dto.metric-sample', 'dto', MetricSampleData::class, ExtensionSurfaceStability::Experimental, 'Typed daily metric sample.'),
+            $this->entry('core.dto.metric-scope', 'dto', MetricScopeData::class, ExtensionSurfaceStability::Experimental, 'Portable metric scope.'),
+            $this->entry('core.dto.metric-semantics', 'dto', MetricSemanticsData::class, ExtensionSurfaceStability::Experimental, 'Metric aggregation and gap semantics.'),
+            $this->entry('core.dto.metric-value', 'dto', MetricValueData::class, ExtensionSurfaceStability::Experimental, 'Lossless metric numeric value.'),
             $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-installed-package', 'dto', ProjectBuildInstalledPackageData::class, ExtensionSurfaceStability::Stable, 'Verified installed package release evidence for project build consumers.', 'core.project-build-manifest-install'),
@@ -104,6 +141,19 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.project-build-site', 'dto', ProjectBuildSiteData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build site.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-site-spec-reference', 'dto', ProjectBuildSiteSpecReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build SiteSpec reference.', 'core.project-build-manifest-data'),
             $this->entry('core.enum.frontend-route-reservation-type', 'enum', FrontendRouteReservationType::class, ExtensionSurfaceStability::Experimental, 'Supported frontend route reservation types.'),
+            $this->entry('core.enum.metric-aggregation', 'enum', MetricAggregation::class, ExtensionSurfaceStability::Experimental, 'Supported metric aggregations.'),
+            $this->entry('core.enum.metric-backfill-policy', 'enum', MetricBackfillPolicy::class, ExtensionSurfaceStability::Experimental, 'Supported metric backfill policies.'),
+            $this->entry('core.enum.metric-collection-status', 'enum', MetricCollectionStatus::class, ExtensionSurfaceStability::Experimental, 'Metric collection outcomes.'),
+            $this->entry('core.enum.metric-definition-status', 'enum', MetricDefinitionStatus::class, ExtensionSurfaceStability::Experimental, 'Metric definition lifecycle states.'),
+            $this->entry('core.enum.metric-gap-policy', 'enum', MetricGapPolicy::class, ExtensionSurfaceStability::Experimental, 'Supported metric gap policies.'),
+            $this->entry('core.enum.metric-reader-type', 'enum', MetricReaderType::class, ExtensionSurfaceStability::Experimental, 'Metric reader identity types.'),
+            $this->entry('core.enum.metric-scope-type', 'enum', MetricScopeType::class, ExtensionSurfaceStability::Experimental, 'Supported portable metric scopes.'),
+            $this->entry('core.enum.metric-semantic', 'enum', MetricSemantic::class, ExtensionSurfaceStability::Experimental, 'Supported metric semantic types.'),
+            $this->entry('core.enum.metric-sensitivity', 'enum', MetricSensitivity::class, ExtensionSurfaceStability::Experimental, 'Metric sensitivity classifications.'),
+            $this->entry('core.enum.metric-source', 'enum', MetricSource::class, ExtensionSurfaceStability::Experimental, 'Metric source kinds.'),
+            $this->entry('core.enum.metric-unit', 'enum', MetricUnitEnum::class, ExtensionSurfaceStability::Experimental, 'Supported metric units.'),
+            $this->entry('core.enum.metric-value-type', 'enum', MetricValueType::class, ExtensionSurfaceStability::Experimental, 'Lossless metric value representations.'),
+            $this->entry('core.enum.metric-visibility', 'enum', MetricVisibility::class, ExtensionSurfaceStability::Experimental, 'Metric visibility boundaries.'),
             $this->entry('core.event.package-installed', 'event', PackageInstalled::class, ExtensionSurfaceStability::Stable, 'Package lifecycle completion event.', 'core.package-installed-event'),
             $this->entry('core.tag.extension-health', 'tagged-service', 'capell.extension-health-checks', ExtensionSurfaceStability::Experimental, 'Container tag for extension health checks.'),
             $this->entry('core.tag.frontend-route-reservation-contributor', 'tagged-service', FrontendRouteReservationContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for frontend route reservation contributors.'),

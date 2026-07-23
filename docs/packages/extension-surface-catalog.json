@@ -93,6 +93,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.collects-daily-metrics",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Metrics\\CollectsDailyMetrics",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed daily metric collection boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.extension-contribution",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
@@ -130,6 +140,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed interaction target capability contributions.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.metric-scope-authorizer",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Metrics\\MetricScopeAuthorizer",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric scope read authorization boundary.",
             "contractTestId": null
         },
         {
@@ -180,6 +200,106 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed frontend route reservation data.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-collection-result",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricCollectionResultData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed metric collection result.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-definition",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricDefinitionData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Versioned metric definition.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-governance",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricGovernanceData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric source and access governance.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-identity",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricIdentityData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned metric identity.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-read-context",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricReadContextData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Explicit metric read context.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-representation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricRepresentationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Fixed metric numeric representation.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-sample",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricSampleData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed daily metric sample.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-scope",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricScopeData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Portable metric scope.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-semantics",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricSemanticsData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric aggregation and gap semantics.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.metric-value",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Metrics\\MetricValueData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Lossless metric numeric value.",
             "contractTestId": null
         },
         {
@@ -280,6 +400,136 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Supported frontend route reservation types.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-aggregation",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricAggregation",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported metric aggregations.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-backfill-policy",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricBackfillPolicy",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported metric backfill policies.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-collection-status",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricCollectionStatus",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric collection outcomes.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-definition-status",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricDefinitionStatus",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric definition lifecycle states.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-gap-policy",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricGapPolicy",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported metric gap policies.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-reader-type",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricReaderType",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric reader identity types.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-scope-type",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricScopeType",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported portable metric scopes.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-semantic",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricSemantic",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported metric semantic types.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-sensitivity",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricSensitivity",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric sensitivity classifications.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-source",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricSource",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric source kinds.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-unit",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\MetricUnitEnum",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported metric units.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-value-type",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricValueType",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Lossless metric value representations.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.metric-visibility",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Metrics\\MetricVisibility",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Metric visibility boundaries.",
             "contractTestId": null
         },
         {

@@ -52,6 +52,9 @@ trait HasMigrations
             '2026_06_26_000003_create_page_workflow_states_table',
             '2026_06_26_000004_create_page_revisions_table',
             '2026_06_26_000005_drop_legacy_page_content_snapshots_table',
+            '2026_07_22_000001_create_metric_collection_runs_table',
+            '2026_07_22_000002_create_metric_daily_rollups_table',
+            '2026_07_22_000003_create_metric_events_table',
         ];
     }
 
