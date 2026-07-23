@@ -462,6 +462,74 @@ php artisan capell:admin-upgrade-summary-email
 
 Upgrade summary email recipients come from `CAPELL_UPDATE_NOTIFICATION_EMAILS`.
 
+### `capell:admin-sync-permissions`
+
+Re-synchronises Capell's admin permissions with the roles defined in configuration. Run it after adding an extension that registers permissions, or when an upgrade reports missing permissions.
+
+```bash
+php artisan capell:admin-sync-permissions
+php artisan capell:admin-sync-permissions --mode=upgrade
+```
+
+| Option   | Use it for                                                     |
+| -------- | -------------------------------------------------------------- |
+| `--mode=` | `install` (default) for a first sync, `upgrade` when reconciling an existing install |
+
+## Deployment And Maintenance
+
+### `capell:runtime-refresh`
+
+The single command to run after deploying new code. It refreshes Capell's deployment caches, warms critical pages, and verifies the result, exiting non-zero if any stage fails — so a bad deploy fails the pipeline instead of surfacing as a broken site.
+
+```bash
+php artisan capell:runtime-refresh
+```
+
+It runs six stages in order, reporting each as passed, failed, or skipped:
+
+| Stage    | What it does                                        |
+| -------- | --------------------------------------------------- |
+| Packages | Rebuilds the Capell package cache (`capell:package-cache`) |
+| Views    | Clears compiled Blade views (`view:clear`)          |
+| Config   | Refreshes the Laravel configuration cache           |
+| Routes   | Refreshes the Laravel route cache                   |
+| Warm     | Requests critical runtime pages so the first visitor does not pay for a cold render |
+| Doctor   | Runs Capell Doctor and fails the command on a failing check |
+
+A stage that throws is caught and recorded as failed rather than aborting the run, so one command reports every problem at once. Prefer this over calling the individual cache commands yourself.
+
+On multi-server hosting, run it on every node — the caches it rebuilds are node-local.
+
+### `capell:purge-soft-deleted-media`
+
+Force-deletes media that has been soft-deleted for longer than the retention window, reclaiming disk space.
+
+```bash
+php artisan capell:purge-soft-deleted-media --pretend
+php artisan capell:purge-soft-deleted-media --days=30
+```
+
+| Option      | Use it for                                                  |
+| ----------- | ----------------------------------------------------------- |
+| `--days=`   | Retention window in days; defaults to `30`                  |
+| `--pretend` | Report what would be purged without deleting anything       |
+
+Capell already schedules this daily at 03:00 with `withoutOverlapping()` and `onOneServer()`, so you do not need to register it yourself — you only need Laravel's scheduler running. Use `--pretend` first if you want to see the effect before trusting the schedule.
+
+### `capell:marketplace:doctor`
+
+Checks the health of queued Marketplace operations. Reach for this first when an extension install is stuck at "queued" in the admin UI — the usual cause is a worker that is not consuming the `capell-marketplace` queue.
+
+```bash
+php artisan capell:marketplace:doctor
+php artisan capell:marketplace:doctor --json --stale-after=15
+```
+
+| Option           | Use it for                                                      |
+| ---------------- | ---------------------------------------------------------------- |
+| `--json`         | Machine-readable output for monitoring                          |
+| `--stale-after=` | Minutes without a heartbeat before an active operation counts as stuck; defaults to `15` |
+
 ## Frontend Commands
 
 ```bash
@@ -473,6 +541,37 @@ php artisan capell:frontend-upgrade
 ```
 
 `--dev` runs the Vite development build path instead of the production build where supported.
+
+### `capell:generate-html`
+
+Renders published frontend pages to static HTML files plus a `manifest.json`, for export — uploading to a CDN or object store, diffing rendered output between deploys, or archiving a site.
+
+This is **not** the visitor-facing page cache. Artifacts are written to
+`storage/framework/capell-static-artifacts` (override with
+`CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH`), and nothing in Capell serves them back to
+visitors — they are output for you to consume. The HTML cache that visitors hit is a
+separate subsystem owned by `capell-app/html-cache`.
+
+```bash
+php artisan capell:generate-html
+php artisan capell:generate-html --site=1
+php artisan capell:generate-html --url=/ --url=/about
+```
+
+| Option    | Use it for                              |
+| --------- | --------------------------------------- |
+| `--site=` | Limit generation to one site ID         |
+| `--url=`  | Limit generation to specific public URLs; repeatable |
+
+On multi-server hosting the artifacts land on whichever node ran the command. See [Web server configuration](../operations/web-server.md).
+
+### `capell:generate-error-pages`
+
+Generates the static error page cache for every enabled site, so error responses can be served without booting a full render.
+
+```bash
+php artisan capell:generate-error-pages
+```
 
 ## Demo Helpers
 

@@ -18,13 +18,17 @@ trait HasEnumOptions
      */
     public static function options(): array
     {
-        static $options = null;
-        if ($options === null) {
-            $options = collect(self::cases())
-                ->mapWithKeys(fn (self $case): array => [$case->value => $case->getLabel()])
-                ->all();
-        }
+        // Labels are translated, so the memo must be keyed by locale. A single
+        // shared memo would freeze option labels to whichever locale happened to
+        // be active the first time this ran, which persists for the life of the
+        // process under Laravel Octane.
+        /** @var array<string, array<string, string>> $optionsByLocale */
+        static $optionsByLocale = [];
 
-        return $options;
+        $locale = app()->getLocale();
+
+        return $optionsByLocale[$locale] ??= collect(self::cases())
+            ->mapWithKeys(fn (self $case): array => [$case->value => $case->getLabel()])
+            ->all();
     }
 }
