@@ -16,7 +16,6 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Config;
 use Livewire\LivewireServiceProvider;
 use MichalOravec\PaginateRoute\PaginateRouteServiceProvider;
 use Override;
@@ -50,8 +49,6 @@ class FrontendTestCase extends AbstractTestCase
         parent::getEnvironmentSetUp($app);
 
         CapellCore::forcePackageInstalled(FrontendServiceProvider::$packageName);
-        Config::set('capell-frontend.schedule_page_cleaner', 'daily');
-
         $app->make(Factory::class)->addNamespace('capell-admin', __DIR__ . '/../../../packages/admin/resources/views');
 
         Blade::anonymousComponentPath(

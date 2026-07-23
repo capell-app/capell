@@ -23,6 +23,8 @@ CAPELL_BACKUP_MEDIA_DISKS=public,media
 CAPELL_BACKUP_MAX_AGE_HOURS=26
 CAPELL_BACKUP_MINIMUM_RETAINED=7
 CAPELL_BACKUP_RETAIN=30
+CAPELL_BACKUP_PRUNE_SCHEDULE_ENABLED=false
+CAPELL_BACKUP_PRUNE_SCHEDULE_CRON="0 3 * * 1"
 CAPELL_BACKUP_PROCESS_TIMEOUT_SECONDS=3600
 CAPELL_BACKUP_SCRATCH_DATABASE_PREFIX=capell_restore_
 CAPELL_BACKUP_SCRATCH_SQLITE_DIRECTORY=/srv/capell/restore-scratch
@@ -66,7 +68,14 @@ Pruning is a dry run unless `--force` is supplied. It keeps the newest
 `CAPELL_BACKUP_RETAIN` completed snapshots and refuses unsafe identifiers,
 out-of-prefix paths, malformed manifests, and incomplete snapshots.
 
-Schedule creation before the health check, and run pruning separately:
+Capell can schedule forced pruning when
+`CAPELL_BACKUP_PRUNE_SCHEDULE_ENABLED=true`. It is disabled by default because
+pruning deletes completed snapshots. The default cron runs at 03:00 every
+Monday; override it with `CAPELL_BACKUP_PRUNE_SCHEDULE_CRON`. Scheduled pruning
+uses Laravel's overlap and single-server guards.
+
+Schedule creation before the health check. If Capell's built-in pruning
+schedule remains disabled, schedule pruning separately:
 
 ```php
 use Illuminate\Support\Facades\Schedule;

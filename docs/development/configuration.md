@@ -156,7 +156,6 @@ Source: `packages/frontend/config/capell-frontend.php`
 | `CAPELL_AUTO_CREATE_SYSTEM_PAGES`            | `true`        | Auto-creates missing system pages when resolving fallback pages     |
 | `CAPELL_FRONTEND_DEFAULT_SCHEME`             | _(null)_      | Optional forced scheme for generated frontend URLs, such as `https` |
 | `CAPELL_SITE_BASE_URL`                       | _(null)_      | Base URL override for generated site URLs                           |
-| `CAPELL_SCHEDULE_PAGE_CLEANER`               | `daily`       | Schedule frequency for page cleanup                                 |
 | `CAPELL_FRONTEND_PURGE_QUEUE`                | `default`     | Queue used for CDN purge jobs                                       |
 | `CAPELL_FRONTEND_CDN_PROVIDER`               | _(null)_      | CDN purge provider: `cloudflare`, `fastly`, or `varnish`            |
 | `CAPELL_FRONTEND_CLOUDFLARE_PURGE_TOKEN`     | _(null)_      | Cloudflare API token for tag purges                                 |

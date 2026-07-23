@@ -35,7 +35,6 @@
 | --------------------------------- | -------------------------------------------- |
 | `capell:frontend-install`         | Install frontend package                     |
 | `capell:frontend-after-install`   | Post-install hook (called by install)        |
-| `capell:frontend-site-check`      | Verify site configuration is correct         |
 | `capell:frontend-tailwind-assets` | Regenerate aggregated TailwindCSS asset file |
 | `capell:frontend-upgrade`         | Upgrade frontend package                     |
 
@@ -174,12 +173,6 @@ should also run after the Capell install plan. Pass `--demo` to preselect availa
 `capell.json` declares `"demo": true` and run selected package demo commands
 after setup data has been seeded. Interactive demo installs ask for confirmation
 before changing the install plan.
-
-### Check if everything is configured:
-
-```bash
-php artisan capell:frontend-site-check
-```
 
 ### Pre-generate all pages for production:
 

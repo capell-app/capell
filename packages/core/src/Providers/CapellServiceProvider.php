@@ -280,6 +280,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerModels()
             ->registerProtectedTables()
             ->registerMetricSchedule()
+            ->registerBackupPruneSchedule()
             ->bindManagers()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
@@ -544,6 +545,28 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $schedule->command('capell:metrics:rollup')
                 ->dailyAt('00:20')
                 ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    private function registerBackupPruneSchedule(): self
+    {
+        if (! config('backup.prune_schedule_enabled', false)) {
+            return $this;
+        }
+
+        $cron = config('backup.prune_schedule_cron', '0 3 * * 1');
+
+        if (! is_string($cron) || trim($cron) === '') {
+            return $this;
+        }
+
+        $this->registerSchedule(function (Schedule $schedule) use ($cron): void {
+            $schedule->command('capell:backup:prune --force')
+                ->cron($cron)
                 ->withoutOverlapping()
                 ->onOneServer();
         });

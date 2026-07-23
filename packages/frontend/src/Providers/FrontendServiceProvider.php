@@ -163,7 +163,6 @@ use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Events\QueryExecuted;
@@ -171,11 +170,9 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Vite;
@@ -186,30 +183,6 @@ use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
 {
-    private const string SITE_CHECK_COMMAND = 'capell:frontend-site-check';
-
-    private const array SITE_CHECK_SCHEDULE_FREQUENCIES = [
-        'everyMinute' => true,
-        'everyTwoMinutes' => true,
-        'everyThreeMinutes' => true,
-        'everyFourMinutes' => true,
-        'everyFiveMinutes' => true,
-        'everyTenMinutes' => true,
-        'everyFifteenMinutes' => true,
-        'everyThirtyMinutes' => true,
-        'hourly' => true,
-        'everyTwoHours' => true,
-        'everyThreeHours' => true,
-        'everyFourHours' => true,
-        'everySixHours' => true,
-        'daily' => true,
-        'twiceDaily' => true,
-        'weekly' => true,
-        'monthly' => true,
-        'quarterly' => true,
-        'yearly' => true,
-    ];
-
     public static string $name = 'capell-frontend';
 
     public static string $packageName = 'capell-app/frontend';
@@ -435,7 +408,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->configureVite()
             ->bootstrapFrontendEvents()
             ->registerPublicViewQueryListener()
-            ->registerSiteCheckSchedule()
             ->registerSettingsSchemas()
             ->registerViewComposers();
     }
@@ -570,46 +542,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         if (class_exists(Vite::class) && config('capell-frontend.public_aggressive_prefetch', false)) {
             Vite::useAggressivePrefetching();
         }
-
-        return $this;
-    }
-
-    private function registerSiteCheckSchedule(): self
-    {
-        if (! $this->app->runningInConsole()) {
-            return $this;
-        }
-
-        $frequency = config('capell-frontend.schedule_page_cleaner', 'daily');
-
-        if (! is_string($frequency) || $frequency === '') {
-            return $this;
-        }
-
-        if (! isset(self::SITE_CHECK_SCHEDULE_FREQUENCIES[$frequency])) {
-            Log::warning('Invalid schedule frequency: ' . $frequency);
-
-            return $this;
-        }
-
-        // The site-check command is supplied by an optional package, so it is only
-        // scheduled when it is actually installed.
-        //
-        // The existence check must wait until every provider has booted. Artisan::all()
-        // constructs the console application, and commands registered through
-        // ServiceProvider::commands() are attached to it via Artisan::starting().
-        // Building it while providers are still booting therefore drops the commands
-        // of every provider that boots after this one — which is how `filament:upgrade`
-        // came to report "There are no commands defined in the filament namespace".
-        $this->app->booted(function () use ($frequency): void {
-            if (! array_key_exists(self::SITE_CHECK_COMMAND, Artisan::all())) {
-                return;
-            }
-
-            $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
-                $schedule->command(self::SITE_CHECK_COMMAND)->{$frequency}();
-            });
-        });
 
         return $this;
     }
