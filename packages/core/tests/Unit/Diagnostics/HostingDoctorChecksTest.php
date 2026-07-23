@@ -87,7 +87,57 @@ describe('RuntimeToolingCheck', function (): void {
         expect($result->id)->toBe('core.runtime.tooling')
             ->and($result->evidence)->toHaveKey('proc_open');
     });
+
+    it('does not fail for missing tooling when the server does not run it', function (): void {
+        // A production server that installs extensions and builds assets during
+        // deployment has neither Composer nor Node. The doctor's exit code gates
+        // capell:install, so reporting that as a failure would block a healthy host.
+        Config::set('capell.server_side_tooling', false);
+
+        $result = withoutToolingOnPath(fn (): mixed => new RuntimeToolingCheck()->check());
+
+        expect($result->passed)->toBeTrue()
+            ->and($result->evidence['server_side_tooling'])->toBeFalse()
+            ->and($result->evidence['composer'])->toBeFalse()
+            ->and($result->message)->toContain('information only');
+    });
+
+    it('fails for missing tooling when the server is declared to run it', function (): void {
+        Config::set('capell.server_side_tooling', true);
+
+        $result = withoutToolingOnPath(fn (): mixed => new RuntimeToolingCheck()->check());
+
+        expect($result->passed)->toBeFalse()
+            ->and($result->message)->toContain('not found on PATH')
+            ->and($result->remediation)->toContain('CAPELL_SERVER_SIDE_TOOLING');
+    });
 });
+
+/**
+ * Run a callback with a PATH that contains no Composer or Node toolchain, which is
+ * what a deployment-built production server looks like.
+ *
+ * @param  callable(): mixed  $callback
+ */
+function withoutToolingOnPath(callable $callback): mixed
+{
+    $originalPath = getenv('PATH');
+    $emptyPath = sys_get_temp_dir() . '/capell-doctor-empty-path';
+
+    if (! is_dir($emptyPath)) {
+        mkdir($emptyPath, recursive: true);
+    }
+
+    putenv('PATH=' . $emptyPath);
+    $_SERVER['PATH'] = $emptyPath;
+
+    try {
+        return $callback();
+    } finally {
+        putenv('PATH=' . (is_string($originalPath) ? $originalPath : ''));
+        $_SERVER['PATH'] = is_string($originalPath) ? $originalPath : '';
+    }
+}
 
 describe('DatabaseBackupProcessError', function (): void {
     it('names the binary and its config key when the executable is missing', function (): void {
