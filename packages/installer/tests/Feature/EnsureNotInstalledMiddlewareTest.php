@@ -226,7 +226,8 @@ it('allows installer access when database cache store validation throws before m
     } finally {
         config(['database.default' => $originalDefaultConnection]);
         DB::purge('ensure_not_installed_missing_connection');
-        DB::purge(is_string($originalDefaultConnection) ? $originalDefaultConnection : null);
+        // See above: purging the in-memory default connection would drop the
+        // migrated schema, so it is deliberately left connected.
     }
 });
 
