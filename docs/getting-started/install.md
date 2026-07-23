@@ -276,6 +276,14 @@ The install user needs write access to the paths selected by the plan. Common pa
 
 Prefer running Composer and Artisan as the deployment user that owns the release. Do not make the whole application writable by the web process. After installation, retain only normal Laravel runtime write access to `storage/`, `bootstrap/cache/`, and any configured generated-output directories.
 
+Set `CAPELL_RELEASE_ROOT_MODE` to match the deployed layout:
+
+- `mutable` accepts a directly addressed checkout or build root when every target path is writable. Set `CAPELL_SERVER_SIDE_TOOLING=true` as well only when the running server is deliberately allowed to install Marketplace extensions itself.
+- `immutable` covers read-only containers and serverless-style releases. Runtime Composer and migration publication are blocked; apply them while building the next image or release.
+- `atomic` covers a `current` symlink pointing at versioned releases. Runtime release-root writes are blocked even when the target directory is writable, preventing a long-running request from modifying the old release after promotion.
+
+Capell also detects symlink components in a root declared `mutable` and blocks the write. Do not work around this protection by making versioned release directories writable.
+
 ## Production verification
 
 Before sending traffic to the installation:

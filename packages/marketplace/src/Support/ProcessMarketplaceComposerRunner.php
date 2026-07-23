@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Support;
 
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
@@ -16,8 +17,14 @@ use Symfony\Component\Process\Process;
 
 final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticatedComposerRunner
 {
+    public function __construct(
+        private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
+    ) {}
+
     public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
     {
+        $this->assertReleaseRootWritable();
+
         $composerHome = storage_path('framework/composer');
         $this->ensureDirectory($composerHome);
 
@@ -33,6 +40,8 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         int $timeoutSeconds,
         array $composerAuth,
     ): MarketplaceComposerResultData {
+        $this->assertReleaseRootWritable();
+
         $composerHome = storage_path('framework/composer/marketplace-auth-' . bin2hex(random_bytes(8)));
         $this->ensureDirectory($composerHome);
         $this->writeComposerAuth($composerHome, $composerAuth);
@@ -44,6 +53,15 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         } finally {
             $this->removeDirectory($composerHome);
         }
+    }
+
+    private function assertReleaseRootWritable(): void
+    {
+        $this->releaseRootWriteGuard->assertWritable(
+            operation: 'Installing a Marketplace extension with Composer',
+            relativePaths: ['composer.json', 'composer.lock', 'vendor'],
+            requiresServerSideTooling: true,
+        );
     }
 
     private function runComposer(

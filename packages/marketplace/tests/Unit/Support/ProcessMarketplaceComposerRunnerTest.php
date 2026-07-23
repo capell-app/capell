@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 
+beforeEach(function (): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+});
+
 /**
  * @return array<string, string|false>
  */
@@ -73,6 +78,26 @@ it('fails clearly when the composer home directory cannot be created', function 
             unlink($path);
         }
     }
+});
+
+it('blocks composer before touching an immutable release root', function (): void {
+    config()->set('capell.release_root_mode', 'immutable');
+
+    expect(fn (): mixed => (new ProcessMarketplaceComposerRunner)->require('vendor/example', '^1.2', 5))
+        ->toThrow(
+            RuntimeException::class,
+            'Installing a Marketplace extension with Composer is blocked because CAPELL_RELEASE_ROOT_MODE is immutable',
+        );
+});
+
+it('blocks composer when server-side tooling is disabled', function (): void {
+    config()->set('capell.server_side_tooling', false);
+
+    expect(fn (): mixed => (new ProcessMarketplaceComposerRunner)->require('vendor/example', '^1.2', 5))
+        ->toThrow(
+            RuntimeException::class,
+            'Installing a Marketplace extension with Composer is blocked because CAPELL_SERVER_SIDE_TOOLING is disabled',
+        );
 });
 
 it('runs composer through the resolved php binary with an isolated composer home', function (): void {
