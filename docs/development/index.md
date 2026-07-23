@@ -16,6 +16,8 @@ capell/
 
 The host repo owns Core, Admin, Frontend, Installer, and Marketplace. Add-on package behavior belongs in `../capell-packages-4` unless the host repo owns the contract or extension point.
 
+When more than one person or agent session works in this repo at once, use a [git worktree](worktrees.md) and set it up with `bash scripts/init-worktree.sh` — a fresh worktree has no `vendor/`, and symlinking one by hand silently makes tests run against the primary checkout.
+
 Use Composer path repositories for local package development. Keep matching `1.x` branches in both repos when a change spans host and add-on packages.
 
 ## Daily Commands
