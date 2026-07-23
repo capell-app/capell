@@ -65,13 +65,13 @@ class AdminTools extends Component
     {
         $this->assertGlobalAdmin();
 
-        $queued = QueueFrontendBuildAction::run();
+        $result = QueueFrontendBuildAction::run();
 
         $this->successResponse(
             name: 'build_frontend',
-            title: __($queued ? 'capell-admin::message.frontend_build_queued' : 'capell-admin::message.frontend_build_already_running'),
+            title: $result->getLabel(),
             body: __('capell-admin::message.frontend_build_queued_body'),
-            type: $queued ? 'success' : 'warning',
+            type: $result->queued() ? 'success' : 'warning',
         );
     }
 

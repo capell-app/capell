@@ -135,7 +135,11 @@ it('reports failed process operations without leaking connection secrets', funct
     try {
         new MySqlDatabaseBackupDriver(config(), $factory)->create('backup_test', $this->temporaryDirectory . '/dump.sql');
     } catch (RuntimeException $runtimeException) {
-        expect($runtimeException->getMessage())->toBe('MySQL backup create failed for connection [backup_test].')
+        // The message names the failing operation, connection, missing binary, and
+        // the config key that fixes it — but must still never carry the password.
+        expect($runtimeException->getMessage())->toStartWith('Database backup create failed for connection [backup_test].')
+            ->and($runtimeException->getMessage())->toContain('backup.binaries.mysqldump')
+            ->and($runtimeException->getMessage())->not->toContain('never-print-this')
             ->and($runtimeException->getPrevious())->toBeNull()
             ->and($runtimeException->getTraceAsString())->not->toContain('never-print-this');
 

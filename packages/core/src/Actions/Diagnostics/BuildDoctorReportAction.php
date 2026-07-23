@@ -12,6 +12,7 @@ use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Core\Support\Diagnostics\Checks\ConfigFilesCheck;
+use Capell\Core\Support\Diagnostics\Checks\DatabaseBackupBinariesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DefaultThemeAndLayoutCheck;
 use Capell\Core\Support\Diagnostics\Checks\GeneratedTailwindCssCheck;
 use Capell\Core\Support\Diagnostics\Checks\HomepageRouteCheck;
@@ -20,7 +21,9 @@ use Capell\Core\Support\Diagnostics\Checks\ManifestContractsCheck;
 use Capell\Core\Support\Diagnostics\Checks\MorphMapCheck;
 use Capell\Core\Support\Diagnostics\Checks\PageUrlSiteDomainsCheck;
 use Capell\Core\Support\Diagnostics\Checks\RequiredTablesCheck;
+use Capell\Core\Support\Diagnostics\Checks\RuntimeToolingCheck;
 use Capell\Core\Support\Diagnostics\Checks\SeedDataCheck;
+use Capell\Core\Support\Diagnostics\Checks\SharedCacheStoreCheck;
 use Capell\Core\Support\Diagnostics\Checks\StorageDisksWritableCheck;
 use Capell\Core\Support\Diagnostics\Checks\ViteInputsCheck;
 use Illuminate\Support\Collection;
@@ -53,6 +56,9 @@ final class BuildDoctorReportAction
         HomepageRouteCheck::class,
         DefaultThemeAndLayoutCheck::class,
         PageUrlSiteDomainsCheck::class,
+        RuntimeToolingCheck::class,
+        DatabaseBackupBinariesCheck::class,
+        SharedCacheStoreCheck::class,
     ];
 
     public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData

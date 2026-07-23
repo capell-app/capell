@@ -51,7 +51,20 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
 
     public int $timeout = 720;
 
+    /**
+     * Unlimited attempts, bounded by retryUntil(). This is deliberate: a job that
+     * cannot take the composer-install lock calls release() and must be free to
+     * keep waiting for the holder to finish. Capping $tries would fail an install
+     * merely because another install was running.
+     */
     public int $tries = 0;
+
+    /**
+     * Attempts that actually threw, however, must be bounded — otherwise a
+     * reproducibly failing composer run repeats for the whole retryUntil() window,
+     * re-taking the lock each time. release() does not count towards this.
+     */
+    public int $maxExceptions = 3;
 
     public int $uniqueFor = 3600;
 

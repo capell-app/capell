@@ -171,6 +171,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -185,6 +186,8 @@ use Spatie\LaravelPackageTools\Package;
 
 final class FrontendServiceProvider extends AbstractPackageServiceProvider
 {
+    private const string SITE_CHECK_COMMAND = 'capell:frontend-site-check';
+
     private const array SITE_CHECK_SCHEDULE_FREQUENCIES = [
         'everyMinute' => true,
         'everyTwoMinutes' => true,
@@ -590,7 +593,14 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         }
 
         $this->registerSchedule(function (Schedule $schedule) use ($frequency): void {
-            $schedule->command('capell:frontend-site-check')->{$frequency}();
+            // The site-check command is supplied by an optional package. Scheduling
+            // it when that package is absent makes the scheduler invoke a command
+            // that does not exist on every tick, which fails quietly under cron.
+            if (! array_key_exists(self::SITE_CHECK_COMMAND, Artisan::all())) {
+                return;
+            }
+
+            $schedule->command(self::SITE_CHECK_COMMAND)->{$frequency}();
         });
 
         return $this;
