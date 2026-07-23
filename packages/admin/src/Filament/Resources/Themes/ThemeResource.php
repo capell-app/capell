@@ -41,7 +41,8 @@ class ThemeResource extends Resource
     #[Override]
     public static function table(Table $table): Table
     {
-        return static::configuredTable($table, ConfiguratorTypeEnum::Theme);
+        return static::configuredTable($table, ConfiguratorTypeEnum::Theme)
+            ->extraAttributes(['data-tour-id' => 'welcome-tour-themes']);
     }
 
     #[Override]
