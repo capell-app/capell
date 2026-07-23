@@ -250,7 +250,7 @@ final class RollupDailyMetricsAction
     {
         $parsed = CarbonImmutable::createFromFormat('!Y-m-d', $day, 'UTC');
 
-        throw_if($parsed === null || $parsed->format('Y-m-d') !== $day, InvalidArgumentException::class, 'Metric rollup day must use YYYY-MM-DD.');
+        throw_if(! $parsed instanceof CarbonImmutable || $parsed->format('Y-m-d') !== $day, InvalidArgumentException::class, 'Metric rollup day must use YYYY-MM-DD.');
     }
 
     private function isZero(MetricSampleData $sample): bool

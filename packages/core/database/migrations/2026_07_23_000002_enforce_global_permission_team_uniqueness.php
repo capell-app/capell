@@ -23,20 +23,22 @@ return new class extends Migration
         $contracts = $this->uniqueContracts();
 
         foreach ($contracts as $contract) {
-            if (! Schema::hasTable($contract['table'])
-                || ! Schema::hasColumn($contract['table'], $contract['teamColumn'])) {
+            if (! Schema::hasTable($contract['table'])) {
                 continue;
             }
-
+            if (! Schema::hasColumn($contract['table'], $contract['teamColumn'])) {
+                continue;
+            }
             $this->assertGlobalRowsAreUnique($contract['table'], $contract['teamColumn'], $contract['identityColumns']);
         }
 
         foreach ($contracts as $contract) {
-            if (! Schema::hasTable($contract['table'])
-                || ! Schema::hasColumn($contract['table'], $contract['teamColumn'])) {
+            if (! Schema::hasTable($contract['table'])) {
                 continue;
             }
-
+            if (! Schema::hasColumn($contract['table'], $contract['teamColumn'])) {
+                continue;
+            }
             if ($this->hasNormalizedIndex($contract)) {
                 continue;
             }
@@ -69,11 +71,12 @@ return new class extends Migration
     public function down(): void
     {
         foreach (array_reverse($this->uniqueContracts()) as $contract) {
-            if (! Schema::hasTable($contract['table'])
-                || ! $this->hasScopeColumn($contract['table'])) {
+            if (! Schema::hasTable($contract['table'])) {
                 continue;
             }
-
+            if (! $this->hasScopeColumn($contract['table'])) {
+                continue;
+            }
             if (! Schema::hasIndex($contract['table'], $contract['legacyColumns'], 'unique')) {
                 Schema::table($contract['table'], function (Blueprint $table) use ($contract): void {
                     $table->unique($contract['legacyColumns'], $contract['legacyIndex']);
@@ -191,17 +194,28 @@ return new class extends Migration
     }
 
     /**
-     * @param  array{table: string, legacyColumns: list<string>, normalizedColumns: list<string>, normalizedIndex: string}  $contract
+     * @param  array{
+     *     table: string,
+     *     teamColumn: string,
+     *     identityColumns: list<string>,
+     *     legacyColumns: list<string>,
+     *     normalizedColumns: list<string>,
+     *     legacyIndex: string,
+     *     normalizedIndex: string
+     * }  $contract
      */
     private function hasNormalizedIndex(array $contract): bool
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
-            return DB::table('sqlite_master')
+            if (DB::table('sqlite_master')
                 ->where('type', 'index')
                 ->where('tbl_name', $contract['table'])
                 ->where('name', $contract['normalizedIndex'])
-                ->exists()
-                || ! Schema::hasIndex($contract['table'], $contract['legacyColumns'], 'unique');
+                ->exists()) {
+                return true;
+            }
+
+            return ! Schema::hasIndex($contract['table'], $contract['legacyColumns'], 'unique');
         }
 
         return Schema::hasIndex($contract['table'], $contract['normalizedColumns'], 'unique');
@@ -213,7 +227,7 @@ return new class extends Migration
             return Schema::hasColumn($table, self::SCOPE_COLUMN);
         }
 
-        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table) !== 1) {
+        if (preg_match('/^[A-Za-z_]\w*$/', $table) !== 1) {
             throw new RuntimeException(sprintf('Permission table [%s] is not a safe SQL identifier.', $table));
         }
 
@@ -225,7 +239,7 @@ return new class extends Migration
     {
         $column = is_string($configured) && $configured !== '' ? $configured : $default;
 
-        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column) !== 1) {
+        if (preg_match('/^[A-Za-z_]\w*$/', $column) !== 1) {
             throw new RuntimeException(sprintf('Permission column [%s] is not a safe SQL identifier.', $column));
         }
 

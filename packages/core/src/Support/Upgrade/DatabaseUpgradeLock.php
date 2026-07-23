@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Upgrade;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -57,7 +58,7 @@ final class DatabaseUpgradeLock
             return $this->acquireThroughCache($name, $ttlSeconds);
         }
 
-        $now = Carbon::now();
+        $now = Date::now();
         $token = (string) Str::uuid();
 
         $this->releaseExpired($name, $now);
@@ -117,7 +118,7 @@ final class DatabaseUpgradeLock
 
             return DB::table(self::TABLE)
                 ->where('name', $name)
-                ->where('expires_at', '>', Carbon::now())
+                ->where('expires_at', '>', Date::now())
                 ->exists();
         } catch (Throwable) {
             // If lock state cannot be established, readiness must fail closed.

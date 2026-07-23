@@ -28,9 +28,7 @@ final class ReadMetricSeriesAction
         throw_if($from->isAfter($to), InvalidArgumentException::class, 'Metric series start must not follow its end.');
         throw_if($definition->scopeType !== $context->scope->type, InvalidArgumentException::class, 'Metric series scope must match its definition.');
 
-        if (! $authorizer->canRead($definition, $context)) {
-            throw new AuthorizationException('Metric series access is not authorized.');
-        }
+        throw_unless($authorizer->canRead($definition, $context), AuthorizationException::class, 'Metric series access is not authorized.');
 
         $identity = $definition->identity;
 

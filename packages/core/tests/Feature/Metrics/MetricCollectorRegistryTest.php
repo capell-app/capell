@@ -33,6 +33,7 @@ it('registers an owned collector idempotently and resolves its definitions', fun
 
     $surface = resolve(PackageSurfaceRegistrar::class);
     $surface->metricCollector(RegistryTestMetricCollector::class);
+
     $registry->register(RegistryTestMetricCollector::class);
 
     expect($surface)->toBeInstanceOf(PackageSurfaceRegistrar::class)

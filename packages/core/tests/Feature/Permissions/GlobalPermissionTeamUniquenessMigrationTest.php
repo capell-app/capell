@@ -60,7 +60,8 @@ afterEach(function (): void {
 });
 
 it('enforces fresh-install uniqueness without changing NULL global scope semantics', function (): void {
-    globalPermissionUniquenessMigration()->up();
+    $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_07_23_000002_enforce_global_permission_team_uniqueness.php';
+    $migration->up();
 
     expect(Schema::hasColumn('global_unique_roles', 'capell_team_scope_key'))->toBeTrue()
         ->and(Schema::hasColumn('global_unique_model_has_roles', 'capell_team_scope_key'))->toBeTrue()
@@ -128,7 +129,7 @@ it('upgrades clean existing global assignments and remains idempotent', function
         'model_type' => 'user',
     ]);
 
-    $migration = globalPermissionUniquenessMigration();
+    $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_07_23_000002_enforce_global_permission_team_uniqueness.php';
     $migration->up();
     $migration->up();
 
@@ -143,14 +144,11 @@ it('fails before schema mutation when an upgraded install contains ambiguous glo
         ['team_id' => null, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
     ]);
 
-    expect(fn () => globalPermissionUniquenessMigration()->up())
+    $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_07_23_000002_enforce_global_permission_team_uniqueness.php';
+
+    expect(fn () => $migration->up())
         ->toThrow(RuntimeException::class, 'duplicate NULL-team records')
         ->and(Schema::hasColumn('global_unique_roles', 'capell_team_scope_key'))->toBeFalse()
         ->and(Schema::hasColumn('global_unique_model_has_roles', 'capell_team_scope_key'))->toBeFalse()
         ->and(Schema::hasColumn('global_unique_model_has_permissions', 'capell_team_scope_key'))->toBeFalse();
 });
-
-function globalPermissionUniquenessMigration(): object
-{
-    return require dirname(__DIR__, 3) . '/database/migrations/2026_07_23_000002_enforce_global_permission_team_uniqueness.php';
-}

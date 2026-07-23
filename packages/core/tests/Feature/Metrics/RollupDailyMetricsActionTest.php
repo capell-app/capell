@@ -33,6 +33,7 @@ use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 it('atomically stores a complete collector day and replaces an earlier snapshot', function (): void {
     $registry = resolve(MetricCollectorRegistry::class);
     $registry->register(RollupTestMetricCollector::class);
+
     $scope = MetricScopeData::global('UTC');
     $action = resolve(RollupDailyMetricsAction::class);
 

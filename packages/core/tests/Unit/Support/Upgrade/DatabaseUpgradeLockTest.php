@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -74,7 +74,7 @@ it('takes over a lock whose expiry has passed', function (): void {
 
     DB::table(DatabaseUpgradeLock::TABLE)
         ->where('name', 'capell:upgrade')
-        ->update(['expires_at' => Carbon::now()->subMinute()]);
+        ->update(['expires_at' => Date::now()->subMinute()]);
 
     expect($lock->acquire('capell:upgrade', 60))->not->toBeNull();
 })->skip(fn (): bool => ! Schema::hasTable(DatabaseUpgradeLock::TABLE), 'Lock table not migrated in this suite.');
