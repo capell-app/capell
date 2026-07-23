@@ -130,4 +130,19 @@ Done. Remember that this repo's tooling needs an explicit memory limit:
 
 vendor/ is shared with the primary checkout. Never run composer install/require
 /update from this worktree — it would rewrite the primary tree's packages.
+
+KNOWN LIMITATION — read before trusting a full-suite run.
+Third-party packages are symlinked, so any code that walks upward from inside
+vendor/ (dirname(__DIR__, N), a re-registered Composer ClassLoader) lands in the
+PRIMARY checkout, not this worktree. Most suites are unaffected, but some — the
+core Unit/Support suite is one — end up loading Capell classes from the primary
+tree, which silently tests the wrong code.
+
+Use this setup for fast, targeted runs, and confirm the classes you care about
+resolve here before believing a result:
+
+  php -r 'require "vendor/autoload.php";
+    echo (new ReflectionClass("Your\\Changed\\Class"))->getFileName(), PHP_EOL;'
+
+For an authoritative full-suite run, do a real composer install in this worktree.
 EOF

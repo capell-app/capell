@@ -43,7 +43,25 @@ real, and sharing only what is safe to share:
 | `vendor/<vendor>/<package>/` | symlink | third-party code, identical in both trees |
 | `pestphp/pest`, `phpunit/phpunit`, `laravel/pint`, `phpstan/phpstan`, `rector/rector`, `brianium/paratest` | real copy | their bin scripts walk `__DIR__` upward to find an autoloader, and would find the primary one |
 
-If you set this up by hand anyway, verify it before trusting a single test result:
+### Known limitation — verify before trusting a full-suite run
+
+The script fixes the common failure, not every one. Because third-party packages are
+symlinked, any code that walks upward from inside `vendor/` — `dirname(__DIR__, N)`, or a
+Composer `ClassLoader` re-registered at runtime — resolves into the **primary checkout**,
+and can pull `Capell\*` classes from there.
+
+Most suites are unaffected. The core `Unit/Support` suite is not: running it before
+another suite has been observed to load `Capell\Admin\*` from the primary tree, so the
+later tests silently exercise the wrong code. Confirmed 2026-07-23 by printing
+`ReflectionClass::getFileName()` mid-run.
+
+Practical rule: use the script for fast, targeted runs, and check that the classes you
+changed resolve inside the worktree before believing a result. If you need an
+authoritative full-suite run, do a real `composer install` in the worktree.
+
+### Verifying
+
+Verify before trusting a test result:
 
 ```bash
 php -r 'require "vendor/autoload.php"; echo (new ReflectionClass("Capell\Core\Enums\Concerns\HasEnumOptions"))->getFileName(), PHP_EOL;'

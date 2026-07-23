@@ -101,14 +101,31 @@ no error. If the `jobs` table does not exist — likely, since a `sync` install 
 Now documented in [configuration](../development/configuration.md#marketplace-config),
 including the required worker invocation.
 
-### 2.2 The Composer install job retries forever — HIGH
+### 2.2 The Composer install job retried until the hour was up — MEDIUM (fixed)
 
 [RunMarketplaceInstallAttemptJob.php](../../packages/marketplace/src/Jobs/RunMarketplaceInstallAttemptJob.php)
-line 54 sets `tries = 0`, which Laravel treats as unlimited. With `timeout = 720`
-against a default worker's 60s, the process is killed mid-`composer require`; the lock
-taken at line 87 is held for `COMPOSER_TIMEOUT_SECONDS + 120` and never released,
-`composer.json` and `vendor/` are left half-written, and the attempt row stays `running`
-— forever, on repeat.
+sets `tries = 0`, which Laravel treats as unlimited.
+
+Two details make this less severe than it first appears, and both are worth recording
+so the finding is not re-raised at the wrong severity:
+
+- `retryUntil()` returns `now()->addHour()`, which bounds the retries. They are not
+  infinite.
+- The composer-install lock is released in a `finally` block, so it is orphaned only
+  when the worker is killed outright — and even then it self-expires after
+  `COMPOSER_TIMEOUT_SECONDS + 120` seconds.
+- A `failed()` handler already exists and marks the attempt failed.
+
+The real defect was narrower: a reproducibly failing composer run repeated for the whole
+retry window, re-taking the lock each time. `tries = 0` is deliberate and must stay,
+because a job that cannot take the lock calls `release()` and has to keep waiting —
+capping `tries` would fail an install merely because another install was running. The
+fix is `maxExceptions = 3`, which bounds attempts that actually threw while leaving
+`release()` unaffected.
+
+Still true, and unfixed: with a default 60s worker the process is killed mid-`composer
+require`, leaving `composer.json` and `vendor/` half-written. Run the worker with
+`--timeout=900`.
 
 ### 2.3 Long jobs run inline under `sync` — HIGH
 
@@ -263,6 +280,23 @@ too large for one pass; the highest-value items, in order:
 
 Genuinely internal plumbing (frontend kernel interfaces, marketplace composer runners,
 install/upgrade internals) is correctly left undocumented and should stay that way.
+
+## Fixed in this pass
+
+| Finding | Fix |
+| --- | --- |
+| Backup drivers discarded the failure cause | `DatabaseBackupProcessError` now distinguishes a missing binary (naming the `backup.binaries.*` key that fixes it) from a real process failure, and preserves stderr. Passwords travel via the environment, never argv, so output is safe to surface. |
+| `COMPOSER_HOME` left unset when `HOME` is unset | Falls back to `storage/framework/composer`, matching the marketplace runner. Fixes three call sites that previously died with Composer's own opaque error under php-fpm. |
+| Doctor had no coverage of hosting prerequisites | Three checks added: `core.runtime.tooling` (proc_open, composer, npm), `core.backup.database-binaries` (driver-aware, only when backups are enabled), `core.cache.shared-store` (warns on `file`/`array`/`null`). |
+| Frontend build reported contention as "already running" | `QueueFrontendBuildAction` now waits briefly for the lock and returns `FrontendBuildQueueResultEnum`, so genuine contention is a distinct message. |
+| Composer install job repeated a failing run for an hour | `maxExceptions = 3`. |
+| A nonexistent command was scheduled daily | `capell:frontend-site-check` is supplied by an optional package but was scheduled unconditionally, so the scheduler invoked a missing command on every tick. Registration is now guarded on the command existing. |
+| Enum option labels froze to one locale under Octane | `HasEnumOptions` memoizes per locale. |
+| Docs claimed `ExtensionFilamentDashboardWidgetContract` | Corrected to `ExtensionDashboardFilamentWidgetContract`; the documented name did not exist, so copying that line failed. |
+
+Deliberately not fixed here: the upgrade-lock guarantee (1.1). Moving it to a database
+constraint changes upgrade semantics and deserves its own design pass rather than a
+drive-by edit.
 
 ## Recommended order of work
 

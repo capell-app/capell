@@ -68,6 +68,7 @@ In non-interactive mode, always pass `--url`. If the app already has users, pass
 | `--developer-tooling`                  | Install Laravel Boost and Capell Agent Bridge developer tooling                 |
 | `--no-boost-install`                   | Install developer tooling packages without running `boost:install`              |
 | `--handoff-json=`                      | Write the redacted install outcome and next action as a versioned JSON artifact  |
+| `--spec=`                              | Path to a site spec providing `site`, `theme.key`, and at least one page        |
 | `--production`                         | Run unattended, force no interaction, and refuse `--fresh`                      |
 
 Install profiles can live in `config/capell-install-profiles.php`,
@@ -449,7 +450,14 @@ php artisan capell:admin-clear-widgets-cache
 php artisan capell:admin-cache-configurators
 php artisan capell:admin-clear-configurators-cache
 php artisan capell:admin-publish-resources --type=page --force
+php artisan capell:admin-publish-resources --resource=PageResource
 ```
+
+| Option        | Use it for                                                |
+| ------------- | ---------------------------------------------------------- |
+| `--type=`     | Only publish resources of the given type                  |
+| `--resource=` | Only publish one resource, by label or class name         |
+| `--force`     | Overwrite resource files that already exist               |
 
 `capell:admin-publish-resources` is an advanced escape hatch. Most package work should use resources, extenders, configurators, bridges, and settings schemas instead of publishing host resources.
 
@@ -476,6 +484,38 @@ php artisan capell:admin-sync-permissions --mode=upgrade
 | `--mode=` | `install` (default) for a first sync, `upgrade` when reconciling an existing install |
 
 ## Deployment And Maintenance
+
+### `capell:doctor`
+
+Runs Capell's health checks and reports what is wrong with an installation. This is the first command to run when something is broken, and the last one to run after a deploy.
+
+```bash
+php artisan capell:doctor
+php artisan capell:doctor --json
+```
+
+| Option                       | Use it for                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `--json`                     | Machine-readable report for monitoring or CI                                   |
+| `--install-summary`          | The installer-focused summary, including package-owned checks                  |
+| `--skip-package-doctors`     | Skip package-owned doctor commands when building the install summary           |
+| `--connection=`              | Verify against an existing database connection instead of the default          |
+| `--database=`                | Override that connection's database name or path for isolated verification     |
+| `--repair-page-url-domains`  | **Writes data.** Creates or restores missing site domains for page URLs before checking |
+
+Every option except `--repair-page-url-domains` is read-only. That one repairs records before reporting, so run the command without it first and read the result before letting it change anything.
+
+Checks cover required tables, the morph map, storage writability, seed data, config files, manifest contracts, installed packages, Vite inputs, generated Tailwind CSS, admin access, the homepage route, the default theme and layout, page URL site domains, runtime tooling, database backup binaries, and whether the cache store can be shared between nodes.
+
+Three of those relate directly to hosting:
+
+| Check | Fails when |
+| --- | --- |
+| `core.runtime.tooling` | `proc_open` is disabled, or `composer`/`npm` are missing — extension installs, package setup, backups, and asset rebuilds depend on them |
+| `core.backup.database-binaries` | Backups are enabled but `mysqldump`/`pg_dump` cannot be found for the active connection |
+| `core.cache.shared-store` | The cache store is `file`, `array`, or `null` — fine on one server, unsafe behind a load balancer |
+
+The last one is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes).
 
 ### `capell:runtime-refresh`
 

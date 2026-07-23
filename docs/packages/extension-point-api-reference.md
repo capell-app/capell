@@ -90,6 +90,113 @@ Machine-readable stability and ownership are defined by the [extension surface c
 | Marketplace theme header action          | `AdminBridgeRegistrar::resourceHeaderActionExtender()`                                                                                        | Marketplace admin bridge               | Theme resource header             | Action hidden                 | Render theme resource action list.                                            |
 | Marketplace activation verification      | Container binding `capell.marketplace.activation-verifier`                                                                                    | Marketplace provider                   | Install/activation flow           | Signed activation unavailable | Resolve binding and verify signed fixture payload.                            |
 
+## Declared Contributions
+
+Alongside the runtime extension points above, a package declares what it contributes in
+its `capell.json` `contributes[]` array. Each entry names a `type` and a `class`, and the
+class must implement the contract that `type` maps to.
+
+These contracts are **marker interfaces**. They declare no registration methods — the
+only method comes from the base contract, `Capell\Core\Contracts\Extensions\ExtensionContribution`:
+
+```php
+public static function compatibleCapellApiVersion(): string;
+```
+
+The marker's job is validation and traceability, not wiring. You still register runtime
+behaviour through the extension points documented above; the declaration is what lets
+manifest audits know the surface exists.
+
+```php
+namespace Vendor\Example\Routes;
+
+use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
+
+final class ExampleRoutes implements RegistersExtensionRoute
+{
+    public static function compatibleCapellApiVersion(): string
+    {
+        return '^1.0';
+    }
+}
+```
+
+```jsonc
+// capell.json
+"contributes": [
+  { "type": "route", "class": "Vendor\\Example\\Routes\\ExampleRoutes" },
+  { "type": "content-widget", "key": "vendor.hero", "class": "Vendor\\Example\\Widgets\\HeroWidget" }
+]
+```
+
+| `type` | Contract (in `Capell\Core\Contracts\Extensions`) |
+| --- | --- |
+| `admin-resource` | `RegistersExtensionAdminResource` |
+| `section` | `RegistersExtensionSection` |
+| `page-type`, `page-variation` | `RegistersExtensionPageType` |
+| `dashboard-widget`, `overview-stat` | `RegistersExtensionFilamentWidget` |
+| `permission` | `RegistersExtensionPermission` |
+| `route` | `RegistersExtensionRoute` |
+| `setting` | `RegistersExtensionSetting` |
+| `frontend-component` | `RegistersExtensionFrontendComponent` |
+| `content-widget` | `RegistersExtensionContentWidget` |
+| `render-hook` | `RegistersExtensionRenderHook` |
+| `asset` | `RegistersExtensionAsset` |
+| `migration` | `RunsExtensionMigration` |
+| `scheduled-job` | `RunsScheduledExtensionJob` |
+| `health-check` | `ChecksExtensionHealth` |
+| `content-graph` | `ContentGraphExtractor` |
+| `workflow-attention` | `ContributesWorkflowAttention` |
+
+Validation rejects a manifest when the class sits outside the package's own PSR-4
+namespace, spoofs a Capell namespace, or does not implement the mapped contract. A
+`content-widget` also needs a `key` matching `^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9.-]*$`,
+prefixed with your vendor and unique within the manifest. Content widgets were added in
+API 1.1, so declare `^1.1` for those.
+
+Verify with `php artisan capell:extension-audit`, explore with
+`php artisan capell:extension-playground`, and assert in tests with
+`Capell\Core\Testing\ExtensionTestHarness::assertContributionRegistered()`.
+
+## Frontend Route Middleware
+
+An application adding its own frontend route must apply Capell's middleware stack, or
+there is no resolved site, page, or language context. Take the canonical list from
+`Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry::all()` rather than
+hand-listing aliases — it is the source of truth and supports `prepend()`, `append()`,
+`insertBefore()`, and `insertAfter()`.
+
+| Alias | Purpose |
+| --- | --- |
+| `frontend.resolve` | Bootstraps the frontend kernel and resolves site, page, and language. **Required.** |
+| `frontend.maintenance` | Serves cached maintenance and lockdown pages. Lockdown ignores all bypasses. |
+| `frontend.anonymous_cacheable_render` | Nulls the user resolver so an authenticated response cannot poison a shared HTML cache entry |
+| `frontend.rendering_strategy` | Adds an `X-Rendering-Strategy` diagnostic header. Optional, not in the default stack. |
+| `frontend.etag`, `frontend.asset-optimization` | ETag and asset optimisation. Optional, not in the default stack. |
+
+## Registering Public Components
+
+`capell-frontend.blade_components` and `capell-frontend.livewire_components` are flat
+`name => class` maps and the supported way for a theme or app to register or override a
+public component. Entries whose value is not a string — or, for Livewire, not a
+`Livewire\Component` subclass — are silently ignored.
+
+Packages should contribute through `Capell\Frontend\Contracts\FrontendComponentContributor`
+instead, tagged with that interface's `TAG` constant. Contributor entries take precedence
+over config.
+
+## Contracts That Exist Twice
+
+Three contracts exist in both Core and a downstream package. In each case Core owns the
+definition and the downstream copy is an empty extending alias — bind the Core one unless
+you specifically want the narrower scope.
+
+| Contract | Bind this | Note |
+| --- | --- | --- |
+| `RedirectResolver` | `Capell\Core\Contracts\RedirectResolver` | Public page resolution reads the **Core** contract. Binding only the Frontend alias will not change redirect behaviour. |
+| `SettingsSchemaContract` | `Capell\Core\Contracts\SettingsSchemaContract` | Use the Admin alias only for admin-panel-only settings. |
+| `ThemePreviewRendererInterface` | `Capell\Core\Contracts\Themes\ThemePreviewRendererInterface` | Only the Core contract is bound; the Admin alias has no binding and no implementer. |
+
 ## Rules
 
 - Register in the package that owns the behavior.
