@@ -114,7 +114,7 @@ final class ReadSiteAdminMetricSeriesAction
                 fn (MetricPointData $point): SiteAdminMetricTrendPointData => new SiteAdminMetricTrendPointData(
                     day: $point->day->isoFormat('ll'),
                     value: $this->formatValue($point->numericValue(), $definition),
-                    heightClass: $this->heightClass($point->numericValue(), $maximum),
+                    heightBucket: $this->heightBucket($point->numericValue(), $maximum),
                 ),
                 $series->points,
             )),
@@ -139,23 +139,23 @@ final class ReadSiteAdminMetricSeriesAction
         };
     }
 
-    private function heightClass(?float $value, float $maximum): string
+    private function heightBucket(?float $value, float $maximum): int
     {
         if ($value === null || $maximum <= 0) {
-            return 'h-1';
+            return 0;
         }
 
         $percentage = (int) round(($value / $maximum) * 100);
 
         return match (true) {
-            $percentage >= 88 => 'h-full',
-            $percentage >= 75 => 'h-10/12',
-            $percentage >= 63 => 'h-8/12',
-            $percentage >= 50 => 'h-6/12',
-            $percentage >= 38 => 'h-5/12',
-            $percentage >= 25 => 'h-4/12',
-            $percentage >= 13 => 'h-2/12',
-            default => 'h-1',
+            $percentage >= 88 => 7,
+            $percentage >= 75 => 6,
+            $percentage >= 63 => 5,
+            $percentage >= 50 => 4,
+            $percentage >= 38 => 3,
+            $percentage >= 25 => 2,
+            $percentage >= 13 => 1,
+            default => 0,
         };
     }
 }

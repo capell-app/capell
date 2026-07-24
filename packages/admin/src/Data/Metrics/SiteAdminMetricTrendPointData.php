@@ -11,6 +11,6 @@ final class SiteAdminMetricTrendPointData extends Data
     public function __construct(
         public readonly string $day,
         public readonly string $value,
-        public readonly string $heightClass,
+        public readonly int $heightBucket,
     ) {}
 }

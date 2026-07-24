@@ -23,6 +23,9 @@
                     </p>
 
                     @if ($series->points !== [])
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ __('capell-admin::metrics.dates_with_readings') }}
+                        </p>
                         <div
                             class="flex h-32 items-end gap-1"
                             role="img"
@@ -32,7 +35,14 @@
                                 <div
                                     @class([
                                         'group bg-primary-500 relative min-w-0 flex-1 rounded-t',
-                                        $point->heightClass,
+                                        'h-1' => $point->heightBucket === 0,
+                                        'h-2/12' => $point->heightBucket === 1,
+                                        'h-4/12' => $point->heightBucket === 2,
+                                        'h-5/12' => $point->heightBucket === 3,
+                                        'h-6/12' => $point->heightBucket === 4,
+                                        'h-8/12' => $point->heightBucket === 5,
+                                        'h-10/12' => $point->heightBucket === 6,
+                                        'h-full' => $point->heightBucket === 7,
                                     ])
                                     title="{{ __('capell-admin::metrics.point_label', ['day' => $point->day, 'value' => $point->value]) }}"
                                 >
