@@ -33,7 +33,7 @@ it('registers the host metrics page with stable translated labels', function ():
 });
 
 it('declares every metric trend height utility in the scanned Blade source', function (): void {
-    $view = file_get_contents(__DIR__ . '/../../../../../resources/views/filament/pages/site-admin-metrics.blade.php');
+    $view = file_get_contents(__DIR__ . '/../../../../resources/views/filament/pages/site-admin-metrics.blade.php');
 
     expect($view)->toBeString();
 
