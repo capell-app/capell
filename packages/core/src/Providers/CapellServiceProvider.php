@@ -189,7 +189,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
-        $this->app->singleton(CapellCoreManager::class);
+        $resolvedManager = CapellCore::getFacadeRoot();
+
+        $this->app->instance(
+            CapellCoreManager::class,
+            $resolvedManager instanceof CapellCoreManager ? $resolvedManager : new CapellCoreManager,
+        );
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerSettingsSchemaRegistry();
