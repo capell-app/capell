@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
-use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Frontend\Actions\Performance\RecordExtensionRenderContributionAction;
+use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
@@ -262,36 +261,12 @@ class RenderHookRegistry
             return $result;
         }
 
-        $manifest = resolve(CapellPackageRegistry::class)->get($entry->owner);
-
-        if ($manifest === null) {
-            RecordExtensionRenderContributionAction::run(
-                packageName: $entry->owner,
-                surface: 'frontend',
-                contributionType: 'render-hook',
-                contributionClass: is_object($entry->extension) ? $entry->extension::class : null,
-                elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
-                frontendRenderBudgetMs: 0,
-                cacheTags: [],
-                cacheable: false,
-                sensitiveOutput: true,
-                variesBy: [],
-            );
-
-            return $result;
-        }
-
-        RecordExtensionRenderContributionAction::run(
-            packageName: $manifest->name,
-            surface: 'frontend',
+        RecordManifestRenderContributionAction::run(
+            packageName: $entry->owner,
             contributionType: 'render-hook',
             contributionClass: is_object($entry->extension) ? $entry->extension::class : null,
             elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
-            frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
-            cacheTags: $manifest->performance->cacheTags,
-            cacheable: $entry->cacheSafe,
-            sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
-            variesBy: $manifest->performance->cacheSafety->variesBy,
+            cacheSafe: $entry->cacheSafe,
         );
 
         return $result;
