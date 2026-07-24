@@ -18,11 +18,11 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Install\InstalledPackageManifestDiscovery;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Manifest\CapellManifestData;
-use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -932,11 +932,11 @@ it('refreshes selected package metadata after Composer installs developer toolin
         ),
         installPath: $installedPath,
     );
-    $manifestLoader = Mockery::mock(ManifestLoader::class);
-    $manifestLoader->shouldReceive('discover')
+    $manifestDiscovery = Mockery::mock(InstalledPackageManifestDiscovery::class);
+    $manifestDiscovery->shouldReceive('discover')
         ->once()
         ->andReturn([$packageName => $installedManifest]);
-    app()->instance(ManifestLoader::class, $manifestLoader);
+    app()->instance(InstalledPackageManifestDiscovery::class, $manifestDiscovery);
 
     resolve(InstallStepExecutor::class)->execute(
         InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,

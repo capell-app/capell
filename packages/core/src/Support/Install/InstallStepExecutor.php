@@ -27,7 +27,6 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
-use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
@@ -148,7 +147,7 @@ final class InstallStepExecutor
     {
         $packageRegistry = resolve(CapellPackageRegistry::class);
 
-        foreach (resolve(ManifestLoader::class)->discover() as $manifest) {
+        foreach (resolve(InstalledPackageManifestDiscovery::class)->discover() as $manifest) {
             $packageRegistry->refreshInstalledManifestPackage(
                 $manifest,
                 CapellCore::getInstalledPrettyVersion($manifest->name),
