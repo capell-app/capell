@@ -192,6 +192,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(CapellCoreManager::class);
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
+        $this->registerSettingsSchemaRegistry();
+        $this->bindManagers();
         $this->app->scoped(RuntimeSchemaState::class);
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
@@ -271,7 +273,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function packageRegistered(): void
     {
         $this
-            ->registerSettingsSchemaRegistry()
             ->registerPublicationTransitions()
             ->registerMailMarkdownComponents()
             ->registerLocalAppThemeDiscovery()
@@ -282,7 +283,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerProtectedTables()
             ->registerMetricSchedule()
             ->registerBackupPruneSchedule()
-            ->bindManagers()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
