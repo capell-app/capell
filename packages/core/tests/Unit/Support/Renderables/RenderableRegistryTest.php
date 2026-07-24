@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\ResolveRenderableViewDataAction;
+use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Renderables\RenderableViewDataContext;
 use Capell\Core\Support\Renderables\RenderableViewDataResolver;
@@ -25,6 +27,27 @@ it('stores renderables by type and stable key', function (): void {
         ->and($registry->allForType('vendor-renderable'))->toBe([
             'vendor.renderable.hero' => $definition,
         ]);
+});
+
+it('retains exact extension contribution identity with a renderable', function (): void {
+    $registry = new RenderableRegistry;
+    $identity = new RenderableContributionIdentityData(
+        owner: 'vendor/editorial-tools',
+        type: ExtensionContributionType::Section,
+        class: 'Vendor\\EditorialTools\\Sections\\Article',
+        cacheSafe: false,
+    );
+    $definition = new RenderableDefinitionData(
+        key: 'vendor.renderable.article',
+        type: 'vendor-renderable',
+        blade: 'vendor::renderable.article',
+        contribution: $identity,
+    );
+
+    $registry->register($definition);
+
+    expect($registry->get('vendor-renderable', 'vendor.renderable.article')->contribution)
+        ->toBe($identity);
 });
 
 it('fails clearly for unknown renderables', function (): void {

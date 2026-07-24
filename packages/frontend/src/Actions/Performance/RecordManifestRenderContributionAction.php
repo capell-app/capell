@@ -49,7 +49,7 @@ final class RecordManifestRenderContributionAction
             elapsedMilliseconds: $elapsedMilliseconds,
             frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
             cacheTags: $manifest->performance->cacheTags,
-            cacheable: $cacheSafe,
+            cacheable: $manifest->performance->cacheSafety->cacheable && $cacheSafe,
             sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
             variesBy: $manifest->performance->cacheSafety->variesBy,
         );

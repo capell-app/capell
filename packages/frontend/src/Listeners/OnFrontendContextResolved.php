@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Capell\Frontend\Listeners;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Frontend\Actions\Performance\RecordExtensionRenderContributionAction;
 use Capell\Frontend\Enums\ListenerEnum;
@@ -27,7 +29,12 @@ final class OnFrontendContextResolved
 
     private function recordPageExtensionRenderContributions(?Pageable $page): void
     {
-        $elapsedMilliseconds = $this->elapsedMilliseconds();
+        if (! $page instanceof Pageable) {
+            return;
+        }
+
+        /** @var list<array{CapellManifestData, ExtensionContributionData}> $matches */
+        $matches = [];
 
         foreach (resolve(CapellPackageRegistry::class)->all() as $manifest) {
             foreach ($manifest->contributes as $contribution) {
@@ -47,30 +54,31 @@ final class OnFrontendContextResolved
 
                 $modelClass = $contribution->metadata['modelClass'] ?? null;
 
-                if (is_string($modelClass) && $modelClass !== '' && ! $page instanceof $modelClass) {
+                if (! is_string($modelClass) || $modelClass === '' || ! $page instanceof $modelClass) {
                     continue;
                 }
 
-                RecordExtensionRenderContributionAction::run(
-                    packageName: $manifest->name,
-                    surface: 'frontend',
-                    contributionType: $contribution->type->value,
-                    contributionClass: $contribution->class,
-                    elapsedMilliseconds: $elapsedMilliseconds,
-                    frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
-                    cacheTags: $manifest->performance->cacheTags,
-                    cacheable: $manifest->performance->cacheSafety->cacheable,
-                    sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
-                    variesBy: $manifest->performance->cacheSafety->variesBy,
-                );
+                $matches[] = [$manifest, $contribution];
             }
         }
-    }
 
-    private function elapsedMilliseconds(): float
-    {
-        $startedAt = defined('LARAVEL_START') ? LARAVEL_START : microtime(true);
+        if (count($matches) !== 1) {
+            return;
+        }
 
-        return max(0, (microtime(true) - $startedAt) * 1000);
+        [$manifest, $contribution] = $matches[0];
+
+        RecordExtensionRenderContributionAction::run(
+            packageName: $manifest->name,
+            surface: 'frontend',
+            contributionType: $contribution->type->value,
+            contributionClass: $contribution->class,
+            elapsedMilliseconds: 0,
+            frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
+            cacheTags: $manifest->performance->cacheTags,
+            cacheable: $manifest->performance->cacheSafety->cacheable,
+            sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
+            variesBy: $manifest->performance->cacheSafety->variesBy,
+        );
     }
 }

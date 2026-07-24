@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -214,6 +216,11 @@ it('attributes a section only when its renderable is rendered', function (): voi
         key: 'article',
         type: 'section',
         blade: 'extension-section-test::article',
+        contribution: new RenderableContributionIdentityData(
+            owner: $manifest->name,
+            type: ExtensionContributionType::Section,
+            class: 'Vendor\\EditorialTools\\Sections\\Article',
+        ),
     ));
 
     expect(RenderRenderableAction::run(
@@ -229,6 +236,50 @@ it('attributes a section only when its renderable is rendered', function (): voi
         ->and($records[0]->contributionType)->toBe('section')
         ->and($records[0]->contributionClass)->toBe('Vendor\\EditorialTools\\Sections\\Article')
         ->and($records[0]->elapsedMilliseconds)->toBeGreaterThanOrEqual(0.0);
+});
+
+it('uses the selected renderable contribution identity without cross matching manifests', function (): void {
+    $viewPath = storage_path('framework/testing/exact-extension-section-views');
+    File::ensureDirectoryExists($viewPath);
+    File::put($viewPath . '/article.blade.php', '<section>Exact article</section>');
+    View::addNamespace('exact-extension-section-test', $viewPath);
+
+    $selectedManifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/editorial-tools',
+        surfaces: ['frontend'],
+    ));
+    $unselectedManifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/other-tools',
+        surfaces: ['frontend'],
+    ));
+
+    resolve(CapellPackageRegistry::class)->fill([
+        $selectedManifest->name => $selectedManifest,
+        $unselectedManifest->name => $unselectedManifest,
+    ]);
+    resolve(RenderableRegistry::class)->register(new RenderableDefinitionData(
+        key: 'article',
+        type: 'section',
+        blade: 'exact-extension-section-test::article',
+        contribution: new RenderableContributionIdentityData(
+            owner: $selectedManifest->name,
+            type: ExtensionContributionType::Section,
+            class: 'Vendor\\EditorialTools\\Sections\\Article',
+        ),
+    ));
+
+    RenderRenderableAction::run(
+        type: 'section',
+        key: 'article',
+        asset: new class extends Model {},
+        translation: new class extends Model {},
+    );
+
+    $records = resolve(RecordExtensionRenderContributionAction::class)->recorded();
+
+    expect($records)->toHaveCount(1)
+        ->and($records[0]->packageName)->toBe($selectedManifest->name)
+        ->and($records[0]->contributionType)->toBe(ExtensionContributionType::Section->value);
 });
 
 it('attributes page types and variations only to matching page models', function (): void {
@@ -269,7 +320,76 @@ it('attributes page types and variations only to matching page models', function
 
     expect($records)->toHaveCount(1)
         ->and($records[0]->contributionType)->toBe('page-type')
-        ->and($records[0]->contributionClass)->toBe('Vendor\\EditorialTools\\Manifest\\PageType');
+        ->and($records[0]->contributionClass)->toBe('Vendor\\EditorialTools\\Manifest\\PageType')
+        ->and($records[0]->elapsedMilliseconds)->toBe(0.0);
+});
+
+it('fails closed for page contributions without a concrete model identity', function (mixed $modelClass): void {
+    $contribution = [
+        'type' => 'page-type',
+        'class' => 'Vendor\\EditorialTools\\Manifest\\PageType',
+    ];
+
+    if ($modelClass !== null) {
+        $contribution['modelClass'] = $modelClass;
+    }
+
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/editorial-tools',
+        surfaces: ['frontend'],
+        overrides: ['contributes' => [$contribution]],
+    ));
+
+    resolve(CapellPackageRegistry::class)->fill([$manifest->name => $manifest]);
+    resolve(OnFrontendContextResolved::class)->handle(new FrontendContextResolved(new FrontendContext(
+        site: null,
+        language: null,
+        page: new Page,
+        layout: null,
+        theme: null,
+        params: [],
+        slug: null,
+    )));
+
+    expect(resolve(RecordExtensionRenderContributionAction::class)->recorded())->toBe([]);
+})->with([
+    'missing' => null,
+    'empty' => '',
+    'non string' => ['page'],
+]);
+
+it('fails closed when page contribution identity is ambiguous', function (): void {
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/editorial-tools',
+        surfaces: ['frontend'],
+        overrides: [
+            'contributes' => [
+                [
+                    'type' => 'page-type',
+                    'class' => 'Vendor\\EditorialTools\\Manifest\\PageType',
+                    'modelClass' => Page::class,
+                ],
+                [
+                    'type' => 'page-variation',
+                    'class' => 'Vendor\\EditorialTools\\Manifest\\PageVariation',
+                    'modelClass' => Page::class,
+                ],
+            ],
+        ],
+    ));
+
+    resolve(CapellPackageRegistry::class)->fill([$manifest->name => $manifest]);
+    resolve(OnFrontendContextResolved::class)->handle(new FrontendContextResolved(new FrontendContext(
+        site: null,
+        language: null,
+        page: new Page,
+        layout: null,
+        theme: null,
+        params: [],
+        slug: null,
+    )));
+
+    expect(resolve(RecordExtensionRenderContributionAction::class)->recorded())->toBe([]);
 });
 
 it('attributes only selected rendered hooks with their explicit cache safety', function (): void {
@@ -338,11 +458,29 @@ it('attributes only selected rendered hooks with their explicit cache safety', f
         ->and($records[0]->contributionType)->toBe('render-hook')
         ->and($records[0]->contributionClass)->toBe($safeHook::class)
         ->and($records[0]->cacheTags)->toBe(['extension:editorial-tools'])
-        ->and($records[0]->cacheable)->toBeTrue()
+        ->and($records[0]->cacheable)->toBeFalse()
         ->and($records[0]->sensitiveOutput)->toBeFalse()
         ->and($records[0]->variesBy)->toBe(['site', 'locale']);
 
     resolve(RecordExtensionRenderContributionAction::class)->clear();
+    $cacheableManifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: $manifest->name,
+        surfaces: ['frontend'],
+        overrides: [
+            'performance' => [
+                'frontendRenderBudgetMs' => 0,
+                'cacheTags' => ['extension:editorial-tools'],
+                'cacheSafety' => [
+                    'cacheable' => true,
+                    'variesBy' => ['site', 'locale'],
+                    'sensitiveOutput' => false,
+                    'invalidationSources' => [],
+                    'queueInvalidation' => true,
+                ],
+            ],
+        ],
+    ));
+    resolve(CapellPackageRegistry::class)->fill([$cacheableManifest->name => $cacheableManifest]);
 
     expect($registry->renderAll(RenderHookLocation::Footer, target: 'article'))
         ->toBe('<aside>unsafe</aside>');
