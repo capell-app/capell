@@ -25,11 +25,13 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use UnexpectedValueException;
 
 final class ReadSiteAdminMetricSeriesAction
 {
+    use AsFake;
     use AsObject;
 
     public const string Permission = 'View:SiteAdminMetricsPage';
