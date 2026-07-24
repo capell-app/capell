@@ -250,6 +250,9 @@
         }
     },
     "autoload-dev": {
+        "classmap": [
+            "scripts/benchmark-boot-support.php"
+        ],
         "psr-4": {
             "Capell\\Tests\\": "tests",
             "Capell\\Tests\\Fixtures\\": "tests/fixtures",
