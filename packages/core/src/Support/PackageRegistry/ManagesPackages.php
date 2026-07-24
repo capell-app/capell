@@ -144,7 +144,7 @@ trait ManagesPackages
             type: $this->packageTypeFromManifestKind($manifest->kind),
             scopes: array_map(PackageScopeEnum::from(...), $manifest->scopes),
             serviceProviderClass: $existing->serviceProviderClass ?? $manifest->serviceProviderClass(),
-            path: $manifest->installPath ?? $existing->path,
+            path: $existing->path ?? $manifest->installPath,
             shortName: $manifest->displayName,
             description: $manifest->description,
             sort: $manifest->order,
@@ -190,6 +190,18 @@ trait ManagesPackages
 
         if (app()->bound(CapellPackageRegistry::class)) {
             resolve(CapellPackageRegistry::class)->register($manifest);
+        }
+
+        return $this;
+    }
+
+    public function refreshInstalledManifestPackage(CapellManifestData $manifest, ?string $version = null): static
+    {
+        $this->registerManifestPackage($manifest, $version);
+
+        if ($manifest->installPath !== null) {
+            $this->packages[$manifest->name]->path = $manifest->installPath;
+            $this->clearPackageMemoization();
         }
 
         return $this;

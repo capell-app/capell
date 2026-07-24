@@ -28,6 +28,7 @@ use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Manifest\ManifestLoader;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
@@ -145,8 +146,10 @@ final class InstallStepExecutor
 
     private function refreshInstalledPackageMetadata(): void
     {
+        $packageRegistry = resolve(CapellPackageRegistry::class);
+
         foreach (resolve(ManifestLoader::class)->discover() as $manifest) {
-            CapellCore::registerManifestPackage(
+            $packageRegistry->refreshInstalledManifestPackage(
                 $manifest,
                 CapellCore::getInstalledPrettyVersion($manifest->name),
             );
