@@ -949,13 +949,13 @@ it('refreshes selected package metadata after Composer installs developer toolin
         ->and($installedPackage)->toBeInstanceOf(PackageData::class)
         ->not->toBe($preInstallPackage)
         ->and($installedPackage->path)->toBe($installedPath)
-        ->and($installedPackage->declaresMigrations())->toBeTrue();
+        ->and($installedPackage->declaresSchemaMigrations())->toBeTrue();
 
     $installPackage = Mockery::mock(InstallPackageAction::class);
     $installPackage->shouldReceive('handle')
         ->once()
         ->withArgs(fn (PackageData $package): bool => $package->path === $installedPath
-            && $package->declaresMigrations());
+            && $package->declaresSchemaMigrations());
     app()->instance(InstallPackageAction::class, $installPackage);
 
     resolve(InstallStepExecutor::class)->execute(
