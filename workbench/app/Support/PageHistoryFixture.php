@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 
 final class PageHistoryFixture
 {
+    private const string LayoutKey = 'page-history-screenshot-fixture';
+
     private const string PageName = 'Page history screenshot fixture';
 
     public static function editUrl(): string
@@ -27,6 +29,11 @@ final class PageHistoryFixture
     private static function rebuild(): Page
     {
         $page = self::page();
+        $layout = self::layout($page->site);
+
+        if ($page->layout_id !== $layout->getKey()) {
+            $page->forceFill(['layout_id' => $layout->getKey()])->save();
+        }
 
         DB::transaction(function () use ($page): void {
             DB::table('stored_events')->where('aggregate_uuid', $page->uuid)->delete();
@@ -70,6 +77,20 @@ final class PageHistoryFixture
         ])->save();
 
         return $page;
+    }
+
+    private static function layout(Site $site): Layout
+    {
+        return Layout::query()->updateOrCreate(
+            [
+                'site_id' => $site->getKey(),
+                'key' => self::LayoutKey,
+            ],
+            [
+                'name' => 'Page history screenshot fixture',
+                'containers' => [],
+            ],
+        );
     }
 
     private static function recordRevision(Page $page, string $title, string $content): void

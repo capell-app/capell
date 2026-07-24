@@ -115,6 +115,22 @@
             "scenario": "admin-index",
             "url": "/screenshot-fixtures/page-history",
             "waitFor": "button[wire\\:click*='rollback']",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[wire\\:click*=\"activeRelationManager\"][wire\\:click*=\"'1'\"]"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-ta"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-ta"
+                }
+            ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/page-history-timeline.png",
             "required": true,
@@ -131,6 +147,10 @@
             "url": "/screenshot-fixtures/page-history",
             "waitFor": ".fi-modal-open",
             "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[wire\\:click*=\"activeRelationManager\"][wire\\:click*=\"'1'\"]"
+                },
                 {
                     "type": "click",
                     "selector": "button[wire\\:click*='rollback']"

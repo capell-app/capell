@@ -29,5 +29,7 @@ it('rebuilds deterministic page history with rollback and roll-forward targets',
         ->and($revisions->pluck('is_rollback')->all())->toBe([false, false, false, true])
         ->and(resolve(RollbackService::class)->currentVersion($page->uuid))->toBe(4)
         ->and(resolve(RollbackService::class)->activeContentVersion($page->uuid))->toBe(2)
+        ->and($page->layout->key)->toBe('page-history-screenshot-fixture')
+        ->and($page->layout->containers)->toBe([])
         ->and($page->translations()->firstOrFail()->title)->toBe('Homepage launch copy reviewed');
 });
