@@ -7,6 +7,7 @@ namespace Capell\Tests\Support\Octane;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
@@ -149,6 +150,7 @@ final class SingletonLifetimeInventory
             UserMenuItemRegistry::class => self::boot('User menu definitions are package boot registrations; resolution is scoped.'),
             OverviewStatRegistry::class => self::boot('Overview stats are package boot registrations.'),
             AdminBridgeRegistry::class => self::boot('Admin bridge contributions are package boot registrations.'),
+            AdminRuntimeActivator::class => self::boot('Admin activation transitions once per worker and materializes only boot-lifetime registrations.'),
             ImportEntryRegistry::class => self::boot('Import entries are package boot registrations.'),
             ExtensionManagementSurfaceRegistry::class => self::boot('Extension management surfaces are package boot registrations.'),
             ExtensionsPageActionRegistry::class => self::boot('Extension page actions are package boot registrations.'),

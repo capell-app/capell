@@ -13,6 +13,7 @@ use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupResultData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Filament\Facades\Filament;
@@ -33,6 +34,8 @@ class InstallCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $this->writeCommandIntro('install Capell Admin', $this->adminInstallIntroDetails());
 
         Filament::getDefaultPanel()

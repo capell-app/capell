@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Illuminate\Console\Command;
 
 class CacheWidgetsCommand extends Command
@@ -15,6 +16,8 @@ class CacheWidgetsCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $this->info('Caching discoverable widgets...');
 
         CapellAdmin::cacheWidgets();
