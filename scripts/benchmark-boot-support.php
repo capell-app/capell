@@ -481,7 +481,7 @@ final class BootBenchmark
         try {
             $workspace->prepareCache($options->cache);
             $samples = [];
-            $frameworkSamples = [];
+            $processSamples = [];
             $providerSamples = [];
 
             for ($iteration = 0; $iteration < $options->warmups + $options->iterations; $iteration++) {
@@ -493,8 +493,8 @@ final class BootBenchmark
                 $profile = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
 
                 if ($iteration >= $options->warmups) {
-                    $samples[] = $elapsed;
-                    $frameworkSamples[] = $profile['framework_ms'];
+                    $samples[] = $profile['framework_ms'];
+                    $processSamples[] = $elapsed;
 
                     foreach ($profile['providers_ms'] as $provider => $timings) {
                         $providerSamples[$provider]['register'][] = $timings['register'];
@@ -517,7 +517,7 @@ final class BootBenchmark
                 ],
                 'statistics_ms' => $statistics,
                 'profiling_ms' => $options->profiling
-                    ? $this->profiling($samples, $frameworkSamples, $providerSamples)
+                    ? $this->profiling($processSamples, $samples, $providerSamples)
                     : null,
                 'fingerprint' => $fingerprint,
             ];
@@ -583,6 +583,7 @@ final class BootBenchmark
 
         return [
             'framework_p50' => $framework['p50'],
+            'process_p50' => BootStatistics::summarize($processSamples)['p50'],
             'process_overhead_p50' => BootStatistics::summarize($overhead)['p50'],
             'providers' => $providerProfiles,
             'capell' => [

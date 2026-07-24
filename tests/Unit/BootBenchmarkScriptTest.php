@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Benchmark\BootBenchmark;
 use Capell\Benchmark\BootBenchmarkOptions;
 use Capell\Benchmark\BootProfiles;
 use Capell\Benchmark\BootStatistics;
@@ -68,4 +69,20 @@ it('keeps screenshot fixtures out of production profiles', function (): void {
             AdminServiceProvider::class,
             MarketplaceServiceProvider::class,
         );
+});
+
+it('reports in-process framework boot as the primary benchmark sample', function (): void {
+    $result = new BootBenchmark(dirname(__DIR__, 2))->run(new BootBenchmarkOptions(
+        profile: 'public',
+        cache: 'optimized',
+        iterations: 3,
+        warmups: 1,
+        format: 'json',
+        profiling: true,
+    ));
+
+    expect($result['statistics_ms']['p50'])
+        ->toBe($result['profiling_ms']['framework_p50'])
+        ->and($result['profiling_ms']['process_p50'])
+        ->toBeGreaterThanOrEqual($result['profiling_ms']['framework_p50']);
 });
