@@ -10,6 +10,7 @@ use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Filament\Panel;
+use Illuminate\Support\Facades\DB;
 
 it('prepares route-visible declarations before activating request-only runtime work', function (): void {
     $registry = new AdminBridgeRegistry;
@@ -95,6 +96,19 @@ it('activates on first direct access to runtime asset definitions', function ():
     expect($activator->isActivated())->toBeFalse()
         ->and(CapellAdmin::hasAsset('Page'))->toBeTrue()
         ->and($activator->isActivated())->toBeTrue();
+});
+
+it('does not query the database while preparing or activating admin runtime', function (): void {
+    $queries = [];
+    DB::listen(function () use (&$queries): void {
+        $queries[] = true;
+    });
+
+    $activator = resolve(AdminRuntimeActivator::class);
+    $activator->prepare();
+    $activator->activate();
+
+    expect($queries)->toBe([]);
 });
 
 final class AdminRuntimeActivatorTestBridge implements AdminBridge
