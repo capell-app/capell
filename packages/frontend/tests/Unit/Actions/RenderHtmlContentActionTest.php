@@ -23,6 +23,20 @@ it('preserves sanitized html longer than the sanitizer default input limit', fun
         ->not->toContain('script');
 });
 
+it('does not share sanitizer state between configured allowlists', function (): void {
+    $html = '<p data-first="one" data-second="two">Hello</p>';
+
+    config()->set('capell-frontend.html_content_allowed_attributes', ['data-first']);
+
+    expect(RenderHtmlContentAction::run($html)->toHtml())
+        ->toBe('<p data-first="one">Hello</p>');
+
+    config()->set('capell-frontend.html_content_allowed_attributes', ['data-second']);
+
+    expect(RenderHtmlContentAction::run($html)->toHtml())
+        ->toBe('<p data-second="two">Hello</p>');
+});
+
 it('interpolates simple scalar tokens without evaluating expressions or directives', function (): void {
     config()->set('capell-frontend.render_html_content_with_blade', false);
 

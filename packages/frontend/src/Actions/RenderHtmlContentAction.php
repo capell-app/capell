@@ -18,8 +18,6 @@ class RenderHtmlContentAction
     use AsFake;
     use AsObject;
 
-    private static ?HtmlSanitizer $sanitizer = null;
-
     /**
      * @param  array<string, mixed>  $context
      */
@@ -74,10 +72,6 @@ class RenderHtmlContentAction
 
     private function sanitizer(): HtmlSanitizer
     {
-        if (self::$sanitizer instanceof HtmlSanitizer) {
-            return self::$sanitizer;
-        }
-
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
             ->allowRelativeLinks()
@@ -96,6 +90,6 @@ class RenderHtmlContentAction
             $config = $config->allowAttribute($attribute, '*');
         }
 
-        return self::$sanitizer = new HtmlSanitizer($config);
+        return new HtmlSanitizer($config);
     }
 }
