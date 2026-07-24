@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions\Performance;
 
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RecordManifestRenderContributionAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(
