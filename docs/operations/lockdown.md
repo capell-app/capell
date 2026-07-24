@@ -17,8 +17,8 @@ CAPELL_LOCKDOWN_USER_IDS=1,2
 CAPELL_LOCKDOWN_EMAILS=owner@example.com,ops@example.com
 ```
 
-These values feed the `lockdown.break_glass_user_ids` and
-`lockdown.break_glass_emails` entries in `config/capell.php`.
+These values feed the `capell.lockdown.break_glass_user_ids` and
+`capell.lockdown.break_glass_emails` config keys (in `config/capell.php`).
 
 ## Using Lockdown
 

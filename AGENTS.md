@@ -1,5 +1,9 @@
 # Capell Monorepo Instructions
 
+## Git Workflow
+
+- Never commit directly to `main`. Always branch (`feat/`, `fix/`, `chore/`, `docs/`), push, and open a PR — even for single-file or agent-driven changes. `main` on `capell-app/capell` requires a PR via branch protection; do not rely on that alone.
+
 ## Working Agreement
 
 - Preserve unrelated local changes and keep each diff scoped to the requested package or contract.
