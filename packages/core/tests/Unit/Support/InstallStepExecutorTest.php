@@ -8,7 +8,6 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
-use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
@@ -887,7 +886,7 @@ it('publishes migrations for trusted core packages during install', function ():
     }
 });
 
-it('refreshes selected package metadata after Composer installs developer tooling', function (): void {
+it('refreshes selected package metadata before package install without a developer tooling step', function (): void {
     $packageName = 'capell-app/agent-bridge';
     $installedPath = base_path('vendor/capell-app/agent-bridge');
 
@@ -905,7 +904,6 @@ it('refreshes selected package metadata after Composer installs developer toolin
             generateSitemap: false,
             generateStaticSite: false,
             seedDefaultData: false,
-            installDeveloperTooling: true,
         ),
         installStepExecutorReporter($lines),
         (int) $user->getKey(),
@@ -913,11 +911,8 @@ it('refreshes selected package metadata after Composer installs developer toolin
 
     $preInstallPackage = $state->selectedPackages()->get($packageName);
 
-    $installDeveloperTooling = Mockery::mock(InstallDeveloperToolingAction::class);
-    $installDeveloperTooling->shouldReceive('handle')
-        ->once()
-        ->with(Mockery::type(ProgressReporter::class), false);
-    app()->instance(InstallDeveloperToolingAction::class, $installDeveloperTooling);
+    expect(array_column(InstallPlan::build($state->inputData), 'key'))
+        ->not->toContain(InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING);
 
     $installedManifest = CapellManifestData::fromArray(
         capellManifestV3Array(
@@ -938,19 +933,6 @@ it('refreshes selected package metadata after Composer installs developer toolin
         ->andReturn([$packageName => $installedManifest]);
     app()->instance(InstalledPackageManifestDiscovery::class, $manifestDiscovery);
 
-    resolve(InstallStepExecutor::class)->execute(
-        InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
-        $state,
-    );
-
-    $installedPackage = $state->selectedPackages()->get($packageName);
-
-    expect($preInstallPackage)->toBeInstanceOf(PackageData::class)
-        ->and($installedPackage)->toBeInstanceOf(PackageData::class)
-        ->not->toBe($preInstallPackage)
-        ->and($installedPackage->path)->toBe($installedPath)
-        ->and($installedPackage->declaresSchemaMigrations())->toBeTrue();
-
     $installPackage = Mockery::mock(InstallPackageAction::class);
     $installPackage->shouldReceive('handle')
         ->once()
@@ -962,4 +944,12 @@ it('refreshes selected package metadata after Composer installs developer toolin
         InstallPlan::packageInstallStepKey($packageName),
         $state,
     );
+
+    $installedPackage = $state->selectedPackages()->get($packageName);
+
+    expect($preInstallPackage)->toBeInstanceOf(PackageData::class)
+        ->and($installedPackage)->toBeInstanceOf(PackageData::class)
+        ->not->toBe($preInstallPackage)
+        ->and($installedPackage->path)->toBe($installedPath)
+        ->and($installedPackage->declaresSchemaMigrations())->toBeTrue();
 });

@@ -232,12 +232,25 @@ final class InstallStepExecutor
 
     private function installPackage(InstallRunState $state, string $packageName): void
     {
+        $this->refreshPackageMetadata($state);
+
         resolve(InstallPackagesAction::class)->installPackage(
             $state->inputData,
             $state->resolvedUser(),
             $packageName,
             $state->reporter,
         );
+    }
+
+    private function refreshPackageMetadata(InstallRunState $state): void
+    {
+        if ($state->packageMetadataIsRefreshed()) {
+            return;
+        }
+
+        $this->refreshInstalledPackageMetadata();
+        CapellCore::clearExtensionCache();
+        $state->refreshSelectedPackages()->markPackageMetadataRefreshed();
     }
 
     private function setupPackage(InstallRunState $state, string $packageName): void

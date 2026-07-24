@@ -19,6 +19,8 @@ final class InstallRunState
     /** @var Collection<string, PackageData>|null */
     private ?Collection $selectedPackages = null;
 
+    private bool $packageMetadataRefreshed = false;
+
     public function __construct(
         public readonly InstallInputData $inputData,
         public readonly ProgressReporter $reporter,
@@ -49,6 +51,18 @@ final class InstallRunState
     public function refreshSelectedPackages(): self
     {
         $this->selectedPackages = null;
+
+        return $this;
+    }
+
+    public function packageMetadataIsRefreshed(): bool
+    {
+        return $this->packageMetadataRefreshed;
+    }
+
+    public function markPackageMetadataRefreshed(): self
+    {
+        $this->packageMetadataRefreshed = true;
 
         return $this;
     }
