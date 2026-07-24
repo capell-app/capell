@@ -195,6 +195,18 @@ trait ManagesPackages
         return $this;
     }
 
+    public function refreshInstalledManifestPackage(CapellManifestData $manifest, ?string $version = null): static
+    {
+        $this->registerManifestPackage($manifest, $version);
+
+        if ($manifest->installPath !== null) {
+            $this->packages[$manifest->name]->path = $manifest->installPath;
+            $this->clearPackageMemoization();
+        }
+
+        return $this;
+    }
+
     /**
      * @return Collection<string, PackageData>
      */

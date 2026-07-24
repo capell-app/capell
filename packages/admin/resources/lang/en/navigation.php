@@ -32,6 +32,7 @@ return [
     'permission_audit' => 'Permission Audit',
     'preview_links' => 'Preview Links',
     'site_health' => 'Site Health',
+    'site_admin_metrics' => 'Site Metrics',
     'queue_health' => 'Queue Health',
     'redirects' => 'Redirects',
     'settings' => 'Settings',

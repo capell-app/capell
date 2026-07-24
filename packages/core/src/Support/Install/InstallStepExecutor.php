@@ -27,6 +27,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
@@ -85,7 +86,7 @@ final class InstallStepExecutor
             InstallPlan::STEP_RUN_MIGRATIONS_MID, InstallPlan::STEP_RUN_MIGRATIONS_POST => RunMigrationsAction::run($state->reporter),
             InstallPlan::STEP_RESOLVE_USER => $this->resolveInstallUser($state),
             InstallPlan::STEP_INSTALL_FILAMENT_PANEL => InstallFilamentPanelAction::run($state->reporter),
-            InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => InstallDeveloperToolingAction::run($state->reporter, $state->inputData->configureBoostDeveloperTooling),
+            InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => $this->installDeveloperTooling($state),
             InstallPlan::STEP_INTEGRATE_ADMIN_PANEL => $this->integrateAdminPanel($state),
             InstallPlan::STEP_CLEAR_CACHES => ClearCachesAction::run($state->inputData->cachesToClear, $state->reporter),
             InstallPlan::STEP_SEED_DATABASE => $this->seedDatabase($state),
@@ -127,6 +128,31 @@ final class InstallStepExecutor
         $this->registerComposerDiscoveredProviders();
         CapellCore::clearExtensionCache();
         $state->refreshSelectedPackages();
+    }
+
+    private function installDeveloperTooling(InstallRunState $state): void
+    {
+        InstallDeveloperToolingAction::run(
+            $state->reporter,
+            $state->inputData->configureBoostDeveloperTooling,
+        );
+
+        $this->registerComposerDiscoveredProviders();
+        $this->refreshInstalledPackageMetadata();
+        CapellCore::clearExtensionCache();
+        $state->refreshSelectedPackages();
+    }
+
+    private function refreshInstalledPackageMetadata(): void
+    {
+        $packageRegistry = resolve(CapellPackageRegistry::class);
+
+        foreach (resolve(InstalledPackageManifestDiscovery::class)->discover() as $manifest) {
+            $packageRegistry->refreshInstalledManifestPackage(
+                $manifest,
+                CapellCore::getInstalledPrettyVersion($manifest->name),
+            );
+        }
     }
 
     /**
@@ -206,12 +232,25 @@ final class InstallStepExecutor
 
     private function installPackage(InstallRunState $state, string $packageName): void
     {
+        $this->refreshPackageMetadata($state);
+
         resolve(InstallPackagesAction::class)->installPackage(
             $state->inputData,
             $state->resolvedUser(),
             $packageName,
             $state->reporter,
         );
+    }
+
+    private function refreshPackageMetadata(InstallRunState $state): void
+    {
+        if ($state->packageMetadataIsRefreshed()) {
+            return;
+        }
+
+        $this->refreshInstalledPackageMetadata();
+        CapellCore::clearExtensionCache();
+        $state->refreshSelectedPackages()->markPackageMetadataRefreshed();
     }
 
     private function setupPackage(InstallRunState $state, string $packageName): void
