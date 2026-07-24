@@ -49,6 +49,8 @@ trait HasWelcomeTours
      */
     public function getWelcomeTourSteps(): array
     {
+        $this->prepareAdminRuntime();
+
         return array_values(collect($this->welcomeTourSteps)
             ->filter(fn (WelcomeTourStepData $step): bool => $step->isVisible())
             ->sortBy([
@@ -61,6 +63,8 @@ trait HasWelcomeTours
 
     public function clearWelcomeTourSteps(): void
     {
+        $this->prepareAdminRuntime();
+
         $this->welcomeTourSteps = [];
     }
 }

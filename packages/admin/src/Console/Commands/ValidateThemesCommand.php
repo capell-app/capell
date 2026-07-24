@@ -6,6 +6,7 @@ namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Actions\Themes\ResolveThemeLibraryAction;
 use Capell\Admin\Data\Themes\ThemeLibraryCardData;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
@@ -17,6 +18,8 @@ final class ValidateThemesCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $themeKey = $this->argument('themeKey');
         $library = ResolveThemeLibraryAction::run();
 
