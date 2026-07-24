@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\UpdatePageUrlAction;
 use Capell\Core\Enums\CacheEnum;
-use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -12,6 +11,7 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 
 it('runs update page url action when a page translation is updated', function (): void {
     UpdatePageUrlAction::shouldRun()->once();
@@ -91,7 +91,11 @@ it('creates page translation metadata without lazy loading its pageable', functi
             'meta' => [],
         ]);
 
-        app(PageTranslationCreatingListener::class)($translation);
+        Event::dispatch('eloquent.creating: ' . Translation::class, [$translation]);
+
+        expect($translation->relationLoaded('translatable'))->toBeTrue();
+        expect($translation->translatable)->toBeInstanceOf(Page::class);
+        expect($translation->content)->toBeString();
 
         expect($translation)
             ->title->toBe('Strict Loading Page')

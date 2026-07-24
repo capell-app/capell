@@ -24,6 +24,8 @@ final class PageTranslationCreatingListener
             return;
         }
 
+        $translation->setRelation('translatable', $page);
+
         if ($translation->title === null) {
             $translation->title = $page->name;
         }
