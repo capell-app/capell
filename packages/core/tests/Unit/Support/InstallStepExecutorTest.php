@@ -951,7 +951,7 @@ it('refreshes selected package metadata before package install without a develop
     }
 
     expect($preInstallPackage)->toBeInstanceOf(PackageData::class)
-        ->not->toBe($preInstallPackage)
+        ->and($installedPackage)->not->toBe($preInstallPackage)
         ->and($installedPackage->path)->toBe($installedPath)
         ->and($installedPackage->declaresSchemaMigrations())->toBeTrue();
 });
