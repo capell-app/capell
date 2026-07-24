@@ -6,6 +6,7 @@ namespace Capell\Admin\Concerns;
 
 use BackedEnum;
 use Capell\Admin\Data\AdminAssetData;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Core\Enums\AssetEnum;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -29,11 +30,15 @@ trait HasAdminAssets
      */
     public function getAssets(): Collection
     {
+        $this->activateAdminRuntime();
+
         return collect($this->assets);
     }
 
     public function getAsset(string|AssetEnum|BackedEnum $name): AdminAssetData
     {
+        $this->activateAdminRuntime();
+
         if ($name instanceof BackedEnum) {
             $name = $name->name;
         }
@@ -47,6 +52,15 @@ trait HasAdminAssets
 
     public function hasAsset(string $name): bool
     {
+        $this->activateAdminRuntime();
+
         return isset($this->assets[$name]);
+    }
+
+    private function activateAdminRuntime(): void
+    {
+        if (app()->bound(AdminRuntimeActivator::class)) {
+            resolve(AdminRuntimeActivator::class)->activate();
+        }
     }
 }

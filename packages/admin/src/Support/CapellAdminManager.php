@@ -142,6 +142,8 @@ class CapellAdminManager
      */
     public function getMarketingStudioActions(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->marketingStudioActionRegistry->groupedVisibleActions();
     }
 
@@ -172,12 +174,16 @@ class CapellAdminManager
     /** @return array<string, UserMenuItemData> */
     public function getUserMenuItemDefinitions(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->userMenuItemRegistry->definitions();
     }
 
     /** @return array<string, Action> */
     public function getUserMenuItems(?Authenticatable $user = null): array
     {
+        $this->prepareAdminRuntime();
+
         $user ??= auth()->user();
 
         return $this->userMenuItemRegistry->resolved($user);
@@ -185,6 +191,8 @@ class CapellAdminManager
 
     public function clearUserMenuItems(): void
     {
+        $this->prepareAdminRuntime();
+
         $this->userMenuItemRegistry->clear();
     }
 
@@ -221,6 +229,8 @@ class CapellAdminManager
     /** @return list<CapellOverviewStatData> */
     public function getOverviewStats(bool $onlyEnabled = true): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->overviewStatRegistry->resolved($onlyEnabled);
     }
 
@@ -229,24 +239,32 @@ class CapellAdminManager
      */
     public function getOverviewStatSettings(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->overviewStatRegistry->settings();
     }
 
     /** @return list<string> */
     public function getDefaultEnabledOverviewStatKeys(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->overviewStatRegistry->defaultEnabledKeys();
     }
 
     /** @return list<string> */
     public function getOverviewStatKeys(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->overviewStatRegistry->keys();
     }
 
     /** @return list<class-string<Widget>> */
     public function getDashboardFilamentWidgets(DashboardEnum $dashboard): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->dashboardWidgetRegistry->forDashboard($dashboard);
     }
 
@@ -263,6 +281,8 @@ class CapellAdminManager
      */
     public function getDashboardPage(): string
     {
+        $this->prepareAdminRuntime();
+
         return $this->dashboardPage;
     }
 
@@ -295,28 +315,45 @@ class CapellAdminManager
 
     public function getReport(string $key): ?ReportDefinitionData
     {
+        $this->prepareAdminRuntime();
+
         return $this->reportRegistry->get($key);
     }
 
     /** @return array<string, ReportDefinitionData> */
     public function getReports(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->reportRegistry->all();
     }
 
     /** @return list<class-string> */
     public function getReportPages(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->reportRegistry->pageClasses();
     }
 
     public function getReportRegistry(): ReportRegistry
     {
+        $this->prepareAdminRuntime();
+
         return $this->reportRegistry;
+    }
+
+    public function clearReports(): void
+    {
+        $this->prepareAdminRuntime();
+
+        $this->reportRegistry->clear();
     }
 
     public function getAdminSurfaceRegistry(): AdminSurfaceContributionRegistry
     {
+        $this->prepareAdminRuntime();
+
         return $this->adminSurfaceRegistry;
     }
 
@@ -326,6 +363,10 @@ class CapellAdminManager
     public function registerAdminBridge(string $packageName, string $bridgeClass): void
     {
         resolve(AdminBridgeRegistrar::class)->bridge($packageName, $bridgeClass);
+
+        if (app()->resolved(AdminRuntimeActivator::class) && resolve(AdminRuntimeActivator::class)->isPrepared()) {
+            resolve(AdminRuntimeActivator::class)->prepare();
+        }
     }
 
     public function bootAdminBridges(string $packageName): void
@@ -348,12 +389,16 @@ class CapellAdminManager
 
     public function hasResource(string $group, string $name = 'default'): bool
     {
+        $this->prepareAdminRuntime();
+
         return isset($this->adminSurfaceRegistry->resourcesForGroup($group)[$name]);
     }
 
     /** @return class-string|null */
     public function getResource(string $group, string $name = 'default'): ?string
     {
+        $this->prepareAdminRuntime();
+
         return $this->adminSurfaceRegistry->resourcesForGroup($group)[$name] ?? null;
     }
 
@@ -377,12 +422,16 @@ class CapellAdminManager
 
     public function clearActivityResourceLinks(): void
     {
+        $this->prepareAdminRuntime();
+
         resolve(ActivityResourceLinkRegistry::class)->clear();
     }
 
     /** @return array<string, class-string> */
     public function getConfigurators(string $group): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->adminSurfaceRegistry->configuratorsForGroup($group);
     }
 
@@ -416,6 +465,8 @@ class CapellAdminManager
      */
     public function getAdminSurfaceContributions(?AdminSurfaceContributionType $type = null): array
     {
+        $this->prepareAdminRuntime();
+
         $contributions = $this->adminSurfaceRegistry->all();
 
         if (! $type instanceof AdminSurfaceContributionType) {
@@ -427,6 +478,8 @@ class CapellAdminManager
 
     public function clearAdminSurfaceContributions(): void
     {
+        $this->prepareAdminRuntime();
+
         $this->adminSurfaceRegistry->clear();
     }
 
@@ -437,6 +490,13 @@ class CapellAdminManager
         throw_if(! is_string($settingsClass) || $settingsClass === '', RuntimeException::class, 'Admin settings class is not configured.');
 
         return resolve($settingsClass);
+    }
+
+    private function prepareAdminRuntime(): void
+    {
+        if (app()->bound(AdminRuntimeActivator::class)) {
+            resolve(AdminRuntimeActivator::class)->prepare();
+        }
     }
 
     /**

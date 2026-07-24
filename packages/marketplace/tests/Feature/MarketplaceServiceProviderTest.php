@@ -9,6 +9,7 @@ use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Facades\CapellCore;
@@ -75,6 +76,30 @@ it('registers and boots the marketplace admin bridge once', function (): void {
         ->and($tagCount(ExtensionCatalogueMetadataProvider::TAG, MarketplaceCatalogueRecordProvider::class))->toBe(1)
         ->and($tagCount(ResourceHeaderActionExtender::TAG, ThemeMarketplaceHeaderActionExtender::class))->toBe(1)
         ->and($tagCount(PendingThemeInstallProvider::TAG, PendingMarketplaceThemeInstallProvider::class))->toBe(1);
+});
+
+it('boots its admin bridge when registered after runtime preparation', function (): void {
+    $registry = resolve(AdminBridgeRegistry::class);
+    $registry->clear();
+
+    $bootedPackages = [];
+    $activator = new AdminRuntimeActivator(
+        bridges: $registry,
+        prepareBuiltIns: static function (): void {},
+        activateRuntime: static function (): void {},
+        bootBridges: static function (string $packageName) use (&$bootedPackages): void {
+            $bootedPackages[] = $packageName;
+        },
+    );
+    $activator->prepare();
+
+    app()->instance(AdminRuntimeActivator::class, $activator);
+
+    new MarketplaceServiceProvider(app())->registeringPackage();
+
+    expect($registry->classes(MarketplaceServiceProvider::$packageName))
+        ->toBe([MarketplaceAdminBridge::class])
+        ->and($bootedPackages)->toBe([MarketplaceServiceProvider::$packageName]);
 });
 
 it('does not boot marketplace admin contributions when marketplace is disabled', function (): void {

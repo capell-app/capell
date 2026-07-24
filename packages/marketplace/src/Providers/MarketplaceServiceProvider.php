@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Providers;
 
-use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\AdminRuntimeActivator;
+use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\VerifyMarketplaceSignedActivationAction;
@@ -55,10 +56,20 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
     {
         parent::registeringPackage();
 
-        $this->app->booted(function (): void {
-            CapellAdmin::registerAdminBridge(self::$packageName, MarketplaceAdminBridge::class);
-            CapellAdmin::bootAdminBridges(self::$packageName);
-        });
+        $this->callAfterResolving(
+            AdminBridgeRegistry::class,
+            static function (AdminBridgeRegistry $registry): void {
+                $registry->register(self::$packageName, MarketplaceAdminBridge::class);
+
+                if (app()->resolved(AdminRuntimeActivator::class)) {
+                    $activator = resolve(AdminRuntimeActivator::class);
+
+                    if ($activator->isPrepared()) {
+                        $activator->prepare();
+                    }
+                }
+            },
+        );
 
         if (config('capell-marketplace.enabled', true)) {
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);

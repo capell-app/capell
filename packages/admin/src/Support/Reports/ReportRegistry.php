@@ -7,7 +7,11 @@ namespace Capell\Admin\Support\Reports;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 
-/** @extends AbstractKeyedRegistry<ReportDefinitionData> */
+/**
+ * Resolve report mutations through CapellAdmin so deferred declarations are prepared first.
+ *
+ * @extends AbstractKeyedRegistry<ReportDefinitionData>
+ */
 final class ReportRegistry extends AbstractKeyedRegistry
 {
     public function register(ReportDefinitionData $report): void

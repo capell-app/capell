@@ -13,12 +13,19 @@ final class AdminBridgeRegistry
     /** @var array<string, array<class-string<AdminBridge>, class-string<AdminBridge>>> */
     private array $bridges = [];
 
+    private int $revision = 0;
+
     /**
      * @param  class-string<AdminBridge>  $bridgeClass
      */
     public function register(string $packageName, string $bridgeClass): void
     {
+        if (isset($this->bridges[$packageName][$bridgeClass])) {
+            return;
+        }
+
         $this->bridges[$packageName][$bridgeClass] = $bridgeClass;
+        $this->revision++;
     }
 
     /**
@@ -27,6 +34,17 @@ final class AdminBridgeRegistry
     public function classes(string $packageName): array
     {
         return array_values($this->bridges[$packageName] ?? []);
+    }
+
+    /** @return list<string> */
+    public function packageNames(): array
+    {
+        return array_keys($this->bridges);
+    }
+
+    public function revision(): int
+    {
+        return $this->revision;
     }
 
     /**
@@ -43,6 +61,11 @@ final class AdminBridgeRegistry
 
     public function clear(): void
     {
+        if ($this->bridges === []) {
+            return;
+        }
+
         $this->bridges = [];
+        $this->revision++;
     }
 }

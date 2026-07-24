@@ -7,6 +7,7 @@ namespace Capell\Admin\Console\Commands;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Illuminate\Console\Command;
@@ -37,6 +38,8 @@ class PublishResourcesCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $this->writeCommandIntro('publish Capell admin resources', $this->enabledOptionDetails([
             'force' => 'overwrite enabled',
             'type' => 'a selected resource type',

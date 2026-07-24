@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, UserMenuItemData> getUserMenuItemDefinitions()
  * @method static array<string, Action> getUserMenuItems(?Authenticatable $user = null)
  * @method static void clearUserMenuItems()
+ * @method static void clearReports()
  * @method static list<CapellOverviewStatData> getOverviewStats(bool $onlyEnabled = true)
  * @method static list<array{key: string, label: string, group: string, description?: string|null}> getOverviewStatSettings()
  * @method static list<string> getDefaultEnabledOverviewStatKeys()

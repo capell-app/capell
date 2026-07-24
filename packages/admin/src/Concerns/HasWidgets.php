@@ -44,6 +44,8 @@ trait HasWidgets
     // @phpstan-ignore-next-line missingType.iterableValue (Filament's Block base class is intentionally generic at this extension boundary.)
     public function getFilamentWidgets(): array
     {
+        $this->prepareAdminRuntime();
+
         return $this->widgetDiscovery()->filamentWidgets();
     }
 
