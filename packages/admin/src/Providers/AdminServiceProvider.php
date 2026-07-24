@@ -346,7 +346,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
 
         $this
-            ->registerAdminPackageMetadata()
             ->registerMacros()
             ->registerAssets()
             ->registerNotificationGroups()
@@ -381,6 +380,34 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerUpgradeNotificationSchedule()
             ->registerContentRetentionSchedule()
             ->registerModelObservers();
+    }
+
+    #[Override]
+    protected function packageSetupCommand(): string
+    {
+        return 'capell:admin-setup';
+    }
+
+    /** @return array<int, string> */
+    #[Override]
+    protected function packageSetupParameters(): array
+    {
+        return [
+            'url',
+            'user',
+            'languages',
+            'sites',
+            'assets',
+            'theme',
+            'skip-panel-integration',
+            'panel',
+            'configurators',
+            'no-colors',
+            'no-widgets',
+            'no-navigation',
+            'skip-permission-sync',
+            'force',
+        ];
     }
 
     private function registerResources(): self
@@ -712,29 +739,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         return $this->registerBlazeOptimizedViews([
             __DIR__ . '/../../resources/views/components/alert.blade.php',
         ]);
-    }
-
-    private function registerAdminPackageMetadata(): self
-    {
-        return parent::registerPackageMetadata(
-            setupCommand: 'capell:admin-setup',
-            setupParams: [
-                'url',
-                'user',
-                'languages',
-                'sites',
-                'assets',
-                'theme',
-                'skip-panel-integration',
-                'panel',
-                'configurators',
-                'no-colors',
-                'no-widgets',
-                'no-navigation',
-                'skip-permission-sync',
-                'force',
-            ],
-        );
     }
 
     private function registerMacros(): self

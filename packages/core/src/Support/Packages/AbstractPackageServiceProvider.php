@@ -94,6 +94,23 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         return $version !== null && version_compare($version, '4.0.0', '<');
     }
 
+    /** @return class-string|null */
+    protected function packageSettingClass(): ?string
+    {
+        return null;
+    }
+
+    protected function packageSetupCommand(): ?string
+    {
+        return null;
+    }
+
+    /** @return array<int, string> */
+    protected function packageSetupParameters(): array
+    {
+        return [];
+    }
+
     protected function registerAboutInfo(?string $packageName = null): static
     {
         if ($this->app->runningInConsole()) {
@@ -105,15 +122,8 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         return $this;
     }
 
-    /**
-     * @param  class-string|null  $setting
-     * @param  array<int, string>  $setupParams
-     */
-    protected function registerPackageMetadata(
-        ?string $setting = null,
-        ?string $setupCommand = null,
-        array $setupParams = [],
-    ): static {
+    protected function registerPackageMetadata(): static
+    {
         $providerFile = new ReflectionClass(static::class)->getFileName();
 
         throw_if($providerFile === false, RuntimeException::class, 'Package service provider file not found');
@@ -124,9 +134,9 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
             serviceProviderClass: static::class,
             path: $this->resolvePackagePath($providerFile),
             version: CapellCore::getInstalledPrettyVersion(static::$packageName) ?? 'dev',
-            setting: $setting,
-            setupCommand: $setupCommand,
-            setupParams: $setupParams,
+            setting: $this->packageSettingClass(),
+            setupCommand: $this->packageSetupCommand(),
+            setupParams: $this->packageSetupParameters(),
         );
 
         return $this;

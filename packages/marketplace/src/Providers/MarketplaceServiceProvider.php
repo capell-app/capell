@@ -55,8 +55,6 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
     {
         parent::registeringPackage();
 
-        $this->registerPackageMetadata();
-
         $this->app->booted(function (): void {
             CapellAdmin::registerAdminBridge(self::$packageName, MarketplaceAdminBridge::class);
             CapellAdmin::bootAdminBridges(self::$packageName);

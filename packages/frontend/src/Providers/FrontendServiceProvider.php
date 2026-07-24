@@ -193,8 +193,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         $this
             ->registerLoggingChannel()
-            ->registerThemeRuntime()
-            ->registerPackageMetadata();
+            ->registerThemeRuntime();
 
         $this->app->singletonIf(
             CacheBypassResolver::class,

@@ -39,7 +39,11 @@ Pail, Octane, and other development providers.
 The report includes p50, p75, p95, IQR, 10% trimmed mean, Tukey outliers, raw
 samples, and a fingerprint covering Git, dependencies, runtime versions,
 provider order, package manifests, and configuration-cache state. Warmups are
-not included in the reported samples.
+not included in the reported samples. Primary samples measure in-process
+Laravel application creation and bootstrap so operating-system process
+scheduling does not distort the production-like boot result. `--profiling`
+separately reports total child-process time, process overhead, and provider
+register/boot timings.
 
 Establish a baseline only after three 25-sample runs have median spread no
 greater than 3% and IQR/median no greater than 10%. Compare revisions with
