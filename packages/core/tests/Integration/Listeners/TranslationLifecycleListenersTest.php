@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\UpdatePageUrlAction;
 use Capell\Core\Enums\CacheEnum;
+use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
 it('runs update page url action when a page translation is updated', function (): void {
@@ -56,6 +58,47 @@ it('runs creating, created, and updated listeners for page translations', functi
     $translation->save();
 
     expect($page->pageUrl->fresh())->url->toBe('/welcome-updated');
+});
+
+it('creates page translation metadata without lazy loading its pageable', function (): void {
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->createOne([
+        'name' => 'Strict Loading Page',
+    ]);
+
+    $firstTranslation = Translation::factory()
+        ->translatable($page)
+        ->language($language)
+        ->create();
+
+    $secondTranslation = Translation::factory()
+        ->translatable(Page::factory()->createOne())
+        ->create();
+
+    Model::preventLazyLoading();
+
+    try {
+        $translations = Translation::query()
+            ->whereKey([$firstTranslation->getKey(), $secondTranslation->getKey()])
+            ->get();
+
+        $translation = $translations->firstOrFail(
+            fn (Translation $candidate): bool => $candidate->is($firstTranslation),
+        );
+
+        $translation->forceFill([
+            'title' => null,
+            'meta' => [],
+        ]);
+
+        app(PageTranslationCreatingListener::class)($translation);
+
+        expect($translation)
+            ->title->toBe('Strict Loading Page')
+            ->slug->toBe('strict-loading-page');
+    } finally {
+        Model::preventLazyLoading(false);
+    }
 });
 
 it('runs saved and deleted listeners for pageable translations', function (): void {
