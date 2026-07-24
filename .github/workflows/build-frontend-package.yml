@@ -75,6 +75,6 @@ jobs:
           generated_css="resources/css/capell/frontend.css"
           test -s "${generated_css}"
           grep --fixed-strings --quiet "vendor/capell-app/frontend/resources/css/capell-frontend.css" "${generated_css}"
-          cp "${generated_css}" resources/css/app.css
+          printf '@import "./capell/frontend.css";\n' > resources/css/app.css
           npm install --no-audit --no-fund
           npm run build
