@@ -113,7 +113,7 @@
             "targetType": "admin-surface",
             "target": "PageResource/EditPage/EventSourcedHistoryRelationManager",
             "scenario": "admin-index",
-            "url": "/pages/107/edit",
+            "url": "/screenshot-fixtures/page-history",
             "waitFor": "button[wire\\:click*='rollback']",
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/page-history-timeline.png",
@@ -128,8 +128,14 @@
             "targetType": "admin-action-modal",
             "target": "EventSourcedHistoryRelationManager/rollback",
             "scenario": "admin-index",
-            "url": "/pages/107/edit",
+            "url": "/screenshot-fixtures/page-history",
             "waitFor": ".fi-modal-open",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[wire\\:click*='rollback']"
+                }
+            ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
             "required": true,
