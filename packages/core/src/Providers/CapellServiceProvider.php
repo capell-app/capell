@@ -282,7 +282,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerPublicationTransitions()
             ->registerMailMarkdownComponents()
             ->registerLocalAppThemeDiscovery()
-            ->registerPackageMetadata(setting: CoreSettings::class)
             ->registerMacros()
             ->registerOctaneStateReset()
             ->registerModels()
@@ -306,6 +305,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerEventSourcing()
             ->configureMailMarkdownLogo()
             ->dispatchServingEvent();
+    }
+
+    /** @return class-string */
+    #[Override]
+    protected function packageSettingClass(): string
+    {
+        return CoreSettings::class;
     }
 
     private function registerPublicationTransitions(): self
