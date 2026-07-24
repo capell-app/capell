@@ -191,6 +191,8 @@ class CapellAdminManager
 
     public function clearUserMenuItems(): void
     {
+        $this->prepareAdminRuntime();
+
         $this->userMenuItemRegistry->clear();
     }
 
@@ -413,6 +415,8 @@ class CapellAdminManager
 
     public function clearActivityResourceLinks(): void
     {
+        $this->prepareAdminRuntime();
+
         resolve(ActivityResourceLinkRegistry::class)->clear();
     }
 
@@ -467,6 +471,8 @@ class CapellAdminManager
 
     public function clearAdminSurfaceContributions(): void
     {
+        $this->prepareAdminRuntime();
+
         $this->adminSurfaceRegistry->clear();
     }
 

@@ -63,6 +63,8 @@ trait HasWelcomeTours
 
     public function clearWelcomeTourSteps(): void
     {
+        $this->prepareAdminRuntime();
+
         $this->welcomeTourSteps = [];
     }
 }

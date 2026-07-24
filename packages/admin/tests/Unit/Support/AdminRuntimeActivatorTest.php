@@ -103,6 +103,23 @@ it('prepares route-visible declarations for direct registry reads outside the bu
         ->and($activator->isActivated())->toBeFalse();
 });
 
+it('prepares deferred declarations before clearing registries', function (string $clearMethod): void {
+    app()->forgetInstance(AdminRuntimeActivator::class);
+    $activator = resolve(AdminRuntimeActivator::class);
+
+    expect($activator->isPrepared())->toBeFalse();
+
+    CapellAdmin::$clearMethod();
+
+    expect($activator->isPrepared())->toBeTrue()
+        ->and($activator->isActivated())->toBeFalse();
+})->with([
+    'user menu items' => 'clearUserMenuItems',
+    'activity resource links' => 'clearActivityResourceLinks',
+    'admin surface contributions' => 'clearAdminSurfaceContributions',
+    'welcome tour steps' => 'clearWelcomeTourSteps',
+]);
+
 it('registers notification groups before non-panel consumers resolve the registry', function (): void {
     app()->forgetInstance(AdminRuntimeActivator::class);
     $activator = resolve(AdminRuntimeActivator::class);
