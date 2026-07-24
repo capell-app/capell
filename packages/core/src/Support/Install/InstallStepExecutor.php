@@ -85,7 +85,7 @@ final class InstallStepExecutor
             InstallPlan::STEP_RUN_MIGRATIONS_MID, InstallPlan::STEP_RUN_MIGRATIONS_POST => RunMigrationsAction::run($state->reporter),
             InstallPlan::STEP_RESOLVE_USER => $this->resolveInstallUser($state),
             InstallPlan::STEP_INSTALL_FILAMENT_PANEL => InstallFilamentPanelAction::run($state->reporter),
-            InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => InstallDeveloperToolingAction::run($state->reporter, $state->inputData->configureBoostDeveloperTooling),
+            InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => $this->installDeveloperTooling($state),
             InstallPlan::STEP_INTEGRATE_ADMIN_PANEL => $this->integrateAdminPanel($state),
             InstallPlan::STEP_CLEAR_CACHES => ClearCachesAction::run($state->inputData->cachesToClear, $state->reporter),
             InstallPlan::STEP_SEED_DATABASE => $this->seedDatabase($state),
@@ -123,6 +123,18 @@ final class InstallStepExecutor
     private function requireExtraPackage(InstallRunState $state, string $packageName): void
     {
         RequireExtraPackagesAction::run([$packageName], $state->reporter);
+
+        $this->registerComposerDiscoveredProviders();
+        CapellCore::clearExtensionCache();
+        $state->refreshSelectedPackages();
+    }
+
+    private function installDeveloperTooling(InstallRunState $state): void
+    {
+        InstallDeveloperToolingAction::run(
+            $state->reporter,
+            $state->inputData->configureBoostDeveloperTooling,
+        );
 
         $this->registerComposerDiscoveredProviders();
         CapellCore::clearExtensionCache();

@@ -8,10 +8,13 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
+use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
+use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -881,4 +884,54 @@ it('publishes migrations for trusted core packages during install', function ():
         File::deleteDirectory($corePackagePath);
         File::deleteDirectory($installCommandPackagePath);
     }
+});
+
+it('refreshes selected package metadata after Composer installs developer tooling', function (): void {
+    $packageName = 'capell-app/agent-bridge';
+    $installedPath = base_path('vendor/capell-app/agent-bridge');
+
+    CapellCore::registerPackage($packageName, path: base_path('.composer-install-pending/agent-bridge'));
+
+    $lines = [];
+    $state = new InstallRunState(
+        new InstallInputData(
+            siteUrl: 'https://example.com',
+            packages: [$packageName],
+            languages: ['en'],
+            demoContent: false,
+            cachesToClear: [],
+            generateSitemap: false,
+            generateStaticSite: false,
+            seedDefaultData: false,
+            installDeveloperTooling: true,
+        ),
+        installStepExecutorReporter($lines),
+    );
+
+    $preInstallPackage = $state->selectedPackages()->get($packageName);
+
+    $installDeveloperTooling = Mockery::mock(InstallDeveloperToolingAction::class);
+    $installDeveloperTooling->shouldReceive('handle')
+        ->once()
+        ->andReturnUsing(function () use ($packageName, $installedPath): void {
+            CapellCore::clearPackages();
+            CapellCore::registerPackage(
+                name: $packageName,
+                type: PackageTypeEnum::Plugin,
+                path: $installedPath,
+            );
+        });
+    app()->instance(InstallDeveloperToolingAction::class, $installDeveloperTooling);
+
+    resolve(InstallStepExecutor::class)->execute(
+        InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
+        $state,
+    );
+
+    $installedPackage = $state->selectedPackages()->get($packageName);
+
+    expect($preInstallPackage)->toBeInstanceOf(PackageData::class)
+        ->and($installedPackage)->toBeInstanceOf(PackageData::class)
+        ->not->toBe($preInstallPackage)
+        ->and($installedPackage->path)->toBe($installedPath);
 });
