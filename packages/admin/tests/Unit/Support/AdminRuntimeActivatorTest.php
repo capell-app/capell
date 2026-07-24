@@ -94,6 +94,7 @@ it('defers request-only runtime work until the panel boots', function (): void {
 });
 
 it('prepares route-visible declarations for direct registry reads outside the bundled panel', function (): void {
+    app()->forgetInstance(AdminRuntimeActivator::class);
     $activator = resolve(AdminRuntimeActivator::class);
 
     expect($activator->isPrepared())->toBeFalse()
@@ -103,6 +104,7 @@ it('prepares route-visible declarations for direct registry reads outside the bu
 });
 
 it('registers notification groups before non-panel consumers resolve the registry', function (): void {
+    app()->forgetInstance(AdminRuntimeActivator::class);
     $activator = resolve(AdminRuntimeActivator::class);
 
     expect($activator->isPrepared())->toBeFalse()
