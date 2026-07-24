@@ -26,6 +26,23 @@ production median spread reached 6.62%, and IQR/median reached 18.77%.
 Measurements below are therefore used only to reject regressions, never to
 claim an improvement.
 
+## Accepted closeout baseline
+
+After the runtime lifecycle fixes were committed in `a98aee15d`, the host load
+settled sufficiently to establish the required optimized-cache baseline. Each
+profile was measured in three independent runs of 25 samples after five
+warmups:
+
+| Profile    | Run p50 medians           | Median spread | Worst IQR / median | Fingerprint                                                        |
+| ---------- | ------------------------- | ------------: | -----------------: | ------------------------------------------------------------------ |
+| Production | 108.33, 107.39, 107.57 ms |         0.87% |              2.90% | `5fe3451cbfbeb16f022d9e38af5da5d3a4778563f9f26cb49ecffee170378ae9` |
+| Public     | 48.93, 47.94, 47.72 ms    |         2.52% |              5.97% | `f1b774cb70141e8eea9c1d6836eb69ab546e7bc3ee07c0da4dddf7f55ac77881` |
+| Admin      | 108.25, 108.34, 107.37 ms |         0.90% |              6.05% | `a08050cf80923380cccd58e93671fc9a6f913ef2b285d3ef3cf6700a11be37d7` |
+
+All three profiles satisfy the baseline gate of no more than 3% median spread
+and no more than 10% IQR/median. Tukey outliers remain in the retained raw
+samples and were not removed from the reported statistics.
+
 ## Rejected: lazy Core built-in registries
 
 The candidate moved built-in renderable and linkable-content definitions into
