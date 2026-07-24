@@ -13,6 +13,7 @@ Use this section if you tune caching, response delivery, assets, or hydration on
 | Avoid eager loads on cold cache hits     | [Lazy page hydration](lazy-page-hydration.md)                                  |
 | Reduce rendered HTML size                | [Frontend server configuration](../../packages/frontend/docs/server-config.md) |
 | Guard application boot cost              | [Boot regression guards](boot-regression-guards.md)                            |
+| Review measured boot candidates          | [Boot optimization candidate decisions](boot-optimization-candidates.md)       |
 
 Frontend Authoring uses the model URL cache to find every cached URL touched by an edited record. The editor itself is never baked into cached HTML; admin-only edit controls are added later by the beacon.
 
