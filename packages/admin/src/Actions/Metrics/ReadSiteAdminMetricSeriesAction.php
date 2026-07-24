@@ -140,9 +140,7 @@ final class ReadSiteAdminMetricSeriesAction
             default => Number::format($value, precision: $definition->representation->scale ?? 0),
         };
 
-        if (! is_string($formattedValue)) {
-            throw new UnexpectedValueException('Metric values must format to strings.');
-        }
+        throw_unless(is_string($formattedValue), UnexpectedValueException::class, 'Metric values must format to strings.');
 
         return $formattedValue;
     }

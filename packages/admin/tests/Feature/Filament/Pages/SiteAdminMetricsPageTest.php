@@ -38,7 +38,7 @@ it('declares every metric trend height utility in the scanned Blade source', fun
     expect($view)->toBeString();
 
     foreach (['h-1', 'h-2/12', 'h-4/12', 'h-5/12', 'h-6/12', 'h-8/12', 'h-10/12', 'h-full'] as $heightClass) {
-        expect($view)->toContain("'{$heightClass}' =>");
+        expect($view)->toContain(sprintf("'%s' =>", $heightClass));
     }
 });
 
@@ -70,6 +70,7 @@ it('reads and formats only active global site admin series', function (): void {
 
     $registry = resolve(MetricCollectorRegistry::class);
     $registry->register(SiteAdminMetricsTestCollector::class);
+
     $definition = $registry->definitions()
         ->firstOrFail(fn (MetricDefinitionData $candidate): bool => $candidate->identity->metricKey === 'visible-count');
 
