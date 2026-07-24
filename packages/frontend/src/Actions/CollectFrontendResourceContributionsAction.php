@@ -52,15 +52,20 @@ final class CollectFrontendResourceContributionsAction
 
         foreach (resolve(CapellPackageRegistry::class)->all() as $manifest) {
             foreach ($manifest->contributes as $contribution) {
-                if ($contribution->type !== ExtensionContributionType::Asset
-                    || $contribution->class !== $contributor::class) {
+                if ($contribution->type !== ExtensionContributionType::Asset) {
+                    continue;
+                }
+
+                if ($contribution->class !== $contributor::class) {
                     continue;
                 }
 
                 $surface = $contribution->metadata['surface'] ?? null;
+                if (is_string($surface) && $surface !== 'frontend') {
+                    continue;
+                }
 
-                if ((is_string($surface) && $surface !== 'frontend')
-                    || (! is_string($surface) && ! in_array('frontend', $manifest->surfaces, true))) {
+                if (! is_string($surface) && ! in_array('frontend', $manifest->surfaces, true)) {
                     continue;
                 }
 

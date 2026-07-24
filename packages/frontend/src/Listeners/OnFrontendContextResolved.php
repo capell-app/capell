@@ -46,15 +46,24 @@ final class OnFrontendContextResolved
                 }
 
                 $surface = $contribution->metadata['surface'] ?? null;
+                if (is_string($surface) && $surface !== '' && $surface !== 'frontend') {
+                    continue;
+                }
 
-                if ((is_string($surface) && $surface !== '' && $surface !== 'frontend')
-                    || (! is_string($surface) && ! in_array('frontend', $manifest->surfaces, true))) {
+                if (! is_string($surface) && ! in_array('frontend', $manifest->surfaces, true)) {
                     continue;
                 }
 
                 $modelClass = $contribution->metadata['modelClass'] ?? null;
+                if (! is_string($modelClass)) {
+                    continue;
+                }
 
-                if (! is_string($modelClass) || $modelClass === '' || ! $page instanceof $modelClass) {
+                if ($modelClass === '') {
+                    continue;
+                }
+
+                if (! $page instanceof $modelClass) {
                     continue;
                 }
 

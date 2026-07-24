@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions\Performance;
 
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -26,7 +27,7 @@ final class RecordManifestRenderContributionAction
     ): void {
         $manifest = $this->packageRegistry->get($packageName);
 
-        if ($manifest === null) {
+        if (! $manifest instanceof CapellManifestData) {
             RecordExtensionRenderContributionAction::run(
                 packageName: $packageName,
                 surface: 'frontend',

@@ -6,11 +6,18 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-final class PackageSurfaceBindingOrderModel extends Model {}
+final class PackageSurfaceBindingOrderModel extends Model
+{
+    use HasFactory;
+}
 
-final class EarlyPackageSurfaceBindingOrderModel extends Model {}
+final class EarlyPackageSurfaceBindingOrderModel extends Model
+{
+    use HasFactory;
+}
 
 it('adopts a manager resolved before provider registration without losing its surfaces', function (): void {
     app()->offsetUnset(CapellCoreManager::class);
@@ -24,7 +31,7 @@ it('adopts a manager resolved before provider registration without losing its su
 
     $earlyManager->registerModels([EarlyPackageSurfaceBindingOrderModel::class]);
 
-    (new CapellServiceProvider(app()))->registeringPackage();
+    new CapellServiceProvider(app())->registeringPackage();
 
     $surface = resolve(PackageSurfaceRegistrar::class);
     $surface->models([PackageSurfaceBindingOrderModel::class]);

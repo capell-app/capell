@@ -27,6 +27,7 @@ use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
@@ -175,9 +176,9 @@ it('attributes only the selected asset contributor execution', function (): void
     app()->tag('test.selected-asset-contributor', FrontendResourceContributor::TAG);
 
     CollectFrontendResourceContributionsAction::run(new FrontendResourceContextData(
+        page: null,
         site: null,
         language: null,
-        page: null,
         layout: null,
         theme: null,
         runtime: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
@@ -197,7 +198,10 @@ it('attributes a section only when its renderable is rendered', function (): voi
     File::put($viewPath . '/article.blade.php', '<section>Article</section>');
     View::addNamespace('extension-section-test', $viewPath);
 
-    $asset = new class extends Model {};
+    $asset = new class extends Model
+    {
+        use HasFactory;
+    };
     $manifest = CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/editorial-tools',
         surfaces: ['frontend'],
@@ -227,7 +231,10 @@ it('attributes a section only when its renderable is rendered', function (): voi
         type: 'section',
         key: 'article',
         asset: $asset,
-        translation: new class extends Model {},
+        translation: new class extends Model
+        {
+            use HasFactory;
+        },
     ))->toBe('<section>Article</section>');
 
     $records = resolve(RecordExtensionRenderContributionAction::class)->recorded();
@@ -271,8 +278,14 @@ it('uses the selected renderable contribution identity without cross matching ma
     RenderRenderableAction::run(
         type: 'section',
         key: 'article',
-        asset: new class extends Model {},
-        translation: new class extends Model {},
+        asset: new class extends Model
+        {
+            use HasFactory;
+        },
+        translation: new class extends Model
+        {
+            use HasFactory;
+        },
     );
 
     $records = resolve(RecordExtensionRenderContributionAction::class)->recorded();

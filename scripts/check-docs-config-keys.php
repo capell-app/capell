@@ -6,7 +6,7 @@ $configuredRepositoryRoot = getenv('CAPELL_DOCS_CONFIG_ROOT') ?: dirname(__DIR__
 $repositoryRoot = realpath($configuredRepositoryRoot);
 
 if ($repositoryRoot === false) {
-    fwrite(STDERR, "Missing repository root: {$configuredRepositoryRoot}\n");
+    fwrite(STDERR, sprintf('Missing repository root: %s%s', $configuredRepositoryRoot, PHP_EOL));
 
     exit(1);
 }
@@ -15,7 +15,8 @@ $classificationPath = $repositoryRoot . '/scripts/docs-config-key-classification
 $classifications = is_file($classificationPath) ? require $classificationPath : [];
 
 if (! is_array($classifications)) {
-    fwrite(STDERR, "{$classificationPath} must return an array.\n");
+    fwrite(STDERR, $classificationPath . ' must return an array.
+');
 
     exit(1);
 }
@@ -88,7 +89,7 @@ foreach ($configKeys as $configKey => $metadata) {
         $documentedCount++;
 
         if (isset($classifications[$configKey])) {
-            $failures[] = "{$configKey}: is documented but still has a classification; remove the stale classification.";
+            $failures[] = $configKey . ': is documented but still has a classification; remove the stale classification.';
         }
 
         continue;
@@ -97,7 +98,7 @@ foreach ($configKeys as $configKey => $metadata) {
     $reason = $classifications[$configKey] ?? null;
 
     if (! is_string($reason) || trim($reason) === '') {
-        $failures[] = "{$configKey}: undocumented public config leaf from {$metadata['source']} has no explicit classification.";
+        $failures[] = sprintf('%s: undocumented public config leaf from %s has no explicit classification.', $configKey, $metadata['source']);
 
         continue;
     }
@@ -105,9 +106,9 @@ foreach ($configKeys as $configKey => $metadata) {
     $classifiedCount++;
 }
 
-foreach ($classifications as $classifiedKey => $reason) {
+foreach (array_keys($classifications) as $classifiedKey) {
     if (! is_string($classifiedKey) || ! array_key_exists($classifiedKey, $configKeys)) {
-        $failures[] = "{$classifiedKey}: classification does not match a current public config leaf.";
+        $failures[] = $classifiedKey . ': classification does not match a current public config leaf.';
     }
 }
 
@@ -117,7 +118,7 @@ if ($failures !== []) {
     fwrite(STDERR, "Config-key documentation coverage failed:\n");
 
     foreach ($failures as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
     fwrite(STDERR, "\nDocument the full config path or backing environment variable, or add a narrow reason to scripts/docs-config-key-classifications.php.\n");
@@ -327,8 +328,15 @@ function extractEnvironmentVariables(array $tokens): array
 
     for ($index = 0; $index < $tokenCount; $index++) {
         $token = $tokens[$index];
+        if (! is_array($token)) {
+            continue;
+        }
 
-        if (! is_array($token) || $token[0] !== T_STRING || strtolower($token[1]) !== 'env') {
+        if ($token[0] !== T_STRING) {
+            continue;
+        }
+
+        if (strtolower($token[1]) !== 'env') {
             continue;
         }
 
@@ -355,8 +363,11 @@ function extractAssignedEnvironmentVariables(array $tokens): array
 
     for ($index = 0; $index < $tokenCount; $index++) {
         $variableToken = $tokens[$index];
+        if (! is_array($variableToken)) {
+            continue;
+        }
 
-        if (! is_array($variableToken) || $variableToken[0] !== T_VARIABLE) {
+        if ($variableToken[0] !== T_VARIABLE) {
             continue;
         }
 
@@ -436,7 +447,7 @@ function collectFilesByExtension(string $directory, string $extension): array
     );
 
     foreach ($directoryIterator as $fileInfo) {
-        if ($fileInfo->isFile() && strtolower($fileInfo->getExtension()) === $extension) {
+        if ($fileInfo->isFile() && strtolower((string) $fileInfo->getExtension()) === $extension) {
             $collectedFiles[] = $fileInfo->getRealPath();
         }
     }

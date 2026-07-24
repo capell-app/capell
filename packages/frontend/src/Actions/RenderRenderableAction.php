@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Actions\ResolveRenderableComponentAction;
 use Capell\Core\Actions\ResolveRenderableViewDataAction;
+use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
@@ -58,7 +59,7 @@ final class RenderRenderableAction
             default => throw new InvalidArgumentException(sprintf('Renderable implementation [%s] is not supported.', $implementation)),
         };
 
-        if ($definition->contribution !== null) {
+        if ($definition->contribution instanceof RenderableContributionIdentityData) {
             RecordManifestRenderContributionAction::run(
                 packageName: $definition->contribution->owner,
                 contributionType: $definition->contribution->type->value,
