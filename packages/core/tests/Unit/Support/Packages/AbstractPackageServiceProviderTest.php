@@ -118,6 +118,21 @@ it('uses the legacy development version when composer has no pretty version', fu
         ->and(CapellCore::getPackage($provider::$packageName)->path)->toBe(realpath(dirname(__DIR__, 4)));
 });
 
+it('registers package metadata once using the canonical metadata hooks', function (): void {
+    $provider = new MetadataHooksTestServiceProvider(app());
+
+    $provider->registeringPackage();
+
+    $package = CapellCore::getPackage($provider::$packageName);
+
+    expect($provider->metadataRegistrationCount())->toBe(1)
+        ->and($package->setting)->toBe(MetadataHooksTestSettings::class)
+        ->and($package->getSetupCommand())->toBe('capell:test-setup')
+        ->and($package->getSetupParams())->toBe(['url', 'force'])
+        ->and($package->serviceProviderClass)->toBe(MetadataHooksTestServiceProvider::class)
+        ->and($package->path)->toBe(realpath(dirname(__DIR__, 4)));
+});
+
 it('exposes the shared package surface registrar as the canonical provider contribution path', function (): void {
     $provider = new LivewireCompatibilityTestServiceProvider(app());
 
@@ -245,5 +260,54 @@ final class LivewireCompatibilityTestComponent extends Component
     public function render(): string
     {
         return '<div></div>';
+    }
+}
+
+final class MetadataHooksTestSettings {}
+
+final class MetadataHooksTestServiceProvider extends AbstractPackageServiceProvider
+{
+    public static string $name = 'metadata-hooks-test';
+
+    public static string $packageName = 'capell-app/metadata-hooks-test';
+
+    private int $metadataRegistrationCount = 0;
+
+    public function configurePackage(Package $package): void
+    {
+        $package->name(self::$name);
+    }
+
+    public function metadataRegistrationCount(): int
+    {
+        return $this->metadataRegistrationCount;
+    }
+
+    #[Override]
+    protected function registerPackageMetadata(): static
+    {
+        $this->metadataRegistrationCount++;
+
+        return parent::registerPackageMetadata();
+    }
+
+    /** @return class-string */
+    #[Override]
+    protected function packageSettingClass(): string
+    {
+        return MetadataHooksTestSettings::class;
+    }
+
+    #[Override]
+    protected function packageSetupCommand(): string
+    {
+        return 'capell:test-setup';
+    }
+
+    /** @return array<int, string> */
+    #[Override]
+    protected function packageSetupParameters(): array
+    {
+        return ['url', 'force'];
     }
 }
