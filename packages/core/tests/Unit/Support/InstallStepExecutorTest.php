@@ -946,9 +946,11 @@ it('refreshes selected package metadata before package install without a develop
     );
 
     $installedPackage = $state->selectedPackages()->get($packageName);
+    if (! $installedPackage instanceof PackageData) {
+        throw new UnexpectedValueException(sprintf('Installed package metadata was not refreshed for %s.', $packageName));
+    }
 
     expect($preInstallPackage)->toBeInstanceOf(PackageData::class)
-        ->and($installedPackage)->toBeInstanceOf(PackageData::class)
         ->not->toBe($preInstallPackage)
         ->and($installedPackage->path)->toBe($installedPath)
         ->and($installedPackage->declaresSchemaMigrations())->toBeTrue();
