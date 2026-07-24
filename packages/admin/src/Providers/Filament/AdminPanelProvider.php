@@ -33,7 +33,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $this->app->make(AdminRuntimeActivator::class)->activate();
+        $this->app->make(AdminRuntimeActivator::class)->prepare();
 
         if (! $this->app->providerIsLoaded(BaseFilamentPeekServiceProvider::class)) {
             $this->app->register(BaseFilamentPeekServiceProvider::class);
@@ -64,6 +64,9 @@ class AdminPanelProvider extends PanelProvider
             ->plugin(CapellAdminPlugin::make()
                 ->discoverConfigurators(in: app_path('Filament/Configurators'), for: 'App\\Filament\\Configurators'))
             ->plugin(FilamentPeekPlugin::make())
+            ->bootUsing(function (): void {
+                $this->app->make(AdminRuntimeActivator::class)->activate();
+            })
             ->sidebarFullyCollapsibleOnDesktop()
             ->widgets($widgets)
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
