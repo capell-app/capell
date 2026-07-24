@@ -24,16 +24,16 @@ final class OnFrontendContextResolved
             CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::LayoutLoaded, $page);
         }
 
-        $this->recordExtensionRenderContributions();
+        $this->recordExtensionRenderContributions($page);
     }
 
-    private function recordExtensionRenderContributions(): void
+    private function recordExtensionRenderContributions(?Pageable $page): void
     {
         $elapsedMilliseconds = $this->elapsedMilliseconds();
 
         foreach (resolve(CapellPackageRegistry::class)->all() as $manifest) {
             foreach ($manifest->contributes as $contribution) {
-                if (! $this->shouldAttributeContribution($manifest, $contribution)) {
+                if (! $this->shouldAttributeContribution($manifest, $contribution, $page)) {
                     continue;
                 }
 
@@ -53,17 +53,30 @@ final class OnFrontendContextResolved
         }
     }
 
-    private function shouldAttributeContribution(CapellManifestData $manifest, ExtensionContributionData $contribution): bool
-    {
+    private function shouldAttributeContribution(
+        CapellManifestData $manifest,
+        ExtensionContributionData $contribution,
+        ?Pageable $page,
+    ): bool {
         if (! $this->targetsFrontend($manifest, $contribution)) {
             return false;
         }
 
-        return in_array($contribution->type, [
-            ExtensionContributionType::Section,
+        if (in_array($contribution->type, [
             ExtensionContributionType::PageType,
             ExtensionContributionType::PageVariation,
-            ExtensionContributionType::RenderHook,
+        ], true)) {
+            $modelClass = $contribution->metadata['modelClass'] ?? null;
+
+            if (! is_string($modelClass) || $modelClass === '') {
+                return true;
+            }
+
+            return $page instanceof $modelClass;
+        }
+
+        return in_array($contribution->type, [
+            ExtensionContributionType::Section,
             ExtensionContributionType::Asset,
         ], true);
     }

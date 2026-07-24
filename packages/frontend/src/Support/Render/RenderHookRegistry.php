@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Frontend\Actions\Performance\RecordExtensionRenderContributionAction;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
@@ -205,7 +207,7 @@ class RenderHookRegistry
             ->sortBy(fn (RenderHookEntryData $entry): int => $entry->priority);
 
         return $extensions
-            ->map(fn (RenderHookEntryData $entry): mixed => $this->renderEntry($entry, $context))
+            ->map(fn (RenderHookEntryData $entry): mixed => $this->renderAndRecordEntry($entry, $context))
             ->implode('');
     }
 
@@ -247,6 +249,50 @@ class RenderHookRegistry
         if ($result instanceof View) {
             return $result->render();
         }
+
+        return $result;
+    }
+
+    private function renderAndRecordEntry(RenderHookEntryData $entry, RenderHookContext $context): mixed
+    {
+        $startedAt = microtime(true);
+        $result = $this->renderEntry($entry, $context);
+
+        if ($entry->owner === null) {
+            return $result;
+        }
+
+        $manifest = resolve(CapellPackageRegistry::class)->get($entry->owner);
+
+        if ($manifest === null) {
+            RecordExtensionRenderContributionAction::run(
+                packageName: $entry->owner,
+                surface: 'frontend',
+                contributionType: 'render-hook',
+                contributionClass: is_object($entry->extension) ? $entry->extension::class : null,
+                elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
+                frontendRenderBudgetMs: 0,
+                cacheTags: [],
+                cacheable: false,
+                sensitiveOutput: true,
+                variesBy: [],
+            );
+
+            return $result;
+        }
+
+        RecordExtensionRenderContributionAction::run(
+            packageName: $manifest->name,
+            surface: 'frontend',
+            contributionType: 'render-hook',
+            contributionClass: is_object($entry->extension) ? $entry->extension::class : null,
+            elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
+            frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
+            cacheTags: $manifest->performance->cacheTags,
+            cacheable: $entry->cacheSafe,
+            sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
+            variesBy: $manifest->performance->cacheSafety->variesBy,
+        );
 
         return $result;
     }
