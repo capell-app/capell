@@ -65,9 +65,7 @@ final class PageHistoryFixture
             : null;
         $blueprint = Blueprint::query()->pageType()->first();
 
-        if (! ($site instanceof Site) || ! ($layout instanceof Layout) || ! ($blueprint instanceof Blueprint)) {
-            throw new ModelNotFoundException('The screenshot app must be seeded before building the page history fixture.');
-        }
+        throw_if(! ($site instanceof Site) || ! ($layout instanceof Layout) || ! ($blueprint instanceof Blueprint), ModelNotFoundException::class, 'The screenshot app must be seeded before building the page history fixture.');
 
         $page->fill([
             'site_id' => $site->getKey(),
