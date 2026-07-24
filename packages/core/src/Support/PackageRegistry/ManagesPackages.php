@@ -144,7 +144,7 @@ trait ManagesPackages
             type: $this->packageTypeFromManifestKind($manifest->kind),
             scopes: array_map(PackageScopeEnum::from(...), $manifest->scopes),
             serviceProviderClass: $existing->serviceProviderClass ?? $manifest->serviceProviderClass(),
-            path: $existing->path ?? $manifest->installPath,
+            path: $manifest->installPath ?? $existing->path,
             shortName: $manifest->displayName,
             description: $manifest->description,
             sort: $manifest->order,

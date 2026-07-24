@@ -27,6 +27,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
@@ -137,8 +138,19 @@ final class InstallStepExecutor
         );
 
         $this->registerComposerDiscoveredProviders();
+        $this->refreshInstalledPackageMetadata();
         CapellCore::clearExtensionCache();
         $state->refreshSelectedPackages();
+    }
+
+    private function refreshInstalledPackageMetadata(): void
+    {
+        foreach (resolve(ManifestLoader::class)->discover() as $manifest) {
+            CapellCore::registerManifestPackage(
+                $manifest,
+                CapellCore::getInstalledPrettyVersion($manifest->name),
+            );
+        }
     }
 
     /**

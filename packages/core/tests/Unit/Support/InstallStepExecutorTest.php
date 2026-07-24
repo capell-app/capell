@@ -9,12 +9,12 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
+use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
-use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -22,6 +22,7 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -893,6 +894,7 @@ it('refreshes selected package metadata after Composer installs developer toolin
     CapellCore::registerPackage($packageName, path: base_path('.composer-install-pending/agent-bridge'));
 
     $lines = [];
+    $user = User::factory()->createOne();
     $state = new InstallRunState(
         new InstallInputData(
             siteUrl: 'https://example.com',
@@ -906,6 +908,7 @@ it('refreshes selected package metadata after Composer installs developer toolin
             installDeveloperTooling: true,
         ),
         installStepExecutorReporter($lines),
+        (int) $user->getKey(),
     );
 
     $preInstallPackage = $state->selectedPackages()->get($packageName);
@@ -913,15 +916,27 @@ it('refreshes selected package metadata after Composer installs developer toolin
     $installDeveloperTooling = Mockery::mock(InstallDeveloperToolingAction::class);
     $installDeveloperTooling->shouldReceive('handle')
         ->once()
-        ->andReturnUsing(function () use ($packageName, $installedPath): void {
-            CapellCore::clearPackages();
-            CapellCore::registerPackage(
-                name: $packageName,
-                type: PackageTypeEnum::Plugin,
-                path: $installedPath,
-            );
-        });
+        ->with(Mockery::type(ProgressReporter::class), false);
     app()->instance(InstallDeveloperToolingAction::class, $installDeveloperTooling);
+
+    $installedManifest = CapellManifestData::fromArray(
+        capellManifestV3Array(
+            name: $packageName,
+            overrides: [
+                'database' => [
+                    'migrations' => true,
+                    'settings' => false,
+                    'requiredTables' => [],
+                ],
+            ],
+        ),
+        installPath: $installedPath,
+    );
+    $manifestLoader = Mockery::mock(ManifestLoader::class);
+    $manifestLoader->shouldReceive('discover')
+        ->once()
+        ->andReturn([$packageName => $installedManifest]);
+    app()->instance(ManifestLoader::class, $manifestLoader);
 
     resolve(InstallStepExecutor::class)->execute(
         InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
@@ -933,5 +948,18 @@ it('refreshes selected package metadata after Composer installs developer toolin
     expect($preInstallPackage)->toBeInstanceOf(PackageData::class)
         ->and($installedPackage)->toBeInstanceOf(PackageData::class)
         ->not->toBe($preInstallPackage)
-        ->and($installedPackage->path)->toBe($installedPath);
+        ->and($installedPackage->path)->toBe($installedPath)
+        ->and($installedPackage->declaresMigrations())->toBeTrue();
+
+    $installPackage = Mockery::mock(InstallPackageAction::class);
+    $installPackage->shouldReceive('handle')
+        ->once()
+        ->withArgs(fn (PackageData $package): bool => $package->path === $installedPath
+            && $package->declaresMigrations());
+    app()->instance(InstallPackageAction::class, $installPackage);
+
+    resolve(InstallStepExecutor::class)->execute(
+        InstallPlan::packageInstallStepKey($packageName),
+        $state,
+    );
 });

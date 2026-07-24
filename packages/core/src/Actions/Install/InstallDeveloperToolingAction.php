@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Json\JsonCodec;
@@ -143,10 +144,7 @@ class InstallDeveloperToolingAction
 
         $this->runComposerCommand($command, $reporter, 600);
 
-        $autoloadPath = base_path('vendor/autoload.php');
-        if (file_exists($autoloadPath)) {
-            require_once $autoloadPath;
-        }
+        ComposerAutoloaderReloader::reload();
 
         $reporter->report('✓ Installed Laravel Boost and Capell Agent Bridge.');
     }
