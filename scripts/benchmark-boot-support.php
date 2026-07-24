@@ -102,9 +102,7 @@ final readonly class BootBenchmarkOptions
             }
         }
 
-        if (count($positionals) > 1 || ($positionals !== [] && $iterationsProvided)) {
-            throw new InvalidArgumentException('Provide iterations either positionally or with --iterations, not both.');
-        }
+        throw_if(count($positionals) > 1 || ($positionals !== [] && $iterationsProvided), InvalidArgumentException::class, 'Provide iterations either positionally or with --iterations, not both.');
 
         if ($positionals !== []) {
             $values['iterations'] = $positionals[0];
@@ -116,7 +114,7 @@ final readonly class BootBenchmarkOptions
         $cache = self::choice($values['cache'], 'cache', ['manifest', 'optimized', 'uncached']);
         $format = self::choice($values['format'], 'format', ['text', 'json']);
 
-        return new self($profile, $cache, $iterations, $warmups, $format, $values['profiling'] === true);
+        return new self($profile, $cache, $iterations, $warmups, $format, $values['profiling']);
     }
 
     public static function usage(): string
@@ -156,9 +154,7 @@ final class BootStatistics
      */
     public static function summarize(array $samples): array
     {
-        if (count($samples) < 3) {
-            throw new InvalidArgumentException('At least three samples are required.');
-        }
+        throw_if(count($samples) < 3, InvalidArgumentException::class, 'At least three samples are required.');
 
         $sorted = $samples;
         sort($sorted, SORT_NUMERIC);
@@ -187,9 +183,7 @@ final class BootStatistics
     /** @param list<float> $sorted */
     public static function percentile(array $sorted, int $percentile): float
     {
-        if ($sorted === [] || $percentile < 0 || $percentile > 100) {
-            throw new InvalidArgumentException('Percentiles require samples and a value from 0 to 100.');
-        }
+        throw_if($sorted === [] || $percentile < 0 || $percentile > 100, InvalidArgumentException::class, 'Percentiles require samples and a value from 0 to 100.');
 
         $position = (count($sorted) - 1) * ($percentile / 100);
         $lower = (int) floor($position);
@@ -427,10 +421,7 @@ final readonly class BootBenchmarkWorkspace
             $this->files->remove($path);
             $this->command(['capell:package-cache', '--no-ansi'], runningInConsole: true)->mustRun();
             $contents = require $path;
-
-            if (! is_array($contents)) {
-                throw new RuntimeException('The regenerated Capell package manifest cache is invalid.');
-            }
+            throw_unless(is_array($contents), RuntimeException::class, 'The regenerated Capell package manifest cache is invalid.');
         }
     }
 

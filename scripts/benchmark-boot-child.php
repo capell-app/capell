@@ -12,7 +12,7 @@ use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 
-$arguments = $_SERVER['argv'] ?? [];
+$arguments = $GLOBALS['argv'] ?? [];
 $root = $arguments[1] ?? throw new InvalidArgumentException('The repository path is required.');
 $basePath = $arguments[2] ?? throw new InvalidArgumentException('The application path is required.');
 
@@ -23,6 +23,7 @@ final class ProfilingBootApplication extends Application
     /** @var array<class-string, array{register?: float, boot?: float}> */
     public array $providerTimings = [];
 
+    #[Override]
     public function register($provider, $force = false): ServiceProvider
     {
         $startedAt = hrtime(true);
@@ -34,6 +35,7 @@ final class ProfilingBootApplication extends Application
         return $registered;
     }
 
+    #[Override]
     protected function bootProvider(ServiceProvider $provider): void
     {
         $startedAt = hrtime(true);
