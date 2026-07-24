@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
-use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Core\Contracts\SettingsSchema;
 use Filament\Schemas\Schema;
 use InvalidArgumentException;
@@ -22,14 +21,33 @@ final class BuildSettingsSchemaComponentsAction
      */
     public function handle(string $schemaClass, Schema $schema): array
     {
-        if (! is_a($schemaClass, HasSchema::class, true)) {
+        if (! is_a($schemaClass, SettingsSchema::class, true)) {
             throw new InvalidArgumentException(sprintf(
-                'Settings schema %s must implement %s to render in the admin panel.',
+                'Settings schema %s must implement %s and define a callable static make method to render in the admin panel.',
                 $schemaClass,
-                HasSchema::class,
+                SettingsSchema::class,
             ));
         }
 
-        return $schemaClass::make($schema);
+        $factory = [$schemaClass, 'make'];
+
+        if (! is_callable($factory)) {
+            throw new InvalidArgumentException(sprintf(
+                'Settings schema %s must implement %s and define a callable static make method to render in the admin panel.',
+                $schemaClass,
+                SettingsSchema::class,
+            ));
+        }
+
+        $components = $factory($schema);
+
+        if (! is_array($components)) {
+            throw new InvalidArgumentException(sprintf(
+                'Settings schema %s::make() must return an array.',
+                $schemaClass,
+            ));
+        }
+
+        return $components;
     }
 }

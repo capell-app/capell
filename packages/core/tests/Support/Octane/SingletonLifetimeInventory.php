@@ -98,6 +98,7 @@ final class SingletonLifetimeInventory
     public static function dynamicBindingTargets(): array
     {
         return [
+            CapellCoreManager::class => CapellCoreManager::class,
             ThemePreviewContext::class => ThemePreviewContext::class,
             FrontendContextReader::class => FrontendState::class,
         ];
