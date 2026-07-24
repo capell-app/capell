@@ -326,6 +326,10 @@ class CapellAdminManager
     public function registerAdminBridge(string $packageName, string $bridgeClass): void
     {
         resolve(AdminBridgeRegistrar::class)->bridge($packageName, $bridgeClass);
+
+        if (app()->resolved(AdminRuntimeActivator::class) && resolve(AdminRuntimeActivator::class)->isActivated()) {
+            $this->bootAdminBridges($packageName);
+        }
     }
 
     public function bootAdminBridges(string $packageName): void

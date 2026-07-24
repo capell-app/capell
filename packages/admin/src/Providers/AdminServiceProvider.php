@@ -111,6 +111,7 @@ use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
 use Capell\Admin\Support\AdminResourceResolver;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
@@ -345,16 +346,21 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ));
         });
 
-        $this
-            ->registerMacros()
-            ->registerAssets()
-            ->registerNotificationGroups()
-            ->registerPages()
-            ->registerCoreReports()
-            ->registerResources()
-            ->registerWidgets()
-            ->registerDashboardFilamentWidgets()
-            ->registerOverviewStats();
+        $this->app->singleton(
+            AdminRuntimeActivator::class,
+            fn (): AdminRuntimeActivator => new AdminRuntimeActivator(
+                $this->app->make(AdminBridgeRegistry::class),
+                function (): void {
+                    $this->prepareAdminRuntime();
+                },
+                function (): void {
+                    $this->activateAdminRuntime();
+                },
+                function (string $packageName): void {
+                    CapellAdmin::bootAdminBridges($packageName);
+                },
+            ),
+        );
     }
 
     #[Override]
@@ -364,7 +370,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         return $this
             ->registerAboutInfo()
-            ->bootAdminBridges()
             ->registerWidgetComponents()
             ->registerBlazeOptimizedComponentViews()
             ->registerServingEvents()
@@ -408,6 +413,25 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'skip-permission-sync',
             'force',
         ];
+    }
+
+    private function prepareAdminRuntime(): self
+    {
+        return $this
+            ->registerMacros()
+            ->registerNotificationGroups()
+            ->registerPages()
+            ->registerCoreReports()
+            ->registerResources()
+            ->registerWidgets()
+            ->registerDashboardFilamentWidgets()
+            ->registerOverviewStats();
+    }
+
+    private function activateAdminRuntime(): self
+    {
+        return $this
+            ->registerAssets();
     }
 
     private function registerResources(): self
@@ -610,13 +634,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         resolve(AdminBridgeRegistrar::class)->activityRevertHandler(EventSourcedActivityRevertHandler::class);
 
         $this->app->tag([WorkflowPublishPanelExtender::class], PublishPanelExtender::TAG);
-
-        return $this;
-    }
-
-    private function bootAdminBridges(): self
-    {
-        CapellAdmin::bootAdminBridges(static::$packageName);
 
         return $this;
     }

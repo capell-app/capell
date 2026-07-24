@@ -29,6 +29,12 @@ final class AdminBridgeRegistry
         return array_values($this->bridges[$packageName] ?? []);
     }
 
+    /** @return list<string> */
+    public function packageNames(): array
+    {
+        return array_keys($this->bridges);
+    }
+
     /**
      * @return list<AdminBridge>
      */

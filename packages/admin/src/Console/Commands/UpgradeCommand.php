@@ -6,6 +6,7 @@ namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Enums\PermissionSyncMode;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
@@ -18,6 +19,8 @@ class UpgradeCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $this->call('vendor:publish', ['--tag' => 'capell-migrations']);
 
         RunDatabaseMigrationsAction::run();
