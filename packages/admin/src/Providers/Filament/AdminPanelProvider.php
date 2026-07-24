@@ -11,6 +11,7 @@ use Capell\Admin\Http\Middleware\AddAdminSecurityHeaders;
 use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Admin\Support\AdminPanelEntrypoint;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -32,6 +33,8 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        $this->app->make(AdminRuntimeActivator::class)->activate();
+
         if (! $this->app->providerIsLoaded(BaseFilamentPeekServiceProvider::class)) {
             $this->app->register(BaseFilamentPeekServiceProvider::class);
         }

@@ -6,6 +6,7 @@ namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Enums\PermissionSyncMode;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Illuminate\Console\Command;
 
 class SyncPermissionsCommand extends Command
@@ -17,6 +18,8 @@ class SyncPermissionsCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $mode = strtolower((string) $this->option('mode')) === 'upgrade'
             ? PermissionSyncMode::Upgrade
             : PermissionSyncMode::Install;

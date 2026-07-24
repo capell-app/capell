@@ -15,6 +15,7 @@ use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupOptionsData;
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupResultData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Setup\TailwindSourceRegistrar;
 use Capell\Core\Actions\CreateDefaultLanguageAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
@@ -70,6 +71,8 @@ class SetupCommand extends Command
 
     public function handle(): int
     {
+        resolve(AdminRuntimeActivator::class)->activate();
+
         $this->writeCommandIntro('set up Capell Admin', $this->adminSetupIntroDetails());
 
         if (! $this->option('integration-only')) {
