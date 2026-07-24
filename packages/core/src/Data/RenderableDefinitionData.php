@@ -22,6 +22,7 @@ final class RenderableDefinitionData extends Data
         public readonly ?string $adminPreview = null,
         public readonly ?string $assetComponent = null,
         public readonly ?string $viewDataResolver = null,
+        public readonly ?RenderableContributionIdentityData $contribution = null,
     ) {}
 
     /**

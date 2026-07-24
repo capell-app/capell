@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Settings;
 
-use Capell\Admin\Contracts\SettingsSchemaContract;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\AdminFormActionPositionEnum;
 use Capell\Admin\Enums\EditorEnum;
 use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Filament\Settings\AdminSettingsSchema;
 use Capell\Core\Contracts\SettingsContract;
+use Capell\Core\Contracts\SettingsSchemaContract;
 use Override;
 use Spatie\LaravelSettings\Settings;
 

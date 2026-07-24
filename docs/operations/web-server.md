@@ -92,7 +92,9 @@ Before scaling out, account for these operating constraints:
 
 - **Use a shared cache store.** Redis or Memcached reachable by every node. The `file`
   and `array` drivers make each node's cache — and every lock built on it — private to
-  that node. This is a correctness requirement, not a performance tip.
+  that node. This is a correctness requirement, not a performance tip. The web installer
+  refuses to start when `CAPELL_MULTI_NODE=true` and its progress state would use a
+  node-local cache store.
 - **The static HTML cache is node-local.** `public/page-cache` lives on each node's own
   disk, and publishing a page invalidates only the node that handled the request. Either
   put it on shared storage, or put a CDN or reverse proxy in front and purge that
@@ -106,8 +108,10 @@ Before scaling out, account for these operating constraints:
   installation upgrading from a version before that table existed temporarily falls
   back to the configured cache lock until its migrations run, so the shared-cache
   requirement still applies during that first upgrade.
-- **Use sticky sessions**, or a shared disk for Livewire temporary uploads. Filament
-  uploads a file in one request and consumes it in a later one.
+- **Use a shared disk for Livewire temporary uploads.** Filament uploads a file in one
+  request and consumes it in a later one. When `CAPELL_MULTI_NODE=true`, Capell rejects
+  Livewire uploads backed by a node-local filesystem even if the load balancer normally
+  provides session affinity; the storage topology remains correct during failover.
 
 ## Further reading
 

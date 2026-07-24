@@ -236,6 +236,35 @@ Packages that own tables or other persistent state can implement `Capell\Core\Co
 - Public frontend output must not include authoring markers, model IDs, field paths, package internals, permissions, or signed admin URLs.
 - Cacheable frontend output needs invalidation metadata in the manifest or explicit cache invalidation registration.
 
+## Serving Events
+
+Use the serving callbacks when registration depends on Capell's own boot sequence:
+
+```php
+use Capell\Admin\Facades\CapellAdmin;
+use Capell\Core\Facades\CapellCore;
+
+CapellCore::serving(function (): void {
+    // Register Core runtime extensions here.
+});
+
+CapellAdmin::serving(function (): void {
+    // Register Filament/admin extensions here.
+});
+```
+
+`CapellCore::serving(...)` listens for `Capell\Core\Events\ServingCapell`, which is
+dispatched once Core has registered its built-in assets and discoverable components.
+`CapellAdmin::serving(...)` listens for `Capell\Admin\Events\ServingAdmin`, which is
+dispatched from Filament's serving callback and therefore only runs when the admin panel
+is serving.
+
+Keep ordinary container bindings and configuration in the package service provider.
+Use these callbacks for extension registration that must happen after the corresponding
+Core or Admin surface is ready. There is no frontend serving event; frontend packages
+register through their enabled frontend provider and the
+[frontend extension points](frontend-extensions.md).
+
 ## Related Docs
 
 - [Package anatomy](package-anatomy.md)

@@ -9,7 +9,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 
 it('runs update page url action when a page translation is updated', function (): void {
     UpdatePageUrlAction::shouldRun()->once();
@@ -56,6 +58,51 @@ it('runs creating, created, and updated listeners for page translations', functi
     $translation->save();
 
     expect($page->pageUrl->fresh())->url->toBe('/welcome-updated');
+});
+
+it('creates page translation metadata without lazy loading its pageable', function (): void {
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->createOne([
+        'name' => 'Strict Loading Page',
+    ]);
+
+    $firstTranslation = Translation::factory()
+        ->translatable($page)
+        ->language($language)
+        ->create();
+
+    $secondTranslation = Translation::factory()
+        ->translatable(Page::factory()->createOne())
+        ->create();
+
+    Model::preventLazyLoading();
+
+    try {
+        $translations = Translation::query()
+            ->whereKey([$firstTranslation->getKey(), $secondTranslation->getKey()])
+            ->get();
+
+        $translation = $translations->firstOrFail(
+            fn (Translation $candidate): bool => $candidate->is($firstTranslation),
+        );
+
+        $translation->forceFill([
+            'title' => null,
+            'meta' => [],
+        ]);
+
+        Event::dispatch('eloquent.creating: ' . Translation::class, [$translation]);
+
+        expect($translation->relationLoaded('translatable'))->toBeTrue();
+        expect($translation->translatable)->toBeInstanceOf(Page::class);
+        expect($translation->content)->toBeString();
+
+        expect($translation)
+            ->title->toBe('Strict Loading Page')
+            ->slug->toBe('strict-loading-page');
+    } finally {
+        Model::preventLazyLoading(false);
+    }
 });
 
 it('runs saved and deleted listeners for pageable translations', function (): void {

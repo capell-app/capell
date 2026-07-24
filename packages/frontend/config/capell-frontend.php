@@ -115,7 +115,6 @@ return [
     ],
 
     // Scheduling & Automation
-    'schedule_page_cleaner' => env('CAPELL_SCHEDULE_PAGE_CLEANER', 'daily'),
     'purge_queue' => env('CAPELL_FRONTEND_PURGE_QUEUE', 'default'),
 
     // CDN surrogate-key purge integration.

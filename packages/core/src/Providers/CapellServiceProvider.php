@@ -64,6 +64,7 @@ use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
@@ -188,9 +189,17 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
-        $this->app->singleton(CapellCoreManager::class);
+        $resolvedManager = CapellCore::getFacadeRoot();
+        $coreManager = $resolvedManager instanceof CapellCoreManager ? $resolvedManager : new CapellCoreManager;
+
+        $this->app->singleton(
+            CapellCoreManager::class,
+            static fn (): CapellCoreManager => $coreManager,
+        );
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
+        $this->registerSettingsSchemaRegistry();
+        $this->bindManagers();
         $this->app->scoped(RuntimeSchemaState::class);
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
@@ -270,7 +279,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function packageRegistered(): void
     {
         $this
-            ->registerSettingsSchemaRegistry()
             ->registerPublicationTransitions()
             ->registerMailMarkdownComponents()
             ->registerLocalAppThemeDiscovery()
@@ -280,7 +288,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerModels()
             ->registerProtectedTables()
             ->registerMetricSchedule()
-            ->bindManagers()
+            ->registerBackupPruneSchedule()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
@@ -291,6 +299,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerMakers()
             ->registerContentGraphExtractors()
             ->registerThemeRuntime()
+            ->registerMultiNodeUploadGuard()
             ->registerOptimization()
             ->registerLockdownStore()
             ->registerRedirectBehavior()
@@ -551,6 +560,28 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    private function registerBackupPruneSchedule(): self
+    {
+        if (! config('backup.prune_schedule_enabled', false)) {
+            return $this;
+        }
+
+        $cron = config('backup.prune_schedule_cron', '0 3 * * 1');
+
+        if (! is_string($cron) || trim($cron) === '') {
+            return $this;
+        }
+
+        $this->registerSchedule(function (Schedule $schedule) use ($cron): void {
+            $schedule->command('capell:backup:prune --force')
+                ->cron($cron)
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
+
+        return $this;
+    }
+
     private function registerComponentTypes(): self
     {
         foreach (ComponentTypeEnum::cases() as $componentType) {
@@ -671,6 +702,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->callAfterResolving(Router::class, function (Router $router): void {
             $this->registerThemePreviewMiddleware($router);
+        });
+
+        return $this;
+    }
+
+    private function registerMultiNodeUploadGuard(): self
+    {
+        $this->callAfterResolving(Router::class, static function (Router $router): void {
+            $router->pushMiddlewareToGroup('web', EnsureMultiNodeUploadsUseSharedStorage::class);
         });
 
         return $this;

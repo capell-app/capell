@@ -24,65 +24,70 @@ final class OnFrontendContextResolved
             CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::LayoutLoaded, $page);
         }
 
-        $this->recordExtensionRenderContributions();
+        $this->recordPageExtensionRenderContributions($page);
     }
 
-    private function recordExtensionRenderContributions(): void
+    private function recordPageExtensionRenderContributions(?Pageable $page): void
     {
-        $elapsedMilliseconds = $this->elapsedMilliseconds();
+        if (! $page instanceof Pageable) {
+            return;
+        }
+
+        /** @var list<array{CapellManifestData, ExtensionContributionData}> $matches */
+        $matches = [];
 
         foreach (resolve(CapellPackageRegistry::class)->all() as $manifest) {
             foreach ($manifest->contributes as $contribution) {
-                if (! $this->shouldAttributeContribution($manifest, $contribution)) {
+                if (! in_array($contribution->type, [
+                    ExtensionContributionType::PageType,
+                    ExtensionContributionType::PageVariation,
+                ], true)) {
                     continue;
                 }
 
-                RecordExtensionRenderContributionAction::run(
-                    packageName: $manifest->name,
-                    surface: 'frontend',
-                    contributionType: $contribution->type->value,
-                    contributionClass: $contribution->class,
-                    elapsedMilliseconds: $elapsedMilliseconds,
-                    frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
-                    cacheTags: $manifest->performance->cacheTags,
-                    cacheable: $manifest->performance->cacheSafety->cacheable,
-                    sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
-                    variesBy: $manifest->performance->cacheSafety->variesBy,
-                );
+                $surface = $contribution->metadata['surface'] ?? null;
+                if (is_string($surface) && $surface !== '' && $surface !== 'frontend') {
+                    continue;
+                }
+
+                if (! is_string($surface) && ! in_array('frontend', $manifest->surfaces, true)) {
+                    continue;
+                }
+
+                $modelClass = $contribution->metadata['modelClass'] ?? null;
+                if (! is_string($modelClass)) {
+                    continue;
+                }
+
+                if ($modelClass === '') {
+                    continue;
+                }
+
+                if (! $page instanceof $modelClass) {
+                    continue;
+                }
+
+                $matches[] = [$manifest, $contribution];
             }
         }
-    }
 
-    private function shouldAttributeContribution(CapellManifestData $manifest, ExtensionContributionData $contribution): bool
-    {
-        if (! $this->targetsFrontend($manifest, $contribution)) {
-            return false;
+        if (count($matches) !== 1) {
+            return;
         }
 
-        return in_array($contribution->type, [
-            ExtensionContributionType::Section,
-            ExtensionContributionType::PageType,
-            ExtensionContributionType::PageVariation,
-            ExtensionContributionType::RenderHook,
-            ExtensionContributionType::Asset,
-        ], true);
-    }
+        [$manifest, $contribution] = $matches[0];
 
-    private function targetsFrontend(CapellManifestData $manifest, ExtensionContributionData $contribution): bool
-    {
-        $surface = $contribution->metadata['surface'] ?? null;
-
-        if (is_string($surface) && $surface !== '') {
-            return $surface === 'frontend';
-        }
-
-        return in_array('frontend', $manifest->surfaces, true);
-    }
-
-    private function elapsedMilliseconds(): float
-    {
-        $startedAt = defined('LARAVEL_START') ? LARAVEL_START : microtime(true);
-
-        return max(0, (microtime(true) - $startedAt) * 1000);
+        RecordExtensionRenderContributionAction::run(
+            packageName: $manifest->name,
+            surface: 'frontend',
+            contributionType: $contribution->type->value,
+            contributionClass: $contribution->class,
+            elapsedMilliseconds: 0,
+            frontendRenderBudgetMs: $manifest->performance->frontendRenderBudgetMs,
+            cacheTags: $manifest->performance->cacheTags,
+            cacheable: $manifest->performance->cacheSafety->cacheable,
+            sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
+            variesBy: $manifest->performance->cacheSafety->variesBy,
+        );
     }
 }

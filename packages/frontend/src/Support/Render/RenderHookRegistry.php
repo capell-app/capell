@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
@@ -205,7 +206,7 @@ class RenderHookRegistry
             ->sortBy(fn (RenderHookEntryData $entry): int => $entry->priority);
 
         return $extensions
-            ->map(fn (RenderHookEntryData $entry): mixed => $this->renderEntry($entry, $context))
+            ->map(fn (RenderHookEntryData $entry): mixed => $this->renderAndRecordEntry($entry, $context))
             ->implode('');
     }
 
@@ -247,6 +248,26 @@ class RenderHookRegistry
         if ($result instanceof View) {
             return $result->render();
         }
+
+        return $result;
+    }
+
+    private function renderAndRecordEntry(RenderHookEntryData $entry, RenderHookContext $context): mixed
+    {
+        $startedAt = microtime(true);
+        $result = $this->renderEntry($entry, $context);
+
+        if ($entry->owner === null) {
+            return $result;
+        }
+
+        RecordManifestRenderContributionAction::run(
+            packageName: $entry->owner,
+            contributionType: 'render-hook',
+            contributionClass: is_object($entry->extension) ? $entry->extension::class : null,
+            elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
+            cacheSafe: $entry->cacheSafe,
+        );
 
         return $result;
     }

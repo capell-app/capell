@@ -32,6 +32,7 @@ $fullStages = [
     'docs-orphans' => 'check:docs-orphans',
     'docs-requirements' => 'check:docs-requirements',
     'docs-env' => 'check:docs-env',
+    'docs-config' => 'check:docs-config',
     'docs-screenshots' => 'check:docs-screenshots',
     'extension-surfaces' => 'check:extension-surfaces',
     'stable-extension-api' => 'check:stable-extension-api',

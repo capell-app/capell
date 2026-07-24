@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Media\MediaContract as Media;
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Database\Eloquent\Model;
 
 it('belongs to a language', function (): void {
     $language = Language::factory()->createOne();
@@ -70,6 +73,48 @@ it('handles morph to with site translatable', function (): void {
     expect($translation->translatable)
         ->toBeInstanceOf(Site::class)
         ->and($translation->translatable->id)->toBe($site->id);
+});
+
+it('resolves a blueprintable translatable explicitly when lazy loading is prevented', function (): void {
+    $blueprint = Blueprint::factory()
+        ->site()
+        ->contentStructure(ContentStructure::Blocks)
+        ->createOne();
+    $site = Site::factory()->type($blueprint)->createOne();
+    $translation = Translation::factory()
+        ->translatable($site)
+        ->create(['content' => ['heading' => 'Welcome']])
+        ->fresh();
+
+    Model::preventLazyLoading();
+
+    try {
+        expect($translation->content)->toBe(['heading' => 'Welcome'])
+            ->and($translation->relationLoaded('translatable'))->toBeTrue()
+            ->and($translation->translatable)->toBeInstanceOf(Site::class)
+            ->and($translation->translatable->relationLoaded('blueprint'))->toBeTrue();
+    } finally {
+        Model::preventLazyLoading(false);
+    }
+});
+
+it('falls back to html content for an orphaned translatable when lazy loading is prevented', function (): void {
+    $site = Site::factory()->createOne();
+    $translation = Translation::factory()
+        ->translatable($site)
+        ->create(['content' => '<p>Orphaned content</p>']);
+    $site->delete();
+    $translation = $translation->fresh();
+
+    Model::preventLazyLoading();
+
+    try {
+        expect($translation->content)->toBe('<p>Orphaned content</p>')
+            ->and($translation->relationLoaded('translatable'))->toBeTrue()
+            ->and($translation->getRelation('translatable'))->toBeNull();
+    } finally {
+        Model::preventLazyLoading(false);
+    }
 });
 
 it('has morph one image media relation', function (): void {

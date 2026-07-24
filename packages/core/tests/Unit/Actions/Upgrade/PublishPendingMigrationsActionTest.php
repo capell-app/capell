@@ -77,3 +77,18 @@ it('reports dry-run without calling artisan', function (): void {
 
     expect($result->output)->toContain('[dry-run]');
 });
+
+it('blocks migration publication for immutable releases before calling artisan', function (): void {
+    config()->set('capell.release_root_mode', 'immutable');
+
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldNotReceive('call');
+
+    $this->app->instance(Kernel::class, $kernel);
+
+    expect(fn (): mixed => PublishPendingMigrationsAction::run())
+        ->toThrow(
+            RuntimeException::class,
+            'Publishing pending Capell migrations is blocked because CAPELL_RELEASE_ROOT_MODE is immutable',
+        );
+});

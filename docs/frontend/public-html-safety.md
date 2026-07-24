@@ -47,6 +47,12 @@ In-page authoring is a post-load admin feature. The public page loads normally, 
 | Themes       | Keep theme output public. Admin editing controls belong in frontend-authoring.       |
 | Packages     | Test anonymous and non-admin output when the package renders public HTML.            |
 
+`RenderHtmlContentAction` builds its HTML sanitizer from
+`capell-frontend.html_content_allowed_attributes` and caches it for the PHP process. That
+allowlist is application-global: it must not vary by site, tenant, request, or
+authenticated user. Every allowed attribute must therefore be safe in every public CMS
+output context.
+
 ## Safe And Unsafe Examples
 
 Safe:

@@ -40,6 +40,7 @@ Source: `packages/core/config/capell.php`
 | `CAPELL_CACHE_LOCK_SECONDS`                  | `30`                                      | Lifetime in seconds of the lock Capell holds while filling a cache entry, preventing stampedes      |
 | `CAPELL_CACHE_LOCK_WAIT_SECONDS`             | `10`                                      | How long a request waits for another process to finish filling the same cache entry before failing  |
 | `CAPELL_MULTI_NODE`                          | `false`                                   | Declare a multi-node deployment so Doctor requires a shared cache store                              |
+| `CAPELL_RELEASE_ROOT_MODE`                   | `mutable`                                 | `mutable` permits guarded release-root writes; `immutable` and `atomic` require Composer and migration publication during the release build |
 | `CAPELL_SERVER_SIDE_TOOLING`                 | `false`                                   | Declare that this server installs extensions and builds assets itself, so Doctor requires Composer, Node, and `proc_open` |
 | `CAPELL_ASSETS_DISK`                         | `local`                                   | Filesystem disk checked by Capell Doctor for writable asset storage                                 |
 | `CAPELL_SITEMAP_MAX_URLS_PER_FILE`           | `50000`                                   | Maximum URLs per generated sitemap file                                                             |
@@ -155,7 +156,6 @@ Source: `packages/frontend/config/capell-frontend.php`
 | `CAPELL_AUTO_CREATE_SYSTEM_PAGES`            | `true`        | Auto-creates missing system pages when resolving fallback pages     |
 | `CAPELL_FRONTEND_DEFAULT_SCHEME`             | _(null)_      | Optional forced scheme for generated frontend URLs, such as `https` |
 | `CAPELL_SITE_BASE_URL`                       | _(null)_      | Base URL override for generated site URLs                           |
-| `CAPELL_SCHEDULE_PAGE_CLEANER`               | `daily`       | Schedule frequency for page cleanup                                 |
 | `CAPELL_FRONTEND_PURGE_QUEUE`                | `default`     | Queue used for CDN purge jobs                                       |
 | `CAPELL_FRONTEND_CDN_PROVIDER`               | _(null)_      | CDN purge provider: `cloudflare`, `fastly`, or `varnish`            |
 | `CAPELL_FRONTEND_CLOUDFLARE_PURGE_TOKEN`     | _(null)_      | Cloudflare API token for tag purges                                 |

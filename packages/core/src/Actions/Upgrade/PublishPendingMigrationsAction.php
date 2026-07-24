@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Upgrade;
 use Capell\Core\Data\MigrationPublishResult;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Migration\MigrationFileScanner;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -18,6 +19,8 @@ class PublishPendingMigrationsAction
     use AsFake;
     use AsObject;
 
+    public function __construct(private readonly ReleaseRootWriteGuard $releaseRootWriteGuard) {}
+
     public function handle(bool $dryRun = false): MigrationPublishResult
     {
         if ($dryRun) {
@@ -27,6 +30,11 @@ class PublishPendingMigrationsAction
                 output: '[dry-run] would publish schema and settings migrations',
             );
         }
+
+        $this->releaseRootWriteGuard->assertWritable(
+            operation: 'Publishing pending Capell migrations',
+            relativePaths: ['database/migrations', 'database/settings'],
+        );
 
         $output = '';
 

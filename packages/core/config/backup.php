@@ -16,6 +16,8 @@ return [
     'max_age_hours' => (int) env('CAPELL_BACKUP_MAX_AGE_HOURS', 26),
     'minimum_retained' => (int) env('CAPELL_BACKUP_MINIMUM_RETAINED', 7),
     'retain' => (int) env('CAPELL_BACKUP_RETAIN', 30),
+    'prune_schedule_enabled' => (bool) env('CAPELL_BACKUP_PRUNE_SCHEDULE_ENABLED', false),
+    'prune_schedule_cron' => env('CAPELL_BACKUP_PRUNE_SCHEDULE_CRON', '0 3 * * 1'),
     'process_timeout_seconds' => (int) env('CAPELL_BACKUP_PROCESS_TIMEOUT_SECONDS', 3600),
     'scratch' => [
         'database_prefix' => env('CAPELL_BACKUP_SCRATCH_DATABASE_PREFIX', 'capell_restore_'),

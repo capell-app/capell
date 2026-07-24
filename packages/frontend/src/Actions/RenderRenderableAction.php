@@ -6,8 +6,10 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Actions\ResolveRenderableComponentAction;
 use Capell\Core\Actions\ResolveRenderableViewDataAction;
+use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Support\Renderables\RenderableRegistry;
+use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Blade;
 use InvalidArgumentException;
@@ -39,11 +41,12 @@ final class RenderRenderableAction
         array $dynamicData = [],
         string $implementation = 'blade',
     ): string {
+        $startedAt = microtime(true);
         $definition = $this->registry->get($type, $key);
         $target = ResolveRenderableComponentAction::run($type, $key, $implementation);
         $viewData = ResolveRenderableViewDataAction::run($definition, $asset, $translation, $meta, $dynamicData, $key);
 
-        return match ($implementation) {
+        $rendered = match ($implementation) {
             'blade' => view($target, $viewData)->render(),
             'assetComponent', 'component' => Blade::render(
                 '<x-dynamic-component :component="$target" :asset="$asset" :translation="$translation" :meta="$meta" :dynamic-data="$dynamicData" :render-key="$renderKey" />',
@@ -55,5 +58,17 @@ final class RenderRenderableAction
             ]),
             default => throw new InvalidArgumentException(sprintf('Renderable implementation [%s] is not supported.', $implementation)),
         };
+
+        if ($definition->contribution instanceof RenderableContributionIdentityData) {
+            RecordManifestRenderContributionAction::run(
+                packageName: $definition->contribution->owner,
+                contributionType: $definition->contribution->type->value,
+                contributionClass: $definition->contribution->class,
+                elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
+                cacheSafe: $definition->contribution->cacheSafe,
+            );
+        }
+
+        return $rendered;
     }
 }

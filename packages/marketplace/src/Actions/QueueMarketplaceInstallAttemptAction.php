@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Actions\AssertQueueConnectionReadyAction;
+use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
@@ -130,6 +132,16 @@ final class QueueMarketplaceInstallAttemptAction
             );
         }
 
+        $queueConnection = (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database');
+
+        try {
+            AssertQueueConnectionReadyAction::run($queueConnection);
+        } catch (QueueConnectionNotReadyException $queueConnectionNotReadyException) {
+            throw ValidationException::withMessages([
+                'queue_connection' => $queueConnectionNotReadyException->getMessage(),
+            ]);
+        }
+
         $this->guardDuplicateActiveInstall($acquisition->composerName);
 
         $attempt = RecordMarketplaceInstallAttemptAction::run(
@@ -218,7 +230,7 @@ final class QueueMarketplaceInstallAttemptAction
         }
 
         dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
-            ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
+            ->onConnection($queueConnection)
             ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
 
         return $attempt;

@@ -129,24 +129,24 @@ final class ExampleRoutes implements RegistersExtensionRoute
 ]
 ```
 
-| `type` | Contract (in `Capell\Core\Contracts\Extensions`) |
-| --- | --- |
-| `admin-resource` | `RegistersExtensionAdminResource` |
-| `section` | `RegistersExtensionSection` |
-| `page-type`, `page-variation` | `RegistersExtensionPageType` |
-| `dashboard-widget`, `overview-stat` | `RegistersExtensionFilamentWidget` |
-| `permission` | `RegistersExtensionPermission` |
-| `route` | `RegistersExtensionRoute` |
-| `setting` | `RegistersExtensionSetting` |
-| `frontend-component` | `RegistersExtensionFrontendComponent` |
-| `content-widget` | `RegistersExtensionContentWidget` |
-| `render-hook` | `RegistersExtensionRenderHook` |
-| `asset` | `RegistersExtensionAsset` |
-| `migration` | `RunsExtensionMigration` |
-| `scheduled-job` | `RunsScheduledExtensionJob` |
-| `health-check` | `ChecksExtensionHealth` |
-| `content-graph` | `ContentGraphExtractor` |
-| `workflow-attention` | `ContributesWorkflowAttention` |
+| `type`                              | Contract (in `Capell\Core\Contracts\Extensions`) |
+| ----------------------------------- | ------------------------------------------------ |
+| `admin-resource`                    | `RegistersExtensionAdminResource`                |
+| `section`                           | `RegistersExtensionSection`                      |
+| `page-type`, `page-variation`       | `RegistersExtensionPageType`                     |
+| `dashboard-widget`, `overview-stat` | `RegistersExtensionFilamentWidget`               |
+| `permission`                        | `RegistersExtensionPermission`                   |
+| `route`                             | `RegistersExtensionRoute`                        |
+| `setting`                           | `RegistersExtensionSetting`                      |
+| `frontend-component`                | `RegistersExtensionFrontendComponent`            |
+| `content-widget`                    | `RegistersExtensionContentWidget`                |
+| `render-hook`                       | `RegistersExtensionRenderHook`                   |
+| `asset`                             | `RegistersExtensionAsset`                        |
+| `migration`                         | `RunsExtensionMigration`                         |
+| `scheduled-job`                     | `RunsScheduledExtensionJob`                      |
+| `health-check`                      | `ChecksExtensionHealth`                          |
+| `content-graph`                     | `ContentGraphExtractor`                          |
+| `workflow-attention`                | `ContributesWorkflowAttention`                   |
 
 Validation rejects a manifest when the class sits outside the package's own PSR-4
 namespace, spoofs a Capell namespace, or does not implement the mapped contract. A
@@ -166,13 +166,13 @@ there is no resolved site, page, or language context. Take the canonical list fr
 hand-listing aliases — it is the source of truth and supports `prepend()`, `append()`,
 `insertBefore()`, and `insertAfter()`.
 
-| Alias | Purpose |
-| --- | --- |
-| `frontend.resolve` | Bootstraps the frontend kernel and resolves site, page, and language. **Required.** |
-| `frontend.maintenance` | Serves cached maintenance and lockdown pages. Lockdown ignores all bypasses. |
-| `frontend.anonymous_cacheable_render` | Nulls the user resolver so an authenticated response cannot poison a shared HTML cache entry |
-| `frontend.rendering_strategy` | Adds an `X-Rendering-Strategy` diagnostic header. Optional, not in the default stack. |
-| `frontend.etag`, `frontend.asset-optimization` | ETag and asset optimisation. Optional, not in the default stack. |
+| Alias                                          | Purpose                                                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `frontend.resolve`                             | Bootstraps the frontend kernel and resolves site, page, and language. **Required.**          |
+| `frontend.maintenance`                         | Serves cached maintenance and lockdown pages. Lockdown ignores all bypasses.                 |
+| `frontend.anonymous_cacheable_render`          | Nulls the user resolver so an authenticated response cannot poison a shared HTML cache entry |
+| `frontend.rendering_strategy`                  | Adds an `X-Rendering-Strategy` diagnostic header. Optional, not in the default stack.        |
+| `frontend.etag`, `frontend.asset-optimization` | ETag and asset optimisation. Optional, not in the default stack.                             |
 
 ## Registering Public Components
 
@@ -185,17 +185,19 @@ Packages should contribute through `Capell\Frontend\Contracts\FrontendComponentC
 instead, tagged with that interface's `TAG` constant. Contributor entries take precedence
 over config.
 
-## Contracts That Exist Twice
+## Deprecated Downstream Contract Aliases
 
 Three contracts exist in both Core and a downstream package. In each case Core owns the
-definition and the downstream copy is an empty extending alias — bind the Core one unless
-you specifically want the narrower scope.
+definition and the downstream copy is a deprecated, empty extending alias. Existing
+implementations of a downstream alias remain valid implementations of the Core contract,
+but new code must import and bind the Core contract. Migrate existing imports before the
+downstream aliases are removed in the next major release.
 
-| Contract | Bind this | Note |
-| --- | --- | --- |
-| `RedirectResolver` | `Capell\Core\Contracts\RedirectResolver` | Public page resolution reads the **Core** contract. Binding only the Frontend alias will not change redirect behaviour. |
-| `SettingsSchemaContract` | `Capell\Core\Contracts\SettingsSchemaContract` | Use the Admin alias only for admin-panel-only settings. |
-| `ThemePreviewRendererInterface` | `Capell\Core\Contracts\Themes\ThemePreviewRendererInterface` | Only the Core contract is bound; the Admin alias has no binding and no implementer. |
+| Deprecated alias                                              | Replace with                                                 | Note                                                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `Capell\Frontend\Contracts\RedirectResolver`                  | `Capell\Core\Contracts\RedirectResolver`                     | Public page resolution reads the Core contract. Binding only the deprecated alias does not change redirect behaviour. |
+| `Capell\Admin\Contracts\SettingsSchemaContract`               | `Capell\Core\Contracts\SettingsSchemaContract`               | Settings discovery accepts the Core contract.                                                                         |
+| `Capell\Admin\Contracts\Themes\ThemePreviewRendererInterface` | `Capell\Core\Contracts\Themes\ThemePreviewRendererInterface` | The frontend renderer is bound to the Core contract.                                                                  |
 
 ## Rules
 
@@ -203,6 +205,7 @@ you specifically want the narrower scope.
 - Return `null`, an empty array, or no-op output when the package does not support the current context.
 - Test both the expected contribution and the safe fallback.
 - Public frontend extensions must pass [public HTML safety](../frontend/public-html-safety.md).
+- The HTML sanitizer is rebuilt from `capell-frontend.html_content_allowed_attributes` for each invocation. Site-scoped configuration resolved before rendering therefore remains isolated between requests, including in long-lived workers.
 
 ## Next
 

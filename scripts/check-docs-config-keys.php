@@ -1,207 +1,432 @@
 <?php
 
 declare(strict_types=1);
-use Illuminate\Foundation\Application;
 
-/*
- * Guards against config keys silently going undocumented.
- *
- * The hosting audit found ~74 operator-facing config keys with no env var and no
- * documentation — invisible unless you read the source. `check-docs-env-vars.php`
- * covers env-backed keys; this covers the rest.
- *
- * A config key must be one of:
- *   - env-backed  — its value calls env(), so it is the env-var guard's concern;
- *   - structural  — palette values, icon/asset wiring, component maps: data, not
- *                   operator config, and never documented key-by-key;
- *   - documented  — its dotted path appears verbatim somewhere in docs/;
- *   - baselined   — a known, pre-existing gap listed below.
- *
- * Anything else fails the build. The baseline is the current debt; it is meant to
- * shrink, never grow. Adding a new config key forces a choice: document it, or add
- * a justified line here.
- */
-
-$repositoryRoot = realpath(getenv('CAPELL_DOCS_CONFIG_ROOT') ?: dirname(__DIR__));
+$configuredRepositoryRoot = getenv('CAPELL_DOCS_CONFIG_ROOT') ?: dirname(__DIR__);
+$repositoryRoot = realpath($configuredRepositoryRoot);
 
 if ($repositoryRoot === false) {
-    fwrite(STDERR, "Missing repository root.\n");
+    fwrite(STDERR, sprintf('Missing repository root: %s%s', $configuredRepositoryRoot, PHP_EOL));
 
     exit(1);
 }
 
-require $repositoryRoot . '/vendor/autoload.php';
+$classificationPath = $repositoryRoot . '/scripts/docs-config-key-classifications.php';
+$classifications = is_file($classificationPath) ? require $classificationPath : [];
 
-// A bare container so env()/base_path()/storage_path() resolve inside config files.
-new Application($repositoryRoot);
+if (! is_array($classifications)) {
+    fwrite(STDERR, $classificationPath . ' must return an array.
+');
 
-/*
- * Structural sub-trees: pure data or framework wiring, not operator-tunable config.
- * Each prefix needs a reason. A dotted path starting with any of these is skipped.
- */
-$structuralPrefixes = [
-    'capell.default_colors.' => 'theme colour palette values',
-    'capell.default_pages' => 'seed page list',
-    'capell.media.crop_presets.' => 'named image crop dimensions',
-    'capell.runtime.auth_paths' => 'auth path patterns, list data',
-    'capell-admin.social_types.' => 'social-link field definitions per network',
-    'capell-admin.assets.' => 'Filament asset resource icon/colour/model wiring',
-    'capell-admin.resources.' => 'Filament resource icon/badge wiring',
-    'capell-admin.icon.' => 'Filament navigation icon wiring',
-    'capell-admin.shortcuts' => 'admin keyboard shortcut map',
-    'capell-admin.security_headers.headers.' => 'HTTP header name to value map',
-    'capell-admin.user_resource.role_schema_types.' => 'role name to form-schema map',
-    'capell.publishing-studio.notifications.recipients.' => 'transition name to notified-roles map',
-    'capell-frontend.livewire_components' => 'public component class map',
-    'capell-frontend.blade_components' => 'public component class map',
-    'capell-frontend.cache_vary_headers' => 'static header list',
-];
+    exit(1);
+}
 
-/*
- * Known undocumented operator-facing keys carried over from before this guard
- * existed. This list must only shrink. Do not add to it to make a new key pass —
- * document the key instead.
- */
-$baseline = [
-    'backup.media_disks',
-    'capell-admin.upgrades.api_timeout_seconds',
-    'capell-admin.upgrades.danger_threshold',
-    'capell-admin.upgrades.notifications.emails',
-    'capell-admin.user_resource.default_schema_type',
-    'capell-frontend.foundation_theme',
-    'capell-frontend.tailwind.imports',
-    'capell-frontend.tailwind.plugins',
-    'capell-installer.database_table_cache.key',
-    'capell-installer.default_packages',
-    'capell-installer.installation_state_cache.host',
-    'capell-installer.installation_state_cache.key',
-    'capell.diagnostics.allowed_roots',
-    'capell.plugins',
-    'capell.publishing-studio.notifications.channels',
-    'capell.publishing-studio.release_windows.bypass_permission',
-    'capell.publishing-studio.release_windows.windows',
-    'capell.publishing-studio.review_policy.content_types',
-    'capell.publishing-studio.review_policy.default.minimum',
-    'capell.sitemap.directory',
-];
+$documentation = '';
 
-$baselineLookup = array_fill_keys($baseline, true);
+foreach (collectFilesByExtension($repositoryRoot . '/docs', 'md') as $markdownFile) {
+    $contents = file_get_contents($markdownFile);
 
-/**
- * Flatten a config array to dotted leaf keys, recording whether each leaf's source
- * value calls env(). Numeric (list) keys are not config keys and are skipped.
- *
- * @param  array<int|string, mixed>  $configArray
- * @return array<string, bool> dotted key => env-backed
- */
-function flattenConfigKeys(array $configArray, string $prefix, string $source): array
-{
-    $flattened = [];
+    if ($contents === false) {
+        fwrite(STDERR, "Unable to read {$markdownFile}.\n");
 
-    foreach ($configArray as $key => $value) {
-        if (is_int($key)) {
-            continue;
-        }
-
-        $path = $prefix === '' ? $key : "{$prefix}.{$key}";
-
-        if (is_array($value) && $value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            $flattened += flattenConfigKeys($value, $path, $source);
-
-            continue;
-        }
-
-        $quotedSegment = preg_quote((string) $key, '/');
-        $flattened[$path] = (bool) preg_match("/'{$quotedSegment}'\\s*=>[^\\n]*env\\(/", $source);
+        exit(1);
     }
 
-    return $flattened;
+    $documentation .= "\n" . $contents;
+}
+
+$readmePath = $repositoryRoot . '/README.md';
+
+if (is_file($readmePath)) {
+    $readmeContents = file_get_contents($readmePath);
+
+    if ($readmeContents === false) {
+        fwrite(STDERR, "Unable to read {$readmePath}.\n");
+
+        exit(1);
+    }
+
+    $documentation .= "\n" . $readmeContents;
 }
 
 $configKeys = [];
 
-foreach (glob($repositoryRoot . '/packages/*/config/*.php') as $configFile) {
-    $configArray = require $configFile;
-    $source = file_get_contents($configFile);
+foreach (collectPublicConfigFiles($repositoryRoot . '/packages') as $configFile) {
+    $contents = file_get_contents($configFile);
 
-    if (is_array($configArray) && $source !== false) {
-        $configKeys += flattenConfigKeys($configArray, basename($configFile, '.php'), $source);
+    if ($contents === false) {
+        fwrite(STDERR, "Unable to read {$configFile}.\n");
+
+        exit(1);
+    }
+
+    $packageName = basename(dirname($configFile, 2));
+    $configName = pathinfo($configFile, PATHINFO_FILENAME);
+
+    foreach (extractConfigLeaves($contents, $configName) as $configKey => $environmentVariables) {
+        $configKeys[$configKey] = [
+            'environmentVariables' => $environmentVariables,
+            'source' => substr($configFile, strlen($repositoryRoot) + 1),
+            'package' => $packageName,
+        ];
     }
 }
 
 ksort($configKeys);
 
-$documentation = '';
-
-foreach (collectMarkdownFiles($repositoryRoot . '/docs') as $markdownFile) {
-    $documentation .= file_get_contents($markdownFile) ?: '';
-}
-
 $failures = [];
-$staleBaseline = [];
-$checkedCount = 0;
+$documentedCount = 0;
+$classifiedCount = 0;
 
-foreach ($configKeys as $dottedKey => $isEnvBacked) {
-    if ($isEnvBacked || isStructural($dottedKey, $structuralPrefixes)) {
+foreach ($configKeys as $configKey => $metadata) {
+    $documentedByPath = configPathOrAncestorIsDocumented($documentation, $configKey);
+    $documentedByEnvironment = array_any(
+        $metadata['environmentVariables'],
+        static fn (string $variable): bool => containsDocumentationToken($documentation, $variable),
+    );
+
+    if ($documentedByPath || $documentedByEnvironment) {
+        $documentedCount++;
+
+        if (isset($classifications[$configKey])) {
+            $failures[] = $configKey . ': is documented but still has a classification; remove the stale classification.';
+        }
+
         continue;
     }
 
-    $checkedCount++;
-    $documented = str_contains($documentation, $dottedKey);
-    $baselined = isset($baselineLookup[$dottedKey]);
+    $reason = $classifications[$configKey] ?? null;
 
-    if ($documented && $baselined) {
-        $staleBaseline[] = $dottedKey;
+    if (! is_string($reason) || trim($reason) === '') {
+        $failures[] = sprintf('%s: undocumented public config leaf from %s has no explicit classification.', $configKey, $metadata['source']);
 
         continue;
     }
 
-    if ($documented || $baselined) {
-        continue;
-    }
-
-    $failures[] = "{$dottedKey}: config key is neither documented (its dotted path is absent from docs/) nor baselined.";
+    $classifiedCount++;
 }
 
-if ($staleBaseline !== []) {
-    sort($staleBaseline);
-
-    fwrite(STDERR, "Baseline entries that are now documented — remove them from \$baseline in scripts/check-docs-config-keys.php:\n");
-
-    foreach ($staleBaseline as $staleKey) {
-        fwrite(STDERR, "- {$staleKey}\n");
+foreach (array_keys($classifications) as $classifiedKey) {
+    if (! is_string($classifiedKey) || ! array_key_exists($classifiedKey, $configKeys)) {
+        $failures[] = $classifiedKey . ': classification does not match a current public config leaf.';
     }
-
-    exit(2);
 }
 
 if ($failures !== []) {
     sort($failures);
 
-    fwrite(STDERR, "Undocumented config key(s):\n");
+    fwrite(STDERR, "Config-key documentation coverage failed:\n");
 
     foreach ($failures as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
-    fwrite(STDERR, "\nDocument the key in docs/ (its dotted path must appear), mark it structural, or add a justified baseline line in scripts/check-docs-config-keys.php.\n");
+    fwrite(STDERR, "\nDocument the full config path or backing environment variable, or add a narrow reason to scripts/docs-config-key-classifications.php.\n");
 
     exit(2);
 }
 
-echo "{$checkedCount} operator-facing config keys verified (documented or baselined).\n";
+$totalCount = count($configKeys);
+
+echo "{$totalCount} public config leaves covered: {$documentedCount} documented, {$classifiedCount} explicitly classified.\n";
 
 exit(0);
 
 /**
- * @param  array<string, string>  $structuralPrefixes
+ * @return list<string>
  */
-function isStructural(string $dottedKey, array $structuralPrefixes): bool
+function collectPublicConfigFiles(string $packagesDirectory): array
 {
-    foreach (array_keys($structuralPrefixes) as $prefix) {
-        if ($dottedKey === rtrim($prefix, '.') || str_starts_with($dottedKey, $prefix)) {
+    $configFiles = glob($packagesDirectory . '/*/config/*.php');
+
+    if ($configFiles === false) {
+        return [];
+    }
+
+    sort($configFiles);
+
+    return $configFiles;
+}
+
+/**
+ * @return array<string, list<string>>
+ */
+function extractConfigLeaves(string $contents, string $configName): array
+{
+    $tokens = token_get_all($contents);
+    $tokenCount = count($tokens);
+    $assignedEnvironmentVariables = extractAssignedEnvironmentVariables($tokens);
+
+    for ($index = 0; $index < $tokenCount; $index++) {
+        if (is_array($tokens[$index]) && $tokens[$index][0] === T_RETURN) {
+            $index = nextSignificantTokenIndex($tokens, $index + 1);
+
+            if (($tokens[$index] ?? null) === '[') {
+                return parseConfigArray($tokens, $index, $configName, $assignedEnvironmentVariables);
+            }
+        }
+    }
+
+    return [];
+}
+
+/**
+ * @param  list<array{int, string, int}|string>  $tokens
+ * @param  array<string, list<string>>  $assignedEnvironmentVariables
+ * @return array<string, list<string>>
+ */
+function parseConfigArray(array $tokens, int &$index, string $prefix, array $assignedEnvironmentVariables): array
+{
+    $leaves = [];
+    $index++;
+    $tokenCount = count($tokens);
+
+    while ($index < $tokenCount) {
+        $index = nextSignificantTokenIndex($tokens, $index);
+        $token = $tokens[$index] ?? null;
+
+        if ($token === ']') {
+            $index++;
+
+            return $leaves;
+        }
+
+        if ($token === ',') {
+            $index++;
+
+            continue;
+        }
+
+        $keyIndex = $index;
+        $arrowIndex = nextSignificantTokenIndex($tokens, $keyIndex + 1);
+
+        $arrowToken = $tokens[$arrowIndex] ?? null;
+
+        if (
+            ! is_array($token)
+            || $token[0] !== T_CONSTANT_ENCAPSED_STRING
+            || ! is_array($arrowToken)
+            || $arrowToken[0] !== T_DOUBLE_ARROW
+        ) {
+            skipArrayValue($tokens, $index);
+
+            continue;
+        }
+
+        $key = decodePhpStringLiteral($token[1]);
+        $configKey = $prefix . '.' . $key;
+        $index = nextSignificantTokenIndex($tokens, $arrowIndex + 1);
+
+        if (($tokens[$index] ?? null) === '[') {
+            $nestedLeaves = parseConfigArray($tokens, $index, $configKey, $assignedEnvironmentVariables);
+
+            if ($nestedLeaves === []) {
+                $leaves[$configKey] = [];
+            } else {
+                $leaves += $nestedLeaves;
+            }
+
+            continue;
+        }
+
+        $valueTokens = collectArrayValueTokens($tokens, $index);
+        $environmentVariables = extractEnvironmentVariables($valueTokens);
+
+        foreach ($valueTokens as $valueToken) {
+            if (is_array($valueToken) && $valueToken[0] === T_VARIABLE) {
+                $environmentVariables = [
+                    ...$environmentVariables,
+                    ...($assignedEnvironmentVariables[$valueToken[1]] ?? []),
+                ];
+            }
+        }
+
+        $leaves[$configKey] = array_values(array_unique($environmentVariables));
+    }
+
+    return $leaves;
+}
+
+/**
+ * @param  list<array{int, string, int}|string>  $tokens
+ */
+function skipArrayValue(array $tokens, int &$index): void
+{
+    collectArrayValueTokens($tokens, $index);
+}
+
+/**
+ * @param  list<array{int, string, int}|string>  $tokens
+ * @return list<array{int, string, int}|string>
+ */
+function collectArrayValueTokens(array $tokens, int &$index): array
+{
+    $valueTokens = [];
+    $depth = 0;
+    $tokenCount = count($tokens);
+
+    while ($index < $tokenCount) {
+        $token = $tokens[$index];
+
+        if ($depth === 0 && ($token === ',' || $token === ']')) {
+            if ($token === ',') {
+                $index++;
+            }
+
+            break;
+        }
+
+        if (in_array($token, ['[', '(', '{'], true)) {
+            $depth++;
+        } elseif (in_array($token, [']', ')', '}'], true)) {
+            $depth--;
+        }
+
+        $valueTokens[] = $token;
+        $index++;
+    }
+
+    return $valueTokens;
+}
+
+/**
+ * @param  list<array{int, string, int}|string>  $tokens
+ */
+function nextSignificantTokenIndex(array $tokens, int $index): int
+{
+    $tokenCount = count($tokens);
+
+    while ($index < $tokenCount) {
+        $token = $tokens[$index];
+
+        if (! is_array($token) || ! in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+            return $index;
+        }
+
+        $index++;
+    }
+
+    return $index;
+}
+
+function decodePhpStringLiteral(string $literal): string
+{
+    $quote = $literal[0];
+    $value = substr($literal, 1, -1);
+
+    return $quote === "'" ? str_replace(['\\\\', "\\'"], ['\\', "'"], $value) : stripcslashes($value);
+}
+
+/**
+ * @param  list<array{int, string, int}|string>  $tokens
+ * @return list<string>
+ */
+function extractEnvironmentVariables(array $tokens): array
+{
+    $variables = [];
+    $tokenCount = count($tokens);
+
+    for ($index = 0; $index < $tokenCount; $index++) {
+        $token = $tokens[$index];
+        if (! is_array($token)) {
+            continue;
+        }
+
+        if ($token[0] !== T_STRING) {
+            continue;
+        }
+
+        if (strtolower($token[1]) !== 'env') {
+            continue;
+        }
+
+        $openingParenthesis = nextSignificantTokenIndex($tokens, $index + 1);
+        $variableIndex = nextSignificantTokenIndex($tokens, $openingParenthesis + 1);
+        $variableToken = $tokens[$variableIndex] ?? null;
+
+        if (($tokens[$openingParenthesis] ?? null) === '(' && is_array($variableToken) && $variableToken[0] === T_CONSTANT_ENCAPSED_STRING) {
+            $variables[] = decodePhpStringLiteral($variableToken[1]);
+        }
+    }
+
+    return array_values(array_unique($variables));
+}
+
+/**
+ * @param  list<array{int, string, int}|string>  $tokens
+ * @return array<string, list<string>>
+ */
+function extractAssignedEnvironmentVariables(array $tokens): array
+{
+    $assignments = [];
+    $tokenCount = count($tokens);
+
+    for ($index = 0; $index < $tokenCount; $index++) {
+        $variableToken = $tokens[$index];
+        if (! is_array($variableToken)) {
+            continue;
+        }
+
+        if ($variableToken[0] !== T_VARIABLE) {
+            continue;
+        }
+
+        $equalsIndex = nextSignificantTokenIndex($tokens, $index + 1);
+
+        if (($tokens[$equalsIndex] ?? null) !== '=') {
+            continue;
+        }
+
+        $valueTokens = [];
+        $valueIndex = $equalsIndex + 1;
+
+        while ($valueIndex < $tokenCount && ($tokens[$valueIndex] ?? null) !== ';') {
+            $valueTokens[] = $tokens[$valueIndex];
+            $valueIndex++;
+        }
+
+        $environmentVariables = extractEnvironmentVariables($valueTokens);
+
+        foreach ($valueTokens as $valueToken) {
+            if (is_array($valueToken) && $valueToken[0] === T_VARIABLE) {
+                $environmentVariables = [
+                    ...$environmentVariables,
+                    ...($assignments[$valueToken[1]] ?? []),
+                ];
+            }
+        }
+
+        if ($environmentVariables !== []) {
+            $assignments[$variableToken[1]] = array_values(array_unique($environmentVariables));
+        }
+    }
+
+    return $assignments;
+}
+
+function containsDocumentationToken(string $documentation, string $token): bool
+{
+    return preg_match(
+        '/(?<![A-Za-z0-9_.-])' . preg_quote($token, '/') . '(?![A-Za-z0-9_.-])/',
+        $documentation,
+    ) === 1;
+}
+
+function configPathOrAncestorIsDocumented(string $documentation, string $configKey): bool
+{
+    $segments = explode('.', $configKey);
+
+    while (count($segments) > 1) {
+        $path = implode('.', $segments);
+
+        if (
+            containsDocumentationToken($documentation, $path)
+            || containsDocumentationToken($documentation, $path . '.*')
+        ) {
             return true;
         }
+
+        array_pop($segments);
     }
 
     return false;
@@ -210,24 +435,24 @@ function isStructural(string $dottedKey, array $structuralPrefixes): bool
 /**
  * @return list<string>
  */
-function collectMarkdownFiles(string $directory): array
+function collectFilesByExtension(string $directory, string $extension): array
 {
-    $markdownFiles = [];
-    $iterator = new RecursiveIteratorIterator(
+    if (! is_dir($directory)) {
+        return [];
+    }
+
+    $collectedFiles = [];
+    $directoryIterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
     );
 
-    foreach ($iterator as $fileInfo) {
-        if ($fileInfo->isFile() && strtolower($fileInfo->getExtension()) === 'md') {
-            $realPath = $fileInfo->getRealPath();
-
-            if ($realPath !== false) {
-                $markdownFiles[] = $realPath;
-            }
+    foreach ($directoryIterator as $fileInfo) {
+        if ($fileInfo->isFile() && strtolower((string) $fileInfo->getExtension()) === $extension) {
+            $collectedFiles[] = $fileInfo->getRealPath();
         }
     }
 
-    sort($markdownFiles);
+    sort($collectedFiles);
 
-    return $markdownFiles;
+    return $collectedFiles;
 }

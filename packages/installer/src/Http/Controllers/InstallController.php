@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Controllers;
 
+use Capell\Core\Actions\AssertQueueConnectionReadyAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Jobs\RunCapellInstallJob;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallInputFactory;
@@ -29,6 +32,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -42,6 +46,7 @@ final class InstallController
         private readonly InstallStepResponse $stepResponse,
         private readonly InstallerRemediation $remediation,
         private readonly AdminUserModelGuard $adminUserModelGuard,
+        private readonly MultiNodeTopologyGuard $topologyGuard,
     ) {}
 
     public function show(Request $request): Response
@@ -85,6 +90,12 @@ final class InstallController
         $installId = $validated['install_id'] ?? (string) Str::uuid();
         $runAsJob = (bool) ($validated['run_as_job'] ?? false);
 
+        try {
+            $this->topologyGuard->assertCacheStoreIsShared('The web installer');
+        } catch (RuntimeException $runtimeException) {
+            return $this->installerStateUnavailableResponse($request, $runtimeException);
+        }
+
         if (! $this->sessions->cacheStoreIsUsable()) {
             return $this->cacheStoreUnavailableResponse($request);
         }
@@ -96,6 +107,12 @@ final class InstallController
         $this->grantInstallAccess($request, $installId);
 
         if ($runAsJob) {
+            try {
+                AssertQueueConnectionReadyAction::run();
+            } catch (QueueConnectionNotReadyException $exception) {
+                return $this->queueConnectionUnavailableResponse($request, $exception);
+            }
+
             $queueReporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
             try {
                 if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
@@ -585,5 +602,33 @@ final class InstallController
         }
 
         return back()->withErrors(['cache_store' => $message . ' ' . $remediation])->withInput();
+    }
+
+    private function installerStateUnavailableResponse(
+        Request $request,
+        RuntimeException $exception,
+    ): Response {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => ['cache_store' => [$exception->getMessage()]],
+            ], 422);
+        }
+
+        return back()->withErrors(['cache_store' => $exception->getMessage()])->withInput();
+    }
+
+    private function queueConnectionUnavailableResponse(
+        Request $request,
+        QueueConnectionNotReadyException $exception,
+    ): Response {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => ['queue_connection' => [$exception->getMessage()]],
+            ], 422);
+        }
+
+        return back()->withErrors(['queue_connection' => $exception->getMessage()])->withInput();
     }
 }

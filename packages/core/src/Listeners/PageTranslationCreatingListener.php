@@ -17,8 +17,14 @@ final class PageTranslationCreatingListener
             return;
         }
 
-        /** @var Model&Pageable<Model> $page */
-        $page = $translation->translatable;
+        /** @var Pageable<Model>&Model $page */
+        $page = $translation->translatable()->first();
+
+        if (! $page instanceof Model || ! $page instanceof Pageable) {
+            return;
+        }
+
+        $translation->setRelation('translatable', $page);
 
         if ($translation->title === null) {
             $translation->title = $page->name;

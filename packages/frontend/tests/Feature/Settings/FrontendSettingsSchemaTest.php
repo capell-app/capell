@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Filament\Contracts\HasSchema;
+use Capell\Core\Contracts\SettingsSchema;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Capell\Frontend\Settings\FrontendSettings;
@@ -27,7 +27,7 @@ it('registers frontend settings schema in registry', function (): void {
 it('frontend settings schema implements hasschema contract', function (): void {
     $interfaces = class_implements(FrontendSettingsSchema::class);
 
-    expect($interfaces)->toContain(HasSchema::class);
+    expect($interfaces)->toContain(SettingsSchema::class);
 });
 
 it('frontend settings schema returns form components', function (): void {

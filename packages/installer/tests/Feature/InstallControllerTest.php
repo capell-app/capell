@@ -103,6 +103,7 @@ function bindInstallerDeveloperToolingInstallationState(bool $installed): void
 
 beforeEach(function (): void {
     bindInstallerDeveloperToolingInstallationState(false);
+    config(['queue.default' => 'database']);
 });
 
 function bindSetupRemoveProcessFactory(): void
@@ -1198,6 +1199,38 @@ it('dispatches RunCapellInstallJob when run_as_job is on', function (): void {
     $spy->shouldNotHaveReceived('handle');
 });
 
+it('returns queue remediation before a sync web install can be dispatched', function (): void {
+    Queue::fake();
+    config(['queue.default' => 'sync']);
+
+    post(
+        route('capell-installer.store'),
+        installPostPayload(['run_as_job' => '1']),
+        ['Accept' => 'application/json'],
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['queue_connection'])
+        ->assertJsonPath(
+            'message',
+            'Queue connection "sync" uses the sync driver. Configure an asynchronous queue and start a worker before continuing.',
+        );
+
+    expect(Cache::get('capell.install.lock'))->toBeNull();
+    Queue::assertNothingPushed();
+});
+
+it('returns queue remediation before a database web install without job storage can be dispatched', function (): void {
+    Queue::fake();
+    config(['queue.connections.database.table' => 'missing_installer_jobs']);
+
+    post(route('capell-installer.store'), installPostPayload(['run_as_job' => '1']))
+        ->assertRedirect()
+        ->assertSessionHasErrors(['queue_connection']);
+
+    expect(Cache::get('capell.install.lock'))->toBeNull();
+    Queue::assertNothingPushed();
+});
+
 it('stores the install lock in cache for the queue path', function (): void {
     Queue::fake();
 
@@ -1273,6 +1306,27 @@ it('returns a json cache-store remediation before queueing when progress cache i
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['cache_store'])
         ->assertJsonPath('message', 'CACHE_STORE=database requires the cache table before the web installer can track progress.');
+
+    Queue::assertNothingPushed();
+});
+
+it('refuses node-local installer state in a multi-node installation', function (): void {
+    Queue::fake();
+    config()->set('capell.multi_node', true);
+    config()->set('cache.default', 'file');
+    config()->set('cache.stores.file.driver', 'file');
+
+    post(
+        route('capell-installer.store'),
+        installPostPayload(['run_as_job' => '1']),
+        ['Accept' => 'application/json'],
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['cache_store'])
+        ->assertJsonPath(
+            'message',
+            'The web installer cannot run while CAPELL_MULTI_NODE=true because cache store [file] uses the node-local [file] driver. Configure a shared Redis or Memcached cache store, or set CAPELL_MULTI_NODE=false for a single-node installation.',
+        );
 
     Queue::assertNothingPushed();
 });

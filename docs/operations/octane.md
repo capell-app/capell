@@ -71,10 +71,10 @@ Two rules that catch most bugs:
 
 The Core hosting review identified these Octane-sensitive areas:
 
-| Issue                                                                      | Effect under Octane                                                                      |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `HasEnumOptions` memoizes translated option labels per locale              | Filament select labels remain correct when a worker serves requests in different locales |
-| `RenderHtmlContentAction` caches a config-built `HtmlSanitizer` statically | Only matters if the HTML attribute allowlist varies per site                             |
+| Issue                                                                          | Effect under Octane                                                                      |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `HasEnumOptions` memoizes translated option labels per locale                  | Filament select labels remain correct when a worker serves requests in different locales |
+| `RenderHtmlContentAction` builds its sanitizer from config for each invocation | Site-scoped attribute allowlists cannot bleed between requests in a long-lived worker    |
 
 Extensions that introduce similar static memoization should include every
 request-varying input in the memo key or use a resettable service.
