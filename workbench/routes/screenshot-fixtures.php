@@ -8,6 +8,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
+use Workbench\App\Support\PageHistoryFixture;
 
 Route::get('/screenshot-fixtures/login', static function (): RedirectResponse {
     $userModel = (string) config('auth.providers.users.model');
@@ -26,6 +27,9 @@ Route::get('/screenshot-fixtures/login', static function (): RedirectResponse {
 Route::get('/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()));
 
 Route::get('/admin/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()));
+
+Route::get('/screenshot-fixtures/page-history', static fn (): RedirectResponse => redirect()->to(PageHistoryFixture::editUrl()))
+    ->middleware('web');
 
 Route::get('/api/v1/marketplace-fixtures/seo-suite/{image}.svg', static fn (string $image): Response => response(MarketplaceFixture::imageSvg($image), 200)
     ->header('Content-Type', 'image/svg+xml'))->where('image', '[A-Za-z0-9_-]+');

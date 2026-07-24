@@ -14,10 +14,35 @@ it('requires populated page history and reversible recovery proof', function ():
 
         expect($entry)->not->toBeNull()
             ->and($entry['required'])->toBeTrue()
+            ->and($entry['url'])->toBe('/screenshot-fixtures/page-history')
             ->and($root . '/../../' . $entry['output'])->toBeFile()
             ->and(filesize($root . '/../../' . $entry['output']))->toBeGreaterThan(10_000)
             ->and(strtolower((string) $entry['notes']))->not->toContain('optional', 'empty state', 'fixture');
     }
+
+    $historyTabInteraction = [
+        'type' => 'click',
+        'selector' => "button[wire\\:click*=\"activeRelationManager\"][wire\\:click*=\"'1'\"]",
+    ];
+
+    expect($entries->get('page-history-timeline')['beforeWait'])->toBe([
+        $historyTabInteraction,
+    ])->and($entries->get('page-history-timeline')['interactions'])->toBe([
+        [
+            'type' => 'waitFor',
+            'selector' => '.fi-ta',
+        ],
+        [
+            'type' => 'scrollIntoView',
+            'selector' => '.fi-ta',
+        ],
+    ])->and($entries->get('page-history-rollback-preview')['beforeWait'])->toBe([
+        $historyTabInteraction,
+        [
+            'type' => 'click',
+            'selector' => "button[wire\\:click*='rollback']",
+        ],
+    ]);
 
     $encoded = json_encode($manifest, JSON_THROW_ON_ERROR);
 
