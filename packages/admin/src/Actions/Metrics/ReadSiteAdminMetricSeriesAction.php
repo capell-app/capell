@@ -23,12 +23,15 @@ use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ReadSiteAdminMetricSeriesAction
 {
     use AsObject;
+
+    public const string Permission = 'View:SiteAdminMetricsPage';
 
     public function __construct(
         private readonly MetricCollectorRegistry $collectorRegistry,
@@ -41,6 +44,8 @@ final class ReadSiteAdminMetricSeriesAction
      */
     public function handle(Authenticatable $actor): array
     {
+        Gate::forUser($actor)->authorize(self::Permission);
+
         $to = CarbonImmutable::now('UTC')->startOfDay();
         $from = $to->subDays(29);
         $readerIdentifier = (string) $actor->getAuthIdentifier();
