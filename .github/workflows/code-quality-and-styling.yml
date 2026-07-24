@@ -24,6 +24,7 @@ on:
       - 'rector.php'
       - 'scripts/rector-changed.sh'
       - 'scripts/check-docs-env-vars.php'
+      - 'scripts/check-docs-config-keys.php'
       - 'scripts/check-docs-links.php'
       - 'scripts/check-docs-orphans.php'
       - 'scripts/check-docs-requirements.php'
@@ -94,6 +95,9 @@ jobs:
       - name: Install Composer dependencies
         if: steps.composer-cache.outputs.cache-hit != 'true'
         run: composer install --no-interaction --no-progress --ansi --optimize-autoloader
+
+      - name: Check documented config keys
+        run: composer run check:docs-config
 
       - name: Run Pint check
         run: composer cs:check
