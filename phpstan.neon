@@ -13,4 +13,7 @@ parameters:
     paths:
         - packages
         - tests
+        - scripts/benchmark-boot.php
+        - scripts/benchmark-boot-child.php
+        - scripts/benchmark-boot-support.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/full
