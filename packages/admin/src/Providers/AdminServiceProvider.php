@@ -351,6 +351,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             fn (): AdminRuntimeActivator => new AdminRuntimeActivator(
                 $this->app->make(AdminBridgeRegistry::class),
                 function (): void {
+                    $this->prepareAdminRuntime();
+                },
+                function (): void {
                     $this->activateAdminRuntime();
                 },
                 function (string $packageName): void {
@@ -412,11 +415,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         ];
     }
 
-    private function activateAdminRuntime(): self
+    private function prepareAdminRuntime(): self
     {
         return $this
             ->registerMacros()
-            ->registerAssets()
             ->registerNotificationGroups()
             ->registerPages()
             ->registerCoreReports()
@@ -424,6 +426,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerWidgets()
             ->registerDashboardFilamentWidgets()
             ->registerOverviewStats();
+    }
+
+    private function activateAdminRuntime(): self
+    {
+        return $this
+            ->registerAssets();
     }
 
     private function registerResources(): self
