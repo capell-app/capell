@@ -115,6 +115,7 @@ it('prepares deferred declarations before clearing registries', function (string
         ->and($activator->isActivated())->toBeFalse();
 })->with([
     'user menu items' => 'clearUserMenuItems',
+    'reports' => 'clearReports',
     'activity resource links' => 'clearActivityResourceLinks',
     'admin surface contributions' => 'clearAdminSurfaceContributions',
     'welcome tour steps' => 'clearWelcomeTourSteps',

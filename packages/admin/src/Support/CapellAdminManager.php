@@ -343,6 +343,13 @@ class CapellAdminManager
         return $this->reportRegistry;
     }
 
+    public function clearReports(): void
+    {
+        $this->prepareAdminRuntime();
+
+        $this->reportRegistry->clear();
+    }
+
     public function getAdminSurfaceRegistry(): AdminSurfaceContributionRegistry
     {
         $this->prepareAdminRuntime();
