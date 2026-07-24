@@ -46,6 +46,7 @@ final class ProfilingBootApplication extends Application
     }
 }
 
+$startedAt = hrtime(true);
 $providers = require $basePath . '/bootstrap/providers.php';
 $app = ProfilingBootApplication::configure($basePath)
     ->withProviders($providers, withBootstrapProviders: false)
@@ -53,7 +54,6 @@ $app = ProfilingBootApplication::configure($basePath)
     ->create();
 throw_unless($app instanceof ProfilingBootApplication, RuntimeException::class, 'The profiling application could not be created.');
 $app->instance('request', Request::create('/'));
-$startedAt = hrtime(true);
 $app->bootstrapWith([
     LoadEnvironmentVariables::class,
     LoadConfiguration::class,
