@@ -346,6 +346,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ));
         });
 
+        $this->registerNotificationGroups();
+
         $this->app->singleton(
             AdminRuntimeActivator::class,
             fn (): AdminRuntimeActivator => new AdminRuntimeActivator(
@@ -419,7 +421,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         return $this
             ->registerMacros()
-            ->registerNotificationGroups()
             ->registerPages()
             ->registerCoreReports()
             ->registerResources()

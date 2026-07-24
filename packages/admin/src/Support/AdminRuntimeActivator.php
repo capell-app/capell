@@ -14,9 +14,13 @@ final class AdminRuntimeActivator
 
     private bool $preparing = false;
 
+    private ?Throwable $preparationFailure = null;
+
     private bool $activated = false;
 
     private bool $activating = false;
+
+    private int $bridgeRegistryRevision = -1;
 
     /**
      * @param  Closure(): void  $prepareBuiltIns
@@ -32,7 +36,23 @@ final class AdminRuntimeActivator
 
     public function prepare(): void
     {
-        if ($this->prepared || $this->preparing) {
+        if ($this->preparationFailure instanceof Throwable) {
+            throw $this->preparationFailure;
+        }
+
+        if ($this->prepared) {
+            try {
+                $this->bootPendingBridges();
+            } catch (Throwable $throwable) {
+                $this->preparationFailure = $throwable;
+
+                throw $throwable;
+            }
+
+            return;
+        }
+
+        if ($this->preparing) {
             return;
         }
 
@@ -41,13 +61,12 @@ final class AdminRuntimeActivator
         try {
             ($this->prepareBuiltIns)();
 
-            foreach ($this->bridges->packageNames() as $packageName) {
-                ($this->bootBridges)($packageName);
-            }
+            $this->bootPendingBridges();
 
             $this->prepared = true;
         } catch (Throwable $throwable) {
             $this->prepared = false;
+            $this->preparationFailure = $throwable;
 
             throw $throwable;
         } finally {
@@ -57,6 +76,10 @@ final class AdminRuntimeActivator
 
     public function activate(): void
     {
+        if ($this->preparationFailure instanceof Throwable) {
+            throw $this->preparationFailure;
+        }
+
         if ($this->activated || $this->activating) {
             return;
         }
@@ -85,5 +108,18 @@ final class AdminRuntimeActivator
     public function isActivated(): bool
     {
         return $this->activated;
+    }
+
+    private function bootPendingBridges(): void
+    {
+        while ($this->bridgeRegistryRevision !== $this->bridges->revision()) {
+            $pendingRevision = $this->bridges->revision();
+
+            foreach ($this->bridges->packageNames() as $packageName) {
+                ($this->bootBridges)($packageName);
+            }
+
+            $this->bridgeRegistryRevision = $pendingRevision;
+        }
     }
 }
