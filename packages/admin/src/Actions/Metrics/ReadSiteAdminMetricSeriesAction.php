@@ -26,6 +26,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Number;
 use Lorisleiva\Actions\Concerns\AsObject;
+use UnexpectedValueException;
 
 final class ReadSiteAdminMetricSeriesAction
 {
@@ -58,13 +59,12 @@ final class ReadSiteAdminMetricSeriesAction
         );
         $authorizer = $this->authorizer($readerIdentifier);
 
-        return $this->definitions()
+        return array_values($this->definitions()
             ->map(fn (MetricDefinitionData $definition): SiteAdminMetricSeriesData => $this->toViewData(
                 definition: $definition,
                 series: $this->readMetricSeries->execute($definition, $from, $to, $context, $authorizer),
             ))
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -127,7 +127,7 @@ final class ReadSiteAdminMetricSeriesAction
             return (string) __('capell-admin::metrics.no_value');
         }
 
-        return match ($definition->representation->unit) {
+        $formattedValue = match ($definition->representation->unit) {
             MetricUnitEnum::MinorCurrencyUnit => Number::currency(
                 $value / (10 ** ($definition->representation->scale ?? 0)),
                 $definition->representation->currency ?? 'USD',
@@ -137,6 +137,12 @@ final class ReadSiteAdminMetricSeriesAction
             MetricUnitEnum::Bytes => Number::fileSize((int) $value),
             default => Number::format($value, precision: $definition->representation->scale ?? 0),
         };
+
+        if (! is_string($formattedValue)) {
+            throw new UnexpectedValueException('Metric values must format to strings.');
+        }
+
+        return $formattedValue;
     }
 
     private function heightBucket(?float $value, float $maximum): int

@@ -71,9 +71,7 @@ it('reads and formats only active global site admin series', function (): void {
     $registry = resolve(MetricCollectorRegistry::class);
     $registry->register(SiteAdminMetricsTestCollector::class);
     $definition = $registry->definitions()
-        ->first(fn (MetricDefinitionData $candidate): bool => $candidate->identity->metricKey === 'visible-count');
-
-    expect($definition)->toBeInstanceOf(MetricDefinitionData::class);
+        ->firstOrFail(fn (MetricDefinitionData $candidate): bool => $candidate->identity->metricKey === 'visible-count');
 
     $run = resolve(StoreMetricCollectionRunAction::class)->execute(
         day: '2026-07-23',
@@ -92,9 +90,7 @@ it('reads and formats only active global site admin series', function (): void {
         value: MetricValueData::integer(12),
     );
     $percentageDefinition = $registry->definitions()
-        ->first(fn (MetricDefinitionData $candidate): bool => $candidate->identity->metricKey === 'visible-percentage');
-
-    expect($percentageDefinition)->toBeInstanceOf(MetricDefinitionData::class);
+        ->firstOrFail(fn (MetricDefinitionData $candidate): bool => $candidate->identity->metricKey === 'visible-percentage');
 
     $percentageRun = resolve(StoreMetricCollectionRunAction::class)->execute(
         day: '2026-07-23',
