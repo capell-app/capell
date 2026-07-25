@@ -63,8 +63,16 @@ jobs:
           cd "${RUNNER_TEMP}/nested-consumer"
           composer config minimum-stability dev
           composer config prefer-stable true
-          composer config repositories.capell-core path "${CAPELL_CHECKOUT}/packages/core"
-          composer config repositories.capell-frontend path "${CAPELL_CHECKOUT}/packages/frontend"
+          # The path repositories must declare a version. This checkout is a
+          # detached merge ref, so Composer would otherwise derive dev-<sha> for
+          # each package, and no semver range can match a commit-ref version.
+          # The inter-package requirement is capell-app/core:^1.0, so the path
+          # repos advertise 1.x-dev, which satisfies it under minimum-stability
+          # dev. A real consumer pinning path repositories does the same thing.
+          composer config repositories.capell-core --json \
+            "{\"type\":\"path\",\"url\":\"${CAPELL_CHECKOUT}/packages/core\",\"options\":{\"versions\":{\"capell-app/core\":\"1.x-dev\"}}}"
+          composer config repositories.capell-frontend --json \
+            "{\"type\":\"path\",\"url\":\"${CAPELL_CHECKOUT}/packages/frontend\",\"options\":{\"versions\":{\"capell-app/frontend\":\"1.x-dev\"}}}"
           composer require --no-interaction --no-progress --with-all-dependencies capell-app/core:@dev capell-app/frontend:@dev
 
       - name: Discover packages and build the generated Tailwind entrypoint
