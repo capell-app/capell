@@ -5,6 +5,8 @@
         "admin",
         "frontend",
         "installer",
-        "marketplace"
+        "marketplace",
+        "block-library",
+        "welcome-tour"
     ]
 }
