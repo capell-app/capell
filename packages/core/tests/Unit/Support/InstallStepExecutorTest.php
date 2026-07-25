@@ -847,13 +847,19 @@ it('publishes migrations for trusted core packages during install', function ():
     File::ensureDirectoryExists($migrationDirectory);
     File::ensureDirectoryExists($coreMigrationDirectory);
     File::ensureDirectoryExists($installCommandMigrationDirectory);
-    File::put($migrationDirectory . '/2026_05_10_190837_01_create_marketplace_instances_table.php', '<?php declare(strict_types=1);');
+    File::put(
+        $migrationDirectory . '/2026_05_10_190837_01_create_marketplace_instances_table.php',
+        File::get(database_path('migrations/2026_05_10_190837_01_create_marketplace_instances_table.php')),
+    );
     File::put($coreMigrationDirectory . '/2026_05_10_190832_02_create_languages_table.php', '<?php declare(strict_types=1);');
     File::put($installCommandMigrationDirectory . '/create_install_command_records_table.php', '<?php declare(strict_types=1);');
 
     CapellCore::registerPackage('capell-app/marketplace', path: $packagePath);
     CapellCore::registerPackage('capell-app/capell', path: $corePackagePath);
     CapellCore::registerPackage('capell-app/install-command-package', path: $installCommandPackagePath, installCommand: 'capell:install-command-package-install');
+
+    $publishManifestPath = storage_path('app/capell/migration-publish-manifest.json');
+    File::delete($publishManifestPath);
 
     try {
         $lines = [];
@@ -880,6 +886,7 @@ it('publishes migrations for trusted core packages during install', function ():
                     && str_ends_with((string) $call[1], 'create_install_command_records_table.php'),
             ))->toBeFalse();
     } finally {
+        File::delete($publishManifestPath);
         File::deleteDirectory($packagePath);
         File::deleteDirectory($corePackagePath);
         File::deleteDirectory($installCommandPackagePath);
