@@ -849,7 +849,7 @@ it('publishes migrations for trusted core packages during install', function ():
     File::ensureDirectoryExists($installCommandMigrationDirectory);
     File::put(
         $migrationDirectory . '/2026_05_10_190837_01_create_marketplace_instances_table.php',
-        File::get(database_path('migrations/2026_05_10_190837_01_create_marketplace_instances_table.php')),
+        File::get(dirname(__DIR__, 5) . '/packages/marketplace/database/migrations/2026_05_10_190837_01_create_marketplace_instances_table.php'),
     );
     File::put($coreMigrationDirectory . '/2026_05_10_190832_02_create_languages_table.php', '<?php declare(strict_types=1);');
     File::put($installCommandMigrationDirectory . '/create_install_command_records_table.php', '<?php declare(strict_types=1);');
