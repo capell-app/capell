@@ -28,8 +28,8 @@ foreach (composerManifestPaths($repositoryRoot) as $composerPath) {
         }
     }
 
-    if (! $frameworkConstraintFound && ($requires['capell-app/core'] ?? null) !== 'self.version') {
-        $errors[] = sprintf('%s must declare the Laravel support contract directly or depend on capell-app/core self.version.', $packageName);
+    if (! $frameworkConstraintFound && ($requires['capell-app/core'] ?? null) !== '^1.0') {
+        $errors[] = sprintf('%s must declare the Laravel support contract directly or depend on capell-app/core ^1.0.', $packageName);
     }
 }
 

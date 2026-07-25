@@ -477,8 +477,8 @@ final class ReleaseEngine
             foreach ($dependencies as $dependency) {
                 throw_unless(in_array($dependency, $dependencyNames, true), ReleaseException::class, sprintf('Unknown inventory dependency %s.', $dependency));
 
-                if (in_array($dependency, $knownNames, true) && ($manifest['require'][$dependency] ?? null) !== 'self.version') {
-                    throw new ReleaseException(sprintf('Lockstep foundation dependency %s->%s must use self.version.', $definition['name'], $dependency));
+                if (in_array($dependency, $knownNames, true) && ($manifest['require'][$dependency] ?? null) !== '^1.0') {
+                    throw new ReleaseException(sprintf('Lockstep foundation dependency %s->%s must use ^1.0.', $definition['name'], $dependency));
                 }
             }
 

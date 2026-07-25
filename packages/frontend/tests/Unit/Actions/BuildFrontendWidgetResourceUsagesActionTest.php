@@ -118,7 +118,7 @@ it('ignores invalid tagged services and invalid contributor results', function (
     {
         public function usages(FrontendRenderContextData $context): array
         {
-            /** @phpstan-ignore return.type */
+            /** @phpstan-ignore return.type (Deliberately returns an invalid entry to exercise the action's defensive filtering of malformed contributor results.) */
             return [new stdClass, widgetResourceUsage('gallery', 'package.gallery', 'gallery-1')];
         }
     });

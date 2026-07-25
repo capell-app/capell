@@ -402,7 +402,7 @@ function twoPackageReleasePlan(string $sha, array $trees): array
 it('persists full history and releases every foundation package at one lockstep version', function (): void {
     $root = sys_get_temp_dir() . '/capell-release-' . bin2hex(random_bytes(5));
     mkdir($root . '/config', 0777, true);
-    foreach (['core' => [], 'admin' => ['capell-app/core' => 'self.version'], 'marketplace' => ['capell-app/admin' => 'self.version']] as $path => $requires) {
+    foreach (['core' => [], 'admin' => ['capell-app/core' => '^1.0'], 'marketplace' => ['capell-app/admin' => '^1.0']] as $path => $requires) {
         mkdir($root . '/packages/' . $path, 0777, true);
         file_put_contents($root . '/packages/' . $path . '/composer.json', json_encode(['name' => 'capell-app/' . $path, 'require' => $requires], JSON_THROW_ON_ERROR));
     }
@@ -456,6 +456,33 @@ it('persists full history and releases every foundation package at one lockstep 
         ->and(array_values(array_unique(array_column($next['packages'], 'reason'))))->toBe(['Lockstep major foundation release.'])
         ->and($next['ledger'])->toHaveCount(3)
         ->and(array_values(array_unique(array_column($next['ledger'], 'version'))))->toBe(['2.0.0']);
+});
+
+it('rejects a lockstep foundation dependency still pinned at self.version', function (): void {
+    $root = sys_get_temp_dir() . '/capell-release-' . bin2hex(random_bytes(5));
+    mkdir($root . '/config', 0777, true);
+    foreach (['core' => [], 'admin' => ['capell-app/core' => 'self.version']] as $path => $requires) {
+        mkdir($root . '/packages/' . $path, 0777, true);
+        file_put_contents($root . '/packages/' . $path . '/composer.json', json_encode(['name' => 'capell-app/' . $path, 'require' => $requires], JSON_THROW_ON_ERROR));
+    }
+
+    file_put_contents($root . '/config/release-packages.json', json_encode(array_map(fn (string $path): array => ['name' => 'capell-app/' . $path, 'path' => 'packages/' . $path, 'repository' => 'capell-app/' . $path], ['core', 'admin']), JSON_THROW_ON_ERROR));
+    $runner = new readonly class implements CommandRunner
+    {
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $text = implode(' ', $command);
+
+            return ['output' => match (true) {
+                str_contains($text, 'status --porcelain') => '',
+                str_contains($text, 'rev-parse HEAD') => str_repeat('1', 40),
+                default => str_repeat('a', 40),
+            }, 'exitCode' => 0];
+        }
+    };
+
+    expect(fn (): array => new ReleaseEngine($root, $runner)->plan('1.0.0'))
+        ->toThrow(ReleaseException::class, 'Lockstep foundation dependency capell-app/admin->capell-app/core must use ^1.0.');
 });
 
 it('rejects beta and promote bump requests because foundation packages release in stable lockstep', function (string $type): void {
