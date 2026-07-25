@@ -17,7 +17,7 @@ it('passes when manifests docs docker and workflows share the supported runtime 
         ]);
         supportContractWriteComposer($fixture['root'] . '/packages/installer/composer.json', 'capell-app/installer', [
             'php' => '^8.4',
-            'capell-app/core' => 'self.version',
+            'capell-app/core' => '^1.0',
         ]);
         supportContractWriteEnvironmentFiles($fixture['root']);
 

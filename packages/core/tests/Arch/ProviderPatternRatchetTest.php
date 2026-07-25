@@ -35,6 +35,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/ContentGraph/ContentGraphRegistry.php',
         'packages/core/src/Support/Install/InstallPatchRegistry.php',
         'packages/core/src/Support/Models/ModelInterceptorRegistry.php',
+        // Keyed by an integer schema version and walked as an ordered migration chain, not looked up by a single string key.
+        'packages/core/src/Support/ProjectBuild/ProjectBuildManifestMigrationRegistry.php',
         'packages/core/src/Support/Registries/AbstractKeyedRegistry.php',
         'packages/core/src/Support/Registries/TaggedProviderRegistry.php',
         'packages/core/src/Support/Renderables/RenderableRegistry.php',
@@ -53,6 +55,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/frontend/src/Support/Renderables/RenderableDynamicDataRegistry.php',
         'packages/frontend/src/Support/Routing/FrontendRouteMiddlewareRegistry.php',
         'packages/frontend/src/Support/Routing/ReservedFrontendPathRegistry.php',
+        // Holds an injected iterable of contributors with no keyed storage at all; it answers a boolean, it does not look anything up by key.
+        'packages/frontend/src/Support/SiteAccess/SiteAccessExemptionRegistry.php',
         'packages/marketplace/src/Support/MarketplaceComposerChangePublisherRegistry.php',
     ];
     $nonCanonical = [];
@@ -71,6 +75,9 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
 it('keeps filesystem work out of service providers except documented bootstrap probes', function (): void {
     $repositoryRoot = dirname(__DIR__, 4);
     $allowedCalls = [
+        // Falls back to walking parent directories for composer.json when Composer's InstalledVersions has no
+        // install path for the package (for example a path-repo or source-only embed), to locate the package root.
+        'packages/core/src/Support/Packages/AbstractPackageServiceProvider.php:is_file',
         // The frontend package may be installed without its published view directory.
         'packages/frontend/src/Providers/FrontendServiceProvider.php:is_dir',
     ];

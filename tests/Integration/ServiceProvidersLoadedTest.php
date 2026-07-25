@@ -18,7 +18,7 @@ it('service providers are loaded', function (): void {
         ->toHaveKey(MarketplaceServiceProvider::class);
 });
 
-test('root package replaces split Capell packages as the version-aligned aggregate', function (): void {
+it('replaces split Capell packages as the version-aligned aggregate at the root package', function (): void {
     $composer = json_decode(
         (string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'),
         true,

@@ -2,16 +2,18 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Contracts\Bridges\AdminBridge;
-use Capell\Admin\Data\Bridges\AdminBridgeContextData;
 use Capell\Admin\Enums\AdminNotificationGroupEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SiteAdminMetricsPage;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Admin\Support\AdminRuntimeActivator;
-use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
+use Capell\Admin\Tests\Unit\Support\Fixtures\AdminRuntimeActivatorTestBridge;
+use Capell\Admin\Tests\Unit\Support\Fixtures\FailingLateAdminRuntimeActivatorTestBridge;
+use Capell\Admin\Tests\Unit\Support\Fixtures\LateAdminRuntimeActivatorTestBridge;
+use Capell\Admin\Tests\Unit\Support\Fixtures\NestedAdminRuntimeActivatorTestBridge;
+use Capell\Admin\Tests\Unit\Support\Fixtures\RegisteringAdminRuntimeActivatorTestBridge;
 use Filament\Panel;
 use Illuminate\Support\Facades\DB;
 
@@ -232,73 +234,3 @@ it('does not query the database while preparing or activating admin runtime', fu
 
     expect($queries)->toBe([]);
 });
-
-final class AdminRuntimeActivatorTestBridge implements AdminBridge
-{
-    public function isEnabled(AdminBridgeContextData $context): bool
-    {
-        return true;
-    }
-
-    public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void {}
-}
-
-final class LateAdminRuntimeActivatorTestBridge implements AdminBridge
-{
-    public static int $registrations = 0;
-
-    public function isEnabled(AdminBridgeContextData $context): bool
-    {
-        return true;
-    }
-
-    public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
-    {
-        self::$registrations++;
-    }
-}
-
-final class RegisteringAdminRuntimeActivatorTestBridge implements AdminBridge
-{
-    public function isEnabled(AdminBridgeContextData $context): bool
-    {
-        return true;
-    }
-
-    public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
-    {
-        $registrar->bridge('vendor/nested', NestedAdminRuntimeActivatorTestBridge::class);
-    }
-}
-
-final class NestedAdminRuntimeActivatorTestBridge implements AdminBridge
-{
-    public static int $registrations = 0;
-
-    public function isEnabled(AdminBridgeContextData $context): bool
-    {
-        return true;
-    }
-
-    public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
-    {
-        self::$registrations++;
-    }
-}
-
-final class FailingLateAdminRuntimeActivatorTestBridge implements AdminBridge
-{
-    public static int $registrations = 0;
-
-    public function isEnabled(AdminBridgeContextData $context): bool
-    {
-        return true;
-    }
-
-    public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
-    {
-        self::$registrations++;
-
-        throw new RuntimeException('Late bridge registration failed.');
-    }
-}

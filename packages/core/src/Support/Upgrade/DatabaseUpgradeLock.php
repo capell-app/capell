@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Upgrade;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +188,15 @@ final class DatabaseUpgradeLock
         return Schema::hasTable(self::TABLE);
     }
 
-    private function releaseExpired(string $name, Carbon $now): void
+    /**
+     * Accepts CarbonInterface rather than Illuminate\Support\Carbon because
+     * Date::now() returns whichever class the host application registered with
+     * Date::use(). Applications that opt into immutable dates hand back a
+     * Carbon\CarbonImmutable, which is not a subclass of the mutable facade
+     * class, so a narrower hint fails at runtime during capell:upgrade. The
+     * value is only ever read here, never mutated.
+     */
+    private function releaseExpired(string $name, CarbonInterface $now): void
     {
         try {
             DB::table(self::TABLE)

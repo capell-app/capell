@@ -11,7 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Illuminate\Support\Facades\Lang;
 
-class LayoutCreator
+final class LayoutCreator
 {
     public function setup(): void
     {
