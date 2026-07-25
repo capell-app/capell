@@ -62,6 +62,14 @@ it('allows direct metric reads with the page permission', function (): void {
     expect(ReadSiteAdminMetricSeriesAction::run(test()->authenticatedUser()))->toBeArray();
 });
 
+it('denies global metric reads to a site-scoped actor with the page permission', function (): void {
+    Permission::create(['name' => ReadSiteAdminMetricSeriesAction::Permission, 'guard_name' => 'web']);
+    test()->actingAsUser();
+    test()->authenticatedUser()->givePermissionTo(ReadSiteAdminMetricSeriesAction::Permission);
+
+    ReadSiteAdminMetricSeriesAction::run(test()->authenticatedUser());
+})->throws(AuthorizationException::class, 'Global metrics require a global administrator.');
+
 it('reads and formats only active global site admin series', function (): void {
     CarbonImmutable::setTestNow('2026-07-24 12:00:00 UTC');
     Permission::create(['name' => ReadSiteAdminMetricSeriesAction::Permission, 'guard_name' => 'web']);
