@@ -47,7 +47,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use ReflectionClass;
+use ReflectionProperty;
 use RuntimeException;
 use Throwable;
 
@@ -63,6 +63,16 @@ class CapellAdminManager
 
     /** @var array<string, true> */
     private array $bootedAdminBridges = [];
+
+    /**
+     * Extension page classes whose native navigation has already been
+     * suppressed. A page registered by more than one package (or re-registered
+     * on an Octane worker that reuses this manager across requests) must not
+     * pay the reflection cost twice for the same class.
+     *
+     * @var array<class-string<Page>, true>
+     */
+    private array $suppressedExtensionPageNavigation = [];
 
     /** @var class-string<Page> */
     private string $dashboardPage = CapellDashboard::class;
@@ -504,26 +514,25 @@ class CapellAdminManager
      */
     private function suppressExtensionPageNativeNavigation(string $page): void
     {
-        if ($page === ExtensionsPage::class) {
+        if ($page === ExtensionsPage::class || isset($this->suppressedExtensionPageNavigation[$page])) {
             return;
         }
 
+        // A direct ReflectionProperty avoids constructing a ReflectionClass and
+        // walking hasProperty()/getProperty()/isStatic() just to reach the one
+        // property we need. The static property is protected, so a plain
+        // "$page::$shouldRegisterNavigation = false" from outside the class is
+        // not legal PHP; reflection remains required to bypass that visibility.
+        // Both "property does not exist" and "property is not static" fail as
+        // exceptions here (ReflectionException / TypeError respectively), which
+        // the catch below turns into the same silent no-op the previous
+        // hasProperty()/isStatic() guards produced.
         try {
-            $reflectionClass = new ReflectionClass($page);
-
-            if (! $reflectionClass->hasProperty('shouldRegisterNavigation')) {
-                return;
-            }
-
-            $reflectionProperty = $reflectionClass->getProperty('shouldRegisterNavigation');
-
-            if (! $reflectionProperty->isStatic()) {
-                return;
-            }
-
-            $reflectionProperty->setValue(null, false);
+            new ReflectionProperty($page, 'shouldRegisterNavigation')->setValue(null, false);
         } catch (Throwable) {
             return;
         }
+
+        $this->suppressedExtensionPageNavigation[$page] = true;
     }
 }
