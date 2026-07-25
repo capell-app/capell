@@ -45,7 +45,11 @@ final class OrchestrateInstallAction
             $host->removeInstaller();
         }
 
-        $this->clearCaches->handle($orchestration->cachesToClear, $reporter);
+        $cachesToClear = in_array('all', $orchestration->cachesToClear, true)
+            ? $orchestration->cachesToClear
+            : array_values(array_unique([...$orchestration->cachesToClear, 'packages']));
+
+        $this->clearCaches->handle($cachesToClear, $reporter);
         $host->reportManualChanges();
         $host->finalizeInstall($inputData, BuildInstallRunResultAction::run($inputData));
     }
