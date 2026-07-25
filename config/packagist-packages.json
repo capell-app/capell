@@ -7,6 +7,14 @@
         "installer",
         "marketplace",
         "block-library",
+        "filament-peek",
+        "html-cache",
+        "layout-builder",
+        "media-library",
+        "navigation",
+        "site-stats",
+        "theme-foundation",
+        "theme-liquid-glass",
         "welcome-tour"
     ]
 }

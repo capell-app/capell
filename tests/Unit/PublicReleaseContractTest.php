@@ -223,6 +223,12 @@ it('runs the release validator without a Laravel bootstrap', function (): void {
 
 it('reads public Packagist package slugs from the Packagist catalogue', function (): void {
     $root = dirname(__DIR__, 2);
+    $catalogue = json_decode(
+        file_get_contents($root . '/config/packagist-packages.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
     $temporary = sys_get_temp_dir() . '/capell-packagist-test-' . bin2hex(random_bytes(8));
     mkdir($temporary, 0700, true);
     file_put_contents($temporary . '/curl', "#!/usr/bin/env bash\nprintf '404'\n");
@@ -245,12 +251,42 @@ it('reads public Packagist package slugs from the Packagist catalogue', function
     $result = implode(PHP_EOL, $output);
 
     expect($exitCode)->toBe(0)
+        ->and($catalogue['packages'])->toBe([
+            'capell',
+            'core',
+            'admin',
+            'frontend',
+            'installer',
+            'marketplace',
+            'block-library',
+            'filament-peek',
+            'html-cache',
+            'layout-builder',
+            'media-library',
+            'navigation',
+            'site-stats',
+            'theme-foundation',
+            'theme-liquid-glass',
+            'welcome-tour',
+        ])
         ->and($result)->toContain('Create capell-app/core')
         ->toContain('Create capell-app/admin')
         ->toContain('Create capell-app/frontend')
         ->toContain('Create capell-app/installer')
         ->toContain('Create capell-app/marketplace')
         ->toContain('Create capell-app/capell')
+        ->toContain('Create capell-app/block-library')
+        ->toContain('Create capell-app/filament-peek')
+        ->toContain('Create capell-app/html-cache')
+        ->toContain('Create capell-app/layout-builder')
+        ->toContain('Create capell-app/media-library')
+        ->toContain('Create capell-app/navigation')
+        ->toContain('Create capell-app/site-stats')
+        ->toContain('Create capell-app/theme-foundation')
+        ->toContain('Create capell-app/theme-liquid-glass')
+        ->toContain('Create capell-app/welcome-tour')
+        ->not->toContain('Create capell-app/password-policy')
+        ->not->toContain('Create capell-app/publishing-studio')
         ->not->toContain('Array to string conversion')
         ->not->toContain('capell-app/Array');
 });
