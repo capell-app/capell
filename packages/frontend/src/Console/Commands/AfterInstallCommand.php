@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
-use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
 use Capell\Frontend\Actions\ResolveFrontendDependencyPlanAction;
+use Capell\Frontend\Actions\WriteViteInputManifestAction;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Str;
 
 use function Laravel\Prompts\confirm;
 
@@ -67,15 +66,7 @@ final class AfterInstallCommand extends Command
         }
 
         $generated = GenerateTailwindAssetsAction::run();
-        $inputs = collect($generated)
-            ->map(fn (array $asset): string => $this->relativeInputPath($asset['path']))
-            ->merge(resolve(FrontendViteInputRegistry::class)->all())
-            ->unique()
-            ->sort()
-            ->filter()
-            ->values()
-            ->all();
-        $this->writeViteInputManifest($inputs);
+        WriteViteInputManifestAction::run($generated);
 
         $build = Process::timeout(self::PROCESS_TIMEOUT_SECONDS)->run($buildCommand);
         $this->outputProcessStreams($build->output(), $build->errorOutput());
@@ -143,20 +134,6 @@ final class AfterInstallCommand extends Command
         }
     }
 
-    /** @param  array<int, string>  $inputs */
-    private function writeViteInputManifest(array $inputs): void
-    {
-        $path = base_path('bootstrap/cache/capell-vite-inputs.json');
-        $directory = dirname($path);
-
-        if (! is_dir($directory)) {
-            mkdir($directory, 0755, true);
-        }
-
-        file_put_contents($path, JsonCodec::encode(['inputs' => $inputs], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
-        $this->line('Generated Vite input manifest: bootstrap/cache/capell-vite-inputs.json');
-    }
-
     private function viteInputHelperIsIntegrated(): bool
     {
         $path = base_path('vite.config.js');
@@ -168,14 +145,5 @@ final class AfterInstallCommand extends Command
         $config = (string) file_get_contents($path);
 
         return str_contains($config, 'capellViteInputs') && str_contains($config, 'capell-vite-inputs.js');
-    }
-
-    private function relativeInputPath(string $path): string
-    {
-        $base = Str::finish(base_path(), DIRECTORY_SEPARATOR);
-
-        return Str::startsWith($path, $base)
-            ? str_replace(DIRECTORY_SEPARATOR, '/', Str::after($path, $base))
-            : str_replace(DIRECTORY_SEPARATOR, '/', $path);
     }
 }
