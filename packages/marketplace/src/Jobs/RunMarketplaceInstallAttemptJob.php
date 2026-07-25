@@ -25,13 +25,13 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -132,7 +132,13 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         }
     }
 
-    public function retryUntil(): Carbon
+    /**
+     * now() returns whichever class the host application registered with
+     * Date::use(), so an application that opts into immutable dates gets a
+     * Carbon\CarbonImmutable back. That is not a subclass of the mutable facade
+     * class, so declaring the narrower type breaks the retry path at runtime.
+     */
+    public function retryUntil(): CarbonInterface
     {
         return now()->addHour();
     }
