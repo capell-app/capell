@@ -36,6 +36,9 @@ use LaraZeus\SpatieTranslatable\SpatieTranslatableServiceProvider;
 use Livewire\LivewireServiceProvider;
 use Lorisleiva\Actions\ActionServiceProvider;
 use Pboivin\FilamentPeek\FilamentPeekServiceProvider;
+use RecursiveCallbackFilterIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Saade\FilamentAdjacencyList\FilamentAdjacencyListServiceProvider;
 use Spatie\Activitylog\ActivitylogServiceProvider;
@@ -44,6 +47,7 @@ use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\PermissionServiceProvider;
+use SplFileInfo;
 use STS\FilamentImpersonate\FilamentImpersonateServiceProvider;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
@@ -333,10 +337,15 @@ final readonly class BootBenchmarkWorkspace
     {
         $this->files->mkdir($this->path);
         $this->files->mkdir($this->path . '/opcache');
+        $laravelPath = $this->root . '/vendor/orchestra/testbench-core/laravel';
+        $laravelFiles = new RecursiveCallbackFilterIterator(
+            new RecursiveDirectoryIterator($laravelPath, RecursiveDirectoryIterator::SKIP_DOTS),
+            static fn (SplFileInfo $file): bool => $file->getPathname() !== $laravelPath . '/vendor',
+        );
         $this->files->mirror(
-            $this->root . '/vendor/orchestra/testbench-core/laravel',
+            $laravelPath,
             $this->path . '/laravel',
-            null,
+            new RecursiveIteratorIterator($laravelFiles, RecursiveIteratorIterator::SELF_FIRST),
             ['override' => true, 'delete' => true],
         );
 

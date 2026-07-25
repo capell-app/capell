@@ -21,7 +21,9 @@ it('runs install command and does not publish files for capell:publish-migration
 });
 
 it('generates frontend tailwind assets during the non-interactive install lifecycle', function (): void {
-    $assetPath = sys_get_temp_dir() . '/capell-frontend-install-' . uniqid() . '/frontend.css';
+    $assetPath = base_path('resources/css/capell-install-test-' . uniqid() . '/frontend.css');
+    $manifestPath = base_path('bootstrap/cache/capell-vite-inputs.json');
+    File::delete($manifestPath);
 
     app()->bind('capell.tailwind.generator', fn (): object => new readonly class($assetPath)
     {
@@ -43,8 +45,14 @@ it('generates frontend tailwind assets during the non-interactive install lifecy
             ->expectsOutputToContain('Generated Tailwind assets at: ' . $assetPath)
             ->assertExitCode(0);
 
-        expect(File::get($assetPath))->toBe('/* generated during install */');
+        expect(File::get($assetPath))->toBe('/* generated during install */')
+            ->and(json_decode(File::get($manifestPath), true, flags: JSON_THROW_ON_ERROR))->toBe([
+                'inputs' => [
+                    str_replace(DIRECTORY_SEPARATOR, '/', str_replace(base_path() . DIRECTORY_SEPARATOR, '', $assetPath)),
+                ],
+            ]);
     } finally {
         File::deleteDirectory(dirname($assetPath));
+        File::delete($manifestPath);
     }
 });
