@@ -61,12 +61,16 @@ it('makes core actions data and support classes final by default', function (): 
         'Actions/RequirePackageAction.php',
         'Data/PackageData.php',
         'Support/CapellCoreManager.php',
+        'Support/Creator/PageCreator.php', // Extended by companion packages; see PageCreatorTest "remains extensible for companion package creators".
         'Support/Dataset/DatasetPublisher.php',
         'Support/Install/DeveloperToolingInstallationState.php',
+        'Support/Install/InstalledPackageManifestDiscovery.php', // Mockery::mock() partial-mocks this by type hint in InstallStepExecutorTest; final blocks the generated mock subclass.
         'Support/Makers/MakerSafety.php',
         'Support/Media/CustomPathGenerator.php',
         'Support/Plugins/PluginPackagesFetcher.php',
+        'Support/Registries/TaggedProviderRegistry.php', // Generic base class extended by concrete tagged-provider registries across packages (admin, frontend, marketplace, core).
         'Support/Settings/SettingsSchemaRegistry.php',
+        'Support/Subscriber/SubscriberManager.php', // Base class extended by Support/Subscriber/SubscriberRegistry.php within core itself.
         'Support/Subscriber/SubscriberRegistry.php',
     ];
     $sourcePath = realpath(__DIR__ . '/../../src');

@@ -8,15 +8,14 @@ use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Contracts\Container\Container;
 use LogicException;
 use RuntimeException;
 
-final class SiteSpecApplierRegistry
+/** @extends AbstractKeyedRegistry<SiteSpecApplier> */
+final class SiteSpecApplierRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, SiteSpecApplier> */
-    private array $appliers = [];
-
     private bool $taggedAppliersDiscovered = false;
 
     public function __construct(private readonly Container $container) {}
@@ -26,16 +25,16 @@ final class SiteSpecApplierRegistry
         $key = $applier->key();
 
         throw_if($key === '', LogicException::class, 'Site spec applier keys must not be empty.');
-        throw_if(isset($this->appliers[$key]), LogicException::class, sprintf('A site spec applier is already registered for [%s].', $key));
+        throw_if($this->hasItem($key), LogicException::class, sprintf('A site spec applier is already registered for [%s].', $key));
 
-        $this->appliers[$key] = $applier;
+        $this->setItem($key, $applier);
     }
 
     public function has(string $key): bool
     {
         $this->discoverTaggedAppliers();
 
-        return isset($this->appliers[$key]);
+        return $this->hasItem($key);
     }
 
     /**
@@ -45,7 +44,7 @@ final class SiteSpecApplierRegistry
     {
         $this->discoverTaggedAppliers();
 
-        $applier = $this->appliers[$key] ?? null;
+        $applier = $this->getItem($key);
 
         throw_unless($applier instanceof SiteSpecApplier, RuntimeException::class, sprintf(
             'The site spec requires an installed package to register the [%s] applier.',
@@ -60,7 +59,7 @@ final class SiteSpecApplierRegistry
     {
         $this->discoverTaggedAppliers();
 
-        $keys = array_keys($this->appliers);
+        $keys = array_keys($this->allItems());
         sort($keys);
 
         return $keys;

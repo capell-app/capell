@@ -7,15 +7,14 @@ namespace Capell\Core\Support\SiteAccess;
 use Capell\Core\Contracts\SiteAccessPolicyProvider;
 use Capell\Core\Data\SiteAccessContextData;
 use Capell\Core\Data\SiteAccessPolicyData;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 
-final class SiteAccessPolicyRegistry
+/** @extends AbstractKeyedRegistry<SiteAccessPolicyProvider> */
+final class SiteAccessPolicyRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, SiteAccessPolicyProvider> */
-    private array $providers = [];
-
     public function register(SiteAccessPolicyProvider $provider): self
     {
-        $this->providers[$provider->key()] = $provider;
+        $this->setItem($provider->key(), $provider);
 
         return $this;
     }
@@ -23,7 +22,7 @@ final class SiteAccessPolicyRegistry
     /** @return list<SiteAccessPolicyProvider> */
     public function providers(): array
     {
-        return array_values($this->providers);
+        return array_values($this->allItems());
     }
 
     public function resolve(SiteAccessContextData $context): ?SiteAccessPolicyData

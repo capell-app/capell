@@ -6,15 +6,14 @@ namespace Capell\Core\Support\ProjectBuild;
 
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Contracts\Container\Container;
 use LogicException;
 use RuntimeException;
 
-final class ProjectBuildArtifactHandlerRegistry
+/** @extends AbstractKeyedRegistry<ProjectBuildArtifactHandler> */
+final class ProjectBuildArtifactHandlerRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, ProjectBuildArtifactHandler> */
-    private array $handlers = [];
-
     private bool $taggedHandlersDiscovered = false;
 
     public function __construct(private readonly Container $container) {}
@@ -24,9 +23,9 @@ final class ProjectBuildArtifactHandlerRegistry
         $type = $handler->type();
 
         throw_unless(preg_match('~' . ProjectBuildManifestConstraints::ARTIFACT_TYPE_PATTERN . '~D', $type) === 1, LogicException::class, 'Project build artifact handler types must match the manifest artifact type grammar.');
-        throw_if(isset($this->handlers[$type]), LogicException::class, sprintf('A project build artifact handler is already registered for [%s].', $type));
+        throw_if($this->hasItem($type), LogicException::class, sprintf('A project build artifact handler is already registered for [%s].', $type));
 
-        $this->handlers[$type] = $handler;
+        $this->setItem($type, $handler);
     }
 
     public function validate(ProjectBuildArtifactReferenceData $artifact, string $bytes): void
@@ -42,7 +41,7 @@ final class ProjectBuildArtifactHandlerRegistry
             $artifact->key,
         ));
 
-        $handler = $this->handlers[$artifact->type] ?? null;
+        $handler = $this->getItem($artifact->type);
         throw_unless($handler instanceof ProjectBuildArtifactHandler, RuntimeException::class, sprintf(
             'No project build artifact handler is registered for [%s].',
             $artifact->type,
@@ -56,7 +55,7 @@ final class ProjectBuildArtifactHandlerRegistry
     {
         $this->discoverTaggedHandlers();
 
-        $types = array_keys($this->handlers);
+        $types = array_keys($this->allItems());
         sort($types);
 
         return $types;
