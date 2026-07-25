@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout core repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: capell-app/capell
           ref: ${{ github.repository == 'capell-app/capell' && github.sha || 'main' }}
@@ -90,7 +90,7 @@ jobs:
 
       - name: Checkout screenshot runner
         if: steps.packages.outputs.has_packages == 'true'
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: capell-app/capell-screenshot-runner
           ref: ${{ inputs.screenshot_runner_ref || 'main' }}
@@ -99,7 +99,7 @@ jobs:
 
       - name: Checkout package repository
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: capell-app/capell-packages
           ref: main
