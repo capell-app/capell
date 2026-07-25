@@ -81,6 +81,7 @@ return new class extends Migration
                 [$columnName, $rolePivotKey, $modelMorphKey, 'model_type'],
                 $columnName,
                 $modelHasRolesTeamUnique,
+                $rolePivotKey,
             );
         }
 
@@ -103,6 +104,7 @@ return new class extends Migration
                 [$columnName, $permissionPivotKey, $modelMorphKey, 'model_type'],
                 $columnName,
                 $modelHasPermissionsTeamUnique,
+                $permissionPivotKey,
             );
         }
 
@@ -265,7 +267,21 @@ return new class extends Migration
         array $teamColumns,
         string $teamColumn,
         string $indexName,
+        string $pivotColumn,
     ): void {
+        // MariaDB 10.5 refuses to drop a PRIMARY KEY while a FOREIGN KEY still
+        // relies on it as its only supporting index (errno 150 on the implicit
+        // rename at the end of the ALTER TABLE). The legacy primary key here is
+        // [pivotColumn, model_id, model_type], so pivotColumn is its leading
+        // column and the only thing satisfying the pivot's foreign key. MySQL 8
+        // tolerates dropping it directly; MariaDB does not. Drop the foreign
+        // key(s) anchored on the pivot column first, then restore them once the
+        // new team-scoped unique index is in place. InnoDB auto-creates a
+        // supporting index for the restored foreign key if one doesn't already
+        // exist, so the final schema keeps the same foreign keys the migration
+        // intended.
+        $pivotForeignKeys = $this->dropForeignKeysForColumn($tableName, $pivotColumn);
+
         if (Schema::hasIndex($tableName, $teamColumns, 'primary')) {
             Schema::table($tableName, static function (Blueprint $table): void {
                 $table->dropPrimary();
@@ -289,6 +305,8 @@ return new class extends Migration
                 $table->unique($teamColumns, $indexName);
             });
         }
+
+        $this->restoreForeignKeys($tableName, $pivotForeignKeys);
     }
 
     private function columnIsNullable(string $tableName, string $columnName): bool
@@ -300,6 +318,58 @@ return new class extends Migration
         }
 
         return false;
+    }
+
+    /**
+     * Drop every foreign key on $tableName whose referencing columns include
+     * $pivotColumn, and return their definitions so they can be restored later.
+     *
+     * @return list<array{name: string, columns: list<string>, foreign_schema: string|null, foreign_table: string, foreign_columns: list<string>, on_update: string, on_delete: string}>
+     */
+    private function dropForeignKeysForColumn(string $tableName, string $pivotColumn): array
+    {
+        $pivotForeignKeys = [];
+
+        foreach (Schema::getForeignKeys($tableName) as $foreignKeyDefinition) {
+            if (! in_array($pivotColumn, $foreignKeyDefinition['columns'], true)) {
+                continue;
+            }
+
+            $pivotForeignKeys[] = $foreignKeyDefinition;
+
+            // Pass column names, not the constraint name, to dropForeign(): SQLite's
+            // grammar only supports the recreate-table path (which needs the column
+            // list) and throws "does not support dropping foreign keys by name"
+            // otherwise. MySQL/MariaDB accept either form and resolve back to the
+            // same conventionally-named constraint, so this stays cross-database safe.
+            Schema::table($tableName, static function (Blueprint $table) use ($foreignKeyDefinition): void {
+                $table->dropForeign($foreignKeyDefinition['columns']);
+            });
+        }
+
+        return $pivotForeignKeys;
+    }
+
+    /**
+     * @param  list<array{name: string, columns: list<string>, foreign_schema: string|null, foreign_table: string, foreign_columns: list<string>, on_update: string, on_delete: string}>  $foreignKeyDefinitions
+     */
+    private function restoreForeignKeys(string $tableName, array $foreignKeyDefinitions): void
+    {
+        $existingForeignKeyNames = array_column(Schema::getForeignKeys($tableName), 'name');
+
+        foreach ($foreignKeyDefinitions as $foreignKeyDefinition) {
+            if (in_array($foreignKeyDefinition['name'], $existingForeignKeyNames, true)) {
+                continue;
+            }
+
+            Schema::table($tableName, static function (Blueprint $table) use ($foreignKeyDefinition): void {
+                $table->foreign($foreignKeyDefinition['columns'], $foreignKeyDefinition['name'])
+                    ->references($foreignKeyDefinition['foreign_columns'])
+                    ->on($foreignKeyDefinition['foreign_table'])
+                    ->onDelete($foreignKeyDefinition['on_delete'])
+                    ->onUpdate($foreignKeyDefinition['on_update']);
+            });
+        }
     }
 
     /**
