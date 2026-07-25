@@ -99,7 +99,12 @@ final class PublishPackageMigrationsAction
             return;
         }
 
-        $result = PublishMigrationsAction::run($type, $migrationNames, $migrationsPath);
+        $result = PublishMigrationsAction::run(
+            type: $type,
+            items: $migrationNames,
+            path: $migrationsPath,
+            protectPublishedEdits: true,
+        );
 
         foreach ($result->warnings as $warning) {
             $reporter->report($warning);

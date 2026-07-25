@@ -88,6 +88,90 @@ it('publishes package migrations without reconciling repository state', function
     }
 });
 
+it('preserves an application-customized migration and records its package source baseline', function (): void {
+    $packagePath = base_path('tests/fixtures/package-with-customized-published-migration');
+    $migrationDirectory = $packagePath . '/database/migrations';
+    $migrationName = '2026_05_10_190905_01_create_customized_table.php';
+    $sourceMigrationPath = $migrationDirectory . '/' . $migrationName;
+    $publishedMigrationPath = database_path('migrations/' . $migrationName);
+    $manifestPath = storage_path('app/capell/migration-publish-manifest.json');
+    $source = "<?php\n\ndeclare(strict_types=1);\n\nreturn 'package';\n";
+    $customized = "<?php\n\ndeclare(strict_types=1);\n\n/** @contract-migration-approved */\nreturn 'application';\n";
+
+    File::ensureDirectoryExists($migrationDirectory);
+    File::ensureDirectoryExists(dirname($publishedMigrationPath));
+    File::put($sourceMigrationPath, $source);
+    File::put($publishedMigrationPath, $customized);
+    File::delete($manifestPath);
+
+    try {
+        $packages = collect([
+            'capell-app/customized-package' => new PackageData(
+                name: 'capell-app/customized-package',
+                type: PackageTypeEnum::Plugin,
+                path: $packagePath,
+            ),
+        ]);
+
+        PublishPackageMigrationsAction::run($packages, new NullProgressReporter);
+        File::put($sourceMigrationPath, str_replace("'package'", "'updated-package'", $source));
+        PublishPackageMigrationsAction::run($packages, new NullProgressReporter);
+
+        $manifest = json_decode((string) File::get($manifestPath), true, 32, JSON_THROW_ON_ERROR);
+
+        expect(File::get($publishedMigrationPath))->toBe($customized)
+            ->and($manifest['migrations']['migrations/' . $migrationName]['source_sha256'])
+            ->toBe(hash('sha256', $source))
+            ->and($manifest['migrations']['migrations/' . $migrationName]['published_sha256'])
+            ->toBe(hash('sha256', $source));
+    } finally {
+        File::delete($publishedMigrationPath);
+        File::delete($manifestPath);
+        File::deleteDirectory($packagePath);
+    }
+});
+
+it('updates an unmodified published migration when its package source changes', function (): void {
+    $packagePath = base_path('tests/fixtures/package-with-updated-published-migration');
+    $migrationDirectory = $packagePath . '/database/migrations';
+    $migrationName = '2026_05_10_190906_01_create_updated_table.php';
+    $sourceMigrationPath = $migrationDirectory . '/' . $migrationName;
+    $publishedMigrationPath = database_path('migrations/' . $migrationName);
+    $manifestPath = storage_path('app/capell/migration-publish-manifest.json');
+    $original = "<?php\n\ndeclare(strict_types=1);\n\nreturn 'original';\n";
+    $updated = "<?php\n\ndeclare(strict_types=1);\n\nreturn 'updated';\n";
+
+    File::ensureDirectoryExists($migrationDirectory);
+    File::ensureDirectoryExists(dirname($publishedMigrationPath));
+    File::put($sourceMigrationPath, $original);
+    File::delete($publishedMigrationPath);
+    File::delete($manifestPath);
+
+    $package = new PackageData(
+        name: 'capell-app/updated-package',
+        type: PackageTypeEnum::Plugin,
+        path: $packagePath,
+    );
+
+    try {
+        PublishPackageMigrationsAction::run(
+            collect([$package->name => $package]),
+            new NullProgressReporter,
+        );
+        File::put($sourceMigrationPath, $updated);
+        PublishPackageMigrationsAction::run(
+            collect([$package->name => $package]),
+            new NullProgressReporter,
+        );
+
+        expect(File::get($publishedMigrationPath))->toBe($updated);
+    } finally {
+        File::delete($publishedMigrationPath);
+        File::delete($manifestPath);
+        File::deleteDirectory($packagePath);
+    }
+});
+
 it('publishes marketplace package migrations like any other package', function (): void {
     $fakeFilesystem = new FakeMigrationFilesystem;
     app()->instance(MigrationFilesystemInterface::class, $fakeFilesystem);

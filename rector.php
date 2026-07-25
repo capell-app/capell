@@ -60,6 +60,7 @@ return RectorConfig::configure()
         __DIR__ . '/rector.php',
         ...(glob(__DIR__ . '/packages/*/rector.php') ?: []),
         ...$packagePaths,
+        __DIR__ . '/scripts',
         __DIR__ . '/tests',
     ])
     ->withParallel(
