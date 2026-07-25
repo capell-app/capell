@@ -175,17 +175,28 @@ final class FetchSiteSpecMediaAction
 
     private function temporaryPath(): string
     {
-        $path = tempnam(sys_get_temp_dir(), 'capell-site-spec-media-');
+        $directory = sys_get_temp_dir();
 
-        throw_unless(is_string($path), RuntimeException::class, 'Unable to create a temporary file for site spec media.');
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $path = $directory . DIRECTORY_SEPARATOR . 'capell-site-spec-media-' . bin2hex(random_bytes(16));
+            $handle = fopen($path, 'x+b');
 
-        if (! chmod($path, 0600)) {
-            unlink($path);
+            if ($handle === false) {
+                continue;
+            }
 
-            throw new RuntimeException('Unable to secure a temporary site spec media file.');
+            fclose($handle);
+
+            if (! chmod($path, 0600)) {
+                unlink($path);
+
+                throw new RuntimeException('Unable to secure a temporary site spec media file.');
+            }
+
+            return $path;
         }
 
-        return $path;
+        throw new RuntimeException('Unable to create a temporary file for site spec media.');
     }
 
     private function writeResponse(Response $response, string $path, int $maxBytes): int
