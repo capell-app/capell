@@ -75,8 +75,8 @@ final class MigrationPublishManifest
                 'version' => 1,
                 'migrations' => $this->entries,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException('Unable to encode the migration publish manifest.', 0, $exception);
+        } catch (JsonException $jsonException) {
+            throw new RuntimeException('Unable to encode the migration publish manifest.', 0, $jsonException);
         }
 
         $temporaryPath = $this->path . '.tmp.' . bin2hex(random_bytes(6));
@@ -108,8 +108,8 @@ final class MigrationPublishManifest
 
         try {
             $manifest = json_decode($contents, true, 32, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException(sprintf('Invalid migration publish manifest: %s', $this->path), 0, $exception);
+        } catch (JsonException $jsonException) {
+            throw new RuntimeException(sprintf('Invalid migration publish manifest: %s', $this->path), 0, $jsonException);
         }
 
         if (! is_array($manifest) || ($manifest['version'] ?? null) !== 1 || ! is_array($manifest['migrations'] ?? null)) {
