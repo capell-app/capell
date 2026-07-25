@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Metrics;
 
 use Capell\Admin\Data\Metrics\SiteAdminMetricSeriesData;
 use Capell\Admin\Data\Metrics\SiteAdminMetricTrendPointData;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\Metrics\ReadMetricSeriesAction;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Data\Metrics\MetricDefinitionData;
@@ -21,6 +22,7 @@ use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -48,6 +50,11 @@ final class ReadSiteAdminMetricSeriesAction
     public function handle(Authenticatable $actor): array
     {
         Gate::forUser($actor)->authorize(self::Permission);
+        throw_unless(
+            SiteScope::isGlobalActor($actor),
+            AuthorizationException::class,
+            'Global metrics require a global administrator.',
+        );
 
         $to = CarbonImmutable::now('UTC')->startOfDay();
         $from = $to->subDays(29);
