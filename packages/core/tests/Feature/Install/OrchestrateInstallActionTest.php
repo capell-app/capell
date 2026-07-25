@@ -121,7 +121,7 @@ it('skips optional console operations when they were not requested', function ()
     $runInstall = Mockery::mock(RunInstallAction::class);
     $runInstall->shouldReceive('handle')->once()->with($inputData, $reporter);
     $clearCaches = Mockery::mock(ClearCachesAction::class);
-    $clearCaches->shouldReceive('handle')->once()->with([], $reporter);
+    $clearCaches->shouldReceive('handle')->once()->with(['packages'], $reporter);
     runBoundAction(
         OrchestrateInstallAction::class,
         new OrchestrateInstallAction($runInstall, $clearCaches),
