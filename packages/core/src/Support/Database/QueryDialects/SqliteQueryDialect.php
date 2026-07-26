@@ -58,7 +58,7 @@ final class SqliteQueryDialect extends AbstractQueryDialect
     public function elapsedSeconds(SqlFragment $start, SqlFragment $end): SqlFragment
     {
         return new SqlFragment(
-            sprintf('CAST((julianday(%s) - julianday(%s)) * 86400 AS INTEGER)', $end->sql, $start->sql),
+            sprintf('CAST(ROUND((julianday(%s) - julianday(%s)) * 86400) AS INTEGER)', $end->sql, $start->sql),
             $this->bindings([$end, $start]),
         );
     }

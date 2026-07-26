@@ -145,7 +145,7 @@ it('builds typed query expressions for every supported database family', functio
             'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000.0',
             'year' => "CAST(strftime('%Y', created_at) AS INTEGER)",
             'hour' => "strftime('%H:00', created_at)",
-            'elapsed' => 'CAST((julianday(finished_at) - julianday(started_at)) * 86400 AS INTEGER)',
+            'elapsed' => 'CAST(ROUND((julianday(finished_at) - julianday(started_at)) * 86400) AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
             'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
             'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
@@ -204,6 +204,28 @@ it('matches typed JSON values without coercing numbers or booleans to strings', 
         expect($query->exists())->toBeFalse();
     }
 });
+
+it('returns exact elapsed seconds for SQLite timestamps', function (
+    string $start,
+    string $end,
+    int $expected,
+): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $fragment = (new SqliteDatabasePlatform)->queryDialect()->elapsedSeconds(
+        SqlFragment::value($start),
+        SqlFragment::value($end),
+    );
+
+    $elapsed = $connection->query()
+        ->selectRaw($fragment->sql . ' AS elapsed_seconds', $fragment->bindings)
+        ->value('elapsed_seconds');
+
+    expect($elapsed)->toBe($expected);
+})->with([
+    'two minutes' => ['2026-07-26 12:00:00', '2026-07-26 12:02:00', 120],
+    'one minute' => ['2026-07-26 12:00:00', '2026-07-26 12:01:00', 60],
+    'one second' => ['2026-07-26 12:00:00', '2026-07-26 12:00:01', 1],
+]);
 
 it('treats equivalent integer and decimal JSON values as equal', function (): void {
     $connection = DB::connection();
