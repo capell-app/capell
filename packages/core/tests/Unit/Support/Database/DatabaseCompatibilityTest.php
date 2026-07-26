@@ -268,6 +268,58 @@ it('repeats bound expression bindings in SQL placeholder order for relevance', f
         ->and($query->pluck('name')->all())->toBe(['Capell', 'Other']);
 });
 
+it('matches separated full text terms and ranks broader coverage with the portable fallback', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $rows = $connection->query()->selectRaw(
+        '? AS title, ? AS body, ? AS slug',
+        ['alpha beta', 'alpha beta', 'dense'],
+    )->unionAll($connection->query()->selectRaw(
+        '? AS title, ? AS body, ? AS slug',
+        ['alpha begins here', 'and beta ends here', 'separated'],
+    ))->unionAll($connection->query()->selectRaw(
+        '? AS title, ? AS body, ? AS slug',
+        ['alpha only', 'without the other term', 'partial'],
+    ));
+    $query = $connection->query()->fromSub($rows, 'documents')->select('slug');
+    $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
+        [SqlFragment::raw('title'), SqlFragment::raw('body')],
+        'alpha beta',
+    );
+
+    $search->predicate->applyWhere($query);
+    (new SqlFragment(
+        $search->relevance->sql . ' AS search_score',
+        $search->relevance->bindings,
+    ))->applySelect($query);
+    $ranked = $query->orderByDesc('search_score')->get();
+    $first = $ranked->first();
+    $last = $ranked->last();
+    throw_unless(is_object($first) && is_object($last), LogicException::class, 'Expected ranked full-text results.');
+
+    expect($search->native)->toBeFalse()
+        ->and($ranked->pluck('slug')->all())->toBe(['dense', 'separated'])
+        ->and((int) $first->search_score)
+        ->toBeGreaterThan((int) $last->search_score);
+});
+
+it('keeps portable full text values bound in SQL placeholder order', function (): void {
+    $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
+        [new SqlFragment('COALESCE(?, title)', ['expression-binding'])],
+        'alpha% beta_',
+    );
+    $expectedBindings = [
+        'expression-binding',
+        '%alpha!%%',
+        'expression-binding',
+        '%beta!_%',
+    ];
+
+    expect($search->predicate->sql)
+        ->not->toContain('alpha%', 'beta_')
+        ->and($search->predicate->bindings)->toBe($expectedBindings)
+        ->and($search->relevance->bindings)->toBe($expectedBindings);
+});
+
 it('searches SQLite JSON array properties with wildcard paths', function (): void {
     $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
     $matching = $connection->query()->fromSub(
