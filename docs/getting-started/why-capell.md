@@ -2,9 +2,9 @@
 
 ![Capell, an MIT-licensed Laravel CMS built on Filament, installed with composer require capell-app/installer and php artisan capell:install](../images/capell-readme-banner.jpg)
 
-Capell is a Laravel CMS built on Filament. It is for teams that want editors to manage structured pages, URLs, media, layouts, and publishing without moving the product into a separate CMS runtime.
+Capell is a Laravel CMS built on Filament. It lets the people who own a website's content manage its pages, addresses, images, and publishing themselves, without moving the whole product into a separate CMS.
 
-Its strongest practical difference is not another field builder. Capell makes change safer: page edits have append-only history and validated page-only rollback, while package upgrades can be planned, recorded, diagnosed, and rolled back when an upgrade step declares a safe reverse operation.
+Its strongest practical difference is not another field builder. Capell makes change safer. Every page edit is kept, so a page can be compared against an earlier version and put back. Upgrades can be previewed before they run, are recorded when they do, and can be reversed where a step says that is safe.
 
 ## The decision in one minute
 
@@ -31,7 +31,7 @@ Capell is not hosted software and does not ship a public content-delivery API. P
 | Laravel remains responsible for                      | Capell adds                                                                                         |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Application domain models and services               | Sites, languages, page trees, URLs, layouts, themes, media contracts, translations, and settings    |
-| Authentication and infrastructure                    | Filament editor workspace, roles, page publishing, preview, and page recovery UI                    |
+| Authentication and infrastructure                    | The admin editors work in, roles, page publishing, preview, and page recovery                       |
 | Queues, cache, scheduler, filesystem, and deployment | Package health, lifecycle, upgrade planning, and CMS-specific diagnostics                           |
 | Public controllers and presentation choices          | Site context, public page resolution, render hooks, theme assets, and cache-safe delivery contracts |
 | Database and media disaster recovery                 | Page revision history and page-only rollback                                                        |
