@@ -37,8 +37,8 @@ it('resolves every supported database driver through one registry seam', functio
 
 it('resolves configured connections and rejects duplicates and unknown drivers', function (): void {
     $sqlite = new SqliteDatabasePlatform;
-    $registry = new DatabasePlatformRegistry([$sqlite]);
-    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:');
+    $registry = new DatabasePlatformRegistry([$sqlite, new PostgresDatabasePlatform]);
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
 
     expect($registry->for($connection))->toBe($sqlite)
         ->and(fn (): DatabasePlatformRegistry => $registry->register(new SqliteDatabasePlatform))
@@ -81,10 +81,7 @@ it('builds typed query expressions for every supported database family', functio
         DatabaseFamily::MySql,
         DatabaseFamily::MariaDb => ['%needle%', '$[*].data'],
         DatabaseFamily::Sqlite => ['$[*].data', '%needle%'],
-        DatabaseFamily::PostgreSql => [
-            '$[*].data ? (@ like_regex $needle flag "i")',
-            '.*needle.*',
-        ],
+        DatabaseFamily::PostgreSql => ['$[*].data', '%needle%'],
     };
 
     expect($dialect->concatenate($column, SqlFragment::value(' / '), SqlFragment::raw('pages.slug')))
@@ -159,7 +156,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'EXTRACT(EPOCH FROM (finished_at - started_at))::INTEGER',
             'json_extract' => 'jsonb_path_query_first(meta::jsonb, ?::jsonpath)',
             'json_contains' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'value\', to_jsonb(?::text)))',
-            'json_search' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'needle\', to_jsonb(?::text)))',
+            'json_search' => 'EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> \'{}\' ILIKE ?)',
         ],
     ],
 ]);

@@ -68,13 +68,11 @@ final class PostgresQueryDialect extends AbstractQueryDialect
 
     public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
     {
-        $searchPath = $path === '$'
-            ? '$.** ? (@.type() == "string" && @ like_regex $needle flag "i")'
-            : $path . ' ? (@ like_regex $needle flag "i")';
+        $searchPath = $path === '$' ? '$.**' : $path;
 
         return new SqlFragment(
-            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('needle', to_jsonb(?::text)))",
-            [...$expression->bindings, $searchPath, '.*' . preg_quote($needle, '/') . '.*'],
+            "EXISTS (SELECT 1 FROM jsonb_path_query({$expression->sql}::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ?)",
+            [...$expression->bindings, $searchPath, '%' . $needle . '%'],
         );
     }
 }
