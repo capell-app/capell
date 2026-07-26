@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Workbench\App\Providers;
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Override;
 use Workbench\App\Support\MarketplaceFixture;
 
 final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 {
+    #[Override]
     public function register(): void
     {
         $database = config('screenshot.database');
@@ -53,6 +56,8 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT),
         );
 
+        $this->publishFilamentAssets();
+
         $this->loadRoutesFrom(__DIR__ . '/../../routes/screenshot-fixtures.php');
 
         Route::get('/__ping', static fn (): string => 'pong');
@@ -66,5 +71,25 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
                 200,
             ),
         ]);
+    }
+
+    /**
+     * Republish Filament's CSS and JS when the testbench document root has lost
+     * them.
+     *
+     * `filament:assets` normally runs as a side effect of `capell:install`
+     * during scripts/screenshots/prepare-workbench.sh. Runs that reuse an
+     * existing app skip that script, and any composer install re-extracts
+     * orchestra/testbench-core and deletes its public/css and public/js. The
+     * capture then succeeds against a page with no stylesheet at all, which
+     * looks like a styling regression rather than a missing prerequisite.
+     */
+    private function publishFilamentAssets(): void
+    {
+        if (File::exists(public_path('css/filament/filament/app.css'))) {
+            return;
+        }
+
+        Artisan::call('filament:assets');
     }
 }

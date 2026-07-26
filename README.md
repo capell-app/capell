@@ -1,6 +1,6 @@
 # Capell CMS
 
-![Capell CMS page administration in a Laravel application](docs/images/capell-readme-banner.jpg)
+![Capell, an MIT-licensed Laravel CMS built on Filament, installed with composer require capell-app/installer and php artisan capell:install](docs/images/capell-readme-banner.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
@@ -14,9 +14,9 @@
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-Every Laravel team eventually rebuilds the same CMS: page trees, URLs, layouts, publishing rules, revision history, media, and an admin to hold it together. **Capell is a Laravel CMS built on Filament** that gives that repeated work one maintained home. Editors get a structured page workspace with publishing, preview, and recovery; developers keep the public frontend, deployment, and application architecture inside Laravel.
+**Capell is a Laravel CMS built on Filament** for teams whose website has to keep changing after it launches. The people who own the content edit it themselves instead of queuing behind a developer. Every change is recorded against the person who made it, and any page can be put back the way it was. Editors get an admin they can learn in an afternoon; developers keep the public frontend, deployment, and application architecture inside Laravel.
 
-We built Capell around one idea: build once, improve every page. Define shared page types, layouts, URLs, and publishing rules a single time, then improve them in one place instead of across every page that copied them. Start with the free, MIT-licensed **Capell Foundation**, then grow through an ecosystem of verified Laravel packages — search, SEO, publishing workflow, forms, themes, and more — each one a normal Composer package whose migrations, data access, and removal path you can inspect before it installs. Browse the whole catalogue, including the ten headline features, at [capell.app/features](https://capell.app/features).
+Start with **Capell Foundation**: free, MIT-licensed, and installed from Packagist like any other Composer package. Then add only what a project actually needs — search, SEO, publishing approvals, forms, themes — each one an ordinary Laravel package whose migrations, data access, and removal path you can read before it installs. See what is available at [capell.app/features](https://capell.app/features).
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
@@ -28,8 +28,8 @@ These captures show Capell administering [capell.app](https://capell.app) — th
 
 ![Capell Pages list showing real published pages with publish states, layouts, and SEO overview](docs/images/capell-app-pages-list.png)
 
-| Edit structured page content | The public result, rendered by your Laravel app |
-| ---------------------------- | ----------------------------------------------- |
+| Editing a page                                                                                                           | What visitors see                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | ![Capell page editor with real page content, publishing state, and AI assistant](docs/images/capell-app-page-editor.png) | ![The capell.app public homepage rendered by the Capell frontend](docs/images/capell-app-public-homepage.jpg) |
 
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
@@ -47,18 +47,18 @@ The real CMS test starts after the first launch. Someone edits the homepage at 4
 
 Capell keeps its core lean and grows through packages, so the CMS can expand with the application instead of arriving as a monolith. The free core stands on its own; the paid packages add the power tools. These are the ten headline features from [capell.app/features](https://capell.app/features):
 
-| Feature | What it gives you |
-| ------- | ----------------- |
-| Extendable core | A lean, fast core you grow through verified packages, each with a production footprint you can inspect before it installs |
-| Safe upgrades and page recovery | Every change is reversible: compare revisions and roll a page back or forward with its audit trail intact |
-| Multi-site and multilingual | Run many sites and languages from one Laravel app, with each site's content kept distinct |
-| Quality, tested code | Built and tested in the open: every quality claim traces to a live CI result you can check yourself |
-| AI-ready | Built to be driven by AI and served to AI through governed extension points |
-| AI Command Centre | Say the outcome in plain language, see the exact change previewed, and approve it before anything happens |
-| Agent Delivery | Publish your pages to answer engines as clean, RAG-ready JSON, with no scraping and no admin leakage |
-| SEO Suite | Live scoring, schema, redirects, and Search Console, all inside the admin |
-| Site search | Relevance-tuned results with synonyms and typo tolerance, plus a report of what visitors search for and cannot find |
-| Performance pipeline | Pages are cached and each ships route-specific critical CSS generated from your real stylesheet |
+| Feature                         | What it gives you                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Extendable core                 | A lean, fast core you grow through verified packages, each with a production footprint you can inspect before it installs |
+| Safe upgrades and page recovery | Every change is reversible: compare revisions and roll a page back or forward with its audit trail intact                 |
+| Multi-site and multilingual     | Run many sites and languages from one Laravel app, with each site's content kept distinct                                 |
+| Quality, tested code            | Built and tested in the open: every quality claim traces to a live CI result you can check yourself                       |
+| AI-ready                        | Built to be driven by AI and served to AI through governed extension points                                               |
+| AI Command Centre               | Say the outcome in plain language, see the exact change previewed, and approve it before anything happens                 |
+| Agent Delivery                  | Publish your pages to answer engines as clean, RAG-ready JSON, with no scraping and no admin leakage                      |
+| SEO Suite                       | Live scoring, schema, redirects, and Search Console, all inside the admin                                                 |
+| Site search                     | Relevance-tuned results with synonyms and typo tolerance, plus a report of what visitors search for and cannot find       |
+| Performance pipeline            | Pages are cached and each ships route-specific critical CSS generated from your real stylesheet                           |
 
 Optional capabilities arrive as Laravel packages you add when the work needs them. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path — the [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation, and the live [extensions directory](https://capell.app/extensions) is the authority for what is currently installable.
 

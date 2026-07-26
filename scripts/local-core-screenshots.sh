@@ -75,6 +75,10 @@ npx capell-screenshots install-browser
 
 if [[ "${REUSE_APP}" == false ]]; then
     bash scripts/screenshots/prepare-workbench.sh
+else
+    # Reusing an app skips prepare-workbench.sh, and a composer install since the
+    # last run will have re-extracted testbench and deleted its published assets.
+    php vendor/bin/testbench filament:assets
 fi
 
 SCREENSHOT_ARGS=("${ONLY_ARGS[@]}")

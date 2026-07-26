@@ -66,6 +66,37 @@ if ($requested !== []) {
     $stages = array_intersect_key($stages, array_flip($requested));
 }
 
+/**
+ * Stages that shell out to npx. Without node_modules, npx silently downloads
+ * whatever major version it resolves and reports failures from that version
+ * instead of the pinned one, which reads as repository drift.
+ *
+ * @var list<string> $nodeStages
+ */
+$nodeStages = ['prettier', 'eslint'];
+$requestedNodeStages = array_values(array_intersect($nodeStages, array_keys($stages)));
+
+if ($requestedNodeStages !== [] && ! is_dir(dirname(__DIR__) . '/node_modules')) {
+    fwrite(STDERR, sprintf(
+        <<<'MESSAGE'
+        node_modules/ is missing, so the %s stage(s) cannot use the pinned toolchain.
+
+        Install the Node dependencies first:
+
+            npm ci
+
+        Or run only the PHP stages:
+
+            composer preflight %s
+
+        MESSAGE,
+        implode(' and ', $requestedNodeStages),
+        implode(' ', array_keys(array_diff_key($stages, array_flip($nodeStages)))),
+    ));
+
+    exit(2);
+}
+
 $composer = getenv('COMPOSER_BINARY');
 $composer = is_string($composer) && $composer !== '' ? $composer : 'composer';
 $results = [];
