@@ -33,6 +33,7 @@
         "check:extension-surfaces": "@php scripts/build-extension-surface-catalog.php --check",
         "check:stable-extension-api": "@php scripts/check-stable-extension-api.php --check",
         "check:composer-lock": "composer validate --no-check-publish",
+        "check:vendor-integrity": "@php scripts/check-vendor-integrity.php",
         "post-autoload-dump": [
             "@clear",
             "@prepare",
@@ -124,6 +125,7 @@
         "test:mutate": "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --colors=always --configuration=phpunit.xml",
         "test:mutate:ci": "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --min=${PEST_MUTATION_MIN:-81} --colors=always --configuration=phpunit.xml",
         "clear": [
+            "@check:vendor-integrity",
             "CACHE_STORE=array \"$PHP_BINARY\" vendor/bin/testbench package:purge-skeleton --ansi",
             "rm -rf vendor/orchestra/testbench-core/laravel/vendor",
             "rm -rf vendor/orchestra/testbench-core/laravel/database/migrations",
@@ -132,6 +134,7 @@
         "clear:views": "@php scripts/clear-phpunit-views.php",
         "prepare:testbench-vendor-configs": "@php scripts/prepare-testbench-vendor-configs.php",
         "prepare": [
+            "@check:vendor-integrity",
             "@php vendor/bin/testbench package:discover --ansi",
             "@prepare:testbench-vendor-configs"
         ],

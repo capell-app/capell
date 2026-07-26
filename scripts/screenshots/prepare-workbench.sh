@@ -9,6 +9,10 @@ DATABASE_PATH="${REPOSITORY_ROOT}/workbench/database/screenshots.sqlite"
 cd "${REPOSITORY_ROOT}"
 
 mkdir -p "$(dirname "${DATABASE_PATH}")"
+# composer's post-autoload-dump deletes the testbench skeleton's migrations
+# directory, so a run straight after `composer install` has nowhere to publish
+# vendor migrations to and the install aborts at the publish step.
+mkdir -p "${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/database/migrations"
 find "${REPOSITORY_ROOT}/workbench/database/migrations" -maxdepth 1 -type f \
     \( -name '*_create_notifications_table.php' -o -name '*_create_sessions_table.php' \) \
     -delete
@@ -39,3 +43,7 @@ php vendor/bin/testbench capell:install \
     --clear-cache \
     --install-welcome-route \
     --no-interaction
+
+# capell:install publishes Filament's CSS and JS as a side effect. Ask for them
+# explicitly so a change to the install pipeline cannot leave captures unstyled.
+php vendor/bin/testbench filament:assets
