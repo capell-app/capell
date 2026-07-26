@@ -35,6 +35,7 @@ final class MySqlDatabaseProvisioner extends AbstractServerDatabaseProvisioner i
         $pdo = $this->pdo($dsn, $configuration);
         $statement = $pdo->prepare('SELECT 1 FROM information_schema.schemata WHERE schema_name = ?');
         $statement->execute([$database]);
+
         $exists = $statement->fetchColumn() !== false;
         $pdo->exec($sql);
         $this->refresh($connectionName);

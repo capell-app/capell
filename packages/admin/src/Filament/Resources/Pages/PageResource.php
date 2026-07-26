@@ -377,7 +377,7 @@ class PageResource extends Resource implements ValidatesDelete
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        (new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%%%s%%', $search)]))
+        new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%%%s%%', $search)])
             ->applyWhere($query->getQuery());
 
         return $query;

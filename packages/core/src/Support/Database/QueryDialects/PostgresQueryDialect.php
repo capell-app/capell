@@ -20,7 +20,7 @@ final class PostgresQueryDialect extends AbstractQueryDialect
     public function trimTrailingSlash(SqlFragment $expression): SqlFragment
     {
         return new SqlFragment(
-            "RTRIM({$expression->sql}, '/')",
+            sprintf("RTRIM(%s, '/')", $expression->sql),
             $expression->bindings,
         );
     }
@@ -69,7 +69,7 @@ final class PostgresQueryDialect extends AbstractQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
         return new SqlFragment(
-            "EXISTS (SELECT 1 FROM jsonb_path_query({$expression->sql}::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = 'array' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))",
+            sprintf("EXISTS (SELECT 1 FROM jsonb_path_query(%s::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = 'array' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))", $expression->sql),
             [...$expression->bindings, $path, $this->jsonValue($value)],
         );
     }
@@ -79,7 +79,7 @@ final class PostgresQueryDialect extends AbstractQueryDialect
         $searchPath = $path === '$' ? '$.**' : $path;
 
         return new SqlFragment(
-            "EXISTS (SELECT 1 FROM jsonb_path_query({$expression->sql}::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ?)",
+            sprintf("EXISTS (SELECT 1 FROM jsonb_path_query(%s::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ?)", $expression->sql),
             [...$expression->bindings, $searchPath, '%' . $needle . '%'],
         );
     }

@@ -26,7 +26,7 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
 
     public function supports(DatabaseCapability $capability, ?Connection $connection = null): bool
     {
-        if ($connection === null) {
+        if (! $connection instanceof Connection) {
             return match ($capability) {
                 DatabaseCapability::PrefixIndex,
                 DatabaseCapability::FullTextIndex,

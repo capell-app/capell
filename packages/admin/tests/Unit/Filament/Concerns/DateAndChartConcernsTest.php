@@ -51,6 +51,7 @@ it('maps dashboard events into date range filters and labels', function (): void
     };
 
     $subject->onDashboardFilterChanged('today');
+
     $family = CapellDatabase::for()->family();
 
     expect($subject->filter)->toBe('today')

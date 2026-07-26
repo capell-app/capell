@@ -118,7 +118,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
             'json_extract' => 'JSON_EXTRACT(meta, ?)',
             'json_contains' => 'JSON_CONTAINS(meta, ?, ?)',
-            'json_search' => 'JSON_SEARCH(meta, \'one\', ?, NULL, ?) IS NOT NULL',
+            'json_search' => "JSON_SEARCH(meta, 'one', ?, NULL, ?) IS NOT NULL",
         ],
     ],
     'mariadb' => [
@@ -133,7 +133,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
             'json_extract' => 'JSON_EXTRACT(meta, ?)',
             'json_contains' => 'JSON_CONTAINS(meta, ?, ?)',
-            'json_search' => 'JSON_SEARCH(meta, \'one\', ?, NULL, ?) IS NOT NULL',
+            'json_search' => "JSON_SEARCH(meta, 'one', ?, NULL, ?) IS NOT NULL",
         ],
     ],
     'sqlite' => [
@@ -147,7 +147,7 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "strftime('%H:00', created_at)",
             'elapsed' => 'CAST(ROUND((julianday(finished_at) - julianday(started_at)) * 86400) AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
-            'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
+            'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' WHEN capell_json_item.type IN ('array', 'object') THEN json(capell_json_item.value) = json(capell_json_target.value) ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
             'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
         ],
     ],
@@ -162,8 +162,8 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "TO_CHAR(created_at, 'HH24:00')",
             'elapsed' => 'EXTRACT(EPOCH FROM (finished_at - started_at))::INTEGER',
             'json_extract' => 'jsonb_path_query_first(meta::jsonb, ?::jsonpath)',
-            'json_contains' => 'EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = \'array\' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))',
-            'json_search' => 'EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> \'{}\' ILIKE ?)',
+            'json_contains' => "EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = 'array' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))",
+            'json_search' => "EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ?)",
         ],
     ],
 ]);
@@ -346,6 +346,7 @@ it('builds schema expressions and reports family capabilities', function (): voi
 it('creates a SQLite JSON path index without DDL bindings', function (): void {
     $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
     $connection->statement('CREATE TABLE "capell_json_index_test" ("meta" JSON)');
+
     $definition = new DatabaseIndexDefinition(
         table: 'capell_json_index_test',
         name: 'capell_json_index_test_path',

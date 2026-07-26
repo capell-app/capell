@@ -26,6 +26,7 @@ final class PostgresDatabaseProvisioner extends AbstractServerDatabaseProvisione
         ), $configuration);
         $statement = $pdo->prepare('select 1 from pg_database where datname = ?');
         $statement->execute([$database]);
+
         $created = $statement->fetchColumn() === false;
 
         if ($created) {

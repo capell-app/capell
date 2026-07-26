@@ -167,6 +167,7 @@ class LayoutSelect extends Select
             ->textRelevance(SqlFragment::raw($column), $search);
 
         $relevance->applyOrder($query->getQuery());
+
         $query->orderBy($titleAttribute);
     }
 

@@ -20,7 +20,7 @@ final class MySqlQueryDialect extends AbstractQueryDialect
     public function trimTrailingSlash(SqlFragment $expression): SqlFragment
     {
         return new SqlFragment(
-            "TRIM(TRAILING '/' FROM {$expression->sql})",
+            sprintf("TRIM(TRAILING '/' FROM %s)", $expression->sql),
             $expression->bindings,
         );
     }

@@ -175,7 +175,7 @@ class Layout extends Model implements Defaultable, HasMedia, HasMediaContract, S
         );
 
         $query->select('group');
-        (new SqlFragment($label->sql . ' AS ' . $grammar->wrap('label'), $label->bindings))->applySelect($query);
+        new SqlFragment($label->sql . ' AS ' . $grammar->wrap('label'), $label->bindings)->applySelect($query);
 
         return $query
             ->groupBy('group')

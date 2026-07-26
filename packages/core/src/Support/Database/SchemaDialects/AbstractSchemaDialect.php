@@ -12,7 +12,7 @@ abstract class AbstractSchemaDialect
     protected function identifier(string $identifier, string $quote): string
     {
         throw_unless(
-            preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $identifier) === 1,
+            preg_match('/^[A-Za-z_]\w*$/', $identifier) === 1,
             InvalidArgumentException::class,
             sprintf('Unsafe database identifier [%s].', $identifier),
         );
@@ -46,7 +46,7 @@ abstract class AbstractSchemaDialect
     protected function jsonPathLiteral(string $path): string
     {
         throw_unless(
-            preg_match('/^\\$(?:(?:\\.[A-Za-z_][A-Za-z0-9_]*)|\\[(?:\\d+|\\*)\\])*$/', $path) === 1,
+            preg_match('/^\$(?:(?:\.[A-Za-z_]\w*)|\[(?:\d+|\*)\])*$/', $path) === 1,
             InvalidArgumentException::class,
             sprintf('Unsafe JSON path [%s].', $path),
         );

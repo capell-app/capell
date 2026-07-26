@@ -77,7 +77,7 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
         ));
 
         return new SqlFragment(sprintf(
-            'CREATE INDEX %s ON %s USING GIN (to_tsvector(\'simple\', %s))',
+            "CREATE INDEX %s ON %s USING GIN (to_tsvector('simple', %s))",
             $this->identifier($index->name, '"'),
             $this->identifier($index->table, '"'),
             $columns,

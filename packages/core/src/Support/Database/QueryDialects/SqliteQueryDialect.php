@@ -20,7 +20,7 @@ final class SqliteQueryDialect extends AbstractQueryDialect
     public function trimTrailingSlash(SqlFragment $expression): SqlFragment
     {
         return new SqlFragment(
-            "RTRIM({$expression->sql}, '/')",
+            sprintf("RTRIM(%s, '/')", $expression->sql),
             $expression->bindings,
         );
     }
@@ -71,14 +71,14 @@ final class SqliteQueryDialect extends AbstractQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
         return new SqlFragment(
-            "EXISTS (SELECT 1 FROM json_each({$expression->sql}, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
+            sprintf("EXISTS (SELECT 1 FROM json_each(%s, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '\$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' WHEN capell_json_item.type IN ('array', 'object') THEN json(capell_json_item.value) = json(capell_json_target.value) ELSE json_quote(capell_json_item.value) = capell_json_target.value END)", $expression->sql),
             [...$expression->bindings, $path, $this->jsonValue($value)],
         );
     }
 
     public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
     {
-        if (preg_match('/^(.*)\\[\\*\\]\\.([A-Za-z_][A-Za-z0-9_]*)$/', $path, $matches) === 1) {
+        if (preg_match('/^(.*)\[\*\]\.([A-Za-z_]\w*)$/', $path, $matches) === 1) {
             $collectionPath = $matches[1] === '' ? '$' : $matches[1];
 
             return new SqlFragment(

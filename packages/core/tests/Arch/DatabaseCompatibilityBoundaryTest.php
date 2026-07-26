@@ -21,14 +21,21 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
 
         foreach ($files as $file) {
-            if (! $file->isFile() || $file->getExtension() !== 'php') {
+            if (! $file->isFile()) {
+                continue;
+            }
+
+            if ($file->getExtension() !== 'php') {
                 continue;
             }
 
             $pathname = $file->getPathname();
             $relative = str_replace($root . '/', '', $pathname);
+            if (str_contains($relative, '/Support/Database/')) {
+                continue;
+            }
 
-            if (str_contains($relative, '/Support/Database/') || str_contains($relative, '/Support/Backup/')) {
+            if (str_contains($relative, '/Support/Backup/')) {
                 continue;
             }
 
@@ -43,7 +50,11 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
             }
 
             foreach (token_get_all($contents) as $token) {
-                if (! is_array($token) || ! in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
+                if (! is_array($token)) {
+                    continue;
+                }
+
+                if (! in_array($token[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
                     continue;
                 }
 
