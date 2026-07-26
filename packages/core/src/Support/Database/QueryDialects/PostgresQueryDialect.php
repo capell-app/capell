@@ -7,9 +7,11 @@ namespace Capell\Core\Support\Database\QueryDialects;
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
+use Override;
 
 final class PostgresQueryDialect extends AbstractQueryDialect
 {
+    #[Override]
     public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
     {
         $fallback = parent::fullTextSearch($expressions, $query);

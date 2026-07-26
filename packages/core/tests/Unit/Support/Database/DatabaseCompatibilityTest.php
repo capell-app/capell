@@ -288,10 +288,10 @@ it('matches separated full text terms and ranks broader coverage with the portab
     );
 
     $search->predicate->applyWhere($query);
-    (new SqlFragment(
+    new SqlFragment(
         $search->relevance->sql . ' AS search_score',
         $search->relevance->bindings,
-    ))->applySelect($query);
+    )->applySelect($query);
     $ranked = $query->orderByDesc('search_score')->get();
     $first = $ranked->first();
     $last = $ranked->last();
@@ -397,10 +397,10 @@ it('selects native full text only when a compatible index exists', function (): 
         $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
         $query = $connection->table($table)->select('slug');
         $search->predicate->applyWhere($query);
-        (new SqlFragment(
+        new SqlFragment(
             $search->relevance->sql . ' AS search_score',
             $search->relevance->bindings,
-        ))->applySelect($query);
+        )->applySelect($query);
 
         expect($withoutIndex->native)->toBeFalse()
             ->and($search->native)->toBe($platform->family() !== DatabaseFamily::Sqlite)
