@@ -58,4 +58,26 @@ grep --fixed-strings --quiet \
 printf '@import "./capell/frontend.css";\n' > resources/css/app.css
 
 npm install --no-audit --no-fund
+
+# The current Laravel skeleton enables a remote Bunny font by default. This
+# resolution smoke verifies Capell's generated assets, so keep it deterministic
+# and offline rather than making an unrelated font CDN a build dependency.
+php -r '
+$path = "vite.config.js";
+$contents = file_get_contents($path);
+$updated = preg_replace(
+    "/\n\s*fonts:\s*\[\n.*?\n\s*\],/s",
+    "\n            fonts: [],",
+    (string) $contents,
+    1,
+    $replacements,
+);
+
+if ($updated === null || $replacements !== 1) {
+    throw new RuntimeException("Unable to disable the nested consumer remote font.");
+}
+
+file_put_contents($path, $updated);
+'
+
 npm run build
