@@ -6,6 +6,7 @@ namespace Capell\Frontend\Providers;
 
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
+use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Contracts\RuntimeRefreshWarmer;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
@@ -45,7 +46,6 @@ use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\HtmlMinifier;
 use Capell\Frontend\Contracts\NullCacheBypassResolver;
-use Capell\Frontend\Contracts\RedirectResolver;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Capell\Frontend\Contracts\SiteAccessExemptionContributor;

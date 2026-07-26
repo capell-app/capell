@@ -109,7 +109,7 @@ it('reports an unregistered package source migration as pending', function (): v
 });
 
 it('audits manifest declarations without autoloading extension classes', function (): void {
-    $originalInstalledVersions = InstalledVersions::getRawData();
+    $originalInstalledVersions = InstalledVersions::getAllRawData()[0];
     $installedVersions = $originalInstalledVersions;
     $packagePath = sys_get_temp_dir() . '/capell-report-only-manifest-' . uniqid();
     $markerPath = $packagePath . '/autoloaded';

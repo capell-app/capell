@@ -120,7 +120,7 @@ class PagesTable implements TableConfigurator
                         ->modalHeading(
                             fn (PageModel $record): string => $record->blueprint->name,
                         )
-                        ->mutateFormDataUsing(function (array $data, PageModel $record): array {
+                        ->mutateDataUsing(function (array $data, PageModel $record): array {
                             $data['type'] = self::blueprintTypeName($record->blueprint);
 
                             return $data;

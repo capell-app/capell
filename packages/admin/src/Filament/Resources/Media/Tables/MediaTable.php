@@ -276,7 +276,7 @@ class MediaTable implements TableConfigurator
             ->modalHeading(fn (Media $record): string => $record->model instanceof Theme ? $record->model->name : '')
             ->slideOver()
             ->modalWidth(Width::ScreenLarge)
-            ->mutateFormDataUsing(fn (array $data, Media $record): array => $record->model instanceof Theme ? ThemesTable::editorRecordData($record->model, $data) : $data)
+            ->mutateDataUsing(fn (array $data, Media $record): array => $record->model instanceof Theme ? ThemesTable::editorRecordData($record->model, $data) : $data)
             ->action(fn (Media $record, array $data): mixed => $record->model instanceof Theme ? $record->model->update($data) : null)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof Theme || $record->model->trashed());
     }
@@ -292,7 +292,7 @@ class MediaTable implements TableConfigurator
             ->slideOver()
             ->modalWidth(Width::ScreenLarge)
             ->hidden(fn (Media $record): bool => ! $record->model instanceof Blueprint || $record->model->trashed())
-            ->mutateFormDataUsing(function (array $data, Media $record): array {
+            ->mutateDataUsing(function (array $data, Media $record): array {
                 if (! $record->model instanceof Blueprint) {
                     return $data;
                 }

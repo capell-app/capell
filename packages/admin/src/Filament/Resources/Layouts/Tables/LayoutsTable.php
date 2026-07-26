@@ -165,7 +165,7 @@ class LayoutsTable implements TableConfigurator
                     ->modalHeading(fn (Layout $record): string => $record->theme->name ?? '')
                     ->slideOver()
                     ->modalWidth(Width::ScreenLarge)
-                    ->mutateFormDataUsing(fn (array $data, Layout $record): array => $record->theme instanceof Theme
+                    ->mutateDataUsing(fn (array $data, Layout $record): array => $record->theme instanceof Theme
                         ? ThemesTable::editorRecordData($record->theme, $data)
                         : $data)
                     ->action(function (Layout $record, array $data): void {

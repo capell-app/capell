@@ -102,7 +102,7 @@ class SitesTable implements TableConfigurator
                         ->fillForm(fn (Site $record): array => $record->theme->attributesToArray())
                         ->slideOver()
                         ->modalWidth(Width::ScreenLarge)
-                        ->mutateFormDataUsing(fn (array $data, Site $record): array => ThemesTable::editorRecordData($record->theme, $data))
+                        ->mutateDataUsing(fn (array $data, Site $record): array => ThemesTable::editorRecordData($record->theme, $data))
                         ->action(fn (Site $record, array $data): mixed => $record->theme->update($data))
                         ->hidden(fn (Site $record): bool => ! $record->theme instanceof Theme || $record->theme->trashed()),
                     Action::make('edit-blueprint')
@@ -124,7 +124,7 @@ class SitesTable implements TableConfigurator
                         })
                         ->modalWidth(Width::ScreenLarge)
                         ->slideOver()
-                        ->mutateFormDataUsing(function (array $data, Site $record): array {
+                        ->mutateDataUsing(function (array $data, Site $record): array {
                             $data['type'] = BlueprintsTable::recordTypeName($record->blueprint);
 
                             return $data;
