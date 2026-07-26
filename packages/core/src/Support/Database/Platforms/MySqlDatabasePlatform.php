@@ -53,7 +53,7 @@ class MySqlDatabasePlatform implements DatabasePlatform
         return $this->schemaDialect;
     }
 
-    public function provisioner(): ?DatabaseProvisioner
+    public function provisioner(): DatabaseProvisioner
     {
         return $this->databaseProvisioner;
     }
