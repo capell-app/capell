@@ -13,6 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -92,12 +93,25 @@ class User extends Authenticatable implements FilamentUser, HasMedia
             ->where('guard_name', 'web')
             ->value('id');
 
-        return $roleId !== null && DB::table('model_has_roles')
+        if ($roleId === null) {
+            return false;
+        }
+
+        $roleAssignment = DB::table('model_has_roles')
             ->where('role_id', $roleId)
             ->where('model_type', $this->getMorphClass())
-            ->where('model_id', $this->getKey())
-            ->whereNull('team_id')
-            ->exists();
+            ->where('model_id', $this->getKey());
+
+        // Spatie's default (teams-disabled) migration ships no team_id column.
+        // SQLite silently treats the unknown quoted identifier as a string
+        // literal, so an unconditional whereNull('team_id') never matches and
+        // every admin loses global-actor status. Only apply the team filter
+        // when the schema actually has the column.
+        if (Schema::hasColumn('model_has_roles', 'team_id')) {
+            $roleAssignment->whereNull('team_id');
+        }
+
+        return $roleAssignment->exists();
     }
 
     /** @return Collection<int, int> */

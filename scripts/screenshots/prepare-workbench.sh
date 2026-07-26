@@ -80,3 +80,10 @@ php vendor/bin/testbench capell:install \
 # capell:install publishes Filament's CSS and JS as a side effect. Ask for them
 # explicitly so a change to the install pipeline cannot leave captures unstyled.
 php vendor/bin/testbench filament:assets
+
+# The admin panel resolves its theme through Vite
+# (viteTheme('resources/css/filament/admin/theme.css', 'build/filament')), and a
+# Filament theme REPLACES the published app.css. Compile a real theme bundle so
+# admin captures are actually styled — a stub theme.css renders every admin
+# page without panel CSS and the runner's stylesheet guard aborts the capture.
+node scripts/screenshots/build-filament-theme-css.mjs
