@@ -14,9 +14,9 @@
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-Every Laravel team eventually rebuilds the same CMS: page trees, URLs, layouts, publishing rules, revision history, media, and an admin to hold it together. **Capell is a Laravel CMS built on Filament** that gives that repeated work one maintained home. Editors get a structured page workspace with publishing, preview, and recovery; developers keep the public frontend, deployment, and application architecture inside Laravel.
+**Capell is a Laravel CMS built on Filament** for teams whose website has to keep changing after it launches. The people who own the content edit it themselves instead of queuing behind a developer. Every change is recorded against the person who made it, and any page can be put back the way it was. Editors get an admin they can learn in an afternoon; developers keep the public frontend, deployment, and application architecture inside Laravel.
 
-We built Capell around one idea: build once, improve every page. Define shared page types, layouts, URLs, and publishing rules a single time, then improve them in one place instead of across every page that copied them. Start with the free, MIT-licensed **Capell Foundation**, then grow through an ecosystem of verified Laravel packages — search, SEO, publishing workflow, forms, themes, and more — each one a normal Composer package whose migrations, data access, and removal path you can inspect before it installs. Browse the whole catalogue, including the ten headline features, at [capell.app/features](https://capell.app/features).
+Start with **Capell Foundation**: free, MIT-licensed, and installed from Packagist like any other Composer package. Then add only what a project actually needs — search, SEO, publishing approvals, forms, themes — each one an ordinary Laravel package whose migrations, data access, and removal path you can read before it installs. See what is available at [capell.app/features](https://capell.app/features).
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
@@ -28,7 +28,7 @@ These captures show Capell administering [capell.app](https://capell.app) — th
 
 ![Capell Pages list showing real published pages with publish states, layouts, and SEO overview](docs/images/capell-app-pages-list.png)
 
-| Edit structured page content                                                                                             | The public result, rendered by your Laravel app                                                               |
+| Editing a page                                                                                                           | What visitors see                                                                                             |
 | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | ![Capell page editor with real page content, publishing state, and AI assistant](docs/images/capell-app-page-editor.png) | ![The capell.app public homepage rendered by the Capell frontend](docs/images/capell-app-public-homepage.jpg) |
 
