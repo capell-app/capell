@@ -41,7 +41,7 @@ if ($errors !== []) {
     fwrite(STDERR, "Capell support contract is out of sync.\n");
 
     foreach ($errors as $error) {
-        fwrite(STDERR, "- {$error}\n");
+        fwrite(STDERR, sprintf('- %s%s', $error, PHP_EOL));
     }
 
     exit(1);
@@ -78,7 +78,7 @@ function readJsonFile(string $path): array
     $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
     if (! is_array($decoded)) {
-        fwrite(STDERR, "{$path} does not contain a JSON object.\n");
+        fwrite(STDERR, sprintf('%s does not contain a JSON object.%s', $path, PHP_EOL));
 
         exit(1);
     }
@@ -100,7 +100,7 @@ function documentationSupportContractErrors(string $repositoryRoot): array
         $path = $repositoryRoot . '/' . $relativePath;
 
         if (! is_file($path)) {
-            $errors[] = "{$relativePath} is missing.";
+            $errors[] = $relativePath . ' is missing.';
 
             continue;
         }
@@ -108,11 +108,11 @@ function documentationSupportContractErrors(string $repositoryRoot): array
         $contents = (string) file_get_contents($path);
 
         if (preg_match('/\|\s*PHP\s*\|\s*8\.4\+\s*\|/', $contents) !== 1) {
-            $errors[] = "{$relativePath} must document PHP 8.4+.";
+            $errors[] = $relativePath . ' must document PHP 8.4+.';
         }
 
         if (preg_match('/\|\s*Laravel\s*\|\s*12\.41\.1\+\s+or\s+13\.x\s*\|/', $contents) !== 1) {
-            $errors[] = "{$relativePath} must document Laravel 12.41.1+ or 13.x.";
+            $errors[] = $relativePath . ' must document Laravel 12.41.1+ or 13.x.';
         }
     }
 
@@ -166,7 +166,7 @@ function workflowSupportContractErrors(string $repositoryRoot): array
         $path = $repositoryRoot . '/' . $relativePath;
 
         if (! is_file($path)) {
-            $errors[] = "{$relativePath} is missing.";
+            $errors[] = $relativePath . ' is missing.';
 
             continue;
         }
@@ -174,11 +174,11 @@ function workflowSupportContractErrors(string $repositoryRoot): array
         $contents = (string) file_get_contents($path);
 
         if (preg_match('/php:\s*8\.4/', $contents) !== 1) {
-            $errors[] = "{$relativePath} must include PHP 8.4 in its matrix.";
+            $errors[] = $relativePath . ' must include PHP 8.4 in its matrix.';
         }
 
         if (preg_match('/laravel:\s*12\.\*/', $contents) !== 1 || preg_match('/laravel:\s*13\.\*/', $contents) !== 1) {
-            $errors[] = "{$relativePath} must include Laravel 12.* and 13.* in its matrix.";
+            $errors[] = $relativePath . ' must include Laravel 12.* and 13.* in its matrix.';
         }
     }
 

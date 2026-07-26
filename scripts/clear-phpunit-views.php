@@ -68,7 +68,11 @@ function removeDirectoryContents(string $directory): void
     }
 
     foreach ($entries as $entry) {
-        if ($entry === '.' || $entry === '..') {
+        if ($entry === '.') {
+            continue;
+        }
+
+        if ($entry === '..') {
             continue;
         }
 

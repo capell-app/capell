@@ -11,11 +11,11 @@ function copyTestbenchFile(string $sourcePath, string $targetPath, string $type)
     $targetDirectory = dirname($targetPath);
 
     if (! is_dir($targetDirectory) && ! mkdir($targetDirectory, 0777, true) && ! is_dir($targetDirectory)) {
-        throw new RuntimeException("Unable to create target directory: {$targetDirectory}");
+        throw new RuntimeException('Unable to create target directory: ' . $targetDirectory);
     }
 
     if (! copy($sourcePath, $targetPath)) {
-        throw new RuntimeException("Unable to copy {$type} to: {$targetPath}");
+        throw new RuntimeException(sprintf('Unable to copy %s to: %s', $type, $targetPath));
     }
 }
 
@@ -34,7 +34,7 @@ foreach ($configPaths as $relativePath) {
     $targetPath = dirname(__DIR__) . '/vendor/orchestra/testbench-core/laravel/vendor/' . $relativePath;
 
     if (! is_file($sourcePath)) {
-        throw new RuntimeException("Missing source config: {$sourcePath}");
+        throw new RuntimeException('Missing source config: ' . $sourcePath);
     }
 
     copyTestbenchFile($sourcePath, $targetPath, 'config');
@@ -45,7 +45,7 @@ foreach ($assetDirectories as $sourceDirectory => $targetDirectory) {
     $targetPath = dirname(__DIR__) . '/vendor/orchestra/testbench-core/laravel/' . $targetDirectory;
 
     if (! is_dir($sourcePath)) {
-        throw new RuntimeException("Missing source asset directory: {$sourcePath}");
+        throw new RuntimeException('Missing source asset directory: ' . $sourcePath);
     }
 
     $iterator = new RecursiveIteratorIterator(
@@ -59,7 +59,7 @@ foreach ($assetDirectories as $sourceDirectory => $targetDirectory) {
 
         if ($asset->isDir()) {
             if (! is_dir($destination) && ! mkdir($destination, 0777, true) && ! is_dir($destination)) {
-                throw new RuntimeException("Unable to create target directory: {$destination}");
+                throw new RuntimeException('Unable to create target directory: ' . $destination);
             }
 
             continue;

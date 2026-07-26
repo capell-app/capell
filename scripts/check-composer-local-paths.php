@@ -18,7 +18,7 @@ fwrite(STDERR, "Local Composer path references are not allowed in composer.json 
 fwrite(STDERR, "Use composer.local.json and composer.local.lock for local path overlays.\n\n");
 
 foreach ($failures as $failure) {
-    fwrite(STDERR, "- {$failure}\n");
+    fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
 }
 
 exit(1);
@@ -46,11 +46,11 @@ function findComposerJsonFailures(string $composerFile): array
         $repositoryUrl = $repository['url'] ?? null;
 
         if (($repository['type'] ?? null) === 'path' && ! isAllowedAppPackagePath($repositoryUrl)) {
-            $failures[] = "composer.json repositories[{$repositoryIndex}] uses type \"path\".";
+            $failures[] = sprintf('composer.json repositories[%d] uses type "path".', $repositoryIndex);
         }
 
         if (is_string($repositoryUrl) && isDisallowedLocalPathReference($repositoryUrl)) {
-            $failures[] = "composer.json repositories[{$repositoryIndex}] uses local URL \"{$repositoryUrl}\".";
+            $failures[] = sprintf('composer.json repositories[%d] uses local URL "%s".', $repositoryIndex, $repositoryUrl);
         }
     }
 
@@ -64,7 +64,7 @@ function findComposerJsonFailures(string $composerFile): array
         foreach ($psr4Paths as $namespace => $paths) {
             foreach (normalizeComposerPaths($paths) as $path) {
                 if (isLocalPathReferenceOutsideProject($path)) {
-                    $failures[] = "composer.json {$autoloadSection}.psr-4[{$namespace}] uses local path \"{$path}\".";
+                    $failures[] = sprintf('composer.json %s.psr-4[%s] uses local path "%s".', $autoloadSection, $namespace, $path);
                 }
             }
         }
@@ -93,7 +93,7 @@ function findComposerLockFailures(string $composerLockFile): array
 
     foreach (['packages', 'packages-dev'] as $packageGroup) {
         foreach (($lock[$packageGroup] ?? []) as $packageIndex => $package) {
-            $packageName = is_string($package['name'] ?? null) ? $package['name'] : "{$packageGroup}[{$packageIndex}]";
+            $packageName = is_string($package['name'] ?? null) ? $package['name'] : sprintf('%s[%d]', $packageGroup, $packageIndex);
 
             foreach (['source', 'dist'] as $referenceType) {
                 $reference = $package[$referenceType] ?? null;
@@ -105,11 +105,11 @@ function findComposerLockFailures(string $composerLockFile): array
                 $referenceUrl = $reference['url'] ?? null;
 
                 if (($reference['type'] ?? null) === 'path' && ! isAllowedAppPackagePath($referenceUrl)) {
-                    $failures[] = "composer.lock {$packageName} {$referenceType} uses type \"path\".";
+                    $failures[] = sprintf('composer.lock %s %s uses type "path".', $packageName, $referenceType);
                 }
 
                 if (is_string($referenceUrl) && isDisallowedLocalPathReference($referenceUrl)) {
-                    $failures[] = "composer.lock {$packageName} {$referenceType} uses local URL \"{$referenceUrl}\".";
+                    $failures[] = sprintf('composer.lock %s %s uses local URL "%s".', $packageName, $referenceType, $referenceUrl);
                 }
             }
         }
@@ -126,13 +126,13 @@ function readJsonFile(string $file): array
     $contents = file_get_contents($file);
 
     if ($contents === false) {
-        throw new RuntimeException("Unable to read {$file}.");
+        throw new RuntimeException(sprintf('Unable to read %s.', $file));
     }
 
     $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
     if (! is_array($decoded)) {
-        throw new RuntimeException("Expected {$file} to decode to a JSON object.");
+        throw new RuntimeException(sprintf('Expected %s to decode to a JSON object.', $file));
     }
 
     return $decoded;

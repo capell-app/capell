@@ -337,6 +337,7 @@ final readonly class BootBenchmarkWorkspace
     {
         $this->files->mkdir($this->path);
         $this->files->mkdir($this->path . '/opcache');
+
         $laravelPath = $this->root . '/vendor/orchestra/testbench-core/laravel';
         $laravelFiles = new RecursiveCallbackFilterIterator(
             new RecursiveDirectoryIterator($laravelPath, RecursiveDirectoryIterator::SKIP_DOTS),
