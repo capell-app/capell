@@ -22,7 +22,6 @@ use Filament\Widgets\FilamentInfoWidget;
 use Filament\Widgets\Widget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -33,6 +32,12 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        $foundationMiddlewareNamespace = implode('\\', ['Illuminate', 'Foundation', 'Http', 'Middleware']);
+        $preventRequestForgeryMiddleware = $foundationMiddlewareNamespace . '\\PreventRequestForgery';
+        $requestForgeryMiddleware = class_exists($preventRequestForgeryMiddleware)
+            ? $preventRequestForgeryMiddleware
+            : $foundationMiddlewareNamespace . '\\VerifyCsrfToken';
+
         $this->app->make(AdminRuntimeActivator::class)->prepare();
 
         if (! $this->app->providerIsLoaded(BaseFilamentPeekServiceProvider::class)) {
@@ -76,7 +81,7 @@ class AdminPanelProvider extends PanelProvider
                 StartSession::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
-                PreventRequestForgery::class,
+                $requestForgeryMiddleware,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,

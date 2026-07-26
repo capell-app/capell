@@ -11,11 +11,16 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+
+$foundationMiddlewareNamespace = implode('\\', ['Illuminate', 'Foundation', 'Http', 'Middleware']);
+$preventRequestForgeryMiddleware = $foundationMiddlewareNamespace . '\\PreventRequestForgery';
+$requestForgeryMiddleware = class_exists($preventRequestForgeryMiddleware)
+    ? $preventRequestForgeryMiddleware
+    : $foundationMiddlewareNamespace . '\\VerifyCsrfToken';
 
 Route::prefix(AdminPanelEntrypoint::path())
     ->middleware([
@@ -25,7 +30,7 @@ Route::prefix(AdminPanelEntrypoint::path())
         StartSession::class,
         AuthenticateSession::class,
         ShareErrorsFromSession::class,
-        PreventRequestForgery::class,
+        $requestForgeryMiddleware,
         SubstituteBindings::class,
         DisableBladeIconComponents::class,
         DispatchServingFilamentEvent::class,
