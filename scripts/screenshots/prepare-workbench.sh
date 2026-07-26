@@ -4,6 +4,11 @@ set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_URL="${CAPELL_FRONTEND_URL:-http://127.0.0.1:8145}"
+# The site's own domain is what Filament renders in the page URL badge and slug
+# field, so it decides what published documentation shows. Seed it with a real
+# domain rather than localhost. The app is still SERVED from APP_URL; the runner
+# maps requests for this origin back to the local one and never contacts it.
+DISPLAY_URL="${CAPELL_SCREENSHOT_DISPLAY_ORIGIN:-https://capell.app}"
 DATABASE_PATH="${REPOSITORY_ROOT}/workbench/database/screenshots.sqlite"
 
 cd "${REPOSITORY_ROOT}"
@@ -54,6 +59,7 @@ touch "${DATABASE_PATH}"
 
 export PHPRC="${REPOSITORY_ROOT}/workbench/php"
 export APP_URL
+export CAPELL_SCREENSHOT_DISPLAY_ORIGIN="${DISPLAY_URL}"
 export APP_KEY='base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE='
 export DB_CONNECTION=sqlite
 export DB_DATABASE="${DATABASE_PATH}"
@@ -69,7 +75,7 @@ php vendor/bin/testbench capell:install \
     --fresh=force \
     --demo \
     --package-mode=core \
-    --url="${APP_URL}" \
+    --url="${DISPLAY_URL}" \
     --name=Admin \
     --email=admin@example.com \
     --password=password \
