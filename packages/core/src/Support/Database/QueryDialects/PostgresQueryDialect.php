@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Core\Support\Database\QueryDialects;
+
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Enums\Database\DatabaseDateOperation;
+
+final class PostgresQueryDialect extends AbstractQueryDialect
+{
+    public function concatenate(SqlFragment ...$expressions): SqlFragment
+    {
+        return new SqlFragment(
+            implode(' || ', array_map(static fn (SqlFragment $expression): string => $expression->sql, $expressions)),
+            $this->bindings($expressions),
+        );
+    }
+
+    public function textPosition(SqlFragment $expression, string $needle, bool $caseInsensitive = false): SqlFragment
+    {
+        $sql = $caseInsensitive ? 'LOWER(' . $expression->sql . ')' : $expression->sql;
+
+        return new SqlFragment('STRPOS(' . $sql . ', ?)', [...$expression->bindings, $caseInsensitive ? mb_strtolower($needle) : $needle]);
+    }
+
+    public function textRelevance(SqlFragment $expression, string $needle): SqlFragment
+    {
+        return $this->relevance($expression, $needle, 'STRPOS(LOWER(' . $expression->sql . '), ?)', '1000.0');
+    }
+
+    public function date(DatabaseDateOperation $operation, SqlFragment $expression): SqlFragment
+    {
+        $sql = match ($operation) {
+            DatabaseDateOperation::Year => 'EXTRACT(YEAR FROM %s)::INTEGER',
+            DatabaseDateOperation::Month => 'EXTRACT(MONTH FROM %s)::INTEGER',
+            DatabaseDateOperation::Day => 'EXTRACT(DAY FROM %s)::INTEGER',
+            DatabaseDateOperation::Hour => 'EXTRACT(HOUR FROM %s)::INTEGER',
+            DatabaseDateOperation::HourLabel => "TO_CHAR(%s, 'HH24:00')",
+            DatabaseDateOperation::DayAbbreviation => "TO_CHAR(%s, 'Dy')",
+            DatabaseDateOperation::DayMonthLabel => "TO_CHAR(%s, 'DD Mon')",
+            DatabaseDateOperation::MonthYearLabel => "TO_CHAR(%s, 'Mon YY')",
+        };
+
+        return new SqlFragment(sprintf($sql, $expression->sql), $expression->bindings);
+    }
+
+    public function elapsedSeconds(SqlFragment $start, SqlFragment $end): SqlFragment
+    {
+        return new SqlFragment(
+            sprintf('EXTRACT(EPOCH FROM (%s - %s))::INTEGER', $end->sql, $start->sql),
+            $this->bindings([$end, $start]),
+        );
+    }
+
+    public function jsonExtract(SqlFragment $expression, string $path): SqlFragment
+    {
+        return new SqlFragment('jsonb_path_query_first(' . $expression->sql . '::jsonb, ?::jsonpath)', [...$expression->bindings, $path]);
+    }
+
+    public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
+    {
+        return new SqlFragment(
+            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?)))",
+            [...$expression->bindings, $path, $value],
+        );
+    }
+
+    public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
+    {
+        return new SqlFragment(
+            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('needle', to_jsonb(?)))",
+            [...$expression->bindings, $path, '%' . $needle . '%'],
+        );
+    }
+}

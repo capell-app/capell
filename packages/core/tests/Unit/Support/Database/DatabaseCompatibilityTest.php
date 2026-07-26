@@ -1,0 +1,207 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Enums\Database\DatabaseCapability;
+use Capell\Core\Enums\Database\DatabaseDateOperation;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
+use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
+use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
+use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
+use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
+use Illuminate\Database\Connection;
+use Illuminate\Database\SQLiteConnection;
+use Illuminate\Support\Facades\File;
+
+it('resolves every supported database driver through one registry seam', function (): void {
+    $mysql = new MySqlDatabasePlatform;
+    $mariaDb = new MariaDbDatabasePlatform;
+    $sqlite = new SqliteDatabasePlatform;
+    $postgres = new PostgresDatabasePlatform;
+    $registry = new DatabasePlatformRegistry([$mysql, $mariaDb, $sqlite, $postgres]);
+
+    expect($registry->for('mysql'))->toBe($mysql)
+        ->and($registry->for('mariadb'))->toBe($mariaDb)
+        ->and($registry->for('sqlite'))->toBe($sqlite)
+        ->and($registry->for('pgsql'))->toBe($postgres)
+        ->and($registry->for('postgresql'))->toBe($postgres);
+});
+
+it('resolves configured connections and rejects duplicates and unknown drivers', function (): void {
+    $sqlite = new SqliteDatabasePlatform;
+    $registry = new DatabasePlatformRegistry([$sqlite]);
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:');
+
+    expect($registry->for($connection))->toBe($sqlite)
+        ->and(fn (): DatabasePlatform => $registry->register(new SqliteDatabasePlatform))
+        ->toThrow(LogicException::class, 'Database driver [sqlite] is already registered.')
+        ->and(fn (): DatabasePlatform => $registry->for('sqlsrv'))
+        ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].');
+});
+
+it('declares platform family metadata and optional provisioners', function (): void {
+    expect(new MySqlDatabasePlatform)
+        ->family()->toBe(DatabaseFamily::MySql)
+        ->phpExtension()->toBe('pdo_mysql')
+        ->provisioner()->not->toBeNull()
+        ->and(new MariaDbDatabasePlatform)
+        ->family()->toBe(DatabaseFamily::MariaDb)
+        ->phpExtension()->toBe('pdo_mysql')
+        ->provisioner()->not->toBeNull()
+        ->and(new SqliteDatabasePlatform)
+        ->family()->toBe(DatabaseFamily::Sqlite)
+        ->phpExtension()->toBe('pdo_sqlite')
+        ->provisioner()->not->toBeNull()
+        ->and(new PostgresDatabasePlatform)
+        ->family()->toBe(DatabaseFamily::PostgreSql)
+        ->phpExtension()->toBe('pdo_pgsql')
+        ->provisioner()->not->toBeNull();
+});
+
+it('builds typed query expressions for every supported database family', function (
+    DatabasePlatform $platform,
+    array $expected,
+): void {
+    $dialect = $platform->queryDialect();
+    $column = SqlFragment::raw('pages.name');
+
+    $jsonValueFirst = in_array($platform->family(), [DatabaseFamily::MySql, DatabaseFamily::MariaDb], true);
+
+    expect($dialect->concatenate($column, SqlFragment::value(' / '), SqlFragment::raw('pages.slug')))
+        ->toEqual(new SqlFragment($expected['concat'], [' / ']))
+        ->and($dialect->textPosition($column, 'ell', true))
+        ->toEqual(new SqlFragment($expected['position'], ['ell']))
+        ->and($dialect->textRelevance($column, 'Capell'))
+        ->toEqual(new SqlFragment($expected['relevance'], ['capell', 'capell%', '%capell%', 'capell']))
+        ->and($dialect->date(DatabaseDateOperation::Year, SqlFragment::raw('created_at')))
+        ->toEqual(new SqlFragment($expected['year']))
+        ->and($dialect->date(DatabaseDateOperation::HourLabel, SqlFragment::raw('created_at')))
+        ->toEqual(new SqlFragment($expected['hour']))
+        ->and($dialect->elapsedSeconds(SqlFragment::raw('started_at'), SqlFragment::raw('finished_at')))
+        ->toEqual(new SqlFragment($expected['elapsed']))
+        ->and($dialect->jsonExtract(SqlFragment::raw('meta'), '$.page_id'))
+        ->toEqual(new SqlFragment($expected['json_extract'], ['$.page_id']))
+        ->and($dialect->jsonContains(SqlFragment::raw('meta'), 'featured', '$.tags'))
+        ->toEqual(new SqlFragment($expected['json_contains'], $jsonValueFirst ? ['featured', '$.tags'] : ['$.tags', 'featured']))
+        ->and($dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data'))
+        ->toEqual(new SqlFragment($expected['json_search'], $jsonValueFirst ? ['%needle%', '$[*].data'] : ['$[*].data', '%needle%']));
+})->with([
+    'mysql' => [
+        new MySqlDatabasePlatform,
+        [
+            'concat' => 'CONCAT(pages.name, ?, pages.slug)',
+            'position' => 'INSTR(LOWER(pages.name), ?)',
+            'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000',
+            'year' => 'YEAR(created_at)',
+            'hour' => "DATE_FORMAT(created_at, '%H:00')",
+            'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
+            'json_extract' => 'JSON_EXTRACT(meta, ?)',
+            'json_contains' => 'JSON_CONTAINS(meta, JSON_QUOTE(?), ?)',
+            'json_search' => 'JSON_SEARCH(meta, \'one\', ?, NULL, ?) IS NOT NULL',
+        ],
+    ],
+    'mariadb' => [
+        new MariaDbDatabasePlatform,
+        [
+            'concat' => 'CONCAT(pages.name, ?, pages.slug)',
+            'position' => 'INSTR(LOWER(pages.name), ?)',
+            'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000',
+            'year' => 'YEAR(created_at)',
+            'hour' => "DATE_FORMAT(created_at, '%H:00')",
+            'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
+            'json_extract' => 'JSON_EXTRACT(meta, ?)',
+            'json_contains' => 'JSON_CONTAINS(meta, JSON_QUOTE(?), ?)',
+            'json_search' => 'JSON_SEARCH(meta, \'one\', ?, NULL, ?) IS NOT NULL',
+        ],
+    ],
+    'sqlite' => [
+        new SqliteDatabasePlatform,
+        [
+            'concat' => 'pages.name || ? || pages.slug',
+            'position' => 'INSTR(LOWER(pages.name), ?)',
+            'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000.0',
+            'year' => "CAST(strftime('%Y', created_at) AS INTEGER)",
+            'hour' => "strftime('%H:00', created_at)",
+            'elapsed' => 'CAST((julianday(finished_at) - julianday(started_at)) * 86400 AS INTEGER)',
+            'json_extract' => 'json_extract(meta, ?)',
+            'json_contains' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE value = ?)',
+            'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(value AS TEXT) LIKE ?)',
+        ],
+    ],
+    'postgresql' => [
+        new PostgresDatabasePlatform,
+        [
+            'concat' => 'pages.name || ? || pages.slug',
+            'position' => 'STRPOS(LOWER(pages.name), ?)',
+            'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + STRPOS(LOWER(pages.name), ?) / 1000.0',
+            'year' => 'EXTRACT(YEAR FROM created_at)::INTEGER',
+            'hour' => "TO_CHAR(created_at, 'HH24:00')",
+            'elapsed' => 'EXTRACT(EPOCH FROM (finished_at - started_at))::INTEGER',
+            'json_extract' => 'jsonb_path_query_first(meta::jsonb, ?::jsonpath)',
+            'json_contains' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'value\', to_jsonb(?)))',
+            'json_search' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'needle\', to_jsonb(?)))',
+        ],
+    ],
+]);
+
+it('builds schema expressions and reports family capabilities', function (): void {
+    $definition = new DatabaseIndexDefinition(
+        table: 'insights_events',
+        name: 'insights_path_index',
+        columns: ['path', 'type'],
+        prefixLengths: ['path' => 191],
+    );
+
+    $mysql = new MySqlDatabasePlatform;
+    $sqlite = new SqliteDatabasePlatform;
+    $postgres = new PostgresDatabasePlatform;
+
+    expect($mysql->schemaDialect()->prefixedIndex($definition))
+        ->toEqual(new SqlFragment('CREATE INDEX `insights_path_index` ON `insights_events` (`path`(191), `type`)'))
+        ->and($sqlite->schemaDialect()->prefixedIndex($definition))
+        ->toEqual(new SqlFragment('CREATE INDEX "insights_path_index" ON "insights_events" ("path", "type")'))
+        ->and($postgres->schemaDialect()->jsonPathIndex($definition, 'meta', '$.page_id'))
+        ->toEqual(new SqlFragment('CREATE INDEX "insights_path_index" ON "insights_events" ((jsonb_path_query_first("meta"::jsonb, ?::jsonpath)))', ['$.page_id']))
+        ->and($mysql->schemaDialect()->hashColumn('insights_daily_rollups', 'path_digest', 'path'))
+        ->toEqual(new SqlFragment('ALTER TABLE `insights_daily_rollups` ADD COLUMN `path_digest` CHAR(64) AS (SHA2(`path`, 256)) STORED'))
+        ->and($sqlite->schemaDialect()->supports(DatabaseCapability::FullTextIndex))->toBeFalse()
+        ->and($postgres->schemaDialect()->supports(DatabaseCapability::JsonPathIndex))->toBeTrue();
+});
+
+it('caches mysql and mariadb version capabilities per connection', function (): void {
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getName')->andReturn('capell_mysql');
+    $connection->shouldReceive('getServerVersion')->once()->andReturn('10.11.8-MariaDB');
+
+    $dialect = (new MySqlDatabasePlatform)->schemaDialect();
+
+    expect($dialect->supports(DatabaseCapability::GeneratedColumn, $connection))->toBeTrue()
+        ->and($dialect->supports(DatabaseCapability::JsonPathIndex, $connection))->toBeFalse()
+        ->and($dialect->supports(DatabaseCapability::GeneratedColumn, $connection))->toBeTrue();
+});
+
+it('binds the registry and facade as the shared runtime seam', function (): void {
+    expect(resolve(DatabasePlatformRegistry::class))->toBe(resolve(DatabasePlatformRegistry::class))
+        ->and(CapellDatabase::for('sqlite')->family())->toBe(DatabaseFamily::Sqlite);
+});
+
+it('provisions sqlite files and skips empty server database names', function (): void {
+    $path = storage_path('framework/testing/capell-platform-provisioner.sqlite');
+    File::delete($path);
+
+    try {
+        expect((new SqliteDatabasePlatform)->provisioner()?->provision('sqlite', ['database' => $path]))->toBeTrue()
+            ->and(File::exists($path))->toBeTrue()
+            ->and((new SqliteDatabasePlatform)->provisioner()?->provision('sqlite', ['database' => $path]))->toBeFalse()
+            ->and((new MySqlDatabasePlatform)->provisioner()?->provision('mysql', ['database' => ' ']))->toBeFalse()
+            ->and((new PostgresDatabasePlatform)->provisioner()?->provision('pgsql', ['database' => '']))->toBeFalse();
+    } finally {
+        File::delete($path);
+    }
+});

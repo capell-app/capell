@@ -6,6 +6,8 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
+use Capell\Core\Facades\CapellDatabase;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -103,15 +105,13 @@ final class RunInstallPreflightChecksAction
             return ['A default database connection and driver must be configured.'];
         }
 
-        $requiredExtension = match ($driver) {
-            'mysql', 'mariadb' => 'pdo_mysql',
-            'pgsql' => 'pdo_pgsql',
-            'sqlite' => 'pdo_sqlite',
-            'sqlsrv' => 'pdo_sqlsrv',
-            default => null,
-        };
+        try {
+            $requiredExtension = CapellDatabase::for($driver)->phpExtension();
+        } catch (UnsupportedDatabaseDriver) {
+            return [sprintf('Database driver [%s] is not supported.', $driver)];
+        }
 
-        if ($requiredExtension !== null && ! extension_loaded($requiredExtension)) {
+        if (! extension_loaded($requiredExtension)) {
             return [sprintf('Database driver [%s] requires PHP extension [%s].', $driver, $requiredExtension)];
         }
 

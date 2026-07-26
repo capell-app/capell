@@ -31,13 +31,16 @@ use Capell\Admin\Filament\Resources\Pages\Actions\BulkRevertToDraftBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Actions\BulkSchedulePagesBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Actions\ExportPagesBulkAction;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageDeletedAction;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -68,7 +71,6 @@ use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\LazyCollection;
 use InvalidArgumentException;
@@ -666,12 +668,16 @@ class PagesTable implements TableConfigurator
      */
     protected static function applyNameSearch(Builder $query, string $search): Builder
     {
+        $relevance = CapellDatabase::for($query)
+            ->queryDialect()
+            ->textRelevance(SqlFragment::raw($query->getQuery()->getGrammar()->wrap('pages.name')), $search);
+
         return $query->where('name', 'like', sprintf('%%%s%%', $search))
             ->orWhereHas(
                 'translations',
                 fn (BuilderContract $query): BuilderContract => $query->where('title', 'like', sprintf('%%%s%%', $search)),
             )
-            ->orderByRaw("CAST(IFNULL(NULLIF(POSITION(? IN pages.name), 0), 'void') AS UNSIGNED)", [$search]);
+            ->orderByRaw($relevance->sql, $relevance->bindings);
     }
 
     /**
@@ -699,24 +705,17 @@ class PagesTable implements TableConfigurator
 
     protected static function applyFullUrlSearch(BuilderContract $query, string $search): BuilderContract
     {
-        $bindings = [
+        $url = DatabaseUrlExpression::full(
+            $query,
             config('capell-frontend.default_scheme', request()->getScheme()),
             parse_url((string) config('app.url'), PHP_URL_HOST),
-            sprintf('%%%s%%', $search),
-        ];
+        );
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        if (DB::getDriverName() === 'sqlite') {
-            return $query->whereRaw(
-                "COALESCE(site_domains.scheme, ?) || '://' || COALESCE(site_domains.domain, ?) || COALESCE(site_domains.path, '') || page_urls.url like ?",
-                $bindings,
-            );
-        }
-
         return $query->whereRaw(
-            "CONCAT(COALESCE(site_domains.scheme, ?), '://', COALESCE(site_domains.domain, ?), COALESCE(site_domains.path, ''), page_urls.url) like ?",
-            $bindings,
+            $url->sql . ' LIKE ?',
+            [...$url->bindings, sprintf('%%%s%%', $search)],
         );
     }
 

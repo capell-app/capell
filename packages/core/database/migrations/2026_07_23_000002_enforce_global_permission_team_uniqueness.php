@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Database\DatabaseCapability;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -52,9 +55,11 @@ return new class extends Migration
                     $column = $table->unsignedBigInteger(self::SCOPE_COLUMN);
                     $expression = sprintf('COALESCE(%s, 0)', $contract['teamColumn']);
 
-                    DB::connection()->getDriverName() === 'sqlite'
-                        ? $column->virtualAs($expression)
-                        : $column->storedAs($expression);
+                    CapellDatabase::for(DB::connection())
+                        ->schemaDialect()
+                        ->supports(DatabaseCapability::StoredGeneratedColumn, DB::connection())
+                            ? $column->storedAs($expression)
+                            : $column->virtualAs($expression);
                 });
             }
 
@@ -212,7 +217,7 @@ return new class extends Migration
      */
     private function hasNormalizedIndex(array $contract): bool
     {
-        if (DB::connection()->getDriverName() === 'sqlite') {
+        if (CapellDatabase::for(DB::connection())->family() === DatabaseFamily::Sqlite) {
             if (DB::table('sqlite_master')
                 ->where('type', 'index')
                 ->where('tbl_name', $contract['table'])
@@ -229,7 +234,9 @@ return new class extends Migration
 
     private function hasScopeColumn(string $table): bool
     {
-        if (DB::connection()->getDriverName() !== 'sqlite') {
+        $platform = CapellDatabase::for(DB::connection());
+
+        if ($platform->family() !== DatabaseFamily::Sqlite) {
             return Schema::hasColumn($table, self::SCOPE_COLUMN);
         }
 
@@ -237,7 +244,9 @@ return new class extends Migration
             throw new RuntimeException(sprintf('Permission table [%s] is not a safe SQL identifier.', $table));
         }
 
-        return collect(DB::select(sprintf('PRAGMA table_xinfo("%s")', $table)))
+        $inspection = $platform->schemaDialect()->inspectGeneratedColumn($table, self::SCOPE_COLUMN);
+
+        return collect(DB::select($inspection->sql, $inspection->bindings))
             ->contains(static fn (object $column): bool => ($column->name ?? null) === self::SCOPE_COLUMN);
     }
 

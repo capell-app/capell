@@ -29,7 +29,6 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -255,15 +254,7 @@ class BlueprintsTable implements TableConfigurator
      */
     protected static function applyAdminJsonSearch(Builder $query, string $column, string $search): void
     {
-        /** @var Connection $databaseConnection */
-        $databaseConnection = $query->getConnection();
-
-        $searchOperator = match ($databaseConnection->getDriverName()) {
-            'pgsql' => 'ilike',
-            default => 'like',
-        };
-
-        $query->where($column, $searchOperator, sprintf('%%%s%%', $search));
+        $query->whereLike($column, sprintf('%%%s%%', $search));
     }
 
     /**

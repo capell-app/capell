@@ -21,7 +21,7 @@ it('layout select search ordering binds user supplied search text', function ():
     expect($query)
         ->toBeInstanceOf(Builder::class)
         ->and($query->toSql())->not->toContain($search)
-        ->and($orderBindings)->toContain($search);
+        ->and($orderBindings)->toContain(mb_strtolower($search));
 });
 
 it('layout select does not preload every layout option into page edit payloads', function (): void {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Concerns;
 
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -87,38 +89,43 @@ trait ApplySearchRelationsTable
 
             $searchColumn = preg_replace('/[^a-zA-Z0-9]+/', '', $searchColumn) ?? '';
 
-            $searchColumnSql = in_array($searchParent, [null, '', '0'], true)
-                ? sprintf('`%s`', $searchColumn)
-                : sprintf('JSON_EXTRACT(`%s`, "$.`%s`")', $searchParent, $searchColumn);
-            $searchColumnExpression = new Expression($this->literalSql($searchColumnSql));
+            $grammar = $query->getQuery()->getGrammar();
+            $searchColumnFragment = in_array($searchParent, [null, '', '0'], true)
+                ? SqlFragment::raw($grammar->wrap($searchColumn))
+                : CapellDatabase::for($query->getModel())->queryDialect()->jsonExtract(
+                    SqlFragment::raw($grammar->wrap($searchParent)),
+                    '$.' . $searchColumn,
+                );
+            $searchColumnSql = $searchColumnFragment->sql;
+            $searchColumnExpression = in_array($searchParent, [null, '', '0'], true)
+                ? $searchColumn
+                : $searchParent . '->' . $searchColumn;
         }
 
         if ($searchColumnType === 'json' || $searchColumnType === 'json_data') {
-            $searchString = DB::getPdo()->quote(sprintf('%%%s%%', $searchTerm));
-
-            $jsonSearchParams = $searchColumnType === 'json_data'
-                ? sprintf("%s, 'one', %s, NULL, '\$[*].data'", $searchColumnSql, $searchString)
-                : sprintf("%s, 'one', %s", $searchColumnSql, $searchString);
+            $search = CapellDatabase::for($query->getModel())->queryDialect()->jsonSearch(
+                $searchColumnFragment ?? SqlFragment::raw($searchColumnSql),
+                $searchTerm,
+                $searchColumnType === 'json_data' ? '$[*].data' : '$',
+            );
 
             if ($isColumnFirst) {
-                $query->whereRaw($this->literalSql(sprintf('json_extract(%s) IS NOT NULL', $jsonSearchParams)));
+                $query->whereRaw($search->sql, $search->bindings);
             } else {
-                $query->orWhereRaw($this->literalSql(sprintf('json_extract(%s) IS NOT NULL', $jsonSearchParams)));
+                $query->orWhereRaw($search->sql, $search->bindings);
             }
 
             return;
         }
 
         if ($isColumnFirst) {
-            $query->where(
+            $query->whereLike(
                 $searchColumnExpression,
-                'like',
                 sprintf('%%%s%%', $searchTerm),
             );
         } else {
-            $query->orWhere(
+            $query->orWhereLike(
                 $searchColumnExpression,
-                'like',
                 sprintf('%%%s%%', $searchTerm),
             );
         }

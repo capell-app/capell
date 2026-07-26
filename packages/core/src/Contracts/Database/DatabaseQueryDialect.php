@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Core\Contracts\Database;
+
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Enums\Database\DatabaseDateOperation;
+
+interface DatabaseQueryDialect
+{
+    public function concatenate(SqlFragment ...$expressions): SqlFragment;
+
+    public function textPosition(SqlFragment $expression, string $needle, bool $caseInsensitive = false): SqlFragment;
+
+    public function textRelevance(SqlFragment $expression, string $needle): SqlFragment;
+
+    public function date(DatabaseDateOperation $operation, SqlFragment $expression): SqlFragment;
+
+    public function elapsedSeconds(SqlFragment $start, SqlFragment $end): SqlFragment;
+
+    public function jsonExtract(SqlFragment $expression, string $path): SqlFragment;
+
+    public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment;
+
+    public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment;
+}

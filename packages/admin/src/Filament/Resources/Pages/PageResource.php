@@ -26,6 +26,7 @@ use Capell\Admin\Filament\Resources\Pages\Schemas\PageForm;
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Admin\Filament\Resources\Pages\Widgets\ListPageAlertsWidget;
 use Capell\Admin\Policies\PagePolicy;
+use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetNameFromTranslationsAction;
@@ -44,7 +45,6 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Override;
@@ -369,23 +369,16 @@ class PageResource extends Resource implements ValidatesDelete
 
     protected static function applyGlobalSearchFullUrlConstraint(BuilderContract $query, string $search): BuilderContract
     {
-        $bindings = [
+        $url = DatabaseUrlExpression::withoutScheme(
+            $query,
             parse_url((string) config('app.url'), PHP_URL_HOST),
-            sprintf('%%%s%%', $search),
-        ];
+        );
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        if (DB::getDriverName() === 'sqlite') {
-            return $query->whereRaw(
-                "COALESCE(site_domains.domain, ?) || COALESCE(site_domains.path, '') || page_urls.url like ?",
-                $bindings,
-            );
-        }
-
         return $query->whereRaw(
-            "CONCAT(COALESCE(site_domains.domain, ?), COALESCE(site_domains.path, ''), page_urls.url) like ?",
-            $bindings,
+            $url->sql . ' LIKE ?',
+            [...$url->bindings, sprintf('%%%s%%', $search)],
         );
     }
 
