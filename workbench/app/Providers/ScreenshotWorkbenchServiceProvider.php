@@ -40,21 +40,34 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             File::put(resource_path('css/app.css'), "/* Screenshot workbench frontend entrypoint. */\n");
         }
 
-        File::ensureDirectoryExists(public_path('build/filament/assets'));
-        File::put(
-            public_path('build/filament/assets/theme.css'),
-            "/* Screenshot workbench Filament theme entrypoint. */\n",
-        );
-        File::put(
-            public_path('build/filament/manifest.json'),
-            json_encode([
-                'resources/css/filament/admin/theme.css' => [
-                    'file' => 'assets/theme.css',
-                    'isEntry' => true,
-                    'src' => 'resources/css/filament/admin/theme.css',
-                ],
-            ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT),
-        );
+        // scripts/screenshots/build-filament-theme-css.mjs compiles the real
+        // Filament admin theme to build/filament/theme.css during
+        // prepare-workbench.sh. The admin panel's viteTheme() REPLACES the
+        // published app.css, so a stub here means an unstyled panel — only
+        // write placeholders when the built theme is missing entirely (a
+        // fresh app that has not been prepared yet), and never overwrite the
+        // compiled bundle.
+        File::ensureDirectoryExists(public_path('build/filament'));
+
+        if (! File::exists(public_path('build/filament/theme.css'))) {
+            File::put(
+                public_path('build/filament/theme.css'),
+                "/* Placeholder — run scripts/screenshots/prepare-workbench.sh to build the real Filament theme. */\n",
+            );
+        }
+
+        if (! File::exists(public_path('build/filament/manifest.json'))) {
+            File::put(
+                public_path('build/filament/manifest.json'),
+                json_encode([
+                    'resources/css/filament/admin/theme.css' => [
+                        'file' => 'theme.css',
+                        'isEntry' => true,
+                        'src' => 'resources/css/filament/admin/theme.css',
+                    ],
+                ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT),
+            );
+        }
 
         $this->publishFilamentAssets();
 
