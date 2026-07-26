@@ -7,6 +7,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'packages/frontend/**'
+      - 'scripts/verify-nested-frontend-consumer.sh'
       - '.github/workflows/build-frontend-package.yml'
 
 permissions:
@@ -58,23 +59,6 @@ jobs:
           node-version: '20.x'
 
       - name: Create a nested-path Laravel consumer
-        run: |
-          composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel "${RUNNER_TEMP}/nested-consumer"
-          cd "${RUNNER_TEMP}/nested-consumer"
-          composer config minimum-stability dev
-          composer config prefer-stable true
-          composer config repositories.capell-core path "${CAPELL_CHECKOUT}/packages/core"
-          composer config repositories.capell-frontend path "${CAPELL_CHECKOUT}/packages/frontend"
-          composer require --no-interaction --no-progress --with-all-dependencies capell-app/core:@dev capell-app/frontend:@dev
-
-      - name: Discover packages and build the generated Tailwind entrypoint
-        working-directory: ${{ runner.temp }}/nested-consumer
-        run: |
-          php artisan package:discover --ansi
-          php artisan capell:frontend-tailwind-assets --ansi
-          generated_css="resources/css/capell/frontend.css"
-          test -s "${generated_css}"
-          grep --fixed-strings --quiet "vendor/capell-app/frontend/resources/css/capell-frontend.css" "${generated_css}"
-          printf '@import "./capell/frontend.css";\n' > resources/css/app.css
-          npm install --no-audit --no-fund
-          npm run build
+        env:
+          CAPELL_NESTED_CONSUMER_ROOT: ${{ runner.temp }}/nested-consumer
+        run: bash "${CAPELL_CHECKOUT}/scripts/verify-nested-frontend-consumer.sh"
