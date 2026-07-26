@@ -4,11 +4,45 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Database\QueryDialects;
 
+use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 
 final class MySqlQueryDialect extends AbstractQueryDialect
 {
+    public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
+    {
+        $fallback = parent::fullTextSearch($expressions, $query);
+        $terms = $this->fullTextTerms($query);
+
+        if (! $native || $terms === []) {
+            return $fallback;
+        }
+
+        $columns = implode(', ', array_map(
+            static fn (SqlFragment $expression): string => $expression->sql,
+            $expressions,
+        ));
+        $expressionBindings = $this->bindings(array_values($expressions));
+        $naturalQuery = implode(' ', $terms);
+        $booleanQuery = implode(' ', array_map(
+            static fn (string $term): string => '+"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $term) . '"',
+            $terms,
+        ));
+
+        return new DatabaseFullTextSearch(
+            predicate: new SqlFragment(
+                sprintf('MATCH (%s) AGAINST (? IN BOOLEAN MODE)', $columns),
+                [...$expressionBindings, $booleanQuery],
+            ),
+            relevance: new SqlFragment(
+                sprintf('MATCH (%s) AGAINST (?)', $columns),
+                [...$expressionBindings, $naturalQuery],
+            ),
+            native: true,
+        );
+    }
+
     public function concatenate(SqlFragment ...$expressions): SqlFragment
     {
         return new SqlFragment(

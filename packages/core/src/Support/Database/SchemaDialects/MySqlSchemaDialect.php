@@ -12,6 +12,7 @@ use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
 use PDO;
+use Throwable;
 use WeakMap;
 
 class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
@@ -112,6 +113,35 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             $this->identifier($index->name, '`'),
             implode(', ', array_map(fn (string $column): string => $this->identifier($column, '`'), $index->columns)),
         ));
+    }
+
+    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool
+    {
+        if (! $this->supports(DatabaseCapability::FullTextIndex, $connection)) {
+            return false;
+        }
+
+        try {
+            $indexes = $connection->getSchemaBuilder()->getIndexes($index->table);
+        } catch (Throwable) {
+            return false;
+        }
+
+        $requiredColumns = array_values(array_unique(array_map(mb_strtolower(...), $index->columns)));
+
+        foreach ($indexes as $existingIndex) {
+            if (strtolower($existingIndex['type']) !== 'fulltext') {
+                continue;
+            }
+
+            $indexedColumns = array_values(array_unique(array_map(mb_strtolower(...), $existingIndex['columns'])));
+
+            if (array_diff($requiredColumns, $indexedColumns) === []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function inspectGeneratedColumn(string $table, string $column): SqlFragment

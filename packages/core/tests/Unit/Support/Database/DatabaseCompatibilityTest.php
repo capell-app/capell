@@ -18,6 +18,7 @@ use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -318,6 +319,96 @@ it('keeps portable full text values bound in SQL placeholder order', function ()
         ->not->toContain('alpha%', 'beta_')
         ->and($search->predicate->bindings)->toBe($expectedBindings)
         ->and($search->relevance->bindings)->toBe($expectedBindings);
+});
+
+it('keeps native full text values bound in SQL placeholder order', function (
+    DatabasePlatform $platform,
+    array $expectedPredicateBindings,
+    array $expectedRelevanceBindings,
+): void {
+    $search = $platform->queryDialect()->fullTextSearch(
+        [
+            new SqlFragment('title', ['title-binding']),
+            new SqlFragment('body', ['body-binding']),
+        ],
+        'alpha beta',
+        native: true,
+    );
+
+    expect($search->native)->toBeTrue()
+        ->and($search->predicate->sql)->not->toContain('alpha', 'beta')
+        ->and($search->predicate->bindings)->toBe($expectedPredicateBindings)
+        ->and($search->relevance->bindings)->toBe($expectedRelevanceBindings);
+})->with([
+    'mysql' => [
+        new MySqlDatabasePlatform,
+        ['title-binding', 'body-binding', '+"alpha" +"beta"'],
+        ['title-binding', 'body-binding', 'alpha beta'],
+    ],
+    'mariadb' => [
+        new MariaDbDatabasePlatform,
+        ['title-binding', 'body-binding', '+"alpha" +"beta"'],
+        ['title-binding', 'body-binding', 'alpha beta'],
+    ],
+    'postgresql' => [
+        new PostgresDatabasePlatform,
+        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', 'alpha beta'],
+    ],
+]);
+
+it('selects native full text only when a compatible index exists', function (): void {
+    $connection = DB::connection();
+    $platform = CapellDatabase::for($connection);
+    $table = 'capell_full_text_search_test';
+    $index = new DatabaseIndexDefinition(
+        table: $table,
+        name: 'capell_full_text_search_test_index',
+        columns: ['title', 'body'],
+    );
+    $grammar = $connection->getQueryGrammar();
+    $expressions = [
+        SqlFragment::raw($grammar->wrap('title')),
+        SqlFragment::raw($grammar->wrap('body')),
+    ];
+    $schema = $connection->getSchemaBuilder();
+    $schema->dropIfExists($table);
+
+    try {
+        $schema->create($table, function (Blueprint $table): void {
+            $table->id();
+            $table->text('title');
+            $table->text('body');
+            $table->string('slug');
+        });
+        $connection->table($table)->insert([
+            ['title' => 'alpha beta', 'body' => 'alpha beta', 'slug' => 'dense'],
+            ['title' => 'alpha starts here', 'body' => 'beta ends here', 'slug' => 'separated'],
+            ['title' => 'alpha only', 'body' => 'without the other term', 'slug' => 'partial'],
+        ]);
+
+        $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
+        $indexFragment = $platform->schemaDialect()->fullTextIndex($index);
+
+        if ($indexFragment instanceof SqlFragment) {
+            $connection->statement($indexFragment->sql, $indexFragment->bindings);
+        }
+
+        $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
+        $query = $connection->table($table)->select('slug');
+        $search->predicate->applyWhere($query);
+        (new SqlFragment(
+            $search->relevance->sql . ' AS search_score',
+            $search->relevance->bindings,
+        ))->applySelect($query);
+
+        expect($withoutIndex->native)->toBeFalse()
+            ->and($search->native)->toBe($platform->family() !== DatabaseFamily::Sqlite)
+            ->and($query->orderByDesc('search_score')->pluck('slug')->all())
+            ->toBe(['dense', 'separated']);
+    } finally {
+        $schema->dropIfExists($table);
+    }
 });
 
 it('searches SQLite JSON array properties with wildcard paths', function (): void {

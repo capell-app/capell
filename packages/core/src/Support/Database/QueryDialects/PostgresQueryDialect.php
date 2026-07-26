@@ -4,11 +4,43 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Database\QueryDialects;
 
+use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 
 final class PostgresQueryDialect extends AbstractQueryDialect
 {
+    public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
+    {
+        $fallback = parent::fullTextSearch($expressions, $query);
+        $terms = $this->fullTextTerms($query);
+
+        if (! $native || $terms === []) {
+            return $fallback;
+        }
+
+        $document = implode(" || ' ' || ", array_map(
+            static fn (SqlFragment $expression): string => sprintf("COALESCE(%s, '')", $expression->sql),
+            $expressions,
+        ));
+        $expressionBindings = $this->bindings(array_values($expressions));
+        $normalizedQuery = implode(' ', $terms);
+        $vector = sprintf("to_tsvector('simple', %s)", $document);
+        $queryExpression = "plainto_tsquery('simple', ?)";
+
+        return new DatabaseFullTextSearch(
+            predicate: new SqlFragment(
+                sprintf('%s @@ %s', $vector, $queryExpression),
+                [...$expressionBindings, $normalizedQuery],
+            ),
+            relevance: new SqlFragment(
+                sprintf('ts_rank_cd(%s, %s)', $vector, $queryExpression),
+                [...$expressionBindings, $normalizedQuery],
+            ),
+            native: true,
+        );
+    }
+
     public function concatenate(SqlFragment ...$expressions): SqlFragment
     {
         return new SqlFragment(

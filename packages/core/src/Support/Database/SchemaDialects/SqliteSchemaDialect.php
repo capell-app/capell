@@ -74,6 +74,11 @@ final class SqliteSchemaDialect extends AbstractSchemaDialect implements Databas
         return null;
     }
 
+    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool
+    {
+        return false;
+    }
+
     public function inspectGeneratedColumn(string $table, string $column): SqlFragment
     {
         return new SqlFragment(sprintf('PRAGMA table_xinfo(%s)', $this->identifier($table, '"')));

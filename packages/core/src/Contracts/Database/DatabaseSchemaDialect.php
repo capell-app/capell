@@ -23,5 +23,7 @@ interface DatabaseSchemaDialect
 
     public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment;
 
+    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool;
+
     public function inspectGeneratedColumn(string $table, string $column): SqlFragment;
 }

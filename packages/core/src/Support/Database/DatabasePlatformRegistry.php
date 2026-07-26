@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database;
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Data\Database\DatabaseFullTextSearch;
+use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
@@ -39,6 +42,24 @@ final class DatabasePlatformRegistry
         }
 
         return $this;
+    }
+
+    /**
+     * @param  non-empty-list<SqlFragment>  $expressions
+     */
+    public function fullTextSearch(
+        Connection|Model $context,
+        DatabaseIndexDefinition $index,
+        array $expressions,
+        string $query,
+    ): DatabaseFullTextSearch {
+        $connection = $this->connection($context);
+        throw_unless($connection instanceof Connection, LogicException::class, 'Full-text search requires a database connection.');
+
+        $platform = $this->for($connection);
+        $native = $platform->schemaDialect()->hasCompatibleFullTextIndex($index, $connection);
+
+        return $platform->queryDialect()->fullTextSearch($expressions, $query, $native);
     }
 
     public function for(Connection|Model|string|null $context = null): DatabasePlatform
