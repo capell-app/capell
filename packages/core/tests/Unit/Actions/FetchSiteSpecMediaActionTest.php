@@ -37,7 +37,8 @@ it('downloads only same-origin public images within the configured budgets', fun
             ->and($downloads[0]->collection)->toBe(MediaCollectionEnum::Logo)
             ->and($downloads[1]->collection)->toBe(MediaCollectionEnum::Image)
             ->and($downloads[1]->pageSlug)->toBe('home')
-            ->and(file_get_contents($downloads[0]->path))->toBe($image);
+            ->and(file_get_contents($downloads[0]->path))->toBe($image)
+            ->and(fileperms($downloads[0]->path) & 0777)->toBe(0600);
     } finally {
         resolve(FetchSiteSpecMediaAction::class)->deleteDownloads($downloads);
     }

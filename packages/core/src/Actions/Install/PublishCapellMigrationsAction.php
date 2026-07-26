@@ -61,7 +61,12 @@ final class PublishCapellMigrationsAction
         $items = is_array($parameters['--items'] ?? null) ? array_values(array_filter($parameters['--items'], is_string(...))) : [];
         $path = is_string($parameters['--path'] ?? null) ? $parameters['--path'] : null;
 
-        $result = PublishMigrationsAction::run($type, $items, $path);
+        $result = PublishMigrationsAction::run(
+            type: $type,
+            items: $items,
+            path: $path,
+            protectPublishedEdits: true,
+        );
 
         if ($result->successful()) {
             return;

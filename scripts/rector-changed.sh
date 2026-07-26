@@ -44,11 +44,13 @@ fi
 
 PHP_FILES=()
 
-for file in "${CHANGED_FILES[@]}"; do
-  if [[ -f $file && $file == *.php ]]; then
-    PHP_FILES+=("$file")
-  fi
-done
+if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
+  for file in "${CHANGED_FILES[@]}"; do
+    if [[ -f $file && $file == *.php ]]; then
+      PHP_FILES+=("$file")
+    fi
+  done
+fi
 
 if [[ ${#PHP_FILES[@]} -eq 0 ]]; then
   echo "No changed PHP files for Rector."
@@ -60,6 +62,13 @@ BATCH_SIZE="${RECTOR_CHANGED_BATCH_SIZE:-50}"
 echo "Running Rector on ${#PHP_FILES[@]} changed PHP file(s)..."
 for ((offset = 0; offset < ${#PHP_FILES[@]}; offset += BATCH_SIZE)); do
   batch=("${PHP_FILES[@]:offset:BATCH_SIZE}")
+  command=("$PHP_BINARY" vendor/bin/rector --no-progress-bar)
 
-  XDEBUG_MODE=off "$PHP_BINARY" vendor/bin/rector --no-progress-bar "${RECTOR_ARGS[@]}" "${batch[@]}"
+  if [[ ${#RECTOR_ARGS[@]} -gt 0 ]]; then
+    command+=("${RECTOR_ARGS[@]}")
+  fi
+
+  command+=("${batch[@]}")
+
+  XDEBUG_MODE=off "${command[@]}"
 done

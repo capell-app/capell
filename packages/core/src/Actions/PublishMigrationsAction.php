@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\MigrationPublishCommandResultData;
 use Capell\Core\Support\Dataset\DatasetPublisher;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Core\Support\Migration\MigrationPublishManifest;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -23,8 +24,12 @@ final class PublishMigrationsAction
     /**
      * @param  list<string>  $items
      */
-    public function handle(string $type = 'migrations', array $items = [], ?string $path = null): MigrationPublishCommandResultData
-    {
+    public function handle(
+        string $type = 'migrations',
+        array $items = [],
+        ?string $path = null,
+        bool $protectPublishedEdits = false,
+    ): MigrationPublishCommandResultData {
         $isPathProvided = ! in_array($path, [null, '', '0'], true);
         $normalizedPath = $isPathProvided && is_string($path) ? $this->publisher->normalizePath($path) : null;
 
@@ -49,6 +54,7 @@ final class PublishMigrationsAction
         $blocked = 0;
         $lines = [];
         $warnings = [];
+        $manifest = $protectPublishedEdits ? MigrationPublishManifest::forApplication() : null;
 
         foreach ($items as $itemPathOrName) {
             if (! $isPathProvided && ! $this->files->fileExists($itemPathOrName)) {
@@ -76,9 +82,24 @@ final class PublishMigrationsAction
 
             [$source, $targetName] = $sourceAndTarget;
 
+            $destination = database_path($type) . DIRECTORY_SEPARATOR . $targetName;
+
+            if ($manifest instanceof MigrationPublishManifest && ! $manifest->shouldPublish($type, $source, $destination)) {
+                $warnings[] = sprintf(
+                    "Preserved customized published migration '%s'; use capell:publish-migrations explicitly to replace it.",
+                    $targetName,
+                );
+                $blocked++;
+
+                continue;
+            }
+
             $lines[] = $this->publishItem($source, $targetName, $type);
+            $manifest?->recordPublished($type, $source, $destination);
             $applied++;
         }
+
+        $manifest?->save();
 
         return new MigrationPublishCommandResultData(
             applied: $applied,
