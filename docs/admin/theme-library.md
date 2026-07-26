@@ -2,7 +2,10 @@
 
 The admin theme workflow is **Theme Library -> Customize -> Preview -> Apply**. It replaces the generic theme-record editing habit with one owner/admin flow for installed theme instances, catalogue/local definitions, pending installs, and diagnostics.
 
-![Theme Library admin workflow](../images/generated/admin/theme-library-admin-flow.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/theme-library-admin-flow-dark.png">
+  <img alt="Theme Library admin workflow" src="../images/generated/admin/theme-library-admin-flow.png">
+</picture>
 
 ## What The Page Shows
 
@@ -61,14 +64,17 @@ Use **Apply theme** to make a theme live across your site(s). Choose whether to 
 
 Applying a theme makes it live for the selected sites and clears the relevant caches automatically. The change takes effect immediately—visitors will see the new theme on their next page load.
 
-| Scope          | Effect                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------- |
+| Scope          | Effect                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------- |
 | Global default | Make this theme the default for all sites. Only site admins with global permissions can use this. |
-| Selected sites | Apply this theme to only the selected sites. Other sites keep their current theme.        |
+| Selected sites | Apply this theme to only the selected sites. Other sites keep their current theme.                |
 
 Site-scoped admins can only apply themes to sites they manage.
 
-![Customize, preview, and apply flow](../images/generated/admin/theme-customize-preview-apply.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/theme-customize-preview-apply-dark.png">
+  <img alt="Customize, preview, and apply flow" src="../images/generated/admin/theme-customize-preview-apply.png">
+</picture>
 
 ## How it works (developers)
 

@@ -1,6 +1,6 @@
 # Why Capell
 
-![Capell CMS page administration inside a Laravel application](../images/capell-readme-banner.jpg)
+![Capell, an MIT-licensed Laravel CMS built on Filament, installed with composer require capell-app/installer and php artisan capell:install](../images/capell-readme-banner.jpg)
 
 Capell is a Laravel CMS built on Filament. It is for teams that want editors to manage structured pages, URLs, media, layouts, and publishing without moving the product into a separate CMS runtime.
 
@@ -28,13 +28,13 @@ Capell is not hosted software and does not ship a public content-delivery API. P
 
 ## What Laravel keeps and Capell adds
 
-| Laravel remains responsible for | Capell adds |
-| --- | --- |
-| Application domain models and services | Sites, languages, page trees, URLs, layouts, themes, media contracts, translations, and settings |
-| Authentication and infrastructure | Filament editor workspace, roles, page publishing, preview, and page recovery UI |
-| Queues, cache, scheduler, filesystem, and deployment | Package health, lifecycle, upgrade planning, and CMS-specific diagnostics |
-| Public controllers and presentation choices | Site context, public page resolution, render hooks, theme assets, and cache-safe delivery contracts |
-| Database and media disaster recovery | Page revision history and page-only rollback |
+| Laravel remains responsible for                      | Capell adds                                                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Application domain models and services               | Sites, languages, page trees, URLs, layouts, themes, media contracts, translations, and settings    |
+| Authentication and infrastructure                    | Filament editor workspace, roles, page publishing, preview, and page recovery UI                    |
+| Queues, cache, scheduler, filesystem, and deployment | Package health, lifecycle, upgrade planning, and CMS-specific diagnostics                           |
+| Public controllers and presentation choices          | Site context, public page resolution, render hooks, theme assets, and cache-safe delivery contracts |
+| Database and media disaster recovery                 | Page revision history and page-only rollback                                                        |
 
 That final boundary matters: Capell can restore a page revision, but the host application must still back up and restore its database and media.
 
@@ -42,14 +42,14 @@ That final boundary matters: Capell can restore a page revision, but the host ap
 
 Filament is an excellent admin framework. A custom Filament resource is often the right answer for small, stable CRUD. Capell earns its place when the team is repeatedly building the surrounding CMS system.
 
-| Problem | Custom Filament build | Capell foundation |
-| --- | --- | --- |
-| Page structure | Design nested pages, moves, slugs, canonical URLs, redirects, and breadcrumbs | Shared page, URL-history, redirect, and move contracts |
-| Content recovery | Decide what a revision owns, how to diff it, and how rollback avoids conflicts | Page-owned state history, rollback preview, validation, roll back, and roll forward |
-| Multi-site/language | Scope queries, permissions, URLs, settings, cache keys, and translations | Site, domain, language, translation, and URL foundations |
-| Editor safety | Build preview, publish state, permissions, cache invalidation, and public-output boundaries | Filament workspace and package extension points over shared CMS rules |
-| Upgrades | Every project invents migrations and evidence | Planned upgrade steps, durable logs, diagnostics, and explicit rollback support |
-| Extension model | Add project-specific resources and services | Normal Composer packages plus Capell manifests and registries |
+| Problem             | Custom Filament build                                                                       | Capell foundation                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Page structure      | Design nested pages, moves, slugs, canonical URLs, redirects, and breadcrumbs               | Shared page, URL-history, redirect, and move contracts                              |
+| Content recovery    | Decide what a revision owns, how to diff it, and how rollback avoids conflicts              | Page-owned state history, rollback preview, validation, roll back, and roll forward |
+| Multi-site/language | Scope queries, permissions, URLs, settings, cache keys, and translations                    | Site, domain, language, translation, and URL foundations                            |
+| Editor safety       | Build preview, publish state, permissions, cache invalidation, and public-output boundaries | Filament workspace and package extension points over shared CMS rules               |
+| Upgrades            | Every project invents migrations and evidence                                               | Planned upgrade steps, durable logs, diagnostics, and explicit rollback support     |
+| Extension model     | Add project-specific resources and services                                                 | Normal Composer packages plus Capell manifests and registries                       |
 
 Use custom Filament when CRUD will stay small. Use Capell when these page concerns have become a maintained product inside the Laravel application.
 
@@ -57,12 +57,12 @@ Use custom Filament when CRUD will stay small. Use Capell when these page concer
 
 Statamic is a strong CMS when its flat-file model, control panel, and ecosystem match the project. Capell fits more naturally when content must participate directly in an existing Laravel application's relationships, transactions, permissions, queues, and deployment.
 
-| Question | Statamic-shaped fit | Capell-shaped fit |
-| --- | --- | --- |
-| Primary content model | Flat files and Statamic collections are desirable | Database-backed Laravel models and relationships are desirable |
-| Product boundary | The CMS can be the centre of the site | The CMS must live inside a broader Laravel product |
-| Extension model | Statamic add-ons and Antlers/Twig conventions fit the team | Composer packages, Filament, Actions, Blade/Livewire/Inertia fit the team |
-| Operations | The team wants Statamic's established workflow | The team wants Capell's page-history and package-upgrade contracts inside Laravel |
+| Question              | Statamic-shaped fit                                        | Capell-shaped fit                                                                 |
+| --------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Primary content model | Flat files and Statamic collections are desirable          | Database-backed Laravel models and relationships are desirable                    |
+| Product boundary      | The CMS can be the centre of the site                      | The CMS must live inside a broader Laravel product                                |
+| Extension model       | Statamic add-ons and Antlers/Twig conventions fit the team | Composer packages, Filament, Actions, Blade/Livewire/Inertia fit the team         |
+| Operations            | The team wants Statamic's established workflow             | The team wants Capell's page-history and package-upgrade contracts inside Laravel |
 
 Neither choice is automatically better. The cheaper long-term boundary is the one the team can operate, test, upgrade, and exit confidently.
 
@@ -76,7 +76,7 @@ Capell is the stronger fit when sharing Laravel's runtime and domain services re
 
 Editors work with shared page types, layouts, approved widgets, assets, preview, publishing, and history. Developers define the permitted structure and keep ownership of the public output.
 
-![Capell page editor with structured content and publishing context](../images/generated/admin/admin-page-edit-form.png)
+![Capell page editor showing a real published page with its content, publishing state, and page context](../images/capell-app-page-editor.png)
 
 This avoids two common extremes: every content change becoming a developer ticket, or a visual builder allowing every page to become a one-off design. Capell supports custom pages, but repeated content should use a repeatable structure when that makes future change cheaper.
 

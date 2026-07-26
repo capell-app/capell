@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            :root {
+                --ink: #001d3d;
+                --ink-deep: #000f22;
+                --paper: #f4f1ea;
+                --amber: #f0a202;
+                --teal: #2dd4a7;
+                --slate: #8397ae;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                width: 1440px;
+                height: 480px;
+            }
+
+            body {
+                background: var(--ink-deep);
+                font-family:
+                    'Avenir Next', 'Helvetica Neue', Helvetica, Arial,
+                    sans-serif;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            .banner {
+                position: relative;
+                width: 1440px;
+                height: 480px;
+                overflow: hidden;
+                background:
+                    radial-gradient(
+                        90% 120% at 78% 8%,
+                        rgba(45, 212, 167, 0.1) 0%,
+                        rgba(45, 212, 167, 0) 55%
+                    ),
+                    linear-gradient(
+                        155deg,
+                        #012b57 0%,
+                        var(--ink) 48%,
+                        var(--ink-deep) 100%
+                    );
+                padding: 60px 76px;
+                display: grid;
+                grid-template-rows: auto 1fr auto;
+            }
+
+            /* Engraved grid: echoes the architecture plane on the product site. */
+            .grid-plane {
+                position: absolute;
+                inset: 0;
+                background-image:
+                    linear-gradient(
+                        rgba(244, 241, 234, 0.045) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        90deg,
+                        rgba(244, 241, 234, 0.045) 1px,
+                        transparent 1px
+                    );
+                background-size: 80px 80px;
+                mask-image: radial-gradient(
+                    120% 100% at 65% 40%,
+                    #000 0%,
+                    transparent 78%
+                );
+                -webkit-mask-image: radial-gradient(
+                    120% 100% at 65% 40%,
+                    #000 0%,
+                    transparent 78%
+                );
+            }
+
+            .top,
+            .middle,
+            .base {
+                position: relative;
+            }
+
+            .top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .wordmark {
+                height: 46px;
+                width: auto;
+                /* The source mark is navy; invert to paper for the dark ground. */
+                filter: brightness(0) invert(0.94) sepia(0.08) saturate(0.6);
+            }
+
+            .badges {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                font-size: 12.5px;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                color: var(--slate);
+            }
+
+            .badges b {
+                color: var(--paper);
+                font-weight: 600;
+            }
+
+            .badges .sep {
+                color: rgba(131, 151, 174, 0.45);
+            }
+
+            .middle {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 22px;
+            }
+
+            .install {
+                font-family: Menlo, 'SF Mono', ui-monospace, monospace;
+                font-size: 52px;
+                line-height: 1.3;
+                letter-spacing: -0.02em;
+                color: var(--paper);
+            }
+
+            .install .row {
+                white-space: nowrap;
+            }
+
+            .install .prompt {
+                color: var(--teal);
+                margin-right: 18px;
+            }
+
+            .install .cmd {
+                color: rgba(244, 241, 234, 0.72);
+            }
+
+            .install .pkg {
+                color: var(--paper);
+                position: relative;
+                padding-bottom: 4px;
+                box-shadow: inset 0 -2px 0 0 var(--amber);
+            }
+
+            .install .row + .row {
+                margin-top: 10px;
+            }
+
+            .headline {
+                font-size: 25px;
+                font-weight: 500;
+                letter-spacing: -0.008em;
+                color: rgba(244, 241, 234, 0.62);
+                max-width: 760px;
+            }
+
+            .headline em {
+                font-style: normal;
+                color: var(--paper);
+                font-weight: 600;
+            }
+
+            .base {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                font-size: 13px;
+                letter-spacing: 0.2em;
+                text-transform: uppercase;
+                color: rgba(131, 151, 174, 0.9);
+                border-top: 1px solid rgba(244, 241, 234, 0.12);
+                padding-top: 20px;
+            }
+
+            .packages span:not(.dot) {
+                color: rgba(244, 241, 234, 0.8);
+            }
+
+            .packages .dot {
+                margin: 0 16px;
+                color: var(--amber);
+                opacity: 0.75;
+            }
+
+            .base .docs {
+                color: rgba(131, 151, 174, 0.85);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="banner">
+            <div class="grid-plane"></div>
+
+            <div class="top">
+                <img
+                    class="wordmark"
+                    src="LOGO_SRC"
+                    alt="Capell"
+                />
+                <div class="badges">
+                    <span>Laravel CMS on Filament</span>
+                    <span class="sep">/</span>
+                    <b>MIT</b>
+                </div>
+            </div>
+
+            <div class="middle">
+                <div class="install">
+                    <div class="row">
+                        <span class="prompt">$</span
+                        ><span class="cmd">composer require </span
+                        ><span class="pkg">capell-app/installer</span>
+                    </div>
+                    <div class="row">
+                        <span class="prompt">$</span
+                        ><span class="cmd">php artisan </span
+                        ><span class="pkg">capell:install</span>
+                    </div>
+                </div>
+                <p class="headline">
+                    Build once, <em>improve every page</em> — structured
+                    content, a Filament editor workspace, and the public
+                    frontend still yours.
+                </p>
+            </div>
+
+            <div class="base">
+                <div class="packages">
+                    <span>Core</span><span class="dot">·</span><span>Admin</span
+                    ><span class="dot">·</span><span>Frontend</span
+                    ><span class="dot">·</span><span>Installer</span
+                    ><span class="dot">·</span><span>Marketplace</span>
+                </div>
+                <div class="docs">docs.capell.app</div>
+            </div>
+        </div>
+    </body>
+</html>
