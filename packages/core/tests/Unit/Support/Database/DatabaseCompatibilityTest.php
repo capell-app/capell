@@ -482,6 +482,57 @@ it('searches JSON values using a correlated column needle', function (): void {
         ->and($boundSearch->bindings)->toBe($expectedBindings);
 });
 
+it('searches keyed JSON collections without matching the same needle elsewhere', function (): void {
+    $connection = DB::connection();
+    $family = CapellDatabase::for($connection)->family();
+    $select = match ($family) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+    $path = '$.*.widgets[*].widget_key';
+    $boundSearch = $dialect->jsonSearch(
+        new SqlFragment('?', ['document-binding']),
+        new SqlFragment('?', ['needle-binding']),
+        $path,
+    );
+    $expectedBindings = match ($family) {
+        DatabaseFamily::MySql,
+        DatabaseFamily::MariaDb => ['document-binding', 'needle-binding', $path],
+        DatabaseFamily::Sqlite => ['document-binding', '$', '$.widgets', '$.widget_key', 'needle-binding'],
+        DatabaseFamily::PostgreSql => ['document-binding', $path, 'needle-binding'],
+    };
+
+    $matches = function (array $document, string $needle) use ($connection, $dialect, $path, $select): bool {
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw(
+                $select . ', ? AS needle',
+                [json_encode($document, JSON_THROW_ON_ERROR), $needle],
+            ),
+            'documents',
+        );
+        $dialect->jsonSearch(
+            SqlFragment::raw('meta'),
+            SqlFragment::raw('needle'),
+            $path,
+        )->applyWhere($query);
+
+        return $query->exists();
+    };
+
+    expect($matches([
+        'main' => ['widgets' => [['widget_key' => 'hero-banner']]],
+        'metadata' => ['widget_key' => 'unrelated'],
+    ], 'hero-banner'))->toBeTrue()
+        ->and($matches([
+            'main' => ['widgets' => [['widget_key' => 'contact-form']]],
+            'metadata' => ['widget_key' => 'hero-banner'],
+        ], 'hero-banner'))->toBeFalse()
+        ->and($boundSearch->bindings)->toBe($expectedBindings);
+});
+
 it('matches PostgreSQL JSON values by the supplied search needle', function (): void {
     $connection = DB::connection();
 
