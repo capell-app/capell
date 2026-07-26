@@ -39,6 +39,22 @@ final class PackageTestDatabaseGuard
         );
     }
 
+    public static function assertRequestedDriverResolved(?string $requested, mixed $resolved): void
+    {
+        $requested = strtolower(trim((string) $requested));
+        $requested = $requested === '' ? 'sqlite' : $requested;
+        $requested = in_array($requested, ['postgres', 'postgresql'], true) ? 'pgsql' : $requested;
+        $requested = $requested === 'mariadb' ? 'mysql' : $requested;
+
+        if (! is_string($resolved) || strtolower($resolved) !== $requested) {
+            throw new RuntimeException(sprintf(
+                'Requested package test database driver [%s] resolved to [%s].',
+                $requested,
+                is_scalar($resolved) ? (string) $resolved : get_debug_type($resolved),
+            ));
+        }
+    }
+
     public static function assertSafe(?string $connection, ?string $database, ?string $url, string $source): void
     {
         $databaseNames = array_filter([

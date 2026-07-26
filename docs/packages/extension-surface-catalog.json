@@ -103,6 +103,46 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.database-platform",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Database\\DatabasePlatform",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Database family metadata and dialect boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.database-provisioner",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Database\\DatabaseProvisioner",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Installer database provisioning boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.database-query-dialect",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Database\\DatabaseQueryDialect",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Portable SQL expression boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.database-schema-dialect",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Database\\DatabaseSchemaDialect",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Portable database schema capability boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.extension-contribution",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
@@ -553,6 +593,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.facade.capell-database",
+            "kind": "facade",
+            "identifier": "Capell\\Core\\Facades\\CapellDatabase",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Static database platform resolution facade.",
+            "contractTestId": null
+        },
+        {
             "id": "core.internal.project-build-manifest-migration",
             "kind": "internal",
             "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildManifestMigration",
@@ -573,6 +623,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.registry.database-platform",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Database\\DatabasePlatformRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Single runtime database platform resolution seam.",
+            "contractTestId": null
+        },
+        {
             "id": "core.registry.project-build-artifact-handler",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildArtifactHandlerRegistry",
@@ -590,6 +650,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Closed JSON Schema for portable project build manifests.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.database-platform",
+            "kind": "tagged-service",
+            "identifier": "capell.database.platform",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for database platform adapters.",
             "contractTestId": null
         },
         {

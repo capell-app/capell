@@ -8,8 +8,10 @@ use Aimeos\Nestedset\Collection;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Concerns\HasCapellMedia;
 use Capell\Core\Contracts\Media\HasMediaContract;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Database\Factories\LayoutFactory;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Concerns\ExtensibleModel;
 use Capell\Core\Models\Concerns\HasDefault;
 use Capell\Core\Models\Concerns\HasMetaData;
@@ -159,16 +161,23 @@ class Layout extends Model implements Defaultable, HasMedia, HasMediaContract, S
      */
     public static function getGroups(): array
     {
-        $countSql = '(SELECT COUNT(*) FROM `layouts` `c2` WHERE `c2`.`group` = `layouts`.`group`)';
+        $query = DB::table('layouts');
+        $grammar = $query->getGrammar();
+        $group = $grammar->wrap('group');
+        $table = $grammar->wrapTable('layouts');
+        $alias = $grammar->wrapTable('c2');
+        $count = sprintf('(SELECT COUNT(*) FROM %s %s WHERE %s.%s = %s.%s)', $table, $alias, $alias, $group, $table, $group);
+        $label = CapellDatabase::for()->queryDialect()->concatenate(
+            SqlFragment::raw($group),
+            SqlFragment::raw("' ('"),
+            SqlFragment::raw($count),
+            SqlFragment::raw("')'"),
+        );
 
-        if (DB::getDriverName() === 'sqlite') {
-            $labelColumnSql = DB::raw(sprintf("`group` || ' (' || %s || ')' AS label", $countSql));
-        } else {
-            $labelColumnSql = DB::raw(sprintf("CONCAT(`group`, ' (', %s, ')') AS label", $countSql));
-        }
+        $query->select('group');
+        new SqlFragment($label->sql . ' AS ' . $grammar->wrap('label'), $label->bindings)->applySelect($query);
 
-        return DB::table('layouts')
-            ->select(['group', $labelColumnSql])
+        return $query
             ->groupBy('group')
             ->orderBy('group')
             ->whereNotNull('group')

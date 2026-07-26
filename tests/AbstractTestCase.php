@@ -93,6 +93,10 @@ abstract class AbstractTestCase extends TestCase
 
         if ($application !== null) {
             PackageTestDatabaseGuard::assertConfigurationIsSafe($application);
+            PackageTestDatabaseGuard::assertRequestedDriverResolved(
+                getenv('DB_CONNECTION') !== false ? (string) getenv('DB_CONNECTION') : null,
+                Config::get('database.connections.' . Config::get('database.default') . '.driver'),
+            );
         }
 
         if ($application !== null && $application->bound('view')) {
@@ -222,9 +226,30 @@ abstract class AbstractTestCase extends TestCase
 
     protected function getEnvironmentSetUp(mixed $app): void
     {
-        Config::set('database.default', 'sqlite');
-        Config::set('database.connections.sqlite.database', ':memory:');
-        Config::set('database.connections.sqlite.url');
+        $requestedConnection = getenv('DB_CONNECTION') !== false
+            ? strtolower(trim((string) getenv('DB_CONNECTION')))
+            : 'sqlite';
+
+        if (in_array($requestedConnection, ['mysql', 'mariadb'], true)) {
+            $connection = Config::get('database.connections.' . $requestedConnection);
+            $connection = is_array($connection) ? $connection : (array) Config::get('database.connections.mysql', []);
+            $requestedDatabase = getenv('DB_DATABASE') !== false ? trim((string) getenv('DB_DATABASE')) : '';
+            $connection['driver'] = 'mysql';
+            $connection['database'] = in_array($requestedDatabase, ['', ':memory:'], true)
+                ? 'capell_packages_test'
+                : $requestedDatabase;
+            $connection['url'] = null;
+
+            Config::set('database.default', 'capell_mysql_test');
+            Config::set('database.connections.capell_mysql_test', $connection);
+        } else {
+            Config::set('database.default', $requestedConnection === '' ? 'sqlite' : $requestedConnection);
+
+            if ($requestedConnection === '' || $requestedConnection === 'sqlite') {
+                Config::set('database.connections.sqlite.database', ':memory:');
+                Config::set('database.connections.sqlite.url');
+            }
+        }
 
         $this->registerBladeIconConfigs();
         $this->registerPackageConfigs($app);

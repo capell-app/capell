@@ -16,6 +16,7 @@ use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -28,7 +29,6 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Override;
 
 class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidgetContract
@@ -64,16 +64,8 @@ class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidget
         }
 
         return $query->with([
-            'translations' => fn (BuilderContract $query): BuilderContract => $query->when(
-                DB::getDriverName() === 'sqlite',
-                fn (BuilderContract $query): BuilderContract => $query->orderByRaw('CASE WHEN language_id = ? THEN 0 ELSE 1 END', [$languageId]),
-                fn (BuilderContract $query): BuilderContract => $query->orderByRaw('FIELD(language_id, ?) DESC', [$languageId]),
-            ),
-            'url' => fn (BuilderContract $query): BuilderContract => $query->when(
-                DB::getDriverName() === 'sqlite',
-                fn (BuilderContract $query): BuilderContract => $query->orderByRaw('CASE WHEN language_id = ? THEN 0 ELSE 1 END', [$languageId]),
-                fn (BuilderContract $query): BuilderContract => $query->orderByRaw('FIELD(language_id, ?) DESC', [$languageId]),
-            ),
+            'translations' => fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$languageId]),
+            'url' => fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$languageId]),
         ]);
     }
 

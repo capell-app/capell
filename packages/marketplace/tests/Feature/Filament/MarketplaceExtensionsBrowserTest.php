@@ -1605,7 +1605,7 @@ it('provides a package-owned livewire browser component', function (): void {
     $componentReflection = new ReflectionClass(MarketplaceExtensionsBrowser::class);
 
     expect($componentReflection->getMethod('table')->hasReturnType())->toBeTrue()
-        ->and($componentReflection->getProperty('lockedKind')->getType()?->__toString())->toBe('?string');
+        ->and((string) $componentReflection->getProperty('lockedKind')->getType())->toBe('?string');
 });
 
 it('preserves composer name filtering and ordering in marketplace selection reshapes', function (): void {

@@ -18,6 +18,7 @@ use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
@@ -27,7 +28,6 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Override;
 
@@ -213,11 +213,7 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
         return $query->when(
             $hasLanguageFilter,
             fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language_id),
-            fn (BuilderContract $query): BuilderContract => $query->when(
-                DB::getDriverName() === 'sqlite',
-                fn (BuilderContract $query): BuilderContract => $query->orderByRaw('CASE WHEN language_id = ? THEN 0 ELSE 1 END', [$language_id]),
-                fn (BuilderContract $query): BuilderContract => $query->orderByRaw('FIELD(language_id, ?) DESC', [$language_id]),
-            ),
+            fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$language_id]),
         );
     }
 }

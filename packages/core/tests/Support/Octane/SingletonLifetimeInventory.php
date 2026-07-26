@@ -39,6 +39,7 @@ use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
@@ -113,6 +114,7 @@ final class SingletonLifetimeInventory
         return [
             // Core boot registration state.
             CapellPackageRegistry::class => self::boot('Package manifests are discovered once and invalidated only by explicit package mutation.'),
+            DatabasePlatformRegistry::class => self::boot('Database platforms are registered once from core and tagged extension services during provider boot.'),
             ModelInterceptorRegistry::class => self::boot('Model interceptors are package boot registrations.'),
             SubscriberRegistry::class => self::boot('Subscribers are package boot registrations.'),
             RenderableRegistry::class => self::boot('Renderable types are package boot registrations.'),

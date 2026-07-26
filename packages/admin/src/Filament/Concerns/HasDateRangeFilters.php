@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Concerns;
 
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Enums\Database\DatabaseDateOperation;
+use Capell\Core\Facades\CapellDatabase;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use DateTimeInterface;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 
 /**
@@ -93,30 +95,18 @@ trait HasDateRangeFilters
 
     protected function getSelectRange(string $column): string
     {
-        $isSqlite = DB::getDriverName() === 'sqlite';
         $filter = $this->getActiveDateRangeFilter();
-
-        if ($isSqlite) {
-            $dayAbbrevCase = "CASE strftime('%%w', %s) WHEN '0' THEN 'Sun' WHEN '1' THEN 'Mon' WHEN '2' THEN 'Tue' WHEN '3' THEN 'Wed' WHEN '4' THEN 'Thu' WHEN '5' THEN 'Fri' WHEN '6' THEN 'Sat' END";
-            $monthAbbrevCase = "CASE strftime('%%m', %s) WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar' WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun' WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep' WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dec' END";
-            $yearShort = "substr(strftime('%%Y', %s), 3, 2)";
-
-            return match ($filter) {
-                'today', 'yesterday' => sprintf("strftime('%%H:00', %s)", $column),
-                'week', 'last_week' => sprintf($dayAbbrevCase, $column),
-                'month', 'last_month' => sprintf("strftime('%%d', %s) || ' ' || %s", $column, sprintf($monthAbbrevCase, $column)),
-                'last_year', 'year' => sprintf("%s || ' ' || %s", sprintf($monthAbbrevCase, $column), sprintf($yearShort, $column)),
-                default => sprintf("%s || ' ' || %s", sprintf($monthAbbrevCase, $column), sprintf($yearShort, $column)),
-            };
-        }
-
-        return match ($filter) {
-            'today', 'yesterday' => sprintf("DATE_FORMAT(%s, '%%H:00')", $column),
-            'week', 'last_week' => sprintf("DATE_FORMAT(%s, '%%a')", $column),
-            'month', 'last_month' => sprintf("DATE_FORMAT(%s, '%%d %%b')", $column),
-            'last_year', 'year' => sprintf("DATE_FORMAT(%s, '%%b %%y')", $column),
-            default => sprintf("DATE_FORMAT(%s, '%%b %%y')", $column),
+        $operation = match ($filter) {
+            'today', 'yesterday' => DatabaseDateOperation::HourLabel,
+            'week', 'last_week' => DatabaseDateOperation::DayAbbreviation,
+            'month', 'last_month' => DatabaseDateOperation::DayMonthLabel,
+            default => DatabaseDateOperation::MonthYearLabel,
         };
+
+        return CapellDatabase::for()
+            ->queryDialect()
+            ->date($operation, SqlFragment::raw($column))
+            ->sql;
     }
 
     // Helpers

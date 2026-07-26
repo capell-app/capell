@@ -14,8 +14,10 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\PageUrls\Schemas\PageUrlForm;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\SiteScope;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\PageUrl;
@@ -37,7 +39,6 @@ use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Facades\DB;
 
 class PageUrlsTable implements TableConfigurator
 {
@@ -198,25 +199,18 @@ class PageUrlsTable implements TableConfigurator
 
     protected static function applyFullUrlSearch(BuilderContract $query, string $search): BuilderContract
     {
-        $bindings = [
+        $url = DatabaseUrlExpression::full(
+            $query,
             config('capell-frontend.default_scheme', request()->getScheme()),
             parse_url((string) config('app.url'), PHP_URL_HOST),
-            sprintf('%s%%', $search),
-        ];
+        );
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        if (in_array(DB::getDriverName(), ['sqlite', 'testing'], true)) {
-            return $query->whereRaw(
-                "COALESCE(site_domains.scheme, ?) || '://' || COALESCE(site_domains.domain, ?) || COALESCE(site_domains.path, '') || page_urls.url like ?",
-                $bindings,
-            );
-        }
+        new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%s%%', $search)])
+            ->applyWhere($query->getQuery());
 
-        return $query->whereRaw(
-            "CONCAT(COALESCE(site_domains.scheme, ?), '://', COALESCE(site_domains.domain, ?), COALESCE(site_domains.path, ''), page_urls.url) like ?",
-            $bindings,
-        );
+        return $query;
     }
 
     /**

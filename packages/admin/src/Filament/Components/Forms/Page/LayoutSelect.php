@@ -6,6 +6,8 @@ namespace Capell\Admin\Filament\Components\Forms\Page;
 
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
 use Closure;
 use Filament\Actions\Action;
@@ -14,7 +16,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class LayoutSelect extends Select
@@ -161,21 +162,13 @@ class LayoutSelect extends Select
         }
 
         $column = $this->wrappedSearchColumn($query, $titleAttribute);
+        $relevance = CapellDatabase::for($query->getModel())
+            ->queryDialect()
+            ->textRelevance(SqlFragment::raw($column), $search);
 
-        $query
-            ->orderByRaw($this->literalSql($column . ' LIKE ? DESC'), [$search])
-            ->orderByRaw($this->literalSql($column . ' LIKE ? DESC'), [$search . '%'])
-            ->when(
-                DB::getDriverName() === 'sqlite',
-                fn (Builder $query): Builder => $query
-                    ->orderByRaw('CASE WHEN `name` = ? THEN 1 ELSE 2 END', [$search])
-                    ->orderBy('name'),
-                fn (Builder $query): Builder => $query
-                    ->orderByRaw(
-                        $this->literalSql(sprintf("CAST(IFNULL(NULLIF(POSITION(? IN %s), 0), 'void') AS UNSIGNED)", $column)),
-                        [$search],
-                    ),
-            );
+        $relevance->applyOrder($query->getQuery());
+
+        $query->orderBy($titleAttribute);
     }
 
     /**
@@ -188,15 +181,6 @@ class LayoutSelect extends Select
         }
 
         return $query->getQuery()->getGrammar()->wrap($query->qualifyColumn($titleAttribute));
-    }
-
-    /**
-     * @return literal-string
-     */
-    private function literalSql(string $sql): string
-    {
-        /** @var literal-string $sql */
-        return $sql;
     }
 
     /**

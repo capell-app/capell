@@ -235,7 +235,9 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
             }
 
             if ($this->content !== null && $this->content !== '') {
-                return str($this->content)->stripTags()->words(200)->toString();
+                return str($this->summaryContent())
+                    ->words(200)
+                    ->toString();
             }
 
             return null;
@@ -299,5 +301,27 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
             'meta' => 'json',
             'content' => DynamicContentCast::class,
         ];
+    }
+
+    private function summaryContent(): string
+    {
+        $content = $this->content;
+
+        if (! is_array($content)) {
+            return ExtractTextContentAction::run($content);
+        }
+
+        $contentValues = array_map(
+            static function (mixed $block): mixed {
+                if (! is_array($block) || ($block['type'] ?? null) !== 'content') {
+                    return $block;
+                }
+
+                return $block['data']['content'] ?? $block['content'] ?? null;
+            },
+            $content,
+        );
+
+        return ExtractTextContentAction::run($contentValues);
     }
 }

@@ -166,15 +166,16 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
     public static function getGroups(): array
     {
         return DB::table('blueprints')
-            ->select([
-                'group',
-                DB::raw("(`group` || ' (' || (SELECT COUNT(*) FROM `blueprints` `c2` WHERE `c2`.`group` = `blueprints`.`group`) || ')') AS label"),
-            ])
+            ->select('group')
+            ->selectRaw('COUNT(*) AS aggregate')
             ->groupBy('group')
             ->orderBy('blueprints.group')
             ->whereNotNull('group')
-            ->pluck('label', 'group')
-            ->toArray();
+            ->pluck('aggregate', 'group')
+            ->mapWithKeys(static fn (int|string $count, string $group): array => [
+                $group => sprintf('%s (%d)', $group, $count),
+            ])
+            ->all();
     }
 
     /**
@@ -184,10 +185,10 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
     {
         return DB::table('blueprints')
             ->select('type')
-            ->selectSub('SELECT COUNT(*) FROM blueprints t2 WHERE t2.`type` = blueprints.`type`', 'count')
+            ->selectRaw('COUNT(*) AS aggregate')
             ->groupBy('type')
             ->orderBy('type')
-            ->pluck('count', 'type')
+            ->pluck('aggregate', 'type')
             ->toArray();
     }
 

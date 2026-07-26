@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Concerns\HasImportExportHeaderActions;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Sites\Widgets\ListSiteAlertsWidget;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Filament\Resources\Pages\ListRecords;
@@ -18,8 +19,8 @@ use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Override;
 
 class ListSites extends ListRecords
@@ -87,10 +88,10 @@ class ListSites extends ListRecords
         ]);
     }
 
-    /** @return array<string, array<int|string, string>> */
+    /** @return array<string, array<int|string, string|Expression<literal-string|int|float>>> */
     protected function getSearchRelationColumns(): array
     {
-        /** @var array<string, array<int|string, string>> $columns */
+        /** @var array<string, array<int|string, string|Expression<literal-string|int|float>>> $columns */
         $columns = [
             'translations' => [
                 'meta->label',
@@ -100,7 +101,7 @@ class ListSites extends ListRecords
             'siteDomains' => [
                 'domain',
                 'path',
-                DB::raw("RTRIM((scheme || '://' || domain || COALESCE(path, '')), '/')"),
+                DatabaseUrlExpression::siteDomain(),
             ],
         ];
 
