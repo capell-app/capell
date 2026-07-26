@@ -17,14 +17,15 @@ final class DatabaseUrlExpression
     {
         $connection = DB::connection();
         $grammar = $connection->getQueryGrammar();
-        $url = CapellDatabase::for($connection)->queryDialect()->concatenate(
+        $dialect = CapellDatabase::for($connection)->queryDialect();
+        $url = $dialect->concatenate(
             SqlFragment::raw($grammar->wrap('scheme')),
             SqlFragment::raw("'://'"),
             SqlFragment::raw($grammar->wrap('domain')),
             SqlFragment::raw('COALESCE(' . $grammar->wrap('path') . ", '')"),
         );
 
-        return new SqlFragment("RTRIM({$url->sql}, '/')")->expression();
+        return $dialect->trimTrailingSlash($url)->expression();
     }
 
     public static function full(BuilderContract $query, mixed $defaultScheme, mixed $defaultDomain): SqlFragment

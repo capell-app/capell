@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\Preflight;
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
@@ -170,7 +171,17 @@ final class InstallerPreflight
         $driver = (string) config(sprintf('database.connections.%s.driver', $connection));
 
         if ($driver !== '') {
-            $required[] = CapellDatabase::for($driver)->phpExtension();
+            try {
+                $required[] = CapellDatabase::for($driver)->phpExtension();
+            } catch (UnsupportedDatabaseDriver) {
+                return $this->check(
+                    'php-extensions',
+                    'PHP extensions',
+                    'fail',
+                    sprintf('The configured database driver [%s] is not supported by Capell.', $driver),
+                    'Configure a supported MySQL, MariaDB, PostgreSQL, or SQLite connection before running the installer.',
+                );
+            }
         }
 
         $required = array_values(array_unique($required));

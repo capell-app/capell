@@ -17,6 +17,14 @@ final class SqliteQueryDialect extends AbstractQueryDialect
         );
     }
 
+    public function trimTrailingSlash(SqlFragment $expression): SqlFragment
+    {
+        return new SqlFragment(
+            "RTRIM({$expression->sql}, '/')",
+            $expression->bindings,
+        );
+    }
+
     public function textPosition(SqlFragment $expression, string $needle, bool $caseInsensitive = false): SqlFragment
     {
         $sql = $caseInsensitive ? 'LOWER(' . $expression->sql . ')' : $expression->sql;
@@ -70,8 +78,17 @@ final class SqliteQueryDialect extends AbstractQueryDialect
 
     public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
     {
+        if (preg_match('/^(.*)\\[\\*\\]\\.([A-Za-z_][A-Za-z0-9_]*)$/', $path, $matches) === 1) {
+            $collectionPath = $matches[1] === '' ? '$' : $matches[1];
+
+            return new SqlFragment(
+                'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ', ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
+                [...$expression->bindings, $collectionPath, '$.' . $matches[2], '%' . $needle . '%'],
+            );
+        }
+
         return new SqlFragment(
-            'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ', ?) WHERE CAST(value AS TEXT) LIKE ?)',
+            'EXISTS (SELECT 1 FROM json_tree(' . $expression->sql . ', ?) WHERE CAST(value AS TEXT) LIKE ?)',
             [...$expression->bindings, $path, '%' . $needle . '%'],
         );
     }

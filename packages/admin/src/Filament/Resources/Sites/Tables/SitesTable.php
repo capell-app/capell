@@ -245,7 +245,6 @@ class SitesTable implements TableConfigurator
             TextColumn::make('translation.contents')
                 ->label(__('capell-admin::table.content'))
                 ->sortable()
-                ->searchable()
                 ->limit(200)
                 ->wrap()
                 ->color(FilamentColorEnum::LightGray->value)

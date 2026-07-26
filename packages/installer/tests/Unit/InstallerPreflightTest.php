@@ -133,6 +133,38 @@ it('blocks installation when the configured database PDO extension is missing', 
     }
 });
 
+it('reports an unsupported configured database driver as a blocking failure', function (): void {
+    $originalDefaultConnection = config('database.default');
+    $originalCacheStore = config('cache.default');
+
+    config([
+        'database.default' => 'unsupported-installer-driver',
+        'database.connections.unsupported-installer-driver' => [
+            'driver' => 'sqlsrv',
+            'database' => 'capell_installer_test',
+        ],
+        'cache.default' => 'array',
+    ]);
+
+    try {
+        $report = resolve(InstallerPreflight::class)->run();
+
+        expect(installerPreflightCheck($report, 'php-extensions'))
+            ->toMatchArray([
+                'status' => 'fail',
+                'severity' => 'blocking',
+                'message' => 'The configured database driver [sqlsrv] is not supported by Capell.',
+            ])
+            ->and($report['status'])->toBe('fail');
+    } finally {
+        config([
+            'database.default' => $originalDefaultConnection,
+            'cache.default' => $originalCacheStore,
+        ]);
+        DB::purge('unsupported-installer-driver');
+    }
+});
+
 it('checks the configured cli php binary through path resolution', function (): void {
     config(['capell-installer.php_binary' => 'php']);
 

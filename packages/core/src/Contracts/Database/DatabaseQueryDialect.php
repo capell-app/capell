@@ -11,6 +11,8 @@ interface DatabaseQueryDialect
 {
     public function concatenate(SqlFragment ...$expressions): SqlFragment;
 
+    public function trimTrailingSlash(SqlFragment $expression): SqlFragment;
+
     public function textPosition(SqlFragment $expression, string $needle, bool $caseInsensitive = false): SqlFragment;
 
     public function textRelevance(SqlFragment $expression, string $needle): SqlFragment;

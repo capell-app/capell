@@ -17,6 +17,14 @@ final class MySqlQueryDialect extends AbstractQueryDialect
         );
     }
 
+    public function trimTrailingSlash(SqlFragment $expression): SqlFragment
+    {
+        return new SqlFragment(
+            "TRIM(TRAILING '/' FROM {$expression->sql})",
+            $expression->bindings,
+        );
+    }
+
     public function textPosition(SqlFragment $expression, string $needle, bool $caseInsensitive = false): SqlFragment
     {
         $sql = $caseInsensitive ? 'LOWER(' . $expression->sql . ')' : $expression->sql;

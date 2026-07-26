@@ -80,12 +80,14 @@ it('builds typed query expressions for every supported database family', functio
     $jsonSearchBindings = match ($platform->family()) {
         DatabaseFamily::MySql,
         DatabaseFamily::MariaDb => ['%needle%', '$[*].data'],
-        DatabaseFamily::Sqlite => ['$[*].data', '%needle%'],
+        DatabaseFamily::Sqlite => ['$', '$.data', '%needle%'],
         DatabaseFamily::PostgreSql => ['$[*].data', '%needle%'],
     };
 
     expect($dialect->concatenate($column, SqlFragment::value(' / '), SqlFragment::raw('pages.slug')))
         ->toEqual(new SqlFragment($expected['concat'], [' / ']))
+        ->and($dialect->trimTrailingSlash(SqlFragment::raw('pages.url')))
+        ->toEqual(new SqlFragment($expected['trim']))
         ->and($dialect->textPosition($column, 'ell', true))
         ->toEqual(new SqlFragment($expected['position'], ['ell']))
         ->and($dialect->textRelevance($column, 'Capell'))
@@ -107,6 +109,7 @@ it('builds typed query expressions for every supported database family', functio
         new MySqlDatabasePlatform,
         [
             'concat' => 'CONCAT(pages.name, ?, pages.slug)',
+            'trim' => "TRIM(TRAILING '/' FROM pages.url)",
             'position' => 'INSTR(LOWER(pages.name), ?)',
             'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000',
             'year' => 'YEAR(created_at)',
@@ -121,6 +124,7 @@ it('builds typed query expressions for every supported database family', functio
         new MariaDbDatabasePlatform,
         [
             'concat' => 'CONCAT(pages.name, ?, pages.slug)',
+            'trim' => "TRIM(TRAILING '/' FROM pages.url)",
             'position' => 'INSTR(LOWER(pages.name), ?)',
             'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000',
             'year' => 'YEAR(created_at)',
@@ -135,6 +139,7 @@ it('builds typed query expressions for every supported database family', functio
         new SqliteDatabasePlatform,
         [
             'concat' => 'pages.name || ? || pages.slug',
+            'trim' => "RTRIM(pages.url, '/')",
             'position' => 'INSTR(LOWER(pages.name), ?)',
             'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + INSTR(LOWER(pages.name), ?) / 1000.0',
             'year' => "CAST(strftime('%Y', created_at) AS INTEGER)",
@@ -142,13 +147,14 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'CAST((julianday(finished_at) - julianday(started_at)) * 86400 AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
             'json_contains' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE value = ?)',
-            'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(value AS TEXT) LIKE ?)',
+            'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
         ],
     ],
     'postgresql' => [
         new PostgresDatabasePlatform,
         [
             'concat' => 'pages.name || ? || pages.slug',
+            'trim' => "RTRIM(pages.url, '/')",
             'position' => 'STRPOS(LOWER(pages.name), ?)',
             'relevance' => 'CASE WHEN LOWER(pages.name) = ? THEN 0 WHEN LOWER(pages.name) LIKE ? THEN 1 WHEN LOWER(pages.name) LIKE ? THEN 2 ELSE 3 END + STRPOS(LOWER(pages.name), ?) / 1000.0',
             'year' => 'EXTRACT(YEAR FROM created_at)::INTEGER',
@@ -160,6 +166,27 @@ it('builds typed query expressions for every supported database family', functio
         ],
     ],
 ]);
+
+it('searches SQLite JSON array properties with wildcard paths', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $matching = $connection->query()->fromSub(
+        fn (Builder $query): Builder => $query->selectRaw(
+            '? AS meta',
+            [json_encode([['data' => 'A Capell needle appears here']], JSON_THROW_ON_ERROR)],
+        ),
+        'documents',
+    );
+    $notMatching = clone $matching;
+    $dialect = (new SqliteDatabasePlatform)->queryDialect();
+
+    $dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data')
+        ->applyWhere($matching);
+    $dialect->jsonSearch(SqlFragment::raw('meta'), 'absent', '$[*].data')
+        ->applyWhere($notMatching);
+
+    expect($matching->exists())->toBeTrue()
+        ->and($notMatching->exists())->toBeFalse();
+});
 
 it('matches PostgreSQL JSON values by the supplied search needle', function (): void {
     $connection = DB::connection();
