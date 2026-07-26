@@ -8,6 +8,8 @@ it('keeps fallback validation output readable in light and dark mode', function 
     );
 
     expect($view)
+        ->toContain('bg-gray-50')
         ->toContain('text-gray-900')
+        ->toContain('dark:bg-white/5')
         ->toContain('dark:text-gray-100');
 });
