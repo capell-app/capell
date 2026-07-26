@@ -21,6 +21,7 @@
         "test:marketplace-install-flow:required": "CAPELL_MARKETPLACE_SMOKE_REQUIRED=true playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium"
     },
     "devDependencies": {
+        "@capell-app/screenshot-tools": "file:../capell-screenshot-tools",
         "@playwright/test": "^1.60.0",
         "eslint": "^8.56.0",
         "eslint-config-prettier": "^9.1.0",
