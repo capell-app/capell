@@ -106,7 +106,7 @@ trait ApplySearchRelationsTable
         if ($searchColumnType === 'json' || $searchColumnType === 'json_data') {
             $search = CapellDatabase::for($query->getModel())->queryDialect()->jsonSearch(
                 $searchColumnFragment ?? SqlFragment::raw($searchColumnSql),
-                $searchTerm,
+                SqlFragment::value($searchTerm),
                 $searchColumnType === 'json_data' ? '$[*].data' : '$',
             );
 

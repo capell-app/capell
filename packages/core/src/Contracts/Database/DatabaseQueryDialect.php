@@ -25,5 +25,5 @@ interface DatabaseQueryDialect
 
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment;
 
-    public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment;
+    public function jsonSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment;
 }

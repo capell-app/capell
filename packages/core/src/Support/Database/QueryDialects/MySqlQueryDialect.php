@@ -71,8 +71,11 @@ final class MySqlQueryDialect extends AbstractQueryDialect
         return new SqlFragment('JSON_CONTAINS(' . $expression->sql . ', ?, ?)', [...$expression->bindings, $this->jsonValue($value), $path]);
     }
 
-    public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
+    public function jsonSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
     {
-        return new SqlFragment('JSON_SEARCH(' . $expression->sql . ", 'one', ?, NULL, ?) IS NOT NULL", [...$expression->bindings, '%' . $needle . '%', $path]);
+        return new SqlFragment(
+            'JSON_SEARCH(' . $expression->sql . ", 'one', CONCAT('%', " . $needle->sql . ", '%'), NULL, ?) IS NOT NULL",
+            [...$expression->bindings, ...$needle->bindings, $path],
+        );
     }
 }

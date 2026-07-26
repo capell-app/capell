@@ -80,9 +80,9 @@ it('builds typed query expressions for every supported database family', functio
         : ['$.tags', '"featured"'];
     $jsonSearchBindings = match ($platform->family()) {
         DatabaseFamily::MySql,
-        DatabaseFamily::MariaDb => ['%needle%', '$[*].data'],
-        DatabaseFamily::Sqlite => ['$', '$.data', '%needle%'],
-        DatabaseFamily::PostgreSql => ['$[*].data', '%needle%'],
+        DatabaseFamily::MariaDb => ['needle', '$[*].data'],
+        DatabaseFamily::Sqlite => ['$', '$.data', 'needle'],
+        DatabaseFamily::PostgreSql => ['$[*].data', 'needle'],
     };
 
     expect($dialect->concatenate($column, SqlFragment::value(' / '), SqlFragment::raw('pages.slug')))
@@ -103,7 +103,7 @@ it('builds typed query expressions for every supported database family', functio
         ->toEqual(new SqlFragment($expected['json_extract'], ['$.page_id']))
         ->and($dialect->jsonContains(SqlFragment::raw('meta'), 'featured', '$.tags'))
         ->toEqual(new SqlFragment($expected['json_contains'], $jsonContainsBindings))
-        ->and($dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data'))
+        ->and($dialect->jsonSearch(SqlFragment::raw('meta'), SqlFragment::value('needle'), '$[*].data'))
         ->toEqual(new SqlFragment($expected['json_search'], $jsonSearchBindings));
 })->with([
     'mysql' => [
@@ -118,7 +118,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
             'json_extract' => 'JSON_EXTRACT(meta, ?)',
             'json_contains' => 'JSON_CONTAINS(meta, ?, ?)',
-            'json_search' => "JSON_SEARCH(meta, 'one', ?, NULL, ?) IS NOT NULL",
+            'json_search' => "JSON_SEARCH(meta, 'one', CONCAT('%', ?, '%'), NULL, ?) IS NOT NULL",
         ],
     ],
     'mariadb' => [
@@ -133,7 +133,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
             'json_extract' => 'JSON_EXTRACT(meta, ?)',
             'json_contains' => 'JSON_CONTAINS(meta, ?, ?)',
-            'json_search' => "JSON_SEARCH(meta, 'one', ?, NULL, ?) IS NOT NULL",
+            'json_search' => "JSON_SEARCH(meta, 'one', CONCAT('%', ?, '%'), NULL, ?) IS NOT NULL",
         ],
     ],
     'sqlite' => [
@@ -148,7 +148,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'CAST(ROUND((julianday(finished_at) - julianday(started_at)) * 86400) AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
             'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' WHEN capell_json_item.type IN ('array', 'object') THEN json(capell_json_item.value) = json(capell_json_target.value) ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
-            'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
+            'json_search' => "EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ('%' || CAST(? AS TEXT) || '%'))",
         ],
     ],
     'postgresql' => [
@@ -163,7 +163,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'EXTRACT(EPOCH FROM (finished_at - started_at))::INTEGER',
             'json_extract' => 'jsonb_path_query_first(meta::jsonb, ?::jsonpath)',
             'json_contains' => "EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = 'array' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))",
-            'json_search' => "EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ?)",
+            'json_search' => "EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ('%' || CAST(? AS TEXT) || '%'))",
         ],
     ],
 ]);
@@ -280,13 +280,63 @@ it('searches SQLite JSON array properties with wildcard paths', function (): voi
     $notMatching = clone $matching;
     $dialect = (new SqliteDatabasePlatform)->queryDialect();
 
-    $dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data')
+    $dialect->jsonSearch(SqlFragment::raw('meta'), SqlFragment::value('needle'), '$[*].data')
         ->applyWhere($matching);
-    $dialect->jsonSearch(SqlFragment::raw('meta'), 'absent', '$[*].data')
+    $dialect->jsonSearch(SqlFragment::raw('meta'), SqlFragment::value('absent'), '$[*].data')
         ->applyWhere($notMatching);
 
     expect($matching->exists())->toBeTrue()
         ->and($notMatching->exists())->toBeFalse();
+});
+
+it('searches JSON values using a correlated column needle', function (): void {
+    $connection = DB::connection();
+    $family = CapellDatabase::for($connection)->family();
+    $select = match ($family) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
+    $document = json_encode([
+        'widgets' => [
+            ['widget_key' => 'hero-banner'],
+            ['widget_key' => 'contact-form'],
+        ],
+    ], JSON_THROW_ON_ERROR);
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+    $boundSearch = $dialect->jsonSearch(
+        new SqlFragment('?', ['document-binding']),
+        new SqlFragment('?', ['needle-binding']),
+        '$.widgets[*].widget_key',
+    );
+    $expectedBindings = match ($family) {
+        DatabaseFamily::MySql,
+        DatabaseFamily::MariaDb => ['document-binding', 'needle-binding', '$.widgets[*].widget_key'],
+        DatabaseFamily::Sqlite => ['document-binding', '$.widgets', '$.widget_key', 'needle-binding'],
+        DatabaseFamily::PostgreSql => ['document-binding', '$.widgets[*].widget_key', 'needle-binding'],
+    };
+
+    $matches = function (string $needle) use ($connection, $dialect, $document, $select): bool {
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw(
+                $select . ', ? AS needle',
+                [$document, $needle],
+            ),
+            'documents',
+        );
+        $dialect->jsonSearch(
+            SqlFragment::raw('meta'),
+            SqlFragment::raw('needle'),
+            '$.widgets[*].widget_key',
+        )->applyWhere($query);
+
+        return $query->exists();
+    };
+
+    expect($matches('hero-banner'))->toBeTrue()
+        ->and($matches('missing-widget'))->toBeFalse()
+        ->and($boundSearch->bindings)->toBe($expectedBindings);
 });
 
 it('matches PostgreSQL JSON values by the supplied search needle', function (): void {
@@ -306,9 +356,9 @@ it('matches PostgreSQL JSON values by the supplied search needle', function (): 
     $notMatching = clone $matching;
     $dialect = (new PostgresDatabasePlatform)->queryDialect();
 
-    $dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data')
+    $dialect->jsonSearch(SqlFragment::raw('meta'), SqlFragment::value('needle'), '$[*].data')
         ->applyWhere($matching);
-    $dialect->jsonSearch(SqlFragment::raw('meta'), 'absent', '$[*].data')
+    $dialect->jsonSearch(SqlFragment::raw('meta'), SqlFragment::value('absent'), '$[*].data')
         ->applyWhere($notMatching);
 
     expect($matching->exists())->toBeTrue()

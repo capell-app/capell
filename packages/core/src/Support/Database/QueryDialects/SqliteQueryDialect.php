@@ -76,20 +76,20 @@ final class SqliteQueryDialect extends AbstractQueryDialect
         );
     }
 
-    public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
+    public function jsonSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
     {
         if (preg_match('/^(.*)\[\*\]\.([A-Za-z_]\w*)$/', $path, $matches) === 1) {
             $collectionPath = $matches[1] === '' ? '$' : $matches[1];
 
             return new SqlFragment(
-                'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ', ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
-                [...$expression->bindings, $collectionPath, '$.' . $matches[2], '%' . $needle . '%'],
+                'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ", ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ('%' || CAST(" . $needle->sql . " AS TEXT) || '%'))",
+                [...$expression->bindings, $collectionPath, '$.' . $matches[2], ...$needle->bindings],
             );
         }
 
         return new SqlFragment(
-            'EXISTS (SELECT 1 FROM json_tree(' . $expression->sql . ', ?) WHERE CAST(value AS TEXT) LIKE ?)',
-            [...$expression->bindings, $path, '%' . $needle . '%'],
+            'EXISTS (SELECT 1 FROM json_tree(' . $expression->sql . ", ?) WHERE CAST(value AS TEXT) LIKE ('%' || CAST(" . $needle->sql . " AS TEXT) || '%'))",
+            [...$expression->bindings, $path, ...$needle->bindings],
         );
     }
 }
