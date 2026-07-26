@@ -68,7 +68,7 @@ final class MySqlQueryDialect extends AbstractQueryDialect
 
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
-        return new SqlFragment('JSON_CONTAINS(' . $expression->sql . ', JSON_QUOTE(?), ?)', [...$expression->bindings, $value, $path]);
+        return new SqlFragment('JSON_CONTAINS(' . $expression->sql . ', ?, ?)', [...$expression->bindings, $this->jsonValue($value), $path]);
     }
 
     public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment

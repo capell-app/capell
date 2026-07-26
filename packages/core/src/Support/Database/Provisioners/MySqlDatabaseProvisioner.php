@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\Provisioners;
 
 use Capell\Core\Contracts\Database\DatabaseProvisioner;
+use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 
 final class MySqlDatabaseProvisioner extends AbstractServerDatabaseProvisioner implements DatabaseProvisioner
 {
-    public function provision(string $connectionName, array $configuration): bool
+    public function provision(string $connectionName, array $configuration): DatabaseProvisioningResult
     {
         $database = trim((string) ($configuration['database'] ?? ''));
 
         if ($database === '') {
-            return false;
+            return DatabaseProvisioningResult::Unavailable;
         }
 
         $socket = trim((string) ($configuration['unix_socket'] ?? ''));
@@ -31,9 +32,15 @@ final class MySqlDatabaseProvisioner extends AbstractServerDatabaseProvisioner i
         $collation = $this->simpleIdentifier($configuration['collation'] ?? null);
         $sql .= $collation === null ? '' : ' COLLATE ' . $collation;
 
-        $this->pdo($dsn, $configuration)->exec($sql);
+        $pdo = $this->pdo($dsn, $configuration);
+        $statement = $pdo->prepare('SELECT 1 FROM information_schema.schemata WHERE schema_name = ?');
+        $statement->execute([$database]);
+        $exists = $statement->fetchColumn() !== false;
+        $pdo->exec($sql);
         $this->refresh($connectionName);
 
-        return true;
+        return $exists
+            ? DatabaseProvisioningResult::Ready
+            : DatabaseProvisioningResult::Created;
     }
 }

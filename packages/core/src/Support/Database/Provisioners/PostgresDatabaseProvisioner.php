@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\Provisioners;
 
 use Capell\Core\Contracts\Database\DatabaseProvisioner;
+use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use RuntimeException;
 
 final class PostgresDatabaseProvisioner extends AbstractServerDatabaseProvisioner implements DatabaseProvisioner
 {
-    public function provision(string $connectionName, array $configuration): bool
+    public function provision(string $connectionName, array $configuration): DatabaseProvisioningResult
     {
         $database = trim((string) ($configuration['database'] ?? ''));
 
         if ($database === '') {
-            return false;
+            return DatabaseProvisioningResult::Unavailable;
         }
 
         $pdo = $this->pdo(sprintf(
@@ -34,6 +35,8 @@ final class PostgresDatabaseProvisioner extends AbstractServerDatabaseProvisione
 
         $this->refresh($connectionName);
 
-        return $created;
+        return $created
+            ? DatabaseProvisioningResult::Created
+            : DatabaseProvisioningResult::Ready;
     }
 }

@@ -71,8 +71,8 @@ final class SqliteQueryDialect extends AbstractQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
         return new SqlFragment(
-            'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ', ?) WHERE value = ?)',
-            [...$expression->bindings, $path, $value],
+            "EXISTS (SELECT 1 FROM json_each({$expression->sql}, ?) WHERE CASE type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' ELSE json_quote(value) END = json(?))",
+            [...$expression->bindings, $path, $this->jsonValue($value)],
         );
     }
 

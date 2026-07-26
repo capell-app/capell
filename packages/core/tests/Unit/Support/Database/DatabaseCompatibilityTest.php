@@ -8,6 +8,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
@@ -75,8 +76,8 @@ it('builds typed query expressions for every supported database family', functio
     $column = SqlFragment::raw('pages.name');
 
     $jsonContainsBindings = in_array($platform->family(), [DatabaseFamily::MySql, DatabaseFamily::MariaDb], true)
-        ? ['featured', '$.tags']
-        : ['$.tags', 'featured'];
+        ? ['"featured"', '$.tags']
+        : ['$.tags', '"featured"'];
     $jsonSearchBindings = match ($platform->family()) {
         DatabaseFamily::MySql,
         DatabaseFamily::MariaDb => ['%needle%', '$[*].data'],
@@ -116,7 +117,7 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "DATE_FORMAT(created_at, '%H:00')",
             'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
             'json_extract' => 'JSON_EXTRACT(meta, ?)',
-            'json_contains' => 'JSON_CONTAINS(meta, JSON_QUOTE(?), ?)',
+            'json_contains' => 'JSON_CONTAINS(meta, ?, ?)',
             'json_search' => 'JSON_SEARCH(meta, \'one\', ?, NULL, ?) IS NOT NULL',
         ],
     ],
@@ -131,7 +132,7 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "DATE_FORMAT(created_at, '%H:00')",
             'elapsed' => 'TIMESTAMPDIFF(SECOND, started_at, finished_at)',
             'json_extract' => 'JSON_EXTRACT(meta, ?)',
-            'json_contains' => 'JSON_CONTAINS(meta, JSON_QUOTE(?), ?)',
+            'json_contains' => 'JSON_CONTAINS(meta, ?, ?)',
             'json_search' => 'JSON_SEARCH(meta, \'one\', ?, NULL, ?) IS NOT NULL',
         ],
     ],
@@ -146,7 +147,7 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "strftime('%H:00', created_at)",
             'elapsed' => 'CAST((julianday(finished_at) - julianday(started_at)) * 86400 AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
-            'json_contains' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE value = ?)',
+            'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CASE type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' ELSE json_quote(value) END = json(?))",
             'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
         ],
     ],
@@ -161,11 +162,65 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "TO_CHAR(created_at, 'HH24:00')",
             'elapsed' => 'EXTRACT(EPOCH FROM (finished_at - started_at))::INTEGER',
             'json_extract' => 'jsonb_path_query_first(meta::jsonb, ?::jsonpath)',
-            'json_contains' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'value\', to_jsonb(?::text)))',
+            'json_contains' => 'EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = \'array\' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))',
             'json_search' => 'EXISTS (SELECT 1 FROM jsonb_path_query(meta::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> \'{}\' ILIKE ?)',
         ],
     ],
 ]);
+
+it('matches typed JSON values without coercing numbers or booleans to strings', function (): void {
+    $connection = DB::connection();
+    $family = CapellDatabase::for($connection)->family();
+    $select = match ($family) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
+    $document = json_encode([
+        'values' => ['featured', 42, true, [1, 2]],
+    ], JSON_THROW_ON_ERROR);
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+
+    foreach (['featured', 42, true, [1, 2]] as $value) {
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw($select, [$document]),
+            'documents',
+        );
+        $dialect->jsonContains(SqlFragment::raw('meta'), $value, '$.values')
+            ->applyWhere($query);
+
+        expect($query->exists())->toBeTrue();
+    }
+
+    foreach (['missing', 43, false, [2, 3]] as $value) {
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw($select, [$document]),
+            'documents',
+        );
+        $dialect->jsonContains(SqlFragment::raw('meta'), $value, '$.values')
+            ->applyWhere($query);
+
+        expect($query->exists())->toBeFalse();
+    }
+});
+
+it('repeats bound expression bindings in SQL placeholder order for relevance', function (): void {
+    $connection = DB::connection();
+    $rows = $connection->query()->selectRaw('? AS name', ['Other'])
+        ->unionAll($connection->query()->selectRaw('? AS name', ['Capell']));
+    $query = $connection->query()->fromSub($rows, 'pages')->select('name');
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+    $relevance = $dialect->textRelevance(
+        $dialect->concatenate(SqlFragment::value(''), SqlFragment::raw('name')),
+        'Capell',
+    );
+
+    $relevance->applyOrder($query);
+
+    expect($relevance->bindings)->toHaveCount(8)
+        ->and($query->pluck('name')->all())->toBe(['Capell', 'Other']);
+});
 
 it('searches SQLite JSON array properties with wildcard paths', function (): void {
     $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
@@ -231,17 +286,64 @@ it('builds schema expressions and reports family capabilities', function (): voi
         ->and($sqlite->schemaDialect()->prefixedIndex($definition))
         ->toEqual(new SqlFragment('CREATE INDEX "insights_path_index" ON "insights_events" ("path", "type")'))
         ->and($postgres->schemaDialect()->jsonPathIndex($definition, 'meta', '$.page_id'))
-        ->toEqual(new SqlFragment('CREATE INDEX "insights_path_index" ON "insights_events" ((jsonb_path_query_first("meta"::jsonb, ?::jsonpath)))', ['$.page_id']))
+        ->toEqual(new SqlFragment('CREATE INDEX "insights_path_index" ON "insights_events" ((jsonb_path_query_first("meta"::jsonb, \'$.page_id\'::jsonpath)))'))
+        ->and($mysql->schemaDialect()->jsonPathIndex($definition, 'meta', '$.page_id'))
+        ->toEqual(new SqlFragment('CREATE INDEX `insights_path_index` ON `insights_events` ((CAST(JSON_UNQUOTE(JSON_EXTRACT(`meta`, \'$.page_id\')) AS CHAR(191))))'))
+        ->and(fn (): ?SqlFragment => $sqlite->schemaDialect()->jsonPathIndex($definition, 'meta', "$.page_id'); DROP TABLE users; --"))
+        ->toThrow(InvalidArgumentException::class, 'Unsafe JSON path')
         ->and($mysql->schemaDialect()->hashColumn('insights_daily_rollups', 'path_digest', 'path'))
         ->toEqual(new SqlFragment('ALTER TABLE `insights_daily_rollups` ADD COLUMN `path_digest` CHAR(64) AS (SHA2(`path`, 256)) STORED'))
         ->and($sqlite->schemaDialect()->supports(DatabaseCapability::FullTextIndex))->toBeFalse()
         ->and($postgres->schemaDialect()->supports(DatabaseCapability::JsonPathIndex))->toBeTrue();
 });
 
+it('creates a SQLite JSON path index without DDL bindings', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $connection->statement('CREATE TABLE "capell_json_index_test" ("meta" JSON)');
+    $definition = new DatabaseIndexDefinition(
+        table: 'capell_json_index_test',
+        name: 'capell_json_index_test_path',
+        columns: ['meta'],
+    );
+    $fragment = (new SqliteDatabasePlatform)->schemaDialect()
+        ->jsonPathIndex($definition, 'meta', '$.page_id');
+    throw_unless($fragment instanceof SqlFragment, LogicException::class, 'SQLite did not provide a JSON path index.');
+
+    expect($fragment->bindings)->toBeEmpty()
+        ->and($connection->statement($fragment->sql))->toBeTrue()
+        ->and($connection->table('sqlite_master')->where('name', 'capell_json_index_test_path')->exists())->toBeTrue();
+});
+
+it('creates JSON path indexes on active MySQL and PostgreSQL engines', function (): void {
+    $connection = DB::connection();
+    $platform = CapellDatabase::for($connection);
+    $family = $platform->family();
+
+    if (! in_array($family, [DatabaseFamily::MySql, DatabaseFamily::PostgreSql], true)) {
+        $this->markTestSkipped('Functional JSON index execution requires MySQL 8+ or PostgreSQL.');
+    }
+
+    $connection->statement($family === DatabaseFamily::MySql
+        ? 'CREATE TEMPORARY TABLE capell_json_index_test (meta JSON)'
+        : 'CREATE TEMPORARY TABLE capell_json_index_test (meta JSONB)');
+    $definition = new DatabaseIndexDefinition(
+        table: 'capell_json_index_test',
+        name: 'capell_json_index_test_path',
+        columns: ['meta'],
+    );
+    $fragment = $platform->schemaDialect()->jsonPathIndex($definition, 'meta', '$.page_id');
+    throw_unless($fragment instanceof SqlFragment, LogicException::class, 'The active platform did not provide a JSON path index.');
+
+    expect($fragment->bindings)->toBeEmpty()
+        ->and($connection->statement($fragment->sql))->toBeTrue();
+});
+
 it('caches mysql and mariadb version capabilities per connection', function (): void {
+    $pdo = Mockery::mock(PDO::class);
+    $pdo->shouldReceive('getAttribute')->once()->with(PDO::ATTR_SERVER_VERSION)->andReturn('10.11.8-MariaDB');
     $connection = Mockery::mock(Connection::class);
     $connection->shouldReceive('getName')->andReturn('capell_mysql');
-    $connection->shouldReceive('getServerVersion')->once()->andReturn('10.11.8-MariaDB');
+    $connection->shouldReceive('getPdo')->once()->andReturn($pdo);
 
     $dialect = (new MySqlDatabasePlatform)->schemaDialect();
 
@@ -260,12 +362,28 @@ it('provisions sqlite files and skips empty server database names', function ():
     File::delete($path);
 
     try {
-        expect((new SqliteDatabasePlatform)->provisioner()->provision('sqlite', ['database' => $path]))->toBeTrue()
+        expect((new SqliteDatabasePlatform)->provisioner()->provision('sqlite', ['database' => $path]))->toBe(DatabaseProvisioningResult::Created)
             ->and(File::exists($path))->toBeTrue()
-            ->and((new SqliteDatabasePlatform)->provisioner()->provision('sqlite', ['database' => $path]))->toBeFalse()
-            ->and((new MySqlDatabasePlatform)->provisioner()->provision('mysql', ['database' => ' ']))->toBeFalse()
-            ->and((new PostgresDatabasePlatform)->provisioner()->provision('pgsql', ['database' => '']))->toBeFalse();
+            ->and((new SqliteDatabasePlatform)->provisioner()->provision('sqlite', ['database' => $path]))->toBe(DatabaseProvisioningResult::Ready)
+            ->and((new MySqlDatabasePlatform)->provisioner()->provision('mysql', ['database' => ' ']))->toBe(DatabaseProvisioningResult::Unavailable)
+            ->and((new PostgresDatabasePlatform)->provisioner()->provision('pgsql', ['database' => '']))->toBe(DatabaseProvisioningResult::Unavailable);
     } finally {
         File::delete($path);
     }
+});
+
+it('reports an existing PostgreSQL database as ready', function (): void {
+    $connection = DB::connection();
+
+    if ($connection->getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('PostgreSQL provisioning readiness requires the pgsql test connection.');
+    }
+
+    $connectionName = (string) config('database.default');
+    $configuration = config('database.connections.' . $connectionName);
+    throw_unless(is_array($configuration), LogicException::class, 'The PostgreSQL test connection must be configured.');
+    $configuration['maintenance_database'] = 'postgres';
+
+    expect((new PostgresDatabasePlatform)->provisioner()->provision($connectionName, $configuration))
+        ->toBe(DatabaseProvisioningResult::Ready);
 });

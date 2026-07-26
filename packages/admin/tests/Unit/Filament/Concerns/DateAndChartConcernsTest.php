@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Concerns\HasDateRangeFilters;
 use Capell\Admin\Filament\Concerns\HasLineChartOptions;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Facades\CapellDatabase;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 
@@ -49,12 +51,17 @@ it('maps dashboard events into date range filters and labels', function (): void
     };
 
     $subject->onDashboardFilterChanged('today');
+    $family = CapellDatabase::for()->family();
 
     expect($subject->filter)->toBe('today')
         ->and(array_slice($subject->labels(), 0, 2))->toBe(['00:00', '01:00'])
         ->and($subject->range())->toBe(['2026-05-07 00:00:00', '2026-05-07 23:59:59'])
         ->and($subject->label())->toBe(__('capell-admin::generic.today'))
-        ->and($subject->selectRange('created_at'))->toContain("strftime('%H:00', created_at)");
+        ->and($subject->selectRange('created_at'))->toContain(match ($family) {
+            DatabaseFamily::MySql, DatabaseFamily::MariaDb => "DATE_FORMAT(created_at, '%H:00')",
+            DatabaseFamily::PostgreSql => "TO_CHAR(created_at, 'HH24:00')",
+            DatabaseFamily::Sqlite => "strftime('%H:00', created_at)",
+        });
 
     $subject->onDashboardFilterChanged('this_week');
     expect($subject->filter)->toBe('week')
@@ -66,7 +73,11 @@ it('maps dashboard events into date range filters and labels', function (): void
 
     $subject->filter = 'last_week';
     expect($subject->range())->toBe(['2026-04-27 00:00:00', '2026-05-03 23:59:59'])
-        ->and($subject->selectRange('created_at'))->toContain('CASE strftime');
+        ->and($subject->selectRange('created_at'))->toContain(match ($family) {
+            DatabaseFamily::MySql, DatabaseFamily::MariaDb => "DATE_FORMAT(created_at, '%a')",
+            DatabaseFamily::PostgreSql => "TO_CHAR(created_at, 'Dy')",
+            DatabaseFamily::Sqlite => 'CASE strftime',
+        });
 
     $subject->pageFilters = ['date_range' => 'this_month'];
     expect($subject->range())->toBe(['2026-05-01 00:00:00', '2026-05-31 23:59:59']);
@@ -74,7 +85,11 @@ it('maps dashboard events into date range filters and labels', function (): void
 
     $subject->filter = 'month';
     expect($subject->labels()[0])->toBe('01 May')
-        ->and($subject->selectRange('created_at'))->toContain("strftime('%d', created_at)");
+        ->and($subject->selectRange('created_at'))->toContain(match ($family) {
+            DatabaseFamily::MySql, DatabaseFamily::MariaDb => "DATE_FORMAT(created_at, '%d %b')",
+            DatabaseFamily::PostgreSql => "TO_CHAR(created_at, 'DD Mon')",
+            DatabaseFamily::Sqlite => "strftime('%d', created_at)",
+        });
 
     $subject->filter = 'last_month';
     expect($subject->labels()[0])->toBe('01 Apr')

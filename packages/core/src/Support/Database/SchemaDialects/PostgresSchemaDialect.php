@@ -60,12 +60,13 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
     public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): SqlFragment
     {
         return new SqlFragment(sprintf(
-            '%s %s ON %s ((jsonb_path_query_first(%s::jsonb, ?::jsonpath)))',
+            '%s %s ON %s ((jsonb_path_query_first(%s::jsonb, %s::jsonpath)))',
             $this->indexKeyword($index),
             $this->identifier($index->name, '"'),
             $this->identifier($index->table, '"'),
             $this->identifier($column, '"'),
-        ), [$path]);
+            $this->jsonPathLiteral($path),
+        ));
     }
 
     public function fullTextIndex(DatabaseIndexDefinition $index): SqlFragment

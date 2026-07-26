@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Database\QueryDialects;
 
 use Capell\Core\Contracts\Database\DatabaseQueryDialect;
 use Capell\Core\Data\Database\SqlFragment;
+use JsonException;
 
 abstract class AbstractQueryDialect implements DatabaseQueryDialect
 {
@@ -25,6 +26,7 @@ abstract class AbstractQueryDialect implements DatabaseQueryDialect
     {
         $normalized = 'LOWER(' . $expression->sql . ')';
         $needle = mb_strtolower($needle);
+        $expressionBindings = $expression->bindings;
 
         return new SqlFragment(
             sprintf(
@@ -33,7 +35,24 @@ abstract class AbstractQueryDialect implements DatabaseQueryDialect
                 $position,
                 $divisor,
             ),
-            [...$expression->bindings, $needle, $needle . '%', '%' . $needle . '%', $needle],
+            [
+                ...$expressionBindings,
+                $needle,
+                ...$expressionBindings,
+                $needle . '%',
+                ...$expressionBindings,
+                '%' . $needle . '%',
+                ...$expressionBindings,
+                $needle,
+            ],
         );
+    }
+
+    /**
+     * @throws JsonException
+     */
+    protected function jsonValue(mixed $value): string
+    {
+        return json_encode($value, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     }
 }

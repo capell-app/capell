@@ -44,6 +44,7 @@ final class PackageTestDatabaseGuard
         $requested = strtolower(trim((string) $requested));
         $requested = $requested === '' ? 'sqlite' : $requested;
         $requested = in_array($requested, ['postgres', 'postgresql'], true) ? 'pgsql' : $requested;
+        $requested = $requested === 'mariadb' ? 'mysql' : $requested;
 
         if (! is_string($resolved) || strtolower($resolved) !== $requested) {
             throw new RuntimeException(sprintf(

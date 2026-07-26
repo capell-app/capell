@@ -11,6 +11,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
+use PDO;
 use WeakMap;
 
 class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
@@ -94,12 +95,13 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
     public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): ?SqlFragment
     {
         return new SqlFragment(sprintf(
-            '%s %s ON %s ((JSON_UNQUOTE(JSON_EXTRACT(%s, ?))))',
+            '%s %s ON %s ((CAST(JSON_UNQUOTE(JSON_EXTRACT(%s, %s)) AS CHAR(191))))',
             $this->indexKeyword($index),
             $this->identifier($index->name, '`'),
             $this->identifier($index->table, '`'),
             $this->identifier($column, '`'),
-        ), [$path]);
+            $this->jsonPathLiteral($path),
+        ));
     }
 
     public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment
@@ -126,7 +128,8 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             return $this->serverCapabilities[$connection];
         }
 
-        $version = $connection->getServerVersion();
+        $rawVersion = $connection->getPdo()->getAttribute(PDO::ATTR_SERVER_VERSION);
+        $version = is_string($rawVersion) ? $rawVersion : $connection->getServerVersion();
         $family = str_contains(strtolower($version), 'mariadb')
             ? DatabaseFamily::MariaDb
             : DatabaseFamily::MySql;

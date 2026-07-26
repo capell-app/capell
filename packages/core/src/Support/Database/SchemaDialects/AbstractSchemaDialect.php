@@ -35,4 +35,22 @@ abstract class AbstractSchemaDialect
 
         return strtoupper($type);
     }
+
+    protected function stringLiteral(string $value): string
+    {
+        throw_if(str_contains($value, "\0"), InvalidArgumentException::class, 'Database string literals cannot contain null bytes.');
+
+        return "'" . str_replace("'", "''", $value) . "'";
+    }
+
+    protected function jsonPathLiteral(string $path): string
+    {
+        throw_unless(
+            preg_match('/^\\$(?:(?:\\.[A-Za-z_][A-Za-z0-9_]*)|\\[(?:\\d+|\\*)\\])*$/', $path) === 1,
+            InvalidArgumentException::class,
+            sprintf('Unsafe JSON path [%s].', $path),
+        );
+
+        return $this->stringLiteral($path);
+    }
 }

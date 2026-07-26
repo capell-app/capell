@@ -69,8 +69,8 @@ final class PostgresQueryDialect extends AbstractQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
         return new SqlFragment(
-            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))",
-            [...$expression->bindings, $path, $value],
+            "EXISTS (SELECT 1 FROM jsonb_path_query({$expression->sql}::jsonb, ?::jsonpath) AS capell_json_contains(value) CROSS JOIN (SELECT ?::jsonb AS candidate) AS capell_json_target WHERE capell_json_contains.value = capell_json_target.candidate OR capell_json_contains.value @> capell_json_target.candidate OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(capell_json_contains.value) = 'array' THEN capell_json_contains.value ELSE jsonb_build_array(capell_json_contains.value) END) AS capell_json_element(value) WHERE capell_json_element.value = capell_json_target.candidate))",
+            [...$expression->bindings, $path, $this->jsonValue($value)],
         );
     }
 

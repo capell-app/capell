@@ -234,7 +234,7 @@ abstract class AbstractTestCase extends TestCase
             $connection = Config::get('database.connections.' . $requestedConnection);
             $connection = is_array($connection) ? $connection : (array) Config::get('database.connections.mysql', []);
             $requestedDatabase = getenv('DB_DATABASE') !== false ? trim((string) getenv('DB_DATABASE')) : '';
-            $connection['driver'] = $requestedConnection;
+            $connection['driver'] = 'mysql';
             $connection['database'] = in_array($requestedDatabase, ['', ':memory:'], true)
                 ? 'capell_packages_test'
                 : $requestedDatabase;

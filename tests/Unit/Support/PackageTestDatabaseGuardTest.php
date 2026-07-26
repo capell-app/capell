@@ -29,6 +29,8 @@ it('allows isolated package test databases', function (?string $connection, ?str
 it('asserts the requested package test driver is the driver that resolved', function (): void {
     expect(fn (): null => PackageTestDatabaseGuard::assertRequestedDriverResolved('mysql', 'mysql'))
         ->not->toThrow(RuntimeException::class)
+        ->and(fn (): null => PackageTestDatabaseGuard::assertRequestedDriverResolved('mariadb', 'mysql'))
+        ->not->toThrow(RuntimeException::class)
         ->and(fn (): null => PackageTestDatabaseGuard::assertRequestedDriverResolved('mysql', 'sqlite'))
         ->toThrow(RuntimeException::class, 'Requested package test database driver [mysql] resolved to [sqlite].');
 });
