@@ -6,7 +6,7 @@ $configuredRepositoryRoot = getenv('CAPELL_DOCS_ENV_ROOT') ?: dirname(__DIR__);
 $repositoryRoot = realpath($configuredRepositoryRoot);
 
 if ($repositoryRoot === false) {
-    fwrite(STDERR, "Missing repository root: {$configuredRepositoryRoot}\n");
+    fwrite(STDERR, sprintf('Missing repository root: %s%s', $configuredRepositoryRoot, PHP_EOL));
 
     exit(1);
 }
@@ -79,12 +79,15 @@ foreach ($markdownFiles as $markdownFile) {
 
         foreach ($variableMatches[1] as $documentedVariable) {
             $documentedCount++;
-
-            if (isset($readVariables[$documentedVariable]) || isset($allowedExternalVariables[$documentedVariable])) {
+            if (isset($readVariables[$documentedVariable])) {
                 continue;
             }
 
-            $failures[] = "{$relativePath}: documents {$documentedVariable} but no env('{$documentedVariable}') call exists under packages/ and it is not allowlisted.";
+            if (isset($allowedExternalVariables[$documentedVariable])) {
+                continue;
+            }
+
+            $failures[] = sprintf("%s: documents %s but no env('%s') call exists under packages/ and it is not allowlisted.", $relativePath, $documentedVariable, $documentedVariable);
         }
     }
 }
@@ -95,7 +98,7 @@ if ($failures !== []) {
     fwrite(STDERR, "Documented env var(s) that nothing reads:\n");
 
     foreach (array_unique($failures) as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
     fwrite(STDERR, "\nFix the docs to use the real variable name, or add a justified entry to \$allowedExternalVariables in scripts/check-docs-env-vars.php.\n");
@@ -103,7 +106,7 @@ if ($failures !== []) {
     exit(2);
 }
 
-echo "{$documentedCount} documented env assignments verified against packages/ env() readers.\n";
+printf('%d documented env assignments verified against packages/ env() readers.%s', $documentedCount, PHP_EOL);
 
 exit(0);
 
@@ -134,7 +137,7 @@ function collectFilesByExtension(string $directory, string $extension): array
     );
 
     foreach ($directoryIterator as $fileInfo) {
-        if ($fileInfo->isFile() && strtolower($fileInfo->getExtension()) === $extension) {
+        if ($fileInfo->isFile() && strtolower((string) $fileInfo->getExtension()) === $extension) {
             $collectedFiles[] = $fileInfo->getRealPath();
         }
     }

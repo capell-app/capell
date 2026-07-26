@@ -31,10 +31,10 @@ $table = [['Stable ID', 'Kind', 'Identifier', 'Owner', 'Stability', 'Summary']];
 
 foreach ($entries as $entry) {
     $table[] = [
-        "`{$entry->id}`",
+        sprintf('`%s`', $entry->id),
         $entry->kind,
         '`' . str_replace('|', '\\|', $entry->identifier) . '`',
-        "`{$entry->ownerPackage}`",
+        sprintf('`%s`', $entry->ownerPackage),
         $entry->stability->value,
         $entry->summary,
     ];
@@ -52,7 +52,7 @@ $formatRow = static function (array $row) use ($widths): string {
     $cells = [];
 
     foreach ($row as $column => $value) {
-        $cells[] = $value . str_repeat(' ', $widths[$column] - mb_strwidth($value));
+        $cells[] = $value . str_repeat(' ', $widths[$column] - mb_strwidth((string) $value));
     }
 
     return '| ' . implode(' | ', $cells) . ' |';
