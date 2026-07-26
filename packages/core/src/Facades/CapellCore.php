@@ -104,6 +104,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static PageTypeData getPageType(BlueprintSubjectEnum|string $name)
  * @method static bool hasPageType(BlueprintSubjectEnum|string $name)
  * @method static static registerPageVariation(PageVariationData $pageData)
+ * @method static static ensurePageVariationMorphAliases()
  * @method static ?PageVariationData getPageVariation(string $name)
  * @method static bool hasPageVariation(?string $name)
  * @method static array<string, PageVariationData> getPageVariations()

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Exceptions\InvalidPageModelException;
+use Capell\Core\Models\Page;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 it('registers a page and returns a PageData object', function (): void {
     $manager = new CapellCoreManager;
@@ -116,4 +118,52 @@ it('returns an empty list of models when none registered', function (): void {
     $manager = new CapellCoreManager;
 
     expect($manager->getPageVariationModels())->toBeArray()->and($manager->getPageVariationModels())->toBeEmpty();
+});
+
+it('keeps a page variation model addressable when another class owns the obvious alias', function (): void {
+    // access-gate and events both derive `event` from class_basename. morphMap()
+    // merges, so whichever boots last takes the key and the other model is left
+    // with no alias at all — getMorphClass() then throws
+    // ClassMorphViolationException and /admin/page-urls returned HTTP 500.
+    $originalMorphMap = Relation::morphMap() ?? [];
+
+    try {
+        Relation::morphMap(['user' => Page::class], merge: true);
+
+        $manager = new CapellCoreManager;
+        $manager->registerPageVariation(new PageVariationData(
+            name: 'conflicting',
+            model: User::class,
+        ));
+
+        $manager->ensurePageVariationMorphAliases();
+
+        $morphMap = Relation::morphMap() ?? [];
+
+        // The squatted alias is persisted data and must not be stolen.
+        expect($morphMap['user'])->toBe(Page::class)
+            ->and(array_search(User::class, $morphMap, true))->not->toBeFalse();
+    } finally {
+        Relation::morphMap($originalMorphMap, merge: false);
+    }
+});
+
+it('uses the plain alias when it is free', function (): void {
+    $originalMorphMap = Relation::morphMap() ?? [];
+
+    try {
+        Relation::morphMap([], merge: false);
+
+        $manager = new CapellCoreManager;
+        $manager->registerPageVariation(new PageVariationData(
+            name: 'unclaimed',
+            model: User::class,
+        ));
+
+        $manager->ensurePageVariationMorphAliases();
+
+        expect(Relation::morphMap()['user'] ?? null)->toBe(User::class);
+    } finally {
+        Relation::morphMap($originalMorphMap, merge: false);
+    }
 });
