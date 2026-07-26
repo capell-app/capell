@@ -13,9 +13,42 @@ mkdir -p "$(dirname "${DATABASE_PATH}")"
 # directory, so a run straight after `composer install` has nowhere to publish
 # vendor migrations to and the install aborts at the publish step.
 mkdir -p "${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/database/migrations"
-find "${REPOSITORY_ROOT}/workbench/database/migrations" -maxdepth 1 -type f \
-    \( -name '*_create_notifications_table.php' -o -name '*_create_sessions_table.php' \) \
-    -delete
+# `session:table` and `notifications:table` generate a migration into whichever
+# migration directory is registered, and those generated files persist across
+# runs. Clear them from the generated locations only — the previous version of
+# this cleanup globbed workbench/database/migrations, which also deleted two
+# TRACKED workbench migrations on every run and left the tree dirty.
+#
+# sessions is not regenerated at all any more: every Laravel 11+ skeleton
+# creates it inside 0001_01_01_000000_create_users_table.php, and
+# PrepareEnvironmentAction now detects that instead of generating a duplicate
+# that failed with "table sessions already exists".
+for generated_migration_directory in \
+    "${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/database/migrations" \
+    "${REPOSITORY_ROOT}/workbench/database/migrations"; do
+    [[ -d "${generated_migration_directory}" ]] || continue
+
+    find "${generated_migration_directory}" -maxdepth 1 -type f \
+        \( -name '*_create_notifications_table.php' -o -name '*_create_sessions_table.php' \) \
+        -delete
+done
+# IntegrateViteInputsAction resolves base_path('vite.config.{js,mjs,ts}') and
+# throws when none is found. Under Testbench, base_path() is the generated
+# Orchestra skeleton, which ships no Vite config at all, so create one that
+# already references capellViteInputs and the install step short-circuits
+# instead of trying to rewrite it.
+cat > "${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/vite.config.js" <<'VITE_CONFIG'
+import { capellViteInputs } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js';
+
+export default {
+    build: {
+        rollupOptions: {
+            input: capellViteInputs(import.meta.dirname),
+        },
+    },
+};
+VITE_CONFIG
+
 rm -f "${DATABASE_PATH}"
 touch "${DATABASE_PATH}"
 
