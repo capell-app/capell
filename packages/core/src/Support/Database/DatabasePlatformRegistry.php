@@ -9,9 +9,7 @@ use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
 use Illuminate\Database\Connection;
-use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -43,7 +41,7 @@ final class DatabasePlatformRegistry
         return $this;
     }
 
-    public function for(Connection|Model|EloquentBuilder|QueryBuilder|string|null $context = null): DatabasePlatform
+    public function for(Connection|Model|string|null $context = null): DatabasePlatform
     {
         $connection = $this->connection($context);
         $driver = $connection?->getDriverName()
@@ -57,7 +55,7 @@ final class DatabasePlatformRegistry
         $platform = $this->platforms[$driver]
             ?? throw new UnsupportedDatabaseDriver(sprintf('Unsupported database driver [%s].', $driver));
 
-        if ($driver !== 'mysql' || $connection === null || ! isset($this->platforms['mariadb'])) {
+        if ($driver !== 'mysql' || ! $connection instanceof Connection || ! isset($this->platforms['mariadb'])) {
             return $platform;
         }
 
@@ -69,21 +67,13 @@ final class DatabasePlatformRegistry
                 : $platform;
     }
 
-    private function connection(Connection|Model|EloquentBuilder|QueryBuilder|string|null $context): ?Connection
+    private function connection(Connection|Model|string|null $context): ?Connection
     {
         if ($context instanceof Connection) {
             return $context;
         }
 
         if ($context instanceof Model) {
-            return $context->getConnection();
-        }
-
-        if ($context instanceof EloquentBuilder) {
-            return $context->getModel()->getConnection();
-        }
-
-        if ($context instanceof QueryBuilder) {
             return $context->getConnection();
         }
 

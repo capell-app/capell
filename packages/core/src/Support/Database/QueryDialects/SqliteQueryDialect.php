@@ -13,7 +13,7 @@ final class SqliteQueryDialect extends AbstractQueryDialect
     {
         return new SqlFragment(
             implode(' || ', array_map(static fn (SqlFragment $expression): string => $expression->sql, $expressions)),
-            $this->bindings($expressions),
+            $this->bindings(array_values($expressions)),
         );
     }
 

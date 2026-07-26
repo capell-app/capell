@@ -668,16 +668,18 @@ class PagesTable implements TableConfigurator
      */
     protected static function applyNameSearch(Builder $query, string $search): Builder
     {
-        $relevance = CapellDatabase::for($query)
+        $relevance = CapellDatabase::for($query->getModel())
             ->queryDialect()
             ->textRelevance(SqlFragment::raw($query->getQuery()->getGrammar()->wrap('pages.name')), $search);
 
-        return $query->where('name', 'like', sprintf('%%%s%%', $search))
+        $query->where('name', 'like', sprintf('%%%s%%', $search))
             ->orWhereHas(
                 'translations',
                 fn (BuilderContract $query): BuilderContract => $query->where('title', 'like', sprintf('%%%s%%', $search)),
-            )
-            ->orderByRaw($relevance->sql, $relevance->bindings);
+            );
+        $relevance->applyOrder($query->getQuery());
+
+        return $query;
     }
 
     /**
@@ -713,10 +715,10 @@ class PagesTable implements TableConfigurator
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        return $query->whereRaw(
-            $url->sql . ' LIKE ?',
-            [...$url->bindings, sprintf('%%%s%%', $search)],
-        );
+        (new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%%%s%%', $search)]))
+            ->applyWhere($query->getQuery());
+
+        return $query;
     }
 
     /**

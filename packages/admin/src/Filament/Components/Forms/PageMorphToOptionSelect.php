@@ -68,14 +68,13 @@ class PageMorphToOptionSelect extends OptionMorphToSelect
                 $query = $this->getOptionsQuery($component, $pageData);
 
                 $searchColumn = $this->wrappedSearchColumn($query, $titleAttribute);
-                $relevance = CapellDatabase::for($query)
+                $relevance = CapellDatabase::for($query->getModel())
                     ->queryDialect()
                     ->textRelevance(SqlFragment::raw($searchColumn), $search);
 
-                $query->whereLike($titleAttribute, sprintf('%%%s%%', $search))
-                    ->orderByRaw($relevance->sql, $relevance->bindings)
-                    ->orderBy($titleAttribute)
-                    ->limit($component->getOptionsLimit());
+                $query->whereLike($titleAttribute, sprintf('%%%s%%', $search));
+                $relevance->applyOrder($query->getQuery());
+                $query->orderBy($titleAttribute)->limit($component->getOptionsLimit());
 
                 return $query->pluck($titleAttribute, $query->getModel()->getKeyName())->all();
             })

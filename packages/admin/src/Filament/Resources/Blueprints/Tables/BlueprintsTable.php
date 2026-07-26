@@ -15,6 +15,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Blueprints\Pages\ManageBlueprints;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
@@ -34,7 +35,6 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\LazyCollection;
 
 class BlueprintsTable implements TableConfigurator
@@ -43,28 +43,36 @@ class BlueprintsTable implements TableConfigurator
     {
         return $table
             ->modifyQueryUsing(function (Builder $query): Builder {
+                $grammar = $query->getQuery()->getGrammar();
                 $sql = '(CASE';
+                $bindings = [];
+
                 foreach (CapellCore::getPageTypes() as $type) {
                     if ($type->name === 'type') {
                         continue;
                     }
 
-                    $table = resolve($type->model)->getTable();
+                    /** @var Model $model */
+                    $model = resolve($type->model);
+                    $table = $model->getTable();
 
                     $sql .= sprintf(
-                        " WHEN `type` = '%s' THEN (SELECT COUNT(*) FROM `%s` WHERE blueprints.id = `%s`.blueprint_id)",
-                        $type->name,
-                        $table,
-                        $table,
+                        ' WHEN %s = ? THEN (SELECT COUNT(*) FROM %s WHERE %s = %s)',
+                        $grammar->wrap('blueprints.type'),
+                        $grammar->wrapTable($table),
+                        $grammar->wrap('blueprints.id'),
+                        $grammar->wrap($table . '.blueprint_id'),
                     );
+                    $bindings[] = $type->name;
                 }
 
-                $sql .= " ELSE 0 END) AS 'count'";
+                $sql .= sprintf(' ELSE 0 END) AS %s', $grammar->wrap('count'));
+                $count = new SqlFragment($sql, $bindings);
 
-                return $query->select([
-                    'blueprints.*',
-                    DB::raw(self::literalSql($sql)),
-                ]);
+                $query->select('blueprints.*');
+                $count->applySelect($query->getQuery());
+
+                return $query;
             })
             ->defaultSort('type')
             ->columns(static::getTableColumns())
@@ -255,14 +263,5 @@ class BlueprintsTable implements TableConfigurator
     protected static function applyAdminJsonSearch(Builder $query, string $column, string $search): void
     {
         $query->whereLike($column, sprintf('%%%s%%', $search));
-    }
-
-    /**
-     * @return literal-string
-     */
-    private static function literalSql(string $sql): string
-    {
-        /** @var literal-string $sql */
-        return $sql;
     }
 }

@@ -13,7 +13,7 @@ final class PostgresQueryDialect extends AbstractQueryDialect
     {
         return new SqlFragment(
             implode(' || ', array_map(static fn (SqlFragment $expression): string => $expression->sql, $expressions)),
-            $this->bindings($expressions),
+            $this->bindings(array_values($expressions)),
         );
     }
 
@@ -61,16 +61,20 @@ final class PostgresQueryDialect extends AbstractQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
         return new SqlFragment(
-            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?)))",
+            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))",
             [...$expression->bindings, $path, $value],
         );
     }
 
     public function jsonSearch(SqlFragment $expression, string $needle, string $path = '$'): SqlFragment
     {
+        $searchPath = $path === '$'
+            ? '$.** ? (@.type() == "string" && @ like_regex $needle flag "i")'
+            : $path . ' ? (@ like_regex $needle flag "i")';
+
         return new SqlFragment(
-            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('needle', to_jsonb(?)))",
-            [...$expression->bindings, $path, '%' . $needle . '%'],
+            "jsonb_path_exists({$expression->sql}::jsonb, ?::jsonpath, jsonb_build_object('needle', to_jsonb(?::text)))",
+            [...$expression->bindings, $searchPath, '.*' . preg_quote($needle, '/') . '.*'],
         );
     }
 }

@@ -57,7 +57,7 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
         ));
     }
 
-    public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): ?SqlFragment
+    public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): SqlFragment
     {
         return new SqlFragment(sprintf(
             '%s %s ON %s ((jsonb_path_query_first(%s::jsonb, ?::jsonpath)))',
@@ -68,7 +68,7 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
         ), [$path]);
     }
 
-    public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment
+    public function fullTextIndex(DatabaseIndexDefinition $index): SqlFragment
     {
         $columns = implode(" || ' ' || ", array_map(
             fn (string $column): string => sprintf("COALESCE(%s, '')", $this->identifier($column, '"')),

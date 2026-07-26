@@ -7,13 +7,11 @@ namespace Capell\Core\Facades;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Illuminate\Database\Connection;
-use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static DatabasePlatform for(Connection|Model|EloquentBuilder|QueryBuilder|string|null $context = null)
+ * @method static DatabasePlatform for(Connection|Model|string|null $context = null)
  *
  * @see DatabasePlatformRegistry
  */

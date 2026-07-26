@@ -17,6 +17,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\SiteScope;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\PageUrl;
@@ -206,10 +207,10 @@ class PageUrlsTable implements TableConfigurator
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        return $query->whereRaw(
-            $url->sql . ' LIKE ?',
-            [...$url->bindings, sprintf('%s%%', $search)],
-        );
+        (new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%s%%', $search)]))
+            ->applyWhere($query->getQuery());
+
+        return $query;
     }
 
     /**

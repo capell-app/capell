@@ -162,11 +162,12 @@ class LayoutSelect extends Select
         }
 
         $column = $this->wrappedSearchColumn($query, $titleAttribute);
-        $relevance = CapellDatabase::for($query)
+        $relevance = CapellDatabase::for($query->getModel())
             ->queryDialect()
             ->textRelevance(SqlFragment::raw($column), $search);
 
-        $query->orderByRaw($relevance->sql, $relevance->bindings)->orderBy($titleAttribute);
+        $relevance->applyOrder($query->getQuery());
+        $query->orderBy($titleAttribute);
     }
 
     /**

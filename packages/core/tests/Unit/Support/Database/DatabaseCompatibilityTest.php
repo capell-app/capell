@@ -16,7 +16,9 @@ use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\SQLiteConnection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 it('resolves every supported database driver through one registry seam', function (): void {
@@ -39,29 +41,30 @@ it('resolves configured connections and rejects duplicates and unknown drivers',
     $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:');
 
     expect($registry->for($connection))->toBe($sqlite)
-        ->and(fn (): DatabasePlatform => $registry->register(new SqliteDatabasePlatform))
+        ->and(fn (): DatabasePlatformRegistry => $registry->register(new SqliteDatabasePlatform))
         ->toThrow(LogicException::class, 'Database driver [sqlite] is already registered.')
         ->and(fn (): DatabasePlatform => $registry->for('sqlsrv'))
         ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].');
 });
 
 it('declares platform family metadata and optional provisioners', function (): void {
-    expect(new MySqlDatabasePlatform)
-        ->family()->toBe(DatabaseFamily::MySql)
-        ->phpExtension()->toBe('pdo_mysql')
-        ->provisioner()->not->toBeNull()
-        ->and(new MariaDbDatabasePlatform)
-        ->family()->toBe(DatabaseFamily::MariaDb)
-        ->phpExtension()->toBe('pdo_mysql')
-        ->provisioner()->not->toBeNull()
-        ->and(new SqliteDatabasePlatform)
-        ->family()->toBe(DatabaseFamily::Sqlite)
-        ->phpExtension()->toBe('pdo_sqlite')
-        ->provisioner()->not->toBeNull()
-        ->and(new PostgresDatabasePlatform)
-        ->family()->toBe(DatabaseFamily::PostgreSql)
-        ->phpExtension()->toBe('pdo_pgsql')
-        ->provisioner()->not->toBeNull();
+    $mysql = new MySqlDatabasePlatform;
+    $mariaDb = new MariaDbDatabasePlatform;
+    $sqlite = new SqliteDatabasePlatform;
+    $postgres = new PostgresDatabasePlatform;
+
+    expect($mysql->family())->toBe(DatabaseFamily::MySql)
+        ->and($mysql->phpExtension())->toBe('pdo_mysql')
+        ->and($mysql->provisioner())->not->toBeNull()
+        ->and($mariaDb->family())->toBe(DatabaseFamily::MariaDb)
+        ->and($mariaDb->phpExtension())->toBe('pdo_mysql')
+        ->and($mariaDb->provisioner())->not->toBeNull()
+        ->and($sqlite->family())->toBe(DatabaseFamily::Sqlite)
+        ->and($sqlite->phpExtension())->toBe('pdo_sqlite')
+        ->and($sqlite->provisioner())->not->toBeNull()
+        ->and($postgres->family())->toBe(DatabaseFamily::PostgreSql)
+        ->and($postgres->phpExtension())->toBe('pdo_pgsql')
+        ->and($postgres->provisioner())->not->toBeNull();
 });
 
 it('builds typed query expressions for every supported database family', function (
@@ -71,7 +74,18 @@ it('builds typed query expressions for every supported database family', functio
     $dialect = $platform->queryDialect();
     $column = SqlFragment::raw('pages.name');
 
-    $jsonValueFirst = in_array($platform->family(), [DatabaseFamily::MySql, DatabaseFamily::MariaDb], true);
+    $jsonContainsBindings = in_array($platform->family(), [DatabaseFamily::MySql, DatabaseFamily::MariaDb], true)
+        ? ['featured', '$.tags']
+        : ['$.tags', 'featured'];
+    $jsonSearchBindings = match ($platform->family()) {
+        DatabaseFamily::MySql,
+        DatabaseFamily::MariaDb => ['%needle%', '$[*].data'],
+        DatabaseFamily::Sqlite => ['$[*].data', '%needle%'],
+        DatabaseFamily::PostgreSql => [
+            '$[*].data ? (@ like_regex $needle flag "i")',
+            '.*needle.*',
+        ],
+    };
 
     expect($dialect->concatenate($column, SqlFragment::value(' / '), SqlFragment::raw('pages.slug')))
         ->toEqual(new SqlFragment($expected['concat'], [' / ']))
@@ -88,9 +102,9 @@ it('builds typed query expressions for every supported database family', functio
         ->and($dialect->jsonExtract(SqlFragment::raw('meta'), '$.page_id'))
         ->toEqual(new SqlFragment($expected['json_extract'], ['$.page_id']))
         ->and($dialect->jsonContains(SqlFragment::raw('meta'), 'featured', '$.tags'))
-        ->toEqual(new SqlFragment($expected['json_contains'], $jsonValueFirst ? ['featured', '$.tags'] : ['$.tags', 'featured']))
+        ->toEqual(new SqlFragment($expected['json_contains'], $jsonContainsBindings))
         ->and($dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data'))
-        ->toEqual(new SqlFragment($expected['json_search'], $jsonValueFirst ? ['%needle%', '$[*].data'] : ['$[*].data', '%needle%']));
+        ->toEqual(new SqlFragment($expected['json_search'], $jsonSearchBindings));
 })->with([
     'mysql' => [
         new MySqlDatabasePlatform,
@@ -144,11 +158,37 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "TO_CHAR(created_at, 'HH24:00')",
             'elapsed' => 'EXTRACT(EPOCH FROM (finished_at - started_at))::INTEGER',
             'json_extract' => 'jsonb_path_query_first(meta::jsonb, ?::jsonpath)',
-            'json_contains' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'value\', to_jsonb(?)))',
-            'json_search' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'needle\', to_jsonb(?)))',
+            'json_contains' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'value\', to_jsonb(?::text)))',
+            'json_search' => 'jsonb_path_exists(meta::jsonb, ?::jsonpath, jsonb_build_object(\'needle\', to_jsonb(?::text)))',
         ],
     ],
 ]);
+
+it('matches PostgreSQL JSON values by the supplied search needle', function (): void {
+    $connection = DB::connection();
+
+    if ($connection->getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('PostgreSQL JSON behaviour requires the pgsql test connection.');
+    }
+
+    $matching = $connection->query()->fromSub(
+        fn (Builder $query): Builder => $query->selectRaw(
+            '?::jsonb AS meta',
+            [json_encode([['data' => 'A Capell needle appears here']], JSON_THROW_ON_ERROR)],
+        ),
+        'documents',
+    );
+    $notMatching = clone $matching;
+    $dialect = (new PostgresDatabasePlatform)->queryDialect();
+
+    $dialect->jsonSearch(SqlFragment::raw('meta'), 'needle', '$[*].data')
+        ->applyWhere($matching);
+    $dialect->jsonSearch(SqlFragment::raw('meta'), 'absent', '$[*].data')
+        ->applyWhere($notMatching);
+
+    expect($matching->exists())->toBeTrue()
+        ->and($notMatching->exists())->toBeFalse();
+});
 
 it('builds schema expressions and reports family capabilities', function (): void {
     $definition = new DatabaseIndexDefinition(
@@ -196,11 +236,11 @@ it('provisions sqlite files and skips empty server database names', function ():
     File::delete($path);
 
     try {
-        expect((new SqliteDatabasePlatform)->provisioner()?->provision('sqlite', ['database' => $path]))->toBeTrue()
+        expect((new SqliteDatabasePlatform)->provisioner()->provision('sqlite', ['database' => $path]))->toBeTrue()
             ->and(File::exists($path))->toBeTrue()
-            ->and((new SqliteDatabasePlatform)->provisioner()?->provision('sqlite', ['database' => $path]))->toBeFalse()
-            ->and((new MySqlDatabasePlatform)->provisioner()?->provision('mysql', ['database' => ' ']))->toBeFalse()
-            ->and((new PostgresDatabasePlatform)->provisioner()?->provision('pgsql', ['database' => '']))->toBeFalse();
+            ->and((new SqliteDatabasePlatform)->provisioner()->provision('sqlite', ['database' => $path]))->toBeFalse()
+            ->and((new MySqlDatabasePlatform)->provisioner()->provision('mysql', ['database' => ' ']))->toBeFalse()
+            ->and((new PostgresDatabasePlatform)->provisioner()->provision('pgsql', ['database' => '']))->toBeFalse();
     } finally {
         File::delete($path);
     }

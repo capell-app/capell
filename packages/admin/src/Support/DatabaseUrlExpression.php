@@ -7,9 +7,26 @@ namespace Capell\Admin\Support;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
+use Illuminate\Database\Query\Expression;
+use Illuminate\Support\Facades\DB;
 
 final class DatabaseUrlExpression
 {
+    /** @return Expression<literal-string> */
+    public static function siteDomain(): Expression
+    {
+        $connection = DB::connection();
+        $grammar = $connection->getQueryGrammar();
+        $url = CapellDatabase::for($connection)->queryDialect()->concatenate(
+            SqlFragment::raw($grammar->wrap('scheme')),
+            SqlFragment::raw("'://'"),
+            SqlFragment::raw($grammar->wrap('domain')),
+            SqlFragment::raw('COALESCE(' . $grammar->wrap('path') . ", '')"),
+        );
+
+        return new SqlFragment("RTRIM({$url->sql}, '/')")->expression();
+    }
+
     public static function full(BuilderContract $query, mixed $defaultScheme, mixed $defaultDomain): SqlFragment
     {
         $grammar = $query->getQuery()->getGrammar();

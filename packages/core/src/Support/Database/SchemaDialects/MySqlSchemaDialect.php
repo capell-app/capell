@@ -25,18 +25,30 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
 
     public function supports(DatabaseCapability $capability, ?Connection $connection = null): bool
     {
-        $server = $connection === null ? null : $this->serverCapabilities($connection);
-        $family = $server?->family ?? $this->defaultFamily;
+        if ($connection === null) {
+            return match ($capability) {
+                DatabaseCapability::PrefixIndex,
+                DatabaseCapability::FullTextIndex,
+                DatabaseCapability::ForeignKeyDrop,
+                DatabaseCapability::GeneratedColumnInspection,
+                DatabaseCapability::GeneratedColumn,
+                DatabaseCapability::StoredGeneratedColumn => true,
+                DatabaseCapability::HashGeneratedColumn,
+                DatabaseCapability::JsonPathIndex => $this->defaultFamily === DatabaseFamily::MySql,
+            };
+        }
+
+        $server = $this->serverCapabilities($connection);
 
         return match ($capability) {
             DatabaseCapability::PrefixIndex,
             DatabaseCapability::FullTextIndex,
             DatabaseCapability::ForeignKeyDrop,
             DatabaseCapability::GeneratedColumnInspection => true,
-            DatabaseCapability::GeneratedColumn => $server?->generatedColumns ?? true,
-            DatabaseCapability::StoredGeneratedColumn => $server?->storedGeneratedColumns ?? true,
-            DatabaseCapability::HashGeneratedColumn => $family === DatabaseFamily::MySql,
-            DatabaseCapability::JsonPathIndex => $server?->functionalIndexes ?? $family === DatabaseFamily::MySql,
+            DatabaseCapability::GeneratedColumn => $server->generatedColumns,
+            DatabaseCapability::StoredGeneratedColumn => $server->storedGeneratedColumns,
+            DatabaseCapability::HashGeneratedColumn => $server->family === DatabaseFamily::MySql,
+            DatabaseCapability::JsonPathIndex => $server->functionalIndexes,
         };
     }
 

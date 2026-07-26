@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\Preflight;
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -165,6 +166,14 @@ final class InstallerPreflight
     private function requiredExtensions(): array
     {
         $required = ['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'json', 'mbstring', 'openssl', 'pdo', 'tokenizer', 'xml'];
+        $connection = (string) config('database.default');
+        $driver = (string) config(sprintf('database.connections.%s.driver', $connection));
+
+        if ($driver !== '') {
+            $required[] = CapellDatabase::for($driver)->phpExtension();
+        }
+
+        $required = array_values(array_unique($required));
         $missing = array_values(array_filter($required, fn (string $extension): bool => ! extension_loaded($extension)));
 
         if ($missing === []) {
@@ -176,7 +185,7 @@ final class InstallerPreflight
             'PHP extensions',
             'fail',
             'Missing PHP extensions: ' . implode(', ', $missing) . '.',
-            'Enable the missing extensions in the PHP runtime used by the web server.',
+            'Enable the missing extensions in the PHP runtime used by the web server, including the PDO driver for the configured database.',
         );
     }
 

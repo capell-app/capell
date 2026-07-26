@@ -40,7 +40,7 @@ final readonly class PostgresDatabasePlatform implements DatabasePlatform
         return new PostgresSchemaDialect;
     }
 
-    public function provisioner(): ?DatabaseProvisioner
+    public function provisioner(): DatabaseProvisioner
     {
         return new PostgresDatabaseProvisioner;
     }

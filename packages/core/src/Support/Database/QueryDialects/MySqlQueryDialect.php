@@ -13,7 +13,7 @@ final class MySqlQueryDialect extends AbstractQueryDialect
     {
         return new SqlFragment(
             'CONCAT(' . implode(', ', array_map(static fn (SqlFragment $expression): string => $expression->sql, $expressions)) . ')',
-            $this->bindings($expressions),
+            $this->bindings(array_values($expressions)),
         );
     }
 

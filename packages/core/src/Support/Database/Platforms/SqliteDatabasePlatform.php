@@ -40,7 +40,7 @@ final readonly class SqliteDatabasePlatform implements DatabasePlatform
         return new SqliteSchemaDialect;
     }
 
-    public function provisioner(): ?DatabaseProvisioner
+    public function provisioner(): DatabaseProvisioner
     {
         return new SqliteDatabaseProvisioner;
     }

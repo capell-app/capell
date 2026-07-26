@@ -57,7 +57,7 @@ final class SqliteSchemaDialect extends AbstractSchemaDialect implements Databas
         ));
     }
 
-    public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): ?SqlFragment
+    public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): SqlFragment
     {
         return new SqlFragment(sprintf(
             '%s %s ON %s (json_extract(%s, ?))',

@@ -24,13 +24,14 @@ trait AppliesNameSearchRelevance
         // Laravel's grammar quotes this fixed model column as a trusted SQL identifier.
         /** @var literal-string $nameColumn */
         $keyColumn = $query->qualifyColumn($query->getModel()->getKeyName());
-        $relevance = CapellDatabase::for($query)
+        $relevance = CapellDatabase::for($query->getModel())
             ->queryDialect()
             ->textRelevance(SqlFragment::raw($nameColumn), $search);
 
+        $query->reorder();
+        $relevance->applyOrder($query->getQuery());
+
         return $query
-            ->reorder()
-            ->orderByRaw($relevance->sql, $relevance->bindings)
             ->orderBy($query->qualifyColumn('name'))
             ->orderBy($keyColumn);
     }

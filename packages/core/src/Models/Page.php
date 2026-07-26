@@ -317,7 +317,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             $query->adminResource($group);
         }
 
-        return $query->orderByRaw('CASE WHEN `default` = 1 THEN 0 ELSE 1 END')
+        return $query->orderByDesc('default')
             ->ordered()
             ->first();
     }

@@ -167,16 +167,17 @@ class Layout extends Model implements Defaultable, HasMedia, HasMediaContract, S
         $table = $grammar->wrapTable('layouts');
         $alias = $grammar->wrapTable('c2');
         $count = sprintf('(SELECT COUNT(*) FROM %s %s WHERE %s.%s = %s.%s)', $table, $alias, $alias, $group, $table, $group);
-        $label = CapellDatabase::for($query)->queryDialect()->concatenate(
+        $label = CapellDatabase::for()->queryDialect()->concatenate(
             SqlFragment::raw($group),
             SqlFragment::raw("' ('"),
             SqlFragment::raw($count),
             SqlFragment::raw("')'"),
         );
 
+        $query->select('group');
+        (new SqlFragment($label->sql . ' AS ' . $grammar->wrap('label'), $label->bindings))->applySelect($query);
+
         return $query
-            ->select('group')
-            ->selectRaw($label->sql . ' AS ' . $grammar->wrap('label'), $label->bindings)
             ->groupBy('group')
             ->orderBy('group')
             ->whereNotNull('group')

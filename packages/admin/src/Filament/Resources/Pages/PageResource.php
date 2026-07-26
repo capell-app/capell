@@ -30,6 +30,7 @@ use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetNameFromTranslationsAction;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
@@ -376,10 +377,10 @@ class PageResource extends Resource implements ValidatesDelete
 
         $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
 
-        return $query->whereRaw(
-            $url->sql . ' LIKE ?',
-            [...$url->bindings, sprintf('%%%s%%', $search)],
-        );
+        (new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%%%s%%', $search)]))
+            ->applyWhere($query->getQuery());
+
+        return $query;
     }
 
     private static function buildGlobalSearchBreadcrumbs(Page $record): ?HtmlString

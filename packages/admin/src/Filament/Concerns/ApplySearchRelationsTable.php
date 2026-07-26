@@ -12,13 +12,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use LogicException;
 
 trait ApplySearchRelationsTable
 {
     use AppliesNameSearchRelevanceToTable;
 
     /**
-     * @return array<string, array<int|string, string>>
+     * @return array<string, array<int|string, string|Expression<literal-string|int|float>>>
      */
     abstract public function getSearchRelationColumns(): array;
 
@@ -110,9 +111,9 @@ trait ApplySearchRelationsTable
             );
 
             if ($isColumnFirst) {
-                $query->whereRaw($search->sql, $search->bindings);
+                $search->applyWhere($query->getQuery());
             } else {
-                $query->orWhereRaw($search->sql, $search->bindings);
+                $search->applyWhere($query->getQuery(), 'or');
             }
 
             return;
@@ -144,10 +145,12 @@ trait ApplySearchRelationsTable
                 $isColumnFirst = true;
 
                 foreach ($searchColumns as $searchColumn => $searchColumnType) {
-                    if (is_numeric($searchColumn)) {
+                    if (is_int($searchColumn)) {
                         $searchColumn = $searchColumnType;
                         $searchColumnType = 'string';
                     }
+
+                    throw_unless(is_string($searchColumnType), LogicException::class, 'Named relation search columns must declare a string column type.');
 
                     $this->applyRelationColumnSearch(
                         $query,
@@ -163,14 +166,5 @@ trait ApplySearchRelationsTable
         }
 
         return $query;
-    }
-
-    /**
-     * @return literal-string
-     */
-    private function literalSql(string $sql): string
-    {
-        /** @var literal-string $sql */
-        return $sql;
     }
 }
