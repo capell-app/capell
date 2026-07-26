@@ -117,6 +117,19 @@ it('falls back to html content for an orphaned translatable when lazy loading is
     }
 });
 
+it('derives its summary from block content', function (): void {
+    $translation = new Translation;
+    $translation->content = [[
+        'type' => 'content',
+        'data' => [
+            'content' => '<p>Block content becomes a readable summary.</p>',
+            'mediaAlign' => null,
+        ],
+    ]];
+
+    expect($translation->summary)->toBe('Block content becomes a readable summary.');
+});
+
 it('has morph one image media relation', function (): void {
     $page = Page::factory()->createOne();
     $translation = Translation::factory()->translatable($page)->create();
