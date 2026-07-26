@@ -147,7 +147,7 @@ it('builds typed query expressions for every supported database family', functio
             'hour' => "strftime('%H:00', created_at)",
             'elapsed' => 'CAST((julianday(finished_at) - julianday(started_at)) * 86400 AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
-            'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CASE type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' ELSE json_quote(value) END = json(?))",
+            'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
             'json_search' => 'EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ?)',
         ],
     ],
@@ -202,6 +202,30 @@ it('matches typed JSON values without coercing numbers or booleans to strings', 
             ->applyWhere($query);
 
         expect($query->exists())->toBeFalse();
+    }
+});
+
+it('treats equivalent integer and decimal JSON values as equal', function (): void {
+    $connection = DB::connection();
+    $family = CapellDatabase::for($connection)->family();
+    $select = match ($family) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+
+    foreach ([[1, 1.0], [1.0, 1]] as [$stored, $candidate]) {
+        $document = json_encode(['values' => [$stored]], JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw($select, [$document]),
+            'documents',
+        );
+        $dialect->jsonContains(SqlFragment::raw('meta'), $candidate, '$.values')
+            ->applyWhere($query);
+
+        expect($query->exists())->toBeTrue();
     }
 });
 

@@ -71,7 +71,7 @@ final class SqliteQueryDialect extends AbstractQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment
     {
         return new SqlFragment(
-            "EXISTS (SELECT 1 FROM json_each({$expression->sql}, ?) WHERE CASE type WHEN 'true' THEN 'true' WHEN 'false' THEN 'false' ELSE json_quote(value) END = json(?))",
+            "EXISTS (SELECT 1 FROM json_each({$expression->sql}, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
             [...$expression->bindings, $path, $this->jsonValue($value)],
         );
     }
