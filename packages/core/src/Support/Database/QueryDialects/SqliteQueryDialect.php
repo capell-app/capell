@@ -78,12 +78,31 @@ final class SqliteQueryDialect extends AbstractQueryDialect
 
     public function jsonSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
     {
-        if (preg_match('/^(.*)\[\*\]\.([A-Za-z_]\w*)$/', $path, $matches) === 1) {
-            $collectionPath = $matches[1] === '' ? '$' : $matches[1];
+        $searchPath = SqliteJsonSearchPath::parse($path);
+
+        if ($searchPath !== null) {
+            $source = $expression->sql;
+            $joins = [];
+
+            foreach ($searchPath->collectionPaths as $level => $collectionPath) {
+                $alias = 'capell_json_level_' . $level;
+                $joins[] = sprintf('json_each(%s, ?) AS %s', $source, $alias);
+                $source = $alias . '.value';
+            }
 
             return new SqlFragment(
-                'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ", ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ('%' || CAST(" . $needle->sql . " AS TEXT) || '%'))",
-                [...$expression->bindings, $collectionPath, '$.' . $matches[2], ...$needle->bindings],
+                sprintf(
+                    "EXISTS (SELECT 1 FROM %s WHERE CAST(json_extract(%s, ?) AS TEXT) LIKE ('%%' || CAST(%s AS TEXT) || '%%'))",
+                    implode(' CROSS JOIN ', $joins),
+                    $source,
+                    $needle->sql,
+                ),
+                [
+                    ...$expression->bindings,
+                    ...$searchPath->collectionPaths,
+                    $searchPath->valuePath,
+                    ...$needle->bindings,
+                ],
             );
         }
 
