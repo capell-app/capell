@@ -20,6 +20,15 @@ it('extracts text from JSON content field', function (): void {
     expect($output)->toBe('Hello World');
 });
 
+it('extracts text from JSON encoded content blocks without structural labels', function (): void {
+    $input = json_encode([[
+        'type' => 'content',
+        'data' => ['content' => '<p>Hello from blocks</p>'],
+    ]], JSON_THROW_ON_ERROR);
+
+    expect(ExtractTextContentAction::run($input))->toBe('Hello from blocks');
+});
+
 it('extracts text from nested array content', function (): void {
     $input = ['content' => ['Hello', ['World', 'from'], 'Capell']];
 

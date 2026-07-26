@@ -159,6 +159,6 @@
     @endif
 @else
     <pre
-        class="overflow-auto rounded bg-gray-50 p-3 text-xs dark:bg-gray-900"
+        class="overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-900 dark:bg-gray-900 dark:text-gray-100"
     ><code>{{ json_encode($validationResults, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</code></pre>
 @endif
