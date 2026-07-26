@@ -20,7 +20,7 @@ We built Capell around one idea: build once, improve every page. Define shared p
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
-[Open the live demo](https://capell.app/demo) · [See all features](https://capell.app/features) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Read the fit guide](docs/getting-started/why-capell.md)
+[Open the live demo](https://capell.app/demo) · [See all features](https://capell.app/features) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Build a page](docs/getting-started/building-pages.md) · [Read the fit guide](docs/getting-started/why-capell.md)
 
 ## See it running a real site
 
