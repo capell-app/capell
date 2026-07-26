@@ -149,7 +149,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'CAST(ROUND((julianday(finished_at) - julianday(started_at)) * 86400) AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
             'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' WHEN capell_json_item.type IN ('array', 'object') THEN json(capell_json_item.value) = json(capell_json_target.value) ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
-            'json_search' => "EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ('%' || CAST(? AS TEXT) || '%'))",
+            'json_search' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_level_0 WHERE CAST(json_extract(capell_json_level_0.value, ?) AS TEXT) LIKE ('%' || CAST(? AS TEXT) || '%'))",
         ],
     ],
     'postgresql' => [
