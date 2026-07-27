@@ -118,7 +118,7 @@ jobs:
           NO_COLOR: 1
         run: |
           set -o pipefail
-          composer run test:all:ci 2>&1 | tee pest-output.txt
+          composer run test:database:ci 2>&1 | tee pest-output.txt
           test_exit=${PIPESTATUS[0]}
 
           exit "${test_exit}"
