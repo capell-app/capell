@@ -430,7 +430,139 @@ git add packages/core/src/Support/Database/DatabasePlatformRegistry.php \
 git commit -m "perf(database): cache full text index compatibility"
 ```
 
-### Task 4: Verify every engine and publish PR #166
+### Task 4: Add typed weighted full-text expressions
+
+**Files:**
+
+- Create: `packages/core/src/Data/Database/DatabaseSearchExpression.php`
+- Modify: `packages/core/src/Contracts/Database/DatabaseQueryDialect.php`
+- Modify: `packages/core/src/Support/Database/QueryDialects/AbstractQueryDialect.php`
+- Modify: `packages/core/src/Support/Database/QueryDialects/MySqlQueryDialect.php`
+- Modify: `packages/core/src/Support/Database/QueryDialects/PostgresQueryDialect.php`
+- Modify: `packages/core/src/Support/Database/DatabasePlatformRegistry.php`
+- Modify: `packages/core/src/Facades/CapellDatabase.php`
+- Modify: `packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php`
+- Modify: `packages/core/tests/Unit/Actions/Extensions/BuildExtensionSurfaceCatalogActionTest.php`
+- Modify: `packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php`
+- Generate: `docs/packages/extension-surface-catalog.json`
+- Generate: `docs/packages/extension-surface-catalog.md`
+
+- [ ] **Step 1: Write failing validation and weighted ranking tests**
+
+Construct weighted expressions explicitly:
+
+```php
+$expressions = [
+    new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('title')), 5.0),
+    new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('body')), 1.0),
+];
+```
+
+Use indexed rows where both prefixes occur in the stronger title, are separated
+across title and body, occur only in the weaker body, or miss one term. Search
+for `port arch` and expect:
+
+```php
+['strong-title', 'separated', 'weak-body']
+```
+
+The partial row must not match. Add constructor tests proving `0.0`, `-1.0`,
+`INF`, and `NAN` throw `InvalidArgumentException`.
+
+- [ ] **Step 2: Run weighted tests to prove the missing type and ranking**
+
+```bash
+./vendor/bin/pest packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php \
+    --filter='weighted|full text' --configuration=phpunit.xml
+```
+
+Expected: FAIL because `DatabaseSearchExpression` does not exist and current
+relevance has no weight.
+
+- [ ] **Step 3: Add the strict DTO and evolve typed contracts**
+
+Create:
+
+```php
+final readonly class DatabaseSearchExpression
+{
+    public function __construct(
+        public SqlFragment $expression,
+        public float $weight = 1.0,
+    ) {
+        throw_unless(
+            is_finite($weight) && $weight > 0,
+            InvalidArgumentException::class,
+            'Database search expression weights must be positive and finite.',
+        );
+    }
+}
+```
+
+Change every `fullTextSearch` list annotation and implementation from
+`SqlFragment` to `DatabaseSearchExpression`. Update all Core callers and tests
+to construct the DTO explicitly.
+
+- [ ] **Step 4: Apply portable weighted relevance in every mode**
+
+In `AbstractQueryDialect`, keep predicate generation unchanged apart from
+reading `$searchExpression->expression`. Build relevance as:
+
+```php
+$relevanceSql[] = sprintf('CASE WHEN %s THEN ? ELSE 0 END', $match);
+$relevanceBindings = [
+    ...$relevanceBindings,
+    ...$expression->bindings,
+    $pattern,
+    $searchExpression->weight,
+];
+```
+
+MySQL, MariaDB, and PostgreSQL continue returning their native combined prefix
+predicate, but return `$fallback->relevance` for deterministic weighted
+coverage. Native mode remains `true`.
+
+- [ ] **Step 5: Register and generate the experimental DTO surface**
+
+Add `core.dto.database-search-expression` to
+`BuildExtensionSurfaceCatalogAction` with experimental stability and update its
+direct unit expectation. Generate contracts:
+
+```bash
+php scripts/build-extension-surface-catalog.php
+composer check:extension-surfaces
+```
+
+Expected: generated JSON and Markdown include the DTO and the executable
+catalogue check passes.
+
+- [ ] **Step 6: Run weighted full-text tests and commit**
+
+```bash
+./vendor/bin/pest packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php \
+    --filter='weighted|full text' --configuration=phpunit.xml
+./vendor/bin/pest packages/core/tests/Unit/Actions/Extensions/BuildExtensionSurfaceCatalogActionTest.php \
+    --configuration=phpunit.xml
+```
+
+Expected: validation, binding order, prefix AND, weighted ordering, and
+catalogue tests pass.
+
+```bash
+git add packages/core/src/Data/Database/DatabaseSearchExpression.php \
+    packages/core/src/Contracts/Database/DatabaseQueryDialect.php \
+    packages/core/src/Support/Database/QueryDialects \
+    packages/core/src/Support/Database/DatabasePlatformRegistry.php \
+    packages/core/src/Facades/CapellDatabase.php \
+    packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php \
+    packages/core/tests/Unit/Actions/Extensions/BuildExtensionSurfaceCatalogActionTest.php \
+    packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php \
+    docs/packages/extension-surface-catalog.json \
+    docs/packages/extension-surface-catalog.md
+git commit -m "feat(database): add weighted search expressions"
+```
+
+### Task 5: Verify every engine and publish PR #166
 
 **Files:**
 

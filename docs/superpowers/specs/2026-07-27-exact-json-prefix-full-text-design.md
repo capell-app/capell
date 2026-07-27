@@ -97,6 +97,42 @@ per-term/per-expression relevance. The native engines need to preserve the
 required observable subset: `port` matches `portable`, every query term is
 required, and denser term coverage ranks before separated coverage.
 
+## Weighted Search Expressions
+
+Replace the full-text expression list with a strict typed boundary:
+
+```php
+final readonly class DatabaseSearchExpression
+{
+    public function __construct(
+        public SqlFragment $expression,
+        public float $weight = 1.0,
+    ) {}
+}
+```
+
+Weights must be finite and greater than zero. The dialect and registry contracts
+accept a non-empty list of this type only; plain fragments are not silently
+normalized because the boundary is experimental and production callers need to
+make weight handling explicit.
+
+The combined native full-text predicate still uses all configured expressions
+and the engine's compatible combined index. Relevance uses one portable formula
+on every database family: for each normalized query term and each expression,
+add that expression's weight when its text contains the term. This preserves
+term-aware field weights and deterministic cross-engine ordering.
+
+Portable relevance is intentional even in native mode. MySQL and MariaDB cannot
+calculate arbitrary per-column full-text scores from a combined `(title, body)`
+index: `MATCH(title)` requires a separate matching full-text index and fails
+against only the combined index. Requiring one index per weighted expression
+would be an unacceptable consumer schema burden. Native full-text therefore
+selects candidates efficiently while portable weighted coverage ranks the
+matched rows.
+
+Add `DatabaseSearchExpression` as an experimental DTO in the generated
+extension-surface catalogue and document the portable relevance contract.
+
 ## Public-Seam Tests
 
 `DatabaseCompatibilityTest` will exercise the public dialect and registry
@@ -111,6 +147,9 @@ seams:
    - the two prefixes may be separated across indexed columns;
    - a row missing the second prefix does not match;
    - dense coverage ranks before separated coverage.
+5. Weighted expressions where terms in a stronger field rank above the same
+   terms in a weaker field, invalid zero/negative/non-finite weights fail, and
+   SQL placeholder bindings retain expression, pattern, and weight order.
 
 The same dataset runs through SQLite's fallback and each server engine's native
 index path.
