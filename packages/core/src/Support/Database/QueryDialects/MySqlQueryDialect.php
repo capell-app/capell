@@ -114,4 +114,14 @@ final class MySqlQueryDialect extends AbstractQueryDialect
             [...$expression->bindings, ...$needle->bindings, $path],
         );
     }
+
+    public function jsonExactSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
+    {
+        $escapedNeedle = "REPLACE(REPLACE(REPLACE(CAST({$needle->sql} AS CHAR), '!', '!!'), '%', '!%'), '_', '!_')";
+
+        return new SqlFragment(
+            "JSON_SEARCH({$expression->sql}, 'one', {$escapedNeedle}, '!', ?) IS NOT NULL",
+            [...$expression->bindings, ...$needle->bindings, $path],
+        );
+    }
 }

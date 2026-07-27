@@ -117,4 +117,14 @@ final class PostgresQueryDialect extends AbstractQueryDialect
             [...$expression->bindings, $searchPath, ...$needle->bindings],
         );
     }
+
+    public function jsonExactSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
+    {
+        $searchPath = $path === '$' ? '$.**' : $path;
+
+        return new SqlFragment(
+            sprintf("EXISTS (SELECT 1 FROM jsonb_path_query(%s::jsonb, ?::jsonpath) AS capell_json_exact(value) WHERE jsonb_typeof(capell_json_exact.value) = 'string' AND capell_json_exact.value #>> '{}' = CAST(%s AS TEXT))", $expression->sql, $needle->sql),
+            [...$expression->bindings, $searchPath, ...$needle->bindings],
+        );
+    }
 }
