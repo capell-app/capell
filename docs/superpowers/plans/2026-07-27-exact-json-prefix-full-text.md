@@ -342,7 +342,9 @@ $registry->forgetFullTextIndexCompatibility($connection, $index);
 $registry->fullTextSearch($connection, $index, $expressions, 'port');
 ```
 
-Also prove a second `Connection` instance gets its own inspection and that
+Also prove an equivalent connection object and a new scoped registry reuse the
+same inspection, changed connection configuration or database names do not,
+the LRU bound evicts the oldest entry, and
 `flushFullTextIndexCompatibility()` forces the next call to inspect again.
 
 - [ ] **Step 2: Run the cache test to prove repeated inspection**
@@ -355,19 +357,22 @@ Also prove a second `Connection` instance gets its own inspection and that
 Expected: FAIL because the registry performs one metadata inspection per call
 and has no invalidation API.
 
-- [ ] **Step 3: Add the request-local WeakMap cache**
+- [ ] **Step 3: Add the bounded process-lived compatibility cache**
 
-Add a typed WeakMap to `DatabasePlatformRegistry`:
+Create `FullTextIndexCompatibilityCache` with a 256-entry LRU bound. Key each
+entry by a stable hash of non-secret logical connection metadata and the
+complete index definition. The connection metadata includes connection name,
+driver, database, host, port, Unix socket, table prefix, and read/write hosts;
+it excludes credentials and URLs.
 
 ```php
-/** @var WeakMap<Connection, array<string, bool>> */
-private WeakMap $fullTextIndexCompatibility;
+$this->app->singleton(FullTextIndexCompatibilityCache::class);
 ```
 
-Initialize it in the constructor. Use the connection object as the outer key
-and hash a JSON representation of the database name and complete index
-definition as the inner key. Cache both true and false results with
-`array_key_exists()`.
+Inject the singleton cache into the scoped `DatabasePlatformRegistry`. Cache
+both true and false results with `array_key_exists()`, update recency on hits,
+and evict the least-recently-used entry when the configured maximum is
+exceeded.
 
 Expose:
 
@@ -380,26 +385,27 @@ public function forgetFullTextIndexCompatibility(
 public function flushFullTextIndexCompatibility(): void;
 ```
 
-The first method removes one fingerprint or every entry for the supplied
-connection. The second replaces the WeakMap with an empty instance.
+The first method removes one index fingerprint or every entry for the supplied
+logical connection. The second clears the bounded process cache.
 
-- [ ] **Step 4: Make the registry lifecycle request-scoped**
-
-Change the provider binding from:
+- [ ] **Step 4: Bind the lifetimes explicitly**
 
 ```php
-$this->app->singleton(DatabasePlatformRegistry::class, fn ($app): DatabasePlatformRegistry => ...);
-```
-
-to:
-
-```php
-$this->app->scoped(DatabasePlatformRegistry::class, fn ($app): DatabasePlatformRegistry => ...);
+$this->app->singleton(FullTextIndexCompatibilityCache::class);
+$this->app->scoped(
+    DatabasePlatformRegistry::class,
+    fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
+        [...],
+        $app->make(FullTextIndexCompatibilityCache::class),
+    ),
+);
 ```
 
 Add both invalidation methods to the `CapellDatabase` facade PHPDoc. Add
-`DatabasePlatformRegistry` to the scoped-service inventory in
-`docs/operations/octane.md`.
+the cache to the executable singleton lifetime inventory as a bounded,
+explicitly invalidated process cache. Document that the registry is scoped but
+the compatibility metadata deliberately survives request boundaries, and that
+long-running workers must restart after migrations.
 
 Update the real index-creation compatibility test to call:
 

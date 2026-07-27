@@ -14,6 +14,7 @@ use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\Database\FullTextIndexCompatibilityCache;
 use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
@@ -60,9 +61,32 @@ it('resolves configured connections and rejects duplicates and unknown drivers',
         ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].');
 });
 
-it('caches full text index compatibility per connection and supports invalidation', function (): void {
-    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
-    $secondConnection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+it('caches full text index compatibility across registry scopes and supports invalidation', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), 'primary', '', [
+        'driver' => 'sqlite',
+        'database' => 'primary',
+        'name' => 'search',
+        'host' => 'database.internal',
+    ]);
+    $equivalentConnection = new SQLiteConnection(new PDO('sqlite::memory:'), 'primary', '', [
+        'driver' => 'sqlite',
+        'database' => 'primary',
+        'name' => 'search',
+        'host' => 'database.internal',
+        'password' => 'different-secret-must-not-affect-the-cache-key',
+    ]);
+    $differentDatabase = new SQLiteConnection(new PDO('sqlite::memory:'), 'secondary', '', [
+        'driver' => 'sqlite',
+        'database' => 'secondary',
+        'name' => 'search',
+        'host' => 'database.internal',
+    ]);
+    $differentHost = new SQLiteConnection(new PDO('sqlite::memory:'), 'primary', '', [
+        'driver' => 'sqlite',
+        'database' => 'primary',
+        'name' => 'search',
+        'host' => 'database-replica.internal',
+    ]);
     $index = new DatabaseIndexDefinition(
         table: 'documents',
         name: 'documents_search_index',
@@ -74,32 +98,39 @@ it('caches full text index compatibility per connection and supports invalidatio
     ];
     $schemaDialect = Mockery::mock(DatabaseSchemaDialect::class);
     $schemaDialect->shouldReceive('hasCompatibleFullTextIndex')
-        ->times(4)
+        ->times(6)
         ->andReturnTrue();
     $platform = Mockery::mock(DatabasePlatform::class);
-    $platform->shouldReceive('drivers')->once()->andReturn(['sqlite']);
-    $platform->shouldReceive('schemaDialect')->times(4)->andReturn($schemaDialect);
-    $platform->shouldReceive('queryDialect')->times(6)->andReturn((new SqliteDatabasePlatform)->queryDialect());
-    $registry = new DatabasePlatformRegistry([$platform]);
+    $platform->shouldReceive('drivers')->twice()->andReturn(['sqlite']);
+    $platform->shouldReceive('schemaDialect')->times(6)->andReturn($schemaDialect);
+    $platform->shouldReceive('queryDialect')->times(7)->andReturn((new SqliteDatabasePlatform)->queryDialect());
+    $cache = new FullTextIndexCompatibilityCache(maxEntries: 2);
+    $firstRegistry = new DatabasePlatformRegistry([$platform], $cache);
+    $secondRegistry = new DatabasePlatformRegistry([$platform], $cache);
 
-    $registry->fullTextSearch($connection, $index, $expressions, 'port');
-    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+    $secondRegistry->fullTextSearch($equivalentConnection, $index, $expressions, 'port');
 
-    $registry->forgetFullTextIndexCompatibility($connection, $index);
-    $registry->fullTextSearch($connection, $index, $expressions, 'port');
-    $registry->fullTextSearch($secondConnection, $index, $expressions, 'port');
+    $secondRegistry->forgetFullTextIndexCompatibility($equivalentConnection, $index);
 
-    $registry->flushFullTextIndexCompatibility();
-    $registry->fullTextSearch($connection, $index, $expressions, 'port');
-    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+    $secondRegistry->fullTextSearch($differentDatabase, $index, $expressions, 'port');
+    $secondRegistry->fullTextSearch($differentHost, $index, $expressions, 'port');
+
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+
+    $secondRegistry->flushFullTextIndexCompatibility();
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
 });
 
-it('resolves the database platform registry once per container scope', function (): void {
-    $first = resolve(DatabasePlatformRegistry::class);
+it('keeps the compatibility cache across scoped database registry resets', function (): void {
+    $firstRegistry = resolve(DatabasePlatformRegistry::class);
+    $firstCache = resolve(FullTextIndexCompatibilityCache::class);
 
     app()->forgetScopedInstances();
 
-    expect(resolve(DatabasePlatformRegistry::class))->not->toBe($first);
+    expect(resolve(DatabasePlatformRegistry::class))->not->toBe($firstRegistry)
+        ->and(resolve(FullTextIndexCompatibilityCache::class))->toBe($firstCache);
 });
 
 it('declares platform family metadata and optional provisioners', function (): void {

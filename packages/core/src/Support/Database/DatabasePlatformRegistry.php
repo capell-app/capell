@@ -15,22 +15,22 @@ use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use LogicException;
-use WeakMap;
 
 final class DatabasePlatformRegistry
 {
     /** @var array<string, DatabasePlatform> */
     private array $platforms = [];
 
-    /** @var WeakMap<Connection, array<string, bool>> */
-    private WeakMap $fullTextIndexCompatibility;
+    private readonly FullTextIndexCompatibilityCache $fullTextIndexCompatibility;
 
     /**
      * @param  iterable<DatabasePlatform>  $platforms
      */
-    public function __construct(iterable $platforms = [])
-    {
-        $this->fullTextIndexCompatibility = new WeakMap;
+    public function __construct(
+        iterable $platforms = [],
+        ?FullTextIndexCompatibilityCache $fullTextIndexCompatibility = null,
+    ) {
+        $this->fullTextIndexCompatibility = $fullTextIndexCompatibility ?? new FullTextIndexCompatibilityCache;
 
         foreach ($platforms as $platform) {
             $this->register($platform);
@@ -72,31 +72,12 @@ final class DatabasePlatformRegistry
         Connection $connection,
         ?DatabaseIndexDefinition $index = null,
     ): void {
-        if (! isset($this->fullTextIndexCompatibility[$connection])) {
-            return;
-        }
-
-        if (! $index instanceof DatabaseIndexDefinition) {
-            unset($this->fullTextIndexCompatibility[$connection]);
-
-            return;
-        }
-
-        $compatibility = $this->fullTextIndexCompatibility[$connection];
-        unset($compatibility[$this->fullTextIndexKey($connection, $index)]);
-
-        if ($compatibility === []) {
-            unset($this->fullTextIndexCompatibility[$connection]);
-
-            return;
-        }
-
-        $this->fullTextIndexCompatibility[$connection] = $compatibility;
+        $this->fullTextIndexCompatibility->forget($connection, $index);
     }
 
     public function flushFullTextIndexCompatibility(): void
     {
-        $this->fullTextIndexCompatibility = new WeakMap;
+        $this->fullTextIndexCompatibility->flush();
     }
 
     public function for(Connection|Model|string|null $context = null): DatabasePlatform
@@ -147,29 +128,10 @@ final class DatabasePlatformRegistry
         DatabaseIndexDefinition $index,
         Connection $connection,
     ): bool {
-        $key = $this->fullTextIndexKey($connection, $index);
-        $compatibility = $this->fullTextIndexCompatibility[$connection] ?? [];
-
-        if (! array_key_exists($key, $compatibility)) {
-            $compatibility[$key] = $platform->schemaDialect()->hasCompatibleFullTextIndex($index, $connection);
-            $this->fullTextIndexCompatibility[$connection] = $compatibility;
-        }
-
-        return $compatibility[$key];
-    }
-
-    private function fullTextIndexKey(Connection $connection, DatabaseIndexDefinition $index): string
-    {
-        $prefixLengths = $index->prefixLengths;
-        ksort($prefixLengths);
-
-        return hash('sha256', serialize([
-            'database' => $connection->getDatabaseName(),
-            'table' => $index->table,
-            'name' => $index->name,
-            'columns' => $index->columns,
-            'prefix_lengths' => $prefixLengths,
-            'unique' => $index->unique,
-        ]));
+        return $this->fullTextIndexCompatibility->remember(
+            $connection,
+            $index,
+            fn (): bool => $platform->schemaDialect()->hasCompatibleFullTextIndex($index, $connection),
+        );
     }
 }

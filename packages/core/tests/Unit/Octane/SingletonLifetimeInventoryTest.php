@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Concerns\HasModelRelations;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Database\FullTextIndexCompatibilityCache;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
@@ -109,6 +110,14 @@ it('enforces request mutable singleton reset protection without scoped dual regi
                 ->toBeTrue(sprintf('Delegated singleton [%s] requires the tagged core manager flush', $class));
         }
     }
+});
+
+it('classifies the full text compatibility cache as bounded process state', function (): void {
+    expect(SingletonLifetimeInventory::mutableSingletons()[FullTextIndexCompatibilityCache::class])
+        ->toMatchArray([
+            'lifetime' => SingletonLifetime::ProcessMutable,
+            'protection' => 'bounded',
+        ]);
 });
 
 it('scans every production source directory and resolves returned closure targets', function (): void {

@@ -161,32 +161,41 @@ index path.
 PostgreSQL that performs a schema metadata query, putting index inspection on
 the public search hot path.
 
-Make `DatabasePlatformRegistry` a Laravel scoped service and keep a request-local
-`WeakMap` inside it:
+Keep `DatabasePlatformRegistry` as a Laravel scoped service, but inject a
+process-lived `FullTextIndexCompatibilityCache` singleton. The cache is bounded
+to 256 least-recently-used entries:
 
 ```text
-Connection object
-  -> database name + complete DatabaseIndexDefinition fingerprint
+stable non-secret connection/config fingerprint
+  + database name
+  + complete DatabaseIndexDefinition fingerprint
      -> compatible boolean
 ```
 
-Connection identity is represented by the `WeakMap` key rather than a reusable
-integer object ID. The fingerprint includes the current database plus table,
-index name, ordered columns, prefix lengths, and uniqueness. Repeated searches
-for the same connection/database/index inspect metadata once per request or
-queue-job scope.
+The connection fingerprint includes only metadata identity fields needed for
+correctness: connection name, driver, database, host, port, Unix socket, table
+prefix, and read/write host configuration. Credentials and connection URLs are
+never retained. The index fingerprint includes table, index name, ordered
+columns, sorted prefix lengths, and uniqueness.
 
-Laravel discards scoped instances at long-running worker lifecycle boundaries,
-so the cache cannot leak across Octane requests or queue jobs. Add explicit
-registry methods to forget one index or every index for a connection, and to
-flush the complete compatibility cache. Same-request code that creates or drops
-an index must invalidate after DDL before searching again.
+The process-lived lifetime is intentional: a public search normally resolves
+the scoped registry and calls `fullTextSearch()` once, so request-local
+memoization would still inspect schema metadata on every request. The bounded
+cache survives scoped registry resets and equivalent connection objects while
+avoiding unbounded tenant/config growth.
 
-The registry test will prove one schema inspection for repeated searches,
-another inspection after per-index invalidation, isolation for a second
-connection, and a fresh cache after the scoped container instance is forgotten.
-The Core provider and Octane lifecycle documentation will list the registry as
-scoped.
+Add explicit registry methods to forget one index or every index for a logical
+connection, and to flush the complete compatibility cache. Same-process code
+that creates or drops an index must invalidate after DDL before searching
+again. Deploys must restart long-running workers after migrations, matching
+Capell's existing runtime refresh guidance.
+
+The registry test will prove one schema inspection across repeated scoped
+container resolutions, another inspection after per-index invalidation,
+separate entries when database or connection configuration changes, eviction
+at the bound, and a fresh inspection after a complete flush. The Octane
+lifecycle inventory will classify the mutable singleton as a bounded,
+explicitly invalidated process cache rather than request-shaped state.
 
 ## Quality and Publication
 

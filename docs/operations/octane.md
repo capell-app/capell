@@ -47,10 +47,18 @@ the frontend's `ThemeViewRegistrar`.
 **Prefer `scoped` over `singleton` for anything request-shaped.** Laravel resets
 `scoped` bindings between Octane requests for you, which is why Capell binds
 `DatabasePlatformRegistry`, `FrontendState`, `FrontendContextReader`,
-`ThemePreviewContext`, the page caches, and similar services that way. The database
-registry's full-text index compatibility memoization is therefore limited to one
-request or job scope. If your service holds the current site, page, theme, locale, user,
-or anything derived from the request, `scoped` is the answer and you are done.
+`ThemePreviewContext`, the page caches, and similar services that way. If your service
+holds the current site, page, theme, locale, user, or anything derived from the request,
+`scoped` is the answer and you are done.
+
+The database registry delegates full-text index compatibility metadata to a separate
+process-lived cache. This is schema metadata rather than request state, and avoiding a
+schema inspection on every public search requires it to survive request boundaries.
+The cache uses only hashed, non-secret connection identity fields, is limited to 256
+least-recently-used entries, and has explicit per-index and full invalidation methods.
+Code that changes a full-text index in the current process must invalidate it before
+searching. Deploys must restart long-running workers after migrations, as described
+below.
 
 Reach for `Resettable` only when a service genuinely must be a singleton — a registry
 built once at boot — but accumulates request state alongside its boot state. In that
