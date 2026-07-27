@@ -13,9 +13,9 @@ final readonly class DatabaseSearchExpression
         public float $weight = 1.0,
     ) {
         throw_unless(
-            is_finite($weight) && $weight > 0,
+            is_finite($weight) && $weight >= 0,
             InvalidArgumentException::class,
-            'Database search expression weights must be positive and finite.',
+            'Database search expression weights must be non-negative and finite.',
         );
     }
 }

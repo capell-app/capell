@@ -158,6 +158,6 @@ final class FullTextIndexCompatibilityCache
             ksort($value);
         }
 
-        return array_map(fn (mixed $item): mixed => $this->normalize($item), $value);
+        return array_map($this->normalize(...), $value);
     }
 }

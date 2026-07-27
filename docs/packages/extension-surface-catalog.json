@@ -229,7 +229,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Weighted database search expression.",
+            "summary": "Weighted search expression; zero omits relevance.",
             "contractTestId": null
         },
         {

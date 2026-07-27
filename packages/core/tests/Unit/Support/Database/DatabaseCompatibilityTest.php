@@ -29,11 +29,14 @@ use Illuminate\Support\Facades\File;
 it('rejects invalid database search expression weights', function (float $weight): void {
     new DatabaseSearchExpression(SqlFragment::raw('title'), $weight);
 })->with([
-    'zero' => 0.0,
     'negative' => -1.0,
     'infinite' => INF,
     'not a number' => NAN,
-])->throws(InvalidArgumentException::class, 'Database search expression weights must be positive and finite.');
+])->throws(InvalidArgumentException::class, 'Database search expression weights must be non-negative and finite.');
+
+it('allows zero weight search expressions', function (): void {
+    expect(new DatabaseSearchExpression(SqlFragment::raw('title'), 0.0)->weight)->toBe(0.0);
+});
 
 it('resolves every supported database driver through one registry seam', function (): void {
     $mysql = new MySqlDatabasePlatform;
@@ -392,13 +395,20 @@ it('matches separated full text terms and ranks broader coverage with the portab
 
 it('keeps portable full text values bound in SQL placeholder order', function (): void {
     $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
-        [new DatabaseSearchExpression(new SqlFragment('COALESCE(?, title)', ['expression-binding']), 2.5)],
+        [
+            new DatabaseSearchExpression(new SqlFragment('COALESCE(?, title)', ['expression-binding']), 2.5),
+            new DatabaseSearchExpression(new SqlFragment('COALESCE(?, summary)', ['zero-weight-binding']), 0.0),
+        ],
         'alpha% beta_',
     );
     $expectedPredicateBindings = [
         'expression-binding',
         '%alpha!%%',
+        'zero-weight-binding',
+        '%alpha!%%',
         'expression-binding',
+        '%beta!_%',
+        'zero-weight-binding',
         '%beta!_%',
     ];
     $expectedRelevanceBindings = [
@@ -412,8 +422,20 @@ it('keeps portable full text values bound in SQL placeholder order', function ()
 
     expect($search->predicate->sql)
         ->not->toContain('alpha%', 'beta_')
+        ->toContain('summary')
+        ->and($search->relevance->sql)->not->toContain('summary')
         ->and($search->predicate->bindings)->toBe($expectedPredicateBindings)
         ->and($search->relevance->bindings)->toBe($expectedRelevanceBindings);
+});
+
+it('returns constant relevance when every searchable expression has zero weight', function (): void {
+    $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
+        [new DatabaseSearchExpression(new SqlFragment('COALESCE(?, title)', ['expression-binding']), 0.0)],
+        'alpha',
+    );
+
+    expect($search->predicate->bindings)->toBe(['expression-binding', '%alpha%'])
+        ->and($search->relevance)->toEqual(new SqlFragment('0'));
 });
 
 it('keeps native full text values bound in SQL placeholder order', function (
@@ -425,6 +447,7 @@ it('keeps native full text values bound in SQL placeholder order', function (
         [
             new DatabaseSearchExpression(new SqlFragment('title', ['title-binding']), 3.0),
             new DatabaseSearchExpression(new SqlFragment('body', ['body-binding']), 2.0),
+            new DatabaseSearchExpression(new SqlFragment('keywords', ['keywords-binding']), 0.0),
         ],
         'alpha beta',
         native: true,
@@ -437,7 +460,7 @@ it('keeps native full text values bound in SQL placeholder order', function (
 })->with([
     'mysql' => [
         new MySqlDatabasePlatform,
-        ['title-binding', 'body-binding', '+alpha* +beta*'],
+        ['title-binding', 'body-binding', 'keywords-binding', '+alpha* +beta*'],
         [
             'title-binding', '%alpha%', 3.0,
             'body-binding', '%alpha%', 2.0,
@@ -447,7 +470,7 @@ it('keeps native full text values bound in SQL placeholder order', function (
     ],
     'mariadb' => [
         new MariaDbDatabasePlatform,
-        ['title-binding', 'body-binding', '+alpha* +beta*'],
+        ['title-binding', 'body-binding', 'keywords-binding', '+alpha* +beta*'],
         [
             'title-binding', '%alpha%', 3.0,
             'body-binding', '%alpha%', 2.0,
@@ -457,7 +480,7 @@ it('keeps native full text values bound in SQL placeholder order', function (
     ],
     'postgresql' => [
         new PostgresDatabasePlatform,
-        ['title-binding', 'body-binding', "'alpha':* & 'beta':*"],
+        ['title-binding', 'body-binding', 'keywords-binding', "'alpha':* & 'beta':*"],
         [
             'title-binding', '%alpha%', 3.0,
             'body-binding', '%alpha%', 2.0,
@@ -504,12 +527,13 @@ it('selects native full text only when a compatible index exists', function (): 
     $index = new DatabaseIndexDefinition(
         table: $table,
         name: 'capell_full_text_search_test_index',
-        columns: ['title', 'body'],
+        columns: ['title', 'body', 'keywords'],
     );
     $grammar = $connection->getQueryGrammar();
     $expressions = [
         new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('title')), 5.0),
         new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('body')), 1.0),
+        new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('keywords')), 0.0),
     ];
     $schema = $connection->getSchemaBuilder();
     $schema->dropIfExists($table);
@@ -519,13 +543,15 @@ it('selects native full text only when a compatible index exists', function (): 
             $table->id();
             $table->text('title');
             $table->text('body');
+            $table->text('keywords');
             $table->string('slug');
         });
         $connection->table($table)->insert([
-            ['title' => 'portable architecture', 'body' => 'unrelated copy', 'slug' => 'strong-title'],
-            ['title' => 'portable starts here', 'body' => 'architecture ends here', 'slug' => 'separated'],
-            ['title' => 'unrelated copy', 'body' => 'portable architecture', 'slug' => 'weak-body'],
-            ['title' => 'portable only', 'body' => 'without the other term', 'slug' => 'partial'],
+            ['title' => 'portable architecture', 'body' => 'unrelated copy', 'keywords' => '', 'slug' => 'strong-title'],
+            ['title' => 'portable starts here', 'body' => 'architecture ends here', 'keywords' => '', 'slug' => 'separated'],
+            ['title' => 'unrelated copy', 'body' => 'portable architecture', 'keywords' => '', 'slug' => 'weak-body'],
+            ['title' => 'unrelated copy', 'body' => 'unrelated copy', 'keywords' => 'portable architecture', 'slug' => 'zero-keywords'],
+            ['title' => 'portable only', 'body' => 'without the other term', 'keywords' => '', 'slug' => 'partial'],
         ]);
 
         $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
@@ -544,10 +570,15 @@ it('selects native full text only when a compatible index exists', function (): 
             $search->relevance->bindings,
         )->applySelect($query);
 
+        $ranked = $query->orderByDesc('search_score')->get();
+        $last = $ranked->last();
+        throw_unless(is_object($last), LogicException::class, 'Expected a zero-weight full-text result.');
+
         expect($withoutIndex->native)->toBeFalse()
             ->and($search->native)->toBe($platform->family() !== DatabaseFamily::Sqlite)
-            ->and($query->orderByDesc('search_score')->pluck('slug')->all())
-            ->toBe(['strong-title', 'separated', 'weak-body']);
+            ->and($ranked->pluck('slug')->all())
+            ->toBe(['strong-title', 'separated', 'weak-body', 'zero-keywords'])
+            ->and((float) $last->search_score)->toBe(0.0);
     } finally {
         $schema->dropIfExists($table);
     }

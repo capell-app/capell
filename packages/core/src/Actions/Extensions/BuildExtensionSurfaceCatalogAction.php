@@ -131,7 +131,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.facade.capell-database', 'facade', CapellDatabase::class, ExtensionSurfaceStability::Experimental, 'Static database platform resolution facade.'),
-            $this->entry('core.dto.database-search-expression', 'dto', DatabaseSearchExpression::class, ExtensionSurfaceStability::Experimental, 'Weighted database search expression.'),
+            $this->entry('core.dto.database-search-expression', 'dto', DatabaseSearchExpression::class, ExtensionSurfaceStability::Experimental, 'Weighted search expression; zero omits relevance.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),
             $this->entry('core.dto.metric-collection-result', 'dto', MetricCollectionResultData::class, ExtensionSurfaceStability::Experimental, 'Typed metric collection result.'),

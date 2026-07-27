@@ -111,7 +111,10 @@ final readonly class DatabaseSearchExpression
 }
 ```
 
-Weights must be finite and greater than zero. The dialect and registry contracts
+Weights must be finite and non-negative. A zero-weight expression remains part
+of candidate matching but contributes no relevance score. The dialect omits
+zero-weight relevance clauses and bindings while retaining the expression in
+portable and native predicates. The dialect and registry contracts
 accept a non-empty list of this type only; plain fragments are not silently
 normalized because the boundary is experimental and production callers need to
 make weight handling explicit.
@@ -148,8 +151,9 @@ seams:
    - a row missing the second prefix does not match;
    - dense coverage ranks before separated coverage.
 5. Weighted expressions where terms in a stronger field rank above the same
-   terms in a weaker field, invalid zero/negative/non-finite weights fail, and
-   SQL placeholder bindings retain expression, pattern, and weight order.
+   terms in a weaker field, zero-weight fields remain searchable without
+   affecting relevance, invalid negative/non-finite weights fail, and SQL
+   placeholder bindings retain expression, pattern, and weight order.
 
 The same dataset runs through SQLite's fallback and each server engine's native
 index path.

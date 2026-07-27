@@ -497,9 +497,9 @@ final readonly class DatabaseSearchExpression
         public float $weight = 1.0,
     ) {
         throw_unless(
-            is_finite($weight) && $weight > 0,
+            is_finite($weight) && $weight >= 0,
             InvalidArgumentException::class,
-            'Database search expression weights must be positive and finite.',
+            'Database search expression weights must be non-negative and finite.',
         );
     }
 }
@@ -523,6 +523,10 @@ $relevanceBindings = [
     $searchExpression->weight,
 ];
 ```
+
+Keep zero-weight expressions in the predicate, but omit their relevance
+`CASE` clauses and bindings. If every expression has zero weight, return the
+constant relevance fragment `0` with no bindings.
 
 MySQL, MariaDB, and PostgreSQL continue returning their native combined prefix
 predicate, but return `$fallback->relevance` for deterministic weighted

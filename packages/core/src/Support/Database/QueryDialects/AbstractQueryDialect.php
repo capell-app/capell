@@ -44,6 +44,11 @@ abstract class AbstractQueryDialect implements DatabaseQueryDialect
                 $match = sprintf("LOWER(COALESCE(%s, '')) LIKE ? ESCAPE '!'", $expression->sql);
                 $termPredicateSql[] = $match;
                 $predicateBindings = [...$predicateBindings, ...$expression->bindings, $pattern];
+
+                if ($searchExpression->weight === 0.0) {
+                    continue;
+                }
+
                 $relevanceSql[] = sprintf('CASE WHEN %s THEN ? ELSE 0 END', $match);
                 $relevanceBindings = [
                     ...$relevanceBindings,
@@ -58,7 +63,10 @@ abstract class AbstractQueryDialect implements DatabaseQueryDialect
 
         return new DatabaseFullTextSearch(
             predicate: new SqlFragment(implode(' AND ', $predicateSql), $predicateBindings),
-            relevance: new SqlFragment(implode(' + ', $relevanceSql), $relevanceBindings),
+            relevance: new SqlFragment(
+                $relevanceSql === [] ? '0' : implode(' + ', $relevanceSql),
+                $relevanceBindings,
+            ),
             native: false,
         );
     }
