@@ -329,7 +329,7 @@
             "targetType": "admin-surface",
             "target": "ArticleResource",
             "scenario": "admin-index",
-            "url": "/articles",
+            "url": "/blog/article",
             "waitFor": "table",
             "docsPage": "docs/admin/interface.md",
             "output": "docs/images/admin-articles-list.png",
@@ -693,6 +693,17 @@
             "scenario": "admin-form",
             "url": "/sites/{first-record}/edit",
             "waitFor": "form",
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": "[wire\\:partial=\"schema-component::form.meta.brand_color\"]"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "[wire\\:partial=\"schema-component::form.meta.brand_color\"]",
+                    "block": "start"
+                }
+            ],
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/first-page-site-branding-settings.png",
             "required": true,
