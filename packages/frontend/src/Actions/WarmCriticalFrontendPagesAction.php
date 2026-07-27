@@ -33,7 +33,11 @@ final class WarmCriticalFrontendPagesAction implements RuntimeRefreshWarmer
                 $response = $this->kernel->handle($request);
                 $this->kernel->terminate($request, $response);
 
-                if ($response->getStatusCode() >= Response::HTTP_BAD_REQUEST) {
+                if ($response->getStatusCode() >= Response::HTTP_BAD_REQUEST
+                    && ! in_array($response->getStatusCode(), [
+                        Response::HTTP_UNAUTHORIZED,
+                        Response::HTTP_FORBIDDEN,
+                    ], true)) {
                     throw new RuntimeException(sprintf(
                         'Homepage [%s] returned HTTP %d.',
                         $siteDomain->full_url,

@@ -33,6 +33,22 @@ it('warms every enabled default site homepage through the application kernel', f
     expect(rtrim((string) $requestedUrl, '/'))->toBe(rtrim($siteDomain->full_url, '/'));
 });
 
+it('accepts an intentional authentication challenge from a locked site', function (): void {
+    SiteDomain::factory()
+        ->enabled()
+        ->default()
+        ->create([
+            'scheme' => 'https',
+            'domain' => 'locked-runtime-refresh.test',
+            'path' => '/',
+        ]);
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('handle')->once()->andReturn(new Response('locked', Response::HTTP_UNAUTHORIZED));
+    $kernel->shouldReceive('terminate')->once();
+
+    new WarmCriticalFrontendPagesAction($kernel)->warm();
+});
+
 it('fails the warm stage when a critical homepage is unhealthy', function (): void {
     SiteDomain::factory()
         ->enabled()
