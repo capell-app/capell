@@ -100,7 +100,7 @@
         "test:preflight:serial": "@php -d memory_limit=1536M -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
         "test:all": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
         "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --configuration=phpunit.xml",
-        "test:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --recreate-databases --compact --configuration=phpunit.xml --without-tty --ansi",
+        "test:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --recreate-databases --compact --configuration=phpunit.xml --ansi",
         "test:shards": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --update-shards --configuration=phpunit.xml",
         "test:profile": "@php scripts/profile-pest-tests.php",
         "benchmark:boot": "@php scripts/benchmark-boot.php",
