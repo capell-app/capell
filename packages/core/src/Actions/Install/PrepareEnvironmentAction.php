@@ -57,7 +57,7 @@ final class PrepareEnvironmentAction
         $searchPaths = [
             database_path('migrations'),
             base_path('migrations'),
-            ...app('migrator')->paths(),
+            ...resolve('migrator')->paths(),
         ];
 
         foreach ($searchPaths as $searchPath) {
