@@ -342,18 +342,45 @@ it('keeps native full text values bound in SQL placeholder order', function (
 })->with([
     'mysql' => [
         new MySqlDatabasePlatform,
-        ['title-binding', 'body-binding', '+"alpha" +"beta"'],
-        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', '+alpha* +beta*'],
+        ['title-binding', 'body-binding', '+alpha* +beta*'],
     ],
     'mariadb' => [
         new MariaDbDatabasePlatform,
-        ['title-binding', 'body-binding', '+"alpha" +"beta"'],
-        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', '+alpha* +beta*'],
+        ['title-binding', 'body-binding', '+alpha* +beta*'],
     ],
     'postgresql' => [
         new PostgresDatabasePlatform,
-        ['title-binding', 'body-binding', 'alpha beta'],
-        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', "'alpha':* & 'beta':*"],
+        ['title-binding', 'body-binding', "'alpha':* & 'beta':*"],
+    ],
+]);
+
+it('escapes native full text prefix syntax inside bound queries', function (
+    DatabasePlatform $platform,
+    string $query,
+    string $expected,
+): void {
+    $search = $platform->queryDialect()->fullTextSearch(
+        [SqlFragment::raw('title')],
+        $query,
+        native: true,
+    );
+
+    expect($search->predicate->sql)->not->toContain($query)
+        ->and($search->predicate->bindings)->toBe([$expected])
+        ->and($search->relevance->bindings)->toBe([$expected]);
+})->with([
+    'mysql boolean operators' => [
+        new MySqlDatabasePlatform,
+        'alpha+ beta\\',
+        '+alpha\\+* +beta\\\\*',
+    ],
+    'postgresql quoted lexemes' => [
+        new PostgresDatabasePlatform,
+        "alpha' beta\\",
+        "'alpha''':* & 'beta\\\\':*",
     ],
 ]);
 
@@ -382,19 +409,19 @@ it('selects native full text only when a compatible index exists', function (): 
             $table->string('slug');
         });
         $connection->table($table)->insert([
-            ['title' => 'alpha beta', 'body' => 'alpha beta', 'slug' => 'dense'],
-            ['title' => 'alpha starts here', 'body' => 'beta ends here', 'slug' => 'separated'],
-            ['title' => 'alpha only', 'body' => 'without the other term', 'slug' => 'partial'],
+            ['title' => 'portable archive', 'body' => 'portable archive', 'slug' => 'dense'],
+            ['title' => 'portable starts here', 'body' => 'architecture ends here', 'slug' => 'separated'],
+            ['title' => 'portable only', 'body' => 'without the other term', 'slug' => 'partial'],
         ]);
 
-        $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
+        $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
         $indexFragment = $platform->schemaDialect()->fullTextIndex($index);
 
         if ($indexFragment instanceof SqlFragment) {
             $connection->statement($indexFragment->sql, $indexFragment->bindings);
         }
 
-        $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
+        $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
         $query = $connection->table($table)->select('slug');
         $search->predicate->applyWhere($query);
         new SqlFragment(

@@ -26,18 +26,25 @@ final class PostgresQueryDialect extends AbstractQueryDialect
             $expressions,
         ));
         $expressionBindings = $this->bindings(array_values($expressions));
-        $normalizedQuery = implode(' ', $terms);
+        $prefixQuery = implode(' & ', array_map(
+            static fn (string $term): string => "'" . str_replace(
+                ['\\', "'"],
+                ['\\\\', "''"],
+                $term,
+            ) . "':*",
+            $terms,
+        ));
         $vector = sprintf("to_tsvector('simple', %s)", $document);
-        $queryExpression = "plainto_tsquery('simple', ?)";
+        $queryExpression = "to_tsquery('simple', ?)";
 
         return new DatabaseFullTextSearch(
             predicate: new SqlFragment(
                 sprintf('%s @@ %s', $vector, $queryExpression),
-                [...$expressionBindings, $normalizedQuery],
+                [...$expressionBindings, $prefixQuery],
             ),
             relevance: new SqlFragment(
                 sprintf('ts_rank_cd(%s, %s)', $vector, $queryExpression),
-                [...$expressionBindings, $normalizedQuery],
+                [...$expressionBindings, $prefixQuery],
             ),
             native: true,
         );

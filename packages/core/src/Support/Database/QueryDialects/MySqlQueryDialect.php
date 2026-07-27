@@ -26,9 +26,8 @@ final class MySqlQueryDialect extends AbstractQueryDialect
             $expressions,
         ));
         $expressionBindings = $this->bindings(array_values($expressions));
-        $naturalQuery = implode(' ', $terms);
         $booleanQuery = implode(' ', array_map(
-            static fn (string $term): string => '+"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $term) . '"',
+            static fn (string $term): string => '+' . self::escapeBooleanTerm($term) . '*',
             $terms,
         ));
 
@@ -38,8 +37,8 @@ final class MySqlQueryDialect extends AbstractQueryDialect
                 [...$expressionBindings, $booleanQuery],
             ),
             relevance: new SqlFragment(
-                sprintf('MATCH (%s) AGAINST (?)', $columns),
-                [...$expressionBindings, $naturalQuery],
+                sprintf('MATCH (%s) AGAINST (? IN BOOLEAN MODE)', $columns),
+                [...$expressionBindings, $booleanQuery],
             ),
             native: true,
         );
@@ -122,6 +121,15 @@ final class MySqlQueryDialect extends AbstractQueryDialect
         return new SqlFragment(
             "JSON_SEARCH({$expression->sql}, 'one', {$escapedNeedle}, '!', ?) IS NOT NULL",
             [...$expression->bindings, ...$needle->bindings, $path],
+        );
+    }
+
+    private static function escapeBooleanTerm(string $term): string
+    {
+        return str_replace(
+            ['\\', '+', '-', '>', '<', '(', ')', '~', '*', '"', '@'],
+            ['\\\\', '\+', '\-', '\>', '\<', '\(', '\)', '\~', '\*', '\"', '\@'],
+            $term,
         );
     }
 }
