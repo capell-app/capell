@@ -774,9 +774,14 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerOptimization(): self
     {
+        // Deliberately registered without a `clear:` command. Every other
+        // Laravel cache degrades to "slower" when optimize:clear runs, but this
+        // one gates HTTP boot, so clearing it takes the site down until someone
+        // rebuilds it by hand — and install/upgrade both call optimize:clear.
+        // `optimize` still overwrites it; removing it stays possible, but only
+        // via the explicit capell:package-cache:clear command.
         $this->optimizes(
             optimize: PackageCacheCommand::class,
-            clear: PackageClearCacheCommand::class,
             key: 'capell-package-manifests',
         );
 
