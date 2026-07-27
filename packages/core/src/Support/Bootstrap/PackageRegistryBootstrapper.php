@@ -64,7 +64,11 @@ final readonly class PackageRegistryBootstrapper
      */
     private function canDiscoverOnDemand(): bool
     {
-        return $this->app->runningInConsole() || ! $this->app->environment('production');
+        if ($this->app->runningInConsole()) {
+            return true;
+        }
+
+        return ! $this->app->environment('production');
     }
 
     /** @return array<string, CapellManifestData> */
