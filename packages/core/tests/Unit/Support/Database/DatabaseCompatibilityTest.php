@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
@@ -23,6 +24,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+
+it('rejects invalid database search expression weights', function (float $weight): void {
+    new DatabaseSearchExpression(SqlFragment::raw('title'), $weight);
+})->with([
+    'zero' => 0.0,
+    'negative' => -1.0,
+    'infinite' => INF,
+    'not a number' => NAN,
+])->throws(InvalidArgumentException::class, 'Database search expression weights must be positive and finite.');
 
 it('resolves every supported database driver through one registry seam', function (): void {
     $mysql = new MySqlDatabasePlatform;
@@ -58,7 +68,10 @@ it('caches full text index compatibility per connection and supports invalidatio
         name: 'documents_search_index',
         columns: ['title', 'body'],
     );
-    $expressions = [SqlFragment::raw('title'), SqlFragment::raw('body')];
+    $expressions = [
+        new DatabaseSearchExpression(SqlFragment::raw('title')),
+        new DatabaseSearchExpression(SqlFragment::raw('body')),
+    ];
     $schemaDialect = Mockery::mock(DatabaseSchemaDialect::class);
     $schemaDialect->shouldReceive('hasCompatibleFullTextIndex')
         ->times(4)
@@ -82,11 +95,11 @@ it('caches full text index compatibility per connection and supports invalidatio
 });
 
 it('resolves the database platform registry once per container scope', function (): void {
-    $first = app(DatabasePlatformRegistry::class);
+    $first = resolve(DatabasePlatformRegistry::class);
 
     app()->forgetScopedInstances();
 
-    expect(app(DatabasePlatformRegistry::class))->not->toBe($first);
+    expect(resolve(DatabasePlatformRegistry::class))->not->toBe($first);
 });
 
 it('declares platform family metadata and optional provisioners', function (): void {
@@ -323,7 +336,10 @@ it('matches separated full text terms and ranks broader coverage with the portab
     ));
     $query = $connection->query()->fromSub($rows, 'documents')->select('slug');
     $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
-        [SqlFragment::raw('title'), SqlFragment::raw('body')],
+        [
+            new DatabaseSearchExpression(SqlFragment::raw('title')),
+            new DatabaseSearchExpression(SqlFragment::raw('body')),
+        ],
         'alpha beta',
     );
 
@@ -345,20 +361,28 @@ it('matches separated full text terms and ranks broader coverage with the portab
 
 it('keeps portable full text values bound in SQL placeholder order', function (): void {
     $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
-        [new SqlFragment('COALESCE(?, title)', ['expression-binding'])],
+        [new DatabaseSearchExpression(new SqlFragment('COALESCE(?, title)', ['expression-binding']), 2.5)],
         'alpha% beta_',
     );
-    $expectedBindings = [
+    $expectedPredicateBindings = [
         'expression-binding',
         '%alpha!%%',
         'expression-binding',
         '%beta!_%',
     ];
+    $expectedRelevanceBindings = [
+        'expression-binding',
+        '%alpha!%%',
+        2.5,
+        'expression-binding',
+        '%beta!_%',
+        2.5,
+    ];
 
     expect($search->predicate->sql)
         ->not->toContain('alpha%', 'beta_')
-        ->and($search->predicate->bindings)->toBe($expectedBindings)
-        ->and($search->relevance->bindings)->toBe($expectedBindings);
+        ->and($search->predicate->bindings)->toBe($expectedPredicateBindings)
+        ->and($search->relevance->bindings)->toBe($expectedRelevanceBindings);
 });
 
 it('keeps native full text values bound in SQL placeholder order', function (
@@ -368,8 +392,8 @@ it('keeps native full text values bound in SQL placeholder order', function (
 ): void {
     $search = $platform->queryDialect()->fullTextSearch(
         [
-            new SqlFragment('title', ['title-binding']),
-            new SqlFragment('body', ['body-binding']),
+            new DatabaseSearchExpression(new SqlFragment('title', ['title-binding']), 3.0),
+            new DatabaseSearchExpression(new SqlFragment('body', ['body-binding']), 2.0),
         ],
         'alpha beta',
         native: true,
@@ -383,17 +407,32 @@ it('keeps native full text values bound in SQL placeholder order', function (
     'mysql' => [
         new MySqlDatabasePlatform,
         ['title-binding', 'body-binding', '+alpha* +beta*'],
-        ['title-binding', 'body-binding', '+alpha* +beta*'],
+        [
+            'title-binding', '%alpha%', 3.0,
+            'body-binding', '%alpha%', 2.0,
+            'title-binding', '%beta%', 3.0,
+            'body-binding', '%beta%', 2.0,
+        ],
     ],
     'mariadb' => [
         new MariaDbDatabasePlatform,
         ['title-binding', 'body-binding', '+alpha* +beta*'],
-        ['title-binding', 'body-binding', '+alpha* +beta*'],
+        [
+            'title-binding', '%alpha%', 3.0,
+            'body-binding', '%alpha%', 2.0,
+            'title-binding', '%beta%', 3.0,
+            'body-binding', '%beta%', 2.0,
+        ],
     ],
     'postgresql' => [
         new PostgresDatabasePlatform,
         ['title-binding', 'body-binding', "'alpha':* & 'beta':*"],
-        ['title-binding', 'body-binding', "'alpha':* & 'beta':*"],
+        [
+            'title-binding', '%alpha%', 3.0,
+            'body-binding', '%alpha%', 2.0,
+            'title-binding', '%beta%', 3.0,
+            'body-binding', '%beta%', 2.0,
+        ],
     ],
 ]);
 
@@ -401,26 +440,29 @@ it('escapes native full text prefix syntax inside bound queries', function (
     DatabasePlatform $platform,
     string $query,
     string $expected,
+    array $expectedRelevanceBindings,
 ): void {
     $search = $platform->queryDialect()->fullTextSearch(
-        [SqlFragment::raw('title')],
+        [new DatabaseSearchExpression(SqlFragment::raw('title'))],
         $query,
         native: true,
     );
 
     expect($search->predicate->sql)->not->toContain($query)
         ->and($search->predicate->bindings)->toBe([$expected])
-        ->and($search->relevance->bindings)->toBe([$expected]);
+        ->and($search->relevance->bindings)->toBe($expectedRelevanceBindings);
 })->with([
     'mysql boolean operators' => [
         new MySqlDatabasePlatform,
         'alpha+ beta\\',
         '+alpha\\+* +beta\\\\*',
+        ['%alpha+%', 1.0, '%beta\\%', 1.0],
     ],
     'postgresql quoted lexemes' => [
         new PostgresDatabasePlatform,
         "alpha' beta\\",
         "'alpha''':* & 'beta\\\\':*",
+        ["%alpha'%", 1.0, '%beta\\%', 1.0],
     ],
 ]);
 
@@ -435,8 +477,8 @@ it('selects native full text only when a compatible index exists', function (): 
     );
     $grammar = $connection->getQueryGrammar();
     $expressions = [
-        SqlFragment::raw($grammar->wrap('title')),
-        SqlFragment::raw($grammar->wrap('body')),
+        new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('title')), 5.0),
+        new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('body')), 1.0),
     ];
     $schema = $connection->getSchemaBuilder();
     $schema->dropIfExists($table);
@@ -449,8 +491,9 @@ it('selects native full text only when a compatible index exists', function (): 
             $table->string('slug');
         });
         $connection->table($table)->insert([
-            ['title' => 'portable archive', 'body' => 'portable archive', 'slug' => 'dense'],
+            ['title' => 'portable architecture', 'body' => 'unrelated copy', 'slug' => 'strong-title'],
             ['title' => 'portable starts here', 'body' => 'architecture ends here', 'slug' => 'separated'],
+            ['title' => 'unrelated copy', 'body' => 'portable architecture', 'slug' => 'weak-body'],
             ['title' => 'portable only', 'body' => 'without the other term', 'slug' => 'partial'],
         ]);
 
@@ -473,7 +516,7 @@ it('selects native full text only when a compatible index exists', function (): 
         expect($withoutIndex->native)->toBeFalse()
             ->and($search->native)->toBe($platform->family() !== DatabaseFamily::Sqlite)
             ->and($query->orderByDesc('search_score')->pluck('slug')->all())
-            ->toBe(['dense', 'separated']);
+            ->toBe(['strong-title', 'separated', 'weak-body']);
     } finally {
         $schema->dropIfExists($table);
     }

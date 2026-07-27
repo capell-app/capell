@@ -7,7 +7,7 @@ namespace Capell\Core\Support\Database;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
-use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
@@ -51,7 +51,7 @@ final class DatabasePlatformRegistry
     }
 
     /**
-     * @param  non-empty-list<SqlFragment>  $expressions
+     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
      */
     public function fullTextSearch(
         Connection|Model $context,

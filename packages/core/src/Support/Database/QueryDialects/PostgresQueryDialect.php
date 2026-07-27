@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\QueryDialects;
 
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 use Override;
 
 final class PostgresQueryDialect extends AbstractQueryDialect
 {
+    /**
+     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
+     */
     #[Override]
     public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
     {
@@ -22,10 +26,13 @@ final class PostgresQueryDialect extends AbstractQueryDialect
         }
 
         $document = implode(" || ' ' || ", array_map(
-            static fn (SqlFragment $expression): string => sprintf("COALESCE(%s, '')", $expression->sql),
+            static fn (DatabaseSearchExpression $expression): string => sprintf("COALESCE(%s, '')", $expression->expression->sql),
             $expressions,
         ));
-        $expressionBindings = $this->bindings(array_values($expressions));
+        $expressionBindings = $this->bindings(array_map(
+            static fn (DatabaseSearchExpression $expression): SqlFragment => $expression->expression,
+            array_values($expressions),
+        ));
         $prefixQuery = implode(' & ', array_map(
             static fn (string $term): string => "'" . str_replace(
                 ['\\', "'"],
@@ -42,10 +49,7 @@ final class PostgresQueryDialect extends AbstractQueryDialect
                 sprintf('%s @@ %s', $vector, $queryExpression),
                 [...$expressionBindings, $prefixQuery],
             ),
-            relevance: new SqlFragment(
-                sprintf('ts_rank_cd(%s, %s)', $vector, $queryExpression),
-                [...$expressionBindings, $prefixQuery],
-            ),
+            relevance: $fallback->relevance,
             native: true,
         );
     }
