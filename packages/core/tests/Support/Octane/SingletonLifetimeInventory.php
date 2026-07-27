@@ -39,6 +39,7 @@ use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
+use Capell\Core\Support\Database\FullTextIndexCompatibilityCache;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
@@ -106,13 +107,14 @@ final class SingletonLifetimeInventory
     }
 
     /**
-     * @return array<class-string, array{lifetime: SingletonLifetime, protection: 'boot'|'tagged'|'delegated', reason: non-empty-string}>
+     * @return array<class-string, array{lifetime: SingletonLifetime, protection: 'boot'|'tagged'|'delegated'|'bounded', reason: non-empty-string}>
      */
     public static function mutableSingletons(): array
     {
         return [
             // Core boot registration state.
             CapellPackageRegistry::class => self::boot('Package manifests are discovered once and invalidated only by explicit package mutation.'),
+            FullTextIndexCompatibilityCache::class => self::bounded('Full-text index compatibility is process metadata bounded by LRU eviction and invalidated explicitly after schema changes.'),
             ModelInterceptorRegistry::class => self::boot('Model interceptors are package boot registrations.'),
             SubscriberRegistry::class => self::boot('Subscribers are package boot registrations.'),
             RenderableRegistry::class => self::boot('Renderable types are package boot registrations.'),
@@ -229,6 +231,14 @@ final class SingletonLifetimeInventory
         throw_if($reason === '', InvalidArgumentException::class, 'A singleton lifetime classification requires a reason.');
 
         return ['lifetime' => SingletonLifetime::RequestMutable, 'protection' => 'delegated', 'reason' => $reason];
+    }
+
+    /** @return array{lifetime: SingletonLifetime, protection: 'bounded', reason: non-empty-string} */
+    private static function bounded(string $reason): array
+    {
+        throw_if($reason === '', InvalidArgumentException::class, 'A singleton lifetime classification requires a reason.');
+
+        return ['lifetime' => SingletonLifetime::ProcessMutable, 'protection' => 'bounded', 'reason' => $reason];
     }
 
     /** @return array{lifetime: SingletonLifetime, protection: 'boot', reason: non-empty-string} */

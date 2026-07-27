@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Concerns;
 
+use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use LogicException;
 
 trait ApplySearchRelationsTable
 {
     use AppliesNameSearchRelevanceToTable;
 
     /**
-     * @return array<string, array<int|string, string>>
+     * @return array<string, array<int|string, string|Expression<literal-string|int|float>>>
      */
     abstract public function getSearchRelationColumns(): array;
 
@@ -87,38 +90,43 @@ trait ApplySearchRelationsTable
 
             $searchColumn = preg_replace('/[^a-zA-Z0-9]+/', '', $searchColumn) ?? '';
 
-            $searchColumnSql = in_array($searchParent, [null, '', '0'], true)
-                ? sprintf('`%s`', $searchColumn)
-                : sprintf('JSON_EXTRACT(`%s`, "$.`%s`")', $searchParent, $searchColumn);
-            $searchColumnExpression = new Expression($this->literalSql($searchColumnSql));
+            $grammar = $query->getQuery()->getGrammar();
+            $searchColumnFragment = in_array($searchParent, [null, '', '0'], true)
+                ? SqlFragment::raw($grammar->wrap($searchColumn))
+                : CapellDatabase::for($query->getModel())->queryDialect()->jsonExtract(
+                    SqlFragment::raw($grammar->wrap($searchParent)),
+                    '$.' . $searchColumn,
+                );
+            $searchColumnSql = $searchColumnFragment->sql;
+            $searchColumnExpression = in_array($searchParent, [null, '', '0'], true)
+                ? $searchColumn
+                : $searchParent . '->' . $searchColumn;
         }
 
         if ($searchColumnType === 'json' || $searchColumnType === 'json_data') {
-            $searchString = DB::getPdo()->quote(sprintf('%%%s%%', $searchTerm));
-
-            $jsonSearchParams = $searchColumnType === 'json_data'
-                ? sprintf("%s, 'one', %s, NULL, '\$[*].data'", $searchColumnSql, $searchString)
-                : sprintf("%s, 'one', %s", $searchColumnSql, $searchString);
+            $search = CapellDatabase::for($query->getModel())->queryDialect()->jsonSearch(
+                $searchColumnFragment ?? SqlFragment::raw($searchColumnSql),
+                SqlFragment::value($searchTerm),
+                $searchColumnType === 'json_data' ? '$[*].data' : '$',
+            );
 
             if ($isColumnFirst) {
-                $query->whereRaw($this->literalSql(sprintf('json_extract(%s) IS NOT NULL', $jsonSearchParams)));
+                $search->applyWhere($query->getQuery());
             } else {
-                $query->orWhereRaw($this->literalSql(sprintf('json_extract(%s) IS NOT NULL', $jsonSearchParams)));
+                $search->applyWhere($query->getQuery(), 'or');
             }
 
             return;
         }
 
         if ($isColumnFirst) {
-            $query->where(
+            $query->whereLike(
                 $searchColumnExpression,
-                'like',
                 sprintf('%%%s%%', $searchTerm),
             );
         } else {
-            $query->orWhere(
+            $query->orWhereLike(
                 $searchColumnExpression,
-                'like',
                 sprintf('%%%s%%', $searchTerm),
             );
         }
@@ -137,10 +145,12 @@ trait ApplySearchRelationsTable
                 $isColumnFirst = true;
 
                 foreach ($searchColumns as $searchColumn => $searchColumnType) {
-                    if (is_numeric($searchColumn)) {
+                    if (is_int($searchColumn)) {
                         $searchColumn = $searchColumnType;
                         $searchColumnType = 'string';
                     }
+
+                    throw_unless(is_string($searchColumnType), LogicException::class, 'Named relation search columns must declare a string column type.');
 
                     $this->applyRelationColumnSearch(
                         $query,
@@ -156,14 +166,5 @@ trait ApplySearchRelationsTable
         }
 
         return $query;
-    }
-
-    /**
-     * @return literal-string
-     */
-    private function literalSql(string $sql): string
-    {
-        /** @var literal-string $sql */
-        return $sql;
     }
 }

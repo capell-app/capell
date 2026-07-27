@@ -9,9 +9,14 @@ use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
+use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Contracts\Database\DatabaseProvisioner;
+use Capell\Core\Contracts\Database\DatabaseQueryDialect;
+use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
@@ -25,6 +30,7 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 use Capell\Frontend\Enums\FrontendPackageDependencyType;
@@ -149,6 +155,26 @@ it('classifies the admin tool seam as experimental', function (): void {
     foreach ($catalog->only($surfaceIds) as $entry) {
         expect($entry->ownerPackage)->toBe('capell-app/admin')
             ->and($entry->stability)->toBe(ExtensionSurfaceStability::Experimental);
+    }
+});
+
+it('classifies the database compatibility seam as experimental', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $surfaces = [
+        'core.contract.database-platform' => DatabasePlatform::class,
+        'core.contract.database-provisioner' => DatabaseProvisioner::class,
+        'core.contract.database-query-dialect' => DatabaseQueryDialect::class,
+        'core.contract.database-schema-dialect' => DatabaseSchemaDialect::class,
+        'core.dto.database-search-expression' => DatabaseSearchExpression::class,
+        'core.registry.database-platform' => DatabasePlatformRegistry::class,
+        'core.tag.database-platform' => DatabasePlatform::TAG,
+    ];
+
+    expect($catalog)->toHaveKeys(array_keys($surfaces));
+
+    foreach ($surfaces as $id => $identifier) {
+        expect($catalog->get($id)?->identifier)->toBe($identifier)
+            ->and($catalog->get($id)?->stability)->toBe(ExtensionSurfaceStability::Experimental);
     }
 });
 

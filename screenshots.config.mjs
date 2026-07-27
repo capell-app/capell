@@ -4,6 +4,14 @@ import { fileURLToPath } from 'node:url'
 const repositoryRoot = dirname(fileURLToPath(import.meta.url))
 const appUrl = 'http://127.0.0.1:8145'
 
+// Absolute URLs the app renders end up visible in captures — Filament shows one
+// in the page URL badge and the slug field — and a localhost URL reads as
+// unfinished in published documentation. The app is told it lives at this
+// domain; the runner serves every request for it from appUrl and aborts rather
+// than ever contacting the real host.
+const displayUrl =
+    process.env.CAPELL_SCREENSHOT_DISPLAY_ORIGIN ?? 'https://capell.app'
+
 export default {
     schemaVersion: 1,
     repoRoots: ['.'],
@@ -21,6 +29,11 @@ export default {
             command: 'php',
             args: [
                 '-d',
+                'memory_limit=-1',
+                '-d',
+                'display_errors=0',
+                '-d',
+                'log_errors=1',
                 'vendor/bin/testbench',
                 'serve',
                 '--host=127.0.0.1',
@@ -39,7 +52,8 @@ export default {
         admin: `${appUrl}/admin`,
     },
     environment: {
-        APP_URL: appUrl,
+        APP_URL: displayUrl,
+        CAPELL_SCREENSHOT_DISPLAY_ORIGIN: displayUrl,
         APP_KEY: 'base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE=',
         DB_CONNECTION: 'sqlite',
         DB_DATABASE: join(

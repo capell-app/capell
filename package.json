@@ -21,13 +21,16 @@
         "test:marketplace-install-flow:required": "CAPELL_MARKETPLACE_SMOKE_REQUIRED=true playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium"
     },
     "devDependencies": {
+        "@capell-app/screenshot-tools": "file:../capell-screenshot-tools",
         "@playwright/test": "^1.60.0",
+        "@tailwindcss/cli": "^4.3.3",
         "eslint": "^8.56.0",
         "eslint-config-prettier": "^9.1.0",
         "playwright": "^1.60.0",
         "prettier": "^3.5.2",
         "prettier-plugin-blade": "^2.1.21",
-        "prettier-plugin-tailwindcss": "^0.6.11"
+        "prettier-plugin-tailwindcss": "^0.6.11",
+        "tailwindcss": "^4.3.3"
     },
     "dependencies": {
         "@tailwindcss/forms": "^0.5.11",

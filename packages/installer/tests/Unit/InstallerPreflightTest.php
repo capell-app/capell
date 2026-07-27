@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
@@ -87,6 +90,79 @@ it('accepts the documented minimum PHP version', function (): void {
             'status' => 'pass',
             'message' => 'PHP ' . PHP_VERSION . ' is compatible with Capell.',
         ]);
+});
+
+it('blocks installation when the configured database PDO extension is missing', function (): void {
+    $originalRegistry = resolve(DatabasePlatformRegistry::class);
+    $originalDefaultConnection = config('database.default');
+    $originalCacheStore = config('cache.default');
+    $platform = Mockery::mock(DatabasePlatform::class);
+    $platform->shouldReceive('drivers')->andReturn(['missing-pdo']);
+    $platform->shouldReceive('phpExtension')->andReturn('pdo_capell_missing');
+
+    app()->instance(DatabasePlatformRegistry::class, new DatabasePlatformRegistry([$platform]));
+    CapellDatabase::clearResolvedInstance(DatabasePlatformRegistry::class);
+
+    config([
+        'database.default' => 'missing-pdo',
+        'database.connections.missing-pdo' => [
+            'driver' => 'missing-pdo',
+            'database' => ':memory:',
+        ],
+        'cache.default' => 'array',
+    ]);
+
+    try {
+        $report = resolve(InstallerPreflight::class)->run();
+
+        expect(installerPreflightCheck($report, 'php-extensions'))
+            ->toMatchArray([
+                'status' => 'fail',
+                'severity' => 'blocking',
+                'message' => 'Missing PHP extensions: pdo_capell_missing.',
+            ])
+            ->and($report['status'])->toBe('fail');
+    } finally {
+        config([
+            'database.default' => $originalDefaultConnection,
+            'cache.default' => $originalCacheStore,
+        ]);
+        DB::purge('missing-pdo');
+        app()->instance(DatabasePlatformRegistry::class, $originalRegistry);
+        CapellDatabase::clearResolvedInstance(DatabasePlatformRegistry::class);
+    }
+});
+
+it('reports an unsupported configured database driver as a blocking failure', function (): void {
+    $originalDefaultConnection = config('database.default');
+    $originalCacheStore = config('cache.default');
+
+    config([
+        'database.default' => 'unsupported-installer-driver',
+        'database.connections.unsupported-installer-driver' => [
+            'driver' => 'sqlsrv',
+            'database' => 'capell_installer_test',
+        ],
+        'cache.default' => 'array',
+    ]);
+
+    try {
+        $report = resolve(InstallerPreflight::class)->run();
+
+        expect(installerPreflightCheck($report, 'php-extensions'))
+            ->toMatchArray([
+                'status' => 'fail',
+                'severity' => 'blocking',
+                'message' => 'The configured database driver [sqlsrv] is not supported by Capell.',
+            ])
+            ->and($report['status'])->toBe('fail');
+    } finally {
+        config([
+            'database.default' => $originalDefaultConnection,
+            'cache.default' => $originalCacheStore,
+        ]);
+        DB::purge('unsupported-installer-driver');
+    }
 });
 
 it('checks the configured cli php binary through path resolution', function (): void {

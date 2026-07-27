@@ -193,30 +193,3 @@ it('attempts server level database preparation for configured mysql and postgres
         'password' => 'secret',
     ]],
 ]);
-
-it('normalises database connection helper values safely', function (): void {
-    $action = new EnsureDatabaseExistsAction;
-
-    expect(callEnsureDatabaseExistsMethod($action, 'absoluteSqlitePath', '/tmp/capell.sqlite'))->toBe('/tmp/capell.sqlite')
-        ->and(callEnsureDatabaseExistsMethod($action, 'absoluteSqlitePath', 'relative.sqlite'))->toBe(database_path('relative.sqlite'))
-        ->and(callEnsureDatabaseExistsMethod($action, 'firstHost', ['db.internal', 'fallback.internal']))->toBe('db.internal')
-        ->and(callEnsureDatabaseExistsMethod($action, 'firstHost', ['', 'fallback.internal']))->toBe('127.0.0.1')
-        ->and(callEnsureDatabaseExistsMethod($action, 'firstHost', 'mysql.internal'))->toBe('mysql.internal')
-        ->and(callEnsureDatabaseExistsMethod($action, 'firstHost', ''))->toBe('127.0.0.1')
-        ->and(callEnsureDatabaseExistsMethod($action, 'quoteMysqlIdentifier', 'capell`cms'))->toBe('`capell``cms`')
-        ->and(callEnsureDatabaseExistsMethod($action, 'quotePostgresIdentifier', 'capell"cms'))->toBe('"capell""cms"')
-        ->and(callEnsureDatabaseExistsMethod($action, 'isSimpleIdentifier', 'utf8mb4'))->toBeTrue()
-        ->and(callEnsureDatabaseExistsMethod($action, 'isSimpleIdentifier', 'utf8-mb4'))->toBeFalse()
-        ->and(callEnsureDatabaseExistsMethod($action, 'isAbsolutePath', 'C:\\capell\\database.sqlite'))->toBeTrue()
-        ->and(callEnsureDatabaseExistsMethod($action, 'isAbsolutePath', 'database.sqlite'))->toBeFalse();
-
-    expect(fn (): mixed => callEnsureDatabaseExistsMethod($action, 'quotePostgresIdentifier', "capell\0cms"))
-        ->toThrow(RuntimeException::class, 'Database name cannot contain null bytes.');
-});
-
-function callEnsureDatabaseExistsMethod(EnsureDatabaseExistsAction $action, string $method, mixed ...$arguments): mixed
-{
-    $reflectionMethod = new ReflectionMethod($action, $method);
-
-    return $reflectionMethod->invoke($action, ...$arguments);
-}

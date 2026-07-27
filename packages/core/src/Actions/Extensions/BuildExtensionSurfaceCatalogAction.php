@@ -9,6 +9,10 @@ use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
+use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Contracts\Database\DatabaseProvisioner;
+use Capell\Core\Contracts\Database\DatabaseQueryDialect;
+use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
@@ -19,6 +23,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
@@ -58,6 +63,8 @@ use Capell\Core\Enums\Metrics\MetricVisibility;
 use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Testing\ExtensionTestHarness;
@@ -105,6 +112,10 @@ final class BuildExtensionSurfaceCatalogAction
     {
         return [
             $this->entry('core.contract.extension-contribution', 'contract', ExtensionContribution::class, ExtensionSurfaceStability::Stable, 'Core contribution boundary.', 'core.extension-contribution'),
+            $this->entry('core.contract.database-platform', 'contract', DatabasePlatform::class, ExtensionSurfaceStability::Experimental, 'Database family metadata and dialect boundary.'),
+            $this->entry('core.contract.database-provisioner', 'contract', DatabaseProvisioner::class, ExtensionSurfaceStability::Experimental, 'Installer database provisioning boundary.'),
+            $this->entry('core.contract.database-query-dialect', 'contract', DatabaseQueryDialect::class, ExtensionSurfaceStability::Experimental, 'Portable SQL expression boundary.'),
+            $this->entry('core.contract.database-schema-dialect', 'contract', DatabaseSchemaDialect::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capability boundary.'),
             $this->entry('core.contract.frontend-route-reservation-contributor', 'contract', FrontendRouteReservationContributor::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation contributions.'),
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),
             $this->entry('core.contract.interaction-target-capability-contributor', 'contract', InteractionTargetCapabilityContributor::class, ExtensionSurfaceStability::Experimental, 'Typed interaction target capability contributions.'),
@@ -119,6 +130,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.action.verify-project-build-signature', 'action', VerifyProjectBuildManifestSignatureAction::class, ExtensionSurfaceStability::Stable, 'Ed25519 verification for portable project manifests.', 'core.project-build-manifest-signing'),
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
+            $this->entry('core.facade.capell-database', 'facade', CapellDatabase::class, ExtensionSurfaceStability::Experimental, 'Static database platform resolution facade.'),
+            $this->entry('core.dto.database-search-expression', 'dto', DatabaseSearchExpression::class, ExtensionSurfaceStability::Experimental, 'Weighted search expression; zero omits relevance.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),
             $this->entry('core.dto.metric-collection-result', 'dto', MetricCollectionResultData::class, ExtensionSurfaceStability::Experimental, 'Typed metric collection result.'),
@@ -161,6 +174,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.tag.project-build-artifact-handler', 'tagged-service', ProjectBuildArtifactHandler::TAG, ExtensionSurfaceStability::Stable, 'Container tag for project build artifact handlers.', 'core.project-build-artifact-handler-registration'),
             $this->entry('core.tag.site-spec-applier', 'tagged-service', SiteSpecApplier::TAG, ExtensionSurfaceStability::Stable, 'Container tag for SiteSpec appliers.', 'core.site-spec-applier-registration'),
             $this->entry('core.registry.project-build-artifact-handler', 'registry', ProjectBuildArtifactHandlerRegistry::class, ExtensionSurfaceStability::Stable, 'Runtime registry for portable project build artifact handlers.', 'core.project-build-artifact-handler-registry'),
+            $this->entry('core.registry.database-platform', 'registry', DatabasePlatformRegistry::class, ExtensionSurfaceStability::Experimental, 'Single runtime database platform resolution seam.'),
+            $this->entry('core.tag.database-platform', 'tagged-service', DatabasePlatform::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for database platform adapters.'),
             $this->entry('core.config.roles-admin', 'config', 'capell.roles.admin', ExtensionSurfaceStability::Experimental, 'Configured administrator role name.'),
             $this->entry('admin.contract.admin-tool-item', 'contract', 'Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem', ExtensionSurfaceStability::Experimental, 'Typed admin header tool contribution boundary.', owner: 'capell-app/admin'),
             $this->entry('admin.render-hook.navigation-after', 'render-hook', 'panels::sidebar.nav.end', ExtensionSurfaceStability::Experimental, 'Admin navigation contribution hook.', owner: 'capell-app/admin'),

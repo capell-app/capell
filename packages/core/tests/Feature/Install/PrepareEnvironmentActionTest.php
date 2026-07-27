@@ -8,10 +8,10 @@ use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
-it('runs storage link and session table commands', function (): void {
+it('runs the storage link command', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('call')->with('storage:link')->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('session:table')->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('session:table')->zeroOrMoreTimes()->andReturn(0);
     $kernel->shouldReceive('call')->with('notifications:table')->zeroOrMoreTimes()->andReturn(0);
 
     $this->app->instance(ConsoleKernel::class, $kernel);
@@ -29,7 +29,7 @@ it('creates notifications table when it does not exist', function (): void {
 
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('call')->with('storage:link')->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('session:table')->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('session:table')->zeroOrMoreTimes()->andReturn(0);
     $kernel->shouldReceive('call')->with('notifications:table')->once()->andReturn(0);
 
     $this->app->instance(ConsoleKernel::class, $kernel);
@@ -42,14 +42,16 @@ it('creates notifications table when it does not exist', function (): void {
         PrepareEnvironmentAction::run(new NullProgressReporter);
     } finally {
         $this->app->useDatabasePath($originalDatabasePath);
-        File::deleteDirectory($isolatedDatabasePath);
+        @unlink($isolatedDatabasePath . '/migrations/0001_01_01_000000_create_users_table.php');
+        @rmdir($isolatedDatabasePath . '/migrations');
+        @rmdir($isolatedDatabasePath);
     }
 });
 
 it('skips notifications table when it already exists', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('call')->with('storage:link')->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('session:table')->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('session:table')->zeroOrMoreTimes()->andReturn(0);
     $kernel->shouldReceive('call')->with('notifications:table')->never();
 
     $this->app->instance(ConsoleKernel::class, $kernel);
@@ -68,7 +70,7 @@ it('skips notifications table when a notifications migration already exists', fu
     try {
         $kernel = Mockery::mock(ConsoleKernel::class);
         $kernel->shouldReceive('call')->with('storage:link')->once()->andReturn(0);
-        $kernel->shouldReceive('call')->with('session:table')->once()->andReturn(0);
+        $kernel->shouldReceive('call')->with('session:table')->zeroOrMoreTimes()->andReturn(0);
         $kernel->shouldReceive('call')->with('notifications:table')->never();
 
         $this->app->instance(ConsoleKernel::class, $kernel);

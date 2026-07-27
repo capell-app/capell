@@ -349,7 +349,7 @@ class TranslationsRepeater extends RepeaterTabs
             ->select($query->getModel()->qualifyColumn('*'))
             ->join('languages', $query->getModel()->qualifyColumn('language_id'), '=', 'languages.id')
             ->whereNull('languages.deleted_at')
-            ->orderByRaw('CASE WHEN `default` = 0 THEN 1 ELSE 2 END DESC')
+            ->orderByDesc('languages.default')
             ->orderBy('languages.order')
             ->orderBy('languages.name');
     }

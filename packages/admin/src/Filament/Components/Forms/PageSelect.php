@@ -10,6 +10,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\HintEditAction;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Pages\Schemas\PageForm;
+use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
@@ -35,6 +36,7 @@ use Illuminate\Support\Str;
 
 class PageSelect extends Select
 {
+    use AppliesNameSearchRelevance;
     use HasCustomSelectOption;
 
     protected null|string|Closure $pageGroup = null;
@@ -276,11 +278,10 @@ class PageSelect extends Select
             )
             ->when(
                 $search,
-                fn (Builder $query, string $search): Builder => $query->where('pages.name', 'like', sprintf('%%%s%%', $search))
-                    ->orderByRaw(
-                        'CASE WHEN pages.name = ? THEN 1 ELSE 0 END DESC, INSTR(pages.name, ?), pages.name',
-                        [$search, $search],
-                    ),
+                fn (Builder $query, string $search): Builder => self::applyNameSearchRelevance(
+                    $query->whereLike('pages.name', sprintf('%%%s%%', $search)),
+                    $search,
+                ),
                 fn (Builder $query): Builder => $query->limit(10),
             );
 

@@ -23,32 +23,59 @@ final class ValidatePageHierarchyAction
     public function handle(): bool
     {
         $table = (new Page)->getTable();
+        $grammar = DB::connection()->getQueryGrammar();
 
         $oddness = DB::table($table)
-            ->selectRaw($this->literalSql('(select count(1) from `' . $table . '` where (`_lft` >= `_rgt` or (`_rgt` - `_lft`) % 2 = 0)) as oddness'))
-            ->value('oddness');
+            ->where(function ($query) use ($grammar): void {
+                $query
+                    ->whereColumn('_lft', '>=', '_rgt')
+                    ->orWhereRaw(sprintf(
+                        '(%s - %s) %% 2 = 0',
+                        $grammar->wrap('_rgt'),
+                        $grammar->wrap('_lft'),
+                    ));
+            })
+            ->count();
 
-        $duplicates = DB::table($table)
-            ->selectRaw($this->literalSql('(select count(1) from `' . $table . '` as c1, `' . $table . '` as c2 where c1.`id` < c2.`id` and (c1.`_lft`=c2.`_lft` or c1.`_rgt`=c2.`_rgt` or c1.`_lft`=c2.`_rgt` or c1.`_rgt`=c2.`_lft`)) as duplicates'))
-            ->value('duplicates');
+        $duplicates = DB::table($table . ' as c1')
+            ->crossJoin($table . ' as c2')
+            ->whereColumn('c1.id', '<', 'c2.id')
+            ->where(function ($query): void {
+                $query
+                    ->whereColumn('c1._lft', 'c2._lft')
+                    ->orWhereColumn('c1._rgt', 'c2._rgt')
+                    ->orWhereColumn('c1._lft', 'c2._rgt')
+                    ->orWhereColumn('c1._rgt', 'c2._lft');
+            })
+            ->count();
 
-        $wrongParent = DB::table($table)
-            ->selectRaw($this->literalSql('(select count(1) from `' . $table . '` as c, `' . $table . '` as p, `' . $table . '` as i where c.`parent_id`=p.`id` and i.`id` <> p.`id` and i.`id` <> c.`id` and (c.`_lft` not between p.`_lft` and p.`_rgt` or c.`_lft` between i.`_lft` and i.`_rgt` and i.`_lft` between p.`_lft` and p.`_rgt`)) as wrong_parent'))
-            ->value('wrong_parent');
+        $wrongParent = DB::table($table . ' as c')
+            ->crossJoin($table . ' as p')
+            ->crossJoin($table . ' as i')
+            ->whereColumn('c.parent_id', 'p.id')
+            ->whereColumn('i.id', '<>', 'p.id')
+            ->whereColumn('i.id', '<>', 'c.id')
+            ->where(function ($query): void {
+                $query
+                    ->whereNotBetweenColumns('c._lft', ['p._lft', 'p._rgt'])
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->whereBetweenColumns('c._lft', ['i._lft', 'i._rgt'])
+                            ->whereBetweenColumns('i._lft', ['p._lft', 'p._rgt']);
+                    });
+            })
+            ->count();
 
         $missingParent = DB::table($table)
-            ->selectRaw($this->literalSql('(select count(1) from `' . $table . '` where (`parent_id` is not null and not exists (select 1 from `' . $table . '` as p where `' . $table . '`.`parent_id` = p.`id` limit 1))) as missing_parent'))
-            ->value('missing_parent');
+            ->whereNotNull('parent_id')
+            ->whereNotExists(function ($query) use ($table): void {
+                $query
+                    ->select('id')
+                    ->from($table . ' as p')
+                    ->whereColumn($table . '.parent_id', 'p.id');
+            })
+            ->count();
 
         return ($oddness > 0) || ($duplicates > 0) || ($wrongParent > 0) || ($missingParent > 0);
-    }
-
-    /**
-     * @return literal-string
-     */
-    private function literalSql(string $sql): string
-    {
-        /** @var literal-string $sql */
-        return $sql;
     }
 }

@@ -8,7 +8,6 @@ use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @implements Scope<Model>
@@ -31,21 +30,14 @@ class LanguagesOrderScope implements Scope
             return $builder;
         }
 
-        return $builder->when(
-            DB::getDriverName() === 'sqlite',
-            fn (BuilderContract $query) => $query->orderByRaw(
-                self::literalSql('CASE language_id ' .
-                implode(' ', array_map(
-                    fn (int $index): string => sprintf('WHEN ? THEN %s', $index),
-                    array_keys($languageIds),
-                )) .
-                ' END'),
-                $languageIds,
-            ),
-            fn (BuilderContract $query) => $query->orderByRaw(
-                'FIELD(language_id, ' . implode(',', array_fill(0, count($languageIds), '?')) . ')',
-                $languageIds,
-            ),
+        return $builder->orderByRaw(
+            self::literalSql('CASE language_id ' .
+            implode(' ', array_map(
+                fn (int $index): string => sprintf('WHEN ? THEN %d', $index),
+                array_keys($languageIds),
+            )) .
+            sprintf(' ELSE %d END', count($languageIds))),
+            $languageIds,
         );
     }
 

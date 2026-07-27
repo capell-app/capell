@@ -101,9 +101,34 @@ function collectMarkdownFiles(directory, files = []) {
     return files
 }
 
+// Theme-aware embeds use a <picture> block, so light and dark sources are HTML
+// attributes rather than Markdown image syntax. Both forms are validated.
 function localImagePaths(markdown) {
-    return Array.from(markdown.matchAll(/!\[[^\]]*]\(([^)]+)\)/g))
-        .map((match) => match[1])
+    const markdownPaths = Array.from(
+        markdown.matchAll(/!\[[^\]]*]\(([^)]+)\)/g),
+    ).map((match) => match[1])
+
+    // Fenced and inline code carries example markup such as
+    // <img src="@frontendAsset(...)">, which is documentation rather than a
+    // reference to a file on disk.
+    const proseOnly = markdown
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`[^`\n]*`/g, '')
+
+    const htmlPaths = Array.from(
+        proseOnly.matchAll(
+            /<(?:img|source)\b[^>]*?\b(?:src|srcset)="([^"]+)"/g,
+        ),
+    ).flatMap((match) =>
+        // A srcset lists comma-separated candidates, each optionally followed by
+        // a descriptor such as "2x" or "800w".
+        match[1]
+            .split(',')
+            .map((candidate) => candidate.trim().split(/\s+/)[0])
+            .filter(Boolean),
+    )
+
+    return [...markdownPaths, ...htmlPaths]
         .filter((imagePath) => !/^https?:/.test(imagePath))
         .filter((imagePath) => !imagePath.includes('shields.io'))
 }

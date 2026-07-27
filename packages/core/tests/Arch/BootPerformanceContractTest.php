@@ -44,45 +44,57 @@ it('keeps first-party wildcard model listeners to the documented bounded set', f
     ]);
 });
 
-it('wires the package manifest cache into Laravel optimization', function (): void {
+it('wires the package manifest cache into Laravel optimization without a clear hook', function (): void {
+    // `optimize` must rebuild the cache, but `optimize:clear` must not delete
+    // it: this cache gates HTTP boot, so clearing it takes the site down rather
+    // than merely slowing it, unlike every other Laravel cache. Removal stays
+    // available through the explicit command below.
     expect(ServiceProvider::$optimizeCommands['capell-package-manifests'] ?? null)
-        ->toBe(PackageCacheCommand::class)
-        ->and(ServiceProvider::$optimizeClearCommands['capell-package-manifests'] ?? null)
-        ->toBe(PackageClearCacheCommand::class);
+        ->toBe(PackageCacheCommand::class);
+
+    expect(ServiceProvider::$optimizeClearCommands['capell-package-manifests'] ?? null)
+        ->toBeNull();
+
+    expect(class_exists(PackageClearCacheCommand::class))->toBeTrue();
 });
 
-it('prevents non-console package discovery when the manifest cache is absent', function (): void {
-    $registry = new CapellPackageRegistry;
-    $application = Mockery::mock(Application::class);
-    $application->shouldReceive('make')->once()->with(CapellPackageRegistry::class)->andReturn($registry);
-    $application->shouldReceive('bootstrapPath')->once()->with('cache/capell-package-manifests.php')->andReturn(
+it('prevents non-console package discovery in production when the manifest cache is absent', function (): void {
+    $bootstrapper = bootstrapperForWebRequest(
         sys_get_temp_dir() . '/missing-capell-package-manifests.php',
-    );
-    $application->shouldReceive('runningInConsole')->once()->andReturnFalse();
-
-    $bootstrapper = new PackageRegistryBootstrapper(
-        $application,
-        new ManifestLoader(new ManifestValidator),
+        isProduction: true,
     );
 
     expect(fn () => $bootstrapper->bootstrap())
         ->toThrow(RuntimeException::class, 'Run [php artisan capell:package-cache] during deployment.');
 });
 
-it('fails once when a non-console invalid manifest cache cannot be removed', function (): void {
+it('rebuilds on demand for non-production web requests when the manifest cache is absent', function (): void {
+    // Outside production the per-request discovery cost is irrelevant, and a
+    // 500 on every page after a routine cache clear is not.
+    $bootstrapper = bootstrapperForWebRequest(
+        sys_get_temp_dir() . '/missing-capell-package-manifests.php',
+        isProduction: false,
+    );
+
+    // Boot cannot complete against a mocked Application, so assert the thing
+    // that matters: the deploy-gate failure is not what stops it.
+    $thrown = null;
+
+    try {
+        $bootstrapper->bootstrap();
+    } catch (Throwable $throwable) {
+        $thrown = $throwable;
+    }
+
+    expect($thrown?->getMessage() ?? '')
+        ->not->toContain('Run [php artisan capell:package-cache] during deployment.');
+});
+
+it('fails once when a production web request cannot remove an invalid manifest cache', function (): void {
     $cachePath = sys_get_temp_dir() . '/undeletable-capell-package-manifests-' . bin2hex(random_bytes(6));
     mkdir($cachePath);
 
-    $registry = new CapellPackageRegistry;
-    $application = Mockery::mock(Application::class);
-    $application->shouldReceive('make')->once()->with(CapellPackageRegistry::class)->andReturn($registry);
-    $application->shouldReceive('bootstrapPath')->once()->with('cache/capell-package-manifests.php')->andReturn($cachePath);
-    $application->shouldReceive('runningInConsole')->once()->andReturnFalse();
-
-    $bootstrapper = new PackageRegistryBootstrapper(
-        $application,
-        new ManifestLoader(new ManifestValidator),
-    );
+    $bootstrapper = bootstrapperForWebRequest($cachePath, isProduction: true);
 
     try {
         expect(fn () => $bootstrapper->bootstrap())
@@ -91,3 +103,18 @@ it('fails once when a non-console invalid manifest cache cannot be removed', fun
         rmdir($cachePath);
     }
 });
+
+function bootstrapperForWebRequest(string $cachePath, bool $isProduction): PackageRegistryBootstrapper
+{
+    $registry = new CapellPackageRegistry;
+    $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(CapellPackageRegistry::class)->andReturn($registry);
+    $application->shouldReceive('bootstrapPath')->with('cache/capell-package-manifests.php')->andReturn($cachePath);
+    $application->shouldReceive('runningInConsole')->andReturnFalse();
+    $application->shouldReceive('environment')->with('production')->andReturn($isProduction);
+
+    return new PackageRegistryBootstrapper(
+        $application,
+        new ManifestLoader(new ManifestValidator),
+    );
+}

@@ -11,18 +11,16 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-// Laravel 13 renamed the CSRF middleware to PreventRequestForgery; fall back to
-// VerifyCsrfToken on Laravel 12 where the new class does not yet exist.
-$csrfMiddleware = class_exists(PreventRequestForgery::class)
-    ? PreventRequestForgery::class
-    : VerifyCsrfToken::class;
+$foundationMiddlewareNamespace = implode('\\', ['Illuminate', 'Foundation', 'Http', 'Middleware']);
+$preventRequestForgeryMiddleware = $foundationMiddlewareNamespace . '\\PreventRequestForgery';
+$requestForgeryMiddleware = class_exists($preventRequestForgeryMiddleware)
+    ? $preventRequestForgeryMiddleware
+    : $foundationMiddlewareNamespace . '\\VerifyCsrfToken';
 
 Route::prefix(AdminPanelEntrypoint::path())
     ->middleware([
@@ -32,7 +30,7 @@ Route::prefix(AdminPanelEntrypoint::path())
         StartSession::class,
         AuthenticateSession::class,
         ShareErrorsFromSession::class,
-        $csrfMiddleware,
+        $requestForgeryMiddleware,
         SubstituteBindings::class,
         DisableBladeIconComponents::class,
         DispatchServingFilamentEvent::class,

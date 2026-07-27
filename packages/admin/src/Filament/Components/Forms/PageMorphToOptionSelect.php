@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms;
 
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Facades\CapellDatabase;
 use Closure;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
@@ -66,13 +68,13 @@ class PageMorphToOptionSelect extends OptionMorphToSelect
                 $query = $this->getOptionsQuery($component, $pageData);
 
                 $searchColumn = $this->wrappedSearchColumn($query, $titleAttribute);
+                $relevance = CapellDatabase::for($query->getModel())
+                    ->queryDialect()
+                    ->textRelevance(SqlFragment::raw($searchColumn), $search);
 
-                $query->where($titleAttribute, 'like', sprintf('%%%s%%', $search))
-                    ->orderByRaw(
-                        $this->literalSql('CASE WHEN ' . $searchColumn . ' = ? THEN 1 ELSE 0 END DESC, INSTR(' . $searchColumn . ', ?), ' . $searchColumn),
-                        [$search, $search],
-                    )
-                    ->limit($component->getOptionsLimit());
+                $query->whereLike($titleAttribute, sprintf('%%%s%%', $search));
+                $relevance->applyOrder($query->getQuery());
+                $query->orderBy($titleAttribute)->limit($component->getOptionsLimit());
 
                 return $query->pluck($titleAttribute, $query->getModel()->getKeyName())->all();
             })
@@ -98,15 +100,6 @@ class PageMorphToOptionSelect extends OptionMorphToSelect
         }
 
         return $query->getQuery()->getGrammar()->wrap($query->qualifyColumn($titleAttribute));
-    }
-
-    /**
-     * @return literal-string
-     */
-    private function literalSql(string $sql): string
-    {
-        /** @var literal-string $sql */
-        return $sql;
     }
 
     /**

@@ -45,6 +45,7 @@ use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
+use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
@@ -106,6 +107,12 @@ use Capell\Core\Support\ContentGraph\Extractors\MediaContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageUrlContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\SiteContentGraphExtractor;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\Database\FullTextIndexCompatibilityCache;
+use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
+use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
+use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
+use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
@@ -221,6 +228,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerPublishCommands()
             ->registerAboutInfo('capell-app/core')
             ->registerMorphMap()
+            ->registerPageVariationMorphAliases()
             ->registerGatePolicyGuesser()
             ->registerTranslationEvents()
             ->bootEventSourcing();
@@ -449,6 +457,20 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
+        $this->app->singleton(FullTextIndexCompatibilityCache::class);
+        $this->app->scoped(
+            DatabasePlatformRegistry::class,
+            fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
+                [
+                    $app->make(MySqlDatabasePlatform::class),
+                    $app->make(MariaDbDatabasePlatform::class),
+                    $app->make(SqliteDatabasePlatform::class),
+                    $app->make(PostgresDatabasePlatform::class),
+                    ...$app->tagged(DatabasePlatform::TAG),
+                ],
+                $app->make(FullTextIndexCompatibilityCache::class),
+            ),
+        );
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
             $app->make(SqliteDatabaseBackupDriver::class),
             $app->make(MySqlDatabaseBackupDriver::class),
@@ -506,6 +528,24 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             PageUrlContentGraphExtractor::class,
             SiteContentGraphExtractor::class,
         ], ContentGraphRegistry::TAG);
+
+        return $this;
+    }
+
+    /**
+     * Re-assert morph aliases for page variations once every provider has booted.
+     *
+     * morphMap() merges, so a package booting later silently takes over a key
+     * another package derived the same name for — access-gate and events both
+     * derive `event` from class_basename. The loser is left with no alias at
+     * all, and getMorphClass() on it throws ClassMorphViolationException, which
+     * took out /admin/page-urls entirely.
+     */
+    private function registerPageVariationMorphAliases(): self
+    {
+        $this->app->booted(static function (): void {
+            CapellCore::ensurePageVariationMorphAliases();
+        });
 
         return $this;
     }
@@ -734,9 +774,14 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerOptimization(): self
     {
+        // Deliberately registered without a `clear:` command. Every other
+        // Laravel cache degrades to "slower" when optimize:clear runs, but this
+        // one gates HTTP boot, so clearing it takes the site down until someone
+        // rebuilds it by hand — and install/upgrade both call optimize:clear.
+        // `optimize` still overwrites it; removing it stays possible, but only
+        // via the explicit capell:package-cache:clear command.
         $this->optimizes(
             optimize: PackageCacheCommand::class,
-            clear: PackageClearCacheCommand::class,
             key: 'capell-package-manifests',
         );
 

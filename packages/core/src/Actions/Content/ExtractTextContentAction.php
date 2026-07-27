@@ -41,16 +41,30 @@ class ExtractTextContentAction
 
         if (is_string($content)) {
             $decoded = JsonCodec::decodeArray($content);
-            if (isset($decoded['content'])) {
-                return $this->extract($decoded['content']);
+            if ($decoded !== []) {
+                return $this->extract($decoded['content'] ?? $decoded);
+            }
+
+            if (in_array(trim($content), ['[]', '{}'], true)) {
+                return '';
             }
 
             return trim(strip_tags($content));
         }
 
+        if (($content['type'] ?? null) === 'content') {
+            return $this->extract($content['data']['content'] ?? $content['content'] ?? null);
+        }
+
         $texts = [];
         $iterator = function (mixed $value) use (&$texts, &$iterator): void {
             if (is_array($value)) {
+                if (($value['type'] ?? null) === 'content') {
+                    $iterator($value['data']['content'] ?? $value['content'] ?? null);
+
+                    return;
+                }
+
                 foreach ($value as $nestedValue) {
                     $iterator($nestedValue);
                 }
