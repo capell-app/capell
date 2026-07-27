@@ -228,6 +228,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerPublishCommands()
             ->registerAboutInfo('capell-app/core')
             ->registerMorphMap()
+            ->registerPageVariationMorphAliases()
             ->registerGatePolicyGuesser()
             ->registerTranslationEvents()
             ->bootEventSourcing();
@@ -527,6 +528,24 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             PageUrlContentGraphExtractor::class,
             SiteContentGraphExtractor::class,
         ], ContentGraphRegistry::TAG);
+
+        return $this;
+    }
+
+    /**
+     * Re-assert morph aliases for page variations once every provider has booted.
+     *
+     * morphMap() merges, so a package booting later silently takes over a key
+     * another package derived the same name for — access-gate and events both
+     * derive `event` from class_basename. The loser is left with no alias at
+     * all, and getMorphClass() on it throws ClassMorphViolationException, which
+     * took out /admin/page-urls entirely.
+     */
+    private function registerPageVariationMorphAliases(): self
+    {
+        $this->app->booted(static function (): void {
+            CapellCore::ensurePageVariationMorphAliases();
+        });
 
         return $this;
     }

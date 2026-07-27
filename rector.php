@@ -9,6 +9,8 @@ use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessUnionReturnDocblockRector;
+use Rector\DeadCode\Rector\If_\ReduceAlwaysFalseIfOrRector;
+use Rector\DeadCode\Rector\If_\RemoveAlwaysTrueIfConditionRector;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
@@ -22,7 +24,10 @@ use RectorLaravel\Rector\ArrayDimFetch\EnvVariableToEnvHelperRector;
 use RectorLaravel\Rector\ArrayDimFetch\ServerVariableToRequestFacadeRector;
 use RectorLaravel\Rector\Class_\AddHasFactoryToModelsRector;
 use RectorLaravel\Rector\ClassMethod\MakeModelAttributesAndScopesProtectedRector;
+use RectorLaravel\Rector\FuncCall\SleepFuncToSleepStaticCallRector;
+use RectorLaravel\Rector\FuncCall\ThrowIfAndThrowUnlessExceptionsToUseClassStringRector;
 use RectorLaravel\Rector\If_\AbortIfRector;
+use RectorLaravel\Rector\If_\ThrowIfRector;
 use RectorLaravel\Set\LaravelSetList;
 use RectorLaravel\Set\LaravelSetProvider;
 use Sinnbeck\DomAssertions\Rector\Rules\AssertElementToAssertContainsElementRule;
@@ -132,8 +137,32 @@ return RectorConfig::configure()
         EnvVariableToEnvHelperRector::class => [
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
         ],
+        // Everything under scripts/ is a framework-free executable: these run straight
+        // from the PHP binary without the Composer autoloader or a booted container, so
+        // Laravel facades and global helpers do not exist at runtime. scripts/release.php
+        // even ships its own throw_if() polyfill, which ThrowIfRector rewrites into an
+        // unbounded self-call.
         ServerVariableToRequestFacadeRector::class => [
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
+            __DIR__ . '/scripts',
+        ],
+        ThrowIfRector::class => [
+            __DIR__ . '/scripts',
+        ],
+        ThrowIfAndThrowUnlessExceptionsToUseClassStringRector::class => [
+            __DIR__ . '/scripts',
+        ],
+        SleepFuncToSleepStaticCallRector::class => [
+            __DIR__ . '/scripts',
+        ],
+        // The retry loop here tolerates a concurrent process removing the view cache
+        // out from under it, so the is_dir() checks are race guards rather than dead
+        // code. Rector reads them single-threaded and folds them away.
+        ReduceAlwaysFalseIfOrRector::class => [
+            __DIR__ . '/scripts/clear-phpunit-views.php',
+        ],
+        RemoveAlwaysTrueIfConditionRector::class => [
+            __DIR__ . '/scripts/clear-phpunit-views.php',
         ],
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [
             __DIR__ . '/packages/admin/tests/Feature/Filament/Pages/ExtensionsPageTest.php',

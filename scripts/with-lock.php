@@ -45,7 +45,7 @@ if ($command === []) {
 $runCommand = static function (array $command): int {
     // The stages this wraps are interactive-ish (progress bars, coloured
     // output); passthru keeps them attached to the real terminal.
-    if (preg_match('/\A[A-Za-z_][A-Za-z0-9_]*=.*/', $command[0]) === 1) {
+    if (preg_match('/\A[A-Za-z_]\w*=.*/', $command[0]) === 1) {
         array_unshift($command, 'env');
     }
 
@@ -70,7 +70,7 @@ if (! is_dir($lockDir) && ! @mkdir($lockDir, 0o777, true) && ! is_dir($lockDir))
     exit($runCommand($command));
 }
 
-$lockFile = $lockDir . '/' . preg_replace('/[^a-z0-9._-]/i', '-', $name) . '.lock';
+$lockFile = $lockDir . '/' . preg_replace('/[^a-z0-9._-]/i', '-', (string) $name) . '.lock';
 // 'c+' rather than 'c': we read the holder's identity back out of the file to
 // report who we are waiting for, and 'c' opens write-only.
 $handle = @fopen($lockFile, 'c+');
@@ -89,7 +89,7 @@ if (! flock($handle, LOCK_EX | LOCK_NB)) {
     fwrite(STDERR, sprintf(
         "⏳ waiting for the '%s' lock%s\n",
         $name,
-        $holder !== '' ? " (held by {$holder})" : '',
+        $holder !== '' ? sprintf(' (held by %s)', $holder) : '',
     ));
 
     flock($handle, LOCK_EX);

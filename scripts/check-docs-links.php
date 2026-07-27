@@ -53,20 +53,23 @@ foreach ($markdownFiles as $markdownFile) {
             if (! file_exists($resolvedPath)) {
                 $relativeSource = relativeToRoot($markdownFile, $repositoryRoot);
                 $lineNumber = $lineIndex + 1;
-                $brokenLinks[] = "{$relativeSource}:{$lineNumber} -> {$target}";
+                $brokenLinks[] = sprintf('%s:%d -> %s', $relativeSource, $lineNumber, $target);
 
                 continue;
             }
 
             $anchor = extractAnchor($target);
+            if ($anchor === null) {
+                continue;
+            }
 
-            if ($anchor === null || anchorExists($resolvedPath, $anchorsByMarkdownFile, $anchor)) {
+            if (anchorExists($resolvedPath, $anchorsByMarkdownFile, $anchor)) {
                 continue;
             }
 
             $relativeSource = relativeToRoot($markdownFile, $repositoryRoot);
             $lineNumber = $lineIndex + 1;
-            $brokenLinks[] = "{$relativeSource}:{$lineNumber} -> {$target}";
+            $brokenLinks[] = sprintf('%s:%d -> %s', $relativeSource, $lineNumber, $target);
         }
     }
 }
@@ -93,7 +96,7 @@ $displayedLinks = array_slice($brokenLinks, 0, $displayLimit);
 fwrite(STDERR, "Broken relative documentation links found:\n");
 
 foreach ($displayedLinks as $brokenLink) {
-    fwrite(STDERR, "- {$brokenLink}\n");
+    fwrite(STDERR, sprintf('- %s%s', $brokenLink, PHP_EOL));
 }
 
 $remaining = $brokenCount - count($displayedLinks);
@@ -179,13 +182,7 @@ function isRelativeLink(string $target): bool
         return false;
     }
 
-    foreach (['http:', 'https:', 'mailto:'] as $skippedPrefix) {
-        if (str_starts_with($target, $skippedPrefix)) {
-            return false;
-        }
-    }
-
-    return true;
+    return array_all(['http:', 'https:', 'mailto:'], fn (string $skippedPrefix): bool => ! str_starts_with($target, $skippedPrefix));
 }
 
 function stripAnchor(string $target): string
@@ -259,7 +256,7 @@ function anchorsForMarkdownFile(string $markdownFile): array
             if ($slug !== '') {
                 $occurrence = $headingOccurrences[$slug] ?? 0;
                 $headingOccurrences[$slug] = $occurrence + 1;
-                $anchors[$occurrence === 0 ? $slug : "{$slug}-{$occurrence}"] = true;
+                $anchors[$occurrence === 0 ? $slug : sprintf('%s-%d', $slug, $occurrence)] = true;
             }
         }
 

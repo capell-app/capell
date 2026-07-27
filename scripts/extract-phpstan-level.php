@@ -37,7 +37,7 @@ if ($writeGithubOutput) {
         exit(1);
     }
 
-    file_put_contents($githubOutput, "phpstan_level={$level}\n", FILE_APPEND);
+    file_put_contents($githubOutput, sprintf('phpstan_level=%d%s', $level, PHP_EOL), FILE_APPEND);
 }
 
-fwrite(STDOUT, $valueOnly ? ((string) $level . "\n") : "PHPStan level: {$level}\n");
+fwrite(STDOUT, $valueOnly ? ($level . "\n") : sprintf('PHPStan level: %d%s', $level, PHP_EOL));

@@ -25,7 +25,11 @@ foreach ($paths as $path) {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
 
     foreach ($iterator as $file) {
-        if (! $file->isFile() || ! str_ends_with($file->getFilename(), 'Test.php')) {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        if (! str_ends_with((string) $file->getFilename(), 'Test.php')) {
             continue;
         }
 
@@ -41,7 +45,7 @@ foreach ($files as $file) {
     $startedAt = microtime(true);
 
     passthru(
-        PHP_BINARY . ' -d memory_limit=1536M vendor/bin/pest ' . escapeshellarg($file) . ' --configuration=phpunit.xml --compact',
+        PHP_BINARY . ' -d memory_limit=1536M vendor/bin/pest ' . escapeshellarg((string) $file) . ' --configuration=phpunit.xml --compact',
         $exitCode,
     );
 
@@ -53,7 +57,7 @@ foreach ($files as $file) {
     ];
 
     if ($exitCode !== 0) {
-        fwrite(STDERR, "Profiling stopped because {$file} failed." . PHP_EOL);
+        fwrite(STDERR, sprintf('Profiling stopped because %s failed.', $file) . PHP_EOL);
 
         break;
     }

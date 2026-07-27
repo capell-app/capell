@@ -6,7 +6,7 @@ $configuredRepositoryRoot = getenv('CAPELL_DOCS_REQUIREMENTS_ROOT') ?: dirname(_
 $repositoryRoot = realpath($configuredRepositoryRoot);
 
 if ($repositoryRoot === false) {
-    fwrite(STDERR, "Missing repository root: {$configuredRepositoryRoot}\n");
+    fwrite(STDERR, sprintf('Missing repository root: %s%s', $configuredRepositoryRoot, PHP_EOL));
 
     exit(1);
 }
@@ -59,13 +59,13 @@ foreach ($documentedTables as $relativeDocumentPath) {
         $constraint = $composerRequirements[$expectation['package']] ?? null;
 
         if ($constraint === null) {
-            $failures[] = "composer.json no longer requires {$expectation['package']} — update \$rowExpectations in scripts/check-docs-requirements.php.";
+            $failures[] = sprintf('composer.json no longer requires %s — update $rowExpectations in scripts/check-docs-requirements.php.', $expectation['package']);
 
             continue;
         }
 
         if (preg_match('/^\|\s*' . preg_quote($rowLabel, '/') . '\s*\|(.+)\|\s*$/m', $documentContents, $rowMatch) !== 1) {
-            $failures[] = "{$relativeDocumentPath}: no requirements table row labelled '{$rowLabel}'.";
+            $failures[] = sprintf("%s: no requirements table row labelled '%s'.", $relativeDocumentPath, $rowLabel);
 
             continue;
         }
@@ -74,12 +74,12 @@ foreach ($documentedTables as $relativeDocumentPath) {
 
         foreach (extractVersionNumbers($constraint) as $expectedVersion) {
             if (! str_contains($documentedRow, $expectedVersion)) {
-                $failures[] = "{$relativeDocumentPath}: '{$rowLabel}' row does not mention {$expectedVersion} (composer.json requires {$expectation['package']}: {$constraint}).";
+                $failures[] = sprintf("%s: '%s' row does not mention %s (composer.json requires %s: %s).", $relativeDocumentPath, $rowLabel, $expectedVersion, $expectation['package'], $constraint);
             }
         }
 
-        if ($expectation['requireRawConstraint'] && ! str_contains($documentedRow, $constraint)) {
-            $failures[] = "{$relativeDocumentPath}: '{$rowLabel}' row does not contain the raw constraint {$constraint}.";
+        if ($expectation['requireRawConstraint'] && ! str_contains($documentedRow, (string) $constraint)) {
+            $failures[] = sprintf("%s: '%s' row does not contain the raw constraint %s.", $relativeDocumentPath, $rowLabel, $constraint);
         }
     }
 }
@@ -88,7 +88,7 @@ if ($failures !== []) {
     fwrite(STDERR, "Documented requirements disagree with composer.json:\n");
 
     foreach ($failures as $failure) {
-        fwrite(STDERR, "- {$failure}\n");
+        fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
     exit(2);
@@ -96,7 +96,7 @@ if ($failures !== []) {
 
 $tableCount = count($documentedTables);
 
-echo "{$tableCount} requirements tables agree with composer.json.\n";
+printf('%d requirements tables agree with composer.json.%s', $tableCount, PHP_EOL);
 
 exit(0);
 

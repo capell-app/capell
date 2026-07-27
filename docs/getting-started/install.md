@@ -142,7 +142,7 @@ Rerunning `capell:install` is supported after correcting a failed step. Keep the
 
 Run the Laravel application with your normal local workflow, then open:
 
-- `/admin` for the Filament editor workspace;
+- `/admin` for the admin where editors work;
 - `/` for the Capell-owned public page when the welcome route was replaced.
 
 ![Capell Pages list after a healthy install](../images/admin-pages-list.png)

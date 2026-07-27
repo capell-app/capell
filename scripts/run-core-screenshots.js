@@ -2,11 +2,17 @@ const { spawnSync } = require('node:child_process')
 const path = require('node:path')
 
 const repositoryRoot = path.resolve(__dirname, '..')
-const runnerRoot = path.resolve(
-    process.env.CAPELL_SCREENSHOT_RUNNER_PATH ??
-        path.join(repositoryRoot, '..', 'capell-screenshot-runner'),
+// The declared @capell-app/screenshot-tools dependency, not a sibling-directory
+// guess. Its package exports map only exposes './config', so the supported
+// entry point is the bin — which is a two-line shim around src/cli.mjs.
+const runnerCli = path.join(
+    repositoryRoot,
+    'node_modules',
+    '@capell-app',
+    'screenshot-tools',
+    'bin',
+    'capell-screenshots.js',
 )
-const runnerCli = path.join(runnerRoot, 'src', 'cli.mjs')
 
 function coreRunnerArguments(args) {
     const forwardedArguments = []
@@ -25,7 +31,13 @@ function coreRunnerArguments(args) {
         forwardedArguments.push(args[index])
     }
 
-    return ['--repo', repositoryRoot, ...forwardedArguments]
+    return [
+        '--config',
+        'screenshots.config.mjs',
+        '--repo',
+        repositoryRoot,
+        ...forwardedArguments,
+    ]
 }
 
 function run() {
