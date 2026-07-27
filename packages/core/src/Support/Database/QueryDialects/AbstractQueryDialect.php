@@ -6,12 +6,16 @@ namespace Capell\Core\Support\Database\QueryDialects;
 
 use Capell\Core\Contracts\Database\DatabaseQueryDialect;
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use InvalidArgumentException;
 use JsonException;
 
 abstract class AbstractQueryDialect implements DatabaseQueryDialect
 {
+    /**
+     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
+     */
     public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
     {
         throw_if($expressions === [], InvalidArgumentException::class, 'Full-text search requires at least one expression.');
@@ -35,12 +39,23 @@ abstract class AbstractQueryDialect implements DatabaseQueryDialect
             $termPredicateSql = [];
             $pattern = '%' . $this->escapeLike($term) . '%';
 
-            foreach ($expressions as $expression) {
+            foreach ($expressions as $searchExpression) {
+                $expression = $searchExpression->expression;
                 $match = sprintf("LOWER(COALESCE(%s, '')) LIKE ? ESCAPE '!'", $expression->sql);
                 $termPredicateSql[] = $match;
                 $predicateBindings = [...$predicateBindings, ...$expression->bindings, $pattern];
-                $relevanceSql[] = sprintf('CASE WHEN %s THEN 1 ELSE 0 END', $match);
-                $relevanceBindings = [...$relevanceBindings, ...$expression->bindings, $pattern];
+
+                if ($searchExpression->weight === 0.0) {
+                    continue;
+                }
+
+                $relevanceSql[] = sprintf('CASE WHEN %s THEN ? ELSE 0 END', $match);
+                $relevanceBindings = [
+                    ...$relevanceBindings,
+                    ...$expression->bindings,
+                    $pattern,
+                    $searchExpression->weight,
+                ];
             }
 
             $predicateSql[] = '(' . implode(' OR ', $termPredicateSql) . ')';
@@ -48,7 +63,10 @@ abstract class AbstractQueryDialect implements DatabaseQueryDialect
 
         return new DatabaseFullTextSearch(
             predicate: new SqlFragment(implode(' AND ', $predicateSql), $predicateBindings),
-            relevance: new SqlFragment(implode(' + ', $relevanceSql), $relevanceBindings),
+            relevance: new SqlFragment(
+                $relevanceSql === [] ? '0' : implode(' + ', $relevanceSql),
+                $relevanceBindings,
+            ),
             native: false,
         );
     }

@@ -223,6 +223,16 @@
             "contractTestId": "core.site-spec-applier"
         },
         {
+            "id": "core.dto.database-search-expression",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Database\\DatabaseSearchExpression",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Weighted search expression; zero omits relevance.",
+            "contractTestId": null
+        },
+        {
             "id": "core.dto.extension-contribution",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",

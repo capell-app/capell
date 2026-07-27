@@ -7,7 +7,7 @@ namespace Capell\Core\Facades;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
-use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +15,9 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static DatabasePlatform for(Connection|Model|string|null $context = null)
- * @method static DatabaseFullTextSearch fullTextSearch(Connection|Model $context, DatabaseIndexDefinition $index, non-empty-list<SqlFragment> $expressions, string $query)
+ * @method static DatabaseFullTextSearch fullTextSearch(Connection|Model $context, DatabaseIndexDefinition $index, non-empty-list<DatabaseSearchExpression> $expressions, string $query)
+ * @method static void forgetFullTextIndexCompatibility(Connection $connection, ?DatabaseIndexDefinition $index = null)
+ * @method static void flushFullTextIndexCompatibility()
  *
  * @see DatabasePlatformRegistry
  */

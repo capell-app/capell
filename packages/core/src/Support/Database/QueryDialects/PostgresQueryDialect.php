@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\QueryDialects;
 
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 use Override;
 
 final class PostgresQueryDialect extends AbstractQueryDialect
 {
+    /**
+     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
+     */
     #[Override]
     public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
     {
@@ -22,23 +26,30 @@ final class PostgresQueryDialect extends AbstractQueryDialect
         }
 
         $document = implode(" || ' ' || ", array_map(
-            static fn (SqlFragment $expression): string => sprintf("COALESCE(%s, '')", $expression->sql),
+            static fn (DatabaseSearchExpression $expression): string => sprintf("COALESCE(%s, '')", $expression->expression->sql),
             $expressions,
         ));
-        $expressionBindings = $this->bindings(array_values($expressions));
-        $normalizedQuery = implode(' ', $terms);
+        $expressionBindings = $this->bindings(array_map(
+            static fn (DatabaseSearchExpression $expression): SqlFragment => $expression->expression,
+            array_values($expressions),
+        ));
+        $prefixQuery = implode(' & ', array_map(
+            static fn (string $term): string => "'" . str_replace(
+                ['\\', "'"],
+                ['\\\\', "''"],
+                $term,
+            ) . "':*",
+            $terms,
+        ));
         $vector = sprintf("to_tsvector('simple', %s)", $document);
-        $queryExpression = "plainto_tsquery('simple', ?)";
+        $queryExpression = "to_tsquery('simple', ?)";
 
         return new DatabaseFullTextSearch(
             predicate: new SqlFragment(
                 sprintf('%s @@ %s', $vector, $queryExpression),
-                [...$expressionBindings, $normalizedQuery],
+                [...$expressionBindings, $prefixQuery],
             ),
-            relevance: new SqlFragment(
-                sprintf('ts_rank_cd(%s, %s)', $vector, $queryExpression),
-                [...$expressionBindings, $normalizedQuery],
-            ),
+            relevance: $fallback->relevance,
             native: true,
         );
     }
@@ -114,6 +125,16 @@ final class PostgresQueryDialect extends AbstractQueryDialect
 
         return new SqlFragment(
             sprintf("EXISTS (SELECT 1 FROM jsonb_path_query(%s::jsonb, ?::jsonpath) AS capell_json_search(value) WHERE capell_json_search.value #>> '{}' ILIKE ('%%' || CAST(%s AS TEXT) || '%%'))", $expression->sql, $needle->sql),
+            [...$expression->bindings, $searchPath, ...$needle->bindings],
+        );
+    }
+
+    public function jsonExactSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
+    {
+        $searchPath = $path === '$' ? '$.**' : $path;
+
+        return new SqlFragment(
+            sprintf("EXISTS (SELECT 1 FROM jsonb_path_query(%s::jsonb, ?::jsonpath) AS capell_json_exact(value) WHERE jsonb_typeof(capell_json_exact.value) = 'string' AND capell_json_exact.value #>> '{}' = CAST(%s AS TEXT))", $expression->sql, $needle->sql),
             [...$expression->bindings, $searchPath, ...$needle->bindings],
         );
     }

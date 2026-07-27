@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\QueryDialects;
 
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 use Override;
 
 final class MySqlQueryDialect extends AbstractQueryDialect
 {
+    /**
+     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
+     */
     #[Override]
     public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
     {
@@ -22,13 +26,15 @@ final class MySqlQueryDialect extends AbstractQueryDialect
         }
 
         $columns = implode(', ', array_map(
-            static fn (SqlFragment $expression): string => $expression->sql,
+            static fn (DatabaseSearchExpression $expression): string => $expression->expression->sql,
             $expressions,
         ));
-        $expressionBindings = $this->bindings(array_values($expressions));
-        $naturalQuery = implode(' ', $terms);
+        $expressionBindings = $this->bindings(array_map(
+            static fn (DatabaseSearchExpression $expression): SqlFragment => $expression->expression,
+            array_values($expressions),
+        ));
         $booleanQuery = implode(' ', array_map(
-            static fn (string $term): string => '+"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $term) . '"',
+            static fn (string $term): string => '+' . self::escapeBooleanTerm($term) . '*',
             $terms,
         ));
 
@@ -37,10 +43,7 @@ final class MySqlQueryDialect extends AbstractQueryDialect
                 sprintf('MATCH (%s) AGAINST (? IN BOOLEAN MODE)', $columns),
                 [...$expressionBindings, $booleanQuery],
             ),
-            relevance: new SqlFragment(
-                sprintf('MATCH (%s) AGAINST (?)', $columns),
-                [...$expressionBindings, $naturalQuery],
-            ),
+            relevance: $fallback->relevance,
             native: true,
         );
     }
@@ -112,6 +115,25 @@ final class MySqlQueryDialect extends AbstractQueryDialect
         return new SqlFragment(
             'JSON_SEARCH(' . $expression->sql . ", 'one', CONCAT('%', " . $needle->sql . ", '%'), NULL, ?) IS NOT NULL",
             [...$expression->bindings, ...$needle->bindings, $path],
+        );
+    }
+
+    public function jsonExactSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
+    {
+        $escapedNeedle = sprintf("REPLACE(REPLACE(REPLACE(CAST(%s AS CHAR), '!', '!!'), '%%', '!%%'), '_', '!_')", $needle->sql);
+
+        return new SqlFragment(
+            sprintf("JSON_SEARCH(%s, 'one', %s, '!', ?) IS NOT NULL", $expression->sql, $escapedNeedle),
+            [...$expression->bindings, ...$needle->bindings, $path],
+        );
+    }
+
+    private static function escapeBooleanTerm(string $term): string
+    {
+        return str_replace(
+            ['\\', '+', '-', '>', '<', '(', ')', '~', '*', '"', '@'],
+            ['\\\\', '\+', '\-', '\>', '\<', '\(', '\)', '\~', '\*', '\"', '\@'],
+            $term,
         );
     }
 }

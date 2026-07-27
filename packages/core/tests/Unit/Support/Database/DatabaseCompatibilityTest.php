@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
@@ -12,6 +14,7 @@ use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\Database\FullTextIndexCompatibilityCache;
 use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
@@ -22,6 +25,18 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+
+it('rejects invalid database search expression weights', function (float $weight): void {
+    new DatabaseSearchExpression(SqlFragment::raw('title'), $weight);
+})->with([
+    'negative' => -1.0,
+    'infinite' => INF,
+    'not a number' => NAN,
+])->throws(InvalidArgumentException::class, 'Database search expression weights must be non-negative and finite.');
+
+it('allows zero weight search expressions', function (): void {
+    expect(new DatabaseSearchExpression(SqlFragment::raw('title'), 0.0)->weight)->toBe(0.0);
+});
 
 it('resolves every supported database driver through one registry seam', function (): void {
     $mysql = new MySqlDatabasePlatform;
@@ -47,6 +62,78 @@ it('resolves configured connections and rejects duplicates and unknown drivers',
         ->toThrow(LogicException::class, 'Database driver [sqlite] is already registered.')
         ->and(fn (): DatabasePlatform => $registry->for('sqlsrv'))
         ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].');
+});
+
+it('caches full text index compatibility across registry scopes and supports invalidation', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), 'primary', '', [
+        'driver' => 'sqlite',
+        'database' => 'primary',
+        'name' => 'search',
+        'host' => 'database.internal',
+    ]);
+    $equivalentConnection = new SQLiteConnection(new PDO('sqlite::memory:'), 'primary', '', [
+        'driver' => 'sqlite',
+        'database' => 'primary',
+        'name' => 'search',
+        'host' => 'database.internal',
+        'password' => 'different-secret-must-not-affect-the-cache-key',
+    ]);
+    $differentDatabase = new SQLiteConnection(new PDO('sqlite::memory:'), 'secondary', '', [
+        'driver' => 'sqlite',
+        'database' => 'secondary',
+        'name' => 'search',
+        'host' => 'database.internal',
+    ]);
+    $differentHost = new SQLiteConnection(new PDO('sqlite::memory:'), 'primary', '', [
+        'driver' => 'sqlite',
+        'database' => 'primary',
+        'name' => 'search',
+        'host' => 'database-replica.internal',
+    ]);
+    $index = new DatabaseIndexDefinition(
+        table: 'documents',
+        name: 'documents_search_index',
+        columns: ['title', 'body'],
+    );
+    $expressions = [
+        new DatabaseSearchExpression(SqlFragment::raw('title')),
+        new DatabaseSearchExpression(SqlFragment::raw('body')),
+    ];
+    $schemaDialect = Mockery::mock(DatabaseSchemaDialect::class);
+    $schemaDialect->shouldReceive('hasCompatibleFullTextIndex')
+        ->times(6)
+        ->andReturnTrue();
+    $platform = Mockery::mock(DatabasePlatform::class);
+    $platform->shouldReceive('drivers')->twice()->andReturn(['sqlite']);
+    $platform->shouldReceive('schemaDialect')->times(6)->andReturn($schemaDialect);
+    $platform->shouldReceive('queryDialect')->times(7)->andReturn((new SqliteDatabasePlatform)->queryDialect());
+    $cache = new FullTextIndexCompatibilityCache(maxEntries: 2);
+    $firstRegistry = new DatabasePlatformRegistry([$platform], $cache);
+    $secondRegistry = new DatabasePlatformRegistry([$platform], $cache);
+
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+    $secondRegistry->fullTextSearch($equivalentConnection, $index, $expressions, 'port');
+
+    $secondRegistry->forgetFullTextIndexCompatibility($equivalentConnection, $index);
+
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+    $secondRegistry->fullTextSearch($differentDatabase, $index, $expressions, 'port');
+    $secondRegistry->fullTextSearch($differentHost, $index, $expressions, 'port');
+
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+
+    $secondRegistry->flushFullTextIndexCompatibility();
+    $firstRegistry->fullTextSearch($connection, $index, $expressions, 'port');
+});
+
+it('keeps the compatibility cache across scoped database registry resets', function (): void {
+    $firstRegistry = resolve(DatabasePlatformRegistry::class);
+    $firstCache = resolve(FullTextIndexCompatibilityCache::class);
+
+    app()->forgetScopedInstances();
+
+    expect(resolve(DatabasePlatformRegistry::class))->not->toBe($firstRegistry)
+        ->and(resolve(FullTextIndexCompatibilityCache::class))->toBe($firstCache);
 });
 
 it('declares platform family metadata and optional provisioners', function (): void {
@@ -149,7 +236,7 @@ it('builds typed query expressions for every supported database family', functio
             'elapsed' => 'CAST(ROUND((julianday(finished_at) - julianday(started_at)) * 86400) AS INTEGER)',
             'json_extract' => 'json_extract(meta, ?)',
             'json_contains' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_item CROSS JOIN (SELECT json(?) AS value) AS capell_json_target WHERE CASE WHEN capell_json_item.type IN ('integer', 'real') AND json_type(capell_json_target.value) IN ('integer', 'real') THEN CAST(capell_json_item.value AS NUMERIC) = CAST(json_extract(capell_json_target.value, '$') AS NUMERIC) WHEN capell_json_item.type = 'true' THEN json_type(capell_json_target.value) = 'true' WHEN capell_json_item.type = 'false' THEN json_type(capell_json_target.value) = 'false' WHEN capell_json_item.type IN ('array', 'object') THEN json(capell_json_item.value) = json(capell_json_target.value) ELSE json_quote(capell_json_item.value) = capell_json_target.value END)",
-            'json_search' => "EXISTS (SELECT 1 FROM json_each(meta, ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ('%' || CAST(? AS TEXT) || '%'))",
+            'json_search' => "EXISTS (SELECT 1 FROM json_each(meta, ?) AS capell_json_level_0 WHERE CAST(json_extract(capell_json_level_0.value, ?) AS TEXT) LIKE ('%' || CAST(? AS TEXT) || '%'))",
         ],
     ],
     'postgresql' => [
@@ -283,7 +370,10 @@ it('matches separated full text terms and ranks broader coverage with the portab
     ));
     $query = $connection->query()->fromSub($rows, 'documents')->select('slug');
     $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
-        [SqlFragment::raw('title'), SqlFragment::raw('body')],
+        [
+            new DatabaseSearchExpression(SqlFragment::raw('title')),
+            new DatabaseSearchExpression(SqlFragment::raw('body')),
+        ],
         'alpha beta',
     );
 
@@ -305,20 +395,47 @@ it('matches separated full text terms and ranks broader coverage with the portab
 
 it('keeps portable full text values bound in SQL placeholder order', function (): void {
     $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
-        [new SqlFragment('COALESCE(?, title)', ['expression-binding'])],
+        [
+            new DatabaseSearchExpression(new SqlFragment('COALESCE(?, title)', ['expression-binding']), 2.5),
+            new DatabaseSearchExpression(new SqlFragment('COALESCE(?, summary)', ['zero-weight-binding']), 0.0),
+        ],
         'alpha% beta_',
     );
-    $expectedBindings = [
+    $expectedPredicateBindings = [
         'expression-binding',
+        '%alpha!%%',
+        'zero-weight-binding',
         '%alpha!%%',
         'expression-binding',
         '%beta!_%',
+        'zero-weight-binding',
+        '%beta!_%',
+    ];
+    $expectedRelevanceBindings = [
+        'expression-binding',
+        '%alpha!%%',
+        2.5,
+        'expression-binding',
+        '%beta!_%',
+        2.5,
     ];
 
     expect($search->predicate->sql)
         ->not->toContain('alpha%', 'beta_')
-        ->and($search->predicate->bindings)->toBe($expectedBindings)
-        ->and($search->relevance->bindings)->toBe($expectedBindings);
+        ->toContain('summary')
+        ->and($search->relevance->sql)->not->toContain('summary')
+        ->and($search->predicate->bindings)->toBe($expectedPredicateBindings)
+        ->and($search->relevance->bindings)->toBe($expectedRelevanceBindings);
+});
+
+it('returns constant relevance when every searchable expression has zero weight', function (): void {
+    $search = (new SqliteDatabasePlatform)->queryDialect()->fullTextSearch(
+        [new DatabaseSearchExpression(new SqlFragment('COALESCE(?, title)', ['expression-binding']), 0.0)],
+        'alpha',
+    );
+
+    expect($search->predicate->bindings)->toBe(['expression-binding', '%alpha%'])
+        ->and($search->relevance)->toEqual(new SqlFragment('0'));
 });
 
 it('keeps native full text values bound in SQL placeholder order', function (
@@ -328,8 +445,9 @@ it('keeps native full text values bound in SQL placeholder order', function (
 ): void {
     $search = $platform->queryDialect()->fullTextSearch(
         [
-            new SqlFragment('title', ['title-binding']),
-            new SqlFragment('body', ['body-binding']),
+            new DatabaseSearchExpression(new SqlFragment('title', ['title-binding']), 3.0),
+            new DatabaseSearchExpression(new SqlFragment('body', ['body-binding']), 2.0),
+            new DatabaseSearchExpression(new SqlFragment('keywords', ['keywords-binding']), 0.0),
         ],
         'alpha beta',
         native: true,
@@ -342,18 +460,63 @@ it('keeps native full text values bound in SQL placeholder order', function (
 })->with([
     'mysql' => [
         new MySqlDatabasePlatform,
-        ['title-binding', 'body-binding', '+"alpha" +"beta"'],
-        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', 'keywords-binding', '+alpha* +beta*'],
+        [
+            'title-binding', '%alpha%', 3.0,
+            'body-binding', '%alpha%', 2.0,
+            'title-binding', '%beta%', 3.0,
+            'body-binding', '%beta%', 2.0,
+        ],
     ],
     'mariadb' => [
         new MariaDbDatabasePlatform,
-        ['title-binding', 'body-binding', '+"alpha" +"beta"'],
-        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', 'keywords-binding', '+alpha* +beta*'],
+        [
+            'title-binding', '%alpha%', 3.0,
+            'body-binding', '%alpha%', 2.0,
+            'title-binding', '%beta%', 3.0,
+            'body-binding', '%beta%', 2.0,
+        ],
     ],
     'postgresql' => [
         new PostgresDatabasePlatform,
-        ['title-binding', 'body-binding', 'alpha beta'],
-        ['title-binding', 'body-binding', 'alpha beta'],
+        ['title-binding', 'body-binding', 'keywords-binding', "'alpha':* & 'beta':*"],
+        [
+            'title-binding', '%alpha%', 3.0,
+            'body-binding', '%alpha%', 2.0,
+            'title-binding', '%beta%', 3.0,
+            'body-binding', '%beta%', 2.0,
+        ],
+    ],
+]);
+
+it('escapes native full text prefix syntax inside bound queries', function (
+    DatabasePlatform $platform,
+    string $query,
+    string $expected,
+    array $expectedRelevanceBindings,
+): void {
+    $search = $platform->queryDialect()->fullTextSearch(
+        [new DatabaseSearchExpression(SqlFragment::raw('title'))],
+        $query,
+        native: true,
+    );
+
+    expect($search->predicate->sql)->not->toContain($query)
+        ->and($search->predicate->bindings)->toBe([$expected])
+        ->and($search->relevance->bindings)->toBe($expectedRelevanceBindings);
+})->with([
+    'mysql boolean operators' => [
+        new MySqlDatabasePlatform,
+        'alpha+ beta\\',
+        '+alpha\\+* +beta\\\\*',
+        ['%alpha+%', 1.0, '%beta\\%', 1.0],
+    ],
+    'postgresql quoted lexemes' => [
+        new PostgresDatabasePlatform,
+        "alpha' beta\\",
+        "'alpha''':* & 'beta\\\\':*",
+        ["%alpha'%", 1.0, '%beta\\%', 1.0],
     ],
 ]);
 
@@ -364,12 +527,13 @@ it('selects native full text only when a compatible index exists', function (): 
     $index = new DatabaseIndexDefinition(
         table: $table,
         name: 'capell_full_text_search_test_index',
-        columns: ['title', 'body'],
+        columns: ['title', 'body', 'keywords'],
     );
     $grammar = $connection->getQueryGrammar();
     $expressions = [
-        SqlFragment::raw($grammar->wrap('title')),
-        SqlFragment::raw($grammar->wrap('body')),
+        new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('title')), 5.0),
+        new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('body')), 1.0),
+        new DatabaseSearchExpression(SqlFragment::raw($grammar->wrap('keywords')), 0.0),
     ];
     $schema = $connection->getSchemaBuilder();
     $schema->dropIfExists($table);
@@ -379,22 +543,26 @@ it('selects native full text only when a compatible index exists', function (): 
             $table->id();
             $table->text('title');
             $table->text('body');
+            $table->text('keywords');
             $table->string('slug');
         });
         $connection->table($table)->insert([
-            ['title' => 'alpha beta', 'body' => 'alpha beta', 'slug' => 'dense'],
-            ['title' => 'alpha starts here', 'body' => 'beta ends here', 'slug' => 'separated'],
-            ['title' => 'alpha only', 'body' => 'without the other term', 'slug' => 'partial'],
+            ['title' => 'portable architecture', 'body' => 'unrelated copy', 'keywords' => '', 'slug' => 'strong-title'],
+            ['title' => 'portable starts here', 'body' => 'architecture ends here', 'keywords' => '', 'slug' => 'separated'],
+            ['title' => 'unrelated copy', 'body' => 'portable architecture', 'keywords' => '', 'slug' => 'weak-body'],
+            ['title' => 'unrelated copy', 'body' => 'unrelated copy', 'keywords' => 'portable architecture', 'slug' => 'zero-keywords'],
+            ['title' => 'portable only', 'body' => 'without the other term', 'keywords' => '', 'slug' => 'partial'],
         ]);
 
-        $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
+        $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
         $indexFragment = $platform->schemaDialect()->fullTextIndex($index);
 
         if ($indexFragment instanceof SqlFragment) {
             $connection->statement($indexFragment->sql, $indexFragment->bindings);
+            CapellDatabase::forgetFullTextIndexCompatibility($connection, $index);
         }
 
-        $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'alpha beta');
+        $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
         $query = $connection->table($table)->select('slug');
         $search->predicate->applyWhere($query);
         new SqlFragment(
@@ -402,10 +570,15 @@ it('selects native full text only when a compatible index exists', function (): 
             $search->relevance->bindings,
         )->applySelect($query);
 
+        $ranked = $query->orderByDesc('search_score')->get();
+        $last = $ranked->last();
+        throw_unless(is_object($last), LogicException::class, 'Expected a zero-weight full-text result.');
+
         expect($withoutIndex->native)->toBeFalse()
             ->and($search->native)->toBe($platform->family() !== DatabaseFamily::Sqlite)
-            ->and($query->orderByDesc('search_score')->pluck('slug')->all())
-            ->toBe(['dense', 'separated']);
+            ->and($ranked->pluck('slug')->all())
+            ->toBe(['strong-title', 'separated', 'weak-body', 'zero-keywords'])
+            ->and((float) $last->search_score)->toBe(0.0);
     } finally {
         $schema->dropIfExists($table);
     }
@@ -480,6 +653,98 @@ it('searches JSON values using a correlated column needle', function (): void {
     expect($matches('hero-banner'))->toBeTrue()
         ->and($matches('missing-widget'))->toBeFalse()
         ->and($boundSearch->bindings)->toBe($expectedBindings);
+});
+
+it('searches keyed JSON collections without matching the same needle elsewhere', function (): void {
+    $connection = DB::connection();
+    $family = CapellDatabase::for($connection)->family();
+    $select = match ($family) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+    $path = '$.*.widgets[*].widget_key';
+    $boundSearch = $dialect->jsonSearch(
+        new SqlFragment('?', ['document-binding']),
+        new SqlFragment('?', ['needle-binding']),
+        $path,
+    );
+    $expectedBindings = match ($family) {
+        DatabaseFamily::MySql,
+        DatabaseFamily::MariaDb => ['document-binding', 'needle-binding', $path],
+        DatabaseFamily::Sqlite => ['document-binding', '$', '$.widgets', '$.widget_key', 'needle-binding'],
+        DatabaseFamily::PostgreSql => ['document-binding', $path, 'needle-binding'],
+    };
+
+    $matches = function (array $document, string $needle) use ($connection, $dialect, $path, $select): bool {
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw(
+                $select . ', ? AS needle',
+                [json_encode($document, JSON_THROW_ON_ERROR), $needle],
+            ),
+            'documents',
+        );
+        $dialect->jsonSearch(
+            SqlFragment::raw('meta'),
+            SqlFragment::raw('needle'),
+            $path,
+        )->applyWhere($query);
+
+        return $query->exists();
+    };
+
+    expect($matches([
+        'main' => ['widgets' => [['widget_key' => 'hero-banner']]],
+        'metadata' => ['widget_key' => 'unrelated'],
+    ], 'hero-banner'))->toBeTrue()
+        ->and($matches([
+            'main' => ['widgets' => [['widget_key' => 'contact-form']]],
+            'metadata' => ['widget_key' => 'hero-banner'],
+        ], 'hero-banner'))->toBeFalse()
+        ->and($boundSearch->bindings)->toBe($expectedBindings);
+});
+
+it('searches exact JSON strings at mixed wildcard paths', function (): void {
+    $connection = DB::connection();
+    $family = CapellDatabase::for($connection)->family();
+    $select = match ($family) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
+    $dialect = CapellDatabase::for($connection)->queryDialect();
+    $path = '$.*.widgets[*].widget_key';
+
+    $matches = function (array $document, string $needle) use ($connection, $dialect, $path, $select): bool {
+        $query = $connection->query()->fromSub(
+            fn (Builder $query): Builder => $query->selectRaw(
+                $select . ', ? AS needle',
+                [json_encode($document, JSON_THROW_ON_ERROR), $needle],
+            ),
+            'documents',
+        );
+        $dialect->jsonExactSearch(
+            SqlFragment::raw('meta'),
+            SqlFragment::raw('needle'),
+            $path,
+        )->applyWhere($query);
+
+        return $query->exists();
+    };
+
+    expect($matches([
+        'main' => ['widgets' => [['widget_key' => 'hero']]],
+    ], 'hero'))->toBeTrue()
+        ->and($matches([
+            'main' => ['widgets' => [['widget_key' => 'hero-banner']]],
+        ], 'hero'))->toBeFalse()
+        ->and($matches([
+            'main' => ['widgets' => [['widget_key' => 'contact']]],
+            'metadata' => ['widget_key' => 'hero'],
+        ], 'hero'))->toBeFalse();
 });
 
 it('matches PostgreSQL JSON values by the supplied search needle', function (): void {

@@ -78,18 +78,82 @@ final class SqliteQueryDialect extends AbstractQueryDialect
 
     public function jsonSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
     {
-        if (preg_match('/^(.*)\[\*\]\.([A-Za-z_]\w*)$/', $path, $matches) === 1) {
-            $collectionPath = $matches[1] === '' ? '$' : $matches[1];
+        $traversal = $this->jsonTraversal($expression, $path);
 
+        if ($traversal instanceof SqliteJsonTraversal) {
             return new SqlFragment(
-                'EXISTS (SELECT 1 FROM json_each(' . $expression->sql . ", ?) WHERE CAST(json_extract(value, ?) AS TEXT) LIKE ('%' || CAST(" . $needle->sql . " AS TEXT) || '%'))",
-                [...$expression->bindings, $collectionPath, '$.' . $matches[2], ...$needle->bindings],
+                sprintf(
+                    "EXISTS (SELECT 1 FROM %s WHERE CAST(json_extract(%s, ?) AS TEXT) LIKE ('%%' || CAST(%s AS TEXT) || '%%'))",
+                    $traversal->from,
+                    $traversal->value,
+                    $needle->sql,
+                ),
+                [
+                    ...$traversal->bindings,
+                    $traversal->valuePath,
+                    ...$needle->bindings,
+                ],
             );
         }
 
         return new SqlFragment(
             'EXISTS (SELECT 1 FROM json_tree(' . $expression->sql . ", ?) WHERE CAST(value AS TEXT) LIKE ('%' || CAST(" . $needle->sql . " AS TEXT) || '%'))",
             [...$expression->bindings, $path, ...$needle->bindings],
+        );
+    }
+
+    public function jsonExactSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment
+    {
+        $traversal = $this->jsonTraversal($expression, $path);
+
+        if ($traversal instanceof SqliteJsonTraversal) {
+            return new SqlFragment(
+                sprintf(
+                    "EXISTS (SELECT 1 FROM %s CROSS JOIN json_each(%s, ?) AS capell_json_exact_value WHERE capell_json_exact_value.type = 'text' AND capell_json_exact_value.value = CAST(%s AS TEXT))",
+                    $traversal->from,
+                    $traversal->value,
+                    $needle->sql,
+                ),
+                [
+                    ...$traversal->bindings,
+                    $traversal->valuePath,
+                    ...$needle->bindings,
+                ],
+            );
+        }
+
+        return new SqlFragment(
+            sprintf(
+                "EXISTS (SELECT 1 FROM json_tree(%s, ?) AS capell_json_exact_value WHERE capell_json_exact_value.type = 'text' AND capell_json_exact_value.value = CAST(%s AS TEXT))",
+                $expression->sql,
+                $needle->sql,
+            ),
+            [...$expression->bindings, $path, ...$needle->bindings],
+        );
+    }
+
+    private function jsonTraversal(SqlFragment $expression, string $path): ?SqliteJsonTraversal
+    {
+        $searchPath = SqliteJsonSearchPath::parse($path);
+
+        if (! $searchPath instanceof SqliteJsonSearchPath) {
+            return null;
+        }
+
+        $source = $expression->sql;
+        $joins = [];
+
+        foreach (array_keys($searchPath->collectionPaths) as $level) {
+            $alias = 'capell_json_level_' . $level;
+            $joins[] = sprintf('json_each(%s, ?) AS %s', $source, $alias);
+            $source = $alias . '.value';
+        }
+
+        return new SqliteJsonTraversal(
+            from: implode(' CROSS JOIN ', $joins),
+            value: $source,
+            valuePath: $searchPath->valuePath,
+            bindings: [...$expression->bindings, ...$searchPath->collectionPaths],
         );
     }
 }

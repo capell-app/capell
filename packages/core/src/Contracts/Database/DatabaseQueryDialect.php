@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Contracts\Database;
 
 use Capell\Core\Data\Database\DatabaseFullTextSearch;
+use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 
@@ -19,7 +20,7 @@ interface DatabaseQueryDialect
     public function textRelevance(SqlFragment $expression, string $needle): SqlFragment;
 
     /**
-     * @param  non-empty-list<SqlFragment>  $expressions
+     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
      */
     public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch;
 
@@ -32,4 +33,6 @@ interface DatabaseQueryDialect
     public function jsonContains(SqlFragment $expression, mixed $value, string $path = '$'): SqlFragment;
 
     public function jsonSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment;
+
+    public function jsonExactSearch(SqlFragment $expression, SqlFragment $needle, string $path = '$'): SqlFragment;
 }
