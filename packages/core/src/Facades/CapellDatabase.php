@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Facade;
 /**
  * @method static DatabasePlatform for(Connection|Model|string|null $context = null)
  * @method static DatabaseFullTextSearch fullTextSearch(Connection|Model $context, DatabaseIndexDefinition $index, non-empty-list<SqlFragment> $expressions, string $query)
+ * @method static void forgetFullTextIndexCompatibility(Connection $connection, ?DatabaseIndexDefinition $index = null)
+ * @method static void flushFullTextIndexCompatibility()
  *
  * @see DatabasePlatformRegistry
  */

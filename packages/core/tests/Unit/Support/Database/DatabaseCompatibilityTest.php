@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
@@ -47,6 +48,45 @@ it('resolves configured connections and rejects duplicates and unknown drivers',
         ->toThrow(LogicException::class, 'Database driver [sqlite] is already registered.')
         ->and(fn (): DatabasePlatform => $registry->for('sqlsrv'))
         ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].');
+});
+
+it('caches full text index compatibility per connection and supports invalidation', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $secondConnection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $index = new DatabaseIndexDefinition(
+        table: 'documents',
+        name: 'documents_search_index',
+        columns: ['title', 'body'],
+    );
+    $expressions = [SqlFragment::raw('title'), SqlFragment::raw('body')];
+    $schemaDialect = Mockery::mock(DatabaseSchemaDialect::class);
+    $schemaDialect->shouldReceive('hasCompatibleFullTextIndex')
+        ->times(4)
+        ->andReturnTrue();
+    $platform = Mockery::mock(DatabasePlatform::class);
+    $platform->shouldReceive('drivers')->once()->andReturn(['sqlite']);
+    $platform->shouldReceive('schemaDialect')->times(4)->andReturn($schemaDialect);
+    $platform->shouldReceive('queryDialect')->times(6)->andReturn((new SqliteDatabasePlatform)->queryDialect());
+    $registry = new DatabasePlatformRegistry([$platform]);
+
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+
+    $registry->forgetFullTextIndexCompatibility($connection, $index);
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+    $registry->fullTextSearch($secondConnection, $index, $expressions, 'port');
+
+    $registry->flushFullTextIndexCompatibility();
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+});
+
+it('resolves the database platform registry once per container scope', function (): void {
+    $first = app(DatabasePlatformRegistry::class);
+
+    app()->forgetScopedInstances();
+
+    expect(app(DatabasePlatformRegistry::class))->not->toBe($first);
 });
 
 it('declares platform family metadata and optional provisioners', function (): void {
@@ -419,6 +459,7 @@ it('selects native full text only when a compatible index exists', function (): 
 
         if ($indexFragment instanceof SqlFragment) {
             $connection->statement($indexFragment->sql, $indexFragment->bindings);
+            CapellDatabase::forgetFullTextIndexCompatibility($connection, $index);
         }
 
         $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
