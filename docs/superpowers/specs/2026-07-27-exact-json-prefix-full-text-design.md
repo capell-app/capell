@@ -115,6 +115,40 @@ seams:
 The same dataset runs through SQLite's fallback and each server engine's native
 index path.
 
+## Full-Text Index Compatibility Cache
+
+`DatabasePlatformRegistry::fullTextSearch()` currently calls
+`hasCompatibleFullTextIndex()` for every search. On MySQL, MariaDB, and
+PostgreSQL that performs a schema metadata query, putting index inspection on
+the public search hot path.
+
+Make `DatabasePlatformRegistry` a Laravel scoped service and keep a request-local
+`WeakMap` inside it:
+
+```text
+Connection object
+  -> database name + complete DatabaseIndexDefinition fingerprint
+     -> compatible boolean
+```
+
+Connection identity is represented by the `WeakMap` key rather than a reusable
+integer object ID. The fingerprint includes the current database plus table,
+index name, ordered columns, prefix lengths, and uniqueness. Repeated searches
+for the same connection/database/index inspect metadata once per request or
+queue-job scope.
+
+Laravel discards scoped instances at long-running worker lifecycle boundaries,
+so the cache cannot leak across Octane requests or queue jobs. Add explicit
+registry methods to forget one index or every index for a connection, and to
+flush the complete compatibility cache. Same-request code that creates or drops
+an index must invalidate after DDL before searching again.
+
+The registry test will prove one schema inspection for repeated searches,
+another inspection after per-index invalidation, isolation for a second
+connection, and a fresh cache after the scoped container instance is forgotten.
+The Core provider and Octane lifecycle documentation will list the registry as
+scoped.
+
 ## Quality and Publication
 
 Apply the deterministic Rector output already reported for

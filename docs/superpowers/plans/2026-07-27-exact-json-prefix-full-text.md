@@ -313,7 +313,124 @@ git add packages/core/src/Support/Database/QueryDialects/MySqlQueryDialect.php \
 git commit -m "fix(database): preserve native full text prefixes"
 ```
 
-### Task 3: Verify every engine and publish PR #166
+### Task 3: Cache native-index compatibility per request
+
+**Files:**
+
+- Modify: `packages/core/src/Support/Database/DatabasePlatformRegistry.php`
+- Modify: `packages/core/src/Providers/CapellServiceProvider.php`
+- Modify: `packages/core/src/Facades/CapellDatabase.php`
+- Modify: `docs/operations/octane.md`
+- Test: `packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php`
+
+- [ ] **Step 1: Write the failing repeat-call and invalidation test**
+
+At the public registry seam, use a schema dialect test double whose
+`hasCompatibleFullTextIndex()` method counts calls. Call `fullTextSearch()`
+twice for the same connection and definition, invalidate that definition, then
+call it again:
+
+```php
+$schemaDialect->shouldReceive('hasCompatibleFullTextIndex')
+    ->twice()
+    ->with($index, $connection)
+    ->andReturnTrue();
+
+$registry->fullTextSearch($connection, $index, $expressions, 'port');
+$registry->fullTextSearch($connection, $index, $expressions, 'port');
+$registry->forgetFullTextIndexCompatibility($connection, $index);
+$registry->fullTextSearch($connection, $index, $expressions, 'port');
+```
+
+Also prove a second `Connection` instance gets its own inspection and that
+`flushFullTextIndexCompatibility()` forces the next call to inspect again.
+
+- [ ] **Step 2: Run the cache test to prove repeated inspection**
+
+```bash
+./vendor/bin/pest packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php \
+    --filter='caches full text index compatibility' --configuration=phpunit.xml
+```
+
+Expected: FAIL because the registry performs one metadata inspection per call
+and has no invalidation API.
+
+- [ ] **Step 3: Add the request-local WeakMap cache**
+
+Add a typed WeakMap to `DatabasePlatformRegistry`:
+
+```php
+/** @var WeakMap<Connection, array<string, bool>> */
+private WeakMap $fullTextIndexCompatibility;
+```
+
+Initialize it in the constructor. Use the connection object as the outer key
+and hash a JSON representation of the database name and complete index
+definition as the inner key. Cache both true and false results with
+`array_key_exists()`.
+
+Expose:
+
+```php
+public function forgetFullTextIndexCompatibility(
+    Connection $connection,
+    ?DatabaseIndexDefinition $index = null,
+): void;
+
+public function flushFullTextIndexCompatibility(): void;
+```
+
+The first method removes one fingerprint or every entry for the supplied
+connection. The second replaces the WeakMap with an empty instance.
+
+- [ ] **Step 4: Make the registry lifecycle request-scoped**
+
+Change the provider binding from:
+
+```php
+$this->app->singleton(DatabasePlatformRegistry::class, fn ($app): DatabasePlatformRegistry => ...);
+```
+
+to:
+
+```php
+$this->app->scoped(DatabasePlatformRegistry::class, fn ($app): DatabasePlatformRegistry => ...);
+```
+
+Add both invalidation methods to the `CapellDatabase` facade PHPDoc. Add
+`DatabasePlatformRegistry` to the scoped-service inventory in
+`docs/operations/octane.md`.
+
+Update the real index-creation compatibility test to call:
+
+```php
+CapellDatabase::forgetFullTextIndexCompatibility($connection, $index);
+```
+
+after executing the DDL and before asking the registry to select native mode.
+
+- [ ] **Step 5: Run the cache and indexed-search tests**
+
+```bash
+./vendor/bin/pest packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php \
+    --filter='caches full text index compatibility|selects native full text' \
+    --configuration=phpunit.xml
+```
+
+Expected: PASS with one metadata inspection before invalidation and one after.
+
+- [ ] **Step 6: Commit the cache slice**
+
+```bash
+git add packages/core/src/Support/Database/DatabasePlatformRegistry.php \
+    packages/core/src/Providers/CapellServiceProvider.php \
+    packages/core/src/Facades/CapellDatabase.php \
+    packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php \
+    docs/operations/octane.md
+git commit -m "perf(database): cache full text index compatibility"
+```
+
+### Task 4: Verify every engine and publish PR #166
 
 **Files:**
 
