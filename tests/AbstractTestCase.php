@@ -35,6 +35,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Lorisleiva\Actions\ActionServiceProvider;
+use Mockery\MockInterface;
 use Orchestra\Testbench\Concerns\WithWorkbench;
 use Orchestra\Testbench\TestCase;
 use Orchestra\Workbench\WorkbenchServiceProvider;
@@ -407,7 +408,7 @@ abstract class AbstractTestCase extends TestCase
         if ($application->bound('cache')) {
             $cacheManager = $application->make('cache');
 
-            if ($cacheManager instanceof CacheManager) {
+            if ($cacheManager instanceof CacheManager && ! $cacheManager instanceof MockInterface) {
                 $stores = [];
 
                 foreach ([$currentStore, $originalStore] as $store) {

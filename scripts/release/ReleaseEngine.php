@@ -478,7 +478,7 @@ final class ReleaseEngine
 
         $this->assertCleanSource();
         $commit = $this->git(['rev-parse', 'HEAD']);
-        $definitions = json_decode((string) file_get_contents($this->root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
+        $definitions = $this->releaseDefinitions();
         $packages = [];
         $candidates = [];
         $graph = [];
@@ -780,6 +780,14 @@ final class ReleaseEngine
         return ['git', 'push', ...($lease === null ? [] : ['--force-with-lease=refs/heads/main:' . $lease]), sprintf('https://github.com/%s.git', $repository), $refspec];
     }
 
+    // LOCKSTEP-END push-command
+
+    // LOCKSTEP-BEGIN release-definitions
+    /** @return array<array-key,mixed> */
+    private function releaseDefinitions(): array
+    {
+        return json_decode((string) file_get_contents($this->root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
+    }
     // LOCKSTEP-END release-definitions
 
     // LOCKSTEP-BEGIN engine-helpers
