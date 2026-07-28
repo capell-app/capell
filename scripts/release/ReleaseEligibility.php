@@ -121,6 +121,8 @@ final class ReleaseEligibilityChecker
             $sha = $expectedShas[$gate] ?? null;
 
             if (
+                ! is_string($sha)
+                ||
                 ! is_array($record)
                 || ($record['repository'] ?? null) !== $expected['repository']
                 || ($record['sha'] ?? null) !== $sha
@@ -139,7 +141,13 @@ final class ReleaseEligibilityChecker
                 ? $record['log_path']
                 : dirname($path) . '/' . $record['log_path'];
 
-            if (! is_file($logPath) || ! hash_equals($record['log_sha256'], hash_file('sha256', $logPath))) {
+            if (! is_file($logPath)) {
+                throw new ReleaseException(sprintf('Release paused: local %s log digest does not match.', $gate));
+            }
+
+            $actualLogSha256 = hash_file('sha256', $logPath);
+
+            if (! is_string($actualLogSha256) || ! hash_equals($record['log_sha256'], $actualLogSha256)) {
                 throw new ReleaseException(sprintf('Release paused: local %s log digest does not match.', $gate));
             }
 
