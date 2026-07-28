@@ -47,6 +47,7 @@ class SiteDomainsTable implements TableConfigurator
             )
             ->defaultSort('default', 'desc')
             ->description(__('capell-admin::generic.site_domains_description'))
+            ->recordTitle(fn (SiteDomain $record): string => $record->full_url)
             ->columns(self::getTableColumns())
             ->headerActions([
                 CreateAction::make()

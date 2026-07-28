@@ -22,7 +22,7 @@ it('can list domains', function (): void {
 
     $siteDomain = $site->siteDomains->first();
 
-    Livewire::test(SiteDomainsRelationManager::class, [
+    $component = Livewire::test(SiteDomainsRelationManager::class, [
         'ownerRecord' => $site,
         'pageClass' => EditSite::class,
     ])
@@ -30,6 +30,9 @@ it('can list domains', function (): void {
         ->assertCountTableRecords(10)
         ->assertCanSeeTableRecords($site->siteDomains)
         ->assertTableColumnStateSet('full_url', [$siteDomain->full_url], record: $siteDomain);
+
+    expect($component->instance()->getTable()->getRecordTitle($siteDomain))
+        ->toBe($siteDomain->full_url);
 });
 
 it('shows domain guidance when the site has no domains', function (): void {
@@ -61,6 +64,29 @@ it('can search domains', function (): void {
     ])
         ->assertSuccessful()
         ->searchTable($siteDomain->getKey())
+        ->assertCountTableRecords(1)
+        ->assertCanSeeTableRecords([$siteDomain]);
+});
+
+it('can search a full URL when the stored scheme is null', function (): void {
+    test()->actingAsAdmin();
+    config()->set('capell-frontend.default_scheme', 'https');
+
+    $site = Site::factory()->createOne();
+    $siteDomain = SiteDomain::factory()
+        ->site($site)
+        ->createOne([
+            'scheme' => null,
+            'domain' => 'scheme-null.test',
+            'path' => '/docs',
+        ]);
+
+    Livewire::test(SiteDomainsRelationManager::class, [
+        'ownerRecord' => $site,
+        'pageClass' => EditSite::class,
+    ])
+        ->assertSuccessful()
+        ->searchTable($siteDomain->full_url)
         ->assertCountTableRecords(1)
         ->assertCanSeeTableRecords([$siteDomain]);
 });

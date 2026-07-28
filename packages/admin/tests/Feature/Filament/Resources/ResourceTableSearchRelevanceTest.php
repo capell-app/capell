@@ -18,7 +18,7 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-it('finds page name, translated, and related URL matches', function (): void {
+it('ranks page name matches before translated and related matches', function (): void {
     $search = 'capell-page-table-relevance';
 
     $nameMatch = Page::factory()->withTranslations()->createOne([
@@ -44,10 +44,10 @@ it('finds page name, translated, and related URL matches', function (): void {
     Livewire::test(ListPages::class)
         ->assertSuccessful()
         ->searchTable($search)
-        ->assertCanSeeTableRecords([$nameMatch, $urlMatch, $translationMatch]);
+        ->assertCanSeeTableRecords([$nameMatch, $urlMatch, $translationMatch], inOrder: true);
 });
 
-it('finds site name, translated, and related domain matches', function (): void {
+it('ranks site name matches before translated and related matches', function (): void {
     $search = 'capell-site-table-relevance';
 
     $nameMatch = Site::factory()->withTranslations()->createOne([
@@ -72,7 +72,7 @@ it('finds site name, translated, and related domain matches', function (): void 
     Livewire::test(ListSites::class)
         ->assertSuccessful()
         ->searchTable($search)
-        ->assertCanSeeTableRecords([$nameMatch, $domainMatch, $translationMatch]);
+        ->assertCanSeeTableRecords([$nameMatch, $domainMatch, $translationMatch], inOrder: true);
 });
 
 it('keeps explicit table sorting ahead of site search relevance', function (): void {

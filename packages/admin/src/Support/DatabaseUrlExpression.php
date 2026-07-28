@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 final class DatabaseUrlExpression
 {
@@ -18,8 +19,22 @@ final class DatabaseUrlExpression
         $connection = DB::connection();
         $grammar = $connection->getQueryGrammar();
         $dialect = CapellDatabase::for($connection)->queryDialect();
+        $defaultScheme = config('capell-frontend.default_scheme', request()->getScheme());
+        $defaultScheme = is_string($defaultScheme) && $defaultScheme !== ''
+            ? $defaultScheme
+            : request()->getScheme();
+        $quotedDefaultScheme = $connection->getPdo()->quote($defaultScheme);
+
+        if (! is_string($quotedDefaultScheme)) {
+            throw new RuntimeException('Unable to quote the default site domain scheme.');
+        }
+
         $url = $dialect->concatenate(
-            SqlFragment::raw($grammar->wrap('scheme')),
+            SqlFragment::raw(sprintf(
+                'COALESCE(%s, %s)',
+                $grammar->wrap('scheme'),
+                $quotedDefaultScheme,
+            )),
             SqlFragment::raw("'://'"),
             SqlFragment::raw($grammar->wrap('domain')),
             SqlFragment::raw('COALESCE(' . $grammar->wrap('path') . ", '')"),
