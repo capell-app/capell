@@ -65,6 +65,6 @@ it('saves frontend settings through the main settings page', function (): void {
     assertDatabaseHas('settings', [
         'group' => 'frontend',
         'name' => 'cache_ttl',
-        'payload' => json_encode(7200),
     ]);
+    expect(decodedSettingPayload('frontend', 'cache_ttl'))->toBe(7200);
 });
