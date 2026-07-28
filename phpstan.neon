@@ -16,4 +16,6 @@ parameters:
         - scripts/benchmark-boot.php
         - scripts/benchmark-boot-child.php
         - scripts/benchmark-boot-support.php
+    scanFiles:
+        - scripts/release/ReleaseEligibility.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/full

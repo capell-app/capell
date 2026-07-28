@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('runs behaviour suites on MySQL and destructive unit tests on isolated SQLite databases', function (): void {
+it('gates the exact PR and dispatch topology before splitting behaviour and package unit tests', function (): void {
     $root = dirname(__DIR__, 2);
     $composer = json_decode(
         (string) file_get_contents($root . '/composer.json'),
@@ -12,16 +12,28 @@ it('runs behaviour suites on MySQL and destructive unit tests on isolated SQLite
     $workflow = (string) file_get_contents($root . '/.github/workflows/test-full.yml');
 
     expect($composer['scripts']['test:database:ci'] ?? null)
-        ->toBe('@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --ansi')
+        ->toContain('--log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}')
+        ->and($composer['scripts']['test:database:package:ci'] ?? null)
+        ->toContain('--testsuite=Unit --group=${PEST_TEST_GROUP:?PEST_TEST_GROUP must be set}')
         ->and($workflow)
-        ->toContain('composer run test:database:ci')
-        ->toContain('PEST_TEST_SUITE: ${{ matrix.test_suite }}')
-        ->toMatch('/db: sqlite\\s+test_suite: Unit/')
-        ->toMatch('/db: mysql\\s+test_suite: (?:Feature|Integration)/')
-        ->toContain('pattern: engineering-metrics-l12-suite-*')
-        ->toContain('count($files) !== 3')
+        ->toContain('pull_request:')
+        ->toContain('workflow_dispatch:')
+        ->toContain('uses: ./.github/workflows/test-fast-pr.yml')
+        ->toContain('name: Sentinel - portability, cache, migrations, destructive schema')
+        ->toContain('timeout-minutes: 5')
+        ->toContain('needs: sentinel')
+        ->toContain('composer run test:sentinel:unit:ci')
+        ->toContain('composer run test:sentinel:database:ci')
+        ->toContain('composer run test:database:package:ci')
+        ->toContain('package: Core')
+        ->toContain('package: Admin')
+        ->toContain('package: Frontend')
+        ->toContain('package: Installer')
+        ->toContain('package: Marketplace')
+        ->toContain('Upload JUnit results')
+        ->toContain('count($files) !== 7')
         ->toContain('SET GLOBAL innodb_redo_log_capacity = 2147483648')
         ->toContain('SET GLOBAL innodb_flush_log_at_trx_commit = 2')
         ->toContain('SET GLOBAL sync_binlog = 0')
-        ->not->toContain('composer run test:all:ci 2>&1 | tee pest-output.txt');
+        ->not->toContain('on:' . PHP_EOL . '  push:' . PHP_EOL . '    branches:' . PHP_EOL . '      - main' . PHP_EOL . PHP_EOL . 'concurrency:');
 });

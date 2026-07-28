@@ -12,12 +12,14 @@ use BladeUI\Icons\BladeIconsServiceProvider;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Tests\Fixtures\Components\Headers\CustomHeader as FakeCustomHeader;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Fixtures\Policies\RolePolicy;
 use Capell\Tests\Support\IsolatedTestbenchSkeleton;
 use Capell\Tests\Support\PackageTestDatabaseGuard;
 use Filament\SpatieLaravelSettingsPluginServiceProvider;
+use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -28,6 +30,7 @@ use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -59,6 +62,9 @@ abstract class AbstractTestCase extends TestCase
     /** @var array<string, string>|null */
     private static ?array $testbenchManifestCacheFileContents = null;
 
+    /** @var array<string, mixed> */
+    private array $originalCacheConfiguration = [];
+
     #[Override]
     protected function setUp(): void
     {
@@ -81,6 +87,8 @@ abstract class AbstractTestCase extends TestCase
 
         $this->clearTestbenchConfigCacheFile();
         $this->setUpTestbenchApplication();
+        $cacheConfiguration = Config::get('cache', []);
+        $this->originalCacheConfiguration = is_array($cacheConfiguration) ? $cacheConfiguration : [];
 
         if (getenv('TEST_TOKEN')) {
             Config::set(
@@ -121,6 +129,8 @@ abstract class AbstractTestCase extends TestCase
         if ($this->app?->bound('view')) {
             $this->app->make(Factory::class)->flushState();
         }
+
+        $this->restoreCacheConfigurationAndServices();
 
         parent::tearDown();
     }
@@ -375,6 +385,53 @@ abstract class AbstractTestCase extends TestCase
 
             $migration->up();
         }
+    }
+
+    /**
+     * CacheManager memoizes stores independently from Laravel's config repository,
+     * while CapellCacheManager holds an additional request-local cache. Tests that
+     * switch cache.default must restore both layers or later tests keep using the
+     * old driver even after the config value has been put back.
+     */
+    private function restoreCacheConfigurationAndServices(): void
+    {
+        $application = $this->app;
+
+        if (! $application instanceof Application) {
+            return;
+        }
+
+        $originalStore = $this->originalCacheConfiguration['default'] ?? null;
+        $currentStore = Config::get('cache.default');
+
+        if ($application->bound('cache')) {
+            $cacheManager = $application->make('cache');
+
+            if ($cacheManager instanceof CacheManager) {
+                $stores = [];
+
+                foreach ([$currentStore, $originalStore] as $store) {
+                    if (is_string($store)) {
+                        $stores[] = $store;
+                    }
+                }
+
+                foreach (array_unique($stores) as $store) {
+                    $cacheManager->purge($store);
+                }
+            }
+        }
+
+        Config::set('cache', $this->originalCacheConfiguration);
+
+        if ($application->resolved(CapellCacheManager::class)) {
+            $application->make(CapellCacheManager::class)->flushLocalCache();
+        }
+
+        $application->forgetInstance(CapellCacheManager::class);
+        $application->forgetInstance('cache.store');
+        $application->forgetInstance('cache');
+        Facade::clearResolvedInstance('cache');
     }
 
     private function restoreTestbenchManifestCacheFiles(): void

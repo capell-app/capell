@@ -19,7 +19,7 @@ use function Pest\Laravel\artisan;
 use PHPUnit\Framework\Assert;
 use Spatie\LaravelData\DataCollection;
 
-pest()->extends(PackagesTestCase::class)->in(__DIR__);
+pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
 pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests', '../Packages/core/tests');
 pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests', '../Packages/admin/tests');
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests', '../Packages/frontend/tests');

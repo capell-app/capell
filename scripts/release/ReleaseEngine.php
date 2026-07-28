@@ -573,6 +573,15 @@ final class ReleaseEngine
         }
 
         $this->assertExactSource($plan);
+        $eligibilityEvidence = $this->required([
+            PHP_BINARY,
+            $this->root . '/scripts/release-eligibility.php',
+            $plan['source']['commit'],
+        ], $this->root);
+        if ($eligibilityEvidence !== '') {
+            $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
+            $this->writeState($planPath, $state);
+        }
         $preflightScript = null;
         if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
