@@ -1,6 +1,6 @@
 # Capell CMS
 
-![Capell, an MIT-licensed Laravel CMS built on Filament, installed with composer require capell-app/installer and php artisan capell:install](docs/images/capell-readme-banner.jpg)
+![Capell CMS — Core at the foundation, with Frontend and Admin branching off it and both feeding search and AI readiness](docs/images/capell-readme-hero.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
@@ -12,13 +12,21 @@
 [![Dependencies Audited](https://img.shields.io/badge/dependencies-audited-885630?style=flat-square&logo=composer&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
+[![AI Ready](https://img.shields.io/badge/AI-ready-6D28D9?style=flat-square)](docs/getting-started/ai-ready.md)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-Every Laravel team eventually rebuilds the same CMS: page trees, URLs, layouts, publishing rules, revision history, media, and an admin to hold it together. **Capell is a Laravel CMS built on Filament** that gives that repeated work one maintained home. Editors get a structured page workspace with publishing, preview, and recovery; developers keep the public frontend, deployment, and application architecture inside Laravel.
+**Capell is an open-source CMS for Laravel, built on Filament.**
 
-We built Capell around one idea: build once, improve every page. Define shared page types, layouts, URLs, and publishing rules a single time, then improve them in one place instead of across every page that copied them. Start with the free, MIT-licensed **Capell Foundation**, then grow through an ecosystem of verified Laravel packages — search, SEO, publishing workflow, forms, themes, and more — each one a normal Composer package whose migrations, data access, and removal path you can inspect before it installs. Browse the whole catalogue, including the ten headline features, at [capell.app/features](https://capell.app/features).
+Every page save appends a full-state revision: editors compare changes field by field, roll back, and roll forward without erasing history. Page types, layouts, URLs, and publishing rules are structured records in your Laravel app — managed in a Filament admin, rendered by your own frontend. And Capell is Composer packages, not a monolith: a free, MIT-licensed **Capell Foundation** plus verified extensions — search, SEO, publishing workflow, forms, themes, and more — whose migrations, data access, and removal paths you can inspect before they install.
 
-Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
+Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Because that content stays structured and permissioned, it is [ready for search engines and AI](docs/getting-started/ai-ready.md) without scraping or admin leakage.
+
+Install it into an existing Laravel application with two commands:
+
+```bash
+composer require capell-app/installer
+php artisan capell:install
+```
 
 [Open the live demo](https://capell.app/demo) · [See all features](https://capell.app/features) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Build a page](docs/getting-started/building-pages.md) · [Read the fit guide](docs/getting-started/why-capell.md)
 
@@ -66,7 +74,7 @@ Package authors should start with the [extension-point chooser](docs/packages/ex
 
 ## Built as a standard Laravel package
 
-There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
+There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
 
 The public foundation is five packages:
 
