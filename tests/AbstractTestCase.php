@@ -63,6 +63,9 @@ abstract class AbstractTestCase extends TestCase
     /** @var array<string, string>|null */
     private static ?array $testbenchManifestCacheFileContents = null;
 
+    /** @var array<string, mixed>|null */
+    private static ?array $baselineCacheConfiguration = null;
+
     /** @var array<string, mixed> */
     private array $originalCacheConfiguration = [];
 
@@ -89,7 +92,12 @@ abstract class AbstractTestCase extends TestCase
         $this->clearTestbenchConfigCacheFile();
         $this->setUpTestbenchApplication();
         $cacheConfiguration = Config::get('cache', []);
-        $this->originalCacheConfiguration = is_array($cacheConfiguration) ? $cacheConfiguration : [];
+
+        if (self::$baselineCacheConfiguration === null) {
+            self::$baselineCacheConfiguration = is_array($cacheConfiguration) ? $cacheConfiguration : [];
+        }
+
+        $this->originalCacheConfiguration = self::$baselineCacheConfiguration;
 
         if (getenv('TEST_TOKEN')) {
             Config::set(

@@ -48,6 +48,7 @@ jobs:
     timeout-minutes: 5
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
 
     services:
       mysql:
@@ -134,6 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
     strategy:
       fail-fast: false
       matrix:
@@ -291,6 +293,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
     strategy:
       fail-fast: false
       matrix:

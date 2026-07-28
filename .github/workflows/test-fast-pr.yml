@@ -11,6 +11,8 @@ jobs:
     if: github.event.pull_request.draft == false
     name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
     runs-on: ubuntu-latest
+    env:
+      PAO_DISABLE: 1
     strategy:
       fail-fast: true
       matrix:
