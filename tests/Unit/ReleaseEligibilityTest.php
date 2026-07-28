@@ -35,6 +35,17 @@ it('fails closed when a workflow result is not bound to the requested SHA', func
         ->toThrow(ReleaseException::class, 'no successful security-audit.yml run');
 });
 
+it('does not accept a targeted workflow dispatch as hosted Core Test All evidence', function (): void {
+    $runner = releaseEligibilityRunner(
+        appSha: str_repeat('b', 40),
+        packagesSha: str_repeat('c', 40),
+        coreWorkflowEvent: 'workflow_dispatch',
+    );
+
+    expect(fn (): array => new ReleaseEligibilityChecker($runner)->check(str_repeat('a', 40)))
+        ->toThrow(ReleaseException::class, 'no successful test-full.yml run');
+});
+
 it('accepts digest-bound repository-owned local preflight evidence', function (): void {
     $coreSha = str_repeat('a', 40);
     $appSha = str_repeat('b', 40);
@@ -132,13 +143,15 @@ function releaseEligibilityRunner(
     string $appSha,
     string $packagesSha,
     ?string $mismatchedWorkflow = null,
+    string $coreWorkflowEvent = 'push',
 ): CommandRunner {
-    return new readonly class($appSha, $packagesSha, $mismatchedWorkflow) implements CommandRunner
+    return new readonly class($appSha, $packagesSha, $mismatchedWorkflow, $coreWorkflowEvent) implements CommandRunner
     {
         public function __construct(
             private string $appSha,
             private string $packagesSha,
             private ?string $mismatchedWorkflow,
+            private string $coreWorkflowEvent,
         ) {}
 
         public function run(array $command, ?string $workingDirectory = null): array
@@ -165,6 +178,7 @@ function releaseEligibilityRunner(
                     'databaseId' => 123,
                     'headSha' => $reportedSha,
                     'conclusion' => 'success',
+                    'event' => $workflow === 'test-full.yml' ? $this->coreWorkflowEvent : 'push',
                     'url' => 'https://github.test/actions/runs/123',
                 ]], JSON_THROW_ON_ERROR),
                 'exitCode' => 0,

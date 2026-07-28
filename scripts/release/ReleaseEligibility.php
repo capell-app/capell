@@ -74,6 +74,7 @@ final class ReleaseEligibilityChecker
             repository: 'capell-app/capell',
             workflow: 'test-full.yml',
             sha: $expectedShas['core_test_all'],
+            allowedEvents: ['push'],
         );
         $evidence = [
             'core_test_all' => [
@@ -215,10 +216,15 @@ final class ReleaseEligibilityChecker
     }
 
     /**
+     * @param  list<string>|null  $allowedEvents
      * @return array{repository: string, workflow: string, sha: string, run_id: int, run_url: string}
      */
-    private function successfulRun(string $repository, string $workflow, string $sha): array
-    {
+    private function successfulRun(
+        string $repository,
+        string $workflow,
+        string $sha,
+        ?array $allowedEvents = null,
+    ): array {
         $output = $this->required([
             'gh',
             'run',
@@ -234,7 +240,7 @@ final class ReleaseEligibilityChecker
             '--limit',
             '20',
             '--json',
-            'databaseId,headSha,conclusion,url',
+            'databaseId,headSha,conclusion,event,url',
         ]);
         $runs = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
 
@@ -247,6 +253,10 @@ final class ReleaseEligibilityChecker
                 is_array($run)
                 && ($run['headSha'] ?? null) === $sha
                 && ($run['conclusion'] ?? null) === 'success'
+                && ($allowedEvents === null || (
+                    is_string($run['event'] ?? null)
+                    && in_array($run['event'], $allowedEvents, true)
+                ))
                 && is_int($run['databaseId'] ?? null)
                 && is_string($run['url'] ?? null)
             ) {

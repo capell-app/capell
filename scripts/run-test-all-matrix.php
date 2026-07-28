@@ -35,6 +35,8 @@ if (! mkdir($temporaryRoot, 0700, true) && ! is_dir($temporaryRoot)) {
 
 $containerName = 'capell-test-all-' . getmypid() . '-' . bin2hex(random_bytes(3));
 $containerStarted = false;
+/** @var list<string> $createdWorktrees */
+$createdWorktrees = [];
 /** @var list<array{id: string, exit_code: int, status: string}> $results */
 $results = [];
 $startedAt = gmdate(DATE_ATOM);
@@ -49,27 +51,16 @@ try {
         'l13' => ['laravel' => '13.*', 'testbench' => '11.*'],
     ] as $slug => $framework) {
         $workspace = $temporaryRoot . DIRECTORY_SEPARATOR . $slug;
-        $archive = $temporaryRoot . DIRECTORY_SEPARATOR . $slug . '.tar';
-
-        if (! mkdir($workspace, 0700, true) && ! is_dir($workspace)) {
-            throw new RuntimeException("Unable to create isolated framework workspace [{$workspace}].");
-        }
-
-        $archiveExitCode = ProcessRunner::run(
-            ['git', 'archive', '--format=tar', "--output={$archive}", $head],
+        $worktreeExitCode = ProcessRunner::run(
+            ['git', 'worktree', 'add', '--detach', $workspace, $head],
             $repositoryRoot,
         );
 
-        if ($archiveExitCode !== 0) {
-            throw new RuntimeException("Unable to archive exact Core HEAD [{$head}].");
+        if ($worktreeExitCode !== 0) {
+            throw new RuntimeException("Unable to create isolated Core worktree [{$workspace}] at [{$head}].");
         }
 
-        $extractExitCode = ProcessRunner::run(['tar', '-xf', $archive, '-C', $workspace], $repositoryRoot);
-
-        if ($extractExitCode !== 0) {
-            throw new RuntimeException("Unable to extract isolated Core workspace [{$workspace}].");
-        }
-
+        $createdWorktrees[] = $workspace;
         $prepareLog = $outputDirectory . DIRECTORY_SEPARATOR . "dependencies-{$slug}.log";
         $prepareExitCode = ProcessRunner::run(
             [
@@ -225,6 +216,13 @@ try {
 } finally {
     if ($containerStarted) {
         ProcessRunner::capture(['docker', 'rm', '--force', $containerName], $repositoryRoot);
+    }
+
+    foreach (array_reverse($createdWorktrees) as $worktree) {
+        ProcessRunner::capture(
+            ['git', 'worktree', 'remove', '--force', $worktree],
+            $repositoryRoot,
+        );
     }
 
     removeTestAllTemporaryDirectory($temporaryRoot);
