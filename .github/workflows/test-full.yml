@@ -132,7 +132,7 @@ jobs:
 
   test-behaviour:
     needs: sentinel
-    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - DBmysql
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DBmysql
     runs-on: ubuntu-latest
     env:
       CACHE_STORE: array
@@ -147,24 +147,108 @@ jobs:
             testbench: 10.*
             test_suite: Feature
             test_suite_slug: feature
-            artifact_slug: l12-feature
+            package: Core
+            test_group: core
+            command: test:database:package:ci
+            artifact_slug: l12-feature-core
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Admin
+            test_group: admin
+            command: test:database:package:ci
+            artifact_slug: l12-feature-admin
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Frontend
+            test_group: frontend
+            command: test:database:package:ci
+            artifact_slug: l12-feature-frontend
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Installer
+            test_group: installer
+            command: test:database:package:ci
+            artifact_slug: l12-feature-installer
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Marketplace
+            test_group: marketplace
+            command: test:database:package:ci
+            artifact_slug: l12-feature-marketplace
           - php: 8.4
             laravel: 12.*
             testbench: 10.*
             test_suite: Integration
             test_suite_slug: integration
+            package: All
+            test_group: unused
+            command: test:database:ci
             artifact_slug: l12-integration
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             test_suite: Feature
             test_suite_slug: feature
-            artifact_slug: l13-feature
+            package: Core
+            test_group: core
+            command: test:database:package:ci
+            artifact_slug: l13-feature-core
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Admin
+            test_group: admin
+            command: test:database:package:ci
+            artifact_slug: l13-feature-admin
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Frontend
+            test_group: frontend
+            command: test:database:package:ci
+            artifact_slug: l13-feature-frontend
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Installer
+            test_group: installer
+            command: test:database:package:ci
+            artifact_slug: l13-feature-installer
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            test_suite: Feature
+            test_suite_slug: feature
+            package: Marketplace
+            test_group: marketplace
+            command: test:database:package:ci
+            artifact_slug: l13-feature-marketplace
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             test_suite: Integration
             test_suite_slug: integration
+            package: All
+            test_group: unused
+            command: test:database:ci
             artifact_slug: l13-integration
 
     services:
@@ -244,25 +328,28 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
           NO_COLOR: 1
-          PEST_JUNIT_LOG: junit-${{ matrix.test_suite_slug }}.xml
+          PEST_JUNIT_LOG: junit-${{ matrix.test_suite_slug }}-${{ matrix.package }}.xml
+          PEST_TEST_GROUP: ${{ matrix.test_group }}
           PEST_TEST_SUITE: ${{ matrix.test_suite }}
         run: |
           set -o pipefail
-          composer run test:database:ci 2>&1 | tee "pest-output-${{ matrix.test_suite_slug }}.txt"
+          script --quiet --return \
+            --command "composer run ${{ matrix.command }}" \
+            /dev/null 2>&1 | tee "pest-output-${{ matrix.test_suite_slug }}-${{ matrix.package }}.txt"
 
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: junit-${{ matrix.artifact_slug }}
-          path: junit-${{ matrix.test_suite_slug }}.xml
+          path: junit-${{ matrix.test_suite_slug }}-${{ matrix.package }}.xml
           if-no-files-found: warn
 
       - name: Extract engineering metrics
         id: engineering-metrics
         if: success() && matrix.laravel == '12.*'
         run: |
-          php scripts/extract-pest-metrics.php "pest-output-${{ matrix.test_suite_slug }}.txt" --github-output
+          php scripts/extract-pest-metrics.php "pest-output-${{ matrix.test_suite_slug }}-${{ matrix.package }}.txt" --github-output
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
@@ -273,7 +360,7 @@ jobs:
           PHPSTAN_LEVEL: ${{ steps.engineering-metrics.outputs.phpstan_level }}
         run: |
           php -r 'file_put_contents(
-              "engineering-metrics-${{ matrix.test_suite_slug }}.json",
+              "engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json",
               json_encode([
                   "tests" => (int) getenv("TESTS"),
                   "assertions" => (int) getenv("ASSERTIONS"),
@@ -285,8 +372,8 @@ jobs:
         if: success() && matrix.laravel == '12.*'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: engineering-metrics-l12-${{ matrix.test_suite_slug }}
-          path: engineering-metrics-${{ matrix.test_suite_slug }}.json
+          name: engineering-metrics-l12-${{ matrix.test_suite_slug }}-${{ matrix.package }}
+          path: engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json
           if-no-files-found: error
 
   test-unit:
@@ -419,9 +506,12 @@ jobs:
           NO_COLOR: 1
           PEST_JUNIT_LOG: junit-unit-${{ matrix.package_slug }}.xml
           PEST_TEST_GROUP: ${{ matrix.test_group }}
+          PEST_TEST_SUITE: Unit
         run: |
           set -o pipefail
-          composer run test:database:package:ci 2>&1 | tee "pest-output-unit-${{ matrix.package_slug }}.txt"
+          script --quiet --return \
+            --command "composer run test:database:package:ci" \
+            /dev/null 2>&1 | tee "pest-output-unit-${{ matrix.package_slug }}.txt"
 
       - name: Upload JUnit results
         if: always()
@@ -482,8 +572,8 @@ jobs:
           <?php
           $files = glob('engineering-metrics/*.json');
 
-          if ($files === false || count($files) !== 7) {
-              throw new RuntimeException('Expected engineering metrics from two behaviour suites and five Unit packages.');
+          if ($files === false || count($files) !== 11) {
+              throw new RuntimeException('Expected engineering metrics from five Feature packages, Integration, and five Unit packages.');
           }
 
           $tests = 0;
