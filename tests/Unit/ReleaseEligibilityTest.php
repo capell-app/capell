@@ -43,7 +43,7 @@ it('accepts digest-bound repository-owned local preflight evidence', function ()
     mkdir($directory);
 
     $gates = [
-        'core_test_all' => ['repository' => 'capell-app/capell', 'sha' => $coreSha, 'command' => 'composer preflight:all'],
+        'core_test_all' => ['repository' => 'capell-app/capell', 'sha' => $coreSha, 'command' => 'composer test:all:matrix:local'],
         'app_preflight' => ['repository' => 'capell-app/capell-app', 'sha' => $appSha, 'command' => './capell composer preflight:all'],
         'packages_preflight' => ['repository' => 'capell-app/capell-packages', 'sha' => $packagesSha, 'command' => 'composer preflight:all'],
     ];
@@ -53,19 +53,29 @@ it('accepts digest-bound repository-owned local preflight evidence', function ()
         file_put_contents($logPath, $gate . ' passed');
         $record += [
             'exit_code' => 0,
+            'started_at' => '2026-07-28T11:00:00Z',
             'completed_at' => '2026-07-28T12:00:00Z',
-            'log_path' => basename($logPath),
+            'log_path' => $logPath,
             'log_sha256' => hash_file('sha256', $logPath),
+            'source_tree' => str_repeat('d', 40),
+            'composer_lock_sha256' => str_repeat('e', 64),
+            'dependency_shas' => $gate === 'app_preflight'
+                ? ['capell-app/capell' => $coreSha, 'capell-app/capell-packages' => $packagesSha]
+                : [],
         ];
     }
     unset($record);
 
-    $evidencePath = $directory . '/evidence.json';
-    file_put_contents($evidencePath, json_encode(['schema_version' => 1, 'gates' => $gates], JSON_THROW_ON_ERROR));
+    $manifest = json_encode([
+        'schema_version' => 2,
+        'producer' => 'capell-app/scripts/release-local-gates.php',
+        'generated_at' => '2026-07-28T12:00:00Z',
+        'gates' => $gates,
+    ], JSON_THROW_ON_ERROR);
 
     $evidence = new ReleaseEligibilityChecker(
         releaseEligibilityRunner($appSha, $packagesSha),
-        $evidencePath,
+        static fn (array $expectedShas): string => $manifest,
     )->check($coreSha);
 
     expect($evidence['core_test_all']['runs'][0]['source'])->toBe('local')
@@ -84,7 +94,7 @@ it('fails closed when a local preflight log digest does not match', function ():
 
     $gates = [];
     foreach ([
-        'core_test_all' => ['capell-app/capell', $coreSha, 'composer preflight:all'],
+        'core_test_all' => ['capell-app/capell', $coreSha, 'composer test:all:matrix:local'],
         'app_preflight' => ['capell-app/capell-app', $appSha, './capell composer preflight:all'],
         'packages_preflight' => ['capell-app/capell-packages', $packagesSha, 'composer preflight:all'],
     ] as $gate => [$repository, $sha, $command]) {
@@ -93,18 +103,28 @@ it('fails closed when a local preflight log digest does not match', function ():
             'sha' => $sha,
             'command' => $command,
             'exit_code' => 0,
+            'started_at' => '2026-07-28T11:00:00Z',
             'completed_at' => '2026-07-28T12:00:00Z',
             'log_path' => $logPath,
             'log_sha256' => str_repeat('0', 64),
+            'source_tree' => str_repeat('d', 40),
+            'composer_lock_sha256' => str_repeat('e', 64),
+            'dependency_shas' => $gate === 'app_preflight'
+                ? ['capell-app/capell' => $coreSha, 'capell-app/capell-packages' => $packagesSha]
+                : [],
         ];
     }
 
-    $evidencePath = $directory . '/evidence.json';
-    file_put_contents($evidencePath, json_encode(['schema_version' => 1, 'gates' => $gates], JSON_THROW_ON_ERROR));
+    $manifest = json_encode([
+        'schema_version' => 2,
+        'producer' => 'capell-app/scripts/release-local-gates.php',
+        'generated_at' => '2026-07-28T12:00:00Z',
+        'gates' => $gates,
+    ], JSON_THROW_ON_ERROR);
 
     expect(fn (): array => new ReleaseEligibilityChecker(
         releaseEligibilityRunner($appSha, $packagesSha),
-        $evidencePath,
+        static fn (array $expectedShas): string => $manifest,
     )->check($coreSha))->toThrow(ReleaseException::class, 'log digest does not match');
 });
 

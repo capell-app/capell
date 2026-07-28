@@ -49,6 +49,7 @@ build/
 .cache/phpunit/
 .phpunit.result.cache
 test-results/
+/.test-all-results/
 coverage/
 .coverage
 *.coverage

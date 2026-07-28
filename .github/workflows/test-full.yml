@@ -23,9 +23,17 @@ on:
       - '.github/workflows/test-full.yml'
       - 'phpunit.xml'
   workflow_dispatch:
+    inputs:
+      cell:
+        description: 'Optional exact Test All cell (for example: l12-feature-admin). Leave blank for the complete workflow.'
+        required: false
+        type: string
 
 concurrency:
-  group: ${{ github.head_ref || github.ref }}-phpunit-full
+  group: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.cell != ''
+      && format('{0}-phpunit-target-{1}', github.ref, inputs.cell)
+      || format('{0}-phpunit-full', github.head_ref || github.ref) }}
   cancel-in-progress: true
 
 permissions:
@@ -42,17 +50,48 @@ jobs:
     name: Fast PR gate
     uses: ./.github/workflows/test-fast-pr.yml
 
+  matrix:
+    name: Resolve repository-owned Test All matrix
+    runs-on: ubuntu-latest
+    outputs:
+      behaviour: ${{ steps.matrix.outputs.behaviour }}
+      unit: ${{ steps.matrix.outputs.unit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: 8.4
+          coverage: none
+
+      - name: Export shared matrix
+        id: matrix
+        shell: bash
+        env:
+          TARGET_CELL: ${{ inputs.cell }}
+        run: |
+          cell_argument=()
+          if [ -n "$TARGET_CELL" ]; then
+            php scripts/test-all-matrix.php all --cell="$TARGET_CELL" > /dev/null
+            cell_argument=(--cell="$TARGET_CELL")
+          fi
+          echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
+          echo "unit=$(php scripts/test-all-matrix.php unit "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
+
   sentinel:
-    needs: fast-pr
+    needs: [fast-pr, matrix]
     if: >-
       always()
+      && needs.matrix.result == 'success'
       && (needs.fast-pr.result == 'success' || needs.fast-pr.result == 'skipped')
       && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && !(github.event_name == 'workflow_dispatch' && inputs.cell != '')
     name: Sentinel - portability, cache, migrations, destructive schema
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     env:
-      CACHE_STORE: array
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       PAO_DISABLE: 1
 
@@ -74,13 +113,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Cache PHP dependencies
-        id: php-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: vendor
-          key: dependencies-php-8.4-laravel-12-testbench-10-sentinel-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-full.yml') }}
-
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
@@ -94,167 +126,51 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      - name: Check Composer inputs
-        run: |
-          php scripts/check-composer-local-paths.php
-          composer run check:composer-lock
+      - name: Prepare exact Laravel 12 dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='12.*' --testbench='10.*'
 
-      - name: Install PHP dependencies
-        if: steps.php-cache.outputs.cache-hit != 'true'
-        run: |
-          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
-          composer require --no-interaction --no-progress --ansi --no-update "laravel/framework:12.*"
-          composer require --no-interaction --no-progress --ansi --dev --no-update "orchestra/testbench:10.*"
-          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
-
-      - name: Run portability and cache-isolation sentinel
+      - name: Run both sentinel cells
+        shell: bash
         env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ':memory:'
-          NO_COLOR: 1
-          PEST_JUNIT_LOG: junit-sentinel-unit.xml
-        run: composer run test:sentinel:unit:ci
-
-      - name: Run migrations and destructive-schema sentinel
-        env:
-          DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: ${{ job.services.mysql.ports['3306'] }}
           DB_DATABASE: test_cms_sentinel
           DB_USERNAME: root
           DB_PASSWORD: root
-          NO_COLOR: 1
-          PEST_JUNIT_LOG: junit-sentinel-database.xml
-        run: composer run test:sentinel:database:ci
+        run: |
+          set +e
+          php scripts/run-test-all-cell.php --cell=sentinel-unit --output-dir=test-all-results
+          unit_exit=$?
+          php scripts/run-test-all-cell.php --cell=sentinel-database --output-dir=test-all-results
+          database_exit=$?
+          if [ "$unit_exit" -ne 0 ] || [ "$database_exit" -ne 0 ]; then
+            exit 1
+          fi
 
-      - name: Upload sentinel JUnit results
+      - name: Upload sentinel evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: junit-sentinel
-          path: junit-sentinel-*.xml
+          name: test-all-sentinel
+          path: test-all-results
           if-no-files-found: warn
 
   test-behaviour:
-    needs: sentinel
+    needs: [sentinel, matrix]
+    if: >-
+      always()
+      && needs.matrix.result == 'success'
+      && (needs.sentinel.result == 'success'
+        || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
+      && (inputs.cell == '' || !contains(inputs.cell, '-unit-'))
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DBmysql
     runs-on: ubuntu-latest
     env:
-      CACHE_STORE: array
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       PAO_DISABLE: 1
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Core
-            test_group: core
-            command: test:database:package:ci
-            artifact_slug: l12-feature-core
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Admin
-            test_group: admin
-            command: test:database:package:ci
-            artifact_slug: l12-feature-admin
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Frontend
-            test_group: frontend
-            command: test:database:package:ci
-            artifact_slug: l12-feature-frontend
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Installer
-            test_group: installer
-            command: test:database:package:ci
-            artifact_slug: l12-feature-installer
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Marketplace
-            test_group: marketplace
-            command: test:database:package:ci
-            artifact_slug: l12-feature-marketplace
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            test_suite: Integration
-            test_suite_slug: integration
-            package: All
-            test_group: unused
-            command: test:database:ci
-            artifact_slug: l12-integration
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Core
-            test_group: core
-            command: test:database:package:ci
-            artifact_slug: l13-feature-core
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Admin
-            test_group: admin
-            command: test:database:package:ci
-            artifact_slug: l13-feature-admin
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Frontend
-            test_group: frontend
-            command: test:database:package:ci
-            artifact_slug: l13-feature-frontend
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Installer
-            test_group: installer
-            command: test:database:package:ci
-            artifact_slug: l13-feature-installer
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            test_suite: Feature
-            test_suite_slug: feature
-            package: Marketplace
-            test_group: marketplace
-            command: test:database:package:ci
-            artifact_slug: l13-feature-marketplace
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            test_suite: Integration
-            test_suite_slug: integration
-            package: All
-            test_group: unused
-            command: test:database:ci
-            artifact_slug: l13-integration
+      matrix: ${{ fromJSON(needs.matrix.outputs.behaviour) }}
 
     services:
       mysql:
@@ -274,13 +190,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Cache PHP dependencies
-        id: php-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: vendor
-          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-mysql-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-full.yml') }}
-
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
@@ -294,20 +203,8 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      - name: Check Composer inputs
-        run: |
-          php scripts/check-composer-local-paths.php
-          composer run check:composer-lock
-
-      - name: Install PHP dependencies
-        if: steps.php-cache.outputs.cache-hit != 'true'
-        run: |
-          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
-          composer require --no-interaction --no-progress --ansi --no-update \
-            "laravel/framework:${{ matrix.laravel }}"
-          composer require --no-interaction --no-progress --ansi --dev --no-update \
-            "orchestra/testbench:${{ matrix.testbench }}"
-          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
+      - name: Prepare exact framework dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
 
       - name: Tune MySQL for the write-heavy test suite
         run: |
@@ -323,38 +220,27 @@ jobs:
             "
 
       - name: Run ${{ matrix.test_suite }} tests
-        id: run-tests
-        shell: bash
         env:
-          DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: ${{ job.services.mysql.ports['3306'] }}
           DB_DATABASE: test_cms_multi
           DB_USERNAME: root
           DB_PASSWORD: root
-          NO_COLOR: 1
-          PEST_JUNIT_LOG: junit-${{ matrix.test_suite_slug }}-${{ matrix.package }}.xml
-          PEST_TEST_GROUP: ${{ matrix.test_group }}
-          PEST_TEST_SUITE: ${{ matrix.test_suite }}
-        run: |
-          set -o pipefail
-          script --quiet --return \
-            --command "composer run ${{ matrix.command }}" \
-            /dev/null 2>&1 | tee "pest-output-${{ matrix.test_suite_slug }}-${{ matrix.package }}.txt"
+        run: php scripts/run-test-all-cell.php --cell='${{ matrix.id }}' --output-dir=test-all-results
 
-      - name: Upload JUnit results
+      - name: Upload Test All evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: junit-${{ matrix.artifact_slug }}
-          path: junit-${{ matrix.test_suite_slug }}-${{ matrix.package }}.xml
+          path: test-all-results
           if-no-files-found: warn
 
       - name: Extract engineering metrics
         id: engineering-metrics
         if: success() && matrix.laravel == '12.*'
         run: |
-          php scripts/extract-pest-metrics.php "pest-output-${{ matrix.test_suite_slug }}-${{ matrix.package }}.txt" --github-output
+          php scripts/extract-pest-metrics.php "test-all-results/${{ matrix.log }}" --github-output
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
@@ -377,103 +263,30 @@ jobs:
         if: success() && matrix.laravel == '12.*'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: engineering-metrics-l12-${{ matrix.test_suite_slug }}-${{ matrix.package }}
+          name: engineering-metrics-${{ matrix.artifact_slug }}
           path: engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json
           if-no-files-found: error
 
   test-unit:
-    needs: sentinel
+    needs: [sentinel, matrix]
+    if: >-
+      always()
+      && needs.matrix.result == 'success'
+      && (needs.sentinel.result == 'success'
+        || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
+      && (inputs.cell == '' || contains(inputs.cell, '-unit-'))
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - Unit - ${{ matrix.package }}
     runs-on: ubuntu-latest
     env:
-      CACHE_STORE: array
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       PAO_DISABLE: 1
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            package: Core
-            test_group: core
-            package_slug: core
-            artifact_slug: l12-unit-core
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            package: Admin
-            test_group: admin
-            package_slug: admin
-            artifact_slug: l12-unit-admin
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            package: Frontend
-            test_group: frontend
-            package_slug: frontend
-            artifact_slug: l12-unit-frontend
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            package: Installer
-            test_group: installer
-            package_slug: installer
-            artifact_slug: l12-unit-installer
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            package: Marketplace
-            test_group: marketplace
-            package_slug: marketplace
-            artifact_slug: l12-unit-marketplace
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            package: Core
-            test_group: core
-            package_slug: core
-            artifact_slug: l13-unit-core
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            package: Admin
-            test_group: admin
-            package_slug: admin
-            artifact_slug: l13-unit-admin
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            package: Frontend
-            test_group: frontend
-            package_slug: frontend
-            artifact_slug: l13-unit-frontend
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            package: Installer
-            test_group: installer
-            package_slug: installer
-            artifact_slug: l13-unit-installer
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            package: Marketplace
-            test_group: marketplace
-            package_slug: marketplace
-            artifact_slug: l13-unit-marketplace
+      matrix: ${{ fromJSON(needs.matrix.outputs.unit) }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Cache PHP dependencies
-        id: php-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: vendor
-          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-sqlite-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-full.yml') }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -488,49 +301,25 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      - name: Check Composer inputs
-        run: |
-          php scripts/check-composer-local-paths.php
-          composer run check:composer-lock
-
-      - name: Install PHP dependencies
-        if: steps.php-cache.outputs.cache-hit != 'true'
-        run: |
-          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
-          composer require --no-interaction --no-progress --ansi --no-update \
-            "laravel/framework:${{ matrix.laravel }}"
-          composer require --no-interaction --no-progress --ansi --dev --no-update \
-            "orchestra/testbench:${{ matrix.testbench }}"
-          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
+      - name: Prepare exact framework dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
 
       - name: Run ${{ matrix.package }} Unit tests
-        shell: bash
-        env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ':memory:'
-          NO_COLOR: 1
-          PEST_JUNIT_LOG: junit-unit-${{ matrix.package_slug }}.xml
-          PEST_TEST_GROUP: ${{ matrix.test_group }}
-          PEST_TEST_SUITE: Unit
-        run: |
-          set -o pipefail
-          script --quiet --return \
-            --command "composer run test:database:package:ci" \
-            /dev/null 2>&1 | tee "pest-output-unit-${{ matrix.package_slug }}.txt"
+        run: php scripts/run-test-all-cell.php --cell='${{ matrix.id }}' --output-dir=test-all-results
 
-      - name: Upload JUnit results
+      - name: Upload Test All evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: junit-${{ matrix.artifact_slug }}
-          path: junit-unit-${{ matrix.package_slug }}.xml
+          path: test-all-results
           if-no-files-found: warn
 
       - name: Extract engineering metrics
         id: engineering-metrics
         if: success() && matrix.laravel == '12.*'
         run: |
-          php scripts/extract-pest-metrics.php "pest-output-unit-${{ matrix.package_slug }}.txt" --github-output
+          php scripts/extract-pest-metrics.php "test-all-results/${{ matrix.log }}" --github-output
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
@@ -553,7 +342,7 @@ jobs:
         if: success() && matrix.laravel == '12.*'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: engineering-metrics-l12-unit-${{ matrix.package_slug }}
+          name: engineering-metrics-${{ matrix.artifact_slug }}
           path: engineering-metrics-unit-${{ matrix.package_slug }}.json
           if-no-files-found: error
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Release;
 
+use Closure;
+
 final class ReleaseEligibilityChecker
 {
     /**
@@ -12,7 +14,7 @@ final class ReleaseEligibilityChecker
     private const array LOCAL_GATES = [
         'core_test_all' => [
             'repository' => 'capell-app/capell',
-            'command' => 'composer preflight:all',
+            'command' => 'composer test:all:matrix:local',
         ],
         'app_preflight' => [
             'repository' => 'capell-app/capell-app',
@@ -48,7 +50,8 @@ final class ReleaseEligibilityChecker
 
     public function __construct(
         private readonly CommandRunner $runner,
-        private readonly ?string $localEvidencePath = null,
+        /** @var (Closure(array<string, string>): string)|null */
+        private readonly ?Closure $localGateRunner = null,
     ) {}
 
     /**
@@ -63,7 +66,7 @@ final class ReleaseEligibilityChecker
             'packages_preflight' => $this->mainSha('capell-app/capell-packages'),
         ];
 
-        if ($this->localEvidencePath !== null) {
+        if ($this->localGateRunner !== null) {
             return $this->localEvidence($expectedShas);
         }
 
@@ -102,19 +105,26 @@ final class ReleaseEligibilityChecker
 
     /**
      * @param  array<string, string>  $expectedShas
-     * @return array<string, array{sha: string, runs: list<array{source: string, repository: string, workflow: string, sha: string, command: string, completed_at: string, log_path: string, log_sha256: string}>}>
+     * @return array<string, array{sha: string, runs: list<array{source: string, repository: string, workflow: string, sha: string, command: string, completed_at: string, log_path: string, log_sha256: string, source_tree: string, composer_lock_sha256: string}>}>
      */
     private function localEvidence(array $expectedShas): array
     {
-        $path = $this->localEvidencePath;
+        $localGateRunner = $this->localGateRunner;
 
-        if ($path === null || ! is_file($path)) {
-            throw new ReleaseException('Release paused: local release eligibility evidence is missing.');
+        if ($localGateRunner === null) {
+            throw new ReleaseException('Release paused: local release gate runner is unavailable.');
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $decoded = json_decode($localGateRunner($expectedShas), true, 512, JSON_THROW_ON_ERROR);
 
-        if (! is_array($decoded) || ($decoded['schema_version'] ?? null) !== 1 || ! is_array($decoded['gates'] ?? null)) {
+        if (
+            ! is_array($decoded)
+            || ($decoded['schema_version'] ?? null) !== 2
+            || ($decoded['producer'] ?? null) !== 'capell-app/scripts/release-local-gates.php'
+            || ! is_string($decoded['generated_at'] ?? null)
+            || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $decoded['generated_at']) !== 1
+            || ! is_array($decoded['gates'] ?? null)
+        ) {
             throw new ReleaseException('Release paused: local release eligibility evidence is invalid.');
         }
 
@@ -132,6 +142,8 @@ final class ReleaseEligibilityChecker
                 || ($record['sha'] ?? null) !== $sha
                 || ($record['command'] ?? null) !== $expected['command']
                 || ($record['exit_code'] ?? null) !== 0
+                || ! is_string($record['started_at'] ?? null)
+                || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $record['started_at']) !== 1
                 || ! is_string($record['completed_at'] ?? null)
                 || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $record['completed_at']) !== 1
                 || ! is_string($record['log_path'] ?? null)
@@ -141,11 +153,23 @@ final class ReleaseEligibilityChecker
                 throw new ReleaseException(sprintf('Release paused: local %s evidence is invalid.', $gate));
             }
 
-            $logPath = str_starts_with($record['log_path'], '/')
-                ? $record['log_path']
-                : dirname($path) . '/' . $record['log_path'];
+            $logPath = $record['log_path'];
+            $expectedDependencies = $gate === 'app_preflight'
+                ? [
+                    'capell-app/capell' => $expectedShas['core_test_all'],
+                    'capell-app/capell-packages' => $expectedShas['packages_preflight'],
+                ]
+                : [];
 
-            if (! is_file($logPath)) {
+            if (
+                ! str_starts_with($logPath, '/')
+                || ! is_string($record['source_tree'] ?? null)
+                || preg_match('/^[a-f0-9]{40}$/', $record['source_tree']) !== 1
+                || ! is_string($record['composer_lock_sha256'] ?? null)
+                || preg_match('/^[a-f0-9]{64}$/', $record['composer_lock_sha256']) !== 1
+                || ($record['dependency_shas'] ?? null) !== $expectedDependencies
+                || ! is_file($logPath)
+            ) {
                 throw new ReleaseException(sprintf('Release paused: local %s log digest does not match.', $gate));
             }
 
@@ -166,6 +190,8 @@ final class ReleaseEligibilityChecker
                     'completed_at' => $record['completed_at'],
                     'log_path' => $logPath,
                     'log_sha256' => $record['log_sha256'],
+                    'source_tree' => $record['source_tree'],
+                    'composer_lock_sha256' => $record['composer_lock_sha256'],
                 ]],
             ];
         }
