@@ -75,6 +75,7 @@ it('accepts digest-bound repository-owned local preflight evidence', function ()
                 : [],
         ];
     }
+
     unset($record);
 
     $manifest = json_encode([

@@ -88,7 +88,7 @@ function decodedSettingPayload(string $group, string $name): mixed
         ->where('name', $name)
         ->value('payload');
 
-    throw_unless(is_string($payload), RuntimeException::class, "Expected [{$group}.{$name}] setting payload.");
+    throw_unless(is_string($payload), RuntimeException::class, sprintf('Expected [%s.%s] setting payload.', $group, $name));
 
     return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
 }

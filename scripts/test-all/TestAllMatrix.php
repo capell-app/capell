@@ -142,7 +142,7 @@ final class TestAllMatrix
             }
         }
 
-        throw new InvalidArgumentException("Unknown Test All matrix cell [{$id}].");
+        throw new InvalidArgumentException(sprintf('Unknown Test All matrix cell [%s].', $id));
     }
 
     /**

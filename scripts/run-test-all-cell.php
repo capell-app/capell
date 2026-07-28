@@ -28,7 +28,7 @@ $outputDirectory = str_starts_with($outputDirectory, DIRECTORY_SEPARATOR)
     : $currentWorkingDirectory . DIRECTORY_SEPARATOR . $outputDirectory;
 
 if (! is_dir($outputDirectory) && ! mkdir($outputDirectory, 0777, true) && ! is_dir($outputDirectory)) {
-    throw new RuntimeException("Unable to create Test All output directory [{$outputDirectory}].");
+    throw new RuntimeException(sprintf('Unable to create Test All output directory [%s].', $outputDirectory));
 }
 
 $environment = [
@@ -50,7 +50,7 @@ if ($cell['database'] === 'sqlite') {
         $value = getenv($required);
 
         if (! is_string($value) || $value === '') {
-            fwrite(STDERR, "{$required} must be set for MySQL Test All cells." . PHP_EOL);
+            fwrite(STDERR, $required . ' must be set for MySQL Test All cells.' . PHP_EOL);
 
             exit(2);
         }
@@ -59,7 +59,7 @@ if ($cell['database'] === 'sqlite') {
     $environment['DB_CONNECTION'] = 'mysql';
 }
 
-fwrite(STDOUT, "Running Test All cell [{$cellId}]." . PHP_EOL);
+fwrite(STDOUT, sprintf('Running Test All cell [%s].', $cellId) . PHP_EOL);
 
 exit(ProcessRunner::run(
     ['composer', 'run', $cell['command']],

@@ -33,7 +33,7 @@ if (is_string($cellId)) {
 $json = json_encode(['include' => $matrix], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
 if (in_array('--github-output', $arguments, true)) {
-    echo "matrix={$json}", PHP_EOL;
+    echo 'matrix=' . $json, PHP_EOL;
 
     return;
 }

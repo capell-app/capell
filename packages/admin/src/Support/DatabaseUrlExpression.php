@@ -25,9 +25,7 @@ final class DatabaseUrlExpression
             : request()->getScheme();
         $quotedDefaultScheme = $connection->getPdo()->quote($defaultScheme);
 
-        if (! is_string($quotedDefaultScheme)) {
-            throw new RuntimeException('Unable to quote the default site domain scheme.');
-        }
+        throw_unless(is_string($quotedDefaultScheme), RuntimeException::class, 'Unable to quote the default site domain scheme.');
 
         $url = $dialect->concatenate(
             SqlFragment::raw(sprintf(

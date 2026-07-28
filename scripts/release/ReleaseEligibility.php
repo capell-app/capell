@@ -66,7 +66,7 @@ final class ReleaseEligibilityChecker
             'packages_preflight' => $this->mainSha('capell-app/capell-packages'),
         ];
 
-        if ($this->localGateRunner !== null) {
+        if ($this->localGateRunner instanceof Closure) {
             return $this->localEvidence($expectedShas);
         }
 
@@ -112,7 +112,7 @@ final class ReleaseEligibilityChecker
     {
         $localGateRunner = $this->localGateRunner;
 
-        if ($localGateRunner === null) {
+        if (! $localGateRunner instanceof Closure) {
             throw new ReleaseException('Release paused: local release gate runner is unavailable.');
         }
 

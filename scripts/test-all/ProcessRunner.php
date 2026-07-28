@@ -37,7 +37,7 @@ final class ProcessRunner
         if ($logPath !== null && $log === false) {
             proc_terminate($process);
 
-            throw new RuntimeException("Unable to open process log [{$logPath}].");
+            throw new RuntimeException(sprintf('Unable to open process log [%s].', $logPath));
         }
 
         self::drainPipes(

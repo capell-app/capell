@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Date;
+
 require_once __DIR__ . '/test-all/ProcessRunner.php';
 require_once __DIR__ . '/test-all/TestAllMatrix.php';
 
@@ -24,13 +26,13 @@ $outputDirectory = str_starts_with($outputDirectory, DIRECTORY_SEPARATOR)
     : $repositoryRoot . DIRECTORY_SEPARATOR . $outputDirectory;
 
 if (! is_dir($outputDirectory) && ! mkdir($outputDirectory, 0777, true) && ! is_dir($outputDirectory)) {
-    throw new RuntimeException("Unable to create Test All output directory [{$outputDirectory}].");
+    throw new RuntimeException(sprintf('Unable to create Test All output directory [%s].', $outputDirectory));
 }
 
 $temporaryRoot = sys_get_temp_dir() . '/capell-test-all-' . getmypid() . '-' . bin2hex(random_bytes(4));
 
 if (! mkdir($temporaryRoot, 0700, true) && ! is_dir($temporaryRoot)) {
-    throw new RuntimeException("Unable to create isolated Test All workspace [{$temporaryRoot}].");
+    throw new RuntimeException(sprintf('Unable to create isolated Test All workspace [%s].', $temporaryRoot));
 }
 
 $containerName = 'capell-test-all-' . getmypid() . '-' . bin2hex(random_bytes(3));
@@ -57,17 +59,17 @@ try {
         );
 
         if ($worktreeExitCode !== 0) {
-            throw new RuntimeException("Unable to create isolated Core worktree [{$workspace}] at [{$head}].");
+            throw new RuntimeException(sprintf('Unable to create isolated Core worktree [%s] at [%s].', $workspace, $head));
         }
 
         $createdWorktrees[] = $workspace;
-        $prepareLog = $outputDirectory . DIRECTORY_SEPARATOR . "dependencies-{$slug}.log";
+        $prepareLog = $outputDirectory . DIRECTORY_SEPARATOR . sprintf('dependencies-%s.log', $slug);
         $prepareExitCode = ProcessRunner::run(
             [
                 PHP_BINARY,
                 'scripts/prepare-test-all-dependencies.php',
-                "--laravel={$framework['laravel']}",
-                "--testbench={$framework['testbench']}",
+                '--laravel=' . $framework['laravel'],
+                '--testbench=' . $framework['testbench'],
             ],
             $workspace,
             logPath: $prepareLog,
@@ -104,7 +106,7 @@ try {
     }
 
     $containerStarted = true;
-    $deadline = time() + 120;
+    $deadline = Date::now()->getTimestamp() + 120;
 
     do {
         $health = ProcessRunner::capture(
@@ -117,7 +119,7 @@ try {
         }
 
         sleep(2);
-    } while (time() < $deadline);
+    } while (Date::now()->getTimestamp() < $deadline);
 
     if ($health['exit_code'] !== 0 || $health['output'] !== 'healthy') {
         throw new RuntimeException('The isolated MySQL 8 Test All service did not become healthy.');
@@ -190,8 +192,8 @@ try {
             [
                 PHP_BINARY,
                 'scripts/run-test-all-cell.php',
-                "--cell={$cell['id']}",
-                "--output-dir={$cellOutputDirectory}",
+                '--cell=' . $cell['id'],
+                '--output-dir=' . $cellOutputDirectory,
             ],
             $workspace['path'],
             $cellEnvironment,

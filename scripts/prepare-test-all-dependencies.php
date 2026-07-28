@@ -23,8 +23,8 @@ $commands = [
     ['php', 'scripts/check-composer-local-paths.php'],
     ['composer', 'run', 'check:composer-lock'],
     ['composer', 'remove', '--no-interaction', '--no-progress', '--ansi', '--dev', '--no-update', 'laravel/pao'],
-    ['composer', 'require', '--no-interaction', '--no-progress', '--ansi', '--no-update', "laravel/framework:{$laravel}"],
-    ['composer', 'require', '--no-interaction', '--no-progress', '--ansi', '--dev', '--no-update', "orchestra/testbench:{$testbench}"],
+    ['composer', 'require', '--no-interaction', '--no-progress', '--ansi', '--no-update', 'laravel/framework:' . $laravel],
+    ['composer', 'require', '--no-interaction', '--no-progress', '--ansi', '--dev', '--no-update', 'orchestra/testbench:' . $testbench],
     [
         'composer',
         'update',
