@@ -27,9 +27,6 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Livewire\Livewire;
-
-use function Pest\Laravel\assertDatabaseHas;
-
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -185,25 +182,21 @@ it('saves role scoped report visibility settings using stable report keys', func
         ->call('save')
         ->assertHasNoFormErrors();
 
-    assertDatabaseHas('settings', [
-        'group' => 'admin',
-        'name' => 'enabled_reports_by_role',
-        'payload' => json_encode([
-            'editor' => [
-                'core.accessibility_readiness' => true,
-                'core.publishing_readiness' => true,
-                'core.demo_install_health' => true,
-                'core.package_readiness' => true,
-                'core.public_render_safety' => false,
-            ],
-            'super_admin' => [
-                'core.accessibility_readiness' => true,
-                'core.publishing_readiness' => true,
-                'core.demo_install_health' => true,
-                'core.package_readiness' => true,
-                'core.public_render_safety' => true,
-            ],
-        ]),
+    expect(decodedSettingPayload('admin', 'enabled_reports_by_role'))->toEqual([
+        'editor' => [
+            'core.accessibility_readiness' => true,
+            'core.publishing_readiness' => true,
+            'core.demo_install_health' => true,
+            'core.package_readiness' => true,
+            'core.public_render_safety' => false,
+        ],
+        'super_admin' => [
+            'core.accessibility_readiness' => true,
+            'core.publishing_readiness' => true,
+            'core.demo_install_health' => true,
+            'core.package_readiness' => true,
+            'core.public_render_safety' => true,
+        ],
     ]);
 });
 

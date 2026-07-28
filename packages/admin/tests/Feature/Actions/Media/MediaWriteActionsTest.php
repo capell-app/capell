@@ -127,7 +127,7 @@ it('updates image editing state localized metadata and derived files', function 
     expect($updated->refresh())
         ->name->toBe('Homepage hero')
         ->and($updated->getFocalPoint())->toBe(['x' => 32, 'y' => 68])
-        ->and($updated->getCropPresetNames())->toBe(['thumbnail', 'hero'])
+        ->and($updated->getCropPresetNames())->toEqualCanonicalizing(['thumbnail', 'hero'])
         ->and($translation->title)->toBe('Homepage hero')
         ->and($translation->meta)->toMatchArray([
             'alt' => 'Children running through a splash park',

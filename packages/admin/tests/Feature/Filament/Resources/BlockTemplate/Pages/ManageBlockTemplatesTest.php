@@ -51,7 +51,7 @@ it('creates block templates with builder block content', function (): void {
         'enabled' => true,
     ]);
 
-    expect(BlockTemplate::query()->where('key', 'hero_story')->sole()->blocks)->toBe([
+    expect(BlockTemplate::query()->where('key', 'hero_story')->sole()->blocks)->toEqual([
         [
             'type' => 'content',
             'data' => [

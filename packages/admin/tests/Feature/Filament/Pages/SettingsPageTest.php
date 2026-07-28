@@ -82,17 +82,8 @@ it('saves core settings via the settings page', function (): void {
         ->and($settings->allowed_remote_image_domains)->toBe(['cdn.example.com'])
         ->and($settings->allow_relative_image_urls)->toBeFalse();
 
-    assertDatabaseHas('settings', [
-        'group' => 'core',
-        'name' => 'default_locale',
-        'payload' => json_encode('fr'),
-    ]);
-
-    assertDatabaseHas('settings', [
-        'group' => 'core',
-        'name' => 'allowed_image_sources',
-        'payload' => json_encode('upload_media'),
-    ]);
+    expect(decodedSettingPayload('core', 'default_locale'))->toBe('fr')
+        ->and(decodedSettingPayload('core', 'allowed_image_sources'))->toBe('upload_media');
 });
 
 it('uses form actions below the settings form by default', function (): void {
@@ -144,11 +135,7 @@ it('saves html_editor setting via the settings page admin tab', function (): voi
 
     expect(CapellAdmin::settings()->html_editor)->toBe(EditorEnum::TinyMCE);
 
-    assertDatabaseHas('settings', [
-        'group' => 'admin',
-        'name' => 'html_editor',
-        'payload' => json_encode(EditorEnum::TinyMCE->value),
-    ]);
+    expect(decodedSettingPayload('admin', 'html_editor'))->toBe(EditorEnum::TinyMCE->value);
 });
 
 it('saves form action position setting via the settings page admin tab', function (): void {
@@ -170,11 +157,7 @@ it('saves form action position setting via the settings page admin tab', functio
 
     expect(CapellAdmin::settings()->form_action_position)->toBe(AdminFormActionPositionEnum::AboveForm);
 
-    assertDatabaseHas('settings', [
-        'group' => 'admin',
-        'name' => 'form_action_position',
-        'payload' => json_encode(AdminFormActionPositionEnum::AboveForm->value),
-    ]);
+    expect(decodedSettingPayload('admin', 'form_action_position'))->toBe(AdminFormActionPositionEnum::AboveForm->value);
 });
 
 it('persists missing default admin settings before saving the settings page admin tab', function (): void {
@@ -202,11 +185,7 @@ it('persists missing default admin settings before saving the settings page admi
         'name' => 'widget_order',
     ]);
 
-    assertDatabaseHas('settings', [
-        'group' => 'admin',
-        'name' => 'html_editor',
-        'payload' => json_encode(EditorEnum::TinyMCE->value),
-    ]);
+    expect(decodedSettingPayload('admin', 'html_editor'))->toBe(EditorEnum::TinyMCE->value);
 });
 
 it('persists dashboard Filament widget layout across settings page admin tab saves', function (): void {

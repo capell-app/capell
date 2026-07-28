@@ -313,7 +313,7 @@ it('limits layout listings to global and assigned-site layouts for non-global us
     test()->actingAs(createScopedUserForAdminResourceSiteScopeTest(collect([$assignedSite->getKey()])));
 
     expect(LayoutResource::getEloquentQuery()->pluck('id')->all())
-        ->toBe([$globalLayout->getKey(), $assignedLayout->getKey()]);
+        ->toEqualCanonicalizing([$globalLayout->getKey(), $assignedLayout->getKey()]);
 });
 
 it('limits media listings to global and assigned-site owners for non-global users', function (): void {

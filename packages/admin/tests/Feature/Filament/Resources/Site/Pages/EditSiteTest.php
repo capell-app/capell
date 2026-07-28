@@ -323,17 +323,20 @@ it('can translate translations', function (): void {
                 ),
         )
         ->create();
+    $translations = $site->translations->values();
+    $englishStatePath = 'translations.record-' . $translations->get(0)?->getKey() . '.title';
+    $germanStatePath = 'translations.record-' . $translations->get(1)?->getKey() . '.title';
 
     Livewire::test(EditSite::class, [
         'record' => $site->getRouteKey(),
     ])
         ->assertSuccessful()
-        ->assertSchemaComponentStateSet('translations.record-1.title', 'Test Title')
-        ->assertSchemaComponentStateSet('translations.record-2.title', '')
+        ->assertSchemaComponentStateSet($englishStatePath, 'Test Title')
+        ->assertSchemaComponentStateSet($germanStatePath, '')
         ->callAction(TestAction::make('translate')->schemaComponent('translations', schema: 'form'))
         ->assertHasNoFormErrors()
-        ->assertSchemaComponentStateSet('translations.record-1.title', 'Test Title')
-        ->assertSchemaComponentStateSet('translations.record-2.title', 'FAKE_TRANSLATION')
+        ->assertSchemaComponentStateSet($englishStatePath, 'Test Title')
+        ->assertSchemaComponentStateSet($germanStatePath, 'FAKE_TRANSLATION')
         ->call('save')
         ->assertHasNoFormErrors();
 

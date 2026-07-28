@@ -328,7 +328,7 @@ it('uses safe fallback values for missing or malformed advisory data', function 
         'source' => 'capell-api',
         'checked_at' => now(),
         'capell_version' => null,
-        'updates' => '{invalid',
+        'updates' => json_encode('invalid', JSON_THROW_ON_ERROR),
         'advisories' => json_encode([
             [
                 'id' => 'empty-fixed-versions',

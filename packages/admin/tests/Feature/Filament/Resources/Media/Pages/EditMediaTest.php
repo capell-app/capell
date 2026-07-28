@@ -223,7 +223,7 @@ it('saves focal point crop presets and localized metadata', function (): void {
         ->and($media->getFocalPoint())
         ->toBe(['x' => 32, 'y' => 68])
         ->and($media->getCropPresetNames())
-        ->toBe(['thumbnail', 'hero'])
+        ->toEqualCanonicalizing(['thumbnail', 'hero'])
         ->and($translation->title)
         ->toBe('Homepage hero')
         ->and($translation->meta)

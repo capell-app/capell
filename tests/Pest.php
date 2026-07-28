@@ -10,6 +10,7 @@ use Capell\Marketplace\Tests\MarketplaceTestCase;
 use Capell\Tests\PackagesTestCase;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\PendingCommand;
 use Illuminate\Testing\TestResponse;
@@ -78,6 +79,18 @@ function fakeMarketplace(array $stubs = []): void
     ]);
 
     Http::fake($stubs);
+}
+
+function decodedSettingPayload(string $group, string $name): mixed
+{
+    $payload = DB::table('settings')
+        ->where('group', $group)
+        ->where('name', $name)
+        ->value('payload');
+
+    throw_unless(is_string($payload), RuntimeException::class, "Expected [{$group}.{$name}] setting payload.");
+
+    return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
 }
 
 /**

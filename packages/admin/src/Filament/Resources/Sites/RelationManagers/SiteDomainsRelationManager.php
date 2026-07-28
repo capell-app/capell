@@ -28,7 +28,7 @@ class SiteDomainsRelationManager extends RelationManager
 
     protected static string|BackedEnum|null $icon = 'heroicon-o-globe-alt';
 
-    protected static ?string $recordTitleAttribute = 'full_url';
+    protected static ?string $recordTitleAttribute = 'domain';
 
     protected static string $relationship = 'siteDomains';
 

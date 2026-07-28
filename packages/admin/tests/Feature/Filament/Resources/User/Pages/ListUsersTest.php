@@ -72,12 +72,16 @@ it('can sort users', function (): void {
 
     /** @var EloquentCollection<int, User> $users */
     $users = UserFactory::new()->count(5)->create();
+    $usersInDatabaseOrder = $model::query()
+        ->whereKey($users->modelKeys())
+        ->orderBy('name')
+        ->get();
 
     Livewire::test(ListUsers::class)
         ->assertSuccessful()
         ->assertCountTableRecords($totalUsers + 5)
         ->sortTable('name')
-        ->assertCanSeeTableRecords($users->sortBy('name'), inOrder: true);
+        ->assertCanSeeTableRecords($usersInDatabaseOrder, inOrder: true);
 });
 
 it('can group delete users', function (): void {
