@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   test-all:
-    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - DB${{ matrix.db }}
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.stability }} - DB${{ matrix.db }}
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
@@ -27,11 +27,43 @@ jobs:
             testbench: 10.*
             stability: prefer-stable
             db: mysql
+            test_suite: Feature
+            test_suite_slug: feature
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            stability: prefer-stable
+            db: mysql
+            test_suite: Integration
+            test_suite_slug: integration
+          - php: 8.4
+            laravel: 12.*
+            testbench: 10.*
+            stability: prefer-stable
+            db: mysql
+            test_suite: Unit
+            test_suite_slug: unit
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             stability: prefer-stable
             db: mysql
+            test_suite: Feature
+            test_suite_slug: feature
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            db: mysql
+            test_suite: Integration
+            test_suite_slug: integration
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            db: mysql
+            test_suite: Unit
+            test_suite_slug: unit
 
     services:
       mysql:
@@ -130,9 +162,10 @@ jobs:
         shell: bash
         env:
           NO_COLOR: 1
+          PEST_TEST_SUITE: ${{ matrix.test_suite }}
         run: |
           set -o pipefail
-          composer run test:database:ci 2>&1 | tee pest-output.txt
+          composer run test:database:ci 2>&1 | tee "pest-output-${{ matrix.test_suite_slug }}.txt"
           test_exit=${PIPESTATUS[0]}
 
           exit "${test_exit}"
@@ -143,7 +176,7 @@ jobs:
         run: |
           php <<'PHP'
           <?php
-          $output = file_get_contents('pest-output.txt');
+          $output = file_get_contents('pest-output-${{ matrix.test_suite_slug }}.txt');
 
           if ($output === false) {
               fwrite(STDERR, "Unable to read pest-output.txt\n");
@@ -188,8 +221,86 @@ jobs:
           PHP
           php scripts/extract-phpstan-level.php --github-output
 
-      - name: Send repository_dispatch to capell-app
+      - name: Write engineering metrics artifact
         if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        env:
+          TESTS: ${{ steps.engineering-metrics.outputs.tests }}
+          ASSERTIONS: ${{ steps.engineering-metrics.outputs.assertions }}
+          PHPSTAN_LEVEL: ${{ steps.engineering-metrics.outputs.phpstan_level }}
+        run: |
+          php -r 'file_put_contents(
+              "engineering-metrics-${{ matrix.test_suite_slug }}.json",
+              json_encode([
+                  "tests" => (int) getenv("TESTS"),
+                  "assertions" => (int) getenv("ASSERTIONS"),
+                  "phpstan_level" => (int) getenv("PHPSTAN_LEVEL"),
+              ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL,
+          );'
+
+      - name: Upload engineering metrics artifact
+        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: engineering-metrics-l12-suite-${{ matrix.test_suite_slug }}
+          path: engineering-metrics-${{ matrix.test_suite_slug }}.json
+          if-no-files-found: error
+
+  engineering-metrics:
+    name: Aggregate engineering metrics
+    needs: test-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download engineering metrics artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: engineering-metrics-l12-suite-*
+          path: engineering-metrics
+          merge-multiple: true
+
+      - name: Aggregate engineering metrics
+        id: engineering-metrics
+        run: |
+          php <<'PHP'
+          <?php
+          $files = glob('engineering-metrics/*.json');
+
+          if ($files === false || count($files) !== 3) {
+              throw new RuntimeException('Expected engineering metrics from exactly three Laravel 12 test suites.');
+          }
+
+          $tests = 0;
+          $assertions = 0;
+          $phpstanLevels = [];
+
+          foreach ($files as $file) {
+              $metrics = json_decode((string) file_get_contents($file), true, flags: JSON_THROW_ON_ERROR);
+              $tests += (int) ($metrics['tests'] ?? 0);
+              $assertions += (int) ($metrics['assertions'] ?? 0);
+              $phpstanLevels[] = (int) ($metrics['phpstan_level'] ?? 0);
+          }
+
+          $phpstanLevels = array_values(array_unique($phpstanLevels));
+
+          if (count($phpstanLevels) !== 1) {
+              throw new RuntimeException('Laravel 12 test suites reported inconsistent PHPStan levels.');
+          }
+
+          $githubOutput = getenv('GITHUB_OUTPUT');
+
+          if ($githubOutput === false || $githubOutput === '') {
+              throw new RuntimeException('GITHUB_OUTPUT is not available.');
+          }
+
+          file_put_contents(
+              $githubOutput,
+              "tests={$tests}\nassertions={$assertions}\nphpstan_level={$phpstanLevels[0]}\n",
+              FILE_APPEND,
+          );
+
+          fwrite(STDOUT, "Aggregated engineering metrics: tests={$tests}, assertions={$assertions}, phpstan_level={$phpstanLevels[0]}\n");
+          PHP
+
+      - name: Send repository_dispatch to capell-app
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ENGINEERING_METRICS_DISPATCH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
