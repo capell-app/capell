@@ -28,6 +28,7 @@ it('gates the exact PR and dispatch topology before splitting behaviour and pack
         ->toContain('composer run test:sentinel:unit:ci')
         ->toContain('composer run test:sentinel:database:ci')
         ->toContain('composer run test:database:package:ci')
+        ->toContain('CACHE_STORE: array')
         ->toContain('PAO_DISABLE: 1')
         ->toContain('package: Core')
         ->toContain('package: Admin')

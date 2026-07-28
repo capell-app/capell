@@ -28,6 +28,7 @@ use Illuminate\Foundation\Testing\Concerns\InteractsWithSession;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Facade;
@@ -89,7 +90,7 @@ abstract class AbstractTestCase extends TestCase
         $this->clearTestbenchConfigCacheFile();
         $this->setUpTestbenchApplication();
 
-        $configuredCacheStore = getenv('CACHE_STORE');
+        $configuredCacheStore = Env::get('CACHE_STORE');
 
         if (is_string($configuredCacheStore) && $configuredCacheStore !== '') {
             Config::set('cache.default', $configuredCacheStore);

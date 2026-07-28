@@ -47,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
+      CACHE_STORE: array
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       PAO_DISABLE: 1
 
@@ -134,6 +135,7 @@ jobs:
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - DBmysql
     runs-on: ubuntu-latest
     env:
+      CACHE_STORE: array
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       PAO_DISABLE: 1
     strategy:
@@ -292,6 +294,7 @@ jobs:
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - Unit - ${{ matrix.package }}
     runs-on: ubuntu-latest
     env:
+      CACHE_STORE: array
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       PAO_DISABLE: 1
     strategy:

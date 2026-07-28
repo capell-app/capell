@@ -12,6 +12,7 @@ jobs:
     name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
     runs-on: ubuntu-latest
     env:
+      CACHE_STORE: array
       PAO_DISABLE: 1
     strategy:
       fail-fast: true
