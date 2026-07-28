@@ -140,16 +140,18 @@ it('memoizes extension ledger misses for repeated uninstalled package checks', f
 
     $perPackageLedgerQueries = collect(DB::getQueryLog())->filter(function (array $query): bool {
         $querySql = $query['query'];
+        $grammar = DB::connection()->getQueryGrammar();
 
-        return str_contains($querySql, 'from "capell_extensions"')
-            && str_contains($querySql, 'where "composer_name" =');
+        return str_contains($querySql, 'from ' . $grammar->wrapTable('capell_extensions'))
+            && str_contains($querySql, 'where ' . $grammar->wrap('composer_name') . ' =');
     });
 
     $batchedLedgerQueries = collect(DB::getQueryLog())->filter(function (array $query): bool {
         $querySql = $query['query'];
+        $grammar = DB::connection()->getQueryGrammar();
 
-        return str_contains($querySql, 'from "capell_extensions"')
-            && str_contains($querySql, 'where "composer_name" in');
+        return str_contains($querySql, 'from ' . $grammar->wrapTable('capell_extensions'))
+            && str_contains($querySql, 'where ' . $grammar->wrap('composer_name') . ' in');
     });
 
     DB::disableQueryLog();

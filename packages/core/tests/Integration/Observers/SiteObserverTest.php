@@ -7,6 +7,8 @@ use Capell\Core\Models\Site;
 use Illuminate\Support\Facades\Cache;
 
 it('clears total sites cache on create/delete', function (): void {
+    config()->set('cache.default', 'array');
+
     Cache::driver('array')->forever(CacheEnum::TotalSites->value, 123);
 
     $site = Site::factory()->createOne();
