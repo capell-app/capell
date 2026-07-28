@@ -17,6 +17,10 @@ use Capell\Frontend\Support\Loader\SiteLoader;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
+beforeEach(function (): void {
+    config()->set('cache.default', 'array');
+});
+
 it('loads languages in order', function (): void {
     $french = Language::factory()->french()->create();
     $english = Language::factory()->english()->create();

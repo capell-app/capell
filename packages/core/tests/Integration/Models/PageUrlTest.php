@@ -13,6 +13,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 it('keeps active redirect scope SQL equivalent to the explicit predicates', function (): void {
@@ -21,7 +22,12 @@ it('keeps active redirect scope SQL equivalent to the explicit predicates', func
         ->where('type', UrlTypeEnum::Redirect)
         ->where('status', true);
 
-    $normalizedScopedSql = str_replace('"page_urls"."status"', '"status"', $scoped->toSql());
+    $grammar = DB::connection()->getQueryGrammar();
+    $normalizedScopedSql = str_replace(
+        $grammar->wrap('page_urls.status'),
+        $grammar->wrap('status'),
+        $scoped->toSql(),
+    );
 
     expect($normalizedScopedSql)->toBe($explicit->toSql())
         ->and($scoped->getBindings())->toBe($explicit->getBindings());
