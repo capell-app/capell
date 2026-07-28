@@ -40,7 +40,7 @@ jobs:
             laravel: 12.*
             testbench: 10.*
             stability: prefer-stable
-            db: mysql
+            db: sqlite
             test_suite: Unit
             test_suite_slug: unit
           - php: 8.4
@@ -61,7 +61,7 @@ jobs:
             laravel: 13.*
             testbench: 11.*
             stability: prefer-stable
-            db: mysql
+            db: sqlite
             test_suite: Unit
             test_suite_slug: unit
 
@@ -172,7 +172,7 @@ jobs:
 
       - name: Extract engineering metrics
         id: engineering-metrics
-        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable'
         run: |
           php <<'PHP'
           <?php
@@ -222,7 +222,7 @@ jobs:
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
-        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable'
         env:
           TESTS: ${{ steps.engineering-metrics.outputs.tests }}
           ASSERTIONS: ${{ steps.engineering-metrics.outputs.assertions }}
@@ -238,7 +238,7 @@ jobs:
           );'
 
       - name: Upload engineering metrics artifact
-        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable' && matrix.db == 'mysql'
+        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engineering-metrics-l12-suite-${{ matrix.test_suite_slug }}

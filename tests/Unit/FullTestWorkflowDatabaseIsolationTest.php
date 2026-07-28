@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('runs the full real-database matrix with Testbench worker isolation', function (): void {
+it('runs behaviour suites on MySQL and destructive unit tests on isolated SQLite databases', function (): void {
     $root = dirname(__DIR__, 2);
     $composer = json_decode(
         (string) file_get_contents($root . '/composer.json'),
@@ -16,6 +16,8 @@ it('runs the full real-database matrix with Testbench worker isolation', functio
         ->and($workflow)
         ->toContain('composer run test:database:ci')
         ->toContain('PEST_TEST_SUITE: ${{ matrix.test_suite }}')
+        ->toMatch('/db: sqlite\\s+test_suite: Unit/')
+        ->toMatch('/db: mysql\\s+test_suite: (?:Feature|Integration)/')
         ->toContain('pattern: engineering-metrics-l12-suite-*')
         ->toContain('count($files) !== 3')
         ->toContain('SET GLOBAL innodb_redo_log_capacity = 2147483648')
