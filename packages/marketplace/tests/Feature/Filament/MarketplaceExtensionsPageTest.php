@@ -157,7 +157,7 @@ it('does not lead account-linked setup back into local domain validation', funct
     SiteDomain::factory()->createOne(['domain' => 'example.com']);
 
     MarketplaceInstance::query()->create([
-        'instance_id' => 'instance-notification-domain-validation',
+        'instance_id' => '11111111-1111-4111-a111-111111111111',
         'signing_secret_encrypted' => 'secret-value',
         'connection_mode' => MarketplaceConnectionMode::AccountLinked,
         'account_id' => 'acct_123',
