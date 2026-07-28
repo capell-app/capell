@@ -12,9 +12,12 @@ it('runs the full real-database matrix with Testbench worker isolation', functio
     $workflow = (string) file_get_contents($root . '/.github/workflows/test-full.yml');
 
     expect($composer['scripts']['test:database:ci'] ?? null)
-        ->toBe('@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --recreate-databases --compact --configuration=phpunit.xml --ansi')
+        ->toBe('@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --ansi')
         ->and($workflow)
         ->toContain('composer run test:database:ci')
+        ->toContain('PEST_TEST_SUITE: ${{ matrix.test_suite }}')
+        ->toContain('pattern: engineering-metrics-l12-suite-*')
+        ->toContain('count($files) !== 3')
         ->toContain('SET GLOBAL innodb_redo_log_capacity = 2147483648')
         ->toContain('SET GLOBAL innodb_flush_log_at_trx_commit = 2')
         ->toContain('SET GLOBAL sync_binlog = 0')
