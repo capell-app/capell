@@ -20,9 +20,30 @@ if (! is_string($sha)) {
 
 try {
     $useLocalGates = getenv('CAPELL_RELEASE_LOCAL_GATES') === '1';
+    $sealedEvidencePath = getenv('CAPELL_RELEASE_LOCAL_EVIDENCE');
+    $sealedExpectedShas = null;
     $localGateRunner = null;
 
-    if ($useLocalGates) {
+    if (is_string($sealedEvidencePath) && $sealedEvidencePath !== '') {
+        if (! str_starts_with($sealedEvidencePath, '/') || ! is_file($sealedEvidencePath)) {
+            throw new ReleaseException('CAPELL_RELEASE_LOCAL_EVIDENCE must name an absolute sealed evidence file.');
+        }
+
+        $sealedEvidence = file_get_contents($sealedEvidencePath);
+        if (! is_string($sealedEvidence)) {
+            throw new ReleaseException('Release paused: sealed local release eligibility evidence is unreadable.');
+        }
+
+        $decodedEvidence = json_decode($sealedEvidence, true);
+        $sealedExpectedShas = is_array($decodedEvidence)
+            ? [
+                'app_preflight' => $decodedEvidence['gates']['app_preflight']['sha'] ?? null,
+                'packages_preflight' => $decodedEvidence['gates']['packages_preflight']['sha'] ?? null,
+            ]
+            : null;
+
+        $localGateRunner = static fn (array $expectedShas): string => $sealedEvidence;
+    } elseif ($useLocalGates) {
         $coreRoot = getenv('CAPELL_RELEASE_CORE_ROOT');
         $appRoot = getenv('CAPELL_RELEASE_APP_ROOT');
         $packagesRoot = getenv('CAPELL_RELEASE_PACKAGES_ROOT');
@@ -71,7 +92,11 @@ try {
     $evidence = new ReleaseEligibilityChecker(
         new ProcessCommandRunner,
         $localGateRunner,
-    )->check($sha);
+    )->check(
+        $sha,
+        is_string($sealedExpectedShas['app_preflight'] ?? null) ? $sealedExpectedShas['app_preflight'] : null,
+        is_string($sealedExpectedShas['packages_preflight'] ?? null) ? $sealedExpectedShas['packages_preflight'] : null,
+    );
 } catch (ReleaseException $releaseException) {
     fwrite(STDERR, $releaseException->getMessage() . PHP_EOL);
     exit(1);

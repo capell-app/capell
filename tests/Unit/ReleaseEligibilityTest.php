@@ -8,6 +8,7 @@ require_once dirname(__DIR__, 2) . '/scripts/release/ReleaseEligibility.php';
 use Capell\Release\CommandRunner;
 use Capell\Release\ReleaseEligibilityChecker;
 use Capell\Release\ReleaseException;
+use Symfony\Component\Process\Process;
 
 it('requires successful exact-SHA Core, App, and Packages workflow evidence', function (): void {
     $coreSha = str_repeat('a', 40);
@@ -139,6 +140,87 @@ it('fails closed when a local preflight log digest does not match', function ():
         static fn (array $expectedShas): string => $manifest,
     )->check($coreSha))->toThrow(ReleaseException::class, 'log digest does not match');
 });
+
+it('reuses sealed local evidence without starting the local gate coordinator again', function (): void {
+    $root = dirname(__DIR__, 2);
+    $coreSha = str_repeat('a', 40);
+    $appSha = str_repeat('b', 40);
+    $packagesSha = str_repeat('c', 40);
+    $directory = sys_get_temp_dir() . '/capell-core-sealed-evidence-' . bin2hex(random_bytes(8));
+    $binDirectory = $directory . '/bin';
+    mkdir($binDirectory, 0777, true);
+
+    $ghPath = $binDirectory . '/gh';
+    file_put_contents(
+        $ghPath,
+        "#!/bin/sh\nprintf '%s\\n' '" . str_repeat('f', 40) . "'\n",
+    );
+    chmod($ghPath, 0755);
+
+    $evidencePath = releaseEligibilityManifestPath($directory, $coreSha, $appSha, $packagesSha);
+
+    try {
+        $process = new Process(
+            [PHP_BINARY, $root . '/scripts/release-eligibility.php', $coreSha],
+            $root,
+            [
+                'PATH' => $binDirectory,
+                'CAPELL_RELEASE_LOCAL_GATES' => '1',
+                'CAPELL_RELEASE_LOCAL_EVIDENCE' => $evidencePath,
+            ],
+        );
+        $process->run();
+
+        expect($process->getExitCode())->toBe(0)
+            ->and($process->getErrorOutput())->toBe('')
+            ->and(json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR)['core_test_all']['sha'])
+            ->toBe($coreSha);
+    } finally {
+        exec(sprintf('rm -rf %s', escapeshellarg($directory)));
+    }
+});
+
+function releaseEligibilityManifestPath(
+    string $directory,
+    string $coreSha,
+    string $appSha,
+    string $packagesSha,
+): string {
+    $gates = [
+        'core_test_all' => ['repository' => 'capell-app/capell', 'sha' => $coreSha, 'command' => 'composer test:all:matrix:local'],
+        'app_preflight' => ['repository' => 'capell-app/capell-app', 'sha' => $appSha, 'command' => './capell composer preflight:all'],
+        'packages_preflight' => ['repository' => 'capell-app/capell-packages', 'sha' => $packagesSha, 'command' => 'composer preflight:all'],
+    ];
+
+    foreach ($gates as $gate => &$record) {
+        $logPath = $directory . '/' . $gate . '.log';
+        file_put_contents($logPath, $gate . ' passed');
+        $record += [
+            'exit_code' => 0,
+            'started_at' => '2026-07-28T11:00:00Z',
+            'completed_at' => '2026-07-28T12:00:00Z',
+            'log_path' => $logPath,
+            'log_sha256' => hash_file('sha256', $logPath),
+            'source_tree' => str_repeat('d', 40),
+            'composer_lock_sha256' => str_repeat('e', 64),
+            'dependency_shas' => $gate === 'app_preflight'
+                ? ['capell-app/capell' => $coreSha, 'capell-app/capell-packages' => $packagesSha]
+                : [],
+        ];
+    }
+
+    unset($record);
+
+    $path = $directory . '/evidence.json';
+    file_put_contents($path, json_encode([
+        'schema_version' => 2,
+        'producer' => 'capell-app/scripts/release-local-gates.php',
+        'generated_at' => '2026-07-28T12:00:00Z',
+        'gates' => $gates,
+    ], JSON_THROW_ON_ERROR));
+
+    return $path;
+}
 
 function releaseEligibilityRunner(
     string $appSha,

@@ -57,13 +57,24 @@ final class ReleaseEligibilityChecker
     /**
      * @return array<string, array{sha: string, runs: list<array<string, int|string>>}>
      */
-    public function check(string $coreSha): array
-    {
+    public function check(
+        string $coreSha,
+        ?string $appSha = null,
+        ?string $packagesSha = null,
+    ): array {
         $this->assertSha($coreSha, 'Core source');
+        if ($appSha !== null) {
+            $this->assertSha($appSha, 'App source');
+        }
+
+        if ($packagesSha !== null) {
+            $this->assertSha($packagesSha, 'Packages source');
+        }
+
         $expectedShas = [
             'core_test_all' => $coreSha,
-            'app_preflight' => $this->mainSha('capell-app/capell-app'),
-            'packages_preflight' => $this->mainSha('capell-app/capell-packages'),
+            'app_preflight' => $appSha ?? $this->mainSha('capell-app/capell-app'),
+            'packages_preflight' => $packagesSha ?? $this->mainSha('capell-app/capell-packages'),
         ];
 
         if ($this->localGateRunner instanceof Closure) {
