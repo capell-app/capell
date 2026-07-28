@@ -78,7 +78,7 @@ it('keeps CI and the local fallback on the same matrix, dependency, and cell scr
 it('can select one exact hosted repair cell without changing its topology', function (): void {
     $root = dirname(__DIR__, 2);
     $command = sprintf(
-        'php %s behaviour --cell=l12-feature-admin',
+        'php %s target --cell=l12-feature-admin',
         escapeshellarg($root . '/scripts/test-all-matrix.php'),
     );
     exec($command, $output, $exitCode);
@@ -93,3 +93,20 @@ it('can select one exact hosted repair cell without changing its topology', func
         ->and($matrix['include'][0]['test_suite'])->toBe('Feature')
         ->and($matrix['include'][0]['package'])->toBe('Admin');
 });
+
+it('rejects sentinel cells as targeted hosted repairs', function (string $cell): void {
+    $root = dirname(__DIR__, 2);
+    $command = sprintf(
+        'php %s target --cell=%s 2>&1',
+        escapeshellarg($root . '/scripts/test-all-matrix.php'),
+        escapeshellarg($cell),
+    );
+    exec($command, $output, $exitCode);
+
+    expect($exitCode)->not->toBe(0)
+        ->and(implode(PHP_EOL, $output))
+        ->toContain(sprintf('Test All cell [%s] cannot be dispatched as a targeted hosted repair cell.', $cell));
+})->with([
+    'sentinel unit' => 'sentinel-unit',
+    'sentinel database' => 'sentinel-database',
+]);

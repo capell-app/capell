@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       cell:
-        description: 'Optional exact Test All cell (for example: l12-feature-admin). Leave blank for the complete workflow.'
+        description: 'Optional exact behaviour or unit cell (for example: l12-feature-admin). Leave blank for the complete workflow.'
         required: false
         type: string
 
@@ -74,7 +74,7 @@ jobs:
         run: |
           cell_argument=()
           if [ -n "$TARGET_CELL" ]; then
-            php scripts/test-all-matrix.php all --cell="$TARGET_CELL" > /dev/null
+            php scripts/test-all-matrix.php target --cell="$TARGET_CELL" > /dev/null
             cell_argument=(--cell="$TARGET_CELL")
           fi
           echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"

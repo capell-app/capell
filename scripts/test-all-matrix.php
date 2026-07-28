@@ -16,9 +16,10 @@ $matrix = match ($group) {
     'sentinel' => TestAllMatrix::sentinel(),
     'behaviour' => TestAllMatrix::behaviour(),
     'unit' => TestAllMatrix::unit(),
+    'target' => [...TestAllMatrix::behaviour(), ...TestAllMatrix::unit()],
     'all' => TestAllMatrix::all(),
     default => throw new InvalidArgumentException(
-        'Usage: php scripts/test-all-matrix.php sentinel|behaviour|unit|all [--github-output]',
+        'Usage: php scripts/test-all-matrix.php sentinel|behaviour|unit|target|all [--github-output]',
     ),
 };
 
@@ -28,6 +29,12 @@ if (is_string($cellId)) {
         $matrix,
         static fn (array $candidate): bool => $candidate['id'] === $cell['id'],
     ));
+
+    if ($group === 'target' && $matrix === []) {
+        throw new InvalidArgumentException(
+            sprintf('Test All cell [%s] cannot be dispatched as a targeted hosted repair cell.', $cellId),
+        );
+    }
 }
 
 $json = json_encode(['include' => $matrix], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
