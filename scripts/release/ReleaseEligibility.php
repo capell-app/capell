@@ -52,7 +52,7 @@ final class ReleaseEligibilityChecker
     ) {}
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, array{sha: string, runs: list<array<string, int|string>>}>
      */
     public function check(string $coreSha): array
     {
