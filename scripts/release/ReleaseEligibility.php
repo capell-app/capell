@@ -67,12 +67,16 @@ final class ReleaseEligibilityChecker
             return $this->localEvidence($expectedShas);
         }
 
+        $coreRun = $this->successfulRun(
+            repository: 'capell-app/capell',
+            workflow: 'test-full.yml',
+            sha: $expectedShas['core_test_all'],
+        );
         $evidence = [
-            'core_test_all' => $this->successfulRun(
-                repository: 'capell-app/capell',
-                workflow: 'test-full.yml',
-                sha: $expectedShas['core_test_all'],
-            ),
+            'core_test_all' => [
+                'sha' => $expectedShas['core_test_all'],
+                'runs' => [$coreRun],
+            ],
         ];
 
         foreach (self::DOWNSTREAM_GATES as $gate => $workflows) {
