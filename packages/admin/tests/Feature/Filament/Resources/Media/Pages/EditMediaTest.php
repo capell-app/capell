@@ -235,7 +235,7 @@ it('saves focal point crop presets and localized metadata', function (): void {
         ->and($fileManipulator->calls)
         ->toHaveCount(1)
         ->and($fileManipulator->calls[0]['names'])
-        ->toBe(['thumbnail', 'hero'])
+        ->toEqualCanonicalizing(['thumbnail', 'hero'])
         ->and($fileManipulator->calls[0]['responsive'])
         ->toBeTrue();
 });

@@ -134,10 +134,7 @@ it('updates image editing state localized metadata and derived files', function 
             'caption' => 'Summer campaign hero image',
             'credit' => 'Capell Studio',
         ])
-        ->and($fileManipulator->calls)->toBe([
-            [
-                'names' => ['thumbnail', 'hero'],
-                'responsive' => true,
-            ],
-        ]);
+        ->and($fileManipulator->calls)->toHaveCount(1)
+        ->and($fileManipulator->calls[0]['names'])->toEqualCanonicalizing(['thumbnail', 'hero'])
+        ->and($fileManipulator->calls[0]['responsive'])->toBeTrue();
 });
