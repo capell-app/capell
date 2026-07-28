@@ -19,10 +19,6 @@ beforeEach(function () use (&$originalDatabaseDefault, &$originalSqliteDatabase)
 afterEach(function () use (&$originalDatabaseDefault, &$originalSqliteDatabase): void {
     DB::purge('sqlite');
 
-    if (is_string($originalDatabaseDefault)) {
-        DB::disconnect($originalDatabaseDefault);
-    }
-
     config([
         'database.default' => $originalDatabaseDefault,
         'database.connections.sqlite.database' => $originalSqliteDatabase,
