@@ -55,6 +55,7 @@ it('keeps CI and the local fallback on the same matrix, dependency, and cell scr
     $composer = json_decode((string) file_get_contents($root . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
 
     expect($workflow)
+        ->toContain('php scripts/test-all-matrix.php target --cell="$TARGET_CELL"')
         ->toContain('scripts/test-all-matrix.php behaviour')
         ->toContain('scripts/test-all-matrix.php unit')
         ->toContain('scripts/prepare-test-all-dependencies.php')
