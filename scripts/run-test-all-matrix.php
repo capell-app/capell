@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Date;
-
 require_once __DIR__ . '/test-all/ProcessRunner.php';
 require_once __DIR__ . '/test-all/TestAllMatrix.php';
 
@@ -106,7 +104,7 @@ try {
     }
 
     $containerStarted = true;
-    $deadline = Date::now()->getTimestamp() + 120;
+    $deadline = time() + 120;
 
     do {
         $health = ProcessRunner::capture(
@@ -119,7 +117,7 @@ try {
         }
 
         sleep(2);
-    } while (Date::now()->getTimestamp() < $deadline);
+    } while (time() < $deadline);
 
     if ($health['exit_code'] !== 0 || $health['output'] !== 'healthy') {
         throw new RuntimeException('The isolated MySQL 8 Test All service did not become healthy.');
