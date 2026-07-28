@@ -111,6 +111,20 @@ jobs:
         run: |
           php -r 'if (getenv("DB_CONNECTION") !== getenv("EXPECTED_DB_CONNECTION")) { throw new RuntimeException("Unexpected database connection."); }'
 
+      - name: Tune MySQL for the write-heavy test suite
+        if: matrix.db == 'mysql'
+        run: |
+          mysql \
+            --host=127.0.0.1 \
+            --port="${{ job.services.mysql.ports['3306'] }}" \
+            --user=root \
+            --password=root \
+            --execute="
+              SET GLOBAL innodb_redo_log_capacity = 2147483648;
+              SET GLOBAL innodb_flush_log_at_trx_commit = 2;
+              SET GLOBAL sync_binlog = 0;
+            "
+
       - name: Run test:all
         id: run-tests
         shell: bash
