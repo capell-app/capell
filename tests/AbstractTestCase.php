@@ -397,6 +397,25 @@ abstract class AbstractTestCase extends TestCase
     }
 
     /**
+     * Forget every resolved cache layer after tests or package setup changes
+     * cache configuration. Laravel's cache factory and facade both memoize the
+     * selected store, while Capell retains request-local values separately.
+     */
+    protected function forgetResolvedCacheServices(): void
+    {
+        $application = $this->app;
+
+        if (! $application instanceof Application) {
+            return;
+        }
+
+        $application->forgetInstance(CapellCacheManager::class);
+        $application->forgetInstance('cache.store');
+        $application->forgetInstance('cache');
+        Facade::clearResolvedInstance('cache');
+    }
+
+    /**
      * CacheManager memoizes stores independently from Laravel's config repository,
      * while CapellCacheManager holds an additional request-local cache. Tests that
      * switch cache.default must restore both layers or later tests keep using the
@@ -437,10 +456,7 @@ abstract class AbstractTestCase extends TestCase
             $application->make(CapellCacheManager::class)->flushLocalCache();
         }
 
-        $application->forgetInstance(CapellCacheManager::class);
-        $application->forgetInstance('cache.store');
-        $application->forgetInstance('cache');
-        Facade::clearResolvedInstance('cache');
+        $this->forgetResolvedCacheServices();
     }
 
     private function restoreTestbenchManifestCacheFiles(): void
