@@ -18,4 +18,5 @@ parameters:
         - scripts/benchmark-boot-support.php
     scanFiles:
         - scripts/release/ReleaseEligibility.php
+        - scripts/test-all/TestAllMatrix.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/full
