@@ -8,13 +8,25 @@ use Capell\Core\Support\Install\NullProgressReporter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
-afterEach(function (): void {
-    config([
-        'database.default' => 'sqlite',
-        'database.connections.sqlite.database' => ':memory:',
-    ]);
+$originalDatabaseDefault = null;
+$originalSqliteDatabase = null;
 
+beforeEach(function () use (&$originalDatabaseDefault, &$originalSqliteDatabase): void {
+    $originalDatabaseDefault = config('database.default');
+    $originalSqliteDatabase = config('database.connections.sqlite.database');
+});
+
+afterEach(function () use (&$originalDatabaseDefault, &$originalSqliteDatabase): void {
     DB::purge('sqlite');
+
+    if (is_string($originalDatabaseDefault)) {
+        DB::disconnect($originalDatabaseDefault);
+    }
+
+    config([
+        'database.default' => $originalDatabaseDefault,
+        'database.connections.sqlite.database' => $originalSqliteDatabase,
+    ]);
 });
 
 it('creates a missing sqlite database file', function (): void {
