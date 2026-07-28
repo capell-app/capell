@@ -5,5 +5,12 @@ declare(strict_types=1);
 use Capell\Core\Models\Page;
 
 it('boots the page model without recursively booting itself', function (): void {
-    expect(Page::query()->toSql())->toBe('select * from "pages" where "pages"."deleted_at" is null');
+    $query = Page::query();
+    $grammar = $query->getQuery()->getGrammar();
+
+    expect($query->toSql())->toBe(sprintf(
+        'select * from %s where %s is null',
+        $grammar->wrap('pages'),
+        $grammar->wrap('pages.deleted_at'),
+    ));
 });

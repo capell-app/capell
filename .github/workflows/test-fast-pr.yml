@@ -1,29 +1,7 @@
 name: Test
 
 on:
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'packages/**/*.php'
-      - 'packages/**/composer.json'
-      - 'tests/**/*.php'
-      - 'composer.json'
-      - 'composer.lock'
-      - 'docs/packages/catalog.md'
-      - 'scripts/check-support-contract.php'
-      - 'scripts/extract-phpstan-level.php'
-      - 'docs/getting-started/install.md'
-      - 'docs/getting-started/quickstart.md'
-      - '.docker/Dockerfile'
-      - '.github/workflows/test-fast-pr.yml'
-      - '.github/workflows/test-full.yml'
-      - 'phpunit.xml'
-
-concurrency:
-  group: ${{ github.head_ref || github.ref }}-phpunit-fast-pr
-  cancel-in-progress: true
+  workflow_call:
 
 permissions:
   contents: read
@@ -33,6 +11,9 @@ jobs:
     if: github.event.pull_request.draft == false
     name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
     runs-on: ubuntu-latest
+    env:
+      CACHE_STORE: array
+      PAO_DISABLE: 1
     strategy:
       fail-fast: true
       matrix:
@@ -43,36 +24,42 @@ jobs:
             db: sqlite
             shard: 1
             total_shards: 3
+            artifact_slug: l12-1
           - php: 8.4
             laravel: 12.*
             testbench: 10.*
             db: sqlite
             shard: 2
             total_shards: 3
+            artifact_slug: l12-2
           - php: 8.4
             laravel: 12.*
             testbench: 10.*
             db: sqlite
             shard: 3
             total_shards: 3
+            artifact_slug: l12-3
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
             shard: 1
             total_shards: 3
+            artifact_slug: l13-1
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
             shard: 2
             total_shards: 3
+            artifact_slug: l13-2
           - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
             shard: 3
             total_shards: 3
+            artifact_slug: l13-3
 
     steps:
       - name: Checkout code
@@ -152,4 +139,15 @@ jobs:
           echo "DB_DATABASE=:memory:" >> .env
 
       - name: Run test:fast
-        run: PEST_SHARD=${{ matrix.shard }}/${{ matrix.total_shards }} composer run test:fast:ci
+        env:
+          PEST_JUNIT_LOG: junit-fast-${{ matrix.artifact_slug }}.xml
+          PEST_SHARD: ${{ matrix.shard }}/${{ matrix.total_shards }}
+        run: composer run test:fast:ci
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-fast-${{ matrix.artifact_slug }}
+          path: junit-fast-${{ matrix.artifact_slug }}.xml
+          if-no-files-found: warn

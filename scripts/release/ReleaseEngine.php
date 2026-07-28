@@ -478,7 +478,7 @@ final class ReleaseEngine
 
         $this->assertCleanSource();
         $commit = $this->git(['rev-parse', 'HEAD']);
-        $definitions = json_decode((string) file_get_contents($this->root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
+        $definitions = $this->releaseDefinitions();
         $packages = [];
         $candidates = [];
         $graph = [];
@@ -573,6 +573,16 @@ final class ReleaseEngine
         }
 
         $this->assertExactSource($plan);
+        $eligibilityEvidence = $this->required([
+            PHP_BINARY,
+            $this->root . '/scripts/release-eligibility.php',
+            $plan['source']['commit'],
+        ], $this->root);
+        if ($eligibilityEvidence !== '') {
+            $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
+            $this->writeState($planPath, $state);
+        }
+
         $preflightScript = null;
         if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
@@ -769,6 +779,15 @@ final class ReleaseEngine
     private function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
         return ['git', 'push', ...($lease === null ? [] : ['--force-with-lease=refs/heads/main:' . $lease]), sprintf('https://github.com/%s.git', $repository), $refspec];
+    }
+
+    // LOCKSTEP-END push-command
+
+    // LOCKSTEP-BEGIN release-definitions
+    /** @return array<array-key,mixed> */
+    private function releaseDefinitions(): array
+    {
+        return json_decode((string) file_get_contents($this->root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
     }
 
     // LOCKSTEP-END release-definitions

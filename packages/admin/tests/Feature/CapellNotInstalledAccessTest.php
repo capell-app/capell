@@ -11,7 +11,10 @@ use function Pest\Laravel\get;
 it('redirects logged in admin panel users to the installer before Capell is installed', function (): void {
     test()->actingAsAdmin();
 
-    Schema::drop('sites');
+    Schema::partialMock()
+        ->shouldReceive('hasTable')
+        ->with('sites')
+        ->andReturnFalse();
 
     Route::get('/install', fn (): string => 'Installer')->name('capell-installer.show');
 

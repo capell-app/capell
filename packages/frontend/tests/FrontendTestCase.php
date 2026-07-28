@@ -16,6 +16,7 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Config;
 use Livewire\LivewireServiceProvider;
 use MichalOravec\PaginateRoute\PaginateRouteServiceProvider;
 use Override;
@@ -26,6 +27,9 @@ class FrontendTestCase extends AbstractTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Config::set('cache.default', 'array');
+        $this->forgetResolvedCacheServices();
 
         $this->registerAndMigrateSettings(
             CapellCore::getSettingMigrations(),

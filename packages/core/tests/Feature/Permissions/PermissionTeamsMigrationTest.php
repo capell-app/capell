@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Schema;
 beforeEach(function (): void {
     config([
         'permission.table_names' => [
-            'roles' => 'migration_test_roles',
-            'model_has_roles' => 'migration_test_model_has_roles',
-            'model_has_permissions' => 'migration_test_model_has_permissions',
+            'roles' => 'cap_mig_roles',
+            'model_has_roles' => 'cap_mig_mhr',
+            'model_has_permissions' => 'cap_mig_mhp',
         ],
         'permission.column_names' => [
             'team_foreign_key' => 'team_id',
@@ -22,14 +22,14 @@ beforeEach(function (): void {
         ],
     ]);
 
-    Schema::create('migration_test_roles', static function (Blueprint $table): void {
+    Schema::create('cap_mig_roles', static function (Blueprint $table): void {
         $table->id();
         $table->string('name');
         $table->string('guard_name');
         $table->unique(['name', 'guard_name']);
     });
 
-    Schema::create('migration_test_model_has_roles', static function (Blueprint $table): void {
+    Schema::create('cap_mig_mhr', static function (Blueprint $table): void {
         $table->unsignedBigInteger('role_id');
         $table->string('model_type');
         $table->unsignedBigInteger('model_id');
@@ -39,7 +39,7 @@ beforeEach(function (): void {
         );
     });
 
-    Schema::create('migration_test_model_has_permissions', static function (Blueprint $table): void {
+    Schema::create('cap_mig_mhp', static function (Blueprint $table): void {
         $table->unsignedBigInteger('permission_id');
         $table->string('model_type');
         $table->unsignedBigInteger('model_id');
@@ -51,9 +51,9 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
-    Schema::dropIfExists('migration_test_model_has_permissions');
-    Schema::dropIfExists('migration_test_model_has_roles');
-    Schema::dropIfExists('migration_test_roles');
+    Schema::dropIfExists('cap_mig_mhp');
+    Schema::dropIfExists('cap_mig_mhr');
+    Schema::dropIfExists('cap_mig_roles');
 });
 
 it('adds team-compatible permission schema idempotently and reverses it safely', function (): void {
@@ -62,70 +62,70 @@ it('adds team-compatible permission schema idempotently and reverses it safely',
     $migration->up();
     $migration->up();
 
-    expect(Schema::hasColumn('migration_test_roles', 'team_id'))->toBeTrue()
-        ->and(Schema::hasIndex('migration_test_roles', 'migration_test_roles_team_foreign_key_index'))->toBeTrue()
-        ->and(Schema::hasIndex('migration_test_roles', 'migration_test_roles_team_id_name_guard_name_unique', 'unique'))->toBeTrue()
-        ->and(Schema::hasIndex('migration_test_roles', 'migration_test_roles_name_guard_name_unique', 'unique'))->toBeFalse()
-        ->and(Schema::hasColumn('migration_test_model_has_roles', 'team_id'))->toBeTrue()
+    expect(Schema::hasColumn('cap_mig_roles', 'team_id'))->toBeTrue()
+        ->and(Schema::hasIndex('cap_mig_roles', 'cap_mig_roles_team_foreign_key_index'))->toBeTrue()
+        ->and(Schema::hasIndex('cap_mig_roles', 'cap_mig_roles_team_id_name_guard_name_unique', 'unique'))->toBeTrue()
+        ->and(Schema::hasIndex('cap_mig_roles', 'cap_mig_roles_name_guard_name_unique', 'unique'))->toBeFalse()
+        ->and(Schema::hasColumn('cap_mig_mhr', 'team_id'))->toBeTrue()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_roles',
+            'cap_mig_mhr',
             ['team_id', 'role_id', 'model_id', 'model_type'],
             'unique',
         ))->toBeTrue()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_roles',
+            'cap_mig_mhr',
             ['role_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeFalse()
-        ->and(Schema::hasColumn('migration_test_model_has_permissions', 'team_id'))->toBeTrue()
+        ->and(Schema::hasColumn('cap_mig_mhp', 'team_id'))->toBeTrue()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_permissions',
+            'cap_mig_mhp',
             ['team_id', 'permission_id', 'model_id', 'model_type'],
             'unique',
         ))->toBeTrue()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_permissions',
+            'cap_mig_mhp',
             ['permission_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeFalse();
 
-    DB::table('migration_test_roles')->insert([
+    DB::table('cap_mig_roles')->insert([
         'team_id' => 1,
         'name' => 'editor',
         'guard_name' => 'web',
     ]);
 
-    expect(fn (): bool => DB::table('migration_test_roles')->insert([
+    expect(fn (): bool => DB::table('cap_mig_roles')->insert([
         'team_id' => 1,
         'name' => 'editor',
         'guard_name' => 'web',
     ]))->toThrow(QueryException::class);
 
-    DB::table('migration_test_model_has_roles')->insert([
+    DB::table('cap_mig_mhr')->insert([
         ['team_id' => null, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
         ['team_id' => null, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
     ]);
-    DB::table('migration_test_model_has_permissions')->insert([
+    DB::table('cap_mig_mhp')->insert([
         ['team_id' => null, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
         ['team_id' => null, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
     ]);
 
-    DB::table('migration_test_model_has_roles')->insert([
+    DB::table('cap_mig_mhr')->insert([
         ['team_id' => 1, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
         ['team_id' => 2, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
     ]);
-    DB::table('migration_test_model_has_permissions')->insert([
+    DB::table('cap_mig_mhp')->insert([
         ['team_id' => 1, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
         ['team_id' => 2, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
     ]);
 
-    expect(fn (): bool => DB::table('migration_test_model_has_roles')->insert([
+    expect(fn (): bool => DB::table('cap_mig_mhr')->insert([
         'team_id' => 1,
         'role_id' => 10,
         'model_id' => 20,
         'model_type' => 'user',
     ]))->toThrow(QueryException::class)
-        ->and(fn (): bool => DB::table('migration_test_model_has_permissions')->insert([
+        ->and(fn (): bool => DB::table('cap_mig_mhp')->insert([
             'team_id' => 1,
             'permission_id' => 30,
             'model_id' => 20,
@@ -135,35 +135,35 @@ it('adds team-compatible permission schema idempotently and reverses it safely',
     expect(fn () => $migration->down())
         ->toThrow(RuntimeException::class, 'contains team-scoped records');
 
-    expect(Schema::hasColumn('migration_test_roles', 'team_id'))->toBeTrue()
+    expect(Schema::hasColumn('cap_mig_roles', 'team_id'))->toBeTrue()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_roles',
+            'cap_mig_mhr',
             ['team_id', 'role_id', 'model_id', 'model_type'],
             'unique',
         ))->toBeTrue()
-        ->and(DB::table('migration_test_model_has_roles')->count())->toBe(4)
-        ->and(DB::table('migration_test_model_has_permissions')->count())->toBe(4);
+        ->and(DB::table('cap_mig_mhr')->count())->toBe(4)
+        ->and(DB::table('cap_mig_mhp')->count())->toBe(4);
 
-    DB::table('migration_test_model_has_permissions')->whereNotNull('team_id')->delete();
-    DB::table('migration_test_model_has_roles')->whereNotNull('team_id')->delete();
-    DB::table('migration_test_roles')->whereNotNull('team_id')->delete();
+    DB::table('cap_mig_mhp')->whereNotNull('team_id')->delete();
+    DB::table('cap_mig_mhr')->whereNotNull('team_id')->delete();
+    DB::table('cap_mig_roles')->whereNotNull('team_id')->delete();
 
     expect(fn () => $migration->down())
         ->toThrow(RuntimeException::class, 'conflict with its legacy unique constraint');
 
-    expect(DB::table('migration_test_model_has_roles')->count())->toBe(2)
-        ->and(DB::table('migration_test_model_has_permissions')->count())->toBe(2);
+    expect(DB::table('cap_mig_mhr')->count())->toBe(2)
+        ->and(DB::table('cap_mig_mhp')->count())->toBe(2);
 
-    DB::table('migration_test_model_has_permissions')->delete();
-    DB::table('migration_test_model_has_roles')->delete();
+    DB::table('cap_mig_mhp')->delete();
+    DB::table('cap_mig_mhr')->delete();
 
-    DB::table('migration_test_model_has_roles')->insert([
+    DB::table('cap_mig_mhr')->insert([
         'team_id' => null,
         'role_id' => 10,
         'model_id' => 20,
         'model_type' => 'user',
     ]);
-    DB::table('migration_test_model_has_permissions')->insert([
+    DB::table('cap_mig_mhp')->insert([
         'team_id' => null,
         'permission_id' => 30,
         'model_id' => 20,
@@ -173,54 +173,54 @@ it('adds team-compatible permission schema idempotently and reverses it safely',
     $migration->down();
     $migration->down();
 
-    expect(Schema::hasColumn('migration_test_roles', 'team_id'))->toBeFalse()
-        ->and(Schema::hasIndex('migration_test_roles', 'migration_test_roles_name_guard_name_unique', 'unique'))->toBeTrue()
-        ->and(Schema::hasColumn('migration_test_model_has_roles', 'team_id'))->toBeFalse()
+    expect(Schema::hasColumn('cap_mig_roles', 'team_id'))->toBeFalse()
+        ->and(Schema::hasIndex('cap_mig_roles', 'cap_mig_roles_name_guard_name_unique', 'unique'))->toBeTrue()
+        ->and(Schema::hasColumn('cap_mig_mhr', 'team_id'))->toBeFalse()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_roles',
+            'cap_mig_mhr',
             ['role_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeTrue()
-        ->and(Schema::hasColumn('migration_test_model_has_permissions', 'team_id'))->toBeFalse()
+        ->and(Schema::hasColumn('cap_mig_mhp', 'team_id'))->toBeFalse()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_permissions',
+            'cap_mig_mhp',
             ['permission_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeTrue();
 });
 
 it('normalizes an existing Spatie team primary key and rolls it back to the legacy primary key', function (): void {
-    Schema::drop('migration_test_model_has_permissions');
-    Schema::drop('migration_test_model_has_roles');
-    Schema::drop('migration_test_roles');
+    Schema::drop('cap_mig_mhp');
+    Schema::drop('cap_mig_mhr');
+    Schema::drop('cap_mig_roles');
 
-    Schema::create('migration_test_roles', static function (Blueprint $table): void {
+    Schema::create('cap_mig_roles', static function (Blueprint $table): void {
         $table->id();
         $table->unsignedBigInteger('team_id')->nullable();
-        $table->index('team_id', 'migration_test_roles_team_foreign_key_index');
+        $table->index('team_id', 'cap_mig_roles_team_foreign_key_index');
         $table->string('name');
         $table->string('guard_name');
         $table->unique(['team_id', 'name', 'guard_name']);
     });
 
-    Schema::create('migration_test_model_has_roles', static function (Blueprint $table): void {
+    Schema::create('cap_mig_mhr', static function (Blueprint $table): void {
         $table->unsignedBigInteger('role_id');
         $table->string('model_type');
         $table->unsignedBigInteger('model_id');
         $table->unsignedBigInteger('team_id');
-        $table->index('team_id', 'migration_test_model_has_roles_team_foreign_key_index');
+        $table->index('team_id', 'cap_mig_mhr_team_foreign_key_index');
         $table->primary(
             ['team_id', 'role_id', 'model_id', 'model_type'],
             'model_has_roles_role_model_type_primary',
         );
     });
 
-    Schema::create('migration_test_model_has_permissions', static function (Blueprint $table): void {
+    Schema::create('cap_mig_mhp', static function (Blueprint $table): void {
         $table->unsignedBigInteger('permission_id');
         $table->string('model_type');
         $table->unsignedBigInteger('model_id');
         $table->unsignedBigInteger('team_id');
-        $table->index('team_id', 'migration_test_model_has_permissions_team_foreign_key_index');
+        $table->index('team_id', 'cap_mig_mhp_team_foreign_key_index');
         $table->primary(
             ['team_id', 'permission_id', 'model_id', 'model_type'],
             'model_has_permissions_permission_model_type_primary',
@@ -233,48 +233,48 @@ it('normalizes an existing Spatie team primary key and rolls it back to the lega
     $migration->up();
 
     expect(Schema::hasIndex(
-        'migration_test_model_has_roles',
+        'cap_mig_mhr',
         ['team_id', 'role_id', 'model_id', 'model_type'],
         'primary',
     ))->toBeFalse()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_roles',
+            'cap_mig_mhr',
             ['team_id', 'role_id', 'model_id', 'model_type'],
             'unique',
         ))->toBeTrue()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_permissions',
+            'cap_mig_mhp',
             ['team_id', 'permission_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeFalse()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_permissions',
+            'cap_mig_mhp',
             ['team_id', 'permission_id', 'model_id', 'model_type'],
             'unique',
         ))->toBeTrue();
 
-    DB::table('migration_test_model_has_roles')->insert([
+    DB::table('cap_mig_mhr')->insert([
         ['team_id' => null, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
         ['team_id' => null, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
     ]);
-    DB::table('migration_test_model_has_permissions')->insert([
+    DB::table('cap_mig_mhp')->insert([
         ['team_id' => null, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
         ['team_id' => null, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
     ]);
 
-    expect(DB::table('migration_test_model_has_roles')->count())->toBe(2)
-        ->and(DB::table('migration_test_model_has_permissions')->count())->toBe(2);
+    expect(DB::table('cap_mig_mhr')->count())->toBe(2)
+        ->and(DB::table('cap_mig_mhp')->count())->toBe(2);
 
-    DB::table('migration_test_model_has_roles')->delete();
-    DB::table('migration_test_model_has_permissions')->delete();
+    DB::table('cap_mig_mhr')->delete();
+    DB::table('cap_mig_mhp')->delete();
 
-    DB::table('migration_test_model_has_roles')->insert([
+    DB::table('cap_mig_mhr')->insert([
         'team_id' => null,
         'role_id' => 10,
         'model_id' => 20,
         'model_type' => 'user',
     ]);
-    DB::table('migration_test_model_has_permissions')->insert([
+    DB::table('cap_mig_mhp')->insert([
         'team_id' => null,
         'permission_id' => 30,
         'model_id' => 20,
@@ -284,15 +284,15 @@ it('normalizes an existing Spatie team primary key and rolls it back to the lega
     $migration->down();
     $migration->down();
 
-    expect(Schema::hasColumn('migration_test_model_has_roles', 'team_id'))->toBeFalse()
+    expect(Schema::hasColumn('cap_mig_mhr', 'team_id'))->toBeFalse()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_roles',
+            'cap_mig_mhr',
             ['role_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeTrue()
-        ->and(Schema::hasColumn('migration_test_model_has_permissions', 'team_id'))->toBeFalse()
+        ->and(Schema::hasColumn('cap_mig_mhp', 'team_id'))->toBeFalse()
         ->and(Schema::hasIndex(
-            'migration_test_model_has_permissions',
+            'cap_mig_mhp',
             ['permission_id', 'model_id', 'model_type'],
             'primary',
         ))->toBeTrue();

@@ -213,11 +213,15 @@ it('publishes a verified split and records atomic resumable state', function ():
         ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0')
         ->toContain('rev-parse FETCH_HEAD')->not->toContain('capell-release-capell-')->not->toContain('refs/remotes/');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
+    $eligibilityIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-eligibility.php'));
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
     $sourceTagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0'));
     $tagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/tags/v1.0.0'));
-    expect($mainIndex)->toBeLessThan($preflightIndex)->and($preflightIndex)->toBeLessThan($sourceTagIndex)->and($sourceTagIndex)->toBeLessThan($tagIndex);
+    expect($eligibilityIndex)->toBeLessThan($mainIndex)
+        ->and($mainIndex)->toBeLessThan($preflightIndex)
+        ->and($preflightIndex)->toBeLessThan($sourceTagIndex)
+        ->and($sourceTagIndex)->toBeLessThan($tagIndex);
     @unlink($path);
     @unlink($path . '.state.json');
 });
@@ -701,7 +705,7 @@ it('reuses the recorded split commit when resuming after main was pushed', funct
             $this->commands[] = $command;
             $text = implode(' ', $command);
 
-            if (($command[0] ?? null) === PHP_BINARY) {
+            if (($command[0] ?? null) === PHP_BINARY && str_contains($text, 'release-preflight.php')) {
                 return ['output' => '', 'exitCode' => 1];
             }
 
@@ -813,7 +817,7 @@ it('reuses an unrecorded remote main commit when it already has the planned tree
             $this->commands[] = $command;
             $text = implode(' ', $command);
 
-            if (($command[0] ?? null) === PHP_BINARY) {
+            if (($command[0] ?? null) === PHP_BINARY && str_contains($text, 'release-preflight.php')) {
                 return ['output' => '', 'exitCode' => 1];
             }
 
@@ -874,7 +878,7 @@ it('records all main pushes but creates no tags when multi-package preflight fai
         {
             $this->commands[] = $command;
             $text = implode(' ', $command);
-            if (($command[0] ?? '') === PHP_BINARY) {
+            if (($command[0] ?? '') === PHP_BINARY && str_contains($text, 'release-preflight.php')) {
                 return ['output' => '', 'error' => $this->secret, 'exitCode' => 1];
             }
 

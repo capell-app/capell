@@ -116,7 +116,10 @@ it('allows the install summary to validate required tables before the final core
 });
 
 it('fails when required table is missing', function (): void {
-    Schema::drop('sites');
+    Schema::shouldReceive('hasTable')
+        ->andReturnUsing(static fn (string $table): bool => $table !== 'sites')
+        ->byDefault();
+    Schema::shouldReceive('hasColumn')->andReturnTrue()->byDefault();
 
     artisanCommand('capell:doctor')
         ->assertExitCode(Command::FAILURE);
@@ -256,7 +259,10 @@ it('reports when no Capell packages are marked installed', function (): void {
 
 it('reports when the users table is absent during admin access checks', function (): void {
     seedHealthyDoctorInstall();
-    Schema::drop('users');
+    Schema::shouldReceive('hasTable')
+        ->andReturnUsing(static fn (string $table): bool => $table !== 'users')
+        ->byDefault();
+    Schema::shouldReceive('hasColumn')->andReturnTrue()->byDefault();
 
     $report = BuildDoctorReportAction::run();
     $check = $report->checks->firstWhere('label', 'Admin user access');

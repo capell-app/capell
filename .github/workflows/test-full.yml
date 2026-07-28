@@ -4,66 +4,173 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'packages/**/*.php'
+      - 'packages/**/composer.json'
+      - 'tests/**/*.php'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'docs/packages/catalog.md'
+      - 'scripts/**/*.php'
+      - 'docs/getting-started/install.md'
+      - 'docs/getting-started/quickstart.md'
+      - '.docker/Dockerfile'
+      - '.github/workflows/test-fast-pr.yml'
+      - '.github/workflows/test-full.yml'
+      - 'phpunit.xml'
+  workflow_dispatch:
+    inputs:
+      cell:
+        description: 'Optional exact behaviour or unit cell (for example: l12-feature-admin). Leave blank for the complete workflow.'
+        required: false
+        type: string
 
 concurrency:
-  group: ${{ github.ref }}-phpunit-full
+  group: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.cell != ''
+      && format('{0}-phpunit-target-{1}', github.ref, inputs.cell)
+      || format('{0}-phpunit-full', github.head_ref || github.ref) }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
+env:
+  CACHE_STORE: array
+  QUEUE_CONNECTION: sync
+  SESSION_DRIVER: array
+
 jobs:
-  test-all:
-    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.stability }} - DB${{ matrix.db }}
+  fast-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    name: Fast PR gate
+    uses: ./.github/workflows/test-fast-pr.yml
+
+  matrix:
+    name: Resolve repository-owned Test All matrix
+    runs-on: ubuntu-latest
+    outputs:
+      behaviour: ${{ steps.matrix.outputs.behaviour }}
+      unit: ${{ steps.matrix.outputs.unit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: 8.4
+          coverage: none
+
+      - name: Export shared matrix
+        id: matrix
+        shell: bash
+        env:
+          TARGET_CELL: ${{ inputs.cell }}
+        run: |
+          cell_argument=()
+          if [ -n "$TARGET_CELL" ]; then
+            php scripts/test-all-matrix.php target --cell="$TARGET_CELL" > /dev/null
+            cell_argument=(--cell="$TARGET_CELL")
+          fi
+          echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
+          echo "unit=$(php scripts/test-all-matrix.php unit "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
+
+  sentinel:
+    needs: [fast-pr, matrix]
+    if: >-
+      always()
+      && needs.matrix.result == 'success'
+      && (needs.fast-pr.result == 'success' || needs.fast-pr.result == 'skipped')
+      && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && !(github.event_name == 'workflow_dispatch' && inputs.cell != '')
+    name: Sentinel - portability, cache, migrations, destructive schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_cms_sentinel
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: 8.4
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_mysql, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup problem matchers
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Prepare exact Laravel 12 dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='12.*' --testbench='10.*'
+
+      - name: Run both sentinel cells
+        shell: bash
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mysql.ports['3306'] }}
+          DB_DATABASE: test_cms_sentinel
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: |
+          set +e
+          php scripts/run-test-all-cell.php --cell=sentinel-unit --output-dir=test-all-results
+          unit_exit=$?
+          php scripts/run-test-all-cell.php --cell=sentinel-database --output-dir=test-all-results
+          database_exit=$?
+          if [ "$unit_exit" -ne 0 ] || [ "$database_exit" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Upload sentinel evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-all-sentinel
+          path: test-all-results
+          if-no-files-found: warn
+
+  test-behaviour:
+    needs: [sentinel, matrix]
+    if: >-
+      always()
+      && needs.matrix.result == 'success'
+      && (needs.sentinel.result == 'success'
+        || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
+      && (inputs.cell == '' || !contains(inputs.cell, '-unit-'))
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DBmysql
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
     strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            stability: prefer-stable
-            db: mysql
-            test_suite: Feature
-            test_suite_slug: feature
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            stability: prefer-stable
-            db: mysql
-            test_suite: Integration
-            test_suite_slug: integration
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            stability: prefer-stable
-            db: sqlite
-            test_suite: Unit
-            test_suite_slug: unit
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            db: mysql
-            test_suite: Feature
-            test_suite_slug: feature
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            db: mysql
-            test_suite: Integration
-            test_suite_slug: integration
-          - php: 8.4
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            db: sqlite
-            test_suite: Unit
-            test_suite_slug: unit
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.behaviour) }}
 
     services:
       mysql:
@@ -82,18 +189,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Cache Dependencies PHP
-        id: php-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: vendor
-          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-${{ matrix.db }}-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-full.yml') }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pcov, pdo_mysql, pdo_sqlite, simplexml, sqlite3, zip
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_mysql, pdo_sqlite, simplexml, sqlite3, zip
           tools: composer:v2
           coverage: none
 
@@ -102,49 +203,10 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      - name: Check Composer public files
-        run: php scripts/check-composer-local-paths.php
-
-      - name: Check Composer lock file
-        run: composer run check:composer-lock
-
-      - name: Install PHP dependencies
-        if: steps.php-cache.outputs.cache-hit != 'true'
-        run: |
-          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
-          composer require --no-interaction --no-progress --ansi --no-update \
-            "laravel/framework:${{ matrix.laravel }}"
-          composer require --no-interaction --no-progress --ansi --dev --no-update \
-            "orchestra/testbench:${{ matrix.testbench }}"
-
-          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
-
-      - name: Configure environment
-        run: |
-          if [ "${{ matrix.db }}" == "mysql" ]; then
-            {
-              echo "DB_CONNECTION=mysql"
-              echo "DB_HOST=127.0.0.1"
-              echo "DB_PORT=${{ job.services.mysql.ports['3306'] }}"
-              echo "DB_DATABASE=test_cms_multi"
-              echo "DB_USERNAME=root"
-              echo "DB_PASSWORD=root"
-            } >> "$GITHUB_ENV"
-          else
-            {
-              echo "DB_CONNECTION=sqlite"
-              echo "DB_DATABASE=:memory:"
-            } >> "$GITHUB_ENV"
-          fi
-
-      - name: Verify database matrix environment
-        env:
-          EXPECTED_DB_CONNECTION: ${{ matrix.db }}
-        run: |
-          php -r 'if (getenv("DB_CONNECTION") !== getenv("EXPECTED_DB_CONNECTION")) { throw new RuntimeException("Unexpected database connection."); }'
+      - name: Prepare exact framework dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
 
       - name: Tune MySQL for the write-heavy test suite
-        if: matrix.db == 'mysql'
         run: |
           mysql \
             --host=127.0.0.1 \
@@ -157,79 +219,39 @@ jobs:
               SET GLOBAL sync_binlog = 0;
             "
 
-      - name: Run test:all
-        id: run-tests
-        shell: bash
+      - name: Run ${{ matrix.test_suite }} tests
         env:
-          NO_COLOR: 1
-          PEST_TEST_SUITE: ${{ matrix.test_suite }}
-        run: |
-          set -o pipefail
-          composer run test:database:ci 2>&1 | tee "pest-output-${{ matrix.test_suite_slug }}.txt"
-          test_exit=${PIPESTATUS[0]}
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mysql.ports['3306'] }}
+          DB_DATABASE: test_cms_multi
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php scripts/run-test-all-cell.php --cell='${{ matrix.id }}' --output-dir=test-all-results
 
-          exit "${test_exit}"
+      - name: Upload Test All evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-${{ matrix.artifact_slug }}
+          path: test-all-results
+          if-no-files-found: warn
 
       - name: Extract engineering metrics
         id: engineering-metrics
-        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable'
+        if: success() && matrix.laravel == '12.*'
         run: |
-          php <<'PHP'
-          <?php
-          $output = file_get_contents('pest-output-${{ matrix.test_suite_slug }}.txt');
-
-          if ($output === false) {
-              fwrite(STDERR, "Unable to read pest-output.txt\n");
-              throw new RuntimeException('Unable to read pest-output.txt.');
-          }
-
-          $output = preg_replace('/\e\\[[\\d;]*[A-Za-z]/', '', $output) ?? $output;
-
-          $patterns = [
-              '/Tests:\s*([0-9,]+)\D+Assertions:\s*([0-9,]+)/i',
-              '/\b([0-9,]+)\s+tests?,\s*([0-9,]+)\s+assertions?\b/i',
-              '/Tests:\s*([0-9,]+).*?\(([0-9,]+)\s+assertions?\)/is',
-          ];
-
-          $tests = null;
-          $assertions = null;
-
-          foreach ($patterns as $pattern) {
-              if (preg_match_all($pattern, $output, $matches, PREG_SET_ORDER) > 0) {
-                  $lastMatch = $matches[count($matches) - 1];
-                  $tests = str_replace(',', '', $lastMatch[1]);
-                  $assertions = str_replace(',', '', $lastMatch[2]);
-                  break;
-              }
-          }
-
-          if ($tests === null || $assertions === null) {
-              fwrite(STDERR, "Unable to parse test/assertion counts from Pest output.\n");
-              throw new RuntimeException('Unable to parse test/assertion counts from Pest output.');
-          }
-
-          $githubOutput = getenv('GITHUB_OUTPUT');
-
-          if ($githubOutput === false || $githubOutput === '') {
-              fwrite(STDERR, "GITHUB_OUTPUT is not available.\n");
-              throw new RuntimeException('GITHUB_OUTPUT is not available.');
-          }
-
-          file_put_contents($githubOutput, "tests={$tests}\nassertions={$assertions}\n", FILE_APPEND);
-
-          fwrite(STDOUT, "Parsed engineering metrics: tests={$tests}, assertions={$assertions}\n");
-          PHP
+          php scripts/extract-pest-metrics.php "test-all-results/${{ matrix.log }}" --github-output
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
-        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable'
+        if: success() && matrix.laravel == '12.*'
         env:
           TESTS: ${{ steps.engineering-metrics.outputs.tests }}
           ASSERTIONS: ${{ steps.engineering-metrics.outputs.assertions }}
           PHPSTAN_LEVEL: ${{ steps.engineering-metrics.outputs.phpstan_level }}
         run: |
           php -r 'file_put_contents(
-              "engineering-metrics-${{ matrix.test_suite_slug }}.json",
+              "engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json",
               json_encode([
                   "tests" => (int) getenv("TESTS"),
                   "assertions" => (int) getenv("ASSERTIONS"),
@@ -238,22 +260,102 @@ jobs:
           );'
 
       - name: Upload engineering metrics artifact
-        if: success() && matrix.php == '8.4' && matrix.laravel == '12.*' && matrix.stability == 'prefer-stable'
+        if: success() && matrix.laravel == '12.*'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: engineering-metrics-l12-suite-${{ matrix.test_suite_slug }}
-          path: engineering-metrics-${{ matrix.test_suite_slug }}.json
+          name: engineering-metrics-${{ matrix.artifact_slug }}
+          path: engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json
+          if-no-files-found: error
+
+  test-unit:
+    needs: [sentinel, matrix]
+    if: >-
+      always()
+      && needs.matrix.result == 'success'
+      && (needs.sentinel.result == 'success'
+        || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
+      && (inputs.cell == '' || contains(inputs.cell, '-unit-'))
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - Unit - ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.unit) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup problem matchers
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Prepare exact framework dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
+
+      - name: Run ${{ matrix.package }} Unit tests
+        run: php scripts/run-test-all-cell.php --cell='${{ matrix.id }}' --output-dir=test-all-results
+
+      - name: Upload Test All evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-${{ matrix.artifact_slug }}
+          path: test-all-results
+          if-no-files-found: warn
+
+      - name: Extract engineering metrics
+        id: engineering-metrics
+        if: success() && matrix.laravel == '12.*'
+        run: |
+          php scripts/extract-pest-metrics.php "test-all-results/${{ matrix.log }}" --github-output
+          php scripts/extract-phpstan-level.php --github-output
+
+      - name: Write engineering metrics artifact
+        if: success() && matrix.laravel == '12.*'
+        env:
+          TESTS: ${{ steps.engineering-metrics.outputs.tests }}
+          ASSERTIONS: ${{ steps.engineering-metrics.outputs.assertions }}
+          PHPSTAN_LEVEL: ${{ steps.engineering-metrics.outputs.phpstan_level }}
+        run: |
+          php -r 'file_put_contents(
+              "engineering-metrics-unit-${{ matrix.package_slug }}.json",
+              json_encode([
+                  "tests" => (int) getenv("TESTS"),
+                  "assertions" => (int) getenv("ASSERTIONS"),
+                  "phpstan_level" => (int) getenv("PHPSTAN_LEVEL"),
+              ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL,
+          );'
+
+      - name: Upload engineering metrics artifact
+        if: success() && matrix.laravel == '12.*'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: engineering-metrics-${{ matrix.artifact_slug }}
+          path: engineering-metrics-unit-${{ matrix.package_slug }}.json
           if-no-files-found: error
 
   engineering-metrics:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Aggregate engineering metrics
-    needs: test-all
+    needs: [test-behaviour, test-unit]
     runs-on: ubuntu-latest
     steps:
       - name: Download engineering metrics artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: engineering-metrics-l12-suite-*
+          pattern: engineering-metrics-l12-*
           path: engineering-metrics
           merge-multiple: true
 
@@ -264,8 +366,8 @@ jobs:
           <?php
           $files = glob('engineering-metrics/*.json');
 
-          if ($files === false || count($files) !== 3) {
-              throw new RuntimeException('Expected engineering metrics from exactly three Laravel 12 test suites.');
+          if ($files === false || count($files) !== 11) {
+              throw new RuntimeException('Expected engineering metrics from five Feature packages, Integration, and five Unit packages.');
           }
 
           $tests = 0;
@@ -282,17 +384,11 @@ jobs:
           $phpstanLevels = array_values(array_unique($phpstanLevels));
 
           if (count($phpstanLevels) !== 1) {
-              throw new RuntimeException('Laravel 12 test suites reported inconsistent PHPStan levels.');
-          }
-
-          $githubOutput = getenv('GITHUB_OUTPUT');
-
-          if ($githubOutput === false || $githubOutput === '') {
-              throw new RuntimeException('GITHUB_OUTPUT is not available.');
+              throw new RuntimeException('Laravel 12 test jobs reported inconsistent PHPStan levels.');
           }
 
           file_put_contents(
-              $githubOutput,
+              getenv('GITHUB_OUTPUT'),
               "tests={$tests}\nassertions={$assertions}\nphpstan_level={$phpstanLevels[0]}\n",
               FILE_APPEND,
           );

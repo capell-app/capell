@@ -10,6 +10,7 @@ use Capell\Marketplace\Tests\MarketplaceTestCase;
 use Capell\Tests\PackagesTestCase;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\PendingCommand;
 use Illuminate\Testing\TestResponse;
@@ -19,7 +20,7 @@ use function Pest\Laravel\artisan;
 use PHPUnit\Framework\Assert;
 use Spatie\LaravelData\DataCollection;
 
-pest()->extends(PackagesTestCase::class)->in(__DIR__);
+pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
 pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests', '../Packages/core/tests');
 pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests', '../Packages/admin/tests');
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests', '../Packages/frontend/tests');
@@ -78,6 +79,18 @@ function fakeMarketplace(array $stubs = []): void
     ]);
 
     Http::fake($stubs);
+}
+
+function decodedSettingPayload(string $group, string $name): mixed
+{
+    $payload = DB::table('settings')
+        ->where('group', $group)
+        ->where('name', $name)
+        ->value('payload');
+
+    throw_unless(is_string($payload), RuntimeException::class, sprintf('Expected [%s.%s] setting payload.', $group, $name));
+
+    return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
 }
 
 /**

@@ -32,9 +32,8 @@ final class PostgresDatabaseProvisioner extends AbstractServerDatabaseProvisione
         if ($created) {
             throw_if(str_contains($database, "\0"), RuntimeException::class, 'Database name cannot contain null bytes.');
             $pdo->exec('CREATE DATABASE "' . str_replace('"', '""', $database) . '"');
+            $this->refresh($connectionName);
         }
-
-        $this->refresh($connectionName);
 
         return $created
             ? DatabaseProvisioningResult::Created

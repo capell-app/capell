@@ -172,12 +172,27 @@ function workflowSupportContractErrors(string $repositoryRoot): array
         }
 
         $contents = (string) file_get_contents($path);
+        $matrixContents = $contents;
 
-        if (preg_match('/php:\s*8\.4/', $contents) !== 1) {
+        if ($relativePath === '.github/workflows/test-full.yml'
+            && str_contains($contents, 'scripts/test-all-matrix.php')) {
+            $matrixPath = $repositoryRoot . '/scripts/test-all/TestAllMatrix.php';
+
+            if (! is_file($matrixPath)) {
+                $errors[] = 'scripts/test-all/TestAllMatrix.php is missing.';
+
+                continue;
+            }
+
+            $matrixContents = (string) file_get_contents($matrixPath);
+        }
+
+        if (preg_match('/(?:php:\s*8\.4|[\'"]php[\'"]\s*=>\s*[\'"]8\.4[\'"])/', $matrixContents) !== 1) {
             $errors[] = $relativePath . ' must include PHP 8.4 in its matrix.';
         }
 
-        if (preg_match('/laravel:\s*12\.\*/', $contents) !== 1 || preg_match('/laravel:\s*13\.\*/', $contents) !== 1) {
+        if (preg_match('/(?:laravel:\s*12\.\*|[\'"]laravel[\'"]\s*=>\s*[\'"]12\.\*[\'"])/', $matrixContents) !== 1
+            || preg_match('/(?:laravel:\s*13\.\*|[\'"]laravel[\'"]\s*=>\s*[\'"]13\.\*[\'"])/', $matrixContents) !== 1) {
             $errors[] = $relativePath . ' must include Laravel 12.* and 13.* in its matrix.';
         }
     }

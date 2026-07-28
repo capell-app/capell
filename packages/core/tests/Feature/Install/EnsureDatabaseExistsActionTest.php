@@ -5,16 +5,25 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\EnsureDatabaseExistsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
-afterEach(function (): void {
-    config([
-        'database.default' => 'sqlite',
-        'database.connections.sqlite.database' => ':memory:',
-    ]);
+$originalDatabaseDefault = null;
+$originalSqliteDatabase = null;
 
+beforeEach(function () use (&$originalDatabaseDefault, &$originalSqliteDatabase): void {
+    $originalDatabaseDefault = config('database.default');
+    $originalSqliteDatabase = config('database.connections.sqlite.database');
+});
+
+afterEach(function () use (&$originalDatabaseDefault, &$originalSqliteDatabase): void {
     DB::purge('sqlite');
+
+    config([
+        'database.default' => $originalDatabaseDefault,
+        'database.connections.sqlite.database' => $originalSqliteDatabase,
+    ]);
 });
 
 it('creates a missing sqlite database file', function (): void {
@@ -29,6 +38,14 @@ it('creates a missing sqlite database file', function (): void {
     EnsureDatabaseExistsAction::run(new NullProgressReporter);
 
     expect(File::exists($databasePath))->toBeTrue();
+});
+
+it('keeps an existing database connection and its active transaction intact', function (): void {
+    $user = User::factory()->createOne();
+
+    EnsureDatabaseExistsAction::run(new NullProgressReporter);
+
+    expect(User::query()->whereKey($user->getKey())->exists())->toBeTrue();
 });
 
 it('skips in-memory sqlite databases', function (): void {

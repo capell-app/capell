@@ -17,8 +17,8 @@ $contracts = [
     'quality workflow runs on main pull requests' => ['.github/workflows/code-quality-and-styling.yml', "pull_request:\n    branches:\n      - main"],
     'quality workflow runs PHPStan' => ['.github/workflows/code-quality-and-styling.yml', 'composer phpstan'],
     'quality workflow audits locked dependencies' => ['.github/workflows/code-quality-and-styling.yml', 'composer audit --locked'],
-    'full test workflow covers Laravel 12' => ['.github/workflows/test-full.yml', 'laravel: 12.*'],
-    'full test workflow covers Laravel 13' => ['.github/workflows/test-full.yml', 'laravel: 13.*'],
+    'full test matrix covers Laravel 12' => ['scripts/test-all/TestAllMatrix.php', "'laravel' => '12.*'"],
+    'full test matrix covers Laravel 13' => ['scripts/test-all/TestAllMatrix.php', "'laravel' => '13.*'"],
     'coverage workflow enforces 90% coverage' => ['.github/workflows/coverage-release.yml', '--coverage --min=90'],
 ];
 

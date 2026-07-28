@@ -7,11 +7,30 @@ use Capell\Installer\Support\InstallerDatabaseTableState;
 use Capell\Installer\Support\InstallerRuntimeMemo;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
 
-beforeEach(function (): void {
+$originalInstallerProviderConfig = [];
+
+beforeEach(function () use (&$originalInstallerProviderConfig): void {
+    $originalInstallerProviderConfig = [
+        'session.driver' => config('session.driver'),
+        'session.table' => config('session.table'),
+        'cache.default' => config('cache.default'),
+        'cache.stores.database.table' => config('cache.stores.database.table'),
+    ];
+
     config(['capell-installer.installation_state_cache.host' => 'installer-provider-test']);
     InstallerDatabaseTableState::forget();
+});
+
+afterEach(function () use (&$originalInstallerProviderConfig): void {
+    config($originalInstallerProviderConfig);
+
+    foreach (['session', 'session.store', 'cache', 'cache.store'] as $service) {
+        app()->forgetInstance($service);
+        Facade::clearResolvedInstance($service);
+    }
 });
 
 it('resets installer runtime memoization at long-lived worker scope boundaries', function (): void {

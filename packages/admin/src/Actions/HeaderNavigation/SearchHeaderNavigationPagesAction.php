@@ -50,7 +50,7 @@ final class SearchHeaderNavigationPagesAction
 
         /** @var Builder<Page> $query */
         $query = Page::query()
-            ->select('pages.id')
+            ->select('pages.id', 'pages.site_id', 'pages._lft')
             ->distinct()
             ->orderBy('pages.site_id')
             ->orderBy('pages._lft');

@@ -17,9 +17,6 @@ use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Schemas\Schema;
 use Livewire\Livewire;
-
-use function Pest\Laravel\assertDatabaseHas;
-
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class)
@@ -62,23 +59,8 @@ it('saves settings to their respective group settings classes', function (): voi
         ->call('save')
         ->assertHasNoFormErrors();
 
-    assertDatabaseHas(
-        'settings',
-        [
-            'group' => 'core',
-            'name' => 'default_locale',
-            'payload' => json_encode('de'),
-        ],
-    );
-
-    assertDatabaseHas(
-        'settings',
-        [
-            'group' => 'admin',
-            'name' => 'html_editor',
-            'payload' => json_encode(EditorEnum::TinyMCE->value),
-        ],
-    );
+    expect(decodedSettingPayload('core', 'default_locale'))->toBe('de')
+        ->and(decodedSettingPayload('admin', 'html_editor'))->toBe(EditorEnum::TinyMCE->value);
 });
 
 it('registry contains core group after boot', function (): void {
@@ -134,14 +116,7 @@ it('blocks theme studio tokens that would require public fallback tokens', funct
         ->assertNotNotified(__('capell-admin::message.theme_studio_token_fallback_heading'))
         ->assertNotNotified(__('filament-spatie-laravel-settings-plugin::pages/settings-page.notifications.saved.title'));
 
-    assertDatabaseHas(
-        'settings',
-        [
-            'group' => 'theme_studio',
-            'name' => 'brandProfile',
-            'payload' => json_encode($existingBrandProfile),
-        ],
-    );
+    expect(decodedSettingPayload('theme_studio', 'brandProfile'))->toEqual($existingBrandProfile);
 });
 
 it('saves partial theme studio tokens without dropping existing profile keys', function (): void {
@@ -182,14 +157,7 @@ it('saves partial theme studio tokens without dropping existing profile keys', f
         ->call('save')
         ->assertHasNoFormErrors();
 
-    assertDatabaseHas(
-        'settings',
-        [
-            'group' => 'theme_studio',
-            'name' => 'brandProfile',
-            'payload' => json_encode($expectedStoredBrandProfile),
-        ],
-    );
+    expect(decodedSettingPayload('theme_studio', 'brandProfile'))->toEqual($expectedStoredBrandProfile);
 });
 
 it('allows adding custom schemas to existing group', function (): void {

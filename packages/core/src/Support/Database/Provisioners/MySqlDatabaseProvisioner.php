@@ -37,8 +37,10 @@ final class MySqlDatabaseProvisioner extends AbstractServerDatabaseProvisioner i
         $statement->execute([$database]);
 
         $exists = $statement->fetchColumn() !== false;
-        $pdo->exec($sql);
-        $this->refresh($connectionName);
+        if (! $exists) {
+            $pdo->exec($sql);
+            $this->refresh($connectionName);
+        }
 
         return $exists
             ? DatabaseProvisioningResult::Ready

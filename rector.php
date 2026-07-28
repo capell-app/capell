@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
+use Rector\Carbon\Rector\FuncCall\TimeFuncCallToCarbonRector;
 use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
@@ -153,6 +154,9 @@ return RectorConfig::configure()
             __DIR__ . '/scripts',
         ],
         SleepFuncToSleepStaticCallRector::class => [
+            __DIR__ . '/scripts',
+        ],
+        TimeFuncCallToCarbonRector::class => [
             __DIR__ . '/scripts',
         ],
         // The retry loop here tolerates a concurrent process removing the view cache

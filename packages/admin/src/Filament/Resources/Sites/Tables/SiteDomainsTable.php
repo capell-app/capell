@@ -14,6 +14,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Sites\RelationManagers\SiteDomainsRelationManager;
 use Capell\Admin\Filament\Resources\Sites\Widgets\SiteAlertsWidget;
+use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Core\Models\SiteDomain;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -46,6 +47,7 @@ class SiteDomainsTable implements TableConfigurator
             )
             ->defaultSort('default', 'desc')
             ->description(__('capell-admin::generic.site_domains_description'))
+            ->recordTitle(fn (SiteDomain $record): string => $record->full_url)
             ->columns(self::getTableColumns())
             ->headerActions([
                 CreateAction::make()
@@ -107,7 +109,7 @@ class SiteDomainsTable implements TableConfigurator
             BadgeableColumn::make('full_url')
                 ->label(__('capell-admin::table.url'))
                 ->weight(FontWeight::Medium)
-                ->searchable()
+                ->searchable(query: self::applyFullUrlSearch(...))
                 ->sortable(['scheme', 'domain', 'path'])
                 ->url(fn (string|array $state): string => is_array($state) ? $state[0] : $state, shouldOpenInNewTab: true)
                 ->defaultBadge(),
@@ -124,6 +126,19 @@ class SiteDomainsTable implements TableConfigurator
             DateColumn::make('updated_at'),
             DateColumn::make('deleted_at'),
         ];
+    }
+
+    /**
+     * @param  Builder<SiteDomain>  $query
+     * @return Builder<SiteDomain>
+     */
+    protected static function applyFullUrlSearch(Builder $query, string $search): Builder
+    {
+        return $query->where(
+            DatabaseUrlExpression::siteDomain(),
+            'like',
+            sprintf('%%%s%%', $search),
+        );
     }
 
     protected static function afterAction(SiteDomainsRelationManager $livewire): void

@@ -41,10 +41,14 @@ it('ranks page name matches before translated and related matches', function ():
             'url' => '/' . $search . '-url-match',
         ]);
 
-    Livewire::test(ListPages::class)
+    $component = Livewire::test(ListPages::class)
         ->assertSuccessful()
         ->searchTable($search)
-        ->assertCanSeeTableRecords([$nameMatch, $urlMatch, $translationMatch], inOrder: true);
+        ->assertCanSeeTableRecords([$nameMatch, $urlMatch, $translationMatch]);
+
+    $component
+        ->assertCanSeeTableRecords([$nameMatch, $urlMatch], inOrder: true)
+        ->assertCanSeeTableRecords([$nameMatch, $translationMatch], inOrder: true);
 });
 
 it('ranks site name matches before translated and related matches', function (): void {
@@ -69,10 +73,14 @@ it('ranks site name matches before translated and related matches', function ():
             'domain' => $search . '.test',
         ]);
 
-    Livewire::test(ListSites::class)
+    $component = Livewire::test(ListSites::class)
         ->assertSuccessful()
         ->searchTable($search)
-        ->assertCanSeeTableRecords([$nameMatch, $domainMatch, $translationMatch], inOrder: true);
+        ->assertCanSeeTableRecords([$nameMatch, $domainMatch, $translationMatch]);
+
+    $component
+        ->assertCanSeeTableRecords([$nameMatch, $domainMatch], inOrder: true)
+        ->assertCanSeeTableRecords([$nameMatch, $translationMatch], inOrder: true);
 });
 
 it('keeps explicit table sorting ahead of site search relevance', function (): void {
