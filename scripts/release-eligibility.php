@@ -18,7 +18,7 @@ if (! is_string($sha)) {
 }
 
 try {
-    $evidence = (new ReleaseEligibilityChecker(new ProcessCommandRunner))->check($sha);
+    $evidence = new ReleaseEligibilityChecker(new ProcessCommandRunner)->check($sha);
 } catch (ReleaseException $releaseException) {
     fwrite(STDERR, $releaseException->getMessage() . PHP_EOL);
     exit(1);

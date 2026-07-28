@@ -582,6 +582,7 @@ final class ReleaseEngine
             $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
             $this->writeState($planPath, $state);
         }
+
         $preflightScript = null;
         if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
@@ -788,6 +789,7 @@ final class ReleaseEngine
     {
         return json_decode((string) file_get_contents($this->root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
     }
+
     // LOCKSTEP-END release-definitions
 
     // LOCKSTEP-BEGIN engine-helpers

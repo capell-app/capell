@@ -15,7 +15,7 @@ it('requires successful exact-SHA Core, App, and Packages workflow evidence', fu
     $packagesSha = str_repeat('c', 40);
     $runner = releaseEligibilityRunner($appSha, $packagesSha);
 
-    $evidence = (new ReleaseEligibilityChecker($runner))->check($coreSha);
+    $evidence = new ReleaseEligibilityChecker($runner)->check($coreSha);
 
     expect($evidence['core_test_all']['sha'])->toBe($coreSha)
         ->and($evidence['app_preflight']['sha'])->toBe($appSha)
@@ -31,7 +31,7 @@ it('fails closed when a workflow result is not bound to the requested SHA', func
         mismatchedWorkflow: 'security-audit.yml',
     );
 
-    expect(fn () => (new ReleaseEligibilityChecker($runner))->check(str_repeat('a', 40)))
+    expect(fn (): array => new ReleaseEligibilityChecker($runner)->check(str_repeat('a', 40)))
         ->toThrow(ReleaseException::class, 'no successful security-audit.yml run');
 });
 

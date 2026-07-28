@@ -406,7 +406,7 @@ abstract class AbstractTestCase extends TestCase
         $currentStore = Config::get('cache.default');
 
         if ($application->bound('cache')) {
-            $cacheManager = $application->make('cache');
+            $cacheManager = $application->make(\Illuminate\Contracts\Cache\Factory::class);
 
             if ($cacheManager instanceof CacheManager && ! $cacheManager instanceof MockInterface) {
                 $stores = [];
