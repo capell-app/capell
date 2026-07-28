@@ -35,6 +35,79 @@ it('fails closed when a workflow result is not bound to the requested SHA', func
         ->toThrow(ReleaseException::class, 'no successful security-audit.yml run');
 });
 
+it('accepts digest-bound repository-owned local preflight evidence', function (): void {
+    $coreSha = str_repeat('a', 40);
+    $appSha = str_repeat('b', 40);
+    $packagesSha = str_repeat('c', 40);
+    $directory = sys_get_temp_dir() . '/capell-release-evidence-' . bin2hex(random_bytes(8));
+    mkdir($directory);
+
+    $gates = [
+        'core_test_all' => ['repository' => 'capell-app/capell', 'sha' => $coreSha, 'command' => 'composer preflight:all'],
+        'app_preflight' => ['repository' => 'capell-app/capell-app', 'sha' => $appSha, 'command' => './capell composer preflight:all'],
+        'packages_preflight' => ['repository' => 'capell-app/capell-packages', 'sha' => $packagesSha, 'command' => 'composer preflight:all'],
+    ];
+
+    foreach ($gates as $gate => &$record) {
+        $logPath = $directory . '/' . $gate . '.log';
+        file_put_contents($logPath, $gate . ' passed');
+        $record += [
+            'exit_code' => 0,
+            'completed_at' => '2026-07-28T12:00:00Z',
+            'log_path' => basename($logPath),
+            'log_sha256' => hash_file('sha256', $logPath),
+        ];
+    }
+    unset($record);
+
+    $evidencePath = $directory . '/evidence.json';
+    file_put_contents($evidencePath, json_encode(['schema_version' => 1, 'gates' => $gates], JSON_THROW_ON_ERROR));
+
+    $evidence = new ReleaseEligibilityChecker(
+        releaseEligibilityRunner($appSha, $packagesSha),
+        $evidencePath,
+    )->check($coreSha);
+
+    expect($evidence['core_test_all']['runs'][0]['source'])->toBe('local')
+        ->and($evidence['app_preflight']['sha'])->toBe($appSha)
+        ->and($evidence['packages_preflight']['sha'])->toBe($packagesSha);
+});
+
+it('fails closed when a local preflight log digest does not match', function (): void {
+    $coreSha = str_repeat('a', 40);
+    $appSha = str_repeat('b', 40);
+    $packagesSha = str_repeat('c', 40);
+    $directory = sys_get_temp_dir() . '/capell-release-evidence-' . bin2hex(random_bytes(8));
+    mkdir($directory);
+    $logPath = $directory . '/preflight.log';
+    file_put_contents($logPath, 'passed');
+
+    $gates = [];
+    foreach ([
+        'core_test_all' => ['capell-app/capell', $coreSha, 'composer preflight:all'],
+        'app_preflight' => ['capell-app/capell-app', $appSha, './capell composer preflight:all'],
+        'packages_preflight' => ['capell-app/capell-packages', $packagesSha, 'composer preflight:all'],
+    ] as $gate => [$repository, $sha, $command]) {
+        $gates[$gate] = [
+            'repository' => $repository,
+            'sha' => $sha,
+            'command' => $command,
+            'exit_code' => 0,
+            'completed_at' => '2026-07-28T12:00:00Z',
+            'log_path' => $logPath,
+            'log_sha256' => str_repeat('0', 64),
+        ];
+    }
+
+    $evidencePath = $directory . '/evidence.json';
+    file_put_contents($evidencePath, json_encode(['schema_version' => 1, 'gates' => $gates], JSON_THROW_ON_ERROR));
+
+    expect(fn (): array => new ReleaseEligibilityChecker(
+        releaseEligibilityRunner($appSha, $packagesSha),
+        $evidencePath,
+    )->check($coreSha))->toThrow(ReleaseException::class, 'log digest does not match');
+});
+
 function releaseEligibilityRunner(
     string $appSha,
     string $packagesSha,

@@ -18,7 +18,11 @@ if (! is_string($sha)) {
 }
 
 try {
-    $evidence = new ReleaseEligibilityChecker(new ProcessCommandRunner)->check($sha);
+    $localEvidencePath = getenv('CAPELL_RELEASE_LOCAL_EVIDENCE');
+    $evidence = new ReleaseEligibilityChecker(
+        new ProcessCommandRunner,
+        is_string($localEvidencePath) && $localEvidencePath !== '' ? $localEvidencePath : null,
+    )->check($sha);
 } catch (ReleaseException $releaseException) {
     fwrite(STDERR, $releaseException->getMessage() . PHP_EOL);
     exit(1);
