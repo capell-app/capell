@@ -54,8 +54,8 @@ if (! is_string($readme)) {
     $failures[] = 'README.md could not be read.';
 } else {
     $readmeContracts = [
-        '**Capell is a Laravel CMS built on Filament',
-        'developers keep the public frontend, deployment, and application architecture inside Laravel.',
+        '**Capell is an open-source CMS for Laravel, built on Filament.**',
+        'Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.',
         'Capell is not a hosted CMS and does not ship a public content-delivery API.',
         'The canonical installation entry point for an existing Laravel application is `capell-app/installer`.',
         'The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line',
