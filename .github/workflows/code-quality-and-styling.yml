@@ -103,6 +103,15 @@ jobs:
       - name: Run Pint check
         run: composer cs:check
 
+      - name: Cache PHPStan result cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: var/phpstan/full
+          key: phpstan-${{ runner.os }}-${{ hashFiles('composer.lock', 'phpstan.neon', 'phpstan/**/*.neon') }}-${{ github.sha }}
+          restore-keys: |
+            phpstan-${{ runner.os }}-${{ hashFiles('composer.lock', 'phpstan.neon', 'phpstan/**/*.neon') }}-
+            phpstan-${{ runner.os }}-
+
       - name: Run PHPStan
         run: composer phpstan
 

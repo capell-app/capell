@@ -102,7 +102,7 @@ jobs:
           composer require --no-interaction --no-progress --ansi --dev --no-update \
             "orchestra/testbench:${{ matrix.testbench }}"
 
-          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
+          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-phpstan pestphp/pest-plugin-livewire calebdw/larastan-livewire
           dev_tools=(
             "pestphp/pest:^4.3"
             "pestphp/pest-plugin-arch:^4.0"
