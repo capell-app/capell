@@ -109,6 +109,6 @@ final class PageListingRequestData
     public function canUseCache(): bool
     {
         return $this->useCache
-            && ($this->modifyQuery === null || $this->cacheKeySuffix !== '');
+            && (! $this->modifyQuery instanceof Closure || $this->cacheKeySuffix !== '');
     }
 }

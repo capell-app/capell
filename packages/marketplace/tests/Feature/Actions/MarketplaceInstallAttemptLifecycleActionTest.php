@@ -26,12 +26,14 @@ use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Sleep;
 use Illuminate\Validation\ValidationException;
 
 it('creates queued attempts from typed data with timestamps and timeline atomically', function (): void {
@@ -68,7 +70,7 @@ it('creates queued attempts from typed data with timestamps and timeline atomica
 });
 
 it('retains the deprecated recorder public signature as a create adapter', function (): void {
-    $parameterNames = collect((new ReflectionMethod(RecordMarketplaceInstallAttemptAction::class, 'handle'))
+    $parameterNames = collect(new ReflectionMethod(RecordMarketplaceInstallAttemptAction::class, 'handle')
         ->getParameters())
         ->map(fn (ReflectionParameter $parameter): string => $parameter->getName())
         ->all();
@@ -118,7 +120,7 @@ it('retains the deprecated recorder public signature as a create adapter', funct
         'user',
         'idempotencyKey',
     ])
-        ->and((new ReflectionClass(RecordMarketplaceInstallAttemptAction::class))->getDocComment())
+        ->and(new ReflectionClass(RecordMarketplaceInstallAttemptAction::class)->getDocComment())
         ->toContain('@deprecated')
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
         ->and($attempt->failure_reason)->toBe('blocked')
@@ -174,7 +176,7 @@ it('rejects undeclared lifecycle transitions without changing the attempt', func
         new MarketplaceInstallAttemptTransitionData(toStatus: $to),
     ))->toThrow(
         RuntimeException::class,
-        "Cannot transition Marketplace install attempt from [{$from->value}] to [{$to->value}].",
+        sprintf('Cannot transition Marketplace install attempt from [%s] to [%s].', $from->value, $to->value),
     );
 
     expect($attempt->refresh()->status)->toBe($from)
@@ -532,12 +534,10 @@ it('does not create a retry while another process holds the shared composer oper
     $signalDirectory = sys_get_temp_dir() . '/capell-marketplace-retry-lock-' . uniqid();
     mkdir($signalDirectory);
     config(['cache.default' => 'file']);
-    app('cache')->setDefaultDriver('file');
+    resolve(Factory::class)->setDefaultDriver('file');
     $processId = pcntl_fork();
 
-    if ($processId === -1) {
-        throw new RuntimeException('Could not fork the retry lock contention worker.');
-    }
+    throw_if($processId === -1, RuntimeException::class, 'Could not fork the retry lock contention worker.');
 
     if ($processId === 0) {
         $childLock = Cache::lock($lockKey, 10);
@@ -552,7 +552,7 @@ it('does not create a retry while another process holds the shared composer oper
         $deadline = microtime(true) + 10;
 
         while (! is_file($signalDirectory . '/release') && microtime(true) < $deadline) {
-            usleep(10_000);
+            Sleep::usleep(10_000);
         }
 
         $released = is_file($signalDirectory . '/release');
@@ -567,7 +567,7 @@ it('does not create a retry while another process holds the shared composer oper
         $deadline = microtime(true) + 5;
 
         while (! is_file($signalDirectory . '/ready') && microtime(true) < $deadline) {
-            usleep(10_000);
+            Sleep::usleep(10_000);
         }
 
         expect(is_file($signalDirectory . '/ready'))->toBeTrue();
@@ -581,7 +581,7 @@ it('does not create a retry while another process holds the shared composer oper
         @unlink($signalDirectory . '/release');
         @rmdir($signalDirectory);
         config(['cache.default' => $originalCacheDriver]);
-        app('cache')->setDefaultDriver($originalCacheDriver);
+        resolve(Factory::class)->setDefaultDriver($originalCacheDriver);
     }
 
     expect(pcntl_wifexited($processStatus))->toBeTrue()

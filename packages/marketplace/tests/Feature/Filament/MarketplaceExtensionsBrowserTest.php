@@ -1617,10 +1617,10 @@ it('delegates Marketplace selection reshaping to a typed package policy', functi
 
     expect((string) $input)->toBe(MarketplaceSelectionInputData::class)
         ->and((string) $handle->getReturnType())->toBe(MarketplaceSelectionReviewData::class)
-        ->and((string) (new ReflectionMethod(
+        ->and((string) new ReflectionMethod(
             MarketplaceExtensionsBrowser::class,
             'marketplaceSelectionReview',
-        ))->getReturnType())->toBe('array');
+        )->getReturnType())->toBe('array');
 });
 
 it('does not expose per-extension marketplace install actions', function (): void {

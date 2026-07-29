@@ -71,9 +71,9 @@ final readonly class MarketplaceSelectionReviewData
         Closure $impactReasonLabel,
     ): array {
         return [
-            'explicit_records' => self::recordPayloads($this->explicitRecords),
-            'dependency_records' => self::recordPayloads($this->dependencyRecords),
-            'install_records' => self::recordPayloads($this->installRecords),
+            'explicit_records' => $this->recordPayloads($this->explicitRecords),
+            'dependency_records' => $this->recordPayloads($this->dependencyRecords),
+            'install_records' => $this->recordPayloads($this->installRecords),
             'install_composer_names' => $this->installComposerNames,
             'dependency_composer_names' => $this->dependencyComposerNames,
             'missing_dependencies' => $this->missingDependencies,
@@ -84,7 +84,7 @@ final readonly class MarketplaceSelectionReviewData
                 ),
                 $this->blockedDependencies,
             ),
-            'premium_records' => self::recordPayloads($this->premiumRecords),
+            'premium_records' => $this->recordPayloads($this->premiumRecords),
             'selected_count' => $this->selectedCount,
             'install_count' => $this->installCount,
             'total_cents' => $this->totalCents,
@@ -129,7 +129,7 @@ final readonly class MarketplaceSelectionReviewData
      * @param  list<MarketplaceSelectionRecordData>  $records
      * @return list<array<string, mixed>>
      */
-    private static function recordPayloads(array $records): array
+    private function recordPayloads(array $records): array
     {
         return array_map(
             static fn (MarketplaceSelectionRecordData $record): array => $record->payload,

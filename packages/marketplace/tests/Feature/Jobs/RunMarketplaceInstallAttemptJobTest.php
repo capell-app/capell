@@ -561,9 +561,7 @@ final class CancelMarketplaceInstallDuringLifecycleAction implements PackageLife
         array $arguments = [],
         ?ProgressReporter $reporter = null,
     ): void {
-        if (self::$attemptId === null) {
-            throw new RuntimeException('The late-cancellation attempt was not configured.');
-        }
+        throw_if(self::$attemptId === null, RuntimeException::class, 'The late-cancellation attempt was not configured.');
 
         $attempt = MarketplaceInstallAttempt::query()->findOrFail(self::$attemptId);
 
