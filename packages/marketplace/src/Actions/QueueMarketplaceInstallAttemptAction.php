@@ -12,6 +12,7 @@ use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
+use Capell\Marketplace\Data\MarketplaceInstallDeploymentData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
@@ -193,27 +194,13 @@ final class QueueMarketplaceInstallAttemptAction
                 ...$deploymentMetadata,
             ];
 
-        $attempt->forceFill(['deployment' => $deployment !== [] ? $deployment : null])->save();
+        $attempt = RecordMarketplaceInstallDeploymentAction::run(
+            $attempt,
+            new MarketplaceInstallDeploymentData($deployment),
+        );
 
-        if (($deployment['status'] ?? null) === 'failed') {
-            $classification = ClassifyMarketplaceInstallFailureAction::run(
-                stage: MarketplaceInstallFailureStage::DeploymentHandoff,
-                message: is_string($deployment['failure_reason'] ?? null) ? $deployment['failure_reason'] : null,
-                deploymentStatus: 'failed',
-            );
-            $reason = is_string($deployment['failure_reason'] ?? null)
-                ? (string) __('capell-marketplace::marketplace.operations.deployment_failed_notification', [
-                    'reason' => $deployment['failure_reason'],
-                ])
-                : (string) __('capell-marketplace::marketplace.operations.deployment_failed_notification', [
-                    'reason' => __('capell-marketplace::marketplace.operations.deployment_unknown_failure'),
-                ]);
-
-            $attempt->forceFill([
-                'failure_reason' => $reason,
-                'failure_type' => $classification['failure_type']->value,
-                'failure_stage' => $classification['failure_stage']->value,
-            ])->save();
+        if ($attempt->status === MarketplaceInstallIntentStatus::Cancelled) {
+            return $attempt;
         }
 
         dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))

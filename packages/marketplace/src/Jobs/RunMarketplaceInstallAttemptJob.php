@@ -11,6 +11,7 @@ use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallOperationTelemetryAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
@@ -243,14 +244,11 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             InstallPackageAction::run($package, [], null, false);
             $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_lifecycle_completed', MarketplaceInstallFailureStage::Lifecycle);
 
-            $attempt = TransitionMarketplaceInstallAttemptAction::run(
-                $attempt,
-                new MarketplaceInstallAttemptTransitionData(
-                    toStatus: MarketplaceInstallIntentStatus::Succeeded,
-                    outputExcerpt: $result->output,
-                    errorExcerpt: $result->errorOutput,
-                ),
-            );
+            $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, $result);
+
+            if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
+                return;
+            }
 
             try {
                 NotifyMarketplaceInstallCompletedAction::run($attempt->refresh());

@@ -214,7 +214,7 @@ final class TransitionMarketplaceInstallAttemptAction
             stage: $transition->failureStage,
             composerResult: $transition->composerResult,
             message: $reason,
-            deploymentStatus: $this->deploymentStatus($attempt),
+            deploymentStatus: $this->failureDeploymentStatus($attempt, $transition),
         );
         $failureType = $transition->toStatus === MarketplaceInstallIntentStatus::TimedOut
             ? MarketplaceInstallFailureType::Timeout
@@ -249,7 +249,9 @@ final class TransitionMarketplaceInstallAttemptAction
 
         return [
             'failure_reason' => $this->redactedText($transition->failureReason),
-            'failure_type' => MarketplaceInstallFailureType::CancelledAfterComposer->value,
+            'failure_type' => ($transition->failureStage === MarketplaceInstallFailureStage::Composer
+                ? MarketplaceInstallFailureType::CancelledAfterComposer
+                : MarketplaceInstallFailureType::Unknown)->value,
             'failure_stage' => ($transition->failureStage ?? MarketplaceInstallFailureStage::Composer)->value,
             'cancel_requested_at' => $attempt->cancel_requested_at ?? $recordedAt,
             'cancelled_at' => $recordedAt,
@@ -299,7 +301,7 @@ final class TransitionMarketplaceInstallAttemptAction
             ?? ClassifyMarketplaceInstallFailureAction::run(
                 composerResult: $transition->composerResult,
                 message: $transition->failureReason,
-                deploymentStatus: $this->deploymentStatus($attempt),
+                deploymentStatus: $this->failureDeploymentStatus($attempt, $transition),
             )['failure_stage'];
 
         return match ($stage) {
@@ -307,6 +309,7 @@ final class TransitionMarketplaceInstallAttemptAction
             MarketplaceInstallFailureStage::PackageDiscovery => 'timeline_package_discovery_failed',
             MarketplaceInstallFailureStage::Lifecycle => 'timeline_lifecycle_failed',
             MarketplaceInstallFailureStage::Queue => 'timeline_queue_failed',
+            MarketplaceInstallFailureStage::DeploymentHandoff => 'timeline_deployment_failed',
             default => 'timeline_composer_failed',
         };
     }
@@ -330,9 +333,20 @@ final class TransitionMarketplaceInstallAttemptAction
             default => ClassifyMarketplaceInstallFailureAction::run(
                 composerResult: $transition->composerResult,
                 message: $transition->failureReason,
-                deploymentStatus: $this->deploymentStatus($attempt),
+                deploymentStatus: $this->failureDeploymentStatus($attempt, $transition),
             )['failure_stage'],
         };
+    }
+
+    private function failureDeploymentStatus(
+        MarketplaceInstallAttempt $attempt,
+        MarketplaceInstallAttemptTransitionData $transition,
+    ): ?string {
+        if ($transition->failureStage !== MarketplaceInstallFailureStage::DeploymentHandoff) {
+            return null;
+        }
+
+        return $this->deploymentStatus($attempt);
     }
 
     private function deploymentNeedsAttention(MarketplaceInstallAttempt $attempt): bool

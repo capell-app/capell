@@ -5,13 +5,16 @@ declare(strict_types=1);
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\CreateMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\RecordMarketplaceInstallDeploymentAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
+use Capell\Marketplace\Data\MarketplaceInstallDeploymentData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
@@ -21,9 +24,11 @@ use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 it('creates queued attempts from typed data with timestamps and timeline atomically', function (): void {
     $policyEvidence = lifecyclePolicyEvidence();
@@ -214,6 +219,72 @@ it('rolls back state when its atomic transition timeline cannot be recorded', fu
         ->and($attempt->started_at)->toBeNull();
 });
 
+it('records deployment evidence classification and timeline atomically', function (): void {
+    $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Queued);
+
+    $recorded = RecordMarketplaceInstallDeploymentAction::run(
+        $attempt,
+        new MarketplaceInstallDeploymentData([
+            'status' => 'failed',
+            'failure_reason' => 'Publisher rejected the source update.',
+            'reference' => 'deploy-42',
+        ]),
+    );
+
+    expect($recorded->deployment)->toMatchArray([
+        'status' => 'failed',
+        'reference' => 'deploy-42',
+    ])
+        ->and($recorded->failure_type)->toBe(MarketplaceInstallFailureType::DeploymentFailed->value)
+        ->and($recorded->failure_stage)->toBe(MarketplaceInstallFailureStage::DeploymentHandoff->value)
+        ->and($recorded->events)->toHaveCount(1)
+        ->and($recorded->events->first()?->message)
+        ->toBe((string) __('capell-marketplace::marketplace.operations.timeline_deployment_failed'));
+});
+
+it('rolls back deployment evidence and classification when its timeline cannot be recorded', function (): void {
+    $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Queued);
+
+    expect(DB::transactionLevel())->toBeGreaterThan(0);
+    Schema::drop('marketplace_install_attempt_events');
+
+    expect(fn (): MarketplaceInstallAttempt => RecordMarketplaceInstallDeploymentAction::run(
+        $attempt,
+        new MarketplaceInstallDeploymentData([
+            'status' => 'failed',
+            'failure_reason' => 'Publisher rejected the source update.',
+        ]),
+    ))->toThrow(QueryException::class);
+
+    expect($attempt->refresh()->deployment)->toBeNull()
+        ->and($attempt->failure_reason)->toBeNull()
+        ->and($attempt->failure_type)->toBeNull()
+        ->and($attempt->failure_stage)->toBeNull();
+});
+
+it('preserves completed deployment evidence when cancellation wins during publication', function (): void {
+    $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Queued);
+    $cancelled = CancelMarketplaceInstallAttemptAction::run($attempt);
+
+    $recorded = RecordMarketplaceInstallDeploymentAction::run(
+        $attempt,
+        new MarketplaceInstallDeploymentData([
+            'status' => 'published',
+            'reference' => 'pull-request-42',
+        ]),
+    );
+
+    expect($recorded->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($recorded->deployment)->toMatchArray([
+            'status' => 'published',
+            'reference' => 'pull-request-42',
+        ])
+        ->and($recorded->failure_type)->toBeNull()
+        ->and($recorded->resolved_at?->equalTo($cancelled->resolved_at))->toBeTrue()
+        ->and($recorded->events->last()?->message)
+        ->toBe((string) __('capell-marketplace::marketplace.operations.timeline_deployment_published'));
+});
+
 it('derives lifecycle timestamps and resolution state', function (): void {
     $attempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
         extensionSlug: 'timestamp-suite',
@@ -337,6 +408,22 @@ it('keeps cancel-after-composer classification retryable despite composer diagno
         ->and((new RetryMarketplaceInstallAttemptAction)->canRetry($cancelled))->toBeTrue();
 });
 
+it('finalizes a late cancellation instead of converting it to a failed attempt', function (): void {
+    $staleRunning = lifecycleAttempt(MarketplaceInstallIntentStatus::Running);
+    CancelMarketplaceInstallAttemptAction::run($staleRunning->fresh());
+
+    $finalized = FinalizeMarketplaceInstallAttemptAction::run(
+        $staleRunning,
+        new MarketplaceComposerResultData(0, 'Composer and lifecycle completed.', ''),
+    );
+
+    expect($finalized->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($finalized->failure_type)->toBe(MarketplaceInstallFailureType::Unknown->value)
+        ->and($finalized->failure_stage)->toBe(MarketplaceInstallFailureStage::Lifecycle->value)
+        ->and($finalized->resolved_at)->toBeNull()
+        ->and((new RetryMarketplaceInstallAttemptAction)->canRetry($finalized))->toBeFalse();
+});
+
 it('keeps successful local installs unresolved when deployment needs attention', function (
     string $deploymentStatus,
     MarketplaceInstallFailureType $expectedType,
@@ -365,6 +452,28 @@ it('keeps successful local installs unresolved when deployment needs attention',
     'unavailable deployment' => ['unavailable', MarketplaceInstallFailureType::DeploymentUnavailable],
 ]);
 
+it('keeps a local Composer failure classification despite earlier deployment failure evidence', function (): void {
+    $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Running, [
+        'deployment' => [
+            'status' => 'failed',
+            'failure_reason' => 'Deployment publisher could not update the source.',
+        ],
+    ]);
+
+    $failed = TransitionMarketplaceInstallAttemptAction::run(
+        $attempt,
+        new MarketplaceInstallAttemptTransitionData(
+            toStatus: MarketplaceInstallIntentStatus::Failed,
+            failureReason: 'Composer exited with code 2.',
+            failureStage: MarketplaceInstallFailureStage::Composer,
+        ),
+    );
+
+    expect($failed->failure_type)->toBe(MarketplaceInstallFailureType::Unknown->value)
+        ->and($failed->failure_stage)->toBe(MarketplaceInstallFailureStage::Composer->value)
+        ->and($failed->events->last()?->stage)->toBe(MarketplaceInstallFailureStage::Composer);
+});
+
 it('creates retries as fresh queued attempts without mutating terminal history', function (): void {
     Queue::fake();
     $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed, [
@@ -387,6 +496,88 @@ it('creates retries as fresh queued attempts without mutating terminal history',
         ->and($source->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Failed)
         ->and($source->failure_reason)->toBe('Composer failed.')
         ->and($source->updated_at?->equalTo($sourceUpdatedAt))->toBeTrue();
+});
+
+it('does not create a retry while another process holds the shared composer operation lock', function (): void {
+    Queue::fake();
+    $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed);
+    $lockKey = 'capell-marketplace:queue-install:' . hash('sha256', $source->composer_name);
+    $originalCacheDriver = (string) config('cache.default', 'array');
+    $signalDirectory = sys_get_temp_dir() . '/capell-marketplace-retry-lock-' . uniqid();
+    mkdir($signalDirectory);
+    config(['cache.default' => 'file']);
+    app('cache')->setDefaultDriver('file');
+    $processId = pcntl_fork();
+
+    if ($processId === -1) {
+        throw new RuntimeException('Could not fork the retry lock contention worker.');
+    }
+
+    if ($processId === 0) {
+        $childLock = Cache::lock($lockKey, 10);
+
+        if (! $childLock->get()) {
+            pcntl_exec('/usr/bin/false');
+
+            throw new RuntimeException('Could not report the failed child lock acquisition.');
+        }
+
+        file_put_contents($signalDirectory . '/ready', 'ready');
+        $deadline = microtime(true) + 10;
+
+        while (! is_file($signalDirectory . '/release') && microtime(true) < $deadline) {
+            usleep(10_000);
+        }
+
+        $released = is_file($signalDirectory . '/release');
+        $childLock->release();
+
+        pcntl_exec($released ? '/usr/bin/true' : '/usr/bin/false');
+
+        throw new RuntimeException('Could not report the child lock result.');
+    }
+
+    try {
+        $deadline = microtime(true) + 5;
+
+        while (! is_file($signalDirectory . '/ready') && microtime(true) < $deadline) {
+            usleep(10_000);
+        }
+
+        expect(is_file($signalDirectory . '/ready'))->toBeTrue();
+
+        expect(fn (): MarketplaceInstallAttempt => RetryMarketplaceInstallAttemptAction::run($source))
+            ->toThrow(ValidationException::class);
+    } finally {
+        file_put_contents($signalDirectory . '/release', 'release');
+        pcntl_waitpid($processId, $processStatus);
+        @unlink($signalDirectory . '/ready');
+        @unlink($signalDirectory . '/release');
+        @rmdir($signalDirectory);
+        config(['cache.default' => $originalCacheDriver]);
+        app('cache')->setDefaultDriver($originalCacheDriver);
+    }
+
+    expect(pcntl_wifexited($processStatus))->toBeTrue()
+        ->and(pcntl_wexitstatus($processStatus))->toBe(0);
+
+    expect(MarketplaceInstallAttempt::query()
+        ->where('composer_name', $source->composer_name)
+        ->count())->toBe(1);
+});
+
+it('allows only one active retry for a terminal attempt', function (): void {
+    Queue::fake();
+    $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed);
+    $retry = RetryMarketplaceInstallAttemptAction::run($source);
+
+    expect(fn (): MarketplaceInstallAttempt => RetryMarketplaceInstallAttemptAction::run($source))
+        ->toThrow(ValidationException::class);
+
+    expect($retry->status)->toBe(MarketplaceInstallIntentStatus::Queued)
+        ->and(MarketplaceInstallAttempt::query()
+            ->where('composer_name', $source->composer_name)
+            ->count())->toBe(2);
 });
 
 /**
