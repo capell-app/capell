@@ -97,6 +97,14 @@ jobs:
           token: ${{ secrets.ACCESS_TOKEN }}
           path: services/capell-screenshot-runner
 
+      - name: Checkout screenshot tools
+        if: steps.packages.outputs.has_packages == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: capell-app/capell-screenshot-tools
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: repositories/capell-screenshot-tools
+
       - name: Checkout package repository
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
