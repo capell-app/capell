@@ -28,11 +28,17 @@ final class PageModelCache
      *
      * @param  class-string<Model&Pageable<Model>>  $type
      */
-    public function get(string $type, int $id, ?Site $site, Language $language, bool $withEvents = true): ?Pageable
-    {
+    public function get(
+        string $type,
+        int $id,
+        ?Site $site,
+        Language $language,
+        bool $withEvents = true,
+        bool $useCache = true,
+    ): ?Pageable {
         $key = CacheEnum::pageModel($type, $id, $site->id ?? 0, $language->id);
 
-        $model = $this->rememberCache($key, function () use ($type, $id, $language, $withEvents): ?Pageable {
+        $loader = function () use ($type, $id, $language, $withEvents): ?Pageable {
             /** @var class-string<Model&Pageable<Model>> $modelClass */
             $modelClass = Relation::getMorphedModel($type) ?? $type;
 
@@ -47,7 +53,9 @@ final class PageModelCache
             }
 
             return Model::withoutEvents($callback);
-        });
+        };
+
+        $model = $useCache ? $this->rememberCache($key, $loader) : $loader();
 
         if (! $model instanceof Pageable || ! $model instanceof Model) {
             return null;

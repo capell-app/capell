@@ -17,6 +17,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Actions\ListPagesAction;
 use Capell\Frontend\Contracts\RenderedModelTracker;
+use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Closure;
@@ -237,6 +238,8 @@ class PageLoader
      * @param  class-string<Pageable<Model>>|null  $morphModel
      * @param  Closure(Builder<Model>): void|null  $modifyQuery
      * @return Collection<int, Model&Pageable<Model>>|LengthAwarePaginator<int, Model&Pageable<Model>>
+     *
+     * @deprecated Use {@see self::list()} with {@see PageListingRequestData}; retained for Capell 1.x compatibility.
      */
     public static function getPages(
         Language $language,
@@ -266,7 +269,7 @@ class PageLoader
         // Ensure cache key is used when modifying query
         ?Closure $modifyQuery = null,
     ): Collection|LengthAwarePaginator {
-        return ListPagesAction::run(
+        return self::list(PageListingRequestData::fromLegacy(
             language: $language,
             site: $site,
             page: $page,
@@ -280,6 +283,7 @@ class PageLoader
             optionalLanguage: $optionalLanguage,
             withChildrenCount: $withChildrenCount,
             withChildren: $withChildren,
+            withImage: $withImage,
             withPagination: $withPagination,
             withParent: $withParent,
             withDate: $withDate,
@@ -289,7 +293,15 @@ class PageLoader
             cacheKeyPrepend: $cacheKeyPrepend,
             useCache: $useCache,
             modifyQuery: $modifyQuery,
-        );
+        ));
+    }
+
+    /**
+     * @return Collection<int, Model&Pageable<Model>>|LengthAwarePaginator<int, Model&Pageable<Model>>
+     */
+    public static function list(PageListingRequestData $request): Collection|LengthAwarePaginator
+    {
+        return ListPagesAction::run($request);
     }
 
     public static function getUrlById(string $pageType, int $pageId, Site $site, Language $language, bool $withEvents = true): ?PageUrl
