@@ -11,7 +11,7 @@ Use the [Quickstart](quickstart.md) for a disposable demo. For an existing appli
 | Requirement | Supported value                                                     |
 | ----------- | ------------------------------------------------------------------- |
 | PHP         | 8.4+                                                                |
-| Laravel     | 12.41.1+ or 13.x                                                    |
+| Laravel     | 13.x                                                                |
 | Filament    | `~5.6.8`, installed by the selected Admin package                   |
 | Database    | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
 | Node.js     | 20+                                                                 |
@@ -306,16 +306,16 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 
 ## Troubleshooting
 
-| Symptom                                         | First action                                                                             |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                        |
-| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                   |
-| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build                           |
-| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                      |
-| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)          |
-| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)            |
+| Symptom                                         | First action                                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                                 |
+| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                            |
+| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build                                    |
+| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                               |
+| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)                   |
+| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)                     |
 | PHP reports `Allowed memory size ... exhausted` | Reopen the installer, identify the failing step in its report, and report it as a batching defect |
-| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                           |
+| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                                    |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.
 

@@ -182,7 +182,7 @@
         "guava/filament-icon-picker": "^3.0|^4.0",
         "guzzlehttp/guzzle": "^7.5",
         "lara-zeus/spatie-translatable": "^1.0|^2.0",
-        "laravel/framework": "^12.41.1|^13.0",
+        "laravel/framework": "^13.0",
         "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",

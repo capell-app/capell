@@ -47,7 +47,6 @@ try {
     $workspaces = [];
 
     foreach ([
-        'l12' => ['laravel' => '12.*', 'testbench' => '10.*'],
         'l13' => ['laravel' => '13.*', 'testbench' => '11.*'],
     ] as $slug => $framework) {
         $workspace = $temporaryRoot . DIRECTORY_SEPARATOR . $slug;
@@ -166,8 +165,7 @@ try {
     }
 
     foreach (TestAllMatrix::all() as $cell) {
-        $frameworkSlug = str_starts_with($cell['laravel'], '12') ? 'l12' : 'l13';
-        $workspace = $workspaces[$frameworkSlug];
+        $workspace = $workspaces['l13'];
         $cellOutputDirectory = $outputDirectory . DIRECTORY_SEPARATOR . $cell['id'];
 
         if ($workspace['prepare_exit_code'] !== 0) {

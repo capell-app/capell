@@ -8,12 +8,12 @@ it('passes when manifests docs docker and workflows share the supported runtime 
     try {
         supportContractWriteComposer($fixture['root'] . '/composer.json', 'capell-app/capell', [
             'php' => '^8.4',
-            'laravel/framework' => '^12.41.1|^13.0',
+            'laravel/framework' => '^13.0',
         ]);
         supportContractWriteComposer($fixture['root'] . '/packages/core/composer.json', 'capell-app/core', [
             'php' => '^8.4',
-            'illuminate/database' => '^12.41.1|^13.0',
-            'illuminate/support' => '^12.41.1|^13.0',
+            'illuminate/database' => '^13.0',
+            'illuminate/support' => '^13.0',
         ]);
         supportContractWriteComposer($fixture['root'] . '/packages/installer/composer.json', 'capell-app/installer', [
             'php' => '^8.4',
@@ -45,7 +45,7 @@ it('reports support contract drift', function (): void {
         expect($exitCode)->toBe(1)
             ->and($output)->toContain('Capell support contract is out of sync')
             ->and($output)->toContain('capell-app/capell must require php ^8.4')
-            ->and($output)->toContain('capell-app/capell must require laravel/framework ^12.41.1|^13.0')
+            ->and($output)->toContain('capell-app/capell must require laravel/framework ^13.0')
             ->and($output)->toContain('.docker/Dockerfile must install PHP 8.4 packages');
     } finally {
         supportContractDeleteDirectory($fixture['root']);
@@ -95,15 +95,15 @@ function supportContractWriteEnvironmentFiles(
         '| Runtime | Requirement |',
         '| --- | --- |',
         '| PHP | 8.4+ |',
-        '| Laravel | 12.41.1+ or 13.x |',
+        '| Laravel | 13.x |',
     ]);
 
     file_put_contents($root . '/docs/getting-started/install.md', $installDocs);
     file_put_contents($root . '/docs/getting-started/quickstart.md', $installDocs);
     file_put_contents($root . '/.docker/Dockerfile', "RUN apt-get install php{$dockerPhpVersion}\nCOPY php/php.ini /etc/php/{$dockerPhpVersion}/cli/conf.d/99-capell.ini\n");
     file_put_contents($root . '/.docker/php/php.ini', sprintf('memory_limit = %s%s', $dockerMemoryLimit, PHP_EOL));
-    file_put_contents($root . '/.github/workflows/test-fast-pr.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 12.*\n    - php: 8.4\n      laravel: 13.*\n");
-    file_put_contents($root . '/.github/workflows/test-full.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 12.*\n    - php: 8.4\n      laravel: 13.*\n");
+    file_put_contents($root . '/.github/workflows/test-fast-pr.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 13.*\n");
+    file_put_contents($root . '/.github/workflows/test-full.yml', "matrix:\n  include:\n    - php: 8.4\n      laravel: 13.*\n");
 }
 
 /**

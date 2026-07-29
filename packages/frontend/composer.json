@@ -24,7 +24,7 @@
         "capell-app/core": "^1.0",
         "guzzlehttp/guzzle": "^7.5",
         "intervention/image": "^3.0",
-        "laravel/framework": "^12.41.1|^13.0",
+        "laravel/framework": "^13.0",
         "livewire/livewire": "^3.0|^4.0",
         "lorisleiva/laravel-actions": "^2.6",
         "michaloravec/laravel-paginateroute": "^1.0",

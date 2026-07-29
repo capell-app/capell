@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 $repositoryRoot = getenv('CAPELL_SUPPORT_CONTRACT_ROOT') ?: dirname(__DIR__);
 $expectedPhpConstraint = '^8.4';
-$expectedLaravelConstraint = '^12.41.1|^13.0';
+$expectedLaravelConstraint = '^13.0';
 $errors = [];
 
 foreach (composerManifestPaths($repositoryRoot) as $composerPath) {
@@ -47,7 +47,7 @@ if ($errors !== []) {
     exit(1);
 }
 
-fwrite(STDOUT, "Capell support contract is aligned for PHP 8.4+ and Laravel 12.41.1+/13.x.\n");
+fwrite(STDOUT, "Capell support contract is aligned for PHP 8.4+ and Laravel 13.x.\n");
 
 /**
  * @return list<string>
@@ -111,8 +111,8 @@ function documentationSupportContractErrors(string $repositoryRoot): array
             $errors[] = $relativePath . ' must document PHP 8.4+.';
         }
 
-        if (preg_match('/\|\s*Laravel\s*\|\s*12\.41\.1\+\s+or\s+13\.x\s*\|/', $contents) !== 1) {
-            $errors[] = $relativePath . ' must document Laravel 12.41.1+ or 13.x.';
+        if (preg_match('/\|\s*Laravel\s*\|\s*13\.x\s*\|/', $contents) !== 1) {
+            $errors[] = $relativePath . ' must document Laravel 13.x.';
         }
     }
 
@@ -191,9 +191,8 @@ function workflowSupportContractErrors(string $repositoryRoot): array
             $errors[] = $relativePath . ' must include PHP 8.4 in its matrix.';
         }
 
-        if (preg_match('/(?:laravel:\s*12\.\*|[\'"]laravel[\'"]\s*=>\s*[\'"]12\.\*[\'"])/', $matrixContents) !== 1
-            || preg_match('/(?:laravel:\s*13\.\*|[\'"]laravel[\'"]\s*=>\s*[\'"]13\.\*[\'"])/', $matrixContents) !== 1) {
-            $errors[] = $relativePath . ' must include Laravel 12.* and 13.* in its matrix.';
+        if (preg_match('/(?:laravel:\s*13\.\*|[\'"]laravel[\'"]\s*=>\s*[\'"]13\.\*[\'"])/', $matrixContents) !== 1) {
+            $errors[] = $relativePath . ' must include Laravel 13.* in its matrix.';
         }
     }
 
