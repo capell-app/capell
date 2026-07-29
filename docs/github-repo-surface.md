@@ -101,3 +101,92 @@ gh repo edit capell-app/marketplace --add-topic laravel-package
 
 Rationale: surfaces each split package under the `laravel-package` topic
 search without adding product-level claims to repos where they don't apply.
+
+## Org-level actions (not repo-level)
+
+The sections above act on individual repositories. These four act on the
+`capell-app` organisation itself — its profile page, its verified-domain
+badge, its pinned-repo rail, and the `.github` profile-repo it does not yet
+have. **None of these have been run either.** Where a `gh` command exists it
+is given below; where the action is web-UI-only, that is stated instead of a
+fabricated command.
+
+### 5. Set the org description
+
+Current state, read via:
+
+```bash
+gh api orgs/capell-app --jq '.description'
+```
+
+Result (2026-07-29): empty string. The org page currently shows no
+description at all next to `capell-app`.
+
+```bash
+gh api orgs/capell-app -X PATCH -f description="Open-source Laravel CMS built on Filament"
+```
+
+Rationale: this is the one line a visitor sees before deciding whether to
+click in further; right now there is nothing there at all.
+
+### 6. Verify the `capell.app` domain
+
+Web UI only. Confirmed via GraphQL schema introspection (2026-07-29) that
+`addVerifiableDomain` / `verifyVerifiableDomain` mutations exist, but the
+underlying flow needs a DNS TXT record added under `capell.app` first and a
+manual verify click in **Organization settings → Verified & approved
+domains** — there is no single `gh` command that does both halves, and the
+DNS step is outside GitHub entirely. Do this from Organization settings in
+the browser, not via `gh api`.
+
+Rationale: gives the org the GitHub "Verified" badge, which is a trust signal
+a prospective adopter checks before installing a package from an unfamiliar
+org.
+
+### 7. Pin repositories at org level
+
+Current state, read via:
+
+```bash
+gh api graphql -f query='query { organization(login: "capell-app") { pinnedItems(first: 10, types: [REPOSITORY]) { totalCount } } }'
+```
+
+Result (2026-07-29): `totalCount: 0` — nothing is pinned.
+
+Web UI only. GraphQL schema introspection (2026-07-29) shows no
+`pinRepository`/`unpinRepository`-style mutation exposed for organizations
+(the only `pin*` mutations in the schema are for issues, issue comments, and
+environments), and `gh repo` has no `pin` subcommand. Pin from the org's
+profile page (**Customize your pins**), choosing:
+
+- `capell-app/capell` — the monorepo, the actual product.
+- `capell-app/capell-skeleton` — the starter/skeleton repo.
+- `capell-app/pest-plugin-blade-coverage` — the org's most-downloaded
+  artifact (1,752 downloads), currently unpinned and easy for a visitor to
+  miss entirely.
+
+Rationale: the org page defaults to sorting repos by recent activity, which
+buries the actual product monorepo under whatever split repo the last split
+workflow touched. Pinning fixes that regardless of split timing.
+
+### 8. Create `capell-app/.github` with the profile README
+
+Web UI (or `gh repo create`, which is a mutating command and therefore not
+listed as something to run here). The intended content is drafted at
+[`docs/org-profile-README.md`](org-profile-README.md) in this repo — copy it
+to `profile/README.md` in the new `capell-app/.github` repository once that
+repository exists.
+
+Rationale: this is the file GitHub renders as `github.com/capell-app`'s
+front page. Today that URL shows a bare org page — empty description, no
+profile repo, 2 followers — to every visitor who clicks the site's GitHub
+icon.
+
+### Separate action: `pest-plugin-blade-coverage`'s own README
+
+`capell-app/pest-plugin-blade-coverage` is the org's most-adopted artifact
+(1,752 downloads, ahead of the five foundation packages combined) and its own
+README does not currently mention Capell at all, so a developer who finds it
+independently has no path back to the CMS it was built for. That repository
+is not checked out here, so fixing its README is a separate action for Ben,
+not something implemented as part of this task.
