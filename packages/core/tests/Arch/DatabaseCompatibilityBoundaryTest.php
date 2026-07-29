@@ -9,7 +9,7 @@ function capellDatabaseCompatibilityStringViolation(string $value): ?string
     $dialectFunction = '/\\b(?:CONCAT|FIELD|DATE_FORMAT|JSON_CONTAINS|JSON_EXTRACT|JSON_SEARCH|JSON_UNQUOTE|JSON_VALUE|TIMESTAMPDIFF|STRPOS|INSTR|strftime|json_each|json_extract|json_tree|jsonb_path_query|plainto_tsquery|to_tsvector|ts_rank(?:_cd)?)\\s*\\(/i';
     $positionFunction = '/\\bposition\\s*\\([^)]*\\bin\\b[^)]*\\)/i';
     $fullTextOperator = '/\\bmatch\\s*\\([^)]*\\)\\s+against\\b|\\bUSING\\s+GIN\\b/i';
-    $fullTextIndex = '/\\b(?:ADD\\s+)?FULLTEXT\\s*\\(|\\bFULLTEXT\\s+(?:INDEX|KEY)\\s+[`"]?[A-Za-z_]\\w*[`"]?\\s+(?:ON\\b|\\()/i';
+    $fullTextIndex = '/\\bADD\\s+FULLTEXT(?:\\s+(?:INDEX|KEY))?(?:\\s+[`"]?[A-Za-z_]\\w*[`"]?)?\\s*\\(|\\bFULLTEXT\\s+(?:INDEX|KEY)\\s+[`"]?[A-Za-z_]\\w*[`"]?\\s+(?:ON\\b|\\()|\\bFULLTEXT\\s*\\(/i';
     $ilikeOperator = '/(?:\\b[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)?\\b|[`"][^`"]+[`"])\\s+ILIKE\\s+(?:\\?|:[A-Za-z_]\\w*|\'(?:\'\'|[^\'])*\')/i';
     $databaseCatalog = '/\\b(?:information_schema|pg_catalog|sqlite_master)\\b|\\bPRAGMA\\s+|\\bSHOW\\s+INDEX\\b/i';
     $sqlKeyword = '/\\b(?:SELECT|FROM|WHERE|JOIN|ORDER|GROUP|CASE|WHEN|AS)\\b/i';
@@ -128,6 +128,10 @@ it('recognizes standalone case-insensitive database fragments', function (string
     ],
     'standalone fulltext index' => [
         'FULLTEXT INDEX documents_search ON (title, body)',
+        'dialect-only SQL',
+    ],
+    'named MySQL fulltext alteration' => [
+        'ALTER TABLE documents ADD FULLTEXT documents_search (title, body)',
         'dialect-only SQL',
     ],
     'standalone concatenation' => [
