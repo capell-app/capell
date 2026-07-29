@@ -20,7 +20,11 @@
     }}
     {{ $getExtraAlpineAttributeBag() }}
 >
-    <input type="hidden" value="{{ collect(array_keys($containers))->values()->toJson() }}" x-ref="repeaterData" />
+    <input
+        type="hidden"
+        value="{{ collect(array_keys($containers))->values()->toJson() }}"
+        x-ref="repeaterData"
+    />
     @foreach ($containers as $uuid => $item)
         <div
             id="{{ $this->getId() . '-' . $item->getStatePath() }}"

@@ -34,13 +34,13 @@ for file in "${CHANGED_FILES[@]}"; do
   if [[ $file == packages/*/publishes/build/* ]]; then
     continue
   fi
-  if [[ $file == *.php ]]; then
+  if [[ $file == *.php && $file != *.blade.php ]]; then
     PHP_FILES+=("$file")
   fi
   if [[ $file == *.js || $file == *.jsx || $file == *.ts || $file == *.tsx ]]; then
     JS_FILES+=("$file")
   fi
-  if [[ $file == *.js || $file == *.jsx || $file == *.ts || $file == *.tsx || $file == *.css || $file == *.json || $file == *.yml || $file == *.md ]]; then
+  if [[ $file == *.js || $file == *.jsx || $file == *.ts || $file == *.tsx || $file == *.css || $file == *.json || $file == *.yml || $file == *.md || $file == *.blade.php ]]; then
     PRETTIER_FILES+=("$file")
   fi
 done

@@ -31,15 +31,22 @@
     $currentPageIsEmpty = ! $results || $results->isEmpty();
 @endphp
 
-<div {{ $attributes->merge(['class' => 'capell-component capell-page-results results @container']) }}>
+<div
+    {{ $attributes->merge(['class' => 'capell-component capell-page-results results @container']) }}
+>
     <p class="sr-only" role="status" aria-live="polite">
         {{ $resultCount }} {{ __('capell-frontend::messages.results_found') }}
     </p>
 
     @if ($currentPageIsEmpty)
-        <x-capell::no-results> {{ RenderHtmlContentAction::run((string) $noResultsText) }} </x-capell::no-results>
+        <x-capell::no-results>
+            {{ RenderHtmlContentAction::run((string) $noResultsText) }}
+        </x-capell::no-results>
     @else
-        <div class="grid w-full max-w-full min-w-0 gap-5 overflow-hidden @3xl:grid-cols-2" role="list">
+        <div
+            class="grid w-full max-w-full min-w-0 gap-5 overflow-hidden @3xl:grid-cols-2"
+            role="list"
+        >
             @foreach ($results as $item)
                 @php
                     $author = method_exists($item, 'relationLoaded') && $item->relationLoaded('creator') ? $item->creator : null;

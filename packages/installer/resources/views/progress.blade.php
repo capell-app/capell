@@ -4,20 +4,34 @@
 @section('bodyClass', 'installer-screen-progress')
 
 @section('content')
-    <main class="panel" role="main">
+    <main
+        class="panel"
+        role="main"
+    >
         <header class="panel-header">
             <div class="brand-block">
-                <div class="brand-logo" aria-label="Capell" role="img">
+                <div
+                    class="brand-logo"
+                    aria-label="Capell"
+                    role="img"
+                >
                     @if (view()->exists('capell-admin::img.logo'))
                         @include('capell-admin::img.logo')
                     @else
                         <span>Capell</span>
                     @endif
                 </div>
-                <h1>{{ __('capell-installer::installer.progress_heading') }}</h1>
+                <h1>
+                    {{ __('capell-installer::installer.progress_heading') }}
+                </h1>
                 <p>{{ __('capell-installer::installer.progress_title') }}</p>
             </div>
-            <span aria-live="polite" class="status {{ $installStatus }}" id="status-indicator" role="status">
+            <span
+                aria-live="polite"
+                class="status {{ $installStatus }}"
+                id="status-indicator"
+                role="status"
+            >
                 <span class="dot"></span>
                 <span class="label">{{ ucfirst($installStatus) }}</span>
             </span>
@@ -33,11 +47,18 @@
                         method="GET"
                         target="_blank"
                     >
-                        <button data-download-filename="{{ $reportDownloadFilename }}" type="submit">
+                        <button
+                            data-download-filename="{{ $reportDownloadFilename }}"
+                            type="submit"
+                        >
                             {{ __('capell-installer::installer.download_report') }}
                         </button>
                     </form>
-                    <a download="{{ $reportDownloadFilename }}" hidden href="{{ $reportUrl }}">
+                    <a
+                        download="{{ $reportDownloadFilename }}"
+                        hidden
+                        href="{{ $reportUrl }}"
+                    >
                         {{ __('capell-installer::installer.download_report') }}
                     </a>
                 </div>
@@ -56,19 +77,37 @@
                     <p class="summary-title">{{ __('capell-installer::installer.workspace_install_review') }}</p>
                     <ul class="summary-list">
                         <li>
-                            <strong> {{ __('capell-installer::installer.workspace_execution') }} </strong>
-                            <span id="summary-status"> {{ ucfirst($installStatus) }} </span>
+                            <strong>
+                                {{ __('capell-installer::installer.workspace_execution') }}
+                            </strong>
+                            <span id="summary-status">
+                                {{ ucfirst($installStatus) }}
+                            </span>
                         </li>
                     </ul>
                 </div>
             </aside>
         </div>
 
-        <footer class="panel-footer" id="actions-footer" hidden>
-            <a class="button secondary" href="{{ route('capell-installer.show') }}" id="back-link" hidden>
+        <footer
+            class="panel-footer"
+            id="actions-footer"
+            hidden
+        >
+            <a
+                class="button secondary"
+                href="{{ route('capell-installer.show') }}"
+                id="back-link"
+                hidden
+            >
                 {{ __('capell-installer::installer.back_to_installer') }}
             </a>
-            <a class="button primary" href="{{ url('/admin') }}" id="admin-link" hidden>
+            <a
+                class="button primary"
+                href="{{ url('/admin') }}"
+                id="admin-link"
+                hidden
+            >
                 {{ __('capell-installer::installer.go_to_admin') }}
             </a>
         </footer>

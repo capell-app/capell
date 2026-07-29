@@ -12,8 +12,15 @@
         wire:loading.attr="disabled"
         wire:target="{{ $target }}"
     >
-        <x-filament::loading-indicator class="h-4 w-4" wire:loading.delay wire:target="{{ $target }}" />
-        <span wire:loading.remove wire:target="{{ $target }}">
+        <x-filament::loading-indicator
+            class="h-4 w-4"
+            wire:loading.delay
+            wire:target="{{ $target }}"
+        />
+        <span
+            wire:loading.remove
+            wire:target="{{ $target }}"
+        >
             {{ __('capell-admin::navigation_tree.load_more') }}
         </span>
     </button>

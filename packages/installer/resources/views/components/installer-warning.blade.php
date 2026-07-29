@@ -29,11 +29,17 @@
         >
             <x-slot name="footer">
                 @if ($capellIsInstalled)
-                    <x-filament::link :href="$installUrl" tag="a">
+                    <x-filament::link
+                        :href="$installUrl"
+                        tag="a"
+                    >
                         {{ __('capell-installer::widgets.reinstall_action') }}
                     </x-filament::link>
                 @else
-                    <x-filament::link :href="$installUrl" tag="a">
+                    <x-filament::link
+                        :href="$installUrl"
+                        tag="a"
+                    >
                         {{ __('capell-installer::widgets.install_action') }}
                     </x-filament::link>
                 @endif
@@ -44,7 +50,13 @@
                     @if ($capellIsInstalled)
                         {{ $this->deleteInstallerAction }}
                     @else
-                        <x-filament::button :href="$installGuideUrl" tag="a" color="gray" size="sm" :outlined="true">
+                        <x-filament::button
+                            :href="$installGuideUrl"
+                            tag="a"
+                            color="gray"
+                            size="sm"
+                            :outlined="true"
+                        >
                             {{ __('capell-installer::widgets.install_guide_action') }}
                         </x-filament::button>
                     @endif
@@ -65,8 +77,12 @@
         </x-filament::callout>
 
         @if ($activeInstall ?? null)
-            <div class="border-info-200 bg-info-50 text-info-900 dark:border-info-800 dark:bg-info-950 dark:text-info-100 mt-3 rounded-lg border px-4 py-3 text-sm">
-                <div class="font-medium">{{ __('capell-installer::widgets.active_install_heading') }}</div>
+            <div
+                class="border-info-200 bg-info-50 text-info-900 dark:border-info-800 dark:bg-info-950 dark:text-info-100 mt-3 rounded-lg border px-4 py-3 text-sm"
+            >
+                <div class="font-medium">
+                    {{ __('capell-installer::widgets.active_install_heading') }}
+                </div>
 
                 <div class="mt-1">
                     {{
@@ -79,11 +95,18 @@
                 </div>
 
                 <div class="mt-2 flex flex-wrap gap-3">
-                    <x-filament::link :href="$activeInstall->progressUrl" tag="a">
+                    <x-filament::link
+                        :href="$activeInstall->progressUrl"
+                        tag="a"
+                    >
                         {{ __('capell-installer::widgets.active_install_progress_link') }}
                     </x-filament::link>
 
-                    <x-filament::link :href="$activeInstall->reportUrl" tag="a" target="_blank">
+                    <x-filament::link
+                        :href="$activeInstall->reportUrl"
+                        tag="a"
+                        target="_blank"
+                    >
                         {{ __('capell-installer::widgets.active_install_report_link') }}
                     </x-filament::link>
                 </div>

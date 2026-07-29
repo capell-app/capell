@@ -8,7 +8,11 @@
         {{ $this->content }}
 
         @if (session('capell-marketplace.open-marketplace'))
-            <div class="hidden" x-data x-init="$nextTick(() => $wire.mountAction('openMarketplace'))"></div>
+            <div
+                class="hidden"
+                x-data
+                x-init="$nextTick(() => $wire.mountAction('openMarketplace'))"
+            ></div>
         @endif
     </div>
 </x-filament-panels::page>

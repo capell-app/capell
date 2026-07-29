@@ -76,8 +76,12 @@
 @endonce
 
 @if ($record instanceof Theme && $card !== null)
-    <div class="group overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-950/5 transition duration-150 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-900 dark:ring-white/10">
-        <div class="relative aspect-[16/10] w-full overflow-hidden bg-gray-100 dark:bg-gray-950">
+    <div
+        class="group overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-950/5 transition duration-150 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-900 dark:ring-white/10"
+    >
+        <div
+            class="relative aspect-[16/10] w-full overflow-hidden bg-gray-100 dark:bg-gray-950"
+        >
             @if (is_string($card->imageUrl) && $card->imageUrl !== '')
                 <img
                     src="{{ $card->imageUrl }}"
@@ -86,7 +90,9 @@
                     loading="lazy"
                 />
             @else
-                <div class="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(var(--primary-500),0.18),transparent_34%),linear-gradient(135deg,rgba(37,99,235,0.82),rgba(15,23,42,0.86))] px-6 text-center">
+                <div
+                    class="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(var(--primary-500),0.18),transparent_34%),linear-gradient(135deg,rgba(37,99,235,0.82),rgba(15,23,42,0.86))] px-6 text-center"
+                >
                     <div class="max-w-52">
                         <div class="text-5xl font-semibold text-white">
                             {{ mb_strtoupper(mb_substr($card->title, 0, 1)) }}
@@ -95,10 +101,14 @@
                 </div>
             @endif
 
-            <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 to-transparent"></div>
+            <div
+                class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 to-transparent"
+            ></div>
 
             <div class="absolute right-3 bottom-3 left-3 min-w-0">
-                <h3 class="truncate text-base font-semibold text-white">{{ $card->title }}</h3>
+                <h3 class="truncate text-base font-semibold text-white">
+                    {{ $card->title }}
+                </h3>
                 <p class="mt-0.5 truncate text-xs text-white/75">{{ $card->package }}</p>
             </div>
         </div>
@@ -107,23 +117,31 @@
             <div class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2">
                     @if ($card->active)
-                        <span class="bg-success-50 text-success-700 ring-success-600/20 dark:bg-success-400/10 dark:text-success-300 rounded-md px-2 py-1 text-xs font-medium ring-1">
+                        <span
+                            class="bg-success-50 text-success-700 ring-success-600/20 dark:bg-success-400/10 dark:text-success-300 rounded-md px-2 py-1 text-xs font-medium ring-1"
+                        >
                             {{ __('capell-admin::theme-library.labels.active') }}
                         </span>
                     @endif
 
                     @if ($activePresetLabel !== null)
-                        <span class="bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 rounded-md px-2 py-1 text-xs font-medium ring-1">
+                        <span
+                            class="bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 rounded-md px-2 py-1 text-xs font-medium ring-1"
+                        >
                             {{ $activePresetLabel }}
                         </span>
                     @endif
 
                     @if ($diagnosticErrors->isNotEmpty())
-                        <span class="bg-danger-50 text-danger-700 ring-danger-600/20 dark:bg-danger-400/10 dark:text-danger-300 rounded-md px-2 py-1 text-xs font-medium ring-1">
+                        <span
+                            class="bg-danger-50 text-danger-700 ring-danger-600/20 dark:bg-danger-400/10 dark:text-danger-300 rounded-md px-2 py-1 text-xs font-medium ring-1"
+                        >
                             {{ __('capell-admin::theme-library.labels.diagnostics_error') }}
                         </span>
                     @elseif ($diagnosticWarnings->isNotEmpty())
-                        <span class="bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 rounded-md px-2 py-1 text-xs font-medium ring-1">
+                        <span
+                            class="bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 rounded-md px-2 py-1 text-xs font-medium ring-1"
+                        >
                             {{ __('capell-admin::theme-library.labels.diagnostics_warning') }}
                         </span>
                     @endif
@@ -140,22 +158,34 @@
                 @endif
             </div>
 
-            <details class="group/details border-t border-gray-100 pt-3 dark:border-white/10">
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-gray-700 marker:hidden dark:text-gray-200">
+            <details
+                class="group/details border-t border-gray-100 pt-3 dark:border-white/10"
+            >
+                <summary
+                    class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-gray-700 marker:hidden dark:text-gray-200"
+                >
                     <span class="flex items-center gap-2">
-                        <span> {{ __('capell-admin::theme-library.actions.show_details') }} </span>
+                        <span>
+                            {{ __('capell-admin::theme-library.actions.show_details') }}
+                        </span>
                     </span>
-                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    <span
+                        class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                    >
                         {{ __('capell-admin::table.expand') }}
                     </span>
                 </summary>
 
                 <div class="mt-3 grid gap-2 text-sm">
-                    <div class="rounded-md bg-gray-50 px-3 py-2 text-gray-700 dark:bg-white/5 dark:text-gray-200">
+                    <div
+                        class="rounded-md bg-gray-50 px-3 py-2 text-gray-700 dark:bg-white/5 dark:text-gray-200"
+                    >
                         {{ __('capell-admin::theme-library.labels.sites') }}: {{ $card->siteCount }}
                     </div>
 
-                    <div class="rounded-md bg-gray-50 px-3 py-2 text-gray-700 dark:bg-white/5 dark:text-gray-200">
+                    <div
+                        class="rounded-md bg-gray-50 px-3 py-2 text-gray-700 dark:bg-white/5 dark:text-gray-200"
+                    >
                         {{ __('capell-admin::theme-library.labels.package') }}: {{ $card->package }}
                     </div>
                 </div>

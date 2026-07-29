@@ -11,7 +11,9 @@
                             />
                         @endif
 
-                        <h3 class="font-semibold text-gray-950 dark:text-white">{{ $pageType->name }}</h3>
+                        <h3 class="font-semibold text-gray-950 dark:text-white">
+                            {{ $pageType->name }}
+                        </h3>
 
                         @if ($pageType->default)
                             <x-filament::badge color="primary">
@@ -29,7 +31,11 @@
                     </p>
                 </div>
 
-                <x-filament::button :href="$pageType->getAttribute('create_url')" tag="a" size="sm">
+                <x-filament::button
+                    :href="$pageType->getAttribute('create_url')"
+                    tag="a"
+                    size="sm"
+                >
                     {{ __('capell-admin::button.use_page_type') }}
                 </x-filament::button>
             </div>

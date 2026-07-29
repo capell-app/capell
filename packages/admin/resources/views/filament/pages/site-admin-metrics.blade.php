@@ -1,11 +1,18 @@
 <x-filament-panels::page>
-    <div class="space-y-6" data-testid="capell-site-admin-metrics">
+    <div
+        class="space-y-6"
+        data-testid="capell-site-admin-metrics"
+    >
         @forelse ($this->series() as $series)
             <x-filament::section>
-                <x-slot name="heading">{{ $series->label }}</x-slot>
+                <x-slot name="heading">
+                    {{ $series->label }}
+                </x-slot>
 
                 @if ($series->description !== '')
-                    <x-slot name="description">{{ $series->description }}</x-slot>
+                    <x-slot name="description">
+                        {{ $series->description }}
+                    </x-slot>
                 @endif
 
                 <div class="space-y-5">

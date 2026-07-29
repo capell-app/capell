@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+        name="robots"
+        content="noindex, nofollow"
+    />
     <title>Capell install required</title>
     <style>
         body {
@@ -55,21 +61,20 @@
 <body>
     <main data-testid="capell-install-required">
         <h1>Capell is not installed yet</h1>
-        <p>
-            This site reached a Capell frontend route, but Capell's core tables haven't been created in the database.
-            Run the install command from the project root to finish the setup:
-        </p>
+        <p>This site reached a Capell frontend route, but Capell's core tables haven't been created in the database. Run the install command from the project root to finish the setup:</p>
         <pre><code>php artisan capell:install</code></pre>
-        <p>
-            If you have already run migrations but the check still fails, make sure the
-            <code>capell-app/frontend</code>
-            package is registered in the
-            <code>plugins</code>
-            table.
-        </p>
+        <p>If you have already run migrations but the check still fails, make sure the
+        <code>capell-app/frontend</code>
+        package is registered in the
+        <code>plugins</code>
+        table.</p>
         <p>
             Full guide:
-            <a href="https://github.com/capell-app/capell/blob/1.x/docs/install-guide.md"> docs/install-guide.md </a>
+            <a
+                href="https://github.com/capell-app/capell/blob/1.x/docs/install-guide.md"
+            >
+                docs/install-guide.md
+            </a>
         </p>
     </main>
 </body>

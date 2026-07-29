@@ -115,7 +115,8 @@
     $title = __($title, $translationVariables);
 @endphp
 
-<div {{
+<div
+    {{
     $attributes->class([
         'content-component [&>:first-child]:mt-0 [&>:last-child]:mb-0',
         'capell-component capell-components-content',
@@ -126,7 +127,8 @@
         'text-center' => $textAlign === 'center',
         $textAlign => ! in_array($textAlign, ['left', 'right', 'center'], true),
     ])
-}}>
+}}
+>
     @if ($image)
         {{-- format-ignore-start --}}
         <x-capell::media
@@ -145,7 +147,10 @@
     @endif
 
     @if ($divider === 'above_heading' && $title)
-        <div aria-hidden="true" class="mb-4 border-t border-gray-200"></div>
+        <div
+            aria-hidden="true"
+            class="mb-4 border-t border-gray-200"
+        ></div>
     @endif
 
     @if ($title)
@@ -170,7 +175,10 @@
     @endif
 
     @if ($divider === 'below_heading' && $title)
-        <div aria-hidden="true" class="mb-4 border-t border-gray-200"></div>
+        <div
+            aria-hidden="true"
+            class="mb-4 border-t border-gray-200"
+        ></div>
     @endif
 
     @if ($contentType === ContentStructure::Blocks)
@@ -182,6 +190,9 @@
     {{ $slot ?? '' }}
 
     @if ($divider === 'below_content')
-        <div aria-hidden="true" class="mt-4 border-t border-gray-200"></div>
+        <div
+            aria-hidden="true"
+            class="mt-4 border-t border-gray-200"
+        ></div>
     @endif
 </div>

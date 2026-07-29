@@ -52,7 +52,12 @@
             x-ref="tabsData"
         />
 
-        <x-filament::tabs :contained="$isContained" :label="$label" :vertical="$isVertical" x-cloak>
+        <x-filament::tabs
+            :contained="$isContained"
+            :label="$label"
+            :vertical="$isVertical"
+            x-cloak
+        >
             @foreach ($getStartRenderHooks() as $startRenderHook)
                 {{ FilamentView::renderHook($startRenderHook, scopes: $renderHookScopes) }}
             @endforeach
@@ -117,7 +122,12 @@
             @endphp
 
             @if ($tabVisibilityJs)
-                <div x-show="{!! $tabVisibilityJs !!}" x-cloak>{{ $tab }}</div>
+                <div
+                    x-show="{!! $tabVisibilityJs !!}"
+                    x-cloak
+                >
+                    {{ $tab }}
+                </div>
             @else
                 {{ $tab }}
             @endif
@@ -128,7 +138,8 @@
         $activeTab = (string) ($this->{$livewireProperty});
     @endphp
 
-    <div {{
+    <div
+        {{
         $attributes
             ->merge([
                 'id' => $id,
@@ -140,8 +151,13 @@
                 'fi-contained' => $isContained,
                 'fi-vertical' => $isVertical,
             ])
-    }}>
-        <x-filament::tabs :contained="$isContained" :label="$label" :vertical="$isVertical">
+    }}
+    >
+        <x-filament::tabs
+            :contained="$isContained"
+            :label="$label"
+            :vertical="$isVertical"
+        >
             @foreach ($getStartRenderHooks() as $startRenderHook)
                 {{ FilamentView::renderHook($startRenderHook, scopes: $renderHookScopes) }}
             @endforeach

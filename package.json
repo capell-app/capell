@@ -8,7 +8,7 @@
         "docs:filament-action-screenshots": "node scripts/check-filament-action-screenshots.js",
         "docs:screenshots:check": "node scripts/check-doc-screenshots.js",
         "docs:publish": "cd ../../../capell-docs && CAPELL_CORE_PATH=../packages/capell/capell-4 npm run sync:local:core && npm run build",
-        "prettier": "npx prettier --write 'packages/**/*.{css,js,yml,json,md}'",
+        "prettier": "npx prettier --write 'packages/**/*.{css,js,yml,json,md,blade.php}'",
         "eslint": "npx eslint 'packages/*/resources/js/**/*.js' --max-warnings=0",
         "test:installer-browser": "playwright test packages/installer/tests/Browser",
         "test:installer-modules": "playwright test packages/installer/tests/Browser/installer-modules.spec.js --project=chromium",

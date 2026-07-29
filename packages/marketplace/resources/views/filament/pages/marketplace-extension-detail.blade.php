@@ -5,7 +5,9 @@
 
     @if ($this->detailLoadError !== null)
         <x-filament::section>
-            <x-slot name="heading">{{ __('capell-marketplace::marketplace.detail.unavailable_heading') }}</x-slot>
+            <x-slot name="heading">
+                {{ __('capell-marketplace::marketplace.detail.unavailable_heading') }}
+            </x-slot>
 
             <p class="text-sm text-gray-600 dark:text-gray-300">{{ $this->detailLoadError }}</p>
         </x-filament::section>
@@ -22,18 +24,26 @@
             ])
 
             <section class="space-y-4">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div
+                    class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+                >
                     <div class="max-w-3xl space-y-3">
                         <p class="text-sm font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
                             {{ $this->compatibilityLabel() }}
                         </p>
-                        <h1 class="text-2xl font-semibold text-gray-950 dark:text-white">{{ $detail->name }}</h1>
+                        <h1
+                            class="text-2xl font-semibold text-gray-950 dark:text-white"
+                        >
+                            {{ $detail->name }}
+                        </h1>
                         <p class="text-base leading-7 text-gray-600 dark:text-gray-300">
                             {{ $detail->description ?? $detail->summary ?? __('capell-marketplace::marketplace.card.no_description') }}
                         </p>
                     </div>
 
-                    <div class="min-w-56 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <div
+                        class="min-w-56 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                    >
                         <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
                             {{ __('capell-marketplace::marketplace.card.price_label') }}
                         </p>
@@ -52,7 +62,9 @@
                         aria-labelledby="marketplace-extension-screenshots-heading"
                         data-marketplace-extension-screenshots
                     >
-                        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div
+                            class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"
+                        >
                             <div>
                                 <h2
                                     id="marketplace-extension-screenshots-heading"
@@ -75,7 +87,9 @@
                                         : (is_string($image['title'] ?? null) ? $image['title'] : null);
                                 @endphp
 
-                                <figure class="{{ $isFeaturedScreenshot ? 'lg:col-span-2 lg:row-span-2' : '' }} overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
+                                <figure
+                                    class="{{ $isFeaturedScreenshot ? 'lg:col-span-2 lg:row-span-2' : '' }} overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900"
+                                >
                                     <img
                                         src="{{ $image['url'] }}"
                                         alt="{{ is_string($image['alt'] ?? null) ? $image['alt'] : __('capell-marketplace::marketplace.card.image_alt', ['name' => $detail->name]) }}"
@@ -84,7 +98,9 @@
                                     />
 
                                     @if ($caption !== null)
-                                        <figcaption class="border-t border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-white/10 dark:text-gray-300">
+                                        <figcaption
+                                            class="border-t border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-white/10 dark:text-gray-300"
+                                        >
                                             {{ $caption }}
                                         </figcaption>
                                     @endif
@@ -106,7 +122,9 @@
                     class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
                     data-marketplace-extension-docs
                 >
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
                         {{ __('capell-marketplace::marketplace.detail.docs_link_heading') }}
                     </h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
@@ -145,7 +163,9 @@
                     </div>
 
                     <div>
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">
+                        <h3
+                            class="text-sm font-semibold text-gray-950 dark:text-white"
+                        >
                             {{ __('capell-marketplace::marketplace.detail.why_not_heading') }}
                         </h3>
                         <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -154,7 +174,9 @@
                     </div>
 
                     <div>
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">
+                        <h3
+                            class="text-sm font-semibold text-gray-950 dark:text-white"
+                        >
                             {{ __('capell-marketplace::marketplace.detail.what_next_heading') }}
                         </h3>
                         <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -170,26 +192,43 @@
 
             @if ($manualInstallCommands !== [])
                 <div class="space-y-3">
-                    <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                        <x-filament::input.checkbox wire:model.live="showManualInstallCommands" />
+                    <label
+                        class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"
+                    >
+                        <x-filament::input.checkbox
+                            wire:model.live="showManualInstallCommands"
+                        />
 
-                        <span> {{ __('capell-marketplace::marketplace.detail.manual_install_checkbox_label') }} </span>
+                        <span>
+                            {{ __('capell-marketplace::marketplace.detail.manual_install_checkbox_label') }}
+                        </span>
                     </label>
 
                     @if ($showManualInstallCommands)
-                        <div class="grid gap-3 md:grid-cols-2" data-marketplace-manual-install-commands>
+                        <div
+                            class="grid gap-3 md:grid-cols-2"
+                            data-marketplace-manual-install-commands
+                        >
                             <div class="space-y-2">
-                                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <h3
+                                    class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >
                                     {{ __('capell-marketplace::marketplace.detail.manual_composer_heading') }}
                                 </h3>
-                                <pre class="overflow-x-auto rounded-md bg-gray-950 p-3 text-sm text-white"><code>{{ $manualInstallCommands['composer'] }}</code></pre>
+                                <pre
+                                    class="overflow-x-auto rounded-md bg-gray-950 p-3 text-sm text-white"
+                                ><code>{{ $manualInstallCommands['composer'] }}</code></pre>
                             </div>
 
                             <div class="space-y-2">
-                                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <h3
+                                    class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >
                                     {{ __('capell-marketplace::marketplace.detail.manual_install_command_heading') }}
                                 </h3>
-                                <pre class="overflow-x-auto rounded-md bg-gray-950 p-3 text-sm text-white"><code>{{ $manualInstallCommands['install'] }}</code></pre>
+                                <pre
+                                    class="overflow-x-auto rounded-md bg-gray-950 p-3 text-sm text-white"
+                                ><code>{{ $manualInstallCommands['install'] }}</code></pre>
                             </div>
                         </div>
                     @endif
@@ -197,7 +236,9 @@
             @endif
 
             <section class="space-y-3">
-                <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                <h2
+                    class="text-base font-semibold text-gray-950 dark:text-white"
+                >
                     {{ __('capell-marketplace::marketplace.detail.contract_heading') }}
                 </h2>
 
@@ -209,25 +250,33 @@
                         $this->stateLabel($detail->healthStatus),
                     ] as $badge)
                         @if ($badge !== null)
-                            <span class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                            <span
+                                class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200"
+                            >
                                 {{ $badge }}
                             </span>
                         @endif
                     @endforeach
 
                     @if ($detail->privateDocsEntitled)
-                        <span class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                        <span
+                            class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200"
+                        >
                             {{ __('capell-marketplace::marketplace.detail.private_docs_available') }}
                         </span>
                     @endif
 
                     @if ($this->frontendRenderBudgetLabel() !== null)
-                        <span class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                        <span
+                            class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200"
+                        >
                             {{ $this->frontendRenderBudgetLabel() }}
                         </span>
                     @endif
 
-                    <span class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                    <span
+                        class="rounded-md bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200"
+                    >
                         {{ trans_choice('capell-marketplace::marketplace.detail.contribution_count', $this->contributionCount(), ['count' => $this->contributionCount()]) }}
                     </span>
                 </div>
@@ -236,10 +285,14 @@
                     <dl class="grid gap-3 text-sm md:grid-cols-2">
                         @if ($detail->surfaces !== [])
                             <div>
-                                <dt class="font-medium text-gray-950 dark:text-white">
+                                <dt
+                                    class="font-medium text-gray-950 dark:text-white"
+                                >
                                     {{ __('capell-marketplace::marketplace.detail.surfaces_heading') }}
                                 </dt>
-                                <dd class="mt-1 text-gray-600 dark:text-gray-300">
+                                <dd
+                                    class="mt-1 text-gray-600 dark:text-gray-300"
+                                >
                                     {{ collect($detail->surfaces)->map(fn (string $surface): ?string => $this->stateLabel($surface))->filter()->implode(', ') }}
                                 </dd>
                             </div>
@@ -247,10 +300,14 @@
 
                         @if ($detail->requiredDependencies !== [])
                             <div>
-                                <dt class="font-medium text-gray-950 dark:text-white">
+                                <dt
+                                    class="font-medium text-gray-950 dark:text-white"
+                                >
                                     {{ __('capell-marketplace::marketplace.detail.dependencies_heading') }}
                                 </dt>
-                                <dd class="mt-1 text-gray-600 dark:text-gray-300">
+                                <dd
+                                    class="mt-1 text-gray-600 dark:text-gray-300"
+                                >
                                     {{ implode(', ', $detail->requiredDependencies) }}
                                 </dd>
                             </div>
@@ -259,8 +316,12 @@
                 @endif
             </section>
 
-            <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+            <section
+                class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+            >
+                <h2
+                    class="text-base font-semibold text-gray-950 dark:text-white"
+                >
                     {{ __('capell-marketplace::marketplace.detail.access_heading') }}
                 </h2>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
@@ -308,14 +369,20 @@
 
             @if ($this->publicDocumentation() !== [])
                 <section class="space-y-3">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
                         {{ __('capell-marketplace::marketplace.detail.documentation_heading') }}
                     </h2>
 
                     <div class="grid gap-3 md:grid-cols-2">
                         @foreach ($this->publicDocumentation() as $document)
-                            <article class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                                <h3 class="font-semibold text-gray-950 dark:text-white">
+                            <article
+                                class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                            >
+                                <h3
+                                    class="font-semibold text-gray-950 dark:text-white"
+                                >
                                     {{ $document['title'] ?? __('capell-marketplace::marketplace.detail.documentation_item') }}
                                 </h3>
                                 @if (is_string($document['body'] ?? null))
@@ -331,12 +398,16 @@
 
             @if ($detail->versionHistory !== [])
                 <section class="space-y-3">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
                         {{ __('capell-marketplace::marketplace.detail.version_history_heading') }}
                     </h2>
                     <div class="space-y-2">
                         @foreach ($detail->versionHistory as $version)
-                            <article class="rounded-lg border border-gray-200 bg-white p-4 text-sm shadow-sm dark:border-white/10 dark:bg-gray-900">
+                            <article
+                                class="rounded-lg border border-gray-200 bg-white p-4 text-sm shadow-sm dark:border-white/10 dark:bg-gray-900"
+                            >
                                 <p class="font-semibold text-gray-950 dark:text-white">
                                     {{ $version['version'] ?? __('capell-marketplace::marketplace.card.unknown_version') }}
                                 </p>
@@ -350,8 +421,12 @@
             @endif
 
             @if ($this->canSubmitFeedback())
-                <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                <section
+                    class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                >
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
                         {{ __('capell-marketplace::marketplace.feedback.heading') }}
                     </h2>
 
@@ -365,13 +440,20 @@
                         </p>
                     @endif
 
-                    <form wire:submit="submitFeedback" class="mt-4 space-y-4">
+                    <form
+                        wire:submit="submitFeedback"
+                        class="mt-4 space-y-4"
+                    >
                         @if ($this->canRate())
                             <label class="block space-y-1">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <span
+                                    class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >
                                     {{ __('capell-marketplace::marketplace.feedback.rating_label') }}
                                     @if ($this->ratingIsRequired())
-                                        <span class="text-danger-600 dark:text-danger-400">
+                                        <span
+                                            class="text-danger-600 dark:text-danger-400"
+                                        >
                                             {{ __('capell-marketplace::marketplace.feedback.required_suffix') }}
                                         </span>
                                     @endif
@@ -405,7 +487,9 @@
 
                         @if ($this->canComment())
                             <label class="block space-y-1">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <span
+                                    class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >
                                     {{ __('capell-marketplace::marketplace.feedback.comment_label') }}
                                 </span>
                                 <textarea
@@ -429,7 +513,9 @@
                             </label>
 
                             <label class="block space-y-1">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                <span
+                                    class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >
                                     {{ __('capell-marketplace::marketplace.feedback.tip_label') }}
                                 </span>
                                 <textarea
@@ -443,7 +529,10 @@
                                     class="block w-full rounded-md border-gray-300 shadow-sm dark:border-white/10 dark:bg-gray-950"
                                 ></textarea>
                                 @error('feedbackTip')
-                                    <span id="feedback-tip-error" class="text-danger-600 dark:text-danger-400 text-sm">
+                                    <span
+                                        id="feedback-tip-error"
+                                        class="text-danger-600 dark:text-danger-400 text-sm"
+                                    >
                                         {{ $message }}
                                     </span>
                                 @enderror

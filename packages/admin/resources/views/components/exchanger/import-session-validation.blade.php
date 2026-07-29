@@ -28,11 +28,15 @@
             <dl class="mt-2 space-y-1 text-sm">
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_create') }}</dt>
-                    <dd class="font-mono">{{ $pagesBuckets['create'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $pagesBuckets['create'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_update') }}</dt>
-                    <dd class="font-mono">{{ $pagesBuckets['update'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $pagesBuckets['update'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_skip') }}</dt>
@@ -47,23 +51,33 @@
             <dl class="mt-2 space-y-1 text-sm">
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_match') }}</dt>
-                    <dd class="font-mono">{{ $relationsBuckets['match'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $relationsBuckets['match'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_create') }}</dt>
-                    <dd class="font-mono">{{ $relationsBuckets['create'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $relationsBuckets['create'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_clone') }}</dt>
-                    <dd class="font-mono">{{ $relationsBuckets['clone'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $relationsBuckets['clone'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_update') }}</dt>
-                    <dd class="font-mono">{{ $relationsBuckets['update'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $relationsBuckets['update'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_skip') }}</dt>
-                    <dd class="font-mono">{{ $relationsBuckets['skip'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $relationsBuckets['skip'] ?? 0 }}
+                    </dd>
                 </div>
             </dl>
         </div>
@@ -74,7 +88,9 @@
             <dl class="mt-2 space-y-1 text-sm">
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_import') }}</dt>
-                    <dd class="font-mono">{{ $mediaBuckets['import'] ?? 0 }}</dd>
+                    <dd class="font-mono">
+                        {{ $mediaBuckets['import'] ?? 0 }}
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt>{{ __('capell-admin::exchanger.summary_reuse') }}</dt>
@@ -85,11 +101,15 @@
     </div>
 
     @if (! empty($blockingErrors))
-        <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950">
+        <div
+            class="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950"
+        >
             <h3 class="text-sm font-semibold text-rose-800 dark:text-rose-200">
                 {{ __('capell-admin::exchanger.summary_blocking_errors') }}
             </h3>
-            <ul class="mt-2 list-disc space-y-1 pl-6 text-sm text-rose-700 dark:text-rose-200">
+            <ul
+                class="mt-2 list-disc space-y-1 pl-6 text-sm text-rose-700 dark:text-rose-200"
+            >
                 @foreach ($blockingErrors as $blockingMessage)
                     <li>{{ $blockingMessage }}</li>
                 @endforeach
@@ -98,11 +118,17 @@
     @endif
 
     @if (! empty($warningEntries))
-        <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
-            <h3 class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+        <div
+            class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950"
+        >
+            <h3
+                class="text-sm font-semibold text-amber-800 dark:text-amber-200"
+            >
                 {{ __('capell-admin::exchanger.summary_warnings') }}
             </h3>
-            <ul class="mt-2 list-disc space-y-1 pl-6 text-sm text-amber-700 dark:text-amber-200">
+            <ul
+                class="mt-2 list-disc space-y-1 pl-6 text-sm text-amber-700 dark:text-amber-200"
+            >
                 @foreach ($warningEntries as $warningMessage)
                     <li>{{ $warningMessage }}</li>
                 @endforeach
@@ -110,5 +136,7 @@
         </div>
     @endif
 @else
-    <pre class="overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-900 dark:bg-white/5 dark:text-gray-100"><code>{{ json_encode($validationResults, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</code></pre>
+    <pre
+        class="overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-900 dark:bg-white/5 dark:text-gray-100"
+    ><code>{{ json_encode($validationResults, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</code></pre>
 @endif

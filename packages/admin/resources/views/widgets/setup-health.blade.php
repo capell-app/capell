@@ -30,14 +30,20 @@
             <!-- Progress Bar -->
             <div>
                 <div class="mb-2 flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
                         {{ $greenCount }} of {{ $totalChecks }} complete
                     </span>
-                    <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <span
+                        class="text-sm font-semibold text-gray-900 dark:text-gray-100"
+                    >
                         {{ $progressPercentage }}%
                     </span>
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                    class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                >
                     <div
                         class="h-full rounded-full transition-all duration-300 ease-out"
                         style="
@@ -54,7 +60,9 @@
                     <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Items to complete:</p>
                     <div class="space-y-2">
                         @foreach ($failingChecks as $check)
-                            <div class="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800">
+                            <div
+                                class="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800"
+                            >
                                 <div class="flex items-center gap-3">
                                     @if ($check->status === SetupHealthEnum::Amber)
                                         <svg
@@ -81,7 +89,11 @@
                                             />
                                         </svg>
                                     @endif
-                                    <span class="text-sm text-gray-700 dark:text-gray-300"> {{ $check->label }} </span>
+                                    <span
+                                        class="text-sm text-gray-700 dark:text-gray-300"
+                                    >
+                                        {{ $check->label }}
+                                    </span>
                                 </div>
                                 @if ($check->fixUrl && $check->fixLabel)
                                     <a
