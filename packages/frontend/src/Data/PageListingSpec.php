@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Data;
 
 use BackedEnum;
-use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PageOrderEnum;
-use Capell\Core\Models\Language;
-use Capell\Core\Models\Site;
 
 final class PageListingSpec
 {
@@ -29,36 +26,28 @@ final class PageListingSpec
         public readonly string $cacheKeySuffix,
     ) {}
 
-    public static function fromGetPages(
-        Language $language,
-        ?Site $site,
-        ?Pageable $page,
-        ?string $type,
-        ?int $limit,
-        ?PageOrderEnum $ordering,
-        ?string $pageType,
-        null|string|BackedEnum $pageGroup,
-        ?string $typeKey,
-        bool $optionalLanguage,
-        bool $onlyListableTypes,
-        ?string $morphModel,
-        string $cacheKeySuffix,
+    public static function fromRequest(
+        PageListingRequestData $request,
+        ?int $effectiveLimit = null,
+        ?PageOrderEnum $effectiveOrdering = null,
     ): self {
         return new self(
-            languageId: $language->id,
-            siteId: $site?->id,
-            type: $type,
-            ordering: $ordering,
-            pageType: $pageType,
-            pageGroup: $pageGroup instanceof BackedEnum ? $pageGroup->value : $pageGroup,
-            typeKey: $typeKey,
-            morphModel: $morphModel,
-            pageableId: $page?->getKey(),
-            pageableType: $page?->getMorphClass(),
-            optionalLanguage: $optionalLanguage,
-            onlyListableTypes: $onlyListableTypes,
-            limit: $limit,
-            cacheKeySuffix: $cacheKeySuffix,
+            languageId: $request->language->id,
+            siteId: $request->site?->id,
+            type: $request->type,
+            ordering: $effectiveOrdering ?? $request->ordering,
+            pageType: $request->pageType,
+            pageGroup: $request->pageGroup instanceof BackedEnum
+                ? (string) $request->pageGroup->value
+                : $request->pageGroup,
+            typeKey: $request->typeKey,
+            morphModel: $request->morphModel,
+            pageableId: $request->page?->getKey(),
+            pageableType: $request->page?->getMorphClass(),
+            optionalLanguage: $request->optionalLanguage,
+            onlyListableTypes: $request->onlyListableTypes,
+            limit: $effectiveLimit ?? $request->limit,
+            cacheKeySuffix: $request->cacheKeySuffix,
         );
     }
 

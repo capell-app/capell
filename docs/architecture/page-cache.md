@@ -20,7 +20,7 @@ The old `getPages()` cached a full `Collection<Page>` — models with all eager-
 Request
   │
   ▼
-PageLoader::getPages()
+PageLoader::list(PageListingRequestData)
   │
   ├─[1]─ PageListingCache ──► array<int> ordered IDs  (no relations, no full models)
   │          │
@@ -117,7 +117,13 @@ Example: `page-model-Page-42-site-1-lang-3`
 ## How a paginated listing request flows
 
 ```
-getPages(language: $lang, site: $site, limit: 10, paginationPage: 2, ordering: Latest)
+PageLoader::list(new PageListingRequestData(
+    language: $lang,
+    site: $site,
+    limit: 10,
+    paginationPage: 2,
+    ordering: PageOrderEnum::Latest,
+))
 │
 ├─ Build PageListingSpec (no paginationPage — it is not part of the spec)
 │
@@ -208,14 +214,15 @@ PageCacheInvalidator::onSaved($page)
 
 ## Key classes
 
-| Class                  | Namespace                       | Purpose                                                                              |
-| ---------------------- | ------------------------------- | ------------------------------------------------------------------------------------ |
-| `PageListingSpec`      | `Capell\Frontend\Data`          | DTO — all listing filter params except pagination. Produces deterministic cache key. |
-| `PageListingCache`     | `Capell\Frontend\Support\Cache` | Reads/writes ordered `int[]` ID lists. Manages generation counters.                  |
-| `PageModelCache`       | `Capell\Frontend\Support\Cache` | Reads/writes one canonical full model per (type, id, site, language).                |
-| `PageHydrator`         | `Capell\Frontend\Support\Cache` | Converts `int[]` IDs to `Collection<Page>`. Merges post-hydration extras.            |
-| `PageCacheInvalidator` | `Capell\Frontend\Support\Cache` | Orchestrates model + listing invalidation on save/delete.                            |
-| `CacheEnum` (Frontend) | `Capell\Frontend\Enums`         | `pageIds()`, `pageModel()`, `listingGeneration()` — all cache key generation.        |
+| Class                    | Namespace                       | Purpose                                                                                          |
+| ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `PageListingRequestData` | `Capell\Frontend\Data`          | Preferred typed boundary for page listings, including pagination, hydration, and cache policy.   |
+| `PageListingSpec`        | `Capell\Frontend\Data`          | Internal cache specification derived from the typed request. Produces a deterministic cache key. |
+| `PageListingCache`       | `Capell\Frontend\Support\Cache` | Reads/writes ordered `int[]` ID lists. Manages generation counters.                              |
+| `PageModelCache`         | `Capell\Frontend\Support\Cache` | Reads/writes one canonical full model per (type, id, site, language).                            |
+| `PageHydrator`           | `Capell\Frontend\Support\Cache` | Converts `int[]` IDs to `Collection<Page>`. Merges post-hydration extras.                        |
+| `PageCacheInvalidator`   | `Capell\Frontend\Support\Cache` | Orchestrates model + listing invalidation on save/delete.                                        |
+| `CacheEnum` (Frontend)   | `Capell\Frontend\Enums`         | `pageIds()`, `pageModel()`, `listingGeneration()` — all cache key generation.                    |
 
 All three cache services are bound as singletons and use the `HasCache` trait for normalisation, TTL, sentinel handling, and per-request local caching.
 
@@ -225,9 +232,11 @@ All three cache services are bound as singletons and use the `HasCache` trait fo
 
 ### `modifyQuery` and cache isolation
 
-`getPages()` accepts a `?Closure $modifyQuery` that modifies the ID query. Because the closure is not part of the listing spec, two calls with identical specs but different closures would collide on the same listing cache entry.
+`PageListingRequestData::$modifyQuery` modifies the ID query. Because a closure cannot form part of a deterministic listing specification, two otherwise identical requests with different closures would collide on the same listing cache entry.
 
-Callers that pass `modifyQuery` **must** also pass a unique `cacheKeyPrepend` (feeds `PageListingSpec::$cacheKeySuffix`). Without it, cache correctness is not guaranteed.
+When a modifier has a stable, complete identity, callers should provide that identity in `cacheKeySuffix`. Capell then caches both the ordered ID list and hydrated models. If `modifyQuery` is supplied without a suffix, Capell automatically bypasses both caches for that request. Request-specific modifiers therefore remain correct by default.
+
+The deprecated 1.x `getPages()` adapter maps its `cacheKeyPrepend` argument to `PageListingRequestData::$cacheKeySuffix`.
 
 ### `optionalLanguage`
 
@@ -235,4 +244,4 @@ When `optionalLanguage: true`, the ID query uses `LanguagesOrderScope` instead o
 
 ### `useCache: false`
 
-Passing `useCache: false` to `getPages()` bypasses both `PageListingCache` and `PageModelCache`. The ID query runs directly and models are loaded from the database. This is intended for admin previews and situations where stale data must not be shown.
+Passing `useCache: false` in `PageListingRequestData` bypasses both `PageListingCache` and `PageModelCache`. The ID query runs directly and models are loaded from the database. This is intended for admin previews and situations where stale data must not be shown.
