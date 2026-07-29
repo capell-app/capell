@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -16,41 +18,31 @@ final class CancelMarketplaceInstallAttemptAction
 
     public function handle(MarketplaceInstallAttempt $attempt): MarketplaceInstallAttempt
     {
-        $attempt->refresh();
+        return DB::transaction(function () use ($attempt): MarketplaceInstallAttempt {
+            $lockedAttempt = MarketplaceInstallAttempt::query()
+                ->whereKey((int) $attempt->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {
-            $updated = MarketplaceInstallAttempt::query()
-                ->whereKey($attempt->getKey())
-                ->where('status', MarketplaceInstallIntentStatus::Queued->value)
-                ->update([
-                    'status' => MarketplaceInstallIntentStatus::Cancelled->value,
-                    'cancel_requested_at' => now(),
-                    'cancelled_at' => now(),
-                    'completed_at' => now(),
-                    'resolved_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-            $attempt->refresh();
-
-            if ($updated === 1) {
-                return $attempt;
+            if ($lockedAttempt->status === MarketplaceInstallIntentStatus::Queued) {
+                return TransitionMarketplaceInstallAttemptAction::run(
+                    $lockedAttempt,
+                    new MarketplaceInstallAttemptTransitionData(
+                        toStatus: MarketplaceInstallIntentStatus::Cancelled,
+                    ),
+                );
             }
-        }
 
-        if ($attempt->status === MarketplaceInstallIntentStatus::Running) {
-            MarketplaceInstallAttempt::query()
-                ->whereKey($attempt->getKey())
-                ->where('status', MarketplaceInstallIntentStatus::Running->value)
-                ->update([
-                    'status' => MarketplaceInstallIntentStatus::CancelRequested->value,
-                    'cancel_requested_at' => now(),
-                    'updated_at' => now(),
-                ]);
+            if ($lockedAttempt->status === MarketplaceInstallIntentStatus::Running) {
+                return TransitionMarketplaceInstallAttemptAction::run(
+                    $lockedAttempt,
+                    new MarketplaceInstallAttemptTransitionData(
+                        toStatus: MarketplaceInstallIntentStatus::CancelRequested,
+                    ),
+                );
+            }
 
-            $attempt->refresh();
-        }
-
-        return $attempt;
+            return $lockedAttempt;
+        });
     }
 }
