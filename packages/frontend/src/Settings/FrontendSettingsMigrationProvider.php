@@ -12,6 +12,7 @@ class FrontendSettingsMigrationProvider implements SettingsMigrationProviderInte
     {
         return [
             '2026_05_10_190835_01_create_frontend_settings',
+            '2026_07_29_000001_add_scheduled_publication_invalidation_checkpoint',
         ];
     }
 
