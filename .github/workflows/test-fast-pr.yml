@@ -104,11 +104,12 @@ jobs:
 
           composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-phpstan pestphp/pest-plugin-livewire calebdw/larastan-livewire
           dev_tools=(
-            "pestphp/pest:^4.3"
-            "pestphp/pest-plugin-arch:^4.0"
-            "pestphp/pest-plugin-laravel:^4.0"
-            "pestphp/pest-plugin-livewire:^4.0"
-            "pestphp/pest-plugin-type-coverage:^4.0"
+            "pestphp/pest:^5.0"
+            "pestphp/pest-plugin-arch:^5.0"
+            "pestphp/pest-plugin-laravel:^5.0"
+            "pestphp/pest-plugin-livewire:^5.0"
+            "pestphp/pest-plugin-phpstan:^5.0"
+            "pestphp/pest-plugin-type-coverage:^5.0"
             "phpstan/phpstan:^2.1"
             "phpstan/phpstan-mockery:^2.0"
             "phpstan/phpstan-strict-rules:^2.0"
