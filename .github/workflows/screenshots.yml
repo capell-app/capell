@@ -19,11 +19,6 @@ on:
         description: 'Optional manifest package to capture, such as documentation, admin, core, frontend, installer, or marketplace'
         required: false
         type: string
-      screenshot_runner_ref:
-        description: 'Git ref for capell-app/capell-screenshot-runner'
-        required: false
-        default: 'main'
-        type: string
       dry_run:
         description: 'Validate the capture selection without building the screenshot app'
         required: false
@@ -40,14 +35,7 @@ jobs:
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       CAPELL_CORE_REPO_PATH: ${{ github.workspace }}/repositories/capell
-      CAPELL_PACKAGES_REPO: ${{ github.workspace }}/repositories/capell-packages
-      CAPELL_SCREENSHOT_RUNNER_PATH: ${{ github.workspace }}/services/capell-screenshot-runner
       CAPELL_REPO: ${{ github.workspace }}/repositories/capell
-      CAPELL_SCREENSHOT_APP_PATH: ${{ github.workspace }}/services/capell-screenshot-runner
-      CAPELL_ADMIN_URL: http://127.0.0.1:8000/admin
-      CAPELL_FRONTEND_URL: http://127.0.0.1:8000
-      DB_CONNECTION: sqlite
-      DB_DATABASE: ${{ github.workspace }}/services/capell-screenshot-runner/database/database.sqlite
 
     steps:
       - name: Checkout core repository
@@ -88,23 +76,13 @@ jobs:
           cat /tmp/capell-core-screenshot-packages.txt
           echo "has_packages=true" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout screenshot runner
+      - name: Checkout screenshot tools
         if: steps.packages.outputs.has_packages == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: capell-app/capell-screenshot-runner
-          ref: ${{ inputs.screenshot_runner_ref || 'main' }}
+          repository: capell-app/capell-screenshot-tools
           token: ${{ secrets.ACCESS_TOKEN }}
-          path: services/capell-screenshot-runner
-
-      - name: Checkout package repository
-        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: capell-app/capell-packages
-          ref: main
-          token: ${{ secrets.ACCESS_TOKEN }}
-          path: repositories/capell-packages
+          path: repositories/capell-screenshot-tools
 
       - name: Setup PHP
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
@@ -120,20 +98,25 @@ jobs:
         working-directory: repositories/capell
         run: npm ci
 
-      - name: Install screenshot runner Node dependencies
+      - name: Install core PHP dependencies
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        working-directory: repositories/capell
+        run: composer install --no-interaction --no-progress --ansi
+
+      - name: Install screenshot tools dependencies
         if: steps.packages.outputs.has_packages == 'true'
-        working-directory: services/capell-screenshot-runner
+        working-directory: repositories/capell-screenshot-tools
         run: npm ci
 
       - name: Install Playwright browser
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
-        working-directory: services/capell-screenshot-runner
-        run: npm run install:browsers
+        working-directory: repositories/capell-screenshot-tools
+        run: npx playwright install chromium
 
-      - name: Prepare screenshot runner app
+      - name: Prepare Core screenshot workbench
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
-        working-directory: services/capell-screenshot-runner
-        run: npm run prepare:app
+        working-directory: repositories/capell
+        run: npm run screenshots:prepare
 
       - name: Capture selected screenshots
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
