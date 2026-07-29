@@ -240,7 +240,11 @@ return new class extends Migration
             throw new RuntimeException(sprintf('Permission table [%s] is not a safe SQL identifier.', $table));
         }
 
-        $inspection = $platform->schemaDialect()->inspectGeneratedColumn($table, self::SCOPE_COLUMN);
+        $inspection = $platform->schemaDialect()->inspectGeneratedColumn(
+            $table,
+            self::SCOPE_COLUMN,
+            DB::connection(),
+        );
 
         return collect(DB::select($inspection->sql, $inspection->bindings))
             ->contains(static fn (object $column): bool => ($column->name ?? null) === self::SCOPE_COLUMN);

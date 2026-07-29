@@ -101,9 +101,15 @@ final class DatabasePlatformRegistry
 
         $driver = strtolower(trim($context));
 
-        return isset($this->platforms[$driver])
-            ? $this->forDriver($driver)
-            : $this->forConnection($context);
+        if (isset($this->platforms[$driver])) {
+            return $this->forDriver($driver);
+        }
+
+        if (is_array(config('database.connections.' . $context))) {
+            return $this->forConnection($context);
+        }
+
+        return $this->forDriver($driver);
     }
 
     public function forDriver(string $driver): DatabasePlatform

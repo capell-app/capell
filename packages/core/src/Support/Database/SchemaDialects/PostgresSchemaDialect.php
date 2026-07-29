@@ -92,43 +92,81 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
         }
 
         try {
-            $indexes = $connection->getSchemaBuilder()->getIndexes($index->table);
+            $result = $connection->selectOne(
+                <<<'SQL'
+                    SELECT pg_get_indexdef(index_class.oid) AS definition
+                    FROM pg_catalog.pg_class AS index_class
+                    INNER JOIN pg_catalog.pg_index AS index_metadata
+                        ON index_metadata.indexrelid = index_class.oid
+                    INNER JOIN pg_catalog.pg_class AS table_class
+                        ON table_class.oid = index_metadata.indrelid
+                    INNER JOIN pg_catalog.pg_namespace AS table_namespace
+                        ON table_namespace.oid = table_class.relnamespace
+                    WHERE table_namespace.nspname = current_schema()
+                        AND table_class.relname = ?
+                        AND index_class.relname = ?
+                        AND index_metadata.indisvalid = TRUE
+                    LIMIT 1
+                    SQL,
+                [$this->physicalTableName($index->table, $connection), $index->name],
+            );
         } catch (Throwable) {
             return false;
         }
 
-        foreach ($indexes as $existingIndex) {
-            if (strtolower($existingIndex['name']) === strtolower($index->name)
-                && strtolower($existingIndex['type']) === 'gin') {
-                return true;
-            }
+        $definition = is_object($result) ? ($result->definition ?? null) : null;
+
+        if (! is_string($definition)) {
+            return false;
         }
 
-        return false;
+        $expected = $this->fullTextIndex($index)->sql;
+
+        return $this->normalizedGinDefinition($definition) === $this->normalizedGinDefinition($expected);
     }
 
-    public function inspectGeneratedColumn(string $table, string $column): SqlFragment
+    public function inspectGeneratedColumn(string $table, string $column, ?Connection $connection = null): SqlFragment
     {
         return new SqlFragment(
             'SELECT generation_expression FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?',
-            [$table, $column],
+            [$this->physicalTableName($table, $connection), $column],
         );
     }
 
     public function hasConstraint(string $table, string $constraint, Connection $connection): bool
     {
-        return $connection->table('information_schema.table_constraints')
+        return $connection->query()
+            ->fromRaw('information_schema.table_constraints')
             ->whereRaw('constraint_schema = current_schema()')
-            ->where('table_name', $table)
+            ->where('table_name', $this->physicalTableName($table, $connection))
             ->where('constraint_name', $constraint)
             ->exists();
     }
 
     public function hasTrigger(string $trigger, Connection $connection): bool
     {
-        return $connection->table('information_schema.triggers')
+        return $connection->query()
+            ->fromRaw('information_schema.triggers')
             ->whereRaw('trigger_schema = current_schema()')
             ->where('trigger_name', $trigger)
             ->exists();
+    }
+
+    private function normalizedGinDefinition(string $definition): ?string
+    {
+        $gin = stripos($definition, 'using gin');
+
+        if ($gin === false) {
+            return null;
+        }
+
+        $definition = substr($definition, $gin);
+        $definition = preg_replace('/::(?:regconfig|text)\b/i', '', $definition);
+
+        if (! is_string($definition)) {
+            return null;
+        }
+
+        return strtolower(str_replace(['"', '(', ')', ' ', "\n", "\r", "\t"], '', $definition));
     }
 }

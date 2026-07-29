@@ -20,6 +20,7 @@ use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
+use Capell\Core\Support\Database\SchemaDialects\PostgresSchemaDialect;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Query\Builder;
@@ -85,7 +86,9 @@ it('resolves configured connections and rejects duplicates and unknown drivers',
         ->and(fn (): DatabasePlatformRegistry => $registry->register(new SqliteDatabasePlatform))
         ->toThrow(LogicException::class, 'Database driver [sqlite] is already registered.')
         ->and(fn (): DatabasePlatform => $registry->for('sqlsrv'))
-        ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].');
+        ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [sqlsrv].')
+        ->and(fn (): DatabasePlatform => $registry->for('capell_missing_driver'))
+        ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [capell_missing_driver].');
 });
 
 it('caches full text index compatibility across registry scopes and supports invalidation', function (): void {
@@ -905,24 +908,29 @@ it('inspects constraints triggers and foreign key references on the active engin
     $connection = DB::connection();
     $platform = CapellDatabase::for($connection);
     $family = $platform->family();
-    $parentTable = 'capell_metadata_parent';
-    $childTable = 'capell_metadata_child';
+    $originalPrefix = $connection->getTablePrefix();
+    $testPrefix = 'capell_meta_';
+    $connection->setTablePrefix($testPrefix);
+    $parentTable = 'parent';
+    $childTable = 'child';
+    $physicalParentTable = $testPrefix . $parentTable;
+    $physicalChildTable = $testPrefix . $childTable;
     $trigger = 'capell_metadata_trigger';
     $constraint = 'capell_metadata_check';
-    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $childTable));
-    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $parentTable));
+    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $physicalChildTable));
+    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $physicalParentTable));
 
     if ($family === DatabaseFamily::PostgreSql) {
         $connection->unprepared('DROP FUNCTION IF EXISTS capell_metadata_trigger_fn()');
     }
 
     try {
-        $connection->statement(sprintf('CREATE TABLE %s (id INTEGER PRIMARY KEY)', $parentTable));
+        $connection->statement(sprintf('CREATE TABLE %s (id INTEGER PRIMARY KEY)', $physicalParentTable));
         $connection->statement(sprintf(
             "CREATE TABLE %s (parent_id INTEGER, name VARCHAR(50), CONSTRAINT %s CHECK (name <> ''), CONSTRAINT capell_metadata_foreign FOREIGN KEY (parent_id) REFERENCES %s (id))",
-            $childTable,
+            $physicalChildTable,
             $constraint,
-            $parentTable,
+            $physicalParentTable,
         ));
 
         match ($family) {
@@ -930,24 +938,45 @@ it('inspects constraints triggers and foreign key references on the active engin
             DatabaseFamily::MariaDb => $connection->unprepared(sprintf(
                 'CREATE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW SET NEW.name = NEW.name',
                 $trigger,
-                $childTable,
+                $physicalChildTable,
             )),
-            DatabaseFamily::PostgreSql => (function () use ($connection, $trigger, $childTable): void {
+            DatabaseFamily::PostgreSql => (function () use ($connection, $trigger, $physicalChildTable): void {
                 $connection->unprepared('CREATE FUNCTION capell_metadata_trigger_fn() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$');
                 $connection->unprepared(sprintf(
                     'CREATE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION capell_metadata_trigger_fn()',
                     $trigger,
-                    $childTable,
+                    $physicalChildTable,
                 ));
             })(),
             DatabaseFamily::Sqlite => $connection->unprepared(sprintf(
                 'CREATE TRIGGER %s AFTER INSERT ON %s BEGIN SELECT 1; END',
                 $trigger,
-                $childTable,
+                $physicalChildTable,
             )),
         };
 
         $dialect = $platform->schemaDialect();
+        $generatedColumn = $dialect->generatedColumn(
+            $physicalChildTable,
+            'name_length',
+            match ($family) {
+                DatabaseFamily::MySql,
+                DatabaseFamily::MariaDb => 'CHAR_LENGTH(name)',
+                DatabaseFamily::PostgreSql => 'char_length(name)',
+                DatabaseFamily::Sqlite => 'length(name)',
+            },
+            'INTEGER',
+        );
+        $connection->statement($generatedColumn->sql, $generatedColumn->bindings);
+        $generatedColumnInspection = $dialect->inspectGeneratedColumn(
+            $childTable,
+            'name_length',
+            $connection,
+        );
+        $generatedColumns = $connection->select(
+            $generatedColumnInspection->sql,
+            $generatedColumnInspection->bindings,
+        );
 
         expect($dialect->hasConstraint($childTable, $constraint, $connection))->toBeTrue()
             ->and($dialect->hasConstraint($childTable, 'missing_constraint', $connection))->toBeFalse()
@@ -966,14 +995,17 @@ it('inspects constraints triggers and foreign key references on the active engin
                 'missing_parent',
                 'id',
                 $connection,
-            ))->toBeFalse();
+            ))->toBeFalse()
+            ->and($generatedColumns)->not->toBeEmpty();
     } finally {
-        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $childTable));
-        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $parentTable));
+        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $physicalChildTable));
+        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $physicalParentTable));
 
         if ($family === DatabaseFamily::PostgreSql) {
             $connection->unprepared('DROP FUNCTION IF EXISTS capell_metadata_trigger_fn()');
         }
+
+        $connection->setTablePrefix($originalPrefix);
     }
 });
 
@@ -1024,6 +1056,32 @@ it('requires an exact normalized MySQL full text index column set', function (ar
     'case and order normalized' => [['BODY', 'TITLE'], true],
     'narrower index' => [['title'], false],
     'wider index' => [['title', 'body', 'keywords'], false],
+]);
+
+it('requires the declared PostgreSQL full text expression', function (string $definition, bool $compatible): void {
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getTablePrefix')->once()->andReturn('capell_');
+    $connection->shouldReceive('selectOne')
+        ->once()
+        ->with(Mockery::type('string'), ['capell_documents', 'documents_search_index'])
+        ->andReturn((object) ['definition' => $definition]);
+    $index = new DatabaseIndexDefinition(
+        table: 'documents',
+        name: 'documents_search_index',
+        columns: ['title', 'body'],
+    );
+
+    expect((new PostgresSchemaDialect)->hasCompatibleFullTextIndex($index, $connection))
+        ->toBe($compatible);
+})->with([
+    'matching expression' => [
+        "CREATE INDEX documents_search_index ON public.capell_documents USING gin (to_tsvector('simple'::regconfig, (COALESCE(title, ''::text) || ' '::text) || COALESCE(body, ''::text)))",
+        true,
+    ],
+    'same name and type with a different expression' => [
+        "CREATE INDEX documents_search_index ON public.capell_documents USING gin (to_tsvector('simple'::regconfig, COALESCE(title, ''::text)))",
+        false,
+    ],
 ]);
 
 it('binds the registry and facade as the shared runtime seam', function (): void {

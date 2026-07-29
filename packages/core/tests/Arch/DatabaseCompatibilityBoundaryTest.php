@@ -4,6 +4,32 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\Assert;
 
+function capellDatabaseCompatibilityStringViolation(string $value): ?string
+{
+    $dialectFunction = '/\\b(?:CONCAT|FIELD|DATE_FORMAT|JSON_CONTAINS|JSON_EXTRACT|JSON_SEARCH|JSON_UNQUOTE|JSON_VALUE|TIMESTAMPDIFF|STRPOS|INSTR|strftime|json_each|json_extract|json_tree|jsonb_path_query|plainto_tsquery|to_tsvector|ts_rank(?:_cd)?)\\s*\\(/i';
+    $positionFunction = '/\\bposition\\s*\\([^)]*\\bin\\b[^)]*\\)/i';
+    $fullTextOperator = '/\\bmatch\\s*\\([^)]*\\)\\s+against\\b|\\b(?:FULLTEXT|ILIKE)\\b|\\bUSING\\s+GIN\\b/i';
+    $databaseCatalog = '/\\b(?:information_schema|pg_catalog|sqlite_master)\\b|\\bPRAGMA\\s+|\\bSHOW\\s+INDEX\\b/i';
+    $sqlKeyword = '/\\b(?:SELECT|FROM|WHERE|JOIN|ORDER|GROUP|CASE|WHEN|AS)\\b/i';
+
+    if (preg_match($dialectFunction, $value) === 1
+        || preg_match($positionFunction, $value) === 1
+        || preg_match($fullTextOperator, $value) === 1
+        || preg_match($databaseCatalog, $value) === 1) {
+        return 'dialect-only SQL';
+    }
+
+    if (preg_match('/(?<![$.])\b[A-Za-z_]\w*\s*\|\|\s*(?:[A-Za-z_]\w*|\'[^\']*\')/', $value) === 1) {
+        return 'driver-specific concatenation operator';
+    }
+
+    if (preg_match('/`[A-Za-z_][A-Za-z0-9_.]*`/', $value) === 1 && preg_match($sqlKeyword, $value) === 1) {
+        return 'driver-specific identifier quoting';
+    }
+
+    return null;
+}
+
 it('keeps driver inspection and dialect-only SQL inside database adapters', function (): void {
     $root = dirname(__DIR__, 4);
     $paths = [];
@@ -18,10 +44,6 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
 
     $violations = [];
     $driverInspection = '/(?:DB::(?:connection\\(\\)->)?getDriverName|->getDriverName)\\s*\\(/';
-    $dialectSql = '/\\b(?:CONCAT|FIELD|DATE_FORMAT|JSON_CONTAINS|JSON_EXTRACT|JSON_SEARCH|JSON_UNQUOTE|JSON_VALUE|TIMESTAMPDIFF|STRPOS|INSTR|POSITION|MATCH|strftime|json_each|json_extract|json_tree|jsonb_path_query|plainto_tsquery|to_tsvector|ts_rank(?:_cd)?)\\s*\\(/';
-    $dialectOperator = '/\\b(?:AGAINST|FULLTEXT|ILIKE)\\b|\\bUSING\\s+GIN\\b/i';
-    $databaseCatalog = '/\\b(?:information_schema|pg_catalog|sqlite_master)\\b|\\bPRAGMA\\s+|\\bSHOW\\s+INDEX\\b/i';
-    $sqlKeyword = '/\\b(?:SELECT|FROM|WHERE|JOIN|ORDER|GROUP|CASE|WHEN|AS)\\b/i';
 
     foreach ($paths as $path) {
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
@@ -76,21 +98,10 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
                 }
 
                 $string = $token[1];
+                $violation = capellDatabaseCompatibilityStringViolation($string);
 
-                if (preg_match($dialectSql, $string) === 1
-                    || (preg_match($dialectOperator, $string) === 1 && preg_match($sqlKeyword, $string) === 1)
-                    || preg_match($databaseCatalog, $string) === 1) {
-                    $violations[] = $relative . ': dialect-only SQL';
-                    break;
-                }
-
-                if (str_contains($string, '||') && preg_match($sqlKeyword, $string) === 1) {
-                    $violations[] = $relative . ': driver-specific concatenation operator';
-                    break;
-                }
-
-                if (preg_match('/`[A-Za-z_][A-Za-z0-9_.]*`/', $string) === 1 && preg_match($sqlKeyword, $string) === 1) {
-                    $violations[] = $relative . ': driver-specific identifier quoting';
+                if (is_string($violation)) {
+                    $violations[] = $relative . ': ' . $violation;
                     break;
                 }
             }
@@ -99,3 +110,20 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
 
     Assert::assertSame([], $violations, "Database compatibility boundary violations:\n" . implode("\n", $violations));
 });
+
+it('recognizes standalone case-insensitive database fragments', function (string $fragment, string $expected): void {
+    expect(capellDatabaseCompatibilityStringViolation($fragment))->toBe($expected);
+})->with([
+    'lowercase full text match' => [
+        'match (title, body) against (? in boolean mode)',
+        'dialect-only SQL',
+    ],
+    'standalone ILIKE' => [
+        'name ilike ?',
+        'dialect-only SQL',
+    ],
+    'standalone concatenation' => [
+        'first_name || last_name',
+        'driver-specific concatenation operator',
+    ],
+]);

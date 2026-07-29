@@ -17,10 +17,19 @@ abstract class AbstractSchemaDialect
         string $foreignColumn,
         Connection $connection,
     ): bool {
+        $foreignTable = $this->physicalTableName($foreignTable, $connection);
+
         return collect($connection->getSchemaBuilder()->getForeignKeys($table))
             ->contains(static fn (array $foreignKey): bool => $foreignKey['columns'] === [$column]
                 && $foreignKey['foreign_table'] === $foreignTable
                 && in_array($foreignKey['foreign_columns'], [[$foreignColumn], []], true));
+    }
+
+    protected function physicalTableName(string $table, ?Connection $connection = null): string
+    {
+        return $connection instanceof Connection
+            ? $connection->getTablePrefix() . $table
+            : $table;
     }
 
     protected function identifier(string $identifier, string $quote): string

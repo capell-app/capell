@@ -37,5 +37,5 @@ interface DatabaseSchemaDialect
         Connection $connection,
     ): bool;
 
-    public function inspectGeneratedColumn(string $table, string $column): SqlFragment;
+    public function inspectGeneratedColumn(string $table, string $column, ?Connection $connection = null): SqlFragment;
 }
