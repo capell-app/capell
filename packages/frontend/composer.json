@@ -3,12 +3,17 @@
     "description": "Public routing, rendering, themes, assets, and cache-safe delivery for Capell CMS.",
     "type": "library",
     "keywords": [
-        "capell-app",
+        "capell",
         "laravel",
         "frontend",
         "cms"
     ],
-    "homepage": "https://github.com/capell-app/capell",
+    "homepage": "https://github.com/capell-app/frontend",
+    "support": {
+        "issues": "https://github.com/capell-app/capell/issues",
+        "docs": "https://docs.capell.app",
+        "source": "https://github.com/capell-app/frontend"
+    },
     "license": "MIT",
     "authors": [
         {

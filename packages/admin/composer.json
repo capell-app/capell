@@ -8,7 +8,12 @@
         "filamentphp",
         "cms"
     ],
-    "homepage": "https://github.com/capell-app/capell",
+    "homepage": "https://github.com/capell-app/admin",
+    "support": {
+        "issues": "https://github.com/capell-app/capell/issues",
+        "docs": "https://docs.capell.app",
+        "source": "https://github.com/capell-app/admin"
+    },
     "license": "MIT",
     "authors": [
         {
