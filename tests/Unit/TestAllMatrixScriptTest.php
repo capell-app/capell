@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllMatrix.php';
 
-it('defines the complete Laravel 12 and 13 Test All matrix once', function (): void {
+it('defines the complete Laravel 13 Test All matrix once', function (): void {
     $sentinel = TestAllMatrix::sentinel();
     $behaviour = TestAllMatrix::behaviour();
     $unit = TestAllMatrix::unit();
@@ -16,11 +16,11 @@ it('defines the complete Laravel 12 and 13 Test All matrix once', function (): v
         ->and(array_column($sentinel, 'database'))
         ->toBe(['sqlite', 'mysql'])
         ->and($behaviour)
-        ->toHaveCount(12)
+        ->toHaveCount(6)
         ->and($unit)
-        ->toHaveCount(10);
+        ->toHaveCount(5);
 
-    foreach (['12.*' => '10.*', '13.*' => '11.*'] as $laravel => $testbench) {
+    foreach (['13.*' => '11.*'] as $laravel => $testbench) {
         $frameworkBehaviour = array_values(array_filter(
             $behaviour,
             static fn (array $cell): bool => $cell['laravel'] === $laravel,
@@ -79,7 +79,7 @@ it('keeps CI and the local fallback on the same matrix, dependency, and cell scr
 it('can select one exact hosted repair cell without changing its topology', function (): void {
     $root = dirname(__DIR__, 2);
     $command = sprintf(
-        'php %s target --cell=l12-feature-admin',
+        'php %s target --cell=l13-feature-admin',
         escapeshellarg($root . '/scripts/test-all-matrix.php'),
     );
     exec($command, $output, $exitCode);
@@ -89,7 +89,7 @@ it('can select one exact hosted repair cell without changing its topology', func
     $matrix = json_decode(implode(PHP_EOL, $output), true, flags: JSON_THROW_ON_ERROR);
 
     expect($matrix['include'])->toHaveCount(1)
-        ->and($matrix['include'][0]['id'])->toBe('l12-feature-admin')
+        ->and($matrix['include'][0]['id'])->toBe('l13-feature-admin')
         ->and($matrix['include'][0]['database'])->toBe('mysql')
         ->and($matrix['include'][0]['test_suite'])->toBe('Feature')
         ->and($matrix['include'][0]['package'])->toBe('Admin');

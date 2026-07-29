@@ -9,12 +9,11 @@ $options = is_array($parsedOptions) ? $parsedOptions : [];
 $laravel = $options['laravel'] ?? null;
 $testbench = $options['testbench'] ?? null;
 $supported = [
-    '12.*' => '10.*',
     '13.*' => '11.*',
 ];
 
 if (! is_string($laravel) || ! is_string($testbench) || ($supported[$laravel] ?? null) !== $testbench) {
-    fwrite(STDERR, 'Usage: php scripts/prepare-test-all-dependencies.php --laravel=12.* --testbench=10.*' . PHP_EOL);
+    fwrite(STDERR, 'Usage: php scripts/prepare-test-all-dependencies.php --laravel=13.* --testbench=11.*' . PHP_EOL);
 
     exit(2);
 }

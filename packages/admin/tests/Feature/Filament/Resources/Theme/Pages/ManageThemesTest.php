@@ -1059,7 +1059,6 @@ it('selected site theme apply requires at least one site', function (): void {
 
 it('can save default theme without loosing data', function (): void {
     $defaultTheme = CreateThemeAction::run();
-    assert($defaultTheme->blueprint instanceof Blueprint);
 
     Livewire::test(ManageThemes::class)
         ->assertSuccessful()

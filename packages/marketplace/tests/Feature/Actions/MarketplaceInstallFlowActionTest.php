@@ -246,7 +246,6 @@ it('checks out a premium extension through v2 hosted flow and queues the authori
     $session = MarketplaceInstallFlowSession::query()->firstWhere('remote_flow_id', 'mif_checkout');
     $attempt = MarketplaceInstallAttempt::query()->sole();
     $instance = MarketplaceInstance::query()->where('instance_id', '00000000-0000-4000-8000-000000000123')->firstOrFail();
-    assert($instance instanceof MarketplaceInstance);
 
     expect($attempts)->toHaveCount(1)
         ->and($session?->status)->toBe(MarketplaceInstallFlowSessionStatus::Completed)
@@ -412,7 +411,6 @@ it('completes a returned install flow and stores verified account credentials', 
 
     $session = CompleteMarketplaceInstallFlowAction::run('mif_123', 'code_123', 'state_123');
     $instance = MarketplaceInstance::query()->where('instance_id', '00000000-0000-4000-8000-000000000123')->firstOrFail();
-    assert($instance instanceof MarketplaceInstance);
 
     $rawExchangePayload = (string) DB::table('marketplace_install_flow_sessions')
         ->where('id', $session->getKey())

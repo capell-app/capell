@@ -35,7 +35,7 @@ it('it binds user supplied search text in relevance ordering', function (): void
     (new NameSearchRelevanceApplier)->apply($query, $search);
 
     $bindings = $query->getQuery()->getRawBindings();
-    $orderBindings = is_array($bindings['order'] ?? null) ? $bindings['order'] : [];
+    $orderBindings = $bindings['order'];
     $searchExpression = Str::lower($search);
 
     expect($query->toSql())
@@ -119,7 +119,7 @@ it('it normalizes PostgreSQL relevance comparisons and bindings', function (): v
     (new NameSearchRelevanceApplier)->apply($query, 'CapELL');
 
     $bindings = $query->getQuery()->getRawBindings();
-    $orderBindings = is_array($bindings['order'] ?? null) ? $bindings['order'] : [];
+    $orderBindings = $bindings['order'];
 
     expect($query->toSql())
         ->toContain('LOWER("layouts"."name")')

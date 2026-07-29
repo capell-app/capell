@@ -13,8 +13,8 @@ final class TestAllMatrix
             [
                 'id' => 'sentinel-unit',
                 'php' => '8.4',
-                'laravel' => '12.*',
-                'testbench' => '10.*',
+                'laravel' => '13.*',
+                'testbench' => '11.*',
                 'test_suite' => 'Unit',
                 'package' => 'Sentinel',
                 'database' => 'sqlite',
@@ -26,8 +26,8 @@ final class TestAllMatrix
             [
                 'id' => 'sentinel-database',
                 'php' => '8.4',
-                'laravel' => '12.*',
-                'testbench' => '10.*',
+                'laravel' => '13.*',
+                'testbench' => '11.*',
                 'test_suite' => 'Feature',
                 'package' => 'Sentinel',
                 'database' => 'mysql',
@@ -151,12 +151,6 @@ final class TestAllMatrix
     private static function frameworks(): array
     {
         return [
-            [
-                'php' => '8.4',
-                'laravel' => '12.*',
-                'testbench' => '10.*',
-                'framework_slug' => 'l12',
-            ],
             [
                 'php' => '8.4',
                 'laravel' => '13.*',

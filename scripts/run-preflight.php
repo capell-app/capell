@@ -44,7 +44,6 @@ $fullStages = [
     'phpstan' => 'analyze',
     'phpstan-baseline' => 'phpstan:baseline-check',
     'security-audit' => 'security:audit',
-    'pest-shards' => 'check:pest-shards',
     'tests' => 'test:preflight',
 ];
 

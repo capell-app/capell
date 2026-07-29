@@ -12,6 +12,12 @@
     "homepage": "https://capell.app",
     "type": "library",
     "license": "MIT",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/capell-app/pest-plugin-blade-coverage.git"
+        }
+    ],
     "authors": [
         {
             "name": "Howdu",
@@ -38,10 +44,8 @@
             "@clear",
             "@prepare",
             "rm -rf vendor/orchestra/testbench-core/laravel/vendor",
-            "rm -rf vendor/orchestra/testbench-core/laravel/database/migrations",
-            "@patch:pest-shards"
+            "rm -rf vendor/orchestra/testbench-core/laravel/database/migrations"
         ],
-        "patch:pest-shards": "@php scripts/patch-pest-shards.php",
         "rector": "@rector:changed",
         "rector:changed": "bash ./scripts/rector-changed.sh",
         "rector:all": "XDEBUG_MODE=off \"$PHP_BINARY\" vendor/bin/rector --no-progress-bar",
@@ -51,10 +55,10 @@
         "lint:changed": "bash ./scripts/lint-changed.sh",
         "cs:fix": "@php vendor/bin/pint --parallel packages tests",
         "cs:check": "@php vendor/bin/pint --parallel --test packages tests",
-        "analyze": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon",
+        "analyze": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off php -d opcache.enable_cli=1 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon",
         "phpstan": "@analyze",
         "phpstan:baseline-check": "bash scripts/check-phpstan-baseline-growth.sh",
-        "phpstan:deprecations": "XDEBUG_MODE=off vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/deprecations.neon",
+        "phpstan:deprecations": "XDEBUG_MODE=off php -d opcache.enable_cli=1 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/deprecations.neon",
         "prettier": "npx prettier --write \"packages/**/*.{css,js,yml,json,md,blade.php}\"",
         "prettier:check": "npx prettier --check \"packages/**/*.{css,js,yml,json,md,blade.php}\"",
         "eslint": "npx eslint 'packages/*/resources/js/**/*.js' --max-warnings=0",
@@ -92,33 +96,33 @@
             "@coverage",
             "@test:mutate:ci"
         ],
-        "test:unit": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --configuration=phpunit.xml",
+        "test:unit": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
         "release-contracts": "@php -d memory_limit=1G -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest tests/Integration/Release --colors=always --compact --configuration=phpunit.xml",
-        "test:fast": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --shard=${PEST_SHARD:-1/1} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:fast:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --shard=${PEST_SHARD:-1/1} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --configuration=phpunit.xml",
+        "test:fast": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:fast:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --configuration=phpunit.xml",
         "test:preflight": "@test:all:ci",
         "test:preflight:serial": "@php -d memory_limit=1536M -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:all": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --configuration=phpunit.xml",
+        "test:all": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
         "test:all:matrix:local": [
             "Composer\\Config::disableProcessTimeout",
             "@php scripts/run-test-all-matrix.php"
         ],
+        "test:tia": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --tia --configuration=phpunit.xml",
         "test:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --passthru-php='-d memory_limit=1G' --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --ansi",
         "test:database:package:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --passthru-php='-d memory_limit=1G' --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --group=${PEST_TEST_GROUP:?PEST_TEST_GROUP must be set} --do-not-fail-on-empty-test-suite --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --ansi",
         "test:sentinel:unit:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest tests/Unit/FullTestWorkflowDatabaseIsolationTest.php packages/core/tests/Unit/Support/Database/RuntimeSchemaStateTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationRegistryTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationExecutorTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
         "test:sentinel:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest packages/core/tests/Feature/Permissions/PermissionTeamsMigrationTest.php packages/core/tests/Feature/Permissions/GlobalPermissionTeamUniquenessMigrationTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
-        "test:shards": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --passthru-php='-d memory_limit=1G' --compact --update-shards --configuration=phpunit.xml",
+        "test:shards": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --update-shards --configuration=phpunit.xml",
         "test:profile": "@php scripts/profile-pest-tests.php",
         "benchmark:boot": "@php scripts/benchmark-boot.php",
-        "check:pest-shards": "@php scripts/patch-pest-shards.php --check",
         "test:types": "@php vendor/bin/pest --configuration=phpunit.xml --type-coverage",
         "test": [
             "@clear",
             "@prepare",
             "@test:preflight"
         ],
-        "coverage:blade": "@php -d memory_limit=4G -d max_execution_time=0 vendor/bin/pest --blade-coverage --parallel --passthru-php='-d memory_limit=4G' --colors=always --configuration=phpunit.xml",
+        "coverage:blade": "@php -d memory_limit=4G -d max_execution_time=0 vendor/bin/pest --blade-coverage --parallel --colors=always --configuration=phpunit.xml",
         "coverage": [
             "@prepare",
             "@php vendor/bin/testbench optimize --except=routes --ansi",
@@ -178,7 +182,7 @@
         "guava/filament-icon-picker": "^3.0|^4.0",
         "guzzlehttp/guzzle": "^7.5",
         "lara-zeus/spatie-translatable": "^1.0|^2.0",
-        "laravel/framework": "^12.41.1|^13.0",
+        "laravel/framework": "^13.0",
         "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
@@ -224,7 +228,7 @@
     "require-dev": {
         "barryvdh/laravel-ide-helper": "*",
         "calebdw/larastan-livewire": "^2.4",
-        "capell-app/pest-plugin-blade-coverage": "^0.1.1",
+        "capell-app/pest-plugin-blade-coverage": "dev-main",
         "driftingly/rector-laravel": "^2.0",
         "fakerphp/faker": "^1.24.1",
         "jibaymcs/filament-tour": "^5.0",
@@ -234,15 +238,15 @@
         "laravel/pao": "^1.0",
         "laravel/pint": "^1.25.0",
         "mockery/mockery": "^1.6.12",
-        "mrpunyapal/peststan": "^0.2",
         "nikic/php-parser": "^5.8",
         "nunomaduro/collision": "^8.8.3",
         "orchestra/testbench": "*",
-        "pestphp/pest": "^3.0|^4.1",
-        "pestphp/pest-plugin-arch": "^3.0|^4.0",
-        "pestphp/pest-plugin-laravel": "^3.0|^4.0",
-        "pestphp/pest-plugin-livewire": "^3.0|^4.0",
-        "pestphp/pest-plugin-type-coverage": "^3.0|^4.0",
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-arch": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "pestphp/pest-plugin-livewire": "^5.0",
+        "pestphp/pest-plugin-phpstan": "^5.0",
+        "pestphp/pest-plugin-type-coverage": "^5.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-mockery": "^2.0",
         "rector/rector": "^2.0",
@@ -279,7 +283,7 @@
         "optimize-autoloader": true,
         "sort-packages": true,
         "platform": {
-            "php": "8.4.0"
+            "php": "8.4.1"
         },
         "process-timeout": 0,
         "allow-plugins": {

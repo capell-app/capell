@@ -11,7 +11,9 @@ it('gates the exact PR and dispatch topology through repository-owned Test All s
     );
     $workflow = (string) file_get_contents($root . '/.github/workflows/test-full.yml');
 
-    expect($composer['scripts']['test:database:ci'] ?? null)
+    expect($composer['scripts']['test:fast:ci'] ?? null)
+        ->not->toContain('--passthru-php')
+        ->and($composer['scripts']['test:database:ci'] ?? null)
         ->toContain('--log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}')
         ->toContain("--passthru-php='-d memory_limit=1G'")
         ->and($composer['scripts']['test:database:package:ci'] ?? null)

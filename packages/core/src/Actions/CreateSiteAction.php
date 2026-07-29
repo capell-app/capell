@@ -110,7 +110,7 @@ class CreateSiteAction
                 [
                     'domain' => $domain,
                     'scheme' => $scheme,
-                    'path' => $siteLanguage->code . (in_array($path, [null, '', '0'], true) ? null : '/' . mb_ltrim($path, '/')),
+                    'path' => $siteLanguage->code . ($path === null ? null : '/' . mb_ltrim($path, '/')),
                 ],
             );
         });
@@ -152,7 +152,7 @@ class CreateSiteAction
                     'scheme' => $scheme,
                     'path' => $siteLanguage->id === $language->id
                         ? $path
-                        : $siteLanguage->code . (in_array($path, [null, '', '0'], true) ? null : '/' . mb_ltrim($path, '/')),
+                        : $siteLanguage->code . ($path === null ? null : '/' . mb_ltrim($path, '/')),
                 ],
             );
         });

@@ -4,17 +4,14 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestAction;
-use Capell\Core\Data\ProjectBuild\ProjectBuildManifestData;
 use Capell\Core\Tests\Support\ProjectBuildManifestFixture;
 use Illuminate\Validation\ValidationException;
 
 it('validates a complete manifest and produces stable canonical bytes', function (): void {
     $manifest = ValidateProjectBuildManifestAction::run(ProjectBuildManifestFixture::payload());
-    assert($manifest instanceof ProjectBuildManifestData);
 
     $reordered = array_reverse(ProjectBuildManifestFixture::payload(), true);
     $reorderedManifest = ValidateProjectBuildManifestAction::run($reordered);
-    assert($reorderedManifest instanceof ProjectBuildManifestData);
 
     $canonical = CanonicalizeProjectBuildManifestAction::run($manifest);
     $reorderedCanonical = CanonicalizeProjectBuildManifestAction::run($reorderedManifest);

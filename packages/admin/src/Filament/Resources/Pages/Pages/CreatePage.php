@@ -153,7 +153,7 @@ class CreatePage extends CreateRecord implements HasPageResource
         $this->data['site_id'] ??= request('site_id')
             ?? $model::getDefault()?->id;
 
-        $siteId = $this->data['site_id'] ?? null;
+        $siteId = $this->data['site_id'];
         $translations = $this->data['translations'] ?? null;
 
         if (

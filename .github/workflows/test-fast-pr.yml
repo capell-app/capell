@@ -19,27 +19,6 @@ jobs:
       matrix:
         include:
           - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 1
-            total_shards: 3
-            artifact_slug: l12-1
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 2
-            total_shards: 3
-            artifact_slug: l12-2
-          - php: 8.4
-            laravel: 12.*
-            testbench: 10.*
-            db: sqlite
-            shard: 3
-            total_shards: 3
-            artifact_slug: l12-3
-          - php: 8.4
             laravel: 13.*
             testbench: 11.*
             db: sqlite
@@ -102,13 +81,14 @@ jobs:
           composer require --no-interaction --no-progress --ansi --dev --no-update \
             "orchestra/testbench:${{ matrix.testbench }}"
 
-          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-livewire calebdw/larastan-livewire
+          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-phpstan pestphp/pest-plugin-livewire calebdw/larastan-livewire
           dev_tools=(
-            "pestphp/pest:^4.3"
-            "pestphp/pest-plugin-arch:^4.0"
-            "pestphp/pest-plugin-laravel:^4.0"
-            "pestphp/pest-plugin-livewire:^4.0"
-            "pestphp/pest-plugin-type-coverage:^4.0"
+            "pestphp/pest:^5.0"
+            "pestphp/pest-plugin-arch:^5.0"
+            "pestphp/pest-plugin-laravel:^5.0"
+            "pestphp/pest-plugin-livewire:^5.0"
+            "pestphp/pest-plugin-phpstan:^5.0"
+            "pestphp/pest-plugin-type-coverage:^5.0"
             "phpstan/phpstan:^2.1"
             "phpstan/phpstan-mockery:^2.0"
             "phpstan/phpstan-strict-rules:^2.0"
@@ -118,10 +98,6 @@ jobs:
             "driftingly/rector-laravel:^2.0"
             "larastan/larastan:^3.0"
           )
-
-          if [ "${{ matrix.laravel }}" != "13.*" ]; then
-            dev_tools+=("soyhuce/phpstan-extension:^2.1")
-          fi
 
           composer require --no-interaction --no-progress --ansi --dev --no-update "${dev_tools[@]}"
           composer require --no-interaction --no-progress --ansi --no-update \

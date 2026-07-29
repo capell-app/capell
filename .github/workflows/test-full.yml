@@ -126,8 +126,8 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      - name: Prepare exact Laravel 12 dependencies
-        run: php scripts/prepare-test-all-dependencies.php --laravel='12.*' --testbench='10.*'
+      - name: Prepare exact Laravel 13 dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='13.*' --testbench='11.*'
 
       - name: Run both sentinel cells
         shell: bash
@@ -238,13 +238,13 @@ jobs:
 
       - name: Extract engineering metrics
         id: engineering-metrics
-        if: success() && matrix.laravel == '12.*'
+        if: success() && matrix.laravel == '13.*'
         run: |
           php scripts/extract-pest-metrics.php "test-all-results/${{ matrix.log }}" --github-output
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
-        if: success() && matrix.laravel == '12.*'
+        if: success() && matrix.laravel == '13.*'
         env:
           TESTS: ${{ steps.engineering-metrics.outputs.tests }}
           ASSERTIONS: ${{ steps.engineering-metrics.outputs.assertions }}
@@ -260,7 +260,7 @@ jobs:
           );'
 
       - name: Upload engineering metrics artifact
-        if: success() && matrix.laravel == '12.*'
+        if: success() && matrix.laravel == '13.*'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engineering-metrics-${{ matrix.artifact_slug }}
@@ -317,13 +317,13 @@ jobs:
 
       - name: Extract engineering metrics
         id: engineering-metrics
-        if: success() && matrix.laravel == '12.*'
+        if: success() && matrix.laravel == '13.*'
         run: |
           php scripts/extract-pest-metrics.php "test-all-results/${{ matrix.log }}" --github-output
           php scripts/extract-phpstan-level.php --github-output
 
       - name: Write engineering metrics artifact
-        if: success() && matrix.laravel == '12.*'
+        if: success() && matrix.laravel == '13.*'
         env:
           TESTS: ${{ steps.engineering-metrics.outputs.tests }}
           ASSERTIONS: ${{ steps.engineering-metrics.outputs.assertions }}
@@ -339,7 +339,7 @@ jobs:
           );'
 
       - name: Upload engineering metrics artifact
-        if: success() && matrix.laravel == '12.*'
+        if: success() && matrix.laravel == '13.*'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engineering-metrics-${{ matrix.artifact_slug }}
@@ -355,7 +355,7 @@ jobs:
       - name: Download engineering metrics artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: engineering-metrics-l12-*
+          pattern: engineering-metrics-l13-*
           path: engineering-metrics
           merge-multiple: true
 
@@ -384,7 +384,7 @@ jobs:
           $phpstanLevels = array_values(array_unique($phpstanLevels));
 
           if (count($phpstanLevels) !== 1) {
-              throw new RuntimeException('Laravel 12 test jobs reported inconsistent PHPStan levels.');
+              throw new RuntimeException('Laravel 13 test jobs reported inconsistent PHPStan levels.');
           }
 
           file_put_contents(

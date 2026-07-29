@@ -12,7 +12,7 @@ use InvalidArgumentException;
 final class SitemapPageFakeSitemapBuilder
 {
     /** @var list<array{site_id: int, domain: string, language_id: int, with_edit_url: bool}> */
-    public static array $calls = [];
+    public static array $calls;
 
     public static bool $returnsCollection = true;
 

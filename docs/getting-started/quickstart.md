@@ -13,7 +13,7 @@ Allow about ten minutes for the first Composer install.
 | Requirement | Supported value                                                         |
 | ----------- | ----------------------------------------------------------------------- |
 | PHP         | 8.4+                                                                    |
-| Laravel     | 12.41.1+ or 13.x                                                        |
+| Laravel     | 13.x                                                                    |
 | Filament    | Installed by the selected Capell Admin package; supported line `~5.6.8` |
 | Node.js     | 20+                                                                     |
 | Composer    | 2.7+                                                                    |
@@ -147,7 +147,7 @@ Before production, also configure and prove the separate [database and media bac
 | A queued publish never finishes                        | Start `php artisan queue:work`                                                                                  | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate)                 |
 | The public page remains stale                          | Use Admin **Clear Cache**, then inspect the response/cache path                                                 | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
 | A package class is missing after Composer              | `composer dump-autoload && php artisan optimize:clear`                                                          | [Package discovery](../packages/debugging-package-discovery.md)                                                   |
-| Frontend CSS is missing                                | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Themes and frontend assets](install.md#themes-and-frontend-assets)                                                               |
+| Frontend CSS is missing                                | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Themes and frontend assets](install.md#themes-and-frontend-assets)                                               |
 | The installer stops at health review                   | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor`                                      | [Site Health](../operations/site-health.md)                                                                       |
 
 ## Next
