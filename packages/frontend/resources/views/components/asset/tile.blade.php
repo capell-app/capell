@@ -36,17 +36,15 @@
     $parentLabel = $parentTranslation?->label;
 @endphp
 
-<div
-    {{
-        $attributes->class([
-            'capell-component capell-asset-tile asset-item asset-tile group @container/item overflow-hidden border border-slate-200 bg-white shadow-sm ring-1 ring-slate-950/5 transition duration-200 hover:border-slate-300 hover:shadow-md',
-            'grid grid-cols-12' => $imageInline,
-            'flex flex-col' => $imageOnTop || ! $image,
-            'cursor-pointer' => $url,
-            'rounded-lg' => $roundedImages,
-        ])
-    }}
->
+<div {{
+    $attributes->class([
+        'capell-component capell-asset-tile asset-item asset-tile group @container/item overflow-hidden border border-slate-200 bg-white shadow-sm ring-1 ring-slate-950/5 transition duration-200 hover:border-slate-300 hover:shadow-md',
+        'grid grid-cols-12' => $imageInline,
+        'flex flex-col' => $imageOnTop || ! $image,
+        'cursor-pointer' => $url,
+        'rounded-lg' => $roundedImages,
+    ])
+}}>
     @if ($image)
         @php
             $imageWrapClass = match (true) {
@@ -64,10 +62,7 @@
 
         <div class="{{ $imageWrapClass }}">
             @if ($url)
-                <a
-                    href="{{ $url }}"
-                    @wireNavigate
-                >
+                <a href="{{ $url }}" @wireNavigate>
                     <x-capell::media
                         :media="$image"
                         :alt="$title"
@@ -90,14 +85,12 @@
         </div>
     @endif
 
-    <div
-        @class([
-            'flex flex-1 flex-col p-6',
-            'lg:px-8 lg:py-6' => $size !== 'sm',
-            'col-span-8' => $imageInline && ! $imageOnRight,
-            'order-first col-span-8' => $imageInline && $imageOnRight,
-        ])
-    >
+    <div @class([
+        'flex flex-1 flex-col p-6',
+        'lg:px-8 lg:py-6' => $size !== 'sm',
+        'col-span-8' => $imageInline && ! $imageOnRight,
+        'order-first col-span-8' => $imageInline && $imageOnRight,
+    ])>
         @if ($publishDate && $publishDatePosition === 'top')
             <time
                 class="publish-date mb-2 inline-flex items-center text-xs leading-tight tracking-[0.02em] text-gray-600"
@@ -123,11 +116,9 @@
             )
         !!}
 
-        <div
-            @class([
-                'max-w-none break-words [&>:first-child]:mt-0 [&>:last-child]:mb-0',
-            ])
-        >
+        <div @class([
+            'max-w-none break-words [&>:first-child]:mt-0 [&>:last-child]:mb-0',
+        ])>
             {{-- format-ignore-start --}}
             <{{ $headingSize }}
             @class([
@@ -177,24 +168,19 @@
                     title="{{ htmlspecialchars(strip_tags($parentLabel)) }}"
                     @wireNavigate
                 >
-                    &raquo;
-                    {{ $parentLabel }}
+                    &raquo; {{ $parentLabel }}
                 </a>
             @endif
 
             @if ($summary)
-                <p class="mt-3 line-clamp-5 leading-7 text-slate-600">
-                    {{ $summary }}
-                </p>
+                <p class="mt-3 line-clamp-5 leading-7 text-slate-600">{{ $summary }}</p>
             @endif
         </div>
 
         {!! app(RenderHookRegistry::class)->renderAll(RenderHookLocation::AfterTitle, $item ?? null) !!}
 
         @if (($linkText && $url) || ($publishDate && $publishDatePosition === 'bottom'))
-            <div
-                class="mt-3 flex flex-wrap items-center justify-between gap-1 gap-x-4"
-            >
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-1 gap-x-4">
                 @if ($linkText && $url)
                     <a
                         class="inline-flex items-center gap-2 font-semibold text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline focus:text-blue-700 focus:underline"
@@ -213,9 +199,7 @@
                         datetime="{{ $publishDate->toW3cString() }}"
                     >
                         @if ($author)
-                            <span class="font-semibold">
-                                {{ $author->name }}
-                            </span>
+                            <span class="font-semibold"> {{ $author->name }} </span>
                             ,
                         @endif
 

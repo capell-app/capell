@@ -42,10 +42,7 @@
             ])
     "
 >
-    <input
-        x-model="tab"
-        type="hidden"
-    />
+    <input x-model="tab" type="hidden" />
     @if ($items)
         <div
             @class([
@@ -56,11 +53,7 @@
             wire:key=".repeater-tabs-container"
         >
             @if ($isAddable || count($items) > 1)
-                <x-filament::tabs
-                    :label="$label"
-                    :contained="$isContained"
-                    x-cloak
-                >
+                <x-filament::tabs :label="$label" :contained="$isContained" x-cloak>
                     @foreach ($items as $itemKey => $item)
                         @php
                             $tab = $getTabPresentation($itemKey);
@@ -76,9 +69,7 @@
                             x-on:click.stop="tab = {{ $loop->iteration }}"
                             x-bind:tabindex="tab === {{ $loop->iteration }} ? 0 : -1"
                         >
-                            <span
-                                class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap"
-                            >
+                            <span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                                 @if ($tab['isFlagIcon'])
                                     {!!
                                         $flagIconRenderer->render(
@@ -89,9 +80,7 @@
                                     !!}
                                 @endif
 
-                                <span class="truncate">
-                                    {{ $tab['label'] }}
-                                </span>
+                                <span class="truncate"> {{ $tab['label'] }} </span>
                             </span>
                         </x-filament::tabs.item>
                     @endforeach
@@ -145,9 +134,7 @@
                                     @endif
 
                                     @if ($isAddable && $createItems)
-                                        <x-filament::dropdown
-                                            placement="bottom"
-                                        >
+                                        <x-filament::dropdown placement="bottom">
                                             <x-slot name="trigger">
                                                 <x-filament::dropdown.list.item
                                                     :color="$addAction->getColor()"
@@ -201,28 +188,22 @@
                             ])
                     }}
                 >
-                    <div
-                        @class([
-                            'max-w-full min-w-0' => $isContained,
-                            'p-4' => $isContained && $isCompact,
-                        ])
-                    >
+                    <div @class([
+                        'max-w-full min-w-0' => $isContained,
+                        'p-4' => $isContained && $isCompact,
+                    ])>
                         {{ $item }}
                     </div>
                 </div>
             @endforeach
         </div>
     @elseif ($isAddable && $createItems)
-        <div
-            @class([
-                'flex max-w-full min-w-0 flex-col gap-y-4',
-                'p-4' => $isCompact,
-            ])
-        >
+        <div @class([
+            'flex max-w-full min-w-0 flex-col gap-y-4',
+            'p-4' => $isCompact,
+        ])>
             <div class="flex flex-col gap-y-1">
-                <h3
-                    class="text-base leading-6 font-semibold text-gray-950 dark:text-white"
-                >
+                <h3 class="text-base leading-6 font-semibold text-gray-950 dark:text-white">
                     {{ $label ?? __('capell-admin::generic.content') }}
                 </h3>
 
@@ -232,11 +213,7 @@
             </div>
 
             <div class="flex justify-start">
-                <x-filament::dropdown
-                    width="xs"
-                    teleport
-                    placement="top"
-                >
+                <x-filament::dropdown width="xs" teleport placement="top">
                     <x-slot name="trigger">
                         <x-filament::button
                             :color="$addAction->getColor()"

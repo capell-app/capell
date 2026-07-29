@@ -11,20 +11,16 @@
     :field="$field"
     wire:key="{{ $this->getId() }}.{{ $statePath }}.{{ $field::class }}.nav"
     {{
-    $attributes->merge($getExtraAttributes(), escape: false)->class([
-        'fi-fo-repeater fi-fo-repeater-minimal',
-        'fi-contained sticky top-16 flex flex-col' => $hasSection,
-        'p-4' => $isCompact && $hasSection,
-        'p-6' => ! $isCompact && $hasSection,
-    ])
-}}
+        $attributes->merge($getExtraAttributes(), escape: false)->class([
+            'fi-fo-repeater fi-fo-repeater-minimal',
+            'fi-contained sticky top-16 flex flex-col' => $hasSection,
+            'p-4' => $isCompact && $hasSection,
+            'p-6' => ! $isCompact && $hasSection,
+        ])
+    }}
     {{ $getExtraAlpineAttributeBag() }}
 >
-    <input
-        type="hidden"
-        value="{{ collect(array_keys($containers))->values()->toJson() }}"
-        x-ref="repeaterData"
-    />
+    <input type="hidden" value="{{ collect(array_keys($containers))->values()->toJson() }}" x-ref="repeaterData" />
     @foreach ($containers as $uuid => $item)
         <div
             id="{{ $this->getId() . '-' . $item->getStatePath() }}"

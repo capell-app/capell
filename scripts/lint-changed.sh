@@ -40,7 +40,7 @@ for file in "${CHANGED_FILES[@]}"; do
   if [[ $file == *.js || $file == *.jsx || $file == *.ts || $file == *.tsx ]]; then
     JS_FILES+=("$file")
   fi
-  if [[ $file == *.js || $file == *.jsx || $file == *.ts || $file == *.tsx || $file == *.css || $file == *.json || $file == *.yml || $file == *.md || $file == *.blade.php ]]; then
+  if [[ $file == *.js || $file == *.jsx || $file == *.ts || $file == *.tsx || $file == *.css || $file == *.json || $file == *.yml || $file == *.md ]]; then
     PRETTIER_FILES+=("$file")
   fi
 done

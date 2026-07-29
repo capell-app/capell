@@ -30,20 +30,14 @@
             <!-- Progress Bar -->
             <div>
                 <div class="mb-2 flex items-center justify-between">
-                    <span
-                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {{ $greenCount }} of {{ $totalChecks }} complete
                     </span>
-                    <span
-                        class="text-sm font-semibold text-gray-900 dark:text-gray-100"
-                    >
+                    <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {{ $progressPercentage }}%
                     </span>
                 </div>
-                <div
-                    class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
-                >
+                <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                     <div
                         class="h-full rounded-full transition-all duration-300 ease-out"
                         style="
@@ -57,16 +51,10 @@
             <!-- Failing Items with Actions -->
             @if (count($failingChecks) > 0)
                 <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
-                    <p
-                        class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                        Items to complete:
-                    </p>
+                    <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Items to complete:</p>
                     <div class="space-y-2">
                         @foreach ($failingChecks as $check)
-                            <div
-                                class="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800"
-                            >
+                            <div class="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800">
                                 <div class="flex items-center gap-3">
                                     @if ($check->status === SetupHealthEnum::Amber)
                                         <svg
@@ -93,11 +81,7 @@
                                             />
                                         </svg>
                                     @endif
-                                    <span
-                                        class="text-sm text-gray-700 dark:text-gray-300"
-                                    >
-                                        {{ $check->label }}
-                                    </span>
+                                    <span class="text-sm text-gray-700 dark:text-gray-300"> {{ $check->label }} </span>
                                 </div>
                                 @if ($check->fixUrl && $check->fixLabel)
                                     <a
@@ -113,14 +97,8 @@
                 </div>
             @else
                 <div class="rounded-lg bg-green-50 p-3 dark:bg-green-950">
-                    <p
-                        class="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-300"
-                    >
-                        <svg
-                            class="h-5 w-5 flex-shrink-0"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
+                    <p class="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-300">
+                        <svg class="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path
                                 fill-rule="evenodd"
                                 d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm3.707-9.293a1 1 0 0 0-1.414-1.414L9 10.586 7.707 9.293a1 1 0 0 0-1.414 1.414l2 2a1 1 0 0 0 1.414 0l4-4z"

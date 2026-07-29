@@ -100,15 +100,9 @@
                 aria-live="polite"
                 aria-label="{{ __('capell-marketplace::marketplace.filters.loading_heading') }}"
             >
-                <div
-                    class="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white px-6 py-5 text-center shadow-sm dark:border-white/10 dark:bg-gray-900"
-                >
-                    <x-filament::loading-indicator
-                        class="h-12 w-12 text-blue-600 dark:text-blue-400"
-                    />
-                    <span
-                        class="text-sm font-medium text-gray-700 dark:text-gray-200"
-                    >
+                <div class="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white px-6 py-5 text-center shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <x-filament::loading-indicator class="h-12 w-12 text-blue-600 dark:text-blue-400" />
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
                         {{ __('capell-marketplace::marketplace.filters.loading_heading') }}
                     </span>
                 </div>
@@ -131,12 +125,8 @@
             aria-live="polite"
         >
             <div class="mx-auto flex max-w-md flex-col items-center gap-3">
-                <x-filament::loading-indicator
-                    class="h-14 w-14 text-blue-600 dark:text-blue-400"
-                />
-                <h3
-                    class="text-base font-semibold text-gray-950 dark:text-white"
-                >
+                <x-filament::loading-indicator class="h-14 w-14 text-blue-600 dark:text-blue-400" />
+                <h3 class="text-base font-semibold text-gray-950 dark:text-white">
                     {{ __('capell-marketplace::marketplace.filters.loading_heading') }}
                 </h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400">

@@ -60,21 +60,13 @@
                     wire:loading.delay
                     wire:target="togglePage({{ $nodeId }}, {{ $siteId }})"
                 />
-                <span
-                    wire:loading.remove
-                    wire:target="togglePage({{ $nodeId }}, {{ $siteId }})"
-                >
+                <span wire:loading.remove wire:target="togglePage({{ $nodeId }}, {{ $siteId }})">
                     @svg(($isExpanded ? Heroicon::OutlinedChevronDown : Heroicon::OutlinedChevronRight)->getIconForSize(IconSize::Small), 'h-4 w-4')
                 </span>
             </button>
         @else
-            <span
-                class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center"
-                aria-hidden="true"
-            >
-                <span
-                    class="h-1.5 w-1.5 rounded-full bg-gray-200 group-hover:bg-gray-300 dark:bg-white/10 dark:group-hover:bg-white/20"
-                ></span>
+            <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
+                <span class="h-1.5 w-1.5 rounded-full bg-gray-200 group-hover:bg-gray-300 dark:bg-white/10 dark:group-hover:bg-white/20"></span>
             </span>
         @endif
 
@@ -87,9 +79,7 @@
         >
             @svg($typeIcon, $isSearchMatch ? 'text-primary-500 dark:text-primary-300 h-4 w-4 shrink-0' : 'h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-500 dark:group-hover:text-gray-300')
             <span class="flex min-w-0 flex-1 items-baseline gap-2">
-                <span class="truncate">
-                    {{ $node['name'] }}
-                </span>
+                <span class="truncate"> {{ $node['name'] }} </span>
                 @if (is_string($node['public_url'] ?? null))
                     <span
                         class="min-w-0 shrink truncate text-xs font-normal text-gray-400 dark:text-gray-500"

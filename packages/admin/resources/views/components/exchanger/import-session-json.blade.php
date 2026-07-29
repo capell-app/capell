@@ -8,7 +8,5 @@
         {{ __('capell-admin::exchanger.json_empty_placeholder') }}
     </p>
 @else
-    <pre
-        class="overflow-auto rounded bg-gray-50 p-3 text-xs dark:bg-gray-900"
-    ><code>{{ json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</code></pre>
+    <pre class="overflow-auto rounded bg-gray-50 p-3 text-xs dark:bg-gray-900"><code>{{ json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</code></pre>
 @endif
