@@ -19,7 +19,6 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
-use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
@@ -187,27 +186,32 @@ final class QueueMarketplaceInstallAttemptAction
             );
         }
 
-        $deployment = PackageIsAvailableForLifecycleAction::run($attempt->composer_name)
-            ? $deploymentMetadata
-            : [
+        if (PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
+            $deployment = $deploymentMetadata;
+        } else {
+            $claimedAttempt = ClaimMarketplaceInstallDeploymentPublicationAction::run($attempt);
+
+            if (! $claimedAttempt instanceof MarketplaceInstallAttempt) {
+                return $attempt->refresh();
+            }
+
+            $attempt = $claimedAttempt;
+            $deployment = [
                 ...PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $attempt),
                 ...$deploymentMetadata,
             ];
+        }
 
         $attempt = RecordMarketplaceInstallDeploymentAction::run(
             $attempt,
             new MarketplaceInstallDeploymentData($deployment),
         );
 
-        if ($attempt->status === MarketplaceInstallIntentStatus::Cancelled) {
-            return $attempt;
-        }
-
-        dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
-            ->onConnection($queueConnection)
-            ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
-
-        return $attempt;
+        return DispatchMarketplaceInstallAttemptAction::run(
+            attempt: $attempt,
+            queueConnection: $queueConnection,
+            queue: (string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'),
+        );
     }
 
     /**

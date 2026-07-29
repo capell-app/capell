@@ -2,18 +2,26 @@
 
 declare(strict_types=1);
 
+use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
+use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
+use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -238,6 +246,67 @@ it('records theme install intents during marketplace install orchestration', fun
         ->and($intent->composer_name)->toBe('capell-app/theme-suite')
         ->and($intent->status)->toBe(MarketplaceInstallIntentStatus::Pending)
         ->and($intent->version_constraint)->toBe('^3.2.1');
+});
+
+it('stops orchestration side effects when queueing returns a cancelled theme attempt', function (): void {
+    Queue::fake();
+
+    Event::listen(
+        'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
+        function (MarketplaceInstallAttemptEvent $event): void {
+            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+                return;
+            }
+
+            CancelMarketplaceInstallAttemptAction::run($event->attempt()->firstOrFail());
+        },
+    );
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/cancelled-theme-suite' => Http::response([
+            'data' => installMarketplaceExtensionActionPayload([
+                'slug' => 'cancelled-theme-suite',
+                'name' => 'Cancelled Theme Suite',
+                'composer_name' => 'capell-app/cancelled-theme-suite',
+                'kind' => 'theme',
+                'latest_version' => '3.2.1',
+            ]),
+        ]),
+    ]);
+
+    InstallMarketplaceExtensionAction::run(
+        installMarketplaceActionRequest('cancelled-theme-suite'),
+    );
+
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($attempt->telemetry_status)->toBe('pending')
+        ->and(MarketplaceInstallIntent::query()->count())->toBe(0);
+
+    Queue::assertNothingPushed();
+    Notification::assertNotified(
+        Notification::make(MarketplaceInstallNotifications::operationId('capell-app/cancelled-theme-suite'))
+            ->title((string) __('capell-marketplace::marketplace.install.cancelled'))
+            ->body((string) __('capell-marketplace::marketplace.install.cancelled_body', [
+                'name' => 'Cancelled Theme Suite',
+            ]))
+            ->warning()
+            ->persistent()
+            ->actions([
+                Action::make('viewMarketplaceInstallOperation')
+                    ->label((string) __('capell-marketplace::marketplace.install.check_operation'))
+                    ->icon(Heroicon::OutlinedQueueList)
+                    ->link()
+                    ->close()
+                    ->url(MarketplacePackageOperationsPage::getUrl([
+                        'tab' => 'resolved',
+                        'operation' => $attempt->getKey(),
+                    ])),
+            ]),
+    );
+    Notification::assertNotNotified((string) __('capell-marketplace::marketplace.install.local_queued'));
+    Notification::assertNotNotified((string) __('capell-marketplace::marketplace.install.composer_sync_ready'));
 });
 
 it('blocks duplicate active queue attempts for the same composer package', function (): void {

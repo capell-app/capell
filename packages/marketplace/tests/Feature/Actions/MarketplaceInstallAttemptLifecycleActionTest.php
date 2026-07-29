@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\CreateMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\DispatchMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallDeploymentAction;
@@ -21,11 +22,14 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
+use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -283,6 +287,28 @@ it('preserves completed deployment evidence when cancellation wins during public
         ->and($recorded->resolved_at?->equalTo($cancelled->resolved_at))->toBeTrue()
         ->and($recorded->events->last()?->message)
         ->toBe((string) __('capell-marketplace::marketplace.operations.timeline_deployment_published'));
+});
+
+it('does not dispatch local work when cancellation commits after deployment recording', function (): void {
+    Queue::fake();
+    $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Queued);
+    $recorded = RecordMarketplaceInstallDeploymentAction::run(
+        $attempt,
+        new MarketplaceInstallDeploymentData([
+            'status' => 'published',
+            'reference' => 'pull-request-43',
+        ]),
+    );
+    CancelMarketplaceInstallAttemptAction::run($recorded->fresh());
+
+    $dispatchDecision = DispatchMarketplaceInstallAttemptAction::run(
+        attempt: $recorded,
+        queueConnection: 'database',
+        queue: 'capell-marketplace',
+    );
+
+    expect($dispatchDecision->status)->toBe(MarketplaceInstallIntentStatus::Cancelled);
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
 });
 
 it('derives lifecycle timestamps and resolution state', function (): void {
@@ -578,6 +604,32 @@ it('allows only one active retry for a terminal attempt', function (): void {
         ->and(MarketplaceInstallAttempt::query()
             ->where('composer_name', $source->composer_name)
             ->count())->toBe(2);
+});
+
+it('does not dispatch a retry when cancellation commits after retry preflight', function (): void {
+    Queue::fake();
+    $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed);
+
+    Event::listen(
+        'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
+        function (MarketplaceInstallAttemptEvent $event): void {
+            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+                return;
+            }
+
+            $attempt = $event->attempt()->firstOrFail();
+
+            if ($attempt->retry_of_id !== null) {
+                CancelMarketplaceInstallAttemptAction::run($attempt);
+            }
+        },
+    );
+
+    $retry = RetryMarketplaceInstallAttemptAction::run($source);
+
+    expect($retry->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($retry->retry_of_id)->toBe($source->getKey());
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
 });
 
 /**

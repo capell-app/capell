@@ -17,7 +17,9 @@ use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
@@ -183,6 +185,51 @@ it('preserves publication evidence without dispatching when cancellation wins du
         ])
         ->and($attempt->failure_type)->toBeNull()
         ->and($attempt->resolved_at)->not->toBeNull();
+
+    Queue::assertNothingPushed();
+});
+
+it('does not invoke the deployment publisher when cancellation commits before publication is claimed', function (): void {
+    Queue::fake();
+    config()->set('queue.connections.database.retry_after', 900);
+
+    Event::listen(
+        'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
+        function (MarketplaceInstallAttemptEvent $event): void {
+            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+                return;
+            }
+
+            CancelMarketplaceInstallAttemptAction::run($event->attempt()->firstOrFail());
+        },
+    );
+
+    $publisher = new class implements MarketplaceComposerChangePublisher
+    {
+        public int $calls = 0;
+
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
+        {
+            $this->calls++;
+
+            return new MarketplaceComposerPublicationResultData(
+                pullRequestUrl: 'https://github.test/capell/pulls/never',
+            );
+        }
+    };
+    app()->instance('test.marketplace.queue-unclaimed-publisher', $publisher);
+    app()->tag(
+        ['test.marketplace.queue-unclaimed-publisher'],
+        MarketplaceComposerChangePublisher::TAG,
+    );
+
+    $attempt = QueueMarketplaceInstallAttemptAction::run(
+        ...queueMarketplaceAttemptArguments('cancel-before-publication'),
+    );
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($attempt->current_stage)->toBeNull()
+        ->and($publisher->calls)->toBe(0);
 
     Queue::assertNothingPushed();
 });

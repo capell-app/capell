@@ -167,6 +167,8 @@ return [
     'install' => [
         'button' => 'Download',
         'blocked_button' => 'Unavailable',
+        'cancelled' => 'Extension installation cancelled',
+        'cancelled_body' => ':name was cancelled before local installation was queued. Any completed deployment handoff evidence is retained in Package Operations.',
         'composer_sync_failed' => 'Deployment sync needs manual action',
         'composer_sync_failed_body' => "Deployments could not publish the Composer change: :reason\n\nApply the same Composer requirement to the deployment source, repository, or pipeline:\n:command\n\nIf this app's queued job fails, run it manually here only after clearing or retrying the Package Operation.",
         'composer_sync_ready' => 'Extension installation queued',
@@ -284,6 +286,7 @@ return [
         'deployment_failed_notification' => 'Deployment sync needs manual action: :reason Apply the Composer change to the deployment source, repository, or pipeline while the local install remains queued.',
         'deployment_unknown_failure' => 'Deployment publisher failed without a detailed reason.',
         'timeline_deployment_failed' => 'Deployment handoff failed and needs manual attention.',
+        'timeline_deployment_publication_claimed' => 'Deployment publication was claimed.',
         'timeline_deployment_published' => 'Deployment handoff was published.',
         'timeline_deployment_recorded' => 'Deployment handoff evidence was recorded.',
         'timeline_deployment_unavailable' => 'Deployment handoff is unavailable and needs manual attention.',

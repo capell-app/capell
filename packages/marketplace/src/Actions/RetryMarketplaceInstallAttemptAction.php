@@ -11,7 +11,6 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
-use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
@@ -56,11 +55,11 @@ final class RetryMarketplaceInstallAttemptAction
                 );
             }
 
-            dispatch(new RunMarketplaceInstallAttemptJob((int) $retry->getKey()))
-                ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
-                ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
-
-            return $retry;
+            return DispatchMarketplaceInstallAttemptAction::run(
+                attempt: $retry,
+                queueConnection: (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'),
+                queue: (string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'),
+            );
         } finally {
             $lock->release();
         }

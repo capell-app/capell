@@ -165,7 +165,17 @@ final class InstallMarketplaceExtensionAction
         }
 
         $installAttempt = $this->queueInstallAttempt($listing, $acquisition, $eligibility, $selectedInstallOptions);
-        $publishedComposerChange = is_array($installAttempt->refresh()->deployment)
+        $installAttempt->refresh();
+
+        if (! $installAttempt->status->isActiveInstallOperation()) {
+            if ($installAttempt->status === MarketplaceInstallIntentStatus::Cancelled) {
+                $this->sendCancelledInstallNotification($installAttempt, $listing);
+            }
+
+            return null;
+        }
+
+        $publishedComposerChange = is_array($installAttempt->deployment)
             ? $installAttempt->deployment
             : ['status' => 'unavailable', 'fallback' => 'composer_command'];
         $composerReference = is_string($publishedComposerChange['reference'] ?? null)
@@ -624,9 +634,26 @@ final class InstallMarketplaceExtensionAction
             ->send();
     }
 
+    private function sendCancelledInstallNotification(
+        MarketplaceInstallAttempt $installAttempt,
+        ExtensionListingData $listing,
+    ): void {
+        Notification::make(MarketplaceInstallNotifications::operationId($listing->composerName))
+            ->title((string) __('capell-marketplace::marketplace.install.cancelled'))
+            ->body((string) __('capell-marketplace::marketplace.install.cancelled_body', [
+                'name' => $listing->name,
+            ]))
+            ->warning()
+            ->persistent()
+            ->actions($this->installOperationNotificationActions($installAttempt, 'resolved'))
+            ->send();
+    }
+
     /** @return array<int, FilamentAction> */
-    private function installOperationNotificationActions(MarketplaceInstallAttempt $installAttempt): array
-    {
+    private function installOperationNotificationActions(
+        MarketplaceInstallAttempt $installAttempt,
+        string $tab = 'active',
+    ): array {
         return [
             FilamentAction::make('viewMarketplaceInstallOperation')
                 ->label((string) __('capell-marketplace::marketplace.install.check_operation'))
@@ -634,7 +661,7 @@ final class InstallMarketplaceExtensionAction
                 ->link()
                 ->close()
                 ->url(MarketplacePackageOperationsPage::getUrl([
-                    'tab' => 'active',
+                    'tab' => $tab,
                     'operation' => $installAttempt->getKey(),
                 ])),
         ];
