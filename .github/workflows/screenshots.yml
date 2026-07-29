@@ -36,10 +36,6 @@ jobs:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       CAPELL_CORE_REPO_PATH: ${{ github.workspace }}/repositories/capell
       CAPELL_REPO: ${{ github.workspace }}/repositories/capell
-      CAPELL_ADMIN_URL: http://127.0.0.1:8000/admin
-      CAPELL_FRONTEND_URL: http://127.0.0.1:8000
-      DB_CONNECTION: sqlite
-      DB_DATABASE: ${{ github.workspace }}/services/capell-screenshot-runner/database/database.sqlite
 
     steps:
       - name: Checkout core repository
