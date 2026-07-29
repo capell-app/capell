@@ -68,12 +68,15 @@ final class BuildMarketplaceSelectionReviewAction
                     if ($this->dependencyIsSatisfied($dependencyComposerName)) {
                         continue;
                     }
+
                     if (array_key_exists($dependencyComposerName, $explicitRecords)) {
                         continue;
                     }
+
                     if (array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
                         continue;
                     }
+
                     if (! array_key_exists($dependencyComposerName, $records)) {
                         $unresolvedDependencyComposerNames[$dependencyComposerName] = $dependencyComposerName;
                     }
@@ -92,12 +95,15 @@ final class BuildMarketplaceSelectionReviewAction
                     if ($this->dependencyIsSatisfied($dependencyComposerName)) {
                         continue;
                     }
+
                     if (array_key_exists($dependencyComposerName, $explicitRecords)) {
                         continue;
                     }
+
                     if (array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
                         continue;
                     }
+
                     $dependencyRecord = $records[$dependencyComposerName] ?? null;
 
                     if (! $dependencyRecord instanceof MarketplaceSelectionRecordData) {
