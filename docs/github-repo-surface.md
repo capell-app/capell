@@ -106,10 +106,10 @@ search without adding product-level claims to repos where they don't apply.
 
 The sections above act on individual repositories. These four act on the
 `capell-app` organisation itself — its profile page, its verified-domain
-badge, its pinned-repo rail, and the `.github` profile-repo it does not yet
-have. **None of these have been run either.** Where a `gh` command exists it
-is given below; where the action is web-UI-only, that is stated instead of a
-fabricated command.
+badge, its pinned-repo rail, and its existing-but-private `.github`
+profile-repo. **None of these have been run either.** Where a `gh` command
+exists it is given below; where the action is web-UI-only, that is stated
+instead of a fabricated command.
 
 ### 5. Set the org description
 
@@ -169,18 +169,67 @@ Rationale: the org page defaults to sorting repos by recent activity, which
 buries the actual product monorepo under whatever split repo the last split
 workflow touched. Pinning fixes that regardless of split timing.
 
-### 8. Create `capell-app/.github` with the profile README
+### 8. Make `capell-app/.github` public and update its profile README
 
-Web UI (or `gh repo create`, which is a mutating command and therefore not
-listed as something to run here). The intended content is drafted at
-[`docs/org-profile-README.md`](org-profile-README.md) in this repo — copy it
-to `profile/README.md` in the new `capell-app/.github` repository once that
-repository exists.
+**Correction (2026-07-29): this repo already exists.** An earlier version of
+this doc said `capell-app/.github` needed to be created — that was wrong.
+Verified via `gh api repos/capell-app/.github`:
 
-Rationale: this is the file GitHub renders as `github.com/capell-app`'s
-front page. Today that URL shows a bare org page — empty description, no
-profile repo, 2 followers — to every visitor who clicks the site's GitHub
-icon.
+- created `2026-05-26T16:41:09Z`
+- **private** — a private `.github` repo's `profile/README.md` does not
+  render at `github.com/capell-app`, the same as if the repo didn't exist at
+  all. This, not a missing repo, is why that URL shows a bare org page today.
+- description: "GitHub organization profile and repository map for Capell."
+- already contains its own `profile/README.md` (1,623 bytes, read via
+  `gh api repos/capell-app/.github/contents/profile/README.md`) — an
+  internal-facing maintainer repo map and contribution-flow doc (canonical
+  vs. generated-split repos, where contributor PRs get forwarded), not a
+  public marketing profile.
+
+So there is no "create the repo" step. The corrected sequence:
+
+1. Decide what happens to the existing internal `profile/README.md`: replace
+   it outright with the draft at
+   [`docs/org-profile-README.md`](org-profile-README.md), or merge the two
+   (e.g. move the internal repo-map/contribution-flow content into
+   `CONTRIBUTING.md` or another internal doc first, so it isn't lost, then
+   replace `profile/README.md` with the public draft). This is Ben's call,
+   not decided here — the existing content is genuinely useful to
+   maintainers, just wrong for a public front page.
+2. Push the chosen content to `profile/README.md` in `capell-app/.github`.
+3. Make the repository public:
+
+   ```bash
+   gh repo edit capell-app/.github --visibility public --accept-visibility-change-consequences
+   ```
+
+   `--visibility` and its required `--accept-visibility-change-consequences`
+   companion flag are confirmed via `gh repo edit --help` (2026-07-29); `gh`
+   warns changing visibility can affect stars/watchers and repo ranking, so
+   review that before running it. This is a mutating command and therefore
+   not run as part of this task.
+
+Rationale: `profile/README.md` in a **public** `.github` repo is the file
+GitHub renders as `github.com/capell-app`'s front page. Today that URL shows
+a bare org page — empty description, no visible profile, 2 followers — to
+every visitor who clicks the site's GitHub icon, because the repo that would
+fix this is private, not absent.
+
+### Release visibility — informational only, no action prepared
+
+Verified via `gh release list -R capell-app/<repo>` (2026-07-29): all five
+split repos — `core`, `admin`, `frontend`, `installer`, `marketplace` — have
+full, populated GitHub Releases histories from `v1.0.0` through `v1.0.24`,
+the latest published 2026-07-29. The monorepo, `capell-app/capell`, has
+**zero** releases (`gh release list -R capell-app/capell` returns nothing).
+
+This is a genuine split-vs-monorepo asymmetry, not a gap this doc proposes to
+close: the per-package release record already exists and is current, so
+anything depending on "does Capell have release notes" (e.g. a public
+changelog page) can already point at the five split repos' releases today.
+Whether the monorepo itself should also carry releases — and if so, what
+they'd contain given it's the source the splits are generated from — is
+Ben's decision, not proposed here.
 
 ### Separate action: `pest-plugin-blade-coverage`'s own README
 
