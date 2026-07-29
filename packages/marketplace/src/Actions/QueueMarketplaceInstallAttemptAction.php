@@ -10,13 +10,15 @@ use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
+use Capell\Marketplace\Data\MarketplaceInstallDeploymentData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
-use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
@@ -144,7 +146,7 @@ final class QueueMarketplaceInstallAttemptAction
 
         $this->guardDuplicateActiveInstall($acquisition->composerName);
 
-        $attempt = RecordMarketplaceInstallAttemptAction::run(
+        $attempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
             extensionName: $listing->name,
             composerName: $acquisition->composerName,
@@ -162,78 +164,54 @@ final class QueueMarketplaceInstallAttemptAction
             deployment: $deploymentMetadata,
             failureReason: null,
             telemetryStatus: $telemetryStatus,
-            user: $user,
             idempotencyKey: $idempotencyKey,
-        );
-
-        $attempt->forceFill(['queued_at' => now()])->save();
-
-        RecordMarketplaceInstallAttemptEventAction::run(
-            attempt: $attempt,
-            level: MarketplaceInstallAttemptEventLevel::Info,
-            message: __('capell-marketplace::marketplace.operations.timeline_created'),
-            stage: MarketplaceInstallFailureStage::Preflight,
-        );
+            timelineMessage: (string) __('capell-marketplace::marketplace.operations.timeline_created'),
+            timelineLevel: MarketplaceInstallAttemptEventLevel::Info,
+            timelineStage: MarketplaceInstallFailureStage::Preflight,
+        ), $user);
 
         $preflight = RunMarketplaceInstallPreflightChecksAction::run($attempt);
 
         if (! $preflight['passed']) {
             $firstFailure = collect($preflight['checks'])->first(fn (array $check): bool => $check['passed'] === false);
             $reason = is_array($firstFailure) ? (string) $firstFailure['message'] : (string) __('capell-marketplace::marketplace.operations.preflight_failed');
-            $classification = ClassifyMarketplaceInstallFailureAction::run(
-                stage: MarketplaceInstallFailureStage::Preflight,
-                message: $reason,
+
+            return TransitionMarketplaceInstallAttemptAction::run(
+                $attempt,
+                new MarketplaceInstallAttemptTransitionData(
+                    toStatus: MarketplaceInstallIntentStatus::Failed,
+                    failureReason: $reason,
+                    failureStage: MarketplaceInstallFailureStage::Preflight,
+                ),
             );
-
-            $attempt->forceFill([
-                'status' => MarketplaceInstallIntentStatus::Failed,
-                'failure_reason' => $reason,
-                'failure_type' => $classification['failure_type']->value,
-                'failure_stage' => $classification['failure_stage']->value,
-                'completed_at' => now(),
-                'resolved_at' => null,
-            ])->save();
-
-            return $attempt;
         }
 
-        $deployment = PackageIsAvailableForLifecycleAction::run($attempt->composer_name)
-            ? $deploymentMetadata
-            : [
+        if (PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
+            $deployment = $deploymentMetadata;
+        } else {
+            $claimedAttempt = ClaimMarketplaceInstallDeploymentPublicationAction::run($attempt);
+
+            if (! $claimedAttempt instanceof MarketplaceInstallAttempt) {
+                return $attempt->refresh();
+            }
+
+            $attempt = $claimedAttempt;
+            $deployment = [
                 ...PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $attempt),
                 ...$deploymentMetadata,
             ];
-
-        $attempt->forceFill(['deployment' => $deployment !== [] ? $deployment : null])->save();
-
-        if (($deployment['status'] ?? null) === 'failed') {
-            $classification = ClassifyMarketplaceInstallFailureAction::run(
-                stage: MarketplaceInstallFailureStage::DeploymentHandoff,
-                message: is_string($deployment['failure_reason'] ?? null) ? $deployment['failure_reason'] : null,
-                deploymentStatus: 'failed',
-            );
-
-            $attempt->forceFill([
-                'failure_type' => $classification['failure_type']->value,
-                'failure_stage' => $classification['failure_stage']->value,
-            ])->save();
-
-            $reason = is_string($deployment['failure_reason'] ?? null)
-                ? (string) __('capell-marketplace::marketplace.operations.deployment_failed_notification', [
-                    'reason' => $deployment['failure_reason'],
-                ])
-                : (string) __('capell-marketplace::marketplace.operations.deployment_failed_notification', [
-                    'reason' => __('capell-marketplace::marketplace.operations.deployment_unknown_failure'),
-                ]);
-
-            $attempt->forceFill(['failure_reason' => $reason])->save();
         }
 
-        dispatch(new RunMarketplaceInstallAttemptJob((int) $attempt->getKey()))
-            ->onConnection($queueConnection)
-            ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
+        $attempt = RecordMarketplaceInstallDeploymentAction::run(
+            $attempt,
+            new MarketplaceInstallDeploymentData($deployment),
+        );
 
-        return $attempt;
+        return DispatchMarketplaceInstallAttemptAction::run(
+            attempt: $attempt,
+            queueConnection: $queueConnection,
+            queue: (string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'),
+        );
     }
 
     /**
@@ -264,7 +242,7 @@ final class QueueMarketplaceInstallAttemptAction
                     : 'beta_acknowledgement_required',
             };
 
-        return RecordMarketplaceInstallAttemptAction::run(
+        return CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
             extensionName: $listing->name,
             composerName: $acquisition->composerName,
@@ -282,8 +260,7 @@ final class QueueMarketplaceInstallAttemptAction
             deployment: $deploymentMetadata,
             failureReason: $reason,
             telemetryStatus: $telemetryStatus,
-            user: $user,
-        );
+        ), $user);
     }
 
     /**

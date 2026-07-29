@@ -45,11 +45,11 @@ Screenshot contract:
 - Config: Marketplace API base URL, callback/webhook URL, package operation settings, cache settings, and account connection settings.
 - Migrations and models: Marketplace owns instance, connection, hosted flow, install attempt, attempt event, install intent, advisory snapshot, and dismissal tables.
 - Filament pages: extension detail, package operations, update advisory/admin surfaces, and Marketplace browser integration.
-- Livewire components: Marketplace extensions browser, install review, operation controls, and account connection UI.
+- Livewire components: Marketplace extensions browser, install review, operation controls, and account connection UI. The browser delegates grouped selection and dependency policy to `BuildMarketplaceSelectionReviewAction`.
 - Routes: authenticated admin callbacks for account connection and hosted install flow.
 - Policies/permissions: admin access follows the installed Extensions and Marketplace admin surfaces.
 - Events/listeners: package operation events, install attempt events, heartbeat/advisory recording, and notification paths.
-- Jobs/queues/schedules: `RunMarketplaceInstallAttemptJob` runs local Composer work under a global lock; telemetry and notification work may queue.
+- Jobs/queues/schedules: `RunMarketplaceInstallAttemptJob` runs local Composer work under a global lock and delegates attempt state to `TransitionMarketplaceInstallAttemptAction`; telemetry and notification work may queue.
 - Blade views/components: admin-only Marketplace pages, operation timelines, diagnostic bundles, and extension detail panels.
 - Cache behaviour: catalogue requests are cached under `capell-marketplace.marketplace.*` with query filters and account context.
 - Extension hooks: `ExtensionsPageExtender`, resource header action extenders, admin surface contributions, package operation surfaces, and activation verifier binding.
@@ -61,7 +61,7 @@ Marketplace owns these tables:
 - `marketplace_instances`: connected instance identity, encrypted signing secret, connection mode, account identity, verified email time, metadata, and heartbeat time.
 - `marketplace_account_connection_sessions`: short-lived account-link sessions with hashed state/verifier values and callback status.
 - `marketplace_install_flow_sessions`: hosted grouped install sessions with selected packages, options, dependency snapshot, hashed return state, encrypted verifier, remote flow ID, status, expiry, and errors.
-- `marketplace_install_attempts`: append-only install ledger for eligibility, account context, authorization, deployment handoff, Composer operation state, failure classification, retry links, output excerpts, and telemetry status.
+- `marketplace_install_attempts`: append-only install ledger for eligibility, account context, authorization, deployment handoff, Composer operation state, failure classification, retry links, output excerpts, and telemetry status. `CreateMarketplaceInstallAttemptAction` accepts `MarketplaceInstallAttemptData`; `TransitionMarketplaceInstallAttemptAction` row-locks attempts and atomically derives lifecycle timestamps, resolution/deployment attention, classification, and timeline state.
 - `marketplace_install_attempt_events`: append-only timeline events for preflight, Composer, package discovery, lifecycle work, notification, cancellation, and failure paths.
 - `marketplace_install_intents`: theme/package install intents that resolve after Composer or deployment work.
 - `marketplace_update_advisory_snapshots`: last heartbeat/update response stored locally for admin notices.
@@ -99,6 +99,7 @@ Deletion and retention:
 
 - Protected installs fail closed when Marketplace omits eligibility or account authorization data.
 - Free installs do not require a connected account, but telemetry can remain pending if Marketplace is unavailable.
+- Grouped selection uses typed input, record, blocked-dependency, and review Data. Policy returns stable failure reason codes; only the admin UI translates them.
 - `APP_URL` or `CAPELL_MARKETPLACE_WEBHOOK_URL` must be public when Marketplace needs callbacks or heartbeat.
 - Approval URLs must match the configured Marketplace host before redirecting an admin.
 - Composer work needs CLI PHP, Composer, writable Composer files, queue readiness, and package repository access.

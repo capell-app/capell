@@ -4,103 +4,93 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Responses;
 
-use Capell\Installer\Support\InstallerSessionRepository;
+use Capell\Installer\Data\InstallerRunStepData;
+use Capell\Installer\Enums\InstallerRunStepResultCode;
 use Illuminate\Http\JsonResponse;
 
 final class InstallStepResponse
 {
-    public function __construct(private readonly InstallerSessionRepository $sessions) {}
-
-    /** @param array<string, mixed> $additional */
-    public function running(
-        string $installId,
-        string $currentStep,
-        ?string $nextStep,
-        string $logPath,
-        array $additional = [],
-    ): JsonResponse {
-        return response()->json([
-            ...$additional,
-            'installId' => $installId,
-            'currentStep' => $currentStep,
-            'nextStep' => $nextStep,
-            'status' => 'running',
-            'lines' => $this->sessions->lines($installId),
-            'logPath' => $logPath,
-            'csrfToken' => csrf_token(),
-        ]);
-    }
-
-    public function complete(string $installId, string $currentStep, string $logPath): JsonResponse
+    public function fromResult(InstallerRunStepData $result): JsonResponse
     {
-        return response()->json([
-            'installId' => $installId,
-            'currentStep' => $currentStep,
-            'nextStep' => null,
-            'status' => 'complete',
-            'lines' => $this->sessions->lines($installId),
-            'logPath' => $logPath,
-            'redirectUrl' => route('capell-installer.success', ['installId' => $installId]),
-            'csrfToken' => csrf_token(),
-        ]);
-    }
-
-    /** @param array<string, mixed> $additional */
-    public function failed(
-        string $installId,
-        string $currentStep,
-        string $logPath,
-        string $error,
-        array $additional = [],
-        int $statusCode = 200,
-    ): JsonResponse {
-        return response()->json([
-            ...$additional,
-            'installId' => $installId,
-            'currentStep' => $currentStep,
-            'nextStep' => null,
-            'status' => 'failed',
-            'lines' => $this->sessions->lines($installId),
-            'logPath' => $logPath,
-            'error' => $error,
-            'csrfToken' => csrf_token(),
-        ], $statusCode);
-    }
-
-    public function gone(string $installId, string $error): JsonResponse
-    {
-        return response()->json([
-            'installId' => $installId,
-            'status' => 'failed',
-            'error' => $error,
-            'csrfToken' => csrf_token(),
-        ], 410);
-    }
-
-    public function outOfSequence(
-        string $installId,
-        string $currentStep,
-        string $expectedStep,
-        string $logPath,
-    ): JsonResponse {
-        if (in_array($currentStep, $this->sessions->completedSteps($installId), true)) {
-            return $this->running($installId, $currentStep, $expectedStep, $logPath);
+        if (in_array($result->code, [
+            InstallerRunStepResultCode::SessionNotFound,
+            InstallerRunStepResultCode::PlanNotFound,
+        ], true)) {
+            return response()->json([
+                'installId' => $result->installId,
+                'status' => 'failed',
+                'error' => $this->errorMessage($result),
+                'csrfToken' => csrf_token(),
+            ], 410);
         }
 
-        return response()->json([
-            'installId' => $installId,
-            'currentStep' => $currentStep,
-            'nextStep' => $expectedStep,
-            'expectedStep' => $expectedStep,
-            'status' => 'failed',
-            'lines' => $this->sessions->lines($installId),
-            'logPath' => $logPath,
-            'error' => sprintf(
-                'Install step "%s" is out of sequence. Expected "%s". Refresh the installer progress page and continue from the current step.',
-                $currentStep,
-                $expectedStep,
-            ),
-            'csrfToken' => csrf_token(),
-        ], 409);
+        $payload = [];
+
+        if ($result->exceptionClass !== null) {
+            $payload['errorClass'] = $result->exceptionClass;
+        }
+
+        if ($result->remediation !== null) {
+            $payload['remediation'] = $result->remediation;
+        }
+
+        if ($result->preflight !== null) {
+            $payload['preflight'] = $result->preflight;
+        }
+
+        $payload['installId'] = $result->installId;
+        $payload['currentStep'] = $result->currentStep;
+        $payload['nextStep'] = $result->nextStep;
+
+        if ($result->expectedStep !== null) {
+            $payload['expectedStep'] = $result->expectedStep;
+        }
+
+        $payload = [
+            ...$payload,
+            'status' => $this->status($result->code),
+            'lines' => $result->lines,
+            'logPath' => $result->logPath,
+        ];
+
+        $error = $this->errorMessage($result);
+        if ($error !== null) {
+            $payload['error'] = $error;
+        }
+
+        if ($result->code === InstallerRunStepResultCode::Complete) {
+            $payload['redirectUrl'] = route('capell-installer.success', ['installId' => $result->installId]);
+        }
+
+        $payload['csrfToken'] = csrf_token();
+
+        return response()->json(
+            $payload,
+            $result->code === InstallerRunStepResultCode::OutOfSequence ? 409 : 200,
+        );
+    }
+
+    private function status(InstallerRunStepResultCode $code): string
+    {
+        return match ($code) {
+            InstallerRunStepResultCode::Complete => 'complete',
+            InstallerRunStepResultCode::Running => 'running',
+            default => 'failed',
+        };
+    }
+
+    private function errorMessage(InstallerRunStepData $result): ?string
+    {
+        return match ($result->code) {
+            InstallerRunStepResultCode::ExecutionFailed => $result->exceptionMessage,
+            InstallerRunStepResultCode::OutOfSequence => (string) __('capell-installer::installer.step_out_of_sequence', [
+                'current' => $result->currentStep,
+                'expected' => $result->expectedStep,
+            ]),
+            InstallerRunStepResultCode::PlanNotFound => (string) __('capell-installer::installer.step_plan_not_found'),
+            InstallerRunStepResultCode::PreflightFailed => (string) __('capell-installer::installer.step_preflight_failed'),
+            InstallerRunStepResultCode::SessionNotFound => (string) __('capell-installer::installer.step_session_not_found'),
+            default => null,
+        };
     }
 }
