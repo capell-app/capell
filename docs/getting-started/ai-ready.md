@@ -2,7 +2,7 @@
 
 ![Capell AI-Ready Capell screenshot](../images/capell-readme-banner.jpg)
 
-Capell is AI-ready because its CMS foundation is already structured, permissioned, extensible, and safe to render.
+Capell Foundation gives optional AI packages structured, permissioned CMS context and a safe public-rendering boundary before a provider is added.
 
 AI features work best when they have trustworthy context: page records, URLs, language state, media metadata, package boundaries, workflow state, permissions, queues, cache dependencies, and a clear public output contract. Capell gives Laravel teams that foundation before an AI provider is added.
 
@@ -57,15 +57,15 @@ Core stays lean. Packages opt into AI where the feature needs it.
 
 Capell is shaped for practical AI assistance across the CMS:
 
-| Area                  | How Capell helps                                                      |
-| --------------------- | --------------------------------------------------------------------- |
-| Content planning      | Page trees and package state give prompts real context.               |
-| Draft page generation | Draft structures and section suggestions, still subject to review.    |
-| SEO and discovery     | Package-aware metadata, internal links, sitemaps, and `llms.txt`.     |
-| Translation           | Language and translation state anchor locale-specific drafts.         |
-| Editorial review      | Workflow packages turn AI checks into review notes before publish.    |
-| Campaigns             | Generate or review campaign pages, CTAs, UTM context, and goals.      |
-| Diagnostics           | Summarise site health, broken links, package impact, and cache state. |
+| Area                  | How Capell helps                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Content planning      | Page trees and package state give prompts real context.                              |
+| Draft page generation | Draft structures and section suggestions, still subject to review.                   |
+| SEO and discovery     | Structured page records give SEO and discovery packages permissioned source content. |
+| Translation           | Language and translation state anchor locale-specific drafts.                        |
+| Editorial review      | Workflow packages turn AI checks into review notes before publish.                   |
+| Campaigns             | Generate or review campaign pages, CTAs, UTM context, and goals.                     |
+| Diagnostics           | Summarise site health, broken links, package impact, and cache state.                |
 
 ## Safety And Governance
 

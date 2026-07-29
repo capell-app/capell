@@ -36,8 +36,8 @@ These captures show Capell administering [capell.app](https://capell.app) — th
 
 ![Capell Pages list showing real published pages with publish states, layouts, and SEO overview](docs/images/capell-app-pages-list.png)
 
- | Editing a page                                                                                                           | What visitors see                                                                                             |
- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Editing a page                                                                                                           | What visitors see                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | ![Capell page editor with real page content, publishing state, and AI assistant](docs/images/capell-app-page-editor.png) | ![The capell.app public homepage rendered by the Capell frontend](docs/images/capell-app-public-homepage.jpg) |
 
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
@@ -55,18 +55,18 @@ The real CMS test starts after the first launch. Someone edits the homepage at 4
 
 Capell keeps its core lean and grows through packages, so the CMS can expand with the application instead of arriving as a monolith. The free core stands on its own; the paid packages add the power tools. These are the ten headline features from [capell.app/features](https://capell.app/features):
 
- | Feature                         | What it gives you                                                                                                         |
- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
- | Extendable core                 | A lean, fast core you grow through verified packages, each with a production footprint you can inspect before it installs |
-| Safe upgrades and page recovery | Every change is reversible: compare revisions and roll a page back or forward with its audit trail intact                 |
-| Multi-site and multilingual     | Run many sites and languages from one Laravel app, with each site's content kept distinct                                 |
-| Quality, tested code            | Built and tested in the open: every quality claim traces to a live CI result you can check yourself                       |
-| AI-ready                        | Built to be driven by AI and served to AI through governed extension points                                               |
-| AI Command Centre               | Say the outcome in plain language, see the exact change previewed, and approve it before anything happens                 |
-| Agent Delivery                  | Publish your pages to answer engines as clean, RAG-ready JSON, with no scraping and no admin leakage                      |
- | SEO Suite                       | Live scoring, schema, redirects, and Search Console, all inside the admin                                                 |
- | Site search                     | Relevance-tuned results with synonyms and typo tolerance, plus a report of what visitors search for and cannot find       |
- | Performance pipeline            | Pages are cached and each ships route-specific critical CSS generated from your real stylesheet                           |
+| Feature                         | What it gives you                                                                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Extendable core                 | A lean, fast core you grow through verified packages, each with a production footprint you can inspect before it installs                            |
+| Safe upgrades and page recovery | Every change is reversible: compare revisions and roll a page back or forward with its audit trail intact                                            |
+| Multi-site and multilingual     | Run many sites and languages from one Laravel app, with each site's content kept distinct                                                            |
+| Quality, tested code            | Built and tested in the open: every quality claim traces to a live CI result you can check yourself                                                  |
+| AI-ready                        | Built to be driven by AI and served to AI through governed extension points                                                                          |
+| AI Command Centre               | Say the outcome in plain language, see the exact change previewed, and approve it before anything happens                                            |
+| Agent Delivery                  | Optional marketplace package for publishing clean, RAG-ready JSON to answer engines; Foundation supplies the structured, permissioned source content |
+| SEO Suite                       | Live scoring, schema, redirects, and Search Console, all inside the admin                                                                            |
+| Site search                     | Relevance-tuned results with synonyms and typo tolerance, plus a report of what visitors search for and cannot find                                  |
+| Performance pipeline            | Pages are cached and each ships route-specific critical CSS generated from your real stylesheet                                                      |
 
 Optional capabilities arrive as Laravel packages you add when the work needs them. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path — the [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation, and the live [extensions directory](https://capell.app/extensions) is the authority for what is currently installable.
 
