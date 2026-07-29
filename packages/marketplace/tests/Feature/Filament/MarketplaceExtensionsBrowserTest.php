@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
+use Capell\Marketplace\Data\MarketplaceSelectionInputData;
+use Capell\Marketplace\Data\MarketplaceSelectionReviewData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
@@ -1608,29 +1611,16 @@ it('provides a package-owned livewire browser component', function (): void {
         ->and((string) $componentReflection->getProperty('lockedKind')->getType())->toBe('?string');
 });
 
-it('preserves composer name filtering and ordering in marketplace selection reshapes', function (): void {
-    $browser = resolve(MarketplaceExtensionsBrowser::class);
-    $records = [
-        [],
-        ['composer_name' => null, 'maturity' => 'beta'],
-        ['composer_name' => '', 'maturity' => 'beta'],
-        ['composer_name' => '0', 'maturity' => 'beta'],
-        ['composer_name' => 'vendor/first', 'maturity' => 'stable'],
-        ['composer_name' => 'vendor/second', 'maturity' => 'beta'],
-        ['composer_name' => 'vendor/third', 'maturity' => 'beta'],
-    ];
+it('delegates Marketplace selection reshaping to a typed package policy', function (): void {
+    $handle = new ReflectionMethod(BuildMarketplaceSelectionReviewAction::class, 'handle');
+    $input = $handle->getParameters()[0]->getType();
 
-    $composerNames = new ReflectionMethod(MarketplaceExtensionsBrowser::class, 'recordComposerNames');
-    $betaComposerNames = new ReflectionMethod(MarketplaceExtensionsBrowser::class, 'betaRecordComposerNames');
-
-    expect($composerNames->invoke($browser, $records))->toBe([
-        'vendor/first',
-        'vendor/second',
-        'vendor/third',
-    ])->and($betaComposerNames->invoke($browser, $records))->toBe([
-        'vendor/second',
-        'vendor/third',
-    ]);
+    expect((string) $input)->toBe(MarketplaceSelectionInputData::class)
+        ->and((string) $handle->getReturnType())->toBe(MarketplaceSelectionReviewData::class)
+        ->and((string) (new ReflectionMethod(
+            MarketplaceExtensionsBrowser::class,
+            'marketplaceSelectionReview',
+        ))->getReturnType())->toBe('array');
 });
 
 it('does not expose per-extension marketplace install actions', function (): void {

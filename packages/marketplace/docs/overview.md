@@ -45,7 +45,7 @@ Screenshot contract:
 - Config: Marketplace API base URL, callback/webhook URL, package operation settings, cache settings, and account connection settings.
 - Migrations and models: Marketplace owns instance, connection, hosted flow, install attempt, attempt event, install intent, advisory snapshot, and dismissal tables.
 - Filament pages: extension detail, package operations, update advisory/admin surfaces, and Marketplace browser integration.
-- Livewire components: Marketplace extensions browser, install review, operation controls, and account connection UI.
+- Livewire components: Marketplace extensions browser, install review, operation controls, and account connection UI. The browser delegates grouped selection and dependency policy to `BuildMarketplaceSelectionReviewAction`.
 - Routes: authenticated admin callbacks for account connection and hosted install flow.
 - Policies/permissions: admin access follows the installed Extensions and Marketplace admin surfaces.
 - Events/listeners: package operation events, install attempt events, heartbeat/advisory recording, and notification paths.
@@ -99,6 +99,7 @@ Deletion and retention:
 
 - Protected installs fail closed when Marketplace omits eligibility or account authorization data.
 - Free installs do not require a connected account, but telemetry can remain pending if Marketplace is unavailable.
+- Grouped selection uses typed input, record, blocked-dependency, and review Data. Policy returns stable failure reason codes; only the admin UI translates them.
 - `APP_URL` or `CAPELL_MARKETPLACE_WEBHOOK_URL` must be public when Marketplace needs callbacks or heartbeat.
 - Approval URLs must match the configured Marketplace host before redirecting an admin.
 - Composer work needs CLI PHP, Composer, writable Composer files, queue readiness, and package repository access.

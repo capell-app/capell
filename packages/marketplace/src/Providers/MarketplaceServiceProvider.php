@@ -13,6 +13,7 @@ use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
@@ -76,6 +77,10 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             $this->app->scoped(MarketplaceInstanceResolver::class);
             $this->app->scoped(BuildMarketplaceInstallOperationsSummaryAction::class);
             $this->app->scoped(MarketplaceCatalogueRecordProvider::class);
+            $this->app->bind(
+                MarketplaceSelectionRecordProvider::class,
+                fn (): MarketplaceCatalogueRecordProvider => resolve(MarketplaceCatalogueRecordProvider::class),
+            );
             $this->app->bind(MarketplaceComposerChangePublisherRegistry::class);
 
             $this->app->bind(
