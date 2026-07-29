@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Livewire;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
-use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceSelectionInputData;
+use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
-use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
-use Composer\InstalledVersions;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Notifications\Notification;
@@ -37,13 +37,6 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     private const string STEP_BROWSE = 'browse';
 
     private const string STEP_REVIEW = 'review';
-
-    /** @var list<string> */
-    private const array MARKETPLACE_MANAGED_DEPENDENCIES = [
-        'capell-app/ai-orchestrator',
-        'capell-app/block-library',
-        'capell-app/insights',
-    ];
 
     public ?string $lockedKind = null;
 
@@ -307,14 +300,17 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      */
     public function marketplaceSelectionState(array $record): array
     {
-        $composerName = $this->recordComposerName($record);
+        $selectionRecord = $this->marketplaceSelectionRecord($record);
         $selectedComposerNames = $this->normalizedSelectedMarketplaceComposerNames();
 
         return [
-            'selectable' => $this->marketplaceRecordIsSelectable($record),
-            'selected' => $composerName !== null && in_array($composerName, $selectedComposerNames, true),
+            'selectable' => $selectionRecord->isSelectable(),
+            'selected' => $selectionRecord->composerName !== null
+                && in_array($selectionRecord->composerName, $selectedComposerNames, true),
             'dependency' => false,
-            'reason' => $this->marketplaceRecordSelectionBlockReason($record),
+            'reason' => $selectionRecord->failureReasonCode !== null
+                ? $this->marketplaceSelectionFailureReasonLabel($selectionRecord->failureReasonCode)
+                : null,
         ];
     }
 
@@ -430,135 +426,21 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return $review;
         }
 
-        $explicitComposerNames = $this->normalizedSelectedMarketplaceComposerNames();
-        $records = $this->marketplaceRecordsByComposerName($explicitComposerNames);
-        $explicitRecords = [];
-
-        foreach ($explicitComposerNames as $composerName) {
-            $record = $records[$composerName] ?? null;
-
-            if (is_array($record) && $this->marketplaceRecordIsSelectable($record)) {
-                $explicitRecords[$composerName] = $record;
-            }
-        }
-
-        $dependencyComposerNames = [];
-        $missingDependencies = [];
-        $blockedDependencies = [];
-        $recordsToInspect = $explicitRecords;
-
-        do {
-            $addedDependency = false;
-            $unresolvedDependencyComposerNames = [];
-
-            foreach ($recordsToInspect as $record) {
-                foreach ($this->recordRequiredDependencies($record) as $dependencyComposerName) {
-                    if ($this->dependencyIsSatisfied($dependencyComposerName)) {
-                        continue;
-                    }
-
-                    if (array_key_exists($dependencyComposerName, $explicitRecords)) {
-                        continue;
-                    }
-
-                    if (array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
-                        continue;
-                    }
-
-                    if (! array_key_exists($dependencyComposerName, $records)) {
-                        $unresolvedDependencyComposerNames[$dependencyComposerName] = $dependencyComposerName;
-                    }
-                }
-            }
-
-            if ($unresolvedDependencyComposerNames !== []) {
-                $records = [
-                    ...$records,
-                    ...$this->marketplaceRecordsByComposerName(array_values($unresolvedDependencyComposerNames)),
-                ];
-            }
-
-            foreach ($recordsToInspect as $record) {
-                foreach ($this->recordRequiredDependencies($record) as $dependencyComposerName) {
-                    if ($this->dependencyIsSatisfied($dependencyComposerName)) {
-                        continue;
-                    }
-
-                    if (array_key_exists($dependencyComposerName, $explicitRecords)) {
-                        continue;
-                    }
-
-                    if (array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
-                        continue;
-                    }
-
-                    $dependencyRecord = $records[$dependencyComposerName] ?? null;
-
-                    if (! is_array($dependencyRecord)) {
-                        $missingDependencies[] = $dependencyComposerName;
-
-                        continue;
-                    }
-
-                    if (! $this->marketplaceRecordIsSelectable($dependencyRecord)) {
-                        $blockedDependencies[$dependencyComposerName] = [
-                            'name' => $this->recordName($dependencyRecord),
-                            'composer_name' => $dependencyComposerName,
-                            'reason' => $this->marketplaceRecordSelectionBlockReason($dependencyRecord),
-                        ];
-
-                        continue;
-                    }
-
-                    $dependencyComposerNames[$dependencyComposerName] = $dependencyComposerName;
-                    $recordsToInspect[$dependencyComposerName] = $dependencyRecord;
-                    $addedDependency = true;
-                }
-            }
-        } while ($addedDependency);
-
-        $dependencyRecords = array_values(array_map(
-            fn (string $composerName): array => $records[$composerName],
-            $dependencyComposerNames,
+        $review = BuildMarketplaceSelectionReviewAction::run(MarketplaceSelectionInputData::make(
+            selectedComposerNames: $this->selectedMarketplaceComposerNames,
+            lockedKind: $this->lockedKind,
+            includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
+            canManageExtensions: ExtensionsPage::canManageExtensions(),
         ));
-        $installRecords = [...array_values($explicitRecords), ...$dependencyRecords];
-        $installComposerNames = $this->recordComposerNames($installRecords);
-        $totalCents = array_sum(array_map(
-            fn (array $record): int => is_numeric($record['price_cents'] ?? null) ? (int) $record['price_cents'] : 0,
-            $installRecords,
-        ));
-        $premiumRecords = array_values(array_filter(
-            $installRecords,
-            $this->marketplaceRecordRequiresPremiumFlow(...),
-        ));
-        $containsBeta = collect($installRecords)
-            ->contains(fn (array $record): bool => ($record['maturity'] ?? null) === 'beta');
-        $betaDependencyComposerNames = $this->betaRecordComposerNames($dependencyRecords);
 
-        $this->resolvedMarketplaceSelectionReview = [
-            'explicit_records' => array_values($explicitRecords),
-            'dependency_records' => $dependencyRecords,
-            'install_records' => $installRecords,
-            'install_composer_names' => $installComposerNames,
-            'dependency_composer_names' => array_values($dependencyComposerNames),
-            'missing_dependencies' => array_values(array_unique($missingDependencies)),
-            'blocked_dependencies' => array_values($blockedDependencies),
-            'premium_records' => $premiumRecords,
-            'selected_count' => count($explicitRecords),
-            'install_count' => count($installRecords),
-            'total_cents' => $totalCents,
-            'total_label' => $this->marketplaceSelectionTotalLabel($totalCents),
-            'has_premium_records' => $premiumRecords !== [],
-            'contains_beta' => $containsBeta,
-            'beta_dependency_composer_names' => $betaDependencyComposerNames,
-            'impact_records' => array_values(array_map(
-                fn (array $record): array => $this->installImpactRecord($record, $explicitRecords),
-                $installRecords,
-            )),
-            'can_install' => $installRecords !== [] && $missingDependencies === [] && $blockedDependencies === [],
-        ];
-
-        return $this->marketplaceSelectionReview();
+        return $this->resolvedMarketplaceSelectionReview = $review->toComputedArray(
+            freeTotalLabel: (string) __('capell-marketplace::marketplace.install.free'),
+            unknownExtensionLabel: (string) __('capell-marketplace::marketplace.selection.unknown_extension'),
+            failureReasonLabel: $this->marketplaceSelectionFailureReasonLabel(...),
+            impactReasonLabel: static fn (string $reasonCode): string => (string) __(
+                'capell-marketplace::marketplace.selection.impact_reason_' . $reasonCode,
+            ),
+        );
     }
 
     private function authorizeMarketplaceAccess(): void
@@ -613,19 +495,6 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             ->all();
     }
 
-    /**
-     * @param  array<int, string>  $composerNames
-     * @return array<string, array<string, mixed>>
-     */
-    private function marketplaceRecordsByComposerName(array $composerNames): array
-    {
-        return resolve(MarketplaceCatalogueRecordProvider::class)->recordsByComposerNames(
-            composerNames: $composerNames,
-            lockedKind: $this->lockedKind,
-            includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
-        );
-    }
-
     private function includeLocalExtensionStateForBrowser(): bool
     {
         return $this->includeLocalExtensionState && ExtensionsPage::canAccess();
@@ -646,58 +515,44 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     /** @param array<string, mixed> $record */
     private function marketplaceRecordIsSelectable(array $record): bool
     {
-        return $this->marketplaceRecordSelectionBlockReason($record) === null;
+        return $this->marketplaceSelectionRecord($record)->isSelectable();
     }
 
     /** @param array<string, mixed> $record */
     private function marketplaceRecordSelectionBlockReason(array $record): ?string
     {
-        if ((bool) ($record['is_installed'] ?? false)) {
-            return (string) __('capell-marketplace::marketplace.selection.blocked.installed');
-        }
+        $failureReasonCode = $this->marketplaceSelectionRecord($record)->failureReasonCode;
 
-        if ((bool) ($record['install_in_progress'] ?? false)) {
-            return (string) __('capell-marketplace::marketplace.selection.blocked.install_in_progress');
-        }
-
-        if (! (bool) ($record['is_compatible'] ?? true)) {
-            return (string) __('capell-marketplace::marketplace.selection.blocked.incompatible');
-        }
-
-        if (! ExtensionsPage::canManageExtensions()) {
-            return (string) __('capell-marketplace::marketplace.selection.blocked.permission');
-        }
-
-        $installState = is_string($record['marketplace_install_state'] ?? null)
-            ? $record['marketplace_install_state']
+        return $failureReasonCode !== null
+            ? $this->marketplaceSelectionFailureReasonLabel($failureReasonCode)
             : null;
-
-        if (in_array($installState, ['blocked', 'incompatible'], true)) {
-            $blockReason = resolve(MarketplaceInstallActionPresenter::class)->blockReason($record);
-
-            if (in_array($blockReason, ['account_required', 'not_connected', 'email_verification_required', 'capell_all_required'], true)) {
-                return null;
-            }
-
-            return resolve(MarketplaceInstallActionPresenter::class)->tooltip($record);
-        }
-
-        return null;
     }
 
     /** @param array<string, mixed> $record */
-    private function marketplaceRecordRequiresPremiumFlow(array $record): bool
+    private function marketplaceSelectionRecord(array $record): MarketplaceSelectionRecordData
     {
-        $installState = is_string($record['marketplace_install_state'] ?? null)
-            ? $record['marketplace_install_state']
-            : null;
-        $blockReason = resolve(MarketplaceInstallActionPresenter::class)->blockReason($record);
+        return resolve(BuildMarketplaceSelectionReviewAction::class)->record(
+            payload: $record,
+            canManageExtensions: ExtensionsPage::canManageExtensions(),
+        );
+    }
 
-        return (bool) ($record['is_paid'] ?? false)
-            || (bool) ($record['activation_required'] ?? false)
-            || in_array($blockReason, ['account_required', 'not_connected', 'email_verification_required', 'capell_all_required'], true)
-            || in_array($installState, ['purchase_required', 'activation_required'], true)
-            || (is_numeric($record['price_cents'] ?? null) && (int) $record['price_cents'] > 0);
+    private function marketplaceSelectionFailureReasonLabel(string $reasonCode): string
+    {
+        return match ($reasonCode) {
+            MarketplaceSelectionRecordData::FAILURE_INSTALLED,
+            MarketplaceSelectionRecordData::FAILURE_INSTALL_IN_PROGRESS,
+            MarketplaceSelectionRecordData::FAILURE_INCOMPATIBLE,
+            MarketplaceSelectionRecordData::FAILURE_PERMISSION => (string) __(
+                'capell-marketplace::marketplace.selection.blocked.' . $reasonCode,
+            ),
+            MarketplaceSelectionRecordData::FAILURE_UNAVAILABLE => (string) __(
+                'capell-marketplace::marketplace.install.tooltip',
+            ),
+            default => (string) __(
+                'capell-marketplace::marketplace.install.blocked.' . $reasonCode . '.tooltip',
+            ),
+        };
     }
 
     /**
@@ -755,73 +610,12 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         return null;
     }
 
-    private function dependencyIsSatisfied(string $composerName): bool
-    {
-        if (in_array($composerName, self::MARKETPLACE_MANAGED_DEPENDENCIES, true)) {
-            return true;
-        }
-
-        foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
-            try {
-                if (InstalledVersions::isInstalled($candidateComposerName)) {
-                    return true;
-                }
-            } catch (Throwable) {
-                continue;
-            }
-        }
-
-        return false;
-    }
-
     /** @param array<string, mixed> $record */
     private function recordComposerName(array $record): ?string
     {
         return is_string($record['composer_name'] ?? null) && $record['composer_name'] !== ''
             ? $record['composer_name']
             : null;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $records
-     * @return list<string>
-     */
-    private function recordComposerNames(array $records): array
-    {
-        $composerNames = [];
-
-        foreach ($records as $record) {
-            $composerName = $this->recordComposerName($record);
-
-            if ($composerName !== null && $composerName !== '0') {
-                $composerNames[] = $composerName;
-            }
-        }
-
-        return $composerNames;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $records
-     * @return list<string>
-     */
-    private function betaRecordComposerNames(array $records): array
-    {
-        $composerNames = [];
-
-        foreach ($records as $record) {
-            if (($record['maturity'] ?? null) !== 'beta') {
-                continue;
-            }
-
-            $composerName = $this->recordComposerName($record);
-
-            if ($composerName !== null && $composerName !== '0') {
-                $composerNames[] = $composerName;
-            }
-        }
-
-        return $composerNames;
     }
 
     /** @param array<string, mixed> $record */
@@ -836,78 +630,6 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         return is_string($record['name'] ?? null) && $record['name'] !== ''
             ? $record['name']
             : (string) __('capell-marketplace::marketplace.selection.unknown_extension');
-    }
-
-    /**
-     * @param  array<string, mixed>  $record
-     * @return array<int, string>
-     */
-    private function recordRequiredDependencies(array $record): array
-    {
-        $dependencies = $record['required_dependencies'] ?? [];
-
-        if (! is_array($dependencies)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(fn (mixed $dependency): ?string => is_string($dependency) && $dependency !== '' ? $dependency : null, $dependencies),
-            is_string(...),
-        ));
-    }
-
-    /**
-     * @param  array<string, mixed>  $record
-     * @param  array<string, array<string, mixed>>  $explicitRecords
-     * @return array<string, mixed>
-     */
-    private function installImpactRecord(array $record, array $explicitRecords): array
-    {
-        $composerName = $this->recordComposerName($record) ?? '';
-        $impact = is_array($record['install_impact'] ?? null) ? $record['install_impact'] : [];
-        $currentVersion = is_string($record['installed_version'] ?? null) ? $record['installed_version'] : null;
-        $targetVersion = is_string($record['latest_version'] ?? null) ? $record['latest_version'] : null;
-        $isDirect = array_key_exists($composerName, $explicitRecords);
-
-        return [
-            'composer_name' => $composerName,
-            'name' => $this->recordName($record),
-            'direct' => $isDirect,
-            'reason' => $isDirect
-                ? __('capell-marketplace::marketplace.selection.impact_reason_direct')
-                : __('capell-marketplace::marketplace.selection.impact_reason_dependency'),
-            'maturity' => is_string($record['maturity'] ?? null) ? $record['maturity'] : 'released',
-            'entitlement' => is_string($record['entitlement'] ?? null)
-                ? $record['entitlement']
-                : ($this->marketplaceRecordRequiresPremiumFlow($record) ? 'required' : 'included'),
-            'operation' => $currentVersion === null ? 'install' : 'update',
-            'current_version' => $currentVersion,
-            'target_version' => $targetVersion,
-            'migrations' => $this->impactList($impact, 'migrations'),
-            'routes' => $this->impactList($impact, 'routes'),
-            'scheduled_jobs' => $this->impactList($impact, 'scheduled_jobs'),
-            'storage' => $this->impactList($impact, 'storage'),
-            'permissions' => $this->impactList($impact, 'permissions'),
-        ];
-    }
-
-    /** @param array<string, mixed> $impact */
-    private function impactList(array $impact, string $key): array
-    {
-        $values = $impact[$key] ?? [];
-
-        return is_array($values)
-            ? array_values(array_filter($values, static fn (mixed $value): bool => is_string($value) && $value !== ''))
-            : [];
-    }
-
-    private function marketplaceSelectionTotalLabel(int $totalCents): string
-    {
-        if ($totalCents <= 0) {
-            return (string) __('capell-marketplace::marketplace.install.free');
-        }
-
-        return '$' . number_format($totalCents / 100, 2);
     }
 
     /**
