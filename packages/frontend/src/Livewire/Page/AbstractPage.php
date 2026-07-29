@@ -18,10 +18,8 @@ use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
-use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
 use Capell\Frontend\Support\Kernel\Steps\PageResolveStep;
-use Capell\Frontend\Support\Kernel\Steps\ParseUrlStep;
 use Capell\Frontend\Support\Kernel\Steps\RegisterThemeViewsStep;
 use Capell\Frontend\Support\Kernel\Steps\SetUrlGeneratorStep;
 use Capell\Frontend\Support\Kernel\Steps\SiteResolveStep;
@@ -410,10 +408,8 @@ abstract class AbstractPage extends Component
 
         return array_values(array_filter(
             config('frontend.kernel.steps', [
-                ParseUrlStep::class,
                 SiteResolveStep::class,
                 SetUrlGeneratorStep::class,
-                NormalizeDomainPathStep::class,
                 PageResolveStep::class,
                 LayoutResolverStep::class,
                 ThemeResolverStep::class,

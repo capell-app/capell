@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\PackageLifecycleAction;
+use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
@@ -478,6 +481,62 @@ it('keeps cancel-after-composer attempts unresolved for manual recovery', functi
         ->and($attempt->failure_type)->toBe('cancelled_after_composer');
 });
 
+it('honours cancellation requested during lifecycle before atomically finalizing success', function (): void {
+    Notification::fake();
+    $admin = test()->createUserWithRole('super_admin');
+    $packagePath = sys_get_temp_dir() . '/capell-marketplace-late-cancel-package-' . uniqid();
+
+    File::ensureDirectoryExists($packagePath);
+    File::put($packagePath . '/composer.json', json_encode([
+        'name' => 'capell-app/marketplace-late-cancel-package',
+        'autoload' => ['psr-4' => []],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+    CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'capell-app/marketplace-late-cancel-package',
+        surfaces: ['shared'],
+        overrides: [
+            'kind' => 'plugin',
+            'displayName' => 'Marketplace Late Cancel Package',
+            'actions' => [
+                'install' => CancelMarketplaceInstallDuringLifecycleAction::class,
+            ],
+        ],
+    ), $packagePath));
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/marketplace-late-cancel-package',
+        'extension_slug' => 'marketplace-late-cancel-package',
+        'extension_name' => 'Marketplace Late Cancel Package',
+        'user_id' => (string) $admin->getKey(),
+    ]);
+    CancelMarketplaceInstallDuringLifecycleAction::$attemptId = (int) $attempt->getKey();
+
+    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
+    {
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            throw new RuntimeException('Composer should not run for a downloaded package.');
+        }
+    });
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        CancelMarketplaceInstallDuringLifecycleAction::$attemptId = null;
+        File::deleteDirectory($packagePath);
+    }
+
+    expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($attempt->failure_type)->toBe(MarketplaceInstallFailureType::Unknown->value)
+        ->and($attempt->resolved_at)->toBeNull()
+        ->and($attempt->events()
+            ->where('message', __('capell-marketplace::marketplace.operations.timeline_failed'))
+            ->exists())->toBeFalse();
+
+    Notification::assertNothingSentTo($admin);
+});
+
 function marketplaceOperationAttempt(array $overrides = []): MarketplaceInstallAttempt
 {
     return MarketplaceInstallAttempt::query()->create([
@@ -491,4 +550,24 @@ function marketplaceOperationAttempt(array $overrides = []): MarketplaceInstallA
         'queued_at' => now(),
         ...$overrides,
     ]);
+}
+
+final class CancelMarketplaceInstallDuringLifecycleAction implements PackageLifecycleAction
+{
+    public static ?int $attemptId = null;
+
+    public function handle(
+        PackageData $package,
+        array $arguments = [],
+        ?ProgressReporter $reporter = null,
+    ): void {
+        if (self::$attemptId === null) {
+            throw new RuntimeException('The late-cancellation attempt was not configured.');
+        }
+
+        $attempt = MarketplaceInstallAttempt::query()->findOrFail(self::$attemptId);
+
+        CancelMarketplaceInstallAttemptAction::run($attempt);
+        $reporter?->report('cancellation requested during lifecycle');
+    }
 }

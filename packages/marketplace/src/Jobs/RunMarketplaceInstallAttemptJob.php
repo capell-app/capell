@@ -10,19 +10,20 @@ use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Marketplace\Actions\ClassifyMarketplaceInstallFailureAction;
+use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallOperationTelemetryAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
-use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
+use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceInstallOperationProgressAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
-use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Carbon\CarbonInterface;
@@ -35,7 +36,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use JsonException;
 use RuntimeException;
 use Throwable;
@@ -156,27 +156,17 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         }
 
         $reason = $throwable?->getMessage() ?: (string) __('capell-marketplace::marketplace.operations.queue_failed');
-        $classification = ClassifyMarketplaceInstallFailureAction::run(
-            stage: MarketplaceInstallFailureStage::Queue,
-            throwable: $throwable,
-            message: $reason,
+        $attempt = TransitionMarketplaceInstallAttemptAction::run(
+            $attempt,
+            new MarketplaceInstallAttemptTransitionData(
+                toStatus: MarketplaceInstallIntentStatus::Failed,
+                failureReason: $reason,
+                failureStage: MarketplaceInstallFailureStage::Queue,
+                timelineContext: ['reason' => $reason],
+            ),
         );
 
-        $attempt->forceFill([
-            'status' => MarketplaceInstallIntentStatus::Failed,
-            'failure_reason' => $this->redactedText($reason),
-            'failure_type' => $classification['failure_type']->value,
-            'failure_stage' => $classification['failure_stage']->value,
-            'completed_at' => now(),
-            'resolved_at' => null,
-        ])->save();
-
         FinalizeMarketplaceInstallOperationTelemetryAction::run($attempt);
-
-        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_queue_failed', MarketplaceInstallFailureStage::Queue, [
-            'reason' => $reason,
-        ]);
-
     }
 
     private function runWithLock(MarketplaceComposerRunner $composer): void
@@ -187,38 +177,16 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             return;
         }
 
-        if ($attempt->status === MarketplaceInstallIntentStatus::Cancelled) {
+        $attempt = ClaimMarketplaceInstallAttemptAction::run(
+            attempt: $attempt,
+            attemptCount: $this->attempts(),
+            progressTotal: 5,
+        );
+
+        if (! $attempt instanceof MarketplaceInstallAttempt) {
             return;
         }
 
-        if ($attempt->status === MarketplaceInstallIntentStatus::CancelRequested) {
-            $this->markCancelled($attempt);
-
-            return;
-        }
-
-        if ($attempt->status !== MarketplaceInstallIntentStatus::Queued) {
-            return;
-        }
-
-        $claimed = MarketplaceInstallAttempt::query()
-            ->whereKey($attempt->getKey())
-            ->where('status', MarketplaceInstallIntentStatus::Queued->value)
-            ->update([
-                'status' => MarketplaceInstallIntentStatus::Running->value,
-                'started_at' => now(),
-                'attempt_count' => max($attempt->attempt_count, $this->attempts()),
-                'heartbeat_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-        if ($claimed !== 1) {
-            return;
-        }
-
-        $attempt->refresh();
-
-        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_running', MarketplaceInstallFailureStage::Queue);
         if (PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
             $result = new MarketplaceComposerResultData(
                 exitCode: 0,
@@ -276,16 +244,11 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             InstallPackageAction::run($package, [], null, false);
             $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_lifecycle_completed', MarketplaceInstallFailureStage::Lifecycle);
 
-            $attempt->forceFill([
-                'status' => MarketplaceInstallIntentStatus::Succeeded,
-                'failure_reason' => null,
-                'failure_type' => null,
-                'failure_stage' => null,
-                'output_excerpt' => $this->excerpt($result->output),
-                'error_excerpt' => $this->excerpt($result->errorOutput),
-                'completed_at' => now(),
-                'resolved_at' => $this->deploymentNeedsAttention($attempt) ? null : now(),
-            ])->save();
+            $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, $result);
+
+            if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
+                return;
+            }
 
             try {
                 NotifyMarketplaceInstallCompletedAction::run($attempt->refresh());
@@ -297,30 +260,18 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                 ]);
             }
         } catch (Throwable $throwable) {
-            $classification = ClassifyMarketplaceInstallFailureAction::run(
-                stage: str_contains(strtolower($throwable->getMessage()), 'not discovered')
-                    ? MarketplaceInstallFailureStage::PackageDiscovery
-                    : MarketplaceInstallFailureStage::Lifecycle,
-                throwable: $throwable,
-            );
-
-            $attempt->forceFill([
-                'status' => MarketplaceInstallIntentStatus::Failed,
-                'failure_reason' => $this->redactedText($throwable->getMessage()),
-                'failure_type' => $classification['failure_type']->value,
-                'failure_stage' => $classification['failure_stage']->value,
-                'output_excerpt' => $this->excerpt($result->output),
-                'error_excerpt' => $this->excerpt($result->errorOutput),
-                'completed_at' => now(),
-                'resolved_at' => null,
-            ])->save();
-
-            $this->recordEvent(
+            TransitionMarketplaceInstallAttemptAction::run(
                 $attempt,
-                MarketplaceInstallAttemptEventLevel::Error,
-                $classification['failure_type'] === MarketplaceInstallFailureType::PackageNotDiscovered ? 'timeline_package_discovery_failed' : 'timeline_lifecycle_failed',
-                $classification['failure_stage'],
-                ['reason' => $throwable->getMessage()],
+                new MarketplaceInstallAttemptTransitionData(
+                    toStatus: MarketplaceInstallIntentStatus::Failed,
+                    failureReason: $throwable->getMessage(),
+                    failureStage: str_contains(strtolower($throwable->getMessage()), 'not discovered')
+                        ? MarketplaceInstallFailureStage::PackageDiscovery
+                        : MarketplaceInstallFailureStage::Lifecycle,
+                    outputExcerpt: $result->output,
+                    errorExcerpt: $result->errorOutput,
+                    timelineContext: ['reason' => $throwable->getMessage()],
+                ),
             );
         }
     }
@@ -380,88 +331,50 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         $reason = $result->timedOut
             ? (string) __('capell-marketplace::marketplace.operations.composer_timed_out')
             : (trim($result->errorOutput) ?: trim($result->output) ?: (string) __('capell-marketplace::marketplace.operations.composer_failed'));
-        $classification = ClassifyMarketplaceInstallFailureAction::run(
-            stage: MarketplaceInstallFailureStage::Composer,
-            composerResult: $result,
-            message: $reason,
-        );
-
-        $attempt->forceFill([
-            'status' => $status,
-            'failure_reason' => $this->redactedText($reason),
-            'failure_type' => $classification['failure_type']->value,
-            'failure_stage' => $classification['failure_stage']->value,
-            'output_excerpt' => $this->excerpt($result->output),
-            'error_excerpt' => $this->excerpt($result->errorOutput),
-            'completed_at' => now(),
-            'resolved_at' => null,
-        ])->save();
-
-        $this->recordEvent(
+        TransitionMarketplaceInstallAttemptAction::run(
             $attempt,
-            MarketplaceInstallAttemptEventLevel::Error,
-            $result->timedOut ? 'timeline_composer_timed_out' : 'timeline_composer_failed',
-            MarketplaceInstallFailureStage::Composer,
-            ['reason' => $reason],
-            $result->errorOutput !== '' ? $result->errorOutput : $result->output,
+            new MarketplaceInstallAttemptTransitionData(
+                toStatus: $status,
+                failureReason: $reason,
+                failureStage: MarketplaceInstallFailureStage::Composer,
+                composerResult: $result,
+                outputExcerpt: $result->output,
+                errorExcerpt: $result->errorOutput,
+                timelineContext: ['reason' => $reason],
+                timelineOutputExcerpt: $result->errorOutput !== '' ? $result->errorOutput : $result->output,
+            ),
         );
-
     }
 
     private function markComposerThrowable(MarketplaceInstallAttempt $attempt, Throwable $throwable): void
     {
-        $classification = ClassifyMarketplaceInstallFailureAction::run(
-            stage: MarketplaceInstallFailureStage::Composer,
-            throwable: $throwable,
+        TransitionMarketplaceInstallAttemptAction::run(
+            $attempt,
+            new MarketplaceInstallAttemptTransitionData(
+                toStatus: MarketplaceInstallIntentStatus::Failed,
+                failureReason: $throwable->getMessage(),
+                failureStage: MarketplaceInstallFailureStage::Composer,
+                timelineContext: ['reason' => $throwable->getMessage()],
+            ),
         );
-
-        $attempt->forceFill([
-            'status' => MarketplaceInstallIntentStatus::Failed,
-            'failure_reason' => $this->redactedText($throwable->getMessage()),
-            'failure_type' => $classification['failure_type']->value,
-            'failure_stage' => $classification['failure_stage']->value,
-            'completed_at' => now(),
-            'resolved_at' => null,
-        ])->save();
-
-        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_composer_failed', MarketplaceInstallFailureStage::Composer, [
-            'reason' => $throwable->getMessage(),
-        ]);
-
-    }
-
-    private function markCancelled(MarketplaceInstallAttempt $attempt): void
-    {
-        $attempt->forceFill([
-            'status' => MarketplaceInstallIntentStatus::Cancelled,
-            'cancelled_at' => now(),
-            'completed_at' => now(),
-            'resolved_at' => now(),
-        ])->save();
-
-        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_cancelled', MarketplaceInstallFailureStage::Queue);
     }
 
     private function markCancelledAfterComposer(MarketplaceInstallAttempt $attempt, MarketplaceComposerResultData $result): void
     {
         $reason = (string) __('capell-marketplace::marketplace.operations.cancelled_after_composer');
 
-        $attempt->forceFill([
-            'status' => MarketplaceInstallIntentStatus::Cancelled,
-            'failure_reason' => $reason,
-            'failure_type' => MarketplaceInstallFailureType::CancelledAfterComposer->value,
-            'failure_stage' => MarketplaceInstallFailureStage::Composer->value,
-            'output_excerpt' => $this->excerpt($result->output),
-            'error_excerpt' => $this->excerpt($result->errorOutput),
-            'cancelled_at' => now(),
-            'completed_at' => now(),
-            'resolved_at' => null,
-        ])->save();
-
-        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_cancelled_after_composer', MarketplaceInstallFailureStage::Composer, [
-            'reason' => $reason,
-        ]);
-
+        TransitionMarketplaceInstallAttemptAction::run(
+            $attempt,
+            new MarketplaceInstallAttemptTransitionData(
+                toStatus: MarketplaceInstallIntentStatus::Cancelled,
+                failureReason: $reason,
+                failureStage: MarketplaceInstallFailureStage::Composer,
+                composerResult: $result,
+                outputExcerpt: $result->output,
+                errorExcerpt: $result->errorOutput,
+                timelineContext: ['reason' => $reason],
+            ),
+        );
     }
 
     /**
@@ -524,30 +437,5 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                 CapellCore::getInstalledPrettyVersion($manifest->name),
             );
         }
-    }
-
-    private function deploymentNeedsAttention(MarketplaceInstallAttempt $attempt): bool
-    {
-        if (! is_array($attempt->deployment)) {
-            return false;
-        }
-
-        return ($attempt->deployment['status'] ?? null) === 'failed';
-    }
-
-    private function excerpt(string $output): ?string
-    {
-        $output = trim($output);
-
-        return $output === '' ? null : $this->redactedText(Str::limit($output, 4000, ''));
-    }
-
-    private function redactedText(string $text): string
-    {
-        $redacted = RedactMarketplaceDiagnosticContextAction::run([
-            'text' => $text,
-        ]);
-
-        return is_string($redacted['text'] ?? null) ? $redacted['text'] : '[redacted]';
     }
 }

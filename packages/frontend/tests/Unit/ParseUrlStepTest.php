@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 
 uses()->group('kernel');
 
-it('normalizes index.php and leading/trailing slashes', function (): void {
-    $state = new FrontendState;
+it('remains a no-op compatibility step', function (): void {
+    $state = (new FrontendState)
+        ->withRelativePath('/canonical')
+        ->setEffectiveUrl('/canonical');
     $request = Request::create('https://example.com/index.php');
     $work = new FrontendWork($request, $state);
 
@@ -18,11 +20,6 @@ it('normalizes index.php and leading/trailing slashes', function (): void {
     $result = $step->handle($work, fn (FrontendWork $w): FrontendWork => $w);
 
     expect($result)->toBe($work)
-        ->and($state->effectiveUrl())->toBe('/');
-
-    $request2 = Request::create('https://example.com/path/');
-    $work2 = new FrontendWork($request2, new FrontendState);
-    $step->handle($work2, fn (FrontendWork $w): FrontendWork => $w);
-
-    expect($work2->state->effectiveUrl())->toBe('/path/');
+        ->and($state->relativePath())->toBe('/canonical')
+        ->and($state->effectiveUrl())->toBe('/canonical');
 });

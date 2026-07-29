@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
-use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -23,67 +27,42 @@ final class RetryMarketplaceInstallAttemptAction
 
     public function handle(MarketplaceInstallAttempt $attempt, ?Authenticatable $user = null): MarketplaceInstallAttempt
     {
-        if (! $this->canRetry($attempt)) {
-            throw ValidationException::withMessages([
-                'attempt' => __('capell-marketplace::marketplace.operations.retry_unavailable'),
-            ]);
-        }
-
-        $retry = MarketplaceInstallAttempt::query()->create([
-            'composer_name' => $attempt->composer_name,
-            'extension_slug' => $attempt->extension_slug,
-            'extension_name' => $attempt->extension_name,
-            'kind' => $attempt->kind,
-            'status' => MarketplaceInstallIntentStatus::Queued,
-            'composer_command' => $attempt->composer_command,
-            'version_constraint' => $attempt->version_constraint,
-            'requested_options' => $attempt->requested_options,
-            'eligibility' => $attempt->eligibility,
-            'context' => $attempt->context,
-            'deployment' => $attempt->deployment,
-            'retry_of_id' => $attempt->getKey(),
-            'retried_by_id' => $this->userId($user),
-            'retried_at' => now(),
-            'queued_at' => now(),
-            'idempotency_key' => hash('sha256', Str::uuid()->toString()),
-            'user_id' => $attempt->user_id,
-            'user_email' => $attempt->user_email,
-        ]);
-
-        RecordMarketplaceInstallAttemptEventAction::run(
-            attempt: $retry,
-            level: MarketplaceInstallAttemptEventLevel::Info,
-            message: __('capell-marketplace::marketplace.operations.timeline_retry_created'),
-            stage: MarketplaceInstallFailureStage::Preflight,
-            context: ['retry_of_id' => $attempt->getKey()],
+        $lock = Cache::lock(
+            'capell-marketplace:queue-install:' . hash('sha256', $attempt->composer_name),
+            10,
         );
 
-        $preflight = RunMarketplaceInstallPreflightChecksAction::run($retry);
-
-        if (! $preflight['passed']) {
-            $firstFailure = collect($preflight['checks'])->first(fn (array $check): bool => $check['passed'] === false);
-            $reason = is_array($firstFailure) ? (string) $firstFailure['message'] : (string) __('capell-marketplace::marketplace.operations.preflight_failed');
-            $classification = ClassifyMarketplaceInstallFailureAction::run(
-                stage: MarketplaceInstallFailureStage::Preflight,
-                message: $reason,
-            );
-
-            $retry->forceFill([
-                'status' => MarketplaceInstallIntentStatus::Failed,
-                'failure_reason' => $reason,
-                'failure_type' => $classification['failure_type']->value,
-                'failure_stage' => $classification['failure_stage']->value,
-                'completed_at' => now(),
-            ])->save();
-
-            return $retry;
+        if (! $lock->get()) {
+            $this->throwDuplicateActiveInstall($attempt->composer_name);
         }
 
-        dispatch(new RunMarketplaceInstallAttemptJob((int) $retry->getKey()))
-            ->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'))
-            ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
+        try {
+            $retry = $this->createRetryWithLock($attempt, $user);
 
-        return $retry;
+            $preflight = RunMarketplaceInstallPreflightChecksAction::run($retry);
+
+            if (! $preflight['passed']) {
+                $firstFailure = collect($preflight['checks'])->first(fn (array $check): bool => $check['passed'] === false);
+                $reason = is_array($firstFailure) ? (string) $firstFailure['message'] : (string) __('capell-marketplace::marketplace.operations.preflight_failed');
+
+                return TransitionMarketplaceInstallAttemptAction::run(
+                    $retry,
+                    new MarketplaceInstallAttemptTransitionData(
+                        toStatus: MarketplaceInstallIntentStatus::Failed,
+                        failureReason: $reason,
+                        failureStage: MarketplaceInstallFailureStage::Preflight,
+                    ),
+                );
+            }
+
+            return DispatchMarketplaceInstallAttemptAction::run(
+                attempt: $retry,
+                queueConnection: (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'),
+                queue: (string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'),
+            );
+        } finally {
+            $lock->release();
+        }
     }
 
     public function canRetry(MarketplaceInstallAttempt $attempt): bool
@@ -104,5 +83,82 @@ final class RetryMarketplaceInstallAttemptAction
         $identifier = $user?->getAuthIdentifier();
 
         return is_scalar($identifier) ? (string) $identifier : null;
+    }
+
+    private function policyEvidence(
+        MarketplaceInstallAttempt $attempt,
+    ): ?MarketplaceInstallPolicyEvidenceData {
+        if (! is_array($attempt->policy_evidence)) {
+            return null;
+        }
+
+        return MarketplaceInstallPolicyEvidenceData::from($attempt->policy_evidence);
+    }
+
+    private function createRetryWithLock(
+        MarketplaceInstallAttempt $attempt,
+        ?Authenticatable $user,
+    ): MarketplaceInstallAttempt {
+        return DB::transaction(function () use ($attempt, $user): MarketplaceInstallAttempt {
+            $source = MarketplaceInstallAttempt::query()
+                ->whereKey((int) $attempt->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! $this->canRetry($source)) {
+                throw ValidationException::withMessages([
+                    'attempt' => __('capell-marketplace::marketplace.operations.retry_unavailable'),
+                ]);
+            }
+
+            $activeAttempt = MarketplaceInstallAttempt::query()
+                ->where('composer_name', $source->composer_name)
+                ->whereIn('status', [
+                    MarketplaceInstallIntentStatus::Queued->value,
+                    MarketplaceInstallIntentStatus::Running->value,
+                    MarketplaceInstallIntentStatus::CancelRequested->value,
+                ])
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeAttempt instanceof MarketplaceInstallAttempt) {
+                $this->throwDuplicateActiveInstall($source->composer_name);
+            }
+
+            return CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
+                extensionSlug: $source->extension_slug,
+                extensionName: $source->extension_name,
+                composerName: $source->composer_name,
+                kind: $source->kind,
+                status: MarketplaceInstallIntentStatus::Queued,
+                betaAcknowledged: (bool) $source->beta_acknowledged,
+                policyEvidence: $this->policyEvidence($source),
+                composerCommand: $source->composer_command,
+                versionConstraint: $source->version_constraint,
+                requestedOptions: $source->requested_options ?? [],
+                eligibility: $source->eligibility ?? [],
+                context: $source->context ?? [],
+                deployment: $source->deployment ?? [],
+                idempotencyKey: Str::uuid()->toString(),
+                retryOfId: (int) $source->getKey(),
+                retriedById: $this->userId($user),
+                retriedAt: now(),
+                userId: is_scalar($source->user_id) ? (string) $source->user_id : null,
+                userEmail: $source->user_email,
+                timelineMessage: (string) __('capell-marketplace::marketplace.operations.timeline_retry_created'),
+                timelineLevel: MarketplaceInstallAttemptEventLevel::Info,
+                timelineStage: MarketplaceInstallFailureStage::Preflight,
+                timelineContext: ['retry_of_id' => $source->getKey()],
+            ));
+        });
+    }
+
+    private function throwDuplicateActiveInstall(string $composerName): never
+    {
+        throw ValidationException::withMessages([
+            'composer_name' => __('capell-marketplace::marketplace.operations.duplicate_active', [
+                'package' => $composerName,
+            ]),
+        ]);
     }
 }

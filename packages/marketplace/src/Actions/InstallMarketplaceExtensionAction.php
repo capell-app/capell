@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Data\MarketplaceInstallRequestData;
@@ -164,7 +165,17 @@ final class InstallMarketplaceExtensionAction
         }
 
         $installAttempt = $this->queueInstallAttempt($listing, $acquisition, $eligibility, $selectedInstallOptions);
-        $publishedComposerChange = is_array($installAttempt->refresh()->deployment)
+        $installAttempt->refresh();
+
+        if (! $installAttempt->status->isActiveInstallOperation()) {
+            if ($installAttempt->status === MarketplaceInstallIntentStatus::Cancelled) {
+                $this->sendCancelledInstallNotification($installAttempt, $listing);
+            }
+
+            return null;
+        }
+
+        $publishedComposerChange = is_array($installAttempt->deployment)
             ? $installAttempt->deployment
             : ['status' => 'unavailable', 'fallback' => 'composer_command'];
         $composerReference = is_string($publishedComposerChange['reference'] ?? null)
@@ -242,7 +253,7 @@ final class InstallMarketplaceExtensionAction
         array $selectedInstallOptions,
         MarketplaceInstallEligibilityData $eligibility,
     ): void {
-        RecordMarketplaceInstallAttemptAction::run(
+        $this->createInstallAttempt(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
             extensionName: $listing->name,
             composerName: $listing->composerName,
@@ -256,8 +267,7 @@ final class InstallMarketplaceExtensionAction
             eligibility: $eligibility->toArray(),
             context: $this->installAttemptContext(),
             failureReason: $eligibility->blockReason ?? 'blocked',
-            user: auth()->user(),
-        );
+        ));
     }
 
     /**
@@ -299,7 +309,7 @@ final class InstallMarketplaceExtensionAction
 
         $notification->send();
 
-        RecordMarketplaceInstallAttemptAction::run(
+        $this->createInstallAttempt(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
             extensionName: $listing->name,
             composerName: $listing->composerName,
@@ -316,8 +326,7 @@ final class InstallMarketplaceExtensionAction
             ],
             context: $this->installAttemptContext(),
             failureReason: $exception->getMessage(),
-            user: auth()->user(),
-        );
+        ));
     }
 
     /**
@@ -357,7 +366,7 @@ final class InstallMarketplaceExtensionAction
 
         $notification->send();
 
-        RecordMarketplaceInstallAttemptAction::run(
+        $this->createInstallAttempt(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
             extensionName: $listing->name,
             composerName: $listing->composerName,
@@ -371,8 +380,7 @@ final class InstallMarketplaceExtensionAction
             eligibility: $eligibility->toArray(),
             context: $this->installAttemptContext(),
             failureReason: $throwable->getMessage(),
-            user: auth()->user(),
-        );
+        ));
     }
 
     /**
@@ -384,7 +392,7 @@ final class InstallMarketplaceExtensionAction
         array $selectedInstallOptions,
         ?MarketplaceInstallEligibilityData $authorizationEligibility,
     ): void {
-        RecordMarketplaceInstallAttemptAction::run(
+        $this->createInstallAttempt(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
             extensionName: $listing->name,
             composerName: $acquisition->composerName,
@@ -400,8 +408,7 @@ final class InstallMarketplaceExtensionAction
             eligibility: $authorizationEligibility?->toArray() ?? [],
             context: $this->installAttemptContext(),
             failureReason: $authorizationEligibility?->blockReason ?? $authorizationEligibility?->decision() ?? 'blocked',
-            user: auth()->user(),
-        );
+        ));
     }
 
     /**
@@ -627,9 +634,26 @@ final class InstallMarketplaceExtensionAction
             ->send();
     }
 
+    private function sendCancelledInstallNotification(
+        MarketplaceInstallAttempt $installAttempt,
+        ExtensionListingData $listing,
+    ): void {
+        Notification::make(MarketplaceInstallNotifications::operationId($listing->composerName))
+            ->title((string) __('capell-marketplace::marketplace.install.cancelled'))
+            ->body((string) __('capell-marketplace::marketplace.install.cancelled_body', [
+                'name' => $listing->name,
+            ]))
+            ->warning()
+            ->persistent()
+            ->actions($this->installOperationNotificationActions($installAttempt, 'resolved'))
+            ->send();
+    }
+
     /** @return array<int, FilamentAction> */
-    private function installOperationNotificationActions(MarketplaceInstallAttempt $installAttempt): array
-    {
+    private function installOperationNotificationActions(
+        MarketplaceInstallAttempt $installAttempt,
+        string $tab = 'active',
+    ): array {
         return [
             FilamentAction::make('viewMarketplaceInstallOperation')
                 ->label((string) __('capell-marketplace::marketplace.install.check_operation'))
@@ -637,7 +661,7 @@ final class InstallMarketplaceExtensionAction
                 ->link()
                 ->close()
                 ->url(MarketplacePackageOperationsPage::getUrl([
-                    'tab' => 'active',
+                    'tab' => $tab,
                     'operation' => $installAttempt->getKey(),
                 ])),
         ];
@@ -663,6 +687,16 @@ final class InstallMarketplaceExtensionAction
         return $message !== ''
             ? $message
             : (string) __('capell-marketplace::marketplace.install.failed');
+    }
+
+    private function createInstallAttempt(MarketplaceInstallAttemptData $data): void
+    {
+        $user = auth()->user();
+
+        CreateMarketplaceInstallAttemptAction::run(
+            $data,
+            $user instanceof Authenticatable ? $user : null,
+        );
     }
 
     /**
