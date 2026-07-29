@@ -1082,6 +1082,10 @@ it('requires the declared PostgreSQL full text expression', function (string $de
         "CREATE INDEX documents_search_index ON public.capell_documents USING gin (to_tsvector('simple'::regconfig, COALESCE(title, ''::text)))",
         false,
     ],
+    'empty concatenation separator' => [
+        "CREATE INDEX documents_search_index ON public.capell_documents USING gin (to_tsvector('simple'::regconfig, (COALESCE(title, ''::text) || ''::text) || COALESCE(body, ''::text)))",
+        false,
+    ],
 ]);
 
 it('binds the registry and facade as the shared runtime seam', function (): void {

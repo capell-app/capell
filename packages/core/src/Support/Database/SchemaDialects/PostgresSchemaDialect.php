@@ -161,12 +161,30 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
         }
 
         $definition = substr($definition, $gin);
+        $literals = [];
+        $definition = preg_replace_callback(
+            "/'(?:''|[^'])*'/",
+            static function (array $matches) use (&$literals): string {
+                $placeholder = "\x1D" . count($literals) . "\x1E";
+                $literals[$placeholder] = $matches[0];
+
+                return $placeholder;
+            },
+            $definition,
+        );
+
+        if (! is_string($definition)) {
+            return null;
+        }
+
         $definition = preg_replace('/::(?:regconfig|text)\b/i', '', $definition);
 
         if (! is_string($definition)) {
             return null;
         }
 
-        return strtolower(str_replace(['"', '(', ')', ' ', "\n", "\r", "\t"], '', $definition));
+        $definition = strtolower(str_replace(['"', '(', ')', ' ', "\n", "\r", "\t"], '', $definition));
+
+        return strtr($definition, $literals);
     }
 }

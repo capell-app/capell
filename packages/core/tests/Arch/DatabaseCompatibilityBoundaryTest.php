@@ -8,13 +8,17 @@ function capellDatabaseCompatibilityStringViolation(string $value): ?string
 {
     $dialectFunction = '/\\b(?:CONCAT|FIELD|DATE_FORMAT|JSON_CONTAINS|JSON_EXTRACT|JSON_SEARCH|JSON_UNQUOTE|JSON_VALUE|TIMESTAMPDIFF|STRPOS|INSTR|strftime|json_each|json_extract|json_tree|jsonb_path_query|plainto_tsquery|to_tsvector|ts_rank(?:_cd)?)\\s*\\(/i';
     $positionFunction = '/\\bposition\\s*\\([^)]*\\bin\\b[^)]*\\)/i';
-    $fullTextOperator = '/\\bmatch\\s*\\([^)]*\\)\\s+against\\b|\\b(?:FULLTEXT|ILIKE)\\b|\\bUSING\\s+GIN\\b/i';
+    $fullTextOperator = '/\\bmatch\\s*\\([^)]*\\)\\s+against\\b|\\bUSING\\s+GIN\\b/i';
+    $fullTextIndex = '/\\b(?:ADD\\s+)?FULLTEXT\\s*\\(|\\bFULLTEXT\\s+(?:INDEX|KEY)\\s+[`"]?[A-Za-z_]\\w*[`"]?\\s+(?:ON\\b|\\()/i';
+    $ilikeOperator = '/(?:\\b[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)?\\b|[`"][^`"]+[`"])\\s+ILIKE\\s+(?:\\?|:[A-Za-z_]\\w*|\'(?:\'\'|[^\'])*\')/i';
     $databaseCatalog = '/\\b(?:information_schema|pg_catalog|sqlite_master)\\b|\\bPRAGMA\\s+|\\bSHOW\\s+INDEX\\b/i';
     $sqlKeyword = '/\\b(?:SELECT|FROM|WHERE|JOIN|ORDER|GROUP|CASE|WHEN|AS)\\b/i';
 
     if (preg_match($dialectFunction, $value) === 1
         || preg_match($positionFunction, $value) === 1
         || preg_match($fullTextOperator, $value) === 1
+        || preg_match($fullTextIndex, $value) === 1
+        || preg_match($ilikeOperator, $value) === 1
         || preg_match($databaseCatalog, $value) === 1) {
         return 'dialect-only SQL';
     }
@@ -122,8 +126,19 @@ it('recognizes standalone case-insensitive database fragments', function (string
         'name ilike ?',
         'dialect-only SQL',
     ],
+    'standalone fulltext index' => [
+        'FULLTEXT INDEX documents_search ON (title, body)',
+        'dialect-only SQL',
+    ],
     'standalone concatenation' => [
         'first_name || last_name',
         'driver-specific concatenation operator',
     ],
+]);
+
+it('ignores database words used in non-SQL prose', function (string $prose): void {
+    expect(capellDatabaseCompatibilityStringViolation($prose))->toBeNull();
+})->with([
+    'fulltext prose' => 'The FULLTEXT feature is optional for this package.',
+    'ilike prose' => 'This behaves ILIKE the previous implementation.',
 ]);
