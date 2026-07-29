@@ -1,5 +1,25 @@
 parameters:
     ignoreErrors:
+        # Pest 5's semantic expectation rules cannot model mutable spies or every
+        # higher-order subject transition. These runtime contract assertions remain
+        # useful and are still exercised by Pest.
+        - identifier: pest.expectation.redundant
+          paths:
+              - ../packages/*/tests/*
+              - ../tests/*
+          reportUnmatched: false
+        - identifier: pest.expectation.impossible
+          paths:
+              - ../packages/*/tests/*
+              - ../tests/*
+          reportUnmatched: false
+
+        # Testbench declares $app nullable for lifecycle boundaries, but Pest test
+        # closures run after setUp has created the application.
+        - message: '#Cannot call method .* on Illuminate\\Foundation\\Application\|null#'
+          path: ../packages/core/tests/*
+          reportUnmatched: false
+
         # Faker uses __call magic; no static stubs exist for its property generators
         - message: '#Call to an undefined method Faker\\Generator::.*#'
 

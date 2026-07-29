@@ -12,7 +12,7 @@ it('all named classes in the test suite live in their own PSR-4 file', function 
     $testsPath = realpath(__DIR__ . '/..');
 
     throw_if(
-        in_array($testsPath, ['', '0', false], true) || ! is_dir($testsPath),
+        $testsPath === false || ! is_dir($testsPath),
         RuntimeException::class,
         'Tests path does not exist: ' . $testsPath,
     );

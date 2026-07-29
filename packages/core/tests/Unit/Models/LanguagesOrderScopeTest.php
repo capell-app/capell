@@ -14,5 +14,5 @@ it('language order scope binds language ids before building raw ordering', funct
 
     expect($query->toSql())
         ->not->toContain($maliciousLanguageId)
-        ->and(is_array($bindings['order'] ?? null) ? $bindings['order'] : [])->toBe([2, 3]);
+        ->and($bindings['order'])->toBe([2, 3]);
 });

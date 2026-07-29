@@ -32,7 +32,7 @@ arch('System package to have factories')
 it('core database factories extend Laravel factories and define state', function (): void {
     $factoryPath = realpath(__DIR__ . '/../../../../packages/core/database/factories');
 
-    throw_if(in_array($factoryPath, ['', '0', false], true) || ! is_dir($factoryPath), RuntimeException::class, 'Factories path does not exist: ' . $factoryPath);
+    throw_if($factoryPath === false || ! is_dir($factoryPath), RuntimeException::class, 'Factories path does not exist: ' . $factoryPath);
 
     $factoryFiles = collect(scandir($factoryPath))
         ->filter(fn (string $file): bool => str_ends_with($file, 'Factory.php'));
@@ -55,7 +55,7 @@ arch('models using a trait must implement an interface')
     ->expect(function (string $trait, string $interface, string $modelsNamespace = 'Capell\Core\Models'): void {
         $modelsPath = realpath(__DIR__ . '/../../../../packages/core/src/Models');
 
-        throw_if(in_array($modelsPath, ['', '0', false], true) || ! is_dir($modelsPath), RuntimeException::class, 'Models path does not exist: ' . $modelsPath);
+        throw_if($modelsPath === false || ! is_dir($modelsPath), RuntimeException::class, 'Models path does not exist: ' . $modelsPath);
 
         $modelFiles = collect(scandir($modelsPath))
             ->filter(fn (string $file): bool => str_ends_with($file, '.php'));

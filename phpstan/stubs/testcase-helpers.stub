@@ -102,3 +102,34 @@ namespace Pest\PendingCalls {
     */
     class TestCall {}
 }
+
+namespace Pest\Support {
+    /**
+     * Pest 5's test() helper returns a TestCall|HigherOrderTapProxy union. Keep
+     * project test helpers available on both branches of that return type.
+     *
+     * @method mixed actingAsAdmin(array<string,mixed> $attributes = [])
+     * @method mixed actingAsUser(array<string,mixed> $attributes = [])
+     * @method mixed actingAsRole(string $role, array<string,mixed> $attributes = [])
+     * @method mixed actingAs(object $user, string|null $guard = null)
+     * @method mixed createUser(array<string,mixed> $attributes = [])
+     * @method mixed createUserWithRole(array<string>|string $roles, array<string,mixed> $attributes = [])
+     * @method mixed createUserWithPermission(array<string>|string $permissions, array<string,mixed> $attributes = [])
+     * @method \Capell\Tests\Fixtures\Models\User authenticatedUser()
+     * @method mixed artisanCommand(string $command, array<string,mixed> $parameters = [])
+     * @method mixed assertWorkspaceDraftableContract(mixed ...$arguments)
+     * @method mixed afterEach(callable $callback)
+     * @method mixed beforeApplicationDestroyed(callable $callback)
+     * @method mixed createNewsletterSite(string $name = 'Newsletter Site')
+     * @method mixed blade(string $template, array<string,mixed> $data = [])
+     * @method mixed createMock(class-string $originalClassName)
+     * @method mixed fail(string $message = '')
+     * @method mixed get(string $uri, array<string,string> $headers = [])
+     * @method mixed getJson(string $uri, array<string,string> $headers = [])
+     * @method mixed instance(string $abstract, mixed $instance)
+     * @method mixed markTestSkipped(string $message = '')
+     * @method mixed registerAndMigrateSettings(mixed ...$arguments)
+     * @method mixed withoutExceptionHandling(array<int, class-string<\Throwable>> $except = [])
+     */
+    class HigherOrderTapProxy {}
+}

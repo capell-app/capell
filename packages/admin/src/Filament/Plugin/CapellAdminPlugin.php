@@ -249,7 +249,7 @@ class CapellAdminPlugin implements Plugin
     {
         $dir = realpath(__DIR__ . '/../../../publishes');
 
-        throw_if(in_array($dir, ['', '0', false], true), RuntimeException::class, 'Publish directory not found.');
+        throw_if($dir === false, RuntimeException::class, 'Publish directory not found.');
 
         return $dir;
     }

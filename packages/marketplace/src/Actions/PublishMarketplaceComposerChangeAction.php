@@ -76,7 +76,7 @@ final class PublishMarketplaceComposerChangeAction
             ];
         }
 
-        if (is_string($result->pullRequestUrl ?? null) && $result->pullRequestUrl !== '') {
+        if (is_string($result->pullRequestUrl) && $result->pullRequestUrl !== '') {
             return [
                 'status' => 'published',
                 'reference' => $result->pullRequestUrl,
@@ -84,7 +84,7 @@ final class PublishMarketplaceComposerChangeAction
             ];
         }
 
-        if (is_string($result->commitSha ?? null) && $result->commitSha !== '') {
+        if (is_string($result->commitSha) && $result->commitSha !== '') {
             return [
                 'status' => 'published',
                 'reference' => $result->commitSha,

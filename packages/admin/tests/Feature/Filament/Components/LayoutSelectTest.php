@@ -16,7 +16,7 @@ it('layout select search ordering binds user supplied search text', function ():
     $method->invoke($component, $query, $search);
 
     $bindings = $query->getQuery()->getRawBindings();
-    $orderBindings = is_array($bindings['order'] ?? null) ? $bindings['order'] : [];
+    $orderBindings = $bindings['order'];
 
     expect($query)
         ->toBeInstanceOf(Builder::class)

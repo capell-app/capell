@@ -50,7 +50,7 @@ final class BuildExtensionUpdateReadinessAction
         $latest = explode('.', ltrim($package->latestVersion, 'v'));
 
         $state = match (true) {
-            ($latest[0] ?? null) !== ($current[0] ?? null) => 'major_review',
+            $latest[0] !== $current[0] => 'major_review',
             ($latest[1] ?? null) !== ($current[1] ?? null) => 'minor_ready',
             default => 'patch_ready',
         };

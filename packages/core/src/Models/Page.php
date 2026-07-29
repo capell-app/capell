@@ -685,7 +685,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
                 return null;
             }
 
-            return $this->blueprint?->meta['url_params'] ?? null;
+            return $this->blueprint?->meta['url_params'];
         });
     }
 

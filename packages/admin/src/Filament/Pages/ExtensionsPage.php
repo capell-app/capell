@@ -136,7 +136,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
             return trim($filterSearch);
         }
 
-        $tableSearch = $this->tableSearch ?? null;
+        $tableSearch = $this->tableSearch;
 
         return is_string($tableSearch) && trim($tableSearch) !== '' ? trim($tableSearch) : null;
     }

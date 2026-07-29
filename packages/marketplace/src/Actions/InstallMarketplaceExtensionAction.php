@@ -705,8 +705,7 @@ final class InstallMarketplaceExtensionAction
             ?? ($protectedInstall ? null : ($arguments['install_eligibility_policy'] ?? null))
             ?? $arguments['install_eligibility']
             ?? $arguments['eligibility']
-            ?? ($protectedInstall ? null : $listing->installState)
-            ?? null;
+            ?? ($protectedInstall ? null : $listing->installState);
 
         $remoteEligibility = MarketplaceInstallEligibilityData::fromPayload(
             $payload,

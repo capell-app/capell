@@ -123,7 +123,7 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
         }
 
         $root = InstalledVersions::getRootPackage();
-        $rootInstallPath = $root['install_path'] ?? null;
+        $rootInstallPath = $root['install_path'];
         $embeddedInstallPath = is_string($rootInstallPath)
             ? $rootInstallPath . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . basename(str_replace('\\', '/', $package))
             : null;
@@ -134,15 +134,15 @@ final class VerifyCloudSiteBuildCompatibilityEnvelopeAction
             ? json_decode((string) file_get_contents($embeddedManifestPath), true)
             : null;
 
-        if (($root['name'] ?? null) !== 'capell-app/capell'
+        if ($root['name'] !== 'capell-app/capell'
             || ! is_array($embeddedManifest)
             || ($embeddedManifest['name'] ?? null) !== $package) {
             $this->fail();
         }
 
         return $this->verifiedPackageEvidence(
-            $root['pretty_version'] ?? null,
-            $root['reference'] ?? null,
+            $root['pretty_version'],
+            $root['reference'],
             $embeddedInstallPath,
         );
     }

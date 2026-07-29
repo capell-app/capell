@@ -71,8 +71,8 @@ it('removes a package', function (): void {
 
     expect($result)
         ->toBeArray()
-        ->and($result['status'] ?? null)->toBe('removed')
-        ->and($result['cache_cleared'] ?? null)->toBeTrue()
+        ->and($result['status'])->toBe('removed')
+        ->and($result['cache_cleared'])->toBeTrue()
         ->and($deletedPaths)->toContain(
             base_path('bootstrap/cache/capell-package-manifests.php'),
             base_path('bootstrap/cache/capell-theme-chain.php'),
