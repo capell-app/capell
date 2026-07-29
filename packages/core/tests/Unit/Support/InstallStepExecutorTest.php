@@ -38,6 +38,7 @@ use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Process\Factory;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
@@ -343,6 +344,66 @@ it('applies the install url and cache lifecycle around successful step execution
     expect($appUrlDuringStep)->toBe('https://capell-app.test')
         ->and($cacheClearCountDuringStep)->toBe(1)
         ->and($cacheClearCount)->toBe(2);
+});
+
+it('preserves the step failure when final cache cleanup also fails', function (): void {
+    Exceptions::fake();
+
+    $cacheClearCall = 0;
+    $cleanupFailure = new RuntimeException('Extension cache cleanup failed.');
+
+    CapellCore::partialMock()
+        ->shouldReceive('clearExtensionCache')
+        ->twice()
+        ->andReturnUsing(function () use (&$cacheClearCall, $cleanupFailure): void {
+            $cacheClearCall++;
+
+            if ($cacheClearCall === 2) {
+                throw $cleanupFailure;
+            }
+        });
+
+    $lines = [];
+    $state = new InstallRunState(
+        installStepExecutorInputData(),
+        installStepExecutorReporter($lines),
+    );
+
+    expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(
+        'unknown-step',
+        $state,
+    ))->toThrow(RuntimeException::class, 'Unknown install step: unknown-step');
+
+    Exceptions::assertReported(
+        fn (RuntimeException $reported): bool => $reported === $cleanupFailure,
+    );
+});
+
+it('propagates final cache cleanup failures when the step succeeds', function (): void {
+    $cacheClearCall = 0;
+    $cleanupFailure = new RuntimeException('Extension cache cleanup failed.');
+
+    CapellCore::partialMock()
+        ->shouldReceive('clearExtensionCache')
+        ->twice()
+        ->andReturnUsing(function () use (&$cacheClearCall, $cleanupFailure): void {
+            $cacheClearCall++;
+
+            if ($cacheClearCall === 2) {
+                throw $cleanupFailure;
+            }
+        });
+
+    $lines = [];
+    $state = new InstallRunState(
+        installStepExecutorInputData(),
+        installStepExecutorReporter($lines),
+    );
+
+    expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(
+        InstallPlan::STEP_INTEGRATE_ADMIN_PANEL,
+        $state,
+    ))->toThrow($cleanupFailure);
 });
 
 it('fails the install step when the doctor summary finds release-blocking issues', function (): void {

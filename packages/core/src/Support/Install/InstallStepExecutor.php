@@ -47,10 +47,28 @@ final class InstallStepExecutor
         config(['app.url' => $state->inputData->siteUrl]);
         CapellCore::clearExtensionCache();
 
+        $stepFailed = false;
+
         try {
             return $this->executeStep($stepKey, $state);
+        } catch (Throwable $throwable) {
+            $stepFailed = true;
+
+            throw $throwable;
         } finally {
-            CapellCore::clearExtensionCache();
+            try {
+                CapellCore::clearExtensionCache();
+            } catch (Throwable $cleanupFailure) {
+                if (! $stepFailed) {
+                    throw $cleanupFailure;
+                }
+
+                try {
+                    report($cleanupFailure);
+                } catch (Throwable) {
+                    // Reporting must not replace the primary install-step failure.
+                }
+            }
         }
     }
 
