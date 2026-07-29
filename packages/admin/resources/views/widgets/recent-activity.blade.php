@@ -5,9 +5,7 @@
         @endphp
 
         @if ($items->isEmpty())
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-                No recent activity.
-            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">No recent activity.</p>
         @else
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach ($items as $item)
@@ -21,14 +19,10 @@
                     @endphp
 
                     <div class="flex items-center justify-between py-2 text-sm">
-                        <span
-                            class="truncate font-medium text-gray-700 dark:text-gray-300"
-                        >
+                        <span class="truncate font-medium text-gray-700 dark:text-gray-300">
                             {{ $item['title'] }}
                         </span>
-                        <span
-                            class="{{ $badgeClass }} ml-4 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize"
-                        >
+                        <span class="{{ $badgeClass }} ml-4 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
                             {{ $item['status'] }}
                         </span>
                     </div>

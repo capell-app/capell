@@ -3,7 +3,5 @@
 @endphp
 
 <div class="space-y-4">
-    <livewire:capell-marketplace.marketplace-extensions-browser
-        locked-kind="{{ ExtensionKind::Theme->value }}"
-    />
+    <livewire:capell-marketplace.marketplace-extensions-browser locked-kind="{{ ExtensionKind::Theme->value }}" />
 </div>

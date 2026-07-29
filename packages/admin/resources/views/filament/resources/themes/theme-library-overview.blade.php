@@ -132,8 +132,7 @@
             border-radius: 0.375rem;
             color: rgb(248 250 252);
             display: block;
-            font-family:
-                ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 0.75rem;
             margin-top: 0.5rem;
             overflow-x: auto;
@@ -203,26 +202,15 @@
     </style>
 @endonce
 
-<section
-    class="capell-theme-library-overview"
-    aria-label="{{ __('capell-admin::theme-library.title') }}"
->
+<section class="capell-theme-library-overview" aria-label="{{ __('capell-admin::theme-library.title') }}">
     <div class="capell-theme-library-overview__panel">
-        <p class="capell-theme-library-overview__label">
-            {{ __('capell-admin::theme-library.sections.installed') }}
-        </p>
-        <div class="capell-theme-library-overview__value">
-            {{ count($installed) }}
-        </div>
+        <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.installed') }}</p>
+        <div class="capell-theme-library-overview__value">{{ count($installed) }}</div>
     </div>
 
     <div class="capell-theme-library-overview__panel">
-        <p class="capell-theme-library-overview__label">
-            {{ __('capell-admin::theme-library.sections.available') }}
-        </p>
-        <div class="capell-theme-library-overview__value">
-            {{ count($available) }}
-        </div>
+        <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.available') }}</p>
+        <div class="capell-theme-library-overview__value">{{ count($available) }}</div>
         @if (count($available) > 0)
             <div class="capell-theme-library-overview__note">
                 {{ collect($available)->pluck('title')->take(2)->implode(', ') }}
@@ -231,19 +219,13 @@
     </div>
 
     <div class="capell-theme-library-overview__panel">
-        <p class="capell-theme-library-overview__label">
-            {{ __('capell-admin::theme-library.sections.pending') }}
-        </p>
+        <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.pending') }}</p>
         <div class="capell-theme-library-overview__value">{{ $pending }}</div>
     </div>
 
     <div class="capell-theme-library-overview__panel">
-        <p class="capell-theme-library-overview__label">
-            {{ __('capell-admin::theme-library.sections.diagnostics') }}
-        </p>
-        <div class="capell-theme-library-overview__value">
-            {{ count($warnings) }}
-        </div>
+        <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.diagnostics') }}</p>
+        <div class="capell-theme-library-overview__value">{{ count($warnings) }}</div>
         @if (count($warnings) > 0)
             <div class="capell-theme-library-overview__note">
                 {{ collect($warnings)->pluck('title')->take(2)->implode(', ') }}
@@ -255,22 +237,14 @@
 @if (count($pendingInstalls) > 0)
     <div class="capell-theme-library-overview__sections">
         <section class="capell-theme-library-overview__section">
-            <h2>
-                {{ __('capell-admin::theme-library.sections.pending') }}
-            </h2>
+            <h2>{{ __('capell-admin::theme-library.sections.pending') }}</h2>
             <div class="capell-theme-library-overview__list">
                 @foreach (collect($pendingInstalls)->take(5) as $install)
                     <article class="capell-theme-library-overview__item">
-                        <div class="capell-theme-library-overview__item-title">
-                            {{ $install['name'] }}
-                        </div>
-                        <div class="capell-theme-library-overview__note">
-                            {{ $install['package'] }}
-                        </div>
+                        <div class="capell-theme-library-overview__item-title">{{ $install['name'] }}</div>
+                        <div class="capell-theme-library-overview__note">{{ $install['package'] }}</div>
                         @if (($install['command'] ?? '') !== '')
-                            <code class="capell-theme-library-overview__code">
-                                {{ $install['command'] }}
-                            </code>
+                            <code class="capell-theme-library-overview__code"> {{ $install['command'] }} </code>
                         @endif
                     </article>
                 @endforeach

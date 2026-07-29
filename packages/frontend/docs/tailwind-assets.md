@@ -72,9 +72,9 @@ return [
 
 ```css
 @import 'tippy.js/dist/tippy.css';
-@plugin "@tailwindcss/typography";
-@source "../../../vendor/capell-app/admin/resources/views/**/*.blade.php";
-@source "../../../vendor/capell-app/frontend/resources/views/**/*.blade.php";
+@plugin '@tailwindcss/typography';
+@source '../../../vendor/capell-app/admin/resources/views/**/*.blade.php';
+@source '../../../vendor/capell-app/frontend/resources/views/**/*.blade.php';
 ```
 
 Each Capell-approved package contributing styles or scanned views adds its own `@import` and `@source` lines automatically. The generated file ends up listing every installed package; installs with Blog, themes, and other add-ons will see additional lines for each. See [Approved packages](../../../docs/packages/catalog.md) for the current package registry.

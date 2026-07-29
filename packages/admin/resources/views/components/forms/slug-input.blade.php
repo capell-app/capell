@@ -14,18 +14,13 @@
         from the last visible row (the one immediately followed by the hidden field).
     --}}
     <style>
-        .page-title-with-slug-input
-            .fi-sc.fi-grid
-            > .fi-grid-col:has(+ .fi-grid-col.fi-hidden) {
+        .page-title-with-slug-input .fi-sc.fi-grid > .fi-grid-col:has(+ .fi-grid-col.fi-hidden) {
             border-bottom-width: 0;
         }
     </style>
 @endonce
 
-<div
-    id="{{ $getId() }}-permalink"
-    class="filament-seo-slug-input-wrapper px-2 py-1.5"
->
+<div id="{{ $getId() }}-permalink" class="filament-seo-slug-input-wrapper px-2 py-1.5">
     <div
         x-data="{
             context: @js($getContext()),
@@ -81,25 +76,15 @@
             },
         }"
     >
-        <div
-            {{ $attributes->merge($getExtraAttributes())->class(['filament-forms-text-input-component group flex min-w-0 items-center text-sm']) }}
-        >
+        <div {{ $attributes->merge($getExtraAttributes())->class(['filament-forms-text-input-component group flex min-w-0 items-center text-sm']) }}>
             @if ($getReadOnly())
                 <span class="flex min-w-0 items-center">
                     <span class="mr-1">{{ $getLabelPrefix() }}</span>
-                    <span class="text-gray-400">
-                        {{ $getDisplayBaseUrl($getState()) }}
-                    </span>
-                    <span class="font-semibold text-gray-400">
-                        {{ $getState() }}
-                    </span>
+                    <span class="text-gray-400"> {{ $getDisplayBaseUrl($getState()) }} </span>
+                    <span class="font-semibold text-gray-400"> {{ $getState() }} </span>
                 </span>
             @else
-                <span
-                    class="flex min-w-0 items-center"
-                    x-show="!editing"
-                    x-cloak
-                >
+                <span class="flex min-w-0 items-center" x-show="! editing" x-cloak>
                     <span>{{ $getLabelPrefix() }}</span>
 
                     @if ($recordUrl)
@@ -109,26 +94,16 @@
                             rel="noopener noreferrer"
                             class="page-title-with-slug-link hover:text-primary-600 hover:decoration-primary-500 focus-visible:ring-primary-500 dark:hover:text-primary-400 ml-1 inline-flex min-w-0 items-baseline text-gray-400 no-underline transition focus-visible:ring-2 focus-visible:outline-none"
                         >
-                            <span
-                                class="shrink-0"
-                                x-text="displayBaseUrl()"
-                            ></span>
+                            <span class="shrink-0" x-text="displayBaseUrl()"></span>
                             <span
                                 class="truncate font-semibold text-gray-600 underline decoration-gray-300 underline-offset-2 dark:text-gray-300"
                                 x-text="currentSlug()"
                             ></span>
-                            <span class="sr-only">
-                                {{ $getVisitLinkLabel() }}
-                            </span>
+                            <span class="sr-only"> {{ $getVisitLinkLabel() }} </span>
                         </a>
                     @else
-                        <span
-                            class="ml-1 inline-flex min-w-0 items-baseline text-gray-400"
-                        >
-                            <span
-                                class="shrink-0"
-                                x-text="displayBaseUrl()"
-                            ></span>
+                        <span class="ml-1 inline-flex min-w-0 items-baseline text-gray-400">
+                            <span class="shrink-0" x-text="displayBaseUrl()"></span>
                             <span
                                 class="truncate font-semibold text-gray-600 dark:text-gray-300"
                                 x-text="currentSlug()"
@@ -141,15 +116,11 @@
                         x-on:click.prevent="initModification()"
                         class="page-title-with-slug-edit-slug hover:border-primary-300 hover:text-primary-600 focus-visible:ring-primary-500 dark:hover:border-primary-600 dark:hover:text-primary-400 ml-2 inline-flex shrink-0 cursor-pointer items-center rounded-sm border border-gray-300 bg-white px-1.5 py-0.5 text-xs leading-none font-medium text-gray-600 transition focus-visible:ring-2 focus-visible:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                     >
-                        <span>
-                            {{ __('capell-admin::generic.permalink_action_edit') }}
-                        </span>
+                        <span> {{ __('capell-admin::generic.permalink_action_edit') }} </span>
                     </button>
 
                     @if ($getSlugLabelPostfix())
-                        <span class="ml-0.5 text-gray-400">
-                            {{ $getSlugLabelPostfix() }}
-                        </span>
+                        <span class="ml-0.5 text-gray-400"> {{ $getSlugLabelPostfix() }} </span>
                     @endif
 
                     <span
@@ -161,22 +132,15 @@
                     </span>
                 </span>
 
-                <div
-                    class="flex min-w-0 flex-1 items-center gap-2"
-                    x-show="editing"
-                    x-cloak
-                >
-                    <span
-                        x-text="basePath"
-                        class="shrink-0 text-gray-400"
-                    ></span>
+                <div class="flex min-w-0 flex-1 items-center gap-2" x-show="editing" x-cloak>
+                    <span x-text="basePath" class="shrink-0 text-gray-400"></span>
 
                     <div class="fi-input-wrp">
                         <div class="fi-input-wrp-content-ctn">
                             <input
                                 type="text"
                                 x-ref="slugInput"
-                                x-bind:disabled="!editing"
+                                x-bind:disabled="! editing"
                                 x-on:keydown.enter="submitModification()"
                                 x-on:keydown.escape="cancelModification()"
                                 {!! ($autocomplete = $getAutocomplete()) ? "autocomplete=\"{$autocomplete}\"" : null !!}
@@ -194,14 +158,8 @@
                     </div>
                 </div>
 
-                <div
-                    class="ml-2 flex items-center gap-1.5"
-                    x-show="editing"
-                    x-cloak
-                >
-                    <x-filament::button
-                        x-on:click.prevent="submitModification()"
-                    >
+                <div class="ml-2 flex items-center gap-1.5" x-show="editing" x-cloak>
+                    <x-filament::button x-on:click.prevent="submitModification()">
                         {{ __('capell-admin::generic.permalink_action_ok') }}
                     </x-filament::button>
 
@@ -229,9 +187,7 @@
         </div>
 
         @error($statePath)
-            <p class="text-danger-600 dark:text-danger-400 mt-1 text-sm">
-                {{ $message }}
-            </p>
+            <p class="text-danger-600 dark:text-danger-400 mt-1 text-sm">{{ $message }}</p>
         @enderror
     </div>
 </div>

@@ -4,9 +4,7 @@
         data-publishing-studio-workflow-entry
         aria-labelledby="publishing-workflow-entry-heading"
     >
-        <div
-            class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
                 <div class="flex items-center gap-2">
                     <h2
@@ -16,16 +14,12 @@
                         {{ $entry->label }}
                     </h2>
 
-                    <span
-                        class="bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 dark:ring-warning-400/30 rounded-md px-2 py-1 text-xs font-medium ring-1"
-                    >
+                    <span class="bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-300 dark:ring-warning-400/30 rounded-md px-2 py-1 text-xs font-medium ring-1">
                         {{ trans_choice('capell-admin::dashboard.publishing_workflow_count', $entry->count, ['count' => $entry->count]) }}
                     </span>
                 </div>
 
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    {{ $entry->description }}
-                </p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ $entry->description }}</p>
             </div>
 
             <a

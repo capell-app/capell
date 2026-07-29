@@ -25,26 +25,14 @@
         @if ($snapshot->metrics !== [])
             <div class="grid gap-4 md:grid-cols-3">
                 @foreach ($snapshot->metrics as $metric)
-                    <div
-                        class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <div
-                            class="text-sm font-medium text-gray-500 dark:text-gray-400"
-                        >
-                            {{ $metric->label }}
-                        </div>
-                        <div
-                            class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white"
-                        >
+                    <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $metric->label }}</div>
+                        <div class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
                             {{ $metric->value }}
                         </div>
 
                         @if ($metric->description !== null)
-                            <div
-                                class="mt-2 text-sm text-gray-600 dark:text-gray-300"
-                            >
-                                {{ $metric->description }}
-                            </div>
+                            <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $metric->description }}</div>
                         @endif
                     </div>
                 @endforeach
@@ -53,9 +41,7 @@
 
         @if ($snapshot->findings !== [])
             <div class="mt-6 space-y-3">
-                <h2
-                    class="text-base font-semibold text-gray-950 dark:text-white"
-                >
+                <h2 class="text-base font-semibold text-gray-950 dark:text-white">
                     {{ __('capell-admin::reports.findings_heading') }}
                 </h2>
 
@@ -69,55 +55,37 @@
                             };
                         @endphp
 
-                        <div
-                            class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-                        >
-                            <div
-                                class="flex flex-wrap items-start justify-between gap-3"
-                            >
+                        <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <div
-                                        class="flex flex-wrap items-center gap-2"
-                                    >
-                                        <span
-                                            class="{{ $severityClasses }} rounded-md px-1.5 py-0.5 text-xs font-semibold"
-                                        >
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="{{ $severityClasses }} rounded-md px-1.5 py-0.5 text-xs font-semibold">
                                             {{ __('capell-admin::reports.finding_severity.' . $finding->severity->value) }}
                                         </span>
 
                                         @if ($finding->recordLabel !== null)
-                                            <span
-                                                class="text-sm font-medium text-gray-500 dark:text-gray-400"
-                                            >
+                                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
                                                 {{ $finding->recordLabel }}
                                             </span>
                                         @endif
                                     </div>
 
-                                    <div
-                                        class="mt-2 text-sm font-semibold text-gray-950 dark:text-white"
-                                    >
+                                    <div class="mt-2 text-sm font-semibold text-gray-950 dark:text-white">
                                         {{ $finding->title }}
                                     </div>
 
-                                    <p
-                                        class="mt-1 text-sm text-gray-600 dark:text-gray-300"
-                                    >
+                                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
                                         {{ $finding->description }}
                                     </p>
 
                                     @if ($finding->remediation !== null)
-                                        <p
-                                            class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200"
-                                        >
+                                        <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                                             {{ $finding->remediation }}
                                         </p>
                                     @endif
 
                                     @if ($finding->evidence !== [])
-                                        <dl
-                                            class="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400"
-                                        >
+                                        <dl class="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400">
                                             @foreach ($finding->evidence as $key => $value)
                                                 <div class="flex gap-2">
                                                     <dt class="font-medium">
@@ -147,9 +115,7 @@
             </div>
         @endif
     @else
-        <div
-            class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-        >
+        <div class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             {{ $snapshot->emptyState }}
         </div>
     @endif

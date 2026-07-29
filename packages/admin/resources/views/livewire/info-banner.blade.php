@@ -12,14 +12,9 @@
                 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200' => $this->tone === 'tip',
             ])
         >
-            <x-filament::icon
-                icon="heroicon-o-light-bulb"
-                class="mt-0.5 h-4 w-4 flex-shrink-0 opacity-70"
-            />
+            <x-filament::icon icon="heroicon-o-light-bulb" class="mt-0.5 h-4 w-4 flex-shrink-0 opacity-70" />
 
-            <p class="flex-1">
-                {{ $content }}
-            </p>
+            <p class="flex-1">{{ $content }}</p>
 
             <button
                 class="flex-shrink-0 opacity-50 transition-opacity hover:opacity-100"
@@ -28,10 +23,7 @@
                 x-on:click="show = false"
                 wire:click="dismiss"
             >
-                <x-filament::icon
-                    icon="heroicon-o-x-mark"
-                    class="h-4 w-4"
-                />
+                <x-filament::icon icon="heroicon-o-x-mark" class="h-4 w-4" />
             </button>
         </div>
     @endif

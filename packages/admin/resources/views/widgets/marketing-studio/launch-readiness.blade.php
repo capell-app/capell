@@ -10,9 +10,7 @@
         @else
             <div class="space-y-3">
                 @foreach ($this->checks() as $check)
-                    <div
-                        class="flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3 text-sm dark:border-white/10"
-                    >
+                    <div class="flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3 text-sm dark:border-white/10">
                         <div>
                             <a
                                 href="{{ $check->resolvedUrl() }}"
@@ -21,16 +19,12 @@
                                 {{ $check->resolvedLabel() }}
                             </a>
                             @if ($check->resolvedDescription() !== null)
-                                <p
-                                    class="mt-1 text-xs text-gray-500 dark:text-gray-400"
-                                >
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     {{ $check->resolvedDescription() }}
                                 </p>
                             @endif
                         </div>
-                        <span
-                            class="bg-success-500/10 text-success-700 dark:text-success-300 rounded-md px-1.5 py-0.5 text-xs font-semibold"
-                        >
+                        <span class="bg-success-500/10 text-success-700 dark:text-success-300 rounded-md px-1.5 py-0.5 text-xs font-semibold">
                             {{ __('capell-admin::marketing-studio.ready') }}
                         </span>
                     </div>

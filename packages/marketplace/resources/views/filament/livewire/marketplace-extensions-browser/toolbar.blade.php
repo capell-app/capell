@@ -2,14 +2,10 @@
     /** @var array{kind: array<string, string>, category: array<string, string>, sort: array<string, string>} $filterOptions */
 @endphp
 
-<div
-    class="rounded-lg border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-900"
->
+<div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-900">
     <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
         <label class="min-w-0 flex-1">
-            <span class="sr-only">
-                {{ __('capell-marketplace::marketplace.filters.search_placeholder') }}
-            </span>
+            <span class="sr-only"> {{ __('capell-marketplace::marketplace.filters.search_placeholder') }} </span>
             <input
                 type="search"
                 wire:model.live.debounce.300ms="tableSearch"
@@ -24,9 +20,7 @@
                     wire:model.live="tableFilters.kind.value"
                     class="rounded-md border-gray-200 bg-white py-2 text-sm text-gray-700 shadow-sm focus:border-blue-600 focus:ring-blue-600 dark:border-white/10 dark:bg-gray-950 dark:text-gray-200"
                 >
-                    <option value="">
-                        {{ __('capell-marketplace::marketplace.filters.all_types') }}
-                    </option>
+                    <option value="">{{ __('capell-marketplace::marketplace.filters.all_types') }}</option>
                     @foreach ($filterOptions['kind'] as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
@@ -37,9 +31,7 @@
                 wire:model.live="tableFilters.category.value"
                 class="rounded-md border-gray-200 bg-white py-2 text-sm text-gray-700 shadow-sm focus:border-blue-600 focus:ring-blue-600 dark:border-white/10 dark:bg-gray-950 dark:text-gray-200"
             >
-                <option value="">
-                    {{ __('capell-marketplace::marketplace.filters.all_categories') }}
-                </option>
+                <option value="">{{ __('capell-marketplace::marketplace.filters.all_categories') }}</option>
                 @foreach ($filterOptions['category'] as $value => $label)
                     <option value="{{ $value }}">{{ $label }}</option>
                 @endforeach

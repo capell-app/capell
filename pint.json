@@ -1,6 +1,7 @@
 {
     "preset": "laravel",
     "rules": {
+        "Pint/laravel_blade": true,
         "array_push": true,
         "assign_null_coalescing_to_coalesce_equal": true,
         "combine_consecutive_issets": true,
@@ -67,6 +68,12 @@
         },
         "void_return": true
     },
+    "in": ["packages", "tests"],
     "exclude": ["tests/.pest"],
-    "notName": ["*.blade.php"]
+    "notPath": [
+        "admin/resources/views/pages/frontend-resource-diagnostics.blade.php",
+        "admin/resources/views/livewire/publish-status-panel.blade.php",
+        "frontend/resources/views/components/app/head/index.blade.php",
+        "frontend/resources/views/components/dropdown/index.blade.php"
+    ]
 }

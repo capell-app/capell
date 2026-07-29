@@ -37,47 +37,32 @@
 >
     <div class="flex gap-3">
         @if ($icon)
-            <div
-                @class([
-                    'flex-shrink-0',
-                    $iconVerticalAlignment === 'start' ? 'self-start' : 'self-center',
-                ])
-            >
-                <x-filament::icon
-                    :icon="$icon"
-                    :class="$iconClasses"
-                />
+            <div @class([
+                'flex-shrink-0',
+                $iconVerticalAlignment === 'start' ? 'self-start' : 'self-center',
+            ])>
+                <x-filament::icon :icon="$icon" :class="$iconClasses" />
             </div>
         @endif
 
-        <div
-            class="flex-1 items-center space-y-3 md:flex md:justify-between md:gap-3 md:space-y-0"
-        >
+        <div class="flex-1 items-center space-y-3 md:flex md:justify-between md:gap-3 md:space-y-0">
             @if ($title || $description)
                 <div class="space-y-0.5">
                     @if ($title)
-                        <p
-                            class="text-custom-800 text-sm font-medium dark:text-white"
-                        >
-                            {{ $title }}
-                        </p>
+                        <p class="text-custom-800 text-sm font-medium dark:text-white">{{ $title }}</p>
                     @endif
 
                     @if ($description)
-                        <p class="text-custom-700 text-sm dark:text-white">
-                            {{ $description }}
-                        </p>
+                        <p class="text-custom-700 text-sm dark:text-white">{{ $description }}</p>
                     @endif
                 </div>
             @endif
 
             @if ($actions)
-                <div
-                    @class([
-                        'flex items-center gap-3',
-                        $actionsVerticalAlignment === 'start' ? 'self-start' : 'self-center',
-                    ])
-                >
+                <div @class([
+                    'flex items-center gap-3',
+                    $actionsVerticalAlignment === 'start' ? 'self-start' : 'self-center',
+                ])>
                     <div class="flex items-center gap-3 whitespace-nowrap">
                         @foreach ($actions as $action)
                             @if ($action->isVisible())
