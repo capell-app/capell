@@ -62,6 +62,7 @@ coverage/
 # Per-checkout PHPStan result cache; keeps concurrent worktrees from
 # invalidating each other. See phpstan.neon.
 /var/phpstan/
+/var/rector/
 .rector.php.cache
 
 # Logs
