@@ -21,7 +21,6 @@ final class SqliteSchemaDialect extends AbstractSchemaDialect implements Databas
             DatabaseCapability::PrefixIndex,
             DatabaseCapability::StoredGeneratedColumn,
             DatabaseCapability::HashGeneratedColumn,
-            DatabaseCapability::FullTextIndex,
             DatabaseCapability::ForeignKeyDrop => false,
         };
     }
@@ -67,16 +66,6 @@ final class SqliteSchemaDialect extends AbstractSchemaDialect implements Databas
             $this->identifier($column, '"'),
             $this->jsonPathLiteral($path),
         ));
-    }
-
-    public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment
-    {
-        return null;
-    }
-
-    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool
-    {
-        return false;
     }
 
     public function inspectGeneratedColumn(string $table, string $column): SqlFragment

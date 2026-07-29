@@ -11,7 +11,6 @@ enum DatabaseCapability: string
     case StoredGeneratedColumn = 'stored-generated-column';
     case HashGeneratedColumn = 'hash-generated-column';
     case JsonPathIndex = 'json-path-index';
-    case FullTextIndex = 'full-text-index';
     case ForeignKeyDrop = 'foreign-key-drop';
     case GeneratedColumnInspection = 'generated-column-inspection';
 }

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database;
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
-use Capell\Core\Data\Database\DatabaseFullTextSearch;
-use Capell\Core\Data\Database\DatabaseIndexDefinition;
-use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
@@ -21,17 +18,11 @@ final class DatabasePlatformRegistry
     /** @var array<string, DatabasePlatform> */
     private array $platforms = [];
 
-    private readonly FullTextIndexCompatibilityCache $fullTextIndexCompatibility;
-
     /**
      * @param  iterable<DatabasePlatform>  $platforms
      */
-    public function __construct(
-        iterable $platforms = [],
-        ?FullTextIndexCompatibilityCache $fullTextIndexCompatibility = null,
-    ) {
-        $this->fullTextIndexCompatibility = $fullTextIndexCompatibility ?? new FullTextIndexCompatibilityCache;
-
+    public function __construct(iterable $platforms = [])
+    {
         foreach ($platforms as $platform) {
             $this->register($platform);
         }
@@ -48,36 +39,6 @@ final class DatabasePlatformRegistry
         }
 
         return $this;
-    }
-
-    /**
-     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
-     */
-    public function fullTextSearch(
-        Connection|Model $context,
-        DatabaseIndexDefinition $index,
-        array $expressions,
-        string $query,
-    ): DatabaseFullTextSearch {
-        $connection = $this->connection($context);
-        throw_unless($connection instanceof Connection, LogicException::class, 'Full-text search requires a database connection.');
-
-        $platform = $this->for($connection);
-        $native = $this->hasCompatibleFullTextIndex($platform, $index, $connection);
-
-        return $platform->queryDialect()->fullTextSearch($expressions, $query, $native);
-    }
-
-    public function forgetFullTextIndexCompatibility(
-        Connection $connection,
-        ?DatabaseIndexDefinition $index = null,
-    ): void {
-        $this->fullTextIndexCompatibility->forget($connection, $index);
-    }
-
-    public function flushFullTextIndexCompatibility(): void
-    {
-        $this->fullTextIndexCompatibility->flush();
     }
 
     public function for(Connection|Model|string|null $context = null): DatabasePlatform
@@ -121,17 +82,5 @@ final class DatabasePlatformRegistry
         }
 
         return null;
-    }
-
-    private function hasCompatibleFullTextIndex(
-        DatabasePlatform $platform,
-        DatabaseIndexDefinition $index,
-        Connection $connection,
-    ): bool {
-        return $this->fullTextIndexCompatibility->remember(
-            $connection,
-            $index,
-            fn (): bool => $platform->schemaDialect()->hasCompatibleFullTextIndex($index, $connection),
-        );
     }
 }

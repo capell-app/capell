@@ -9,7 +9,6 @@ use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Illuminate\Database\Connection;
-use Throwable;
 
 final class PostgresSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
 {
@@ -19,7 +18,6 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
             DatabaseCapability::GeneratedColumn,
             DatabaseCapability::StoredGeneratedColumn,
             DatabaseCapability::JsonPathIndex,
-            DatabaseCapability::FullTextIndex,
             DatabaseCapability::ForeignKeyDrop,
             DatabaseCapability::GeneratedColumnInspection => true,
             DatabaseCapability::PrefixIndex,
@@ -68,43 +66,6 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
             $this->identifier($column, '"'),
             $this->jsonPathLiteral($path),
         ));
-    }
-
-    public function fullTextIndex(DatabaseIndexDefinition $index): SqlFragment
-    {
-        $columns = implode(" || ' ' || ", array_map(
-            fn (string $column): string => sprintf("COALESCE(%s, '')", $this->identifier($column, '"')),
-            $index->columns,
-        ));
-
-        return new SqlFragment(sprintf(
-            "CREATE INDEX %s ON %s USING GIN (to_tsvector('simple', %s))",
-            $this->identifier($index->name, '"'),
-            $this->identifier($index->table, '"'),
-            $columns,
-        ));
-    }
-
-    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool
-    {
-        if (! $this->supports(DatabaseCapability::FullTextIndex, $connection)) {
-            return false;
-        }
-
-        try {
-            $indexes = $connection->getSchemaBuilder()->getIndexes($index->table);
-        } catch (Throwable) {
-            return false;
-        }
-
-        foreach ($indexes as $existingIndex) {
-            if (strtolower($existingIndex['name']) === strtolower($index->name)
-                && strtolower($existingIndex['type']) === 'gin') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     public function inspectGeneratedColumn(string $table, string $column): SqlFragment

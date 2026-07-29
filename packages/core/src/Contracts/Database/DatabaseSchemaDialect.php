@@ -21,9 +21,5 @@ interface DatabaseSchemaDialect
 
     public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): ?SqlFragment;
 
-    public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment;
-
-    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool;
-
     public function inspectGeneratedColumn(string $table, string $column): SqlFragment;
 }

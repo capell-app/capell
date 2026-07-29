@@ -108,7 +108,6 @@ use Capell\Core\Support\ContentGraph\Extractors\PageContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageUrlContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\SiteContentGraphExtractor;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
-use Capell\Core\Support\Database\FullTextIndexCompatibilityCache;
 use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
@@ -457,19 +456,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
-        $this->app->singleton(FullTextIndexCompatibilityCache::class);
         $this->app->scoped(
             DatabasePlatformRegistry::class,
-            fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
-                [
-                    $app->make(MySqlDatabasePlatform::class),
-                    $app->make(MariaDbDatabasePlatform::class),
-                    $app->make(SqliteDatabasePlatform::class),
-                    $app->make(PostgresDatabasePlatform::class),
-                    ...$app->tagged(DatabasePlatform::TAG),
-                ],
-                $app->make(FullTextIndexCompatibilityCache::class),
-            ),
+            fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry([
+                $app->make(MySqlDatabasePlatform::class),
+                $app->make(MariaDbDatabasePlatform::class),
+                $app->make(SqliteDatabasePlatform::class),
+                $app->make(PostgresDatabasePlatform::class),
+                ...$app->tagged(DatabasePlatform::TAG),
+            ]),
         );
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
             $app->make(SqliteDatabaseBackupDriver::class),

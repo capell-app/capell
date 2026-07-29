@@ -16,7 +16,6 @@ use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
-use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
@@ -165,7 +164,6 @@ it('classifies the database compatibility seam as experimental', function (): vo
         'core.contract.database-provisioner' => DatabaseProvisioner::class,
         'core.contract.database-query-dialect' => DatabaseQueryDialect::class,
         'core.contract.database-schema-dialect' => DatabaseSchemaDialect::class,
-        'core.dto.database-search-expression' => DatabaseSearchExpression::class,
         'core.registry.database-platform' => DatabasePlatformRegistry::class,
         'core.tag.database-platform' => DatabasePlatform::TAG,
     ];
