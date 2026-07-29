@@ -40,7 +40,7 @@ class RedirectsTable implements TableConfigurator
     {
         return $table
             ->modifyQueryUsing(
-                fn (Builder $query): Builder => $query->with(['language', 'site', 'redirectHealthSnapshot']),
+                fn (Builder $query): Builder => $query->with(['language', 'site', 'pageable', 'redirectHealthSnapshot']),
             )
             ->defaultSort('created_at', 'desc')
             ->columns(static::getTableColumns())

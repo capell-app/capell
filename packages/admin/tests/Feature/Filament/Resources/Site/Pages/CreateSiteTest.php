@@ -22,6 +22,19 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
+it('repairs a missing default site blueprint before rendering the create form', function (): void {
+    expect(Blueprint::query()->siteType()->default()->exists())->toBeFalse();
+
+    Livewire::test(CreateSite::class)
+        ->assertSuccessful();
+
+    expect(Blueprint::query()
+        ->siteType()
+        ->default()
+        ->where('key', 'default')
+        ->exists())->toBeTrue();
+});
+
 it('required fields', function (): void {
     $type = Blueprint::factory()->site()->default()->create();
 
