@@ -15,7 +15,7 @@ final class SignedUrlService
 
         throw_if(! isset($urlParts['host']) || $urlParts['host'] === '', Exception::class, 'Invalid URL: ' . $url);
 
-        $urlParts['path'] = ($urlParts['path'] ?? '') . '{' . $draftId . '}';
+        $urlParts['path'] = '/' . ltrim((string) ($urlParts['path'] ?? ''), '/') . '{' . $draftId . '}';
         $unsignedUrl = SignedUrlCanonicalizer::fromParts($urlParts);
         $signature = hash_hmac('sha256', $unsignedUrl, (string) config('app.key'));
 

@@ -96,18 +96,47 @@ final class PageUrlRedirectResolver implements RedirectResolver
 
     private function appendRequestedPath(string $targetUrl, string $requestedPath): string
     {
-        $target = rtrim($targetUrl, '/');
+        [$targetWithoutFragment, $fragment] = $this->splitOnce($targetUrl, '#');
+        [$base, $targetQuery] = $this->splitOnce($targetWithoutFragment, '?');
+
+        $target = rtrim($base, '/');
         $normalizedPath = $requestedPath === '' || $requestedPath === '/' ? '/' : '/' . ltrim($requestedPath, '/');
 
         if ($normalizedPath !== '/') {
             $target .= $normalizedPath;
         }
 
-        $rawQuery = (string) request()->server->get('QUERY_STRING', '');
-        if ($rawQuery !== '') {
-            $target .= '?' . $rawQuery;
+        $query = implode('&', array_filter([
+            $targetQuery,
+            (string) request()->server->get('QUERY_STRING', ''),
+        ], static fn (string $part): bool => $part !== ''));
+
+        if ($query !== '') {
+            $target .= '?' . $query;
+        }
+
+        if ($fragment !== '') {
+            $target .= '#' . $fragment;
         }
 
         return $target;
+    }
+
+    /**
+     * Split on the first occurrence of the delimiter, returning the part before
+     * it and the remainder. Query strings are kept as raw text so repeated keys
+     * survive the merge.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function splitOnce(string $value, string $delimiter): array
+    {
+        $position = strpos($value, $delimiter);
+
+        if ($position === false) {
+            return [$value, ''];
+        }
+
+        return [substr($value, 0, $position), substr($value, $position + 1)];
     }
 }

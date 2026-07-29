@@ -103,7 +103,7 @@
         "test:preflight": "@test:all:ci",
         "test:preflight:serial": "@php -d memory_limit=1536M -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
         "test:all": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
+        "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --passthru-php='-d memory_limit=1G' --configuration=phpunit.xml",
         "test:all:matrix:local": [
             "Composer\\Config::disableProcessTimeout",
             "@php scripts/run-test-all-matrix.php"

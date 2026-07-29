@@ -165,6 +165,9 @@ final class PublicHtmlSanitizer
             }
 
             if (! in_array($tagName, self::ALLOWED_TAGS, true)) {
+                // Sanitize before unwrapping: hoisted children are inserted into the
+                // already-captured sibling snapshot and would never be revisited.
+                $this->sanitizeChildren($child);
                 $this->unwrapElement($child);
 
                 continue;

@@ -10,7 +10,7 @@ Use this checklist before adding or moving documentation.
 | Host package contracts and extension points          | `capell-4/docs` or the owning host package docs  |
 | Host package implementation details                  | `capell-4/packages/<package>/docs`               |
 | Companion package features                           | `capell-packages-4/packages/<package>/docs`      |
-| Marketing, brand, website copy, or sales positioning | `/Users/ben/Sites/packages/capell/docs`          |
+| Marketing, brand, website copy, or sales positioning | the Capell website repository, outside this one  |
 | Historical plans, audits, or internal review notes   | outside public docs unless still actively useful |
 
 ## Rules

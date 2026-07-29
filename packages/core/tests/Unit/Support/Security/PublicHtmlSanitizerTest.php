@@ -11,6 +11,27 @@ it('sanitizes public html with the shared allow list', function (): void {
         ->toBe('<p><a>Book</a></p><span>Safe</span>');
 });
 
+it('discards dangerous tags nested inside an unwrapped disallowed element', function (): void {
+    expect((new PublicHtmlSanitizer)->sanitize('<marquee><iframe src="//evil.example"></iframe></marquee>'))
+        ->toBe('');
+});
+
+it('strips event handlers and javascript urls hoisted out of an unwrapped disallowed element', function (): void {
+    expect((new PublicHtmlSanitizer)->sanitize('<div><b><img src="javascript:1" onerror="steal()"></b></div>'))
+        ->not->toContain('javascript:')
+        ->not->toContain('onerror');
+});
+
+it('sanitizes anchors hoisted out of an unwrapped disallowed element', function (): void {
+    expect((new PublicHtmlSanitizer)->sanitize('<b><a href="javascript:alert(1)">Book</a></b>'))
+        ->toBe('<a>Book</a>');
+});
+
+it('discards scripts nested inside an unwrapped unknown element', function (): void {
+    expect((new PublicHtmlSanitizer)->sanitize('<custom><script>alert(1)</script></custom>'))
+        ->toBe('');
+});
+
 it('sanitizes nested public payload values and removes blocked authoring keys', function (): void {
     $payload = [
         'copy' => '<div onclick="alert(1)">Public</div>',

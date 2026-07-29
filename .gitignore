@@ -43,6 +43,9 @@ build/
 !packages/admin/publishes/build/**
 !packages/frontend/publishes/build/
 !packages/frontend/publishes/build/**
+# Scaffolding stubs ship a pre-built dist/ on purpose.
+!packages/core/stubs/**/dist/
+!packages/core/stubs/**/dist/**
 .next/
 
 # Testing & Coverage
