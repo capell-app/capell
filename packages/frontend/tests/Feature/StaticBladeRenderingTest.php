@@ -18,7 +18,12 @@ it('renders blade-only public pages without livewire or frontend runtime scripts
     config()->set('capell-frontend.write_html_cache', false);
     Cache::flush();
 
-    $site = Site::factory()->withTranslations()->create();
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'localhost',
+        'scheme' => 'http',
+        'path' => null,
+        'default' => true,
+    ])->create();
 
     Page::factory()
         ->site($site)
@@ -55,7 +60,12 @@ it('does not expose the beacon runtime just because a beacon route exists', func
     config()->set('capell-frontend.write_html_cache', false);
     Cache::flush();
 
-    $site = Site::factory()->withTranslations()->create();
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'localhost',
+        'scheme' => 'http',
+        'path' => null,
+        'default' => true,
+    ])->create();
 
     Page::factory()
         ->site($site)
@@ -103,7 +113,12 @@ it('does not expose the beacon runtime to authenticated admins when a contributo
     config()->set('capell-frontend.write_html_cache', false);
     Cache::flush();
 
-    $site = Site::factory()->withTranslations()->create();
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'localhost',
+        'scheme' => 'http',
+        'path' => null,
+        'default' => true,
+    ])->create();
 
     Page::factory()
         ->site($site)
@@ -146,7 +161,12 @@ it('does not expose the beacon runtime to anonymous visitors when a contributor 
     config()->set('capell-frontend.write_html_cache', false);
     Cache::flush();
 
-    $site = Site::factory()->withTranslations()->create();
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'localhost',
+        'scheme' => 'http',
+        'path' => null,
+        'default' => true,
+    ])->create();
 
     Page::factory()
         ->site($site)
