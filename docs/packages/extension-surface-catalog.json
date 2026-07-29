@@ -223,6 +223,26 @@
             "contractTestId": "core.site-spec-applier"
         },
         {
+            "id": "core.dto.database-full-text-search",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Database\\DatabaseFullTextSearch",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed full-text predicate, relevance, and native-mode result.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.database-index-definition",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Database\\DatabaseIndexDefinition",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Portable database index definition.",
+            "contractTestId": null
+        },
+        {
             "id": "core.dto.database-search-expression",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Database\\DatabaseSearchExpression",
@@ -441,6 +461,56 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build SiteSpec reference.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.sql-fragment",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Database\\SqlFragment",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Bound SQL fragment shared by database dialect contracts.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.database-capability",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Database\\DatabaseCapability",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Portable database schema capabilities.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.database-date-operation",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Database\\DatabaseDateOperation",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Portable database date operations.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.database-family",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Database\\DatabaseFamily",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Supported database families.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.database-provisioning-result",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Database\\DatabaseProvisioningResult",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Database provisioning outcomes.",
+            "contractTestId": null
         },
         {
             "id": "core.enum.frontend-route-reservation-type",

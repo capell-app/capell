@@ -218,11 +218,7 @@ return new class extends Migration
     private function hasNormalizedIndex(array $contract): bool
     {
         if (CapellDatabase::for(DB::connection())->family() === DatabaseFamily::Sqlite) {
-            if (DB::table('sqlite_master')
-                ->where('type', 'index')
-                ->where('tbl_name', $contract['table'])
-                ->where('name', $contract['normalizedIndex'])
-                ->exists()) {
+            if (Schema::hasIndex($contract['table'], $contract['normalizedIndex'])) {
                 return true;
             }
 

@@ -19,10 +19,14 @@ use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
+use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
 use Illuminate\Database\Connection;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder as SchemaBuilder;
 use Illuminate\Database\SQLiteConnection;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
@@ -45,11 +49,31 @@ it('resolves every supported database driver through one registry seam', functio
     $postgres = new PostgresDatabasePlatform;
     $registry = new DatabasePlatformRegistry([$mysql, $mariaDb, $sqlite, $postgres]);
 
-    expect($registry->for('mysql'))->toBe($mysql)
-        ->and($registry->for('mariadb'))->toBe($mariaDb)
-        ->and($registry->for('sqlite'))->toBe($sqlite)
-        ->and($registry->for('pgsql'))->toBe($postgres)
-        ->and($registry->for('postgresql'))->toBe($postgres);
+    expect($registry->forDriver('mysql'))->toBe($mysql)
+        ->and($registry->forDriver('mariadb'))->toBe($mariaDb)
+        ->and($registry->forDriver('sqlite'))->toBe($sqlite)
+        ->and($registry->forDriver('pgsql'))->toBe($postgres)
+        ->and($registry->forDriver('postgresql'))->toBe($postgres)
+        ->and($registry->for('mysql'))->toBe($mysql);
+});
+
+it('resolves a MariaDB server through an explicitly named mysql connection', function (): void {
+    $pdo = Mockery::mock(PDO::class);
+    $pdo->shouldReceive('getAttribute')
+        ->once()
+        ->with(PDO::ATTR_SERVER_VERSION)
+        ->andReturn('10.11.8-MariaDB');
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getDriverName')->once()->andReturn('mysql');
+    $connection->shouldReceive('getPdo')->once()->andReturn($pdo);
+    $connections = Mockery::mock(DatabaseManager::class);
+    $connections->shouldReceive('connection')->once()->with('mysql')->andReturn($connection);
+    $mysql = new MySqlDatabasePlatform;
+    $mariaDb = new MariaDbDatabasePlatform;
+    $registry = new DatabasePlatformRegistry([$mysql, $mariaDb], connections: $connections);
+
+    expect($registry->forDriver('mysql'))->toBe($mysql)
+        ->and($registry->forConnection('mysql'))->toBe($mariaDb);
 });
 
 it('resolves configured connections and rejects duplicates and unknown drivers', function (): void {
@@ -134,6 +158,32 @@ it('keeps the compatibility cache across scoped database registry resets', funct
 
     expect(resolve(DatabasePlatformRegistry::class))->not->toBe($firstRegistry)
         ->and(resolve(FullTextIndexCompatibilityCache::class))->toBe($firstCache);
+});
+
+it('invalidates cached full text compatibility after dropping an index', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $connection->statement('CREATE TABLE "documents" ("title" TEXT)');
+    $connection->statement('CREATE INDEX "documents_search_index" ON "documents" ("title")');
+
+    $index = new DatabaseIndexDefinition(
+        table: 'documents',
+        name: 'documents_search_index',
+        columns: ['title'],
+    );
+    $expressions = [new DatabaseSearchExpression(SqlFragment::raw('title'))];
+    $schemaDialect = Mockery::mock(DatabaseSchemaDialect::class);
+    $schemaDialect->shouldReceive('hasCompatibleFullTextIndex')->twice()->andReturnFalse();
+    $platform = Mockery::mock(DatabasePlatform::class);
+    $platform->shouldReceive('drivers')->once()->andReturn(['sqlite']);
+    $platform->shouldReceive('schemaDialect')->twice()->andReturn($schemaDialect);
+    $platform->shouldReceive('queryDialect')->twice()->andReturn((new SqliteDatabasePlatform)->queryDialect());
+    $registry = new DatabasePlatformRegistry([$platform]);
+
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+    $registry->dropFullTextIndex($connection, $index);
+    $registry->fullTextSearch($connection, $index, $expressions, 'port');
+
+    expect($connection->getSchemaBuilder()->hasIndex('documents', 'documents_search_index'))->toBeFalse();
 });
 
 it('declares platform family metadata and optional provisioners', function (): void {
@@ -555,12 +605,7 @@ it('selects native full text only when a compatible index exists', function (): 
         ]);
 
         $withoutIndex = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
-        $indexFragment = $platform->schemaDialect()->fullTextIndex($index);
-
-        if ($indexFragment instanceof SqlFragment) {
-            $connection->statement($indexFragment->sql, $indexFragment->bindings);
-            CapellDatabase::forgetFullTextIndexCompatibility($connection, $index);
-        }
+        CapellDatabase::createFullTextIndex($connection, $index);
 
         $search = CapellDatabase::fullTextSearch($connection, $index, $expressions, 'port arch');
         $query = $connection->table($table)->select('slug');
@@ -819,6 +864,19 @@ it('creates a SQLite JSON path index without DDL bindings', function (): void {
         ->and($connection->table('sqlite_master')->where('name', 'capell_json_index_test_path')->exists())->toBeTrue();
 });
 
+it('finds quoted SQLite constraint names', function (): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $connection->statement(
+        'CREATE TABLE "capell_quoted_constraint" ("name" TEXT, CONSTRAINT "capell_name_check" CHECK ("name" <> \'\'))',
+    );
+
+    expect((new SqliteDatabasePlatform)->schemaDialect()->hasConstraint(
+        'capell_quoted_constraint',
+        'capell_name_check',
+        $connection,
+    ))->toBeTrue();
+});
+
 it('creates JSON path indexes on active MySQL and PostgreSQL engines', function (): void {
     $connection = DB::connection();
     $platform = CapellDatabase::for($connection);
@@ -843,6 +901,82 @@ it('creates JSON path indexes on active MySQL and PostgreSQL engines', function 
         ->and($connection->statement($fragment->sql))->toBeTrue();
 });
 
+it('inspects constraints triggers and foreign key references on the active engine', function (): void {
+    $connection = DB::connection();
+    $platform = CapellDatabase::for($connection);
+    $family = $platform->family();
+    $parentTable = 'capell_metadata_parent';
+    $childTable = 'capell_metadata_child';
+    $trigger = 'capell_metadata_trigger';
+    $constraint = 'capell_metadata_check';
+    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $childTable));
+    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $parentTable));
+
+    if ($family === DatabaseFamily::PostgreSql) {
+        $connection->unprepared('DROP FUNCTION IF EXISTS capell_metadata_trigger_fn()');
+    }
+
+    try {
+        $connection->statement(sprintf('CREATE TABLE %s (id INTEGER PRIMARY KEY)', $parentTable));
+        $connection->statement(sprintf(
+            "CREATE TABLE %s (parent_id INTEGER, name VARCHAR(50), CONSTRAINT %s CHECK (name <> ''), CONSTRAINT capell_metadata_foreign FOREIGN KEY (parent_id) REFERENCES %s (id))",
+            $childTable,
+            $constraint,
+            $parentTable,
+        ));
+
+        match ($family) {
+            DatabaseFamily::MySql,
+            DatabaseFamily::MariaDb => $connection->unprepared(sprintf(
+                'CREATE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW SET NEW.name = NEW.name',
+                $trigger,
+                $childTable,
+            )),
+            DatabaseFamily::PostgreSql => (function () use ($connection, $trigger, $childTable): void {
+                $connection->unprepared('CREATE FUNCTION capell_metadata_trigger_fn() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$');
+                $connection->unprepared(sprintf(
+                    'CREATE TRIGGER %s BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION capell_metadata_trigger_fn()',
+                    $trigger,
+                    $childTable,
+                ));
+            })(),
+            DatabaseFamily::Sqlite => $connection->unprepared(sprintf(
+                'CREATE TRIGGER %s AFTER INSERT ON %s BEGIN SELECT 1; END',
+                $trigger,
+                $childTable,
+            )),
+        };
+
+        $dialect = $platform->schemaDialect();
+
+        expect($dialect->hasConstraint($childTable, $constraint, $connection))->toBeTrue()
+            ->and($dialect->hasConstraint($childTable, 'missing_constraint', $connection))->toBeFalse()
+            ->and($dialect->hasTrigger($trigger, $connection))->toBeTrue()
+            ->and($dialect->hasTrigger('missing_trigger', $connection))->toBeFalse()
+            ->and($dialect->hasForeignKeyReference(
+                $childTable,
+                'parent_id',
+                $parentTable,
+                'id',
+                $connection,
+            ))->toBeTrue()
+            ->and($dialect->hasForeignKeyReference(
+                $childTable,
+                'parent_id',
+                'missing_parent',
+                'id',
+                $connection,
+            ))->toBeFalse();
+    } finally {
+        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $childTable));
+        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $parentTable));
+
+        if ($family === DatabaseFamily::PostgreSql) {
+            $connection->unprepared('DROP FUNCTION IF EXISTS capell_metadata_trigger_fn()');
+        }
+    }
+});
+
 it('caches mysql and mariadb version capabilities per connection', function (): void {
     $pdo = Mockery::mock(PDO::class);
     $pdo->shouldReceive('getAttribute')->once()->with(PDO::ATTR_SERVER_VERSION)->andReturn('10.11.8-MariaDB');
@@ -857,9 +991,44 @@ it('caches mysql and mariadb version capabilities per connection', function (): 
         ->and($dialect->supports(DatabaseCapability::GeneratedColumn, $connection))->toBeTrue();
 });
 
+it('requires an exact normalized MySQL full text index column set', function (array $indexedColumns, bool $compatible): void {
+    $pdo = Mockery::mock(PDO::class);
+    $pdo->shouldReceive('getAttribute')
+        ->once()
+        ->with(PDO::ATTR_SERVER_VERSION)
+        ->andReturn('8.4.0');
+    $schema = Mockery::mock(SchemaBuilder::class);
+    $schema->shouldReceive('getIndexes')
+        ->once()
+        ->with('documents')
+        ->andReturn([[
+            'name' => 'documents_search_index',
+            'columns' => $indexedColumns,
+            'type' => 'FULLTEXT',
+            'unique' => false,
+            'primary' => false,
+        ]]);
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getPdo')->once()->andReturn($pdo);
+    $connection->shouldReceive('getSchemaBuilder')->once()->andReturn($schema);
+    $index = new DatabaseIndexDefinition(
+        table: 'documents',
+        name: 'documents_search_index',
+        columns: ['title', 'body'],
+    );
+
+    expect((new MySqlSchemaDialect)->hasCompatibleFullTextIndex($index, $connection))
+        ->toBe($compatible);
+})->with([
+    'exact columns' => [['title', 'body'], true],
+    'case and order normalized' => [['BODY', 'TITLE'], true],
+    'narrower index' => [['title'], false],
+    'wider index' => [['title', 'body', 'keywords'], false],
+]);
+
 it('binds the registry and facade as the shared runtime seam', function (): void {
     expect(resolve(DatabasePlatformRegistry::class))->toBe(resolve(DatabasePlatformRegistry::class))
-        ->and(CapellDatabase::for('sqlite')->family())->toBe(DatabaseFamily::Sqlite);
+        ->and(CapellDatabase::forDriver('sqlite')->family())->toBe(DatabaseFamily::Sqlite);
 });
 
 it('provisions sqlite files and skips empty server database names', function (): void {
@@ -891,4 +1060,59 @@ it('reports an existing PostgreSQL database as ready', function (): void {
 
     expect((new PostgresDatabasePlatform)->provisioner()->provision($connectionName, $configuration))
         ->toBe(DatabaseProvisioningResult::Ready);
+});
+
+it('reports an existing MySQL or MariaDB database as ready', function (): void {
+    $connection = DB::connection();
+
+    if (! in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+        $this->markTestSkipped('MySQL provisioning readiness requires a mysql or mariadb test connection.');
+    }
+
+    $connectionName = (string) config('database.default');
+    $configuration = config('database.connections.' . $connectionName);
+    throw_unless(is_array($configuration), LogicException::class, 'The MySQL test connection must be configured.');
+
+    expect((new MySqlDatabasePlatform)->provisioner()->provision($connectionName, $configuration))
+        ->toBe(DatabaseProvisioningResult::Ready);
+});
+
+it('creates reconnects to and reuses a disposable server database', function (): void {
+    $sourceConnection = DB::connection();
+    $platform = CapellDatabase::for($sourceConnection);
+    $family = $platform->family();
+
+    if (! in_array($family, [
+        DatabaseFamily::MySql,
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::PostgreSql,
+    ], true)) {
+        $this->markTestSkipped('Disposable provisioning requires a mysql, mariadb, or pgsql test connection.');
+    }
+
+    $sourceConnectionName = (string) config('database.default');
+    $configuration = config('database.connections.' . $sourceConnectionName);
+    throw_unless(is_array($configuration), LogicException::class, 'The server test connection must be configured.');
+    $database = sprintf('capell_provisioner_test_%d', getmypid());
+    $connectionName = 'capell_provisioner_disposable';
+    $configuration['database'] = $database;
+    Config::set('database.connections.' . $connectionName, $configuration);
+    $provisioner = $platform->provisioner();
+    throw_unless($provisioner !== null, LogicException::class, 'The server platform must provide a database provisioner.');
+
+    try {
+        expect($provisioner->provision($connectionName, $configuration))
+            ->toBe(DatabaseProvisioningResult::Created)
+            ->and(DB::connection($connectionName)->getDatabaseName())->toBe($database)
+            ->and($provisioner->provision($connectionName, $configuration))
+            ->toBe(DatabaseProvisioningResult::Ready);
+    } finally {
+        DB::purge($connectionName);
+
+        $dropDatabase = $family === DatabaseFamily::PostgreSql
+            ? sprintf('DROP DATABASE IF EXISTS "%s"', $database)
+            : sprintf('DROP DATABASE IF EXISTS `%s`', $database);
+        $sourceConnection->unprepared($dropDatabase);
+        Config::set('database.connections.' . $connectionName);
+    }
 });

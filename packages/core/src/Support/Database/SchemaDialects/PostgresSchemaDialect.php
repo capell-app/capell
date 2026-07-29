@@ -114,4 +114,21 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
             [$table, $column],
         );
     }
+
+    public function hasConstraint(string $table, string $constraint, Connection $connection): bool
+    {
+        return $connection->table('information_schema.table_constraints')
+            ->whereRaw('constraint_schema = current_schema()')
+            ->where('table_name', $table)
+            ->where('constraint_name', $constraint)
+            ->exists();
+    }
+
+    public function hasTrigger(string $trigger, Connection $connection): bool
+    {
+        return $connection->table('information_schema.triggers')
+            ->whereRaw('trigger_schema = current_schema()')
+            ->where('trigger_name', $trigger)
+            ->exists();
+    }
 }

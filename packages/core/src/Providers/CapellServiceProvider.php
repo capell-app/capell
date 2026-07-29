@@ -174,6 +174,7 @@ use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Routing\Router;
@@ -469,6 +470,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                     ...$app->tagged(DatabasePlatform::TAG),
                 ],
                 $app->make(FullTextIndexCompatibilityCache::class),
+                $app->make(DatabaseManager::class),
             ),
         );
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([

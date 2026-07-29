@@ -11,6 +11,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
+use Override;
 use PDO;
 use Throwable;
 use WeakMap;
@@ -127,16 +128,24 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             return false;
         }
 
-        $requiredColumns = array_values(array_unique(array_map(mb_strtolower(...), $index->columns)));
+        $requiredColumns = $this->normalizedColumnSet($index->columns);
 
         foreach ($indexes as $existingIndex) {
-            if (strtolower($existingIndex['type']) !== 'fulltext') {
+            $type = $existingIndex['type'];
+            $columns = $existingIndex['columns'];
+            if (! is_string($type)) {
                 continue;
             }
 
-            $indexedColumns = array_values(array_unique(array_map(mb_strtolower(...), $existingIndex['columns'])));
+            if (strtolower($type) !== 'fulltext') {
+                continue;
+            }
 
-            if (array_diff($requiredColumns, $indexedColumns) === []) {
+            if (! is_array($columns)) {
+                continue;
+            }
+
+            if ($this->normalizedColumnSet($columns) === $requiredColumns) {
                 return true;
             }
         }
@@ -150,6 +159,40 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             'SELECT generation_expression FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
             [$table, $column],
         );
+    }
+
+    public function hasConstraint(string $table, string $constraint, Connection $connection): bool
+    {
+        return $connection->table('information_schema.TABLE_CONSTRAINTS')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->where('TABLE_NAME', $table)
+            ->where('CONSTRAINT_NAME', $constraint)
+            ->exists();
+    }
+
+    public function hasTrigger(string $trigger, Connection $connection): bool
+    {
+        return $connection->table('information_schema.TRIGGERS')
+            ->whereRaw('TRIGGER_SCHEMA = DATABASE()')
+            ->where('TRIGGER_NAME', $trigger)
+            ->exists();
+    }
+
+    #[Override]
+    public function hasForeignKeyReference(
+        string $table,
+        string $column,
+        string $foreignTable,
+        string $foreignColumn,
+        Connection $connection,
+    ): bool {
+        return $connection->table('information_schema.KEY_COLUMN_USAGE')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->where('TABLE_NAME', $table)
+            ->where('COLUMN_NAME', $column)
+            ->where('REFERENCED_TABLE_NAME', $foreignTable)
+            ->where('REFERENCED_COLUMN_NAME', $foreignColumn)
+            ->exists();
     }
 
     public function serverCapabilities(Connection $connection): MySqlServerCapabilities
@@ -174,5 +217,20 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             storedGeneratedColumns: version_compare($numericVersion, $family === DatabaseFamily::MariaDb ? '10.2.0' : '5.7.0', '>='),
             functionalIndexes: $family === DatabaseFamily::MySql && version_compare($numericVersion, '8.0.13', '>='),
         );
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $columns
+     * @return list<string>
+     */
+    private function normalizedColumnSet(array $columns): array
+    {
+        $normalized = array_values(array_unique(array_map(
+            static fn (mixed $column): string => mb_strtolower((string) $column),
+            $columns,
+        )));
+        sort($normalized);
+
+        return $normalized;
     }
 }

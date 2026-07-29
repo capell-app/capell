@@ -111,10 +111,6 @@ abstract class AbstractTestCase extends TestCase
 
         if ($application !== null) {
             PackageTestDatabaseGuard::assertConfigurationIsSafe($application);
-            PackageTestDatabaseGuard::assertRequestedDriverResolved(
-                getenv('DB_CONNECTION') !== false ? (string) getenv('DB_CONNECTION') : null,
-                Config::get('database.connections.' . Config::get('database.default') . '.driver'),
-            );
         }
 
         if ($application !== null && $application->bound('view')) {

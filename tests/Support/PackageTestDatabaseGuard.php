@@ -6,6 +6,7 @@ namespace Capell\Tests\Support;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\DatabaseManager;
 use RuntimeException;
 
 final class PackageTestDatabaseGuard
@@ -27,15 +28,31 @@ final class PackageTestDatabaseGuard
 
     public static function assertConfigurationIsSafe(Application $app): void
     {
-        $connection = $app->make(Repository::class)->get('database.default');
-        $database = $app->make(Repository::class)->get(sprintf('database.connections.%s.database', $connection));
-        $url = $app->make(Repository::class)->get(sprintf('database.connections.%s.url', $connection));
+        $config = $app->make(Repository::class);
+        $connection = $config->get('database.default');
+        $connectionName = is_string($connection) && $connection !== '' ? $connection : 'sqlite';
+        $database = $config->get(sprintf('database.connections.%s.database', $connectionName));
+        $url = $config->get(sprintf('database.connections.%s.url', $connectionName));
 
         self::assertSafe(
             connection: is_string($connection) ? $connection : null,
             database: is_string($database) ? $database : null,
             url: is_string($url) ? $url : null,
             source: 'configuration',
+        );
+
+        $resolvedConnection = $app->make(DatabaseManager::class)->connection();
+        $requestedConnection = getenv('DB_CONNECTION');
+
+        self::assertRequestedDriverResolved(
+            is_string($requestedConnection) ? $requestedConnection : null,
+            $resolvedConnection->getDriverName(),
+        );
+        self::assertSafe(
+            connection: $resolvedConnection->getDriverName(),
+            database: $resolvedConnection->getDatabaseName(),
+            url: null,
+            source: 'resolved configuration',
         );
     }
 
@@ -57,10 +74,18 @@ final class PackageTestDatabaseGuard
 
     public static function assertSafe(?string $connection, ?string $database, ?string $url, string $source): void
     {
-        $databaseNames = array_filter([
+        $databaseNames = array_values(array_filter([
             self::normaliseDatabaseName($database),
             self::databaseNameFromUrl($url),
-        ]);
+        ], is_string(...)));
+
+        if (self::isServerConnection($connection) && $databaseNames === []) {
+            throw new RuntimeException(sprintf(
+                'Refusing to run Capell package Pest tests without an explicit dedicated test database from %s connection [%s].',
+                $source,
+                $connection,
+            ));
+        }
 
         foreach ($databaseNames as $databaseName) {
             if (in_array($databaseName, self::BLOCKED_DATABASES, true)) {
@@ -71,7 +96,21 @@ final class PackageTestDatabaseGuard
                     $connection !== null ? sprintf('connection [%s]', $connection) : 'database settings',
                 ));
             }
+
+            if (self::isServerConnection($connection) && preg_match('/(?:^|[_-])test(?:$|[_-])/i', $databaseName) !== 1) {
+                throw new RuntimeException(sprintf(
+                    'Refusing to run Capell package Pest tests against database [%s] without a dedicated test name from %s connection [%s].',
+                    $databaseName,
+                    $source,
+                    $connection,
+                ));
+            }
         }
+    }
+
+    private static function isServerConnection(?string $connection): bool
+    {
+        return in_array(strtolower($connection ?? ''), ['mariadb', 'mysql', 'pgsql', 'postgres', 'postgresql'], true);
     }
 
     private static function databaseNameFromUrl(?string $url): ?string

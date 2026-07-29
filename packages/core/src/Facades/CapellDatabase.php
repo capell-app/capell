@@ -15,7 +15,11 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static DatabasePlatform for(Connection|Model|string|null $context = null)
+ * @method static DatabasePlatform forDriver(string $driver)
+ * @method static DatabasePlatform forConnection(?string $connectionName = null)
  * @method static DatabaseFullTextSearch fullTextSearch(Connection|Model $context, DatabaseIndexDefinition $index, non-empty-list<DatabaseSearchExpression> $expressions, string $query)
+ * @method static bool createFullTextIndex(Connection $connection, DatabaseIndexDefinition $index)
+ * @method static void dropFullTextIndex(Connection $connection, DatabaseIndexDefinition $index)
  * @method static void forgetFullTextIndexCompatibility(Connection $connection, ?DatabaseIndexDefinition $index = null)
  * @method static void flushFullTextIndexCompatibility()
  *

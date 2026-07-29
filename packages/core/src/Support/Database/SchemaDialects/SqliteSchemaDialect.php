@@ -83,4 +83,31 @@ final class SqliteSchemaDialect extends AbstractSchemaDialect implements Databas
     {
         return new SqlFragment(sprintf('PRAGMA table_xinfo(%s)', $this->identifier($table, '"')));
     }
+
+    public function hasConstraint(string $table, string $constraint, Connection $connection): bool
+    {
+        $definition = $connection->table('sqlite_master')
+            ->where('type', 'table')
+            ->where('name', $table)
+            ->value('sql');
+
+        if (! is_string($definition)) {
+            return false;
+        }
+
+        $quotedConstraint = preg_quote($constraint, '/');
+
+        return preg_match(
+            '/\bCONSTRAINT\s+(?:["`\[]' . $quotedConstraint . '["`\]]|' . $quotedConstraint . '\b)/i',
+            $definition,
+        ) === 1;
+    }
+
+    public function hasTrigger(string $trigger, Connection $connection): bool
+    {
+        return $connection->table('sqlite_master')
+            ->where('type', 'trigger')
+            ->where('name', $trigger)
+            ->exists();
+    }
 }
