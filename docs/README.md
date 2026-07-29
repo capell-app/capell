@@ -40,6 +40,8 @@ Use these pages to see a workflow before reading its implementation details.
 | [Development](development/index.md)                | Host repo setup, commands, configuration, seeders, diagnostics, and CI.                                             |
 | [Reference](reference/index.md)                    | Glossary, relationship maps, architecture diagrams, credits, and package boundaries.                                |
 
+Repository maintainers can review the prepared [GitHub repository surface commands](github-repo-surface.md) and [organisation profile draft](org-profile-README.md).
+
 ## High-Risk Decisions
 
 | Before I...                                        | Read                                                                                                                         |
