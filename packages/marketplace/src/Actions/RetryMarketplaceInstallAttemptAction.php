@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
+use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
@@ -29,54 +32,46 @@ final class RetryMarketplaceInstallAttemptAction
             ]);
         }
 
-        $retry = MarketplaceInstallAttempt::query()->create([
-            'composer_name' => $attempt->composer_name,
-            'extension_slug' => $attempt->extension_slug,
-            'extension_name' => $attempt->extension_name,
-            'kind' => $attempt->kind,
-            'status' => MarketplaceInstallIntentStatus::Queued,
-            'composer_command' => $attempt->composer_command,
-            'version_constraint' => $attempt->version_constraint,
-            'requested_options' => $attempt->requested_options,
-            'eligibility' => $attempt->eligibility,
-            'context' => $attempt->context,
-            'deployment' => $attempt->deployment,
-            'retry_of_id' => $attempt->getKey(),
-            'retried_by_id' => $this->userId($user),
-            'retried_at' => now(),
-            'queued_at' => now(),
-            'idempotency_key' => hash('sha256', Str::uuid()->toString()),
-            'user_id' => $attempt->user_id,
-            'user_email' => $attempt->user_email,
-        ]);
-
-        RecordMarketplaceInstallAttemptEventAction::run(
-            attempt: $retry,
-            level: MarketplaceInstallAttemptEventLevel::Info,
-            message: __('capell-marketplace::marketplace.operations.timeline_retry_created'),
-            stage: MarketplaceInstallFailureStage::Preflight,
-            context: ['retry_of_id' => $attempt->getKey()],
-        );
+        $retry = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
+            extensionSlug: $attempt->extension_slug,
+            extensionName: $attempt->extension_name,
+            composerName: $attempt->composer_name,
+            kind: $attempt->kind,
+            status: MarketplaceInstallIntentStatus::Queued,
+            betaAcknowledged: (bool) $attempt->beta_acknowledged,
+            policyEvidence: $this->policyEvidence($attempt),
+            composerCommand: $attempt->composer_command,
+            versionConstraint: $attempt->version_constraint,
+            requestedOptions: $attempt->requested_options ?? [],
+            eligibility: $attempt->eligibility ?? [],
+            context: $attempt->context ?? [],
+            deployment: $attempt->deployment ?? [],
+            idempotencyKey: Str::uuid()->toString(),
+            retryOfId: (int) $attempt->getKey(),
+            retriedById: $this->userId($user),
+            retriedAt: now(),
+            userId: is_scalar($attempt->user_id) ? (string) $attempt->user_id : null,
+            userEmail: $attempt->user_email,
+            timelineMessage: (string) __('capell-marketplace::marketplace.operations.timeline_retry_created'),
+            timelineLevel: MarketplaceInstallAttemptEventLevel::Info,
+            timelineStage: MarketplaceInstallFailureStage::Preflight,
+            timelineContext: ['retry_of_id' => $attempt->getKey()],
+        ));
 
         $preflight = RunMarketplaceInstallPreflightChecksAction::run($retry);
 
         if (! $preflight['passed']) {
             $firstFailure = collect($preflight['checks'])->first(fn (array $check): bool => $check['passed'] === false);
             $reason = is_array($firstFailure) ? (string) $firstFailure['message'] : (string) __('capell-marketplace::marketplace.operations.preflight_failed');
-            $classification = ClassifyMarketplaceInstallFailureAction::run(
-                stage: MarketplaceInstallFailureStage::Preflight,
-                message: $reason,
+
+            return TransitionMarketplaceInstallAttemptAction::run(
+                $retry,
+                new MarketplaceInstallAttemptTransitionData(
+                    toStatus: MarketplaceInstallIntentStatus::Failed,
+                    failureReason: $reason,
+                    failureStage: MarketplaceInstallFailureStage::Preflight,
+                ),
             );
-
-            $retry->forceFill([
-                'status' => MarketplaceInstallIntentStatus::Failed,
-                'failure_reason' => $reason,
-                'failure_type' => $classification['failure_type']->value,
-                'failure_stage' => $classification['failure_stage']->value,
-                'completed_at' => now(),
-            ])->save();
-
-            return $retry;
         }
 
         dispatch(new RunMarketplaceInstallAttemptJob((int) $retry->getKey()))
@@ -104,5 +99,15 @@ final class RetryMarketplaceInstallAttemptAction
         $identifier = $user?->getAuthIdentifier();
 
         return is_scalar($identifier) ? (string) $identifier : null;
+    }
+
+    private function policyEvidence(
+        MarketplaceInstallAttempt $attempt,
+    ): ?MarketplaceInstallPolicyEvidenceData {
+        if (! is_array($attempt->policy_evidence)) {
+            return null;
+        }
+
+        return MarketplaceInstallPolicyEvidenceData::from($attempt->policy_evidence);
     }
 }
