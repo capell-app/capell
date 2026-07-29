@@ -21,6 +21,7 @@ use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Closure;
+use Deprecated;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -238,9 +239,8 @@ class PageLoader
      * @param  class-string<Pageable<Model>>|null  $morphModel
      * @param  Closure(Builder<Model>): void|null  $modifyQuery
      * @return Collection<int, Model&Pageable<Model>>|LengthAwarePaginator<int, Model&Pageable<Model>>
-     *
-     * @deprecated Use {@see self::list()} with {@see PageListingRequestData}; retained for Capell 1.x compatibility.
      */
+    #[Deprecated(message: 'Use {@see self::list()} with {@see PageListingRequestData}; retained for Capell 1.x compatibility.')]
     public static function getPages(
         Language $language,
         ?Site $site = null,
@@ -289,8 +289,8 @@ class PageLoader
             withDate: $withDate,
             onlyListableTypes: $onlyListableTypes,
             paginationKey: $paginationKey,
-            morphModel: $morphModel,
             cacheKeyPrepend: $cacheKeyPrepend,
+            morphModel: $morphModel,
             useCache: $useCache,
             modifyQuery: $modifyQuery,
         ));

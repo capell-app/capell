@@ -11,6 +11,7 @@ use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Deprecated;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -20,7 +21,7 @@ final class InvalidateDueScheduledPublicationCachesAction
     use AsFake;
     use AsObject;
 
-    /** @deprecated The checkpoint is now persisted in FrontendSettings. */
+    #[Deprecated(message: 'The checkpoint is now persisted in FrontendSettings.')]
     public const string CHECKPOINT_CACHE_KEY = 'capell:frontend:scheduled-publication-invalidation-checkpoint';
 
     private const int FALLBACK_SCAN_MINUTES = 2;

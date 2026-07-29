@@ -16,17 +16,18 @@ use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class StartInstallerRunAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(
         private readonly InstallerSessionRepository $sessions,
         private readonly AdminUserModelGuard $adminUserModelGuard,
-        private readonly CacheInstallerSuccessSummaryAction $cacheSuccessSummary,
     ) {}
 
     public function handle(
@@ -51,7 +52,8 @@ final class StartInstallerRunAction
         $this->sessions->cancelActiveInstallBeforeStarting($installId);
         $this->sessions->lock($installId, queued: true);
         $this->sessions->putStatus($installId, 'queued');
-        $this->cacheSuccessSummary->handle($installId, $inputData);
+
+        CacheInstallerSuccessSummaryAction::run($installId, $inputData);
 
         dispatch(new RunCapellInstallJob($inputData, $installId));
 
@@ -103,13 +105,14 @@ final class StartInstallerRunAction
 
         $reporter = $this->reporter($installId);
         $reporter->markRunning();
+
         $completed = false;
 
         try {
             $this->ensureAdminUserModelIsReady($inputData, $reporter);
             RunInstallAction::run($inputData, $reporter);
             $reporter->markComplete();
-            $this->cacheSuccessSummary->handle($installId, $inputData);
+            CacheInstallerSuccessSummaryAction::run($installId, $inputData);
             $completed = true;
         } catch (Throwable $throwable) {
             $reporter->error('✗ ' . $throwable->getMessage());

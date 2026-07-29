@@ -121,11 +121,11 @@ final readonly class MarketplaceSelectionRecordData
             'operation' => $currentVersion === null ? 'install' : 'update',
             'current_version' => $currentVersion,
             'target_version' => $targetVersion,
-            'migrations' => self::impactList($impact, 'migrations'),
-            'routes' => self::impactList($impact, 'routes'),
-            'scheduled_jobs' => self::impactList($impact, 'scheduled_jobs'),
-            'storage' => self::impactList($impact, 'storage'),
-            'permissions' => self::impactList($impact, 'permissions'),
+            'migrations' => $this->impactList($impact, 'migrations'),
+            'routes' => $this->impactList($impact, 'routes'),
+            'scheduled_jobs' => $this->impactList($impact, 'scheduled_jobs'),
+            'storage' => $this->impactList($impact, 'storage'),
+            'permissions' => $this->impactList($impact, 'permissions'),
         ];
     }
 
@@ -133,7 +133,7 @@ final readonly class MarketplaceSelectionRecordData
      * @param  array<string, mixed>  $impact
      * @return list<string>
      */
-    private static function impactList(array $impact, string $key): array
+    private function impactList(array $impact, string $key): array
     {
         $values = $impact[$key] ?? [];
 

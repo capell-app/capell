@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -28,11 +30,11 @@ final class CreateMarketplaceInstallAttemptAction
             $userContext = $this->userContext($user);
             $context = $data->context;
 
-            if ($data->actor !== null) {
+            if ($data->actor instanceof MarketplaceInstallActorData) {
                 $context['install_actor'] = $data->actor->toArray();
             }
 
-            if ($data->source !== null) {
+            if ($data->source instanceof MarketplaceInstallSource) {
                 $context['install_source'] = $data->source->value;
             }
 

@@ -65,9 +65,15 @@ final class BuildMarketplaceSelectionReviewAction
 
             foreach ($recordsToInspect as $record) {
                 foreach ($record->requiredDependencies as $dependencyComposerName) {
-                    if ($this->dependencyIsSatisfied($dependencyComposerName)
-                        || array_key_exists($dependencyComposerName, $explicitRecords)
-                        || array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
+                    if ($this->dependencyIsSatisfied($dependencyComposerName)) {
+                        continue;
+                    }
+
+                    if (array_key_exists($dependencyComposerName, $explicitRecords)) {
+                        continue;
+                    }
+
+                    if (array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
                         continue;
                     }
 
@@ -86,9 +92,15 @@ final class BuildMarketplaceSelectionReviewAction
 
             foreach ($recordsToInspect as $record) {
                 foreach ($record->requiredDependencies as $dependencyComposerName) {
-                    if ($this->dependencyIsSatisfied($dependencyComposerName)
-                        || array_key_exists($dependencyComposerName, $explicitRecords)
-                        || array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
+                    if ($this->dependencyIsSatisfied($dependencyComposerName)) {
+                        continue;
+                    }
+
+                    if (array_key_exists($dependencyComposerName, $explicitRecords)) {
+                        continue;
+                    }
+
+                    if (array_key_exists($dependencyComposerName, $dependencyComposerNames)) {
                         continue;
                     }
 

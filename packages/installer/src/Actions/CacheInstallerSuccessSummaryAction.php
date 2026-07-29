@@ -9,11 +9,13 @@ use Capell\Core\Data\NewUserData;
 use Capell\Installer\Support\InstallerOptions;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class CacheInstallerSuccessSummaryAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

@@ -318,7 +318,7 @@ final class TransitionMarketplaceInstallAttemptAction
         MarketplaceInstallAttempt $attempt,
         MarketplaceInstallAttemptTransitionData $transition,
     ): MarketplaceInstallFailureStage {
-        if ($transition->failureStage !== null) {
+        if ($transition->failureStage instanceof MarketplaceInstallFailureStage) {
             return $transition->failureStage;
         }
 

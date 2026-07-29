@@ -44,7 +44,7 @@ function makePageListingRequestFixture(): array
         ->withTranslations($language)
         ->create();
 
-    return compact('language', 'site', 'type', 'pages');
+    return ['language' => $language, 'site' => $site, 'type' => $type, 'pages' => $pages];
 }
 
 it('keeps the 23-argument getPages adapter and maps every input to the typed request', function (): void {
@@ -53,7 +53,7 @@ it('keeps the 23-argument getPages adapter and maps every input to the typed req
     $modifyQuery = static function (Builder $query): void {
         $query->whereKey(123);
     };
-    $parameters = (new ReflectionMethod(PageLoader::class, 'getPages'))->getParameters();
+    $parameters = new ReflectionMethod(PageLoader::class, 'getPages')->getParameters();
 
     expect(array_map(
         static fn (ReflectionParameter $parameter): string => $parameter->getName(),

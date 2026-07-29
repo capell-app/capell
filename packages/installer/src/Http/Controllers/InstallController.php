@@ -39,11 +39,6 @@ final class InstallController
         private readonly InstallerOptions $options,
         private readonly InstallStepResponse $stepResponse,
         private readonly MultiNodeTopologyGuard $topologyGuard,
-        private readonly StartInstallerRunAction $startRun,
-        private readonly AdvanceInstallerRunAction $advanceRun,
-        private readonly ReadInstallerRunProgressAction $readProgress,
-        private readonly BuildInstallerRunReportAction $buildReport,
-        private readonly CancelInstallerRunAction $cancelRun,
     ) {}
 
     public function show(Request $request): Response
@@ -105,7 +100,7 @@ final class InstallController
 
         if ($runAsJob) {
             try {
-                $run = $this->startRun->handle($installId, $inputData, InstallerRunMode::Queued);
+                $run = StartInstallerRunAction::run($installId, $inputData, InstallerRunMode::Queued);
             } catch (QueueConnectionNotReadyException $exception) {
                 return $this->queueConnectionUnavailableResponse($request, $exception);
             } catch (Throwable $throwable) {
@@ -128,7 +123,7 @@ final class InstallController
 
         if ($request->expectsJson()) {
             try {
-                $run = $this->startRun->handle($installId, $inputData, InstallerRunMode::BrowserSteps);
+                $run = StartInstallerRunAction::run($installId, $inputData, InstallerRunMode::BrowserSteps);
 
                 return response()->json($this->browserStepRunPayload($run));
             } catch (Throwable $throwable) {
@@ -139,7 +134,7 @@ final class InstallController
             }
         }
 
-        $run = $this->startRun->handle($installId, $inputData, InstallerRunMode::Synchronous);
+        $run = StartInstallerRunAction::run($installId, $inputData, InstallerRunMode::Synchronous);
 
         return to_route($run->completed ? 'capell-installer.success' : 'capell-installer.progress', ['installId' => $installId]);
     }
@@ -151,7 +146,7 @@ final class InstallController
 
         abort_unless($this->canAccessInstall($request, $installId), 404);
 
-        return $this->stepResponse->fromResult($this->advanceRun->handle($installId, $stepKey));
+        return $this->stepResponse->fromResult(AdvanceInstallerRunAction::run($installId, $stepKey));
     }
 
     public function progress(Request $request, string $installId): View
@@ -192,7 +187,7 @@ final class InstallController
     {
         abort_unless($this->canAccessInstall($request, $installId) && $this->sessions->hasInstallSessionState($installId), 404);
 
-        $progress = $this->readProgress->handle($installId);
+        $progress = ReadInstallerRunProgressAction::run($installId);
 
         return response()->json([
             'installId' => $progress->installId,
@@ -220,7 +215,7 @@ final class InstallController
         }
 
         try {
-            $payload = $this->buildReport->handle($installId)->toPayload();
+            $payload = BuildInstallerRunReportAction::run($installId)->toPayload();
         } catch (Throwable $throwable) {
             return response()->json(['error' => $throwable->getMessage()], 500);
         }
@@ -235,7 +230,7 @@ final class InstallController
         abort_unless(Str::isUuid($installId), 404);
         abort_unless($this->canAccessInstall($request, $installId), 404);
 
-        $this->cancelRun->handle($installId);
+        CancelInstallerRunAction::run($installId);
 
         if ($request->expectsJson()) {
             return response()->json(['status' => 'cancelled']);

@@ -281,7 +281,6 @@ return new class extends Migration
             $tableNames[$key] = $tableName;
         }
 
-        /** @var array{roles: non-empty-string, model_has_permissions: non-empty-string, model_has_roles: non-empty-string} $tableNames */
         return $tableNames;
     }
 
