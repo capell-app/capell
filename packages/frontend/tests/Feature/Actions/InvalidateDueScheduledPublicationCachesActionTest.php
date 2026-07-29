@@ -129,6 +129,28 @@ it('overlaps valid checkpoint scans by five seconds', function (): void {
         ->and(Cache::has('fragment:scheduled-publication-' . $outsideOverlap->id))->toBeTrue();
 });
 
+it('normalizes a cross-offset checkpoint before scanning scheduled transitions', function (): void {
+    $checkpoint = '2026-10-25T01:00:00+01:00';
+    $until = CarbonImmutable::parse('2026-10-25T00:05:00+00:00');
+    setScheduledPublicationCheckpoint($checkpoint);
+
+    $page = makeScheduledPublicationPage(
+        CarbonImmutable::parse('2026-10-25T00:01:00+00:00'),
+    );
+    cacheScheduledPublicationFragment($page);
+
+    Event::listen(
+        FrontendSurrogateKeysInvalidated::class,
+        static function () use ($checkpoint): void {
+            expect(scheduledPublicationCheckpointPayload())->toBe($checkpoint);
+        },
+    );
+
+    expect(InvalidateDueScheduledPublicationCachesAction::run($until))->toBe(1)
+        ->and(Cache::has('fragment:scheduled-publication-' . $page->id))->toBeFalse()
+        ->and(scheduledPublicationCheckpointPayload())->toBe($until->toIso8601String());
+});
+
 it('falls back to a two-minute scan for unusable checkpoints', function (?string $checkpoint): void {
     setScheduledPublicationCheckpoint($checkpoint);
 

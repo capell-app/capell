@@ -78,8 +78,13 @@ final class InvalidateDueScheduledPublicationCachesAction
         if (
             ! $from instanceof CarbonImmutable
             || $from->format(DateTimeInterface::ATOM) !== $checkpoint
-            || $from->greaterThan($until)
         ) {
+            return $until->subMinutes(self::FALLBACK_SCAN_MINUTES);
+        }
+
+        $from = $from->setTimezone($until->getTimezone());
+
+        if ($from->greaterThan($until)) {
             return $until->subMinutes(self::FALLBACK_SCAN_MINUTES);
         }
 

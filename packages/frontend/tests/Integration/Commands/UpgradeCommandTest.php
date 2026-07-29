@@ -15,28 +15,7 @@ it('runs frontend upgrade command successfully', function (): void {
     $filesystem = new FakeMigrationFilesystem;
     app()->instance(MigrationFilesystemInterface::class, $filesystem);
 
-    $mock = new class($calls) extends UpgradeCommand
-    {
-        public array $calls;
-
-        public function __construct(array &$calls)
-        {
-            $this->calls = &$calls;
-            parent::__construct();
-        }
-
-        public function call(mixed $command, array $arguments = []): int
-        {
-            $this->calls[] = [$command, $arguments];
-
-            return 0;
-        }
-    };
-
-    $mock->setLaravel(app());
-    $mock->setOutput(new OutputStyle(new ArrayInput([]), new NullOutput));
-
-    $exitCode = $mock->handle();
+    $exitCode = makeFrontendUpgradeCommand($calls)->handle();
 
     expect($exitCode)->toBe(0)
         ->and($calls)->toContain([
@@ -67,35 +46,10 @@ it('fails before publishing assets when frontend settings migrations fail', func
     $calls = [];
     app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem);
 
-    $mock = new class($calls) extends UpgradeCommand
-    {
-        public array $calls;
-
-        public function __construct(array &$calls)
-        {
-            $this->calls = &$calls;
-            parent::__construct();
-        }
-
-        public function call(mixed $command, array $arguments = []): int
-        {
-            $this->calls[] = [$command, $arguments];
-
-            if ($command === 'migrate' && $arguments === [
-                '--path' => 'database/settings',
-                '--force' => true,
-            ]) {
-                return self::FAILURE;
-            }
-
-            return self::SUCCESS;
-        }
-    };
-
-    $mock->setLaravel(app());
-    $mock->setOutput(new OutputStyle(new ArrayInput([]), new NullOutput));
-
-    expect($mock->handle())->toBe(Command::FAILURE)
+    expect(makeFrontendUpgradeCommand(
+        $calls,
+        settingsMigrationExitCode: Command::FAILURE,
+    )->handle())->toBe(Command::FAILURE)
         ->and($calls)->not->toContain([
             'vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true],
         ])
@@ -103,3 +57,80 @@ it('fails before publishing assets when frontend settings migrations fail', func
             'vendor:publish', ['--tag' => 'capell-frontend-publish', '--force' => true],
         ]);
 });
+
+it('fails before schema and settings migrations when core migration publishing fails', function (): void {
+    $calls = [];
+    $filesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+
+    expect(makeFrontendUpgradeCommand(
+        $calls,
+        migrationPublishExitCode: Command::FAILURE,
+    )->handle())->toBe(Command::FAILURE)
+        ->and($calls)->toBe([
+            ['vendor:publish', ['--tag' => 'capell-migrations']],
+        ])
+        ->and($filesystem->calls)->toBe([]);
+});
+
+it('fails before settings publication when core schema migrations fail', function (): void {
+    $calls = [];
+    $filesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+
+    expect(makeFrontendUpgradeCommand(
+        $calls,
+        schemaMigrationExitCode: Command::FAILURE,
+    )->handle())->toBe(Command::FAILURE)
+        ->and($calls)->toBe([
+            ['vendor:publish', ['--tag' => 'capell-migrations']],
+            ['migrate', []],
+        ])
+        ->and($filesystem->calls)->toBe([]);
+});
+
+function makeFrontendUpgradeCommand(
+    array &$calls,
+    int $migrationPublishExitCode = Command::SUCCESS,
+    int $schemaMigrationExitCode = Command::SUCCESS,
+    int $settingsMigrationExitCode = Command::SUCCESS,
+): UpgradeCommand {
+    $command = new class($calls, $migrationPublishExitCode, $schemaMigrationExitCode, $settingsMigrationExitCode) extends UpgradeCommand
+    {
+        public function __construct(
+            public array &$calls,
+            private readonly int $migrationPublishExitCode,
+            private readonly int $schemaMigrationExitCode,
+            private readonly int $settingsMigrationExitCode,
+        ) {
+            parent::__construct();
+        }
+
+        public function call(mixed $command, array $arguments = []): int
+        {
+            $this->calls[] = [$command, $arguments];
+
+            if ($command === 'vendor:publish' && $arguments === ['--tag' => 'capell-migrations']) {
+                return $this->migrationPublishExitCode;
+            }
+
+            if ($command === 'migrate' && $arguments === []) {
+                return $this->schemaMigrationExitCode;
+            }
+
+            if ($command === 'migrate' && $arguments === [
+                '--path' => 'database/settings',
+                '--force' => true,
+            ]) {
+                return $this->settingsMigrationExitCode;
+            }
+
+            return self::SUCCESS;
+        }
+    };
+
+    $command->setLaravel(app());
+    $command->setOutput(new OutputStyle(new ArrayInput([]), new NullOutput));
+
+    return $command;
+}

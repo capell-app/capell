@@ -29,9 +29,21 @@ class UpgradeCommand extends Command
      */
     public function handle(): int
     {
-        $this->call('vendor:publish', ['--tag' => 'capell-migrations']);
+        $migrationPublishExitCode = $this->call('vendor:publish', ['--tag' => 'capell-migrations']);
 
-        $this->call('migrate');
+        if ($migrationPublishExitCode !== self::SUCCESS) {
+            $this->error(__('capell-frontend::messages.frontend_migration_publish_failed'));
+
+            return self::FAILURE;
+        }
+
+        $schemaMigrationExitCode = $this->call('migrate');
+
+        if ($schemaMigrationExitCode !== self::SUCCESS) {
+            $this->error(__('capell-frontend::messages.frontend_schema_migrations_failed'));
+
+            return self::FAILURE;
+        }
 
         $settingsPath = __DIR__ . '/../../../database/settings';
         $publishResult = PublishMigrationsAction::run(
