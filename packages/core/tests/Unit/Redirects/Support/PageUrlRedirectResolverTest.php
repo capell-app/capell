@@ -129,6 +129,54 @@ it('uses the wildcard home redirect as a fallback and preserves the requested pa
         ->and($redirect->refresh()->hit_count)->toBe(1);
 });
 
+it('merges the requested query into a wildcard target that already has a query string', function (): void {
+    ensurePageUrlHitColumns();
+    request()->server->set('QUERY_STRING', 'ref=old');
+
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    PageUrl::factory()
+        ->manualRedirect()
+        ->site($site)
+        ->language($language)
+        ->state([
+            'url' => '/*',
+            'target_url' => 'https://new.example?src=migration',
+            'status_code' => RedirectStatusCodeEnum::Permanent,
+        ])
+        ->create();
+
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
+
+    $decision = expectPresent($resolver->resolve($site, $language, '/blog'));
+
+    expect($decision->targetUrl)->toBe('https://new.example/blog?src=migration&ref=old');
+});
+
+it('keeps the fragment last when a wildcard target has one', function (): void {
+    ensurePageUrlHitColumns();
+    request()->server->set('QUERY_STRING', 'ref=old');
+
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    PageUrl::factory()
+        ->manualRedirect()
+        ->site($site)
+        ->language($language)
+        ->state([
+            'url' => '/*',
+            'target_url' => 'https://new.example#top',
+            'status_code' => RedirectStatusCodeEnum::Permanent,
+        ])
+        ->create();
+
+    $resolver = new PageUrlRedirectResolver(resolve(PageUrlRedirectHitRecorder::class));
+
+    $decision = expectPresent($resolver->resolve($site, $language, '/blog'));
+
+    expect($decision->targetUrl)->toBe('https://new.example/blog?ref=old#top');
+});
+
 it('prefers an exact redirect over the wildcard home redirect', function (): void {
     ensurePageUrlHitColumns();
 
