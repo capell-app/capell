@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Console\Commands;
 
+use Capell\Core\Actions\PublishMigrationsAction;
+use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Illuminate\Console\Command;
 
 class UpgradeCommand extends Command
@@ -30,6 +32,40 @@ class UpgradeCommand extends Command
         $this->call('vendor:publish', ['--tag' => 'capell-migrations']);
 
         $this->call('migrate');
+
+        $settingsPath = __DIR__ . '/../../../database/settings';
+        $publishResult = PublishMigrationsAction::run(
+            type: 'settings',
+            items: resolve(SettingsMigrationProviderInterface::class)->getSettingMigrations(),
+            path: $settingsPath,
+        );
+
+        foreach ($publishResult->warnings as $warning) {
+            $this->warn($warning);
+        }
+
+        foreach ($publishResult->errors as $error) {
+            $this->error($error);
+        }
+
+        if (! $publishResult->successful()) {
+            return self::FAILURE;
+        }
+
+        foreach ($publishResult->lines as $line) {
+            $this->line($line);
+        }
+
+        $settingsMigrationExitCode = $this->call('migrate', [
+            '--path' => 'database/settings',
+            '--force' => true,
+        ]);
+
+        if ($settingsMigrationExitCode !== self::SUCCESS) {
+            $this->error(__('capell-frontend::messages.frontend_settings_migrations_failed'));
+
+            return self::FAILURE;
+        }
 
         $this->call('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true]);
 
