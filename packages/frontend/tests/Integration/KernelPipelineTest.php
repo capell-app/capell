@@ -5,6 +5,9 @@ declare(strict_types=1);
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
+use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
+use Capell\Frontend\Support\Kernel\Steps\ParseUrlStep;
+use Capell\Frontend\Support\Kernel\Steps\SiteResolveStep;
 use Capell\Tests\Support\Concerns\TestingFrontend;
 use Illuminate\Http\Request;
 
@@ -31,4 +34,15 @@ it('bootstraps and returns context without redirect or error for normal page', f
     expect($result->redirect)->toBeNull()
         ->and($result->error)->toBeNull()
         ->and($result->context)->not()->toBeNull();
+});
+
+it('uses site resolution as the sole default path resolution step', function (): void {
+    $kernel = resolve(FrontendKernelInterface::class);
+    $stepsProperty = new ReflectionProperty($kernel, 'steps');
+    $steps = $stepsProperty->getValue($kernel);
+
+    expect($steps)
+        ->toContain(SiteResolveStep::class)
+        ->not->toContain(ParseUrlStep::class)
+        ->not->toContain(NormalizeDomainPathStep::class);
 });
