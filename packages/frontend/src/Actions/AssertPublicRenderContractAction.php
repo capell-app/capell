@@ -186,8 +186,8 @@ final class AssertPublicRenderContractAction
             return true;
         }
 
-        $strategy = RenderingStrategyEnum::tryFrom((string) $page->meta['rendering_strategy'])
-            ?? RenderingStrategyEnum::tryFrom((string) $type?->meta['rendering_strategy']);
+        $strategy = RenderingStrategyEnum::tryFrom((string) data_get($page->meta, 'rendering_strategy'))
+            ?? RenderingStrategyEnum::tryFrom((string) data_get($type?->meta, 'rendering_strategy'));
 
         return $strategy === RenderingStrategyEnum::FullLivewire
             || $strategy === RenderingStrategyEnum::BladeWithIslands;
