@@ -391,6 +391,20 @@ it('documents one public distribution and commercial licensing story', function 
     }
 });
 
+it('keeps Foundation AI claims separate from optional delivery packages', function (): void {
+    $root = dirname(__DIR__, 2);
+    $readme = file_get_contents($root . '/README.md');
+    $aiReadyGuide = file_get_contents($root . '/docs/getting-started/ai-ready.md');
+
+    expect($readme)
+        ->toContain('Optional marketplace package for publishing clean, RAG-ready JSON to answer engines')
+        ->not->toContain('Publish your pages to answer engines as clean, RAG-ready JSON')
+        ->and($aiReadyGuide)
+        ->toContain('Capell Foundation gives optional AI packages structured, permissioned CMS context and a safe public-rendering boundary before a provider is added.')
+        ->not->toContain('Capell is AI-ready because')
+        ->not->toContain('`llms.txt`');
+});
+
 it('defines the root package as the aligned aggregate of the foundation', function (): void {
     $root = dirname(__DIR__, 2);
     $manifest = json_decode(
