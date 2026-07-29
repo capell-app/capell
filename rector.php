@@ -34,6 +34,11 @@ use RectorLaravel\Set\LaravelSetProvider;
 use Sinnbeck\DomAssertions\Rector\Rules\AssertElementToAssertContainsElementRule;
 
 $packagePaths = [];
+$rectorCacheDirectory = __DIR__ . '/var/rector';
+
+if (! is_dir($rectorCacheDirectory) && ! mkdir($rectorCacheDirectory, 0777, true) && ! is_dir($rectorCacheDirectory)) {
+    throw new RuntimeException(sprintf('Unable to create Rector cache directory [%s].', $rectorCacheDirectory));
+}
 
 foreach (['config', 'database', 'publishes', 'resources', 'routes', 'src', 'tests'] as $packageDirectory) {
     foreach (glob(__DIR__ . '/packages/*/' . $packageDirectory, GLOB_ONLYDIR) ?: [] as $path) {
@@ -59,8 +64,9 @@ return RectorConfig::configure()
         removeUnusedImports: true,
     )
     ->withCache(
-        cacheDirectory: '/tmp/rector/capell-4',
+        cacheDirectory: $rectorCacheDirectory . '/files',
         cacheClass: FileCacheStorage::class,
+        containerCacheDirectory: $rectorCacheDirectory,
     )
     ->withPaths([
         __DIR__ . '/rector.php',
