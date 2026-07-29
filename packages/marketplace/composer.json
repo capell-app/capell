@@ -9,6 +9,11 @@
         "cms"
     ],
     "homepage": "https://github.com/capell-app/marketplace",
+    "support": {
+        "issues": "https://github.com/capell-app/capell/issues",
+        "docs": "https://docs.capell.app",
+        "source": "https://github.com/capell-app/marketplace"
+    },
     "license": "MIT",
     "authors": [
         {
