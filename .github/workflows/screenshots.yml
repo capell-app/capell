@@ -128,6 +128,11 @@ jobs:
         working-directory: repositories/capell
         run: npm ci
 
+      - name: Install screenshot tools dependencies
+        if: steps.packages.outputs.has_packages == 'true'
+        working-directory: repositories/capell-screenshot-tools
+        run: npm ci
+
       - name: Install screenshot runner Node dependencies
         if: steps.packages.outputs.has_packages == 'true'
         working-directory: services/capell-screenshot-runner
@@ -135,8 +140,8 @@ jobs:
 
       - name: Install Playwright browser
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
-        working-directory: services/capell-screenshot-runner
-        run: npm run install:browsers
+        working-directory: repositories/capell-screenshot-tools
+        run: npx playwright install chromium
 
       - name: Prepare screenshot runner app
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
