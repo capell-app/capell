@@ -44,6 +44,18 @@ final class InstallStepExecutor
 
     public function execute(string $stepKey, InstallRunState $state): InstallRunState
     {
+        config(['app.url' => $state->inputData->siteUrl]);
+        CapellCore::clearExtensionCache();
+
+        try {
+            return $this->executeStep($stepKey, $state);
+        } finally {
+            CapellCore::clearExtensionCache();
+        }
+    }
+
+    private function executeStep(string $stepKey, InstallRunState $state): InstallRunState
+    {
         if (InstallPlan::isPackageRequireStep($stepKey)) {
             $this->requireExtraPackage($state, InstallPlan::packageNameFromStep($stepKey));
 

@@ -292,6 +292,59 @@ it('reports successful npm rebuilds through the install step reporter', function
         ->toContain(['type' => 'info', 'line' => '✓ Frontend resources rebuilt']);
 });
 
+it('applies the install url and cache lifecycle around successful step execution', function (): void {
+    config(['app.url' => 'https://before-install.test']);
+
+    $cacheClearCount = 0;
+    $cacheClearCountDuringStep = null;
+    $appUrlDuringStep = null;
+
+    CapellCore::partialMock()
+        ->shouldReceive('clearExtensionCache')
+        ->twice()
+        ->andReturnUsing(function () use (&$cacheClearCount): void {
+            $cacheClearCount++;
+        });
+
+    $pendingProcess = Mockery::mock();
+    Process::shouldReceive('timeout')
+        ->with(300)
+        ->once()
+        ->andReturn($pendingProcess);
+    $pendingProcess->shouldReceive('run')
+        ->with('npm run build')
+        ->once()
+        ->andReturnUsing(function () use (&$appUrlDuringStep, &$cacheClearCountDuringStep, &$cacheClearCount): ProcessResult {
+            $appUrlDuringStep = config('app.url');
+            $cacheClearCountDuringStep = $cacheClearCount;
+
+            return installStepExecutorProcessResult(true);
+        });
+
+    $lines = [];
+    $state = new InstallRunState(
+        new InstallInputData(
+            siteUrl: 'https://capell-app.test',
+            packages: [],
+            languages: ['en'],
+            demoContent: false,
+            cachesToClear: [],
+            generateSitemap: false,
+            generateStaticSite: false,
+        ),
+        installStepExecutorReporter($lines),
+    );
+
+    resolve(InstallStepExecutor::class)->execute(
+        InstallPlan::STEP_REBUILD_RESOURCES,
+        $state,
+    );
+
+    expect($appUrlDuringStep)->toBe('https://capell-app.test')
+        ->and($cacheClearCountDuringStep)->toBe(1)
+        ->and($cacheClearCount)->toBe(2);
+});
+
 it('fails the install step when the doctor summary finds release-blocking issues', function (): void {
     $lines = [];
     $state = new InstallRunState(
