@@ -13,10 +13,7 @@
 @endphp
 
 <!DOCTYPE html>
-<html
-    class="h-full"
-    lang="{{ str_replace('_', '-', app()->getLocale()) }}"
->
+<html class="h-full" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <x-capell::app.head
         :livewire-enabled="$usesLivewire"
         :runtime-manifest="$runtimeManifest"
@@ -37,10 +34,7 @@
             {!! $renderedFrontendResources->bodyEndHtml !!}
 
             @if ($renderedFrontendResources->lazyRuntimePayload !== [])
-                <script
-                    type="application/json"
-                    data-capell-widget-assets
-                >
+                <script type="application/json" data-capell-widget-assets>
                     {!! json_encode($renderedFrontendResources->lazyRuntimePayload, JSON_THROW_ON_ERROR) !!}
                 </script>
             @endif

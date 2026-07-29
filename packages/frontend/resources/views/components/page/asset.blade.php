@@ -16,35 +16,35 @@
     'loop',
 ])
 @php
-	use Capell\Core\Actions\ResolveRenderableComponentAction;
-	use Capell\Core\Enums\RenderableTypeEnum;
-	use Capell\Frontend\Support\View\PublicModelMeta;
+    use Capell\Core\Actions\ResolveRenderableComponentAction;
+    use Capell\Core\Enums\RenderableTypeEnum;
+    use Capell\Frontend\Support\View\PublicModelMeta;
 
-$language = \Capell\Frontend\Facades\Frontend::language();
-$page = \Capell\Frontend\Facades\Frontend::page();
+    $language = \Capell\Frontend\Facades\Frontend::language();
+    $page = \Capell\Frontend\Facades\Frontend::page();
 
-$ancestors = null;
-$parent = null;
-$translation = method_exists($asset, 'relationLoaded') && $asset->relationLoaded('translation') ? $asset->translation : null;
-	$linkText = PublicModelMeta::get($translation, 'link_text', __('capell-frontend::generic.read_more'));
-$pageUrl = method_exists($asset, 'relationLoaded') && $asset->relationLoaded('pageUrl') ? $asset->pageUrl : null;
+    $ancestors = null;
+    $parent = null;
+    $translation = method_exists($asset, 'relationLoaded') && $asset->relationLoaded('translation') ? $asset->translation : null;
+    $linkText = PublicModelMeta::get($translation, 'link_text', __('capell-frontend::generic.read_more'));
+    $pageUrl = method_exists($asset, 'relationLoaded') && $asset->relationLoaded('pageUrl') ? $asset->pageUrl : null;
 
-if ($withParent && method_exists($asset, 'relationLoaded')) {
-    $parent = $asset->relationLoaded('parent') ? $asset->parent : null;
-    $ancestors = $asset->relationLoaded('ancestors') ? $asset->ancestors : null;
+    if ($withParent && method_exists($asset, 'relationLoaded')) {
+        $parent = $asset->relationLoaded('parent') ? $asset->parent : null;
+        $ancestors = $asset->relationLoaded('ancestors') ? $asset->ancestors : null;
 
-    if ($ancestors instanceof \Illuminate\Database\Eloquent\Collection && $ancestors->count() === 1 && $ancestors->first()->id === $page->id) {
-        $ancestors = false;
+        if ($ancestors instanceof \Illuminate\Database\Eloquent\Collection && $ancestors->count() === 1 && $ancestors->first()->id === $page->id) {
+            $ancestors = false;
+        }
     }
-}
 
-$image = null;
-if ($withImage && method_exists($asset, 'relationLoaded')) {
-    $image = $asset->relationLoaded('image') ? $asset->image : ($asset->relationLoaded('media') ? $asset->getRelation('media')->first() : null);
-    $image ??= PublicModelMeta::get($asset, 'image_source');
-}
+    $image = null;
+    if ($withImage && method_exists($asset, 'relationLoaded')) {
+        $image = $asset->relationLoaded('image') ? $asset->image : ($asset->relationLoaded('media') ? $asset->getRelation('media')->first() : null);
+        $image ??= PublicModelMeta::get($asset, 'image_source');
+    }
 
-$componentItem = ResolveRenderableComponentAction::run(RenderableTypeEnum::Asset, $componentItem);
+    $componentItem = ResolveRenderableComponentAction::run(RenderableTypeEnum::Asset, $componentItem);
 @endphp
 {{-- format-ignore-end --}}
 <x-dynamic-component

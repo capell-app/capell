@@ -25,6 +25,8 @@ class FrontendSettings extends Settings implements SettingsContract, SettingsSch
 
     public bool $custom_maintenance_page_enabled = true;
 
+    public ?string $scheduled_publication_invalidation_checkpoint = null;
+
     /** @var array<int, string> */
     public array $meta_schema = [];
 

@@ -186,37 +186,61 @@ it('reports numbered install steps before executing them', function (): void {
         ->and($executedSteps)->toBe($steps->pluck('key')->all());
 });
 
-it('uses the resolved install url as the app url while executing install steps', function (): void {
-    config(['app.url' => 'https://example.com']);
+it('applies the same url and failure cache cleanup invariants for full and single-step execution', function (string $entryPoint): void {
+    config(['app.url' => 'https://before-install.test']);
+
+    $cacheClearCount = 0;
+    $cacheClearCountDuringFailure = null;
+
+    CapellCore::partialMock()
+        ->shouldReceive('clearExtensionCache')
+        ->twice()
+        ->andReturnUsing(function () use (&$cacheClearCount): void {
+            $cacheClearCount++;
+        });
+
+    $reporter = new class($cacheClearCount, $cacheClearCountDuringFailure) implements ProgressReporter
+    {
+        public function __construct(
+            private int &$cacheClearCount,
+            private ?int &$cacheClearCountDuringFailure,
+        ) {}
+
+        public function step(string $label): void {}
+
+        public function report(string $line): void {}
+
+        public function error(string $line): void
+        {
+            $this->cacheClearCountDuringFailure ??= $this->cacheClearCount;
+        }
+    };
 
     $inputData = new InstallInputData(
-        siteUrl: 'https://capell-app.test',
+        siteUrl: 'not-a-valid-url',
         packages: [],
         languages: ['en'],
-        demoContent: true,
+        demoContent: false,
         cachesToClear: [],
         generateSitemap: false,
         generateStaticSite: false,
     );
 
-    $appUrlDuringInstall = null;
+    $execute = match ($entryPoint) {
+        'full run' => fn (): mixed => RunInstallAction::run($inputData, $reporter),
+        'single step' => fn (): mixed => RunInstallStepAction::run(
+            InstallPlan::STEP_PREFLIGHT_CHECKS,
+            $inputData,
+            $reporter,
+        ),
+        default => throw new InvalidArgumentException(sprintf('Unknown install entry point: %s', $entryPoint)),
+    };
 
-    app()->instance(InstallStepExecutor::class, new class($appUrlDuringInstall)
-    {
-        public function __construct(private ?string &$appUrlDuringInstall) {}
-
-        public function execute(string $stepKey, InstallRunState $state): InstallRunState
-        {
-            $this->appUrlDuringInstall = config('app.url');
-
-            return $state;
-        }
-    });
-
-    RunInstallAction::run($inputData, new NullProgressReporter);
-
-    expect($appUrlDuringInstall)->toBe('https://capell-app.test');
-});
+    expect($execute)->toThrow(RuntimeException::class, 'Install preflight failed:')
+        ->and(config('app.url'))->toBe('not-a-valid-url')
+        ->and($cacheClearCountDuringFailure)->toBe(1)
+        ->and($cacheClearCount)->toBe(2);
+})->with(['full run', 'single step']);
 
 it('creates a new user and marks the package installed during install with newUser', function (): void {
     Storage::fake();

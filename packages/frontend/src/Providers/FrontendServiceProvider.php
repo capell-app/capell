@@ -106,10 +106,8 @@ use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
 use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
-use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
 use Capell\Frontend\Support\Kernel\Steps\PageResolveStep;
-use Capell\Frontend\Support\Kernel\Steps\ParseUrlStep;
 use Capell\Frontend\Support\Kernel\Steps\RegisterThemeViewsStep;
 use Capell\Frontend\Support\Kernel\Steps\SetUrlGeneratorStep;
 use Capell\Frontend\Support\Kernel\Steps\SiteResolveStep;
@@ -269,10 +267,8 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->scoped(FrontendKernelInterface::class, function (Application $app): FrontendKernelInterface {
             $steps = config('frontend.kernel.steps', [
-                ParseUrlStep::class,
                 SiteResolveStep::class,
                 SetUrlGeneratorStep::class,
-                NormalizeDomainPathStep::class,
                 PageResolveStep::class,
                 LayoutResolverStep::class,
                 ThemeResolverStep::class,

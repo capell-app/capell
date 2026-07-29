@@ -32,7 +32,7 @@ it('throws SiteDomainNotFoundException when no sites configured and throw_on_no_
         ->toThrow(SiteDomainNotFoundException::class, 'No sites are configured.');
 });
 
-it('redirects to default site when enabled', function (): void {
+it('redirects to the default site while preserving duplicate query parameters', function (): void {
     config()->set('capell-frontend.redirect_default_site', true);
 
     $defaultDomain = SiteDomain::factory()->enabled()->state([

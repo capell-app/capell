@@ -39,15 +39,13 @@ Kernel registration:
 
 - `FrontendKernelInterface` is bound to `FrontendKernel` with the steps from `config('frontend.kernel.steps')`.
 - The default steps are:
-    1. `ParseUrlStep`
-    2. `SiteResolveStep`
-    3. `SetUrlGeneratorStep`
-    4. `NormalizeDomainPathStep`
-    5. `PageResolveStep`
-    6. `LayoutResolverStep`
-    7. `ThemeResolverStep`
-    8. `RegisterThemeViewsStep`
-    9. `NotifySubscribersStep`
+    1. `SiteResolveStep`
+    2. `SetUrlGeneratorStep`
+    3. `PageResolveStep`
+    4. `LayoutResolverStep`
+    5. `ThemeResolverStep`
+    6. `RegisterThemeViewsStep`
+    7. `NotifySubscribersStep`
 
 Aux services:
 
@@ -65,10 +63,8 @@ Contributors receive the resolved `FrontendContextReader` and mutable `FrontendR
 
 ## Pipeline steps (summary)
 
-- `ParseUrlStep`: normalizes the request path and saves it into state.
-- `SiteResolveStep`: resolves the site, language, domain, and normalized path from the full URL. It may redirect to the default site when enabled.
+- `SiteResolveStep`: resolves the site, language, domain, and canonical page-relative path from the full URL. It assigns that path to both `FrontendState::effectiveUrl()` and `FrontendState::relativePath()` and may redirect to the default site when enabled.
 - `SetUrlGeneratorStep`: applies the frontend URL generator state for the resolved request, then restores Laravel's previous forced root and scheme when the step finishes or throws.
-- `NormalizeDomainPathStep`: removes the domain path prefix, such as `/en`, from the effective URL to obtain the page-relative path.
 - `PageResolveStep`: resolves the target page, supports wildcard routes, error page fallback, and returns 404 for bot user agents when no page is found.
 - `LayoutResolverStep`: chooses the layout for the resolved page.
 - `ThemeResolverStep`: chooses the theme for rendering.
@@ -86,6 +82,8 @@ Contributors receive the resolved `FrontendContextReader` and mutable `FrontendR
 - `capell-frontend.use_site_domain_for_urls`: Switches URL generation to include site domain rules.
 - `capell-frontend.debug_log`: Adds extra debug logging in resolution steps.
 - `frontend.kernel.steps`: Overrides the pipeline step list when an application needs a custom frontend bootstrap sequence.
+
+`ParseUrlStep` and `NormalizeDomainPathStep` remain available as deprecated no-op compatibility steps throughout 1.x. Custom pipelines should remove them; both classes will be removed in 2.0.
 
 ## Caching
 

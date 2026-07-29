@@ -54,11 +54,7 @@
                     {{ trans_choice('filament-tables::table.selection_indicator.actions.select_all.label', $allSelectableRecordsCount, ['count' => Number::format($allSelectableRecordsCount, locale: app()->getLocale())]) }}
                 </x-filament::link>
 
-                <x-filament::link
-                    color="danger"
-                    tag="button"
-                    x-on:click="{{ $deselectAllRecordsAction }}"
-                >
+                <x-filament::link color="danger" tag="button" x-on:click="{{ $deselectAllRecordsAction }}">
                     {{ __('filament-tables::table.selection_indicator.actions.deselect_all.label') }}
                 </x-filament::link>
             </div>

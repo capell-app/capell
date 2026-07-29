@@ -9,7 +9,6 @@ on:
       - 'packages/**/*.js'
       - 'packages/**/*.css'
       - 'packages/**/*.yml'
-      - 'packages/**/*.blade.php'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/asset-formatting.yml'
@@ -42,4 +41,4 @@ jobs:
         run: npm ci
 
       - name: Check Prettier formatting
-        run: npx prettier --check 'packages/**/*.{css,js,yml,blade.php}' '!packages/**/node_modules/**'
+        run: npx prettier --check 'packages/**/*.{css,js,yml}' '!packages/**/node_modules/**'

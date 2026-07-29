@@ -13,12 +13,8 @@
     $translation = $site->relationLoaded('translation') ? $site->translation : null;
 @endphp
 
-<header
-    class="capell-component capell-header-index border-b border-slate-200/80 bg-white text-slate-950"
->
-    <div
-        class="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 lg:px-8"
-    >
+<header class="capell-component capell-header-index border-b border-slate-200/80 bg-white text-slate-950">
+    <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 lg:px-8">
         <a
             class="inline-flex min-w-0 items-center gap-3 text-base leading-none font-semibold text-slate-950 transition hover:text-blue-700 focus-visible:text-blue-700"
             href="{{ $siteDomain?->url ?? '/' }}"
@@ -28,9 +24,7 @@
             @elseif ($logo)
                 <x-capell::logo :media="$logo" />
             @else
-                <span class="truncate">
-                    {{ $translation?->title ?? $site->name }}
-                </span>
+                <span class="truncate"> {{ $translation?->title ?? $site->name }} </span>
             @endif
         </a>
 

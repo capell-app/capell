@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 use Capell\Frontend\Facades\Frontend;
 use Illuminate\Support\Facades\Route;
 
@@ -20,16 +22,14 @@ $beacon = [
 
 <div wire:ignore>
     <script>
-        window.beaconData = @json($beacon)
-        ;(function (beacon) {
+        window.beaconData = @json($beacon);
+        (function (beacon) {
             if (!beacon || !beacon.url || beacon.error) {
-                return
+                return;
             }
 
-            const token = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content')
-            const beaconUrl = new URL(beacon.url, window.location.origin)
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const beaconUrl = new URL(beacon.url, window.location.origin);
 
             const fetchBeaconData = function () {
                 fetch(beaconUrl, {
@@ -48,44 +48,41 @@ $beacon = [
                     .then((response) => (response.ok ? response.json() : null))
                     .then((payload) => {
                         if (!payload || !Array.isArray(payload.scripts)) {
-                            return
+                            return;
                         }
 
                         payload.scripts.forEach((scriptContent) => {
-                            if (
-                                typeof scriptContent !== 'string' ||
-                                scriptContent.trim() === ''
-                            ) {
-                                return
+                            if (typeof scriptContent !== 'string' || scriptContent.trim() === '') {
+                                return;
                             }
 
-                            const script = document.createElement('script')
-                            script.text = scriptContent
-                            document.body.appendChild(script)
-                        })
+                            const script = document.createElement('script');
+                            script.text = scriptContent;
+                            document.body.appendChild(script);
+                        });
                     })
-                    .catch(() => {})
-            }
+                    .catch(() => {});
+            };
 
             const queueBeaconFetch = function () {
                 if ('requestIdleCallback' in window) {
                     window.requestIdleCallback(fetchBeaconData, {
                         timeout: 2000,
-                    })
+                    });
 
-                    return
+                    return;
                 }
 
-                window.setTimeout(fetchBeaconData, 1)
-            }
+                window.setTimeout(fetchBeaconData, 1);
+            };
 
             if (document.readyState === 'complete') {
-                queueBeaconFetch()
+                queueBeaconFetch();
 
-                return
+                return;
             }
 
-            window.addEventListener('load', queueBeaconFetch, { once: true })
-        })(window.beaconData)
+            window.addEventListener('load', queueBeaconFetch, { once: true });
+        })(window.beaconData);
     </script>
 </div>

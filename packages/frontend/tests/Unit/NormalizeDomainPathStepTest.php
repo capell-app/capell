@@ -8,14 +8,15 @@ use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
 use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Http\Request;
 
-it('strips domain path prefix from effective url', function (): void {
+it('remains a no-op compatibility step', function (): void {
     $domain = SiteDomain::factory()->state([
         'path' => '/en',
     ])->make(['id' => 1]);
 
-    $state = new FrontendState;
-    $state->withDomain($domain);
-    $state->setEffectiveUrl('/en/products');
+    $state = (new FrontendState)
+        ->withDomain($domain)
+        ->withRelativePath('/en/products')
+        ->setEffectiveUrl('/en/products');
 
     $work = new FrontendWork(Request::create('https://example.com/en/products'), $state);
 
@@ -23,5 +24,6 @@ it('strips domain path prefix from effective url', function (): void {
     $result = $step->handle($work, fn (FrontendWork $w): FrontendWork => $w);
 
     expect($result)->toBe($work)
-        ->and($state->effectiveUrl())->toBe('/products');
+        ->and($state->relativePath())->toBe('/en/products')
+        ->and($state->effectiveUrl())->toBe('/en/products');
 });

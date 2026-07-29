@@ -4,10 +4,7 @@
 @endphp
 
 <div class="flex items-center">
-    <x-filament::dropdown
-        placement="left-start"
-        width="xl"
-    >
+    <x-filament::dropdown placement="left-start" width="xl">
         <x-slot name="trigger">
             <button
                 @class([
@@ -28,13 +25,8 @@
         </x-slot>
 
         <div class="overflow-hidden rounded-xl">
-            <div
-                class="border-b border-gray-200 bg-gray-50/80 p-3 dark:border-white/10 dark:bg-white/[0.04]"
-            >
-                <label
-                    class="sr-only"
-                    for="capell-header-navigation-search"
-                >
+            <div class="border-b border-gray-200 bg-gray-50/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <label class="sr-only" for="capell-header-navigation-search">
                     {{ __('capell-admin::navigation_tree.search_label') }}
                 </label>
                 <div class="relative">
@@ -46,59 +38,41 @@
                         wire:model.live.debounce.400ms="search"
                     />
 
-                    <div
-                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center pe-3 text-gray-400"
-                    >
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pe-3 text-gray-400">
                         <x-filament::loading-indicator
                             class="text-primary-500 h-4 w-4"
                             wire:loading.delay
                             wire:target="search"
                         />
-                        <span
-                            wire:loading.remove
-                            wire:target="search"
-                        >
+                        <span wire:loading.remove wire:target="search">
                             @svg(Heroicon::OutlinedMagnifyingGlass->getIconForSize(IconSize::Small), 'h-4 w-4')
                         </span>
                     </div>
                 </div>
             </div>
 
-            <div
-                class="max-h-[70vh] overflow-y-auto bg-white p-2 dark:bg-gray-950"
-            >
+            <div class="max-h-[70vh] overflow-y-auto bg-white p-2 dark:bg-gray-950">
                 <div
                     class="flex min-h-52 flex-col items-center justify-center gap-3 rounded-lg bg-gray-50/60 px-6 py-10 text-center dark:bg-white/[0.03]"
                     wire:loading.delay
                     wire:target="loadTree"
                 >
-                    <div
-                        class="bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300 flex h-12 w-12 items-center justify-center rounded-full"
-                    >
+                    <div class="bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300 flex h-12 w-12 items-center justify-center rounded-full">
                         <x-filament::loading-indicator class="h-7 w-7" />
                     </div>
-                    <span
-                        class="text-sm font-medium text-gray-700 dark:text-gray-200"
-                    >
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
                         {{ __('capell-admin::navigation_tree.loading') }}
                     </span>
                 </div>
 
-                <div
-                    wire:loading.remove
-                    wire:target="loadTree"
-                >
+                <div wire:loading.remove wire:target="loadTree">
                     @if (! $loaded)
-                        <div
-                            class="py-8 text-center text-sm text-gray-500 dark:text-gray-400"
-                        >
+                        <div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                             {{ __('capell-admin::navigation_tree.open_to_load') }}
                         </div>
                     @elseif ($this->isSearching())
                         @if ($searchResults['paths'] === [])
-                            <div
-                                class="py-8 text-center text-sm text-gray-500 dark:text-gray-400"
-                            >
+                            <div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                 {{ __('capell-admin::navigation_tree.no_search_results') }}
                             </div>
                         @else
@@ -109,12 +83,8 @@
                                         wire:key="header-navigation-search-path-{{ $path['key'] }}"
                                     >
                                         @if (count($sites) > 1)
-                                            <div
-                                                class="mb-1 flex min-w-0 items-baseline gap-2 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300"
-                                            >
-                                                <span class="truncate">
-                                                    {{ $path['site']['name'] }}
-                                                </span>
+                                            <div class="mb-1 flex min-w-0 items-baseline gap-2 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                                <span class="truncate"> {{ $path['site']['name'] }} </span>
                                                 @if (is_string($path['site']['public_url'] ?? null))
                                                     <span
                                                         class="min-w-0 shrink truncate font-normal text-gray-400 dark:text-gray-500"
@@ -152,19 +122,14 @@
                                         wire:loading.delay
                                         wire:target="loadMoreSearchResults"
                                     />
-                                    <span
-                                        wire:loading.remove
-                                        wire:target="loadMoreSearchResults"
-                                    >
+                                    <span wire:loading.remove wire:target="loadMoreSearchResults">
                                         {{ __('capell-admin::navigation_tree.load_more') }}
                                     </span>
                                 </button>
                             @endif
                         @endif
                     @elseif ($sites === [])
-                        <div
-                            class="py-8 text-center text-sm text-gray-500 dark:text-gray-400"
-                        >
+                        <div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                             {{ __('capell-admin::navigation_tree.no_pages') }}
                         </div>
                     @else
@@ -176,12 +141,8 @@
                                     $branch = $rootBranches[$siteId] ?? ['items' => [], 'has_more' => false, 'next_page' => null];
                                 @endphp
 
-                                <div
-                                    wire:key="header-navigation-site-{{ $siteId }}"
-                                >
-                                    <div
-                                        class="group flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-sm font-semibold text-gray-800 transition hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm hover:shadow-gray-950/5 dark:text-gray-100 dark:hover:border-white/10 dark:hover:bg-white/5 dark:hover:shadow-none"
-                                    >
+                                <div wire:key="header-navigation-site-{{ $siteId }}">
+                                    <div class="group flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-sm font-semibold text-gray-800 transition hover:border-gray-200 hover:bg-gray-50 hover:shadow-sm hover:shadow-gray-950/5 dark:text-gray-100 dark:hover:border-white/10 dark:hover:bg-white/5 dark:hover:shadow-none">
                                         <button
                                             class="focus-visible:ring-primary-500 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition outline-none hover:bg-white hover:text-gray-700 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-70 dark:hover:bg-white/10 dark:hover:text-gray-200"
                                             type="button"
@@ -197,10 +158,7 @@
                                                 wire:loading.delay
                                                 wire:target="toggleSite({{ $siteId }})"
                                             />
-                                            <span
-                                                wire:loading.remove
-                                                wire:target="toggleSite({{ $siteId }})"
-                                            >
+                                            <span wire:loading.remove wire:target="toggleSite({{ $siteId }})">
                                                 @svg(($siteExpanded ? Heroicon::OutlinedChevronDown : Heroicon::OutlinedChevronRight)->getIconForSize(IconSize::Small), 'h-4 w-4')
                                             </span>
                                         </button>
@@ -210,12 +168,8 @@
                                                 href="{{ $site['edit_url'] }}"
                                             >
                                                 @svg(Heroicon::OutlinedGlobeAlt->getIconForSize(IconSize::Small), 'text-primary-500 dark:text-primary-400 h-4 w-4 shrink-0')
-                                                <span
-                                                    class="flex min-w-0 flex-1 items-baseline gap-2"
-                                                >
-                                                    <span class="truncate">
-                                                        {{ $site['name'] }}
-                                                    </span>
+                                                <span class="flex min-w-0 flex-1 items-baseline gap-2">
+                                                    <span class="truncate"> {{ $site['name'] }} </span>
                                                     @if (is_string($site['public_url'] ?? null))
                                                         <span
                                                             class="min-w-0 shrink truncate text-xs font-normal text-gray-400 dark:text-gray-500"
@@ -227,16 +181,10 @@
                                                 </span>
                                             </a>
                                         @else
-                                            <span
-                                                class="flex min-w-0 flex-1 items-center gap-2 px-1.5 py-1"
-                                            >
+                                            <span class="flex min-w-0 flex-1 items-center gap-2 px-1.5 py-1">
                                                 @svg(Heroicon::OutlinedGlobeAlt->getIconForSize(IconSize::Small), 'text-primary-500 dark:text-primary-400 h-4 w-4 shrink-0')
-                                                <span
-                                                    class="flex min-w-0 flex-1 items-baseline gap-2"
-                                                >
-                                                    <span class="truncate">
-                                                        {{ $site['name'] }}
-                                                    </span>
+                                                <span class="flex min-w-0 flex-1 items-baseline gap-2">
+                                                    <span class="truncate"> {{ $site['name'] }} </span>
                                                     @if (is_string($site['public_url'] ?? null))
                                                         <span
                                                             class="min-w-0 shrink truncate text-xs font-normal text-gray-400 dark:text-gray-500"

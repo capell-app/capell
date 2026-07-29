@@ -40,9 +40,7 @@
             />
         @endforeach
 
-        <div
-            class="flex flex-col divide-y divide-gray-100 pl-4 dark:divide-gray-700"
-        >
+        <div class="flex flex-col divide-y divide-gray-100 pl-4 dark:divide-gray-700">
             <x-capell-admin::page.page-tree-item
                 :page="$record"
                 :resourceClass="$resourceClass"
@@ -53,9 +51,7 @@
             />
 
             @if ($children->isNotEmpty())
-                <div
-                    class="flex flex-col divide-y divide-gray-100 pl-4 dark:divide-gray-700"
-                >
+                <div class="flex flex-col divide-y divide-gray-100 pl-4 dark:divide-gray-700">
                     @svg('heroicon-c-arrow-uturn-left', 'rotate-45')
                     @foreach ($children as $child)
                         <x-capell-admin::page.page-tree-item
@@ -70,9 +66,7 @@
         </div>
 
         @if ($siblings->isNotEmpty())
-            <div
-                class="flex flex-col divide-y divide-gray-100 pl-4 dark:divide-gray-700"
-            >
+            <div class="flex flex-col divide-y divide-gray-100 pl-4 dark:divide-gray-700">
                 @foreach ($siblings as $sibling)
                     <x-capell-admin::page.page-tree-item
                         :page="$sibling"

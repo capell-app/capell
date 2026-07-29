@@ -11,7 +11,7 @@
     @if ($this->canViewTools())
         <x-filament::dropdown
             placement="bottom-end"
-            x-on:close-dropdown="if ($event.detail.id === 'admin-tools-dropdown') close()"
+            x-on:close-dropdown="if ($event.detail.id === 'admin-tools-dropdown') close();"
         >
             <x-slot name="trigger">
                 <button
@@ -40,11 +40,7 @@
                 >
                     @include('capell-admin::img.logo')
                 </span>
-                <x-filament::badge
-                    color="gray"
-                    size="sm"
-                    class="float-right ml-2"
-                >
+                <x-filament::badge color="gray" size="sm" class="float-right ml-2">
                     {{ CapellCore::getInstalledPrettyVersion('capell-app/admin') }}
                 </x-filament::badge>
             </x-filament::dropdown.header>

@@ -4,30 +4,24 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Controllers;
 
-use Capell\Core\Actions\AssertQueueConnectionReadyAction;
-use Capell\Core\Actions\Install\RunInstallAction;
-use Capell\Core\Actions\Install\RunInstallStepAction;
-use Capell\Core\Data\InstallInputData;
-use Capell\Core\Data\NewUserData;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
-use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
-use Capell\Core\Support\Install\CacheProgressReporter;
-use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallInputFactory;
-use Capell\Core\Support\Install\InstallPlan;
+use Capell\Installer\Actions\AdvanceInstallerRunAction;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
+use Capell\Installer\Actions\BuildInstallerRunReportAction;
+use Capell\Installer\Actions\CancelInstallerRunAction;
+use Capell\Installer\Actions\ReadInstallerRunProgressAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
+use Capell\Installer\Actions\StartInstallerRunAction;
+use Capell\Installer\Data\InstallerRunStartData;
+use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Http\Requests\RunInstallStepRequest;
 use Capell\Installer\Http\Requests\StoreInstallRequest;
 use Capell\Installer\Http\Responses\InstallStepResponse;
-use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerInstallationState;
 use Capell\Installer\Support\InstallerOptions;
-use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
-use Capell\Installer\Support\Preflight\InstallerPreflight;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -44,9 +38,12 @@ final class InstallController
         private readonly InstallerSessionRepository $sessions,
         private readonly InstallerOptions $options,
         private readonly InstallStepResponse $stepResponse,
-        private readonly InstallerRemediation $remediation,
-        private readonly AdminUserModelGuard $adminUserModelGuard,
         private readonly MultiNodeTopologyGuard $topologyGuard,
+        private readonly StartInstallerRunAction $startRun,
+        private readonly AdvanceInstallerRunAction $advanceRun,
+        private readonly ReadInstallerRunProgressAction $readProgress,
+        private readonly BuildInstallerRunReportAction $buildReport,
+        private readonly CancelInstallerRunAction $cancelRun,
     ) {}
 
     public function show(Request $request): Response
@@ -108,16 +105,9 @@ final class InstallController
 
         if ($runAsJob) {
             try {
-                AssertQueueConnectionReadyAction::run();
+                $run = $this->startRun->handle($installId, $inputData, InstallerRunMode::Queued);
             } catch (QueueConnectionNotReadyException $exception) {
                 return $this->queueConnectionUnavailableResponse($request, $exception);
-            }
-
-            $queueReporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
-            try {
-                if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
-                    $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $queueReporter);
-                }
             } catch (Throwable $throwable) {
                 if ($request->expectsJson()) {
                     return response()->json([
@@ -129,23 +119,8 @@ final class InstallController
                 return back()->withErrors(['user_model' => $throwable->getMessage()])->withInput();
             }
 
-            $this->sessions->cancelActiveInstallBeforeStarting($installId);
-
-            $this->sessions->lock($installId, queued: true);
-            $this->sessions->putStatus($installId, 'queued');
-            $this->cacheSuccessSummary($installId, $inputData);
-
-            dispatch(new RunCapellInstallJob($inputData, $installId));
-
             if ($request->expectsJson()) {
-                return response()->json([
-                    'installId' => $installId,
-                    'status' => 'queued',
-                    'progressUrl' => route('capell-installer.progress', ['installId' => $installId]),
-                    'progressDataUrl' => route('capell-installer.progress.data', ['installId' => $installId]),
-                    'reportUrl' => route('capell-installer.progress.download', ['installId' => $installId]),
-                    'redirectUrl' => route('capell-installer.progress', ['installId' => $installId]),
-                ]);
+                return response()->json($this->queuedRunPayload($run));
             }
 
             return to_route('capell-installer.progress', ['installId' => $installId]);
@@ -153,7 +128,9 @@ final class InstallController
 
         if ($request->expectsJson()) {
             try {
-                return $this->prepareStepBasedInstall($installId, $inputData);
+                $run = $this->startRun->handle($installId, $inputData, InstallerRunMode::BrowserSteps);
+
+                return response()->json($this->browserStepRunPayload($run));
             } catch (Throwable $throwable) {
                 return response()->json([
                     'message' => $throwable->getMessage(),
@@ -162,33 +139,9 @@ final class InstallController
             }
         }
 
-        // Non-AJAX, non-job: run synchronously and redirect to progress page
-        $this->sessions->cancelActiveInstallBeforeStarting($installId);
+        $run = $this->startRun->handle($installId, $inputData, InstallerRunMode::Synchronous);
 
-        $this->sessions->lock($installId);
-        $this->sessions->putStatus($installId, 'running');
-
-        $reporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
-        $reporter->markRunning();
-
-        $installCompleted = false;
-
-        try {
-            if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
-                $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
-            }
-
-            RunInstallAction::run($inputData, $reporter);
-            $reporter->markComplete();
-            $this->cacheSuccessSummary($installId, $inputData);
-            $installCompleted = true;
-        } catch (Throwable $throwable) {
-            $reporter->error('✗ ' . $throwable->getMessage());
-            $reporter->markFailed();
-            $this->sessions->clearActiveLock();
-        }
-
-        return to_route($installCompleted ? 'capell-installer.success' : 'capell-installer.progress', ['installId' => $installId]);
+        return to_route($run->completed ? 'capell-installer.success' : 'capell-installer.progress', ['installId' => $installId]);
     }
 
     public function runStep(RunInstallStepRequest $request): JsonResponse
@@ -198,101 +151,7 @@ final class InstallController
 
         abort_unless($this->canAccessInstall($request, $installId), 404);
 
-        $inputArray = $this->sessions->input($installId);
-        if (! is_array($inputArray)) {
-            return $this->stepResponse->gone($installId, 'Install session not found or expired. Please restart the installer.');
-        }
-
-        $inputData = InstallInputData::from($inputArray);
-        /** @var array<int, array{key: string, label: string}> $plan */
-        $plan = $this->sessions->plan($installId);
-        $resolvedUserId = $this->sessions->resolvedUserId($installId);
-
-        $reporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
-
-        if ($this->sessions->status($installId, 'pending') === 'complete') {
-            return $this->stepResponse->complete($installId, $stepKey, $reporter->logPath());
-        }
-
-        $expectedStepKey = $this->sessions->expectedStepKey($installId, $plan);
-        if ($expectedStepKey === null) {
-            return $this->stepResponse->gone($installId, 'Install plan not found or expired. Please restart the installer.');
-        }
-
-        if ($stepKey !== $expectedStepKey) {
-            return $this->stepResponse->outOfSequence($installId, $stepKey, $expectedStepKey, $reporter->logPath());
-        }
-
-        $reporter->markRunning();
-
-        if (function_exists('memory_reset_peak_usage')) {
-            memory_reset_peak_usage();
-        }
-
-        try {
-            $reporter->step(InstallPlan::labelForStep($plan, $stepKey) . '…');
-            if ($stepKey === InstallPlan::STEP_PREFLIGHT_CHECKS) {
-                $preflight = resolve(InstallerPreflight::class)->run($inputData);
-                $this->sessions->putPreflightReport($installId, $preflight);
-                $this->remediation->reportPreflight($preflight, $reporter);
-
-                if (InstallerPreflight::hasBlockingFailures($preflight['checks'])) {
-                    $reporter->markFailed();
-                    $this->sessions->clearActiveLock();
-
-                    return $this->stepResponse->failed(
-                        $installId,
-                        $stepKey,
-                        $reporter->logPath(),
-                        'Preflight checks failed.',
-                        ['remediation' => $this->remediation->preflightRemediation($preflight), 'preflight' => $preflight],
-                    );
-                }
-
-                $nextStep = InstallPlan::findNextStep($plan, $stepKey);
-                $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
-
-                return $this->stepResponse->running($installId, $stepKey, $nextStep, $reporter->logPath(), ['preflight' => $preflight]);
-            }
-
-            if (($stepKey === InstallPlan::STEP_RESOLVE_USER && $this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData))
-                || InstallPlan::packageNameFromStep($stepKey) === 'capell-app/admin') {
-                $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
-            }
-
-            $newUserId = RunInstallStepAction::run($stepKey, $inputData, $reporter, $resolvedUserId);
-            if (is_int($newUserId) && $newUserId !== $resolvedUserId) {
-                $this->sessions->putResolvedUserId($installId, $newUserId);
-            }
-        } catch (Throwable $throwable) {
-            $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
-            $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
-            $reporter->markFailed();
-            $this->sessions->clearActiveLock();
-
-            return $this->stepResponse->failed(
-                $installId,
-                $stepKey,
-                $reporter->logPath(),
-                $throwable->getMessage(),
-                ['errorClass' => $throwable::class, 'remediation' => $this->remediation->remediationFor($throwable->getMessage())],
-            );
-        } finally {
-            $this->sessions->recordStepPeakMemory($installId, $stepKey, memory_get_peak_usage(true));
-        }
-
-        $nextStep = InstallPlan::findNextStep($plan, $stepKey);
-        $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
-
-        if ($nextStep === null) {
-            $reporter->markComplete();
-            $this->cacheSuccessSummary($installId, $inputData);
-            $this->sessions->clearActiveLock();
-
-            return $this->stepResponse->complete($installId, $stepKey, $reporter->logPath());
-        }
-
-        return $this->stepResponse->running($installId, $stepKey, $nextStep, $reporter->logPath());
+        return $this->stepResponse->fromResult($this->advanceRun->handle($installId, $stepKey));
     }
 
     public function progress(Request $request, string $installId): View
@@ -333,22 +192,13 @@ final class InstallController
     {
         abort_unless($this->canAccessInstall($request, $installId) && $this->sessions->hasInstallSessionState($installId), 404);
 
-        $lines = $this->sessions->lines($installId);
-        $status = $this->sessions->status($installId, 'running');
-
-        if (in_array($status, ['complete', 'failed', 'cancelled'], true)) {
-            $this->sessions->clearActiveLock();
-        }
-
-        if (in_array($status, ['failed', 'cancelled'], true)) {
-            $this->sessions->forgetSuccessSummary($installId);
-        }
+        $progress = $this->readProgress->handle($installId);
 
         return response()->json([
-            'installId' => $installId,
-            'status' => $status,
-            'lines' => $lines,
-            'redirectUrl' => $status === 'complete'
+            'installId' => $progress->installId,
+            'status' => $progress->status,
+            'lines' => $progress->lines,
+            'redirectUrl' => $progress->shouldRedirectToSuccess
                 ? route('capell-installer.success', ['installId' => $installId])
                 : null,
         ]);
@@ -370,48 +220,7 @@ final class InstallController
         }
 
         try {
-            $inputArray = $this->sessions->input($installId);
-            $inputData = is_array($inputArray) ? InstallInputData::from($inputArray) : null;
-            $preflight = $this->sessions->preflightReport($installId);
-
-            if (! is_array($preflight)) {
-                $preflight = resolve(InstallerPreflight::class)->run($inputData);
-            }
-
-            $status = $this->sessions->status($installId);
-            $lines = $this->sessions->lines($installId);
-
-            $payload = [
-                'installId' => $installId,
-                'status' => $status,
-                'environment' => $preflight['environment'] ?? [],
-                'preflight' => $preflight,
-                'plan' => $this->sessions->plan($installId),
-                'diagnostics' => ['steps' => $this->sessions->stepDiagnostics($installId)],
-                'selected' => [
-                    'packages' => $inputData->packages ?? [],
-                    'extraPackages' => $inputData->extraPackages ?? [],
-                    'languages' => $inputData->languages ?? [],
-                    'seedDefaultData' => $inputData->seedDefaultData ?? null,
-                    'demoContent' => $inputData->demoContent ?? null,
-                    'generateSitemap' => $inputData->generateSitemap ?? null,
-                    'generateStaticSite' => $inputData->generateStaticSite ?? null,
-                    'installFilamentPanel' => $inputData->installFilamentPanel ?? null,
-                    'integrateAdminPanel' => $inputData->integrateAdminPanel ?? null,
-                    'rebuildResources' => $inputData->rebuildResources ?? null,
-                    'installDeveloperTooling' => $inputData->installDeveloperTooling ?? null,
-                    'configureBoostDeveloperTooling' => $inputData->configureBoostDeveloperTooling ?? null,
-                    'additionalUsers' => collect($inputData->additionalUsers ?? [])
-                        ->map(fn (NewUserData $user): array => [
-                            'name' => $user->name,
-                            'email' => $user->email,
-                            'roleName' => $user->roleName,
-                        ])
-                        ->all(),
-                ],
-                'lines' => $lines,
-                'remediations' => $this->remediation->remediationsForLines($lines),
-            ];
+            $payload = $this->buildReport->handle($installId)->toPayload();
         } catch (Throwable $throwable) {
             return response()->json(['error' => $throwable->getMessage()], 500);
         }
@@ -426,9 +235,7 @@ final class InstallController
         abort_unless(Str::isUuid($installId), 404);
         abort_unless($this->canAccessInstall($request, $installId), 404);
 
-        $this->sessions->clearActiveLock($installId);
-
-        $this->sessions->clearInstallSession($installId);
+        $this->cancelRun->handle($installId);
 
         if ($request->expectsJson()) {
             return response()->json(['status' => 'cancelled']);
@@ -442,44 +249,40 @@ final class InstallController
         return sprintf('capell-install-%s.json', $installId);
     }
 
-    private function prepareStepBasedInstall(string $installId, InstallInputData $inputData): JsonResponse
+    /**
+     * @return array<string, mixed>
+     */
+    private function queuedRunPayload(InstallerRunStartData $run): array
     {
-        $plan = InstallPlan::build($inputData);
-        $firstStepKey = $plan[0]['key'] ?? null;
-        $installStatus = is_string($firstStepKey) ? 'pending' : 'complete';
+        return [
+            'installId' => $run->installId,
+            'status' => $run->status,
+            'progressUrl' => route('capell-installer.progress', ['installId' => $run->installId]),
+            'progressDataUrl' => route('capell-installer.progress.data', ['installId' => $run->installId]),
+            'reportUrl' => route('capell-installer.progress.download', ['installId' => $run->installId]),
+            'redirectUrl' => route('capell-installer.progress', ['installId' => $run->installId]),
+        ];
+    }
 
-        $logPath = storage_path(sprintf('logs/capell-install-%s.log', $installId));
-        $reporter = new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
-
-        if ($this->adminUserModelGuard->hasInstalledAdminPackageSelection($inputData)) {
-            $this->adminUserModelGuard->ensureUserModelSupportsAdminPackage($inputData, $reporter);
-        }
-
-        $this->sessions->cancelActiveInstallBeforeStarting($installId);
-
-        $this->sessions->startStepInstallSession(
-            installId: $installId,
-            inputData: $inputData,
-            plan: $plan,
-            installStatus: $installStatus,
-            firstStepKey: $firstStepKey,
-            preflight: resolve(InstallerPreflight::class)->run($inputData),
-        );
-
-        return response()->json([
-            'installId' => $installId,
-            'status' => $installStatus,
-            'plan' => $plan,
-            'nextStep' => $firstStepKey,
-            'progressUrl' => route('capell-installer.progress', ['installId' => $installId]),
-            'progressDataUrl' => route('capell-installer.progress.data', ['installId' => $installId]),
-            'reportUrl' => route('capell-installer.progress.download', ['installId' => $installId]),
-            'successUrl' => route('capell-installer.success', ['installId' => $installId]),
+    /**
+     * @return array<string, mixed>
+     */
+    private function browserStepRunPayload(InstallerRunStartData $run): array
+    {
+        return [
+            'installId' => $run->installId,
+            'status' => $run->status,
+            'plan' => $run->plan,
+            'nextStep' => $run->nextStep,
+            'progressUrl' => route('capell-installer.progress', ['installId' => $run->installId]),
+            'progressDataUrl' => route('capell-installer.progress.data', ['installId' => $run->installId]),
+            'reportUrl' => route('capell-installer.progress.download', ['installId' => $run->installId]),
+            'successUrl' => route('capell-installer.success', ['installId' => $run->installId]),
             'runStepUrl' => route('capell-installer.run-step'),
-            'cancelUrl' => route('capell-installer.cancel', ['installId' => $installId]),
-            'logPath' => $logPath,
+            'cancelUrl' => route('capell-installer.cancel', ['installId' => $run->installId]),
+            'logPath' => $run->logPath,
             'csrfToken' => csrf_token(),
-        ]);
+        ];
     }
 
     /**
@@ -550,38 +353,6 @@ final class InstallController
     private function installAccessSessionKey(string $installId): string
     {
         return sprintf('capell.install.%s.access', $installId);
-    }
-
-    private function cacheSuccessSummary(string $installId, InstallInputData $inputData): void
-    {
-        $this->sessions->putSuccessSummary($installId, [
-            'primaryAdmin' => $this->primaryAdminSummary($inputData),
-            'roleUsersCreated' => $inputData->additionalUsers !== [],
-        ]);
-    }
-
-    private function primaryAdminSummary(InstallInputData $inputData): ?string
-    {
-        if ($inputData->newUser instanceof NewUserData) {
-            return sprintf('%s <%s>', $inputData->newUser->name, $inputData->newUser->email);
-        }
-
-        if ($inputData->userId === null || ! $this->options->usersTableExists()) {
-            return null;
-        }
-
-        try {
-            $userModel = $this->options->userModel();
-            $user = $userModel::query()->find($inputData->userId, ['id', 'name', 'email']);
-
-            if (! $user instanceof Model) {
-                return null;
-            }
-
-            return sprintf('%s <%s>', (string) $user->getAttribute('name'), (string) $user->getAttribute('email'));
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     private function capellIsInstalled(): bool

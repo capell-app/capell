@@ -10,9 +10,7 @@
 @endphp
 
 @if ($renderTriggers !== [])
-    <div
-        {{ $attributes->class(['capell-interactions flex flex-wrap items-center gap-3', $class]) }}
-    >
+    <div {{ $attributes->class(['capell-interactions flex flex-wrap items-center gap-3', $class]) }}>
         @foreach ($renderTriggers as $trigger)
             @if (in_array($trigger['target_type'], ['url', 'public_action'], true))
                 <a

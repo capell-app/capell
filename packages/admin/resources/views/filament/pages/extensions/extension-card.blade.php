@@ -153,11 +153,7 @@
         }
 
         .capell-extension-card-record > .fi-ta-record-checkbox {
-            background: linear-gradient(
-                135deg,
-                rgb(255 255 255 / 0.98),
-                rgb(239 246 255 / 0.96)
-            );
+            background: linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(239 246 255 / 0.96));
             border-radius: 0 0 0.75rem 0;
             box-shadow:
                 0 0.875rem 1.75rem -1rem rgb(15 23 42 / 0.42),
@@ -170,11 +166,7 @@
         }
 
         :is(.dark .capell-extension-card-record > .fi-ta-record-checkbox) {
-            background: linear-gradient(
-                135deg,
-                rgb(17 24 39 / 0.98),
-                rgb(30 41 59 / 0.96)
-            );
+            background: linear-gradient(135deg, rgb(17 24 39 / 0.98), rgb(30 41 59 / 0.96));
             box-shadow:
                 0 0.875rem 1.75rem -1rem rgb(0 0 0 / 0.72),
                 0 0 0 1px rgb(255 255 255 / 0.12);
@@ -204,15 +196,11 @@
             min-width: max-content;
         }
 
-        .capell-extension-card-record
-            .fi-ta-actions
-            .capell-extension-card-lifecycle-action {
+        .capell-extension-card-record .fi-ta-actions .capell-extension-card-lifecycle-action {
             margin-inline-start: auto;
         }
 
-        .capell-extension-card-record
-            .fi-ta-actions
-            .capell-extension-card-details-action {
+        .capell-extension-card-record .fi-ta-actions .capell-extension-card-details-action {
             display: none;
         }
 
@@ -282,9 +270,7 @@
 
         <div class="size-full">
             @if ($imageUrls->isNotEmpty())
-                <div
-                    class="capell-extension-card-media-scroll flex size-full snap-x snap-mandatory overflow-x-auto scroll-smooth"
-                >
+                <div class="capell-extension-card-media-scroll flex size-full snap-x snap-mandatory overflow-x-auto scroll-smooth">
                     @foreach ($imageUrls as $extensionImageUrl)
                         <img
                             id="extension-image-{{ hash('sha256', (string) $packageName) }}-{{ $loop->iteration }}"
@@ -351,9 +337,7 @@
         @endif
 
         @if ($imageUrls->count() > 1)
-            <div
-                class="absolute inset-x-0 bottom-20 z-20 flex justify-center gap-1.5"
-            >
+            <div class="absolute inset-x-0 bottom-20 z-20 flex justify-center gap-1.5">
                 @foreach ($imageUrls as $extensionImageUrl)
                     <a
                         href="#extension-image-{{ hash('sha256', (string) $packageName) }}-{{ $loop->iteration }}"
@@ -364,104 +348,65 @@
             </div>
         @endif
 
-        <div
-            class="absolute top-3 right-3 z-20 flex max-w-[calc(100%_-_4rem)] flex-wrap justify-end gap-1.5"
-        >
-            <x-filament::badge
-                :color="$maturityBadgeColor"
-                data-release-status="{{ $maturity }}"
-            >
-                <span class="sr-only">
-                    {{ __('capell-admin::marketplace.release_status.label') }}:
-                </span>
+        <div class="absolute top-3 right-3 z-20 flex max-w-[calc(100%_-_4rem)] flex-wrap justify-end gap-1.5">
+            <x-filament::badge :color="$maturityBadgeColor" data-release-status="{{ $maturity }}">
+                <span class="sr-only"> {{ __('capell-admin::marketplace.release_status.label') }}: </span>
                 {{ $maturityLabel }}
             </x-filament::badge>
 
             @if ($includedWithCapellAll)
-                <x-filament::badge
-                    color="primary"
-                    icon="heroicon-m-check"
-                    data-capell-all-included
-                >
+                <x-filament::badge color="primary" icon="heroicon-m-check" data-capell-all-included>
                     {{ __('capell-admin::marketplace.capell_all.included') }}
                 </x-filament::badge>
             @endif
 
             @if ($showBlockedTag || $updateAvailable || $healthState !== 'ok' || $installInProgress)
                 @if ($installInProgress)
-                    <span
-                        class="bg-info-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
-                    >
+                    <span class="bg-info-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
                         {{ __('capell-admin::marketplace.card.install_in_progress') }}
                     </span>
                 @endif
 
                 @if ($showBlockedTag)
-                    <span
-                        class="bg-danger-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
-                    >
+                    <span class="bg-danger-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
                         {{ $isMarketplaceRecord ? $formatState($record['marketplace_install_state'] ?? 'blocked') : __('capell-admin::generic.extension_operations_tab_blocked') }}
                     </span>
                 @endif
 
                 @if ($updateAvailable)
-                    <span
-                        class="bg-warning-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
-                    >
+                    <span class="bg-warning-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
                         {{ __('capell-admin::generic.extension_operations_tab_updates') }}
                     </span>
                 @endif
 
                 @if ($healthState !== 'ok')
-                    <span
-                        class="bg-danger-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
-                    >
+                    <span class="bg-danger-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
                         {{ $formatState($healthState) }}
                     </span>
                 @endif
             @endif
         </div>
 
-        <div
-            class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 pt-12"
-        >
-            <div
-                class="min-w-0 rounded-lg border border-white/20 bg-gray-950/75 px-2.5 py-2 shadow-lg shadow-black/20 backdrop-blur-sm"
-            >
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 pt-12">
+            <div class="min-w-0 rounded-lg border border-white/20 bg-gray-950/75 px-2.5 py-2 shadow-lg shadow-black/20 backdrop-blur-sm">
                 <p class="text-xs font-semibold text-white/85 uppercase">
                     {{ $formatState($productGroup ?? __('capell-admin::generic.extensions')) }}
                 </p>
-                <h3
-                    id="{{ $cardTitleId }}"
-                    class="mt-0.5 truncate text-base font-semibold text-white"
-                >
-                    {{ $label }}
-                </h3>
+                <h3 id="{{ $cardTitleId }}" class="mt-0.5 truncate text-base font-semibold text-white">{{ $label }}</h3>
 
                 @if ($isMarketplaceRecord && $ratingStars !== [])
-                    <div
-                        class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/85"
-                    >
-                        <span
-                            class="flex items-center gap-1"
-                            role="img"
-                            aria-label="{{ $ratingAriaLabel }}"
-                        >
+                    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/85">
+                        <span class="flex items-center gap-1" role="img" aria-label="{{ $ratingAriaLabel }}">
                             @foreach ($ratingStars as $ratingStar)
-                                <span
-                                    class="relative inline-flex size-3.5 text-white/35"
-                                    aria-hidden="true"
-                                >
+                                <span class="relative inline-flex size-3.5 text-white/35" aria-hidden="true">
                                     <span>★</span>
 
                                     @if ($ratingStar !== 'empty')
-                                        <span
-                                            @class([
-                                                'text-warning-400 absolute inset-0 overflow-hidden',
-                                                'w-1/2' => $ratingStar === 'half',
-                                                'w-full' => $ratingStar === 'full',
-                                            ])
-                                        >
+                                        <span @class([
+                                            'text-warning-400 absolute inset-0 overflow-hidden',
+                                            'w-1/2' => $ratingStar === 'half',
+                                            'w-full' => $ratingStar === 'full',
+                                        ])>
                                             ★
                                         </span>
                                     @endif
@@ -479,15 +424,9 @@
     </figure>
 
     <div class="flex flex-1 flex-col gap-2.5 p-2">
-        <p
-            class="line-clamp-2 text-sm leading-5 text-gray-600 dark:text-gray-300"
-        >
-            {{ $description }}
-        </p>
+        <p class="line-clamp-2 text-sm leading-5 text-gray-600 dark:text-gray-300">{{ $description }}</p>
 
-        <div
-            class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300"
-        >
+        <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
             @if (is_string($authorName) && $authorName !== '')
                 @if ($isMarketplaceRecord && $authorFilter !== null)
                     <button
@@ -509,11 +448,7 @@
                         {{ $authorName }}
                     </a>
                 @else
-                    <span
-                        class="font-semibold text-gray-800 dark:text-gray-100"
-                    >
-                        {{ $authorName }}
-                    </span>
+                    <span class="font-semibold text-gray-800 dark:text-gray-100"> {{ $authorName }} </span>
                 @endif
             @elseif ($isMarketplaceRecord)
                 <span class="font-semibold text-gray-800 dark:text-gray-100">
@@ -526,26 +461,18 @@
             @endforeach
 
             @if ($hiddenTags !== [])
-                <span
-                    title="{{ collect($hiddenTags)->map($formatState)->implode(', ') }}"
-                >
+                <span title="{{ collect($hiddenTags)->map($formatState)->implode(', ') }}">
                     {{ __('capell-admin::marketplace.card.more_tags', ['count' => count($hiddenTags)]) }}
                 </span>
             @endif
         </div>
 
-        <div
-            class="mt-auto flex items-end justify-between gap-3 border-t border-gray-950/5 pt-2 text-sm dark:border-white/10"
-        >
+        <div class="mt-auto flex items-end justify-between gap-3 border-t border-gray-950/5 pt-2 text-sm dark:border-white/10">
             <div class="min-w-0">
-                <div
-                    class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500"
-                >
+                <div class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500">
                     {{ __('capell-admin::table.version') }}
                 </div>
-                <div
-                    class="mt-1 truncate font-semibold text-gray-950 dark:text-white"
-                >
+                <div class="mt-1 truncate font-semibold text-gray-950 dark:text-white">
                     {{ $version ?? __('capell-admin::generic.unknown') }}
                 </div>
             </div>
@@ -553,27 +480,17 @@
             <div class="flex min-w-0 items-end gap-3 text-right">
                 @if ($showPrice)
                     <div class="min-w-0">
-                        <div
-                            class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500"
-                        >
+                        <div class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500">
                             {{ __('capell-admin::marketplace.card.price_label') }}
                         </div>
-                        <div
-                            class="mt-1 truncate font-semibold text-gray-950 dark:text-white"
-                        >
-                            {{ $priceLabel }}
-                        </div>
+                        <div class="mt-1 truncate font-semibold text-gray-950 dark:text-white">{{ $priceLabel }}</div>
                     </div>
                 @elseif ($updateAvailable && is_string($latestVersion) && $latestVersion !== '')
                     <div class="min-w-0">
-                        <div
-                            class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500"
-                        >
+                        <div class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500">
                             {{ __('capell-admin::table.latest_version') }}
                         </div>
-                        <div
-                            class="mt-1 truncate font-semibold text-gray-950 dark:text-white"
-                        >
+                        <div class="mt-1 truncate font-semibold text-gray-950 dark:text-white">
                             {{ $latestVersion }}
                         </div>
                     </div>

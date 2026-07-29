@@ -115,20 +115,18 @@
     $title = __($title, $translationVariables);
 @endphp
 
-<div
-    {{
-        $attributes->class([
-            'content-component [&>:first-child]:mt-0 [&>:last-child]:mb-0',
-            'capell-component capell-components-content',
-            'max-w-none' => $width === 'full',
-            'mx-auto' => $align === 'center' || (! $align && $textAlign === 'center'),
-            'text-left' => $textAlign === 'left',
-            'text-right' => $textAlign === 'right',
-            'text-center' => $textAlign === 'center',
-            $textAlign => ! in_array($textAlign, ['left', 'right', 'center'], true),
-        ])
-    }}
->
+<div {{
+    $attributes->class([
+        'content-component [&>:first-child]:mt-0 [&>:last-child]:mb-0',
+        'capell-component capell-components-content',
+        'max-w-none' => $width === 'full',
+        'mx-auto' => $align === 'center' || (! $align && $textAlign === 'center'),
+        'text-left' => $textAlign === 'left',
+        'text-right' => $textAlign === 'right',
+        'text-center' => $textAlign === 'center',
+        $textAlign => ! in_array($textAlign, ['left', 'right', 'center'], true),
+    ])
+}}>
     @if ($image)
         {{-- format-ignore-start --}}
         <x-capell::media
@@ -147,10 +145,7 @@
     @endif
 
     @if ($divider === 'above_heading' && $title)
-        <div
-            aria-hidden="true"
-            class="mb-4 border-t border-gray-200"
-        ></div>
+        <div aria-hidden="true" class="mb-4 border-t border-gray-200"></div>
     @endif
 
     @if ($title)
@@ -175,10 +170,7 @@
     @endif
 
     @if ($divider === 'below_heading' && $title)
-        <div
-            aria-hidden="true"
-            class="mb-4 border-t border-gray-200"
-        ></div>
+        <div aria-hidden="true" class="mb-4 border-t border-gray-200"></div>
     @endif
 
     @if ($contentType === ContentStructure::Blocks)
@@ -190,9 +182,6 @@
     {{ $slot ?? '' }}
 
     @if ($divider === 'below_content')
-        <div
-            aria-hidden="true"
-            class="mt-4 border-t border-gray-200"
-        ></div>
+        <div aria-hidden="true" class="mt-4 border-t border-gray-200"></div>
     @endif
 </div>

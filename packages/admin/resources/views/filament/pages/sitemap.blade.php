@@ -1,41 +1,22 @@
 <x-filament-panels::page>
     <div class="grid gap-4 sm:grid-cols-2">
-        <label
-            for="site_id"
-            class="sr-only"
-        >
-            {{ __('capell-admin::form.site') }}
-        </label>
+        <label for="site_id" class="sr-only"> {{ __('capell-admin::form.site') }} </label>
         <x-filament::input.wrapper>
-            <x-filament::input.select
-                id="site_id"
-                wire:model.live="site_id"
-            >
+            <x-filament::input.select id="site_id" wire:model.live="site_id">
                 @foreach ($sites as $site)
                     <option value="{{ $site->id }}">
-                        {{ $site->name }}
-                        ({{ $site->translations->pluck('language.code')->implode(', ') }})
+                        {{ $site->name }} ({{ $site->translations->pluck('language.code')->implode(', ') }})
                     </option>
                 @endforeach
             </x-filament::input.select>
         </x-filament::input.wrapper>
 
         @if ($site_languages)
-            <label
-                for="language_id"
-                class="sr-only"
-            >
-                {{ __('capell-admin::form.language') }}
-            </label>
+            <label for="language_id" class="sr-only"> {{ __('capell-admin::form.language') }} </label>
             <x-filament::input.wrapper>
-                <x-filament::input.select
-                    id="language_id"
-                    wire:model.live="language_id"
-                >
+                <x-filament::input.select id="language_id" wire:model.live="language_id">
                     @foreach ($site_languages as $language)
-                        <option value="{{ $language->id }}">
-                            {{ $language->name }}
-                        </option>
+                        <option value="{{ $language->id }}">{{ $language->name }}</option>
                     @endforeach
                 </x-filament::input.select>
             </x-filament::input.wrapper>
@@ -51,15 +32,11 @@
             </ul>
         </div>
     @else
-        <div
-            class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-        >
+        <div class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             <h2 class="text-base font-semibold text-gray-950 dark:text-white">
                 {{ __('capell-admin::generic.no_sitemap_preview') }}
             </h2>
-            <p class="mt-1">
-                {{ __('capell-admin::generic.no_sitemap_preview_description') }}
-            </p>
+            <p class="mt-1">{{ __('capell-admin::generic.no_sitemap_preview_description') }}</p>
         </div>
     @endif
 

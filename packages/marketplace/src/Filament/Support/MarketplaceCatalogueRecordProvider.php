@@ -11,9 +11,11 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Marketplace\Actions\QueueMarketplaceCatalogueWarmAction;
 use Capell\Marketplace\Actions\ResolveMarketplaceInstallEligibilityAction;
+use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceCataloguePageData;
 use Capell\Marketplace\Data\MarketplaceCatalogueQueryData;
+use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceExtensionCapability;
 use Capell\Marketplace\Enums\MarketplaceExtensionCategory;
@@ -33,7 +35,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
-final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMetadataProvider
+final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMetadataProvider, MarketplaceSelectionRecordProvider
 {
     /** @var array<int, int> */
     public const TABLE_PAGE_OPTIONS = [18, 36, 72];
@@ -214,6 +216,25 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         }
 
         return $records;
+    }
+
+    /**
+     * @param  list<string>  $composerNames
+     * @return array<string, MarketplaceSelectionRecordData>
+     */
+    public function selectionRecordsByComposerNames(
+        array $composerNames,
+        ?string $lockedKind = null,
+        bool $includeLocalExtensionState = true,
+    ): array {
+        return array_map(
+            MarketplaceSelectionRecordData::fromPayload(...),
+            $this->recordsByComposerNames(
+                composerNames: $composerNames,
+                lockedKind: $lockedKind,
+                includeLocalExtensionState: $includeLocalExtensionState,
+            ),
+        );
     }
 
     /**

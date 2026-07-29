@@ -11,10 +11,7 @@
     $defaultCore = (bool) ($package['defaultCore'] ?? $core);
 @endphp
 
-<label
-    class="checkbox-row package-option"
-    data-package-row="{{ $package['name'] }}"
->
+<label class="checkbox-row package-option" data-package-row="{{ $package['name'] }}">
     <input
         type="checkbox"
         name="{{ $inputName }}"
@@ -35,14 +32,10 @@
 
         @if ($requirements)
             <span class="package-meta">
-                {{ __('capell-installer::installer.requires') }}:
-                {{ implode(', ', $requirements) }}
+                {{ __('capell-installer::installer.requires') }}: {{ implode(', ', $requirements) }}
             </span>
         @endif
 
-        <span
-            class="required-badge"
-            data-required-badge="{{ $package['name'] }}"
-        ></span>
+        <span class="required-badge" data-required-badge="{{ $package['name'] }}"></span>
     </span>
 </label>

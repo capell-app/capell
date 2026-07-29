@@ -14,9 +14,9 @@
     x-init="
         $watch('play', (value) => {
             if (value) {
-                $refs.video.play()
+                $refs.video.play();
             } else {
-                $refs.video.pause()
+                $refs.video.pause();
             }
         })
     "
@@ -25,7 +25,7 @@
         class="aspect-video min-h-full object-cover object-top"
         playsinline
         x-ref="video"
-        @click="play = !play"
+        @click="play = ! play"
         preload="none"
         @if ($width && $height)
             width="{{ $width }}"
@@ -33,15 +33,12 @@
         @endif
         @if ($image) poster="{{ $image->getUrl(MediaConversionEnum::Thumbnail->value) }}" @endif
     >
-        <source
-            src="{{ asset('storage/' . $media->getPath()) }}"
-            type="{{ $media->getMimeType() }}"
-        />
+        <source src="{{ asset('storage/' . $media->getPath()) }}" type="{{ $media->getMimeType() }}" />
     </video>
     <div
         class="absolute inset-0 flex h-full w-full items-center justify-center"
         @click="play = true"
-        x-show="!play"
+        x-show="! play"
         x-transition:leave="transition duration-300 ease-in"
         x-transition:leave-start="scale-100 transform opacity-100"
         x-transition:leave-end="scale-90 transform opacity-0"

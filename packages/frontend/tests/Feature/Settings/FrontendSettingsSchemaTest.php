@@ -54,7 +54,21 @@ it('frontend settings include custom system page toggles', function (): void {
     $settings = resolve(FrontendSettings::class);
 
     expect($settings->custom_error_page_enabled)->toBeTrue()
-        ->and($settings->custom_maintenance_page_enabled)->toBeTrue();
+        ->and($settings->custom_maintenance_page_enabled)->toBeTrue()
+        ->and($settings->scheduled_publication_invalidation_checkpoint)->toBeNull();
+});
+
+it('does not overwrite an existing scheduled publication checkpoint when its migration is rerun', function (): void {
+    $settings = resolve(FrontendSettings::class);
+    $settings->scheduled_publication_invalidation_checkpoint = '2026-07-29T12:00:00+00:00';
+    $settings->save();
+
+    $migration = require dirname(__DIR__, 3)
+        . '/database/settings/2026_07_29_000001_add_scheduled_publication_invalidation_checkpoint.php';
+    $migration->up();
+
+    expect($settings->refresh()->scheduled_publication_invalidation_checkpoint)
+        ->toBe('2026-07-29T12:00:00+00:00');
 });
 
 it('frontend admin settings schema exposes custom system page toggles', function (): void {

@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Support\View\PublicModelMeta;
 
@@ -27,7 +29,6 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
 ])
 {{-- format-ignore-start --}}
 @php
-
     use Capell\Core\Contracts\Media\MediaContract;
     use Capell\Core\Enums\MediaConversionEnum;
     use Capell\Core\Models\Media as CapellMedia;
@@ -38,9 +39,7 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
     $conversionDimensions = MediaConversionEnum::defaultDimensionsByConversionValue();
 
     $conversionWidths = collect($conversionDimensions)
-        ->map(function (array $dimensions): int {
-            return $dimensions['width'];
-        })
+        ->map(fn (array $dimensions): int => $dimensions['width'])
         ->all();
 
     $sizeAliases = [
@@ -129,7 +128,6 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
         $fetchpriority = 'high';
         $loading ??= 'eager';
     }
-
 @endphp
 {{-- format-ignore-end --}}
 @if ($media_type === 'video' && $preview)
@@ -158,10 +156,7 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
                 loading="{{ $loading }}"
             @endif
         >
-            <source
-                src="{{ $media->getFullUrl() }}"
-                type="{{ $media->getMimeType() }}"
-            />
+            <source src="{{ $media->getFullUrl() }}" type="{{ $media->getMimeType() }}" />
             {{ __('Your browser does not support the video tag.') }}
         </video>
         @svg('heroicon-s-play', [

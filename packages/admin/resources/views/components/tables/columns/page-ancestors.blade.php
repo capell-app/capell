@@ -20,9 +20,7 @@
     }}
 >
     @if ($record->ancestors && $record->ancestors->isNotEmpty())
-        <div
-            class="overflow-hidden text-sm leading-tight tracking-tight whitespace-nowrap text-gray-500 dark:text-gray-200"
-        >
+        <div class="overflow-hidden text-sm leading-tight tracking-tight whitespace-nowrap text-gray-500 dark:text-gray-200">
             @foreach ($record->ancestors as $ancestor)
                 @if (! $loop->first)
                     &raquo;
