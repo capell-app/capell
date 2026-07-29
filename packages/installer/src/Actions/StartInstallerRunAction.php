@@ -114,7 +114,7 @@ final class StartInstallerRunAction
         } catch (Throwable $throwable) {
             $reporter->error('✗ ' . $throwable->getMessage());
             $reporter->markFailed();
-            $this->sessions->clearActiveLock();
+            $this->sessions->clearActiveLock($installId);
         }
 
         return new InstallerRunStartData(

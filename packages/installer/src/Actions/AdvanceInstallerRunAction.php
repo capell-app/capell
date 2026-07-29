@@ -10,6 +10,7 @@ use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Installer\Data\InstallerRunStepData;
+use Capell\Installer\Enums\InstallerRunStepResultCode;
 use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
@@ -35,9 +36,7 @@ final class AdvanceInstallerRunAction
             return new InstallerRunStepData(
                 installId: $installId,
                 currentStep: $stepKey,
-                status: 'failed',
-                error: 'Install session not found or expired. Please restart the installer.',
-                statusCode: 410,
+                code: InstallerRunStepResultCode::SessionNotFound,
             );
         }
 
@@ -47,7 +46,7 @@ final class AdvanceInstallerRunAction
         $reporter = $this->reporter($installId);
 
         if ($this->sessions->status($installId, 'pending') === 'complete') {
-            return $this->result($installId, $stepKey, 'complete', $reporter);
+            return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
         }
 
         $expectedStepKey = $this->sessions->expectedStepKey($installId, $plan);
@@ -55,9 +54,7 @@ final class AdvanceInstallerRunAction
             return new InstallerRunStepData(
                 installId: $installId,
                 currentStep: $stepKey,
-                status: 'failed',
-                error: 'Install plan not found or expired. Please restart the installer.',
-                statusCode: 410,
+                code: InstallerRunStepResultCode::PlanNotFound,
             );
         }
 
@@ -89,15 +86,15 @@ final class AdvanceInstallerRunAction
             $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
             $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
             $reporter->markFailed();
-            $this->sessions->clearActiveLock();
+            $this->sessions->clearActiveLock($installId);
 
             return $this->result(
                 installId: $installId,
                 stepKey: $stepKey,
-                status: 'failed',
+                code: InstallerRunStepResultCode::ExecutionFailed,
                 reporter: $reporter,
-                error: $throwable->getMessage(),
-                errorClass: $throwable::class,
+                exceptionClass: $throwable::class,
+                exceptionMessage: $throwable->getMessage(),
                 remediation: $this->remediation->remediationFor($throwable->getMessage()),
             );
         } finally {
@@ -110,12 +107,12 @@ final class AdvanceInstallerRunAction
         if ($nextStep === null) {
             $reporter->markComplete();
             $this->cacheSuccessSummary->handle($installId, $inputData);
-            $this->sessions->clearActiveLock();
+            $this->sessions->clearActiveLock($installId);
 
-            return $this->result($installId, $stepKey, 'complete', $reporter);
+            return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
         }
 
-        return $this->result($installId, $stepKey, 'running', $reporter, nextStep: $nextStep);
+        return $this->result($installId, $stepKey, InstallerRunStepResultCode::Running, $reporter, nextStep: $nextStep);
     }
 
     /**
@@ -134,14 +131,13 @@ final class AdvanceInstallerRunAction
 
         if (InstallerPreflight::hasBlockingFailures($preflight['checks'])) {
             $reporter->markFailed();
-            $this->sessions->clearActiveLock();
+            $this->sessions->clearActiveLock($installId);
 
             return $this->result(
                 installId: $installId,
                 stepKey: $stepKey,
-                status: 'failed',
+                code: InstallerRunStepResultCode::PreflightFailed,
                 reporter: $reporter,
-                error: 'Preflight checks failed.',
                 remediation: $this->remediation->preflightRemediation($preflight),
                 preflight: $preflight,
             );
@@ -153,7 +149,7 @@ final class AdvanceInstallerRunAction
         return $this->result(
             installId: $installId,
             stepKey: $stepKey,
-            status: 'running',
+            code: InstallerRunStepResultCode::Running,
             reporter: $reporter,
             nextStep: $nextStep,
             preflight: $preflight,
@@ -170,7 +166,7 @@ final class AdvanceInstallerRunAction
             return $this->result(
                 installId: $installId,
                 stepKey: $stepKey,
-                status: 'running',
+                code: InstallerRunStepResultCode::Running,
                 reporter: $reporter,
                 nextStep: $expectedStepKey,
             );
@@ -179,45 +175,37 @@ final class AdvanceInstallerRunAction
         return $this->result(
             installId: $installId,
             stepKey: $stepKey,
-            status: 'failed',
+            code: InstallerRunStepResultCode::OutOfSequence,
             reporter: $reporter,
             nextStep: $expectedStepKey,
-            error: sprintf(
-                'Install step "%s" is out of sequence. Expected "%s". Refresh the installer progress page and continue from the current step.',
-                $stepKey,
-                $expectedStepKey,
-            ),
             expectedStep: $expectedStepKey,
-            statusCode: 409,
         );
     }
 
     private function result(
         string $installId,
         string $stepKey,
-        string $status,
+        InstallerRunStepResultCode $code,
         FileLogProgressReporter $reporter,
         ?string $nextStep = null,
-        ?string $error = null,
         ?string $expectedStep = null,
-        ?string $errorClass = null,
+        ?string $exceptionClass = null,
+        ?string $exceptionMessage = null,
         ?string $remediation = null,
         ?array $preflight = null,
-        int $statusCode = 200,
     ): InstallerRunStepData {
         return new InstallerRunStepData(
             installId: $installId,
             currentStep: $stepKey,
-            status: $status,
+            code: $code,
             lines: $this->sessions->lines($installId),
             nextStep: $nextStep,
             logPath: $reporter->logPath(),
-            error: $error,
             expectedStep: $expectedStep,
-            errorClass: $errorClass,
+            exceptionClass: $exceptionClass,
+            exceptionMessage: $exceptionMessage,
             remediation: $remediation,
             preflight: $preflight,
-            statusCode: $statusCode,
         );
     }
 

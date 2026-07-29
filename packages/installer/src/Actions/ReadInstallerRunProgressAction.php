@@ -21,7 +21,7 @@ final class ReadInstallerRunProgressAction
         $status = $this->sessions->status($installId, 'running');
 
         if (in_array($status, ['complete', 'failed', 'cancelled'], true)) {
-            $this->sessions->clearActiveLock();
+            $this->sessions->clearActiveLock($installId);
         }
 
         if (in_array($status, ['failed', 'cancelled'], true)) {
