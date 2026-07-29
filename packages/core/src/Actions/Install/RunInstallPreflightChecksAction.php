@@ -106,7 +106,7 @@ final class RunInstallPreflightChecksAction
         }
 
         try {
-            $requiredExtension = CapellDatabase::for($driver)->phpExtension();
+            $requiredExtension = CapellDatabase::forDriver($driver)->phpExtension();
         } catch (UnsupportedDatabaseDriver) {
             return [sprintf('Database driver [%s] is not supported.', $driver)];
         }
