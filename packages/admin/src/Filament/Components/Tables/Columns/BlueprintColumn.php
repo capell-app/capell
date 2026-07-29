@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Tables\Columns;
 
+use Capell\Admin\Actions\ResolveFilamentIconAliasAction;
 use Capell\Admin\Enums\FilamentColorEnum;
 use Capell\Core\Models\Blueprint;
 use Filament\Tables\Columns\TextColumn;
@@ -26,7 +27,9 @@ class BlueprintColumn extends TextColumn
 
                 $blueprint = $record->getRelation($relationName);
 
-                return $blueprint instanceof Blueprint ? ($blueprint->admin['icon'] ?? null) : null;
+                return $blueprint instanceof Blueprint
+                    ? ResolveFilamentIconAliasAction::run($blueprint->admin['icon'] ?? null)
+                    : null;
             })
             ->sortable()
             ->color(FilamentColorEnum::LightGray->value)

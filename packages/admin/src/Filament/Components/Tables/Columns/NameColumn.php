@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Tables\Columns;
 
+use Capell\Admin\Actions\ResolveFilamentIconAliasAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Blueprintable;
 use Filament\Support\Enums\FontWeight;
@@ -22,7 +23,7 @@ class NameColumn extends BadgeableColumn
             ->icon(function (Model $record): string {
                 $type = $this->resolveTypeRecord($record);
 
-                return $type?->admin['icon'] ?? '';
+                return ResolveFilamentIconAliasAction::run($type?->admin['icon'] ?? null) ?? '';
             });
     }
 

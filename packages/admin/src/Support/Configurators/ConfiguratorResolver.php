@@ -10,6 +10,7 @@ use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Exceptions\ConfiguratorTypeNotFoundException;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\Creator\BlueprintCreator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -70,6 +71,17 @@ final class ConfiguratorResolver
         );
 
         return $type;
+    }
+
+    public function resolveOrCreateDefaultSiteType(): Blueprint
+    {
+        $type = $this->typeQuery(ConfiguratorTypeEnum::Site, null)
+            ->default()
+            ->first();
+
+        return $type instanceof Blueprint
+            ? $type
+            : resolve(BlueprintCreator::class)->createSiteType();
     }
 
     /**

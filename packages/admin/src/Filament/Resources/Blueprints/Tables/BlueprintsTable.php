@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Blueprints\Tables;
 
 use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
+use Capell\Admin\Actions\ResolveFilamentIconAliasAction;
 use Capell\Admin\Enums\FilamentColorEnum;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Actions\ReplicateAction;
@@ -164,7 +165,7 @@ class BlueprintsTable implements TableConfigurator
         return [
             IdentifierColumn::make('id'),
             NameColumn::make('name')
-                ->icon(fn (Blueprint $record): string => (string) ($record->admin['icon'] ?? ''))
+                ->icon(fn (Blueprint $record): ?string => ResolveFilamentIconAliasAction::run($record->admin['icon'] ?? null))
                 ->description(fn (Blueprint $record): ?string => $record->admin['notes'] ?? null)
                 ->defaultBadge()
                 ->searchable([

@@ -28,9 +28,13 @@ class SiteForm implements FormConfigurator
             ));
         }
 
-        $type = filled($context?->typeKey)
-            ? $resolver->resolveTypeByKey($context->typeKey, ConfiguratorTypeEnum::Site, $context->resourceName)
-            : $resolver->resolveDefaultType(ConfiguratorTypeEnum::Site, $context?->resourceName);
+        if (filled($context?->typeKey)) {
+            $type = $resolver->resolveTypeByKey($context->typeKey, ConfiguratorTypeEnum::Site, $context->resourceName);
+        } elseif ($context?->resourceName !== null) {
+            $type = $resolver->resolveDefaultType(ConfiguratorTypeEnum::Site, $context->resourceName);
+        } else {
+            $type = $resolver->resolveOrCreateDefaultSiteType();
+        }
 
         $configurator = $resolver->resolveForType($type, ConfiguratorTypeEnum::Site, DefaultSiteConfigurator::getKey());
 
