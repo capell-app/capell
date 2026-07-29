@@ -11,7 +11,9 @@
             <div class="grid gap-4 md:grid-cols-2">
                 @foreach ($this->groupedActions() as $group)
                     <div class="space-y-2">
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">
+                        <h3
+                            class="text-sm font-semibold text-gray-950 dark:text-white"
+                        >
                             {{ $group['section']->label() }}
                         </h3>
 
@@ -21,13 +23,19 @@
                                     href="{{ $action->resolvedUrl() }}"
                                     class="focus-visible:outline-primary-600 block rounded-lg border border-gray-200 bg-white p-3 text-sm transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                                 >
-                                    <div class="flex items-start justify-between gap-3">
-                                        <span class="font-medium text-gray-950 dark:text-white">
+                                    <div
+                                        class="flex items-start justify-between gap-3"
+                                    >
+                                        <span
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $action->resolvedLabel() }}
                                         </span>
 
                                         @if ($action->resolvedBadge() !== null)
-                                            <span class="shrink-0 rounded-md bg-gray-950/5 px-1.5 py-0.5 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                                            <span
+                                                class="shrink-0 rounded-md bg-gray-950/5 px-1.5 py-0.5 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200"
+                                            >
                                                 {{ $action->resolvedBadge() }}
                                             </span>
                                         @endif

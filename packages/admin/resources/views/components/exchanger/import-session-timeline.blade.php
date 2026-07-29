@@ -25,11 +25,20 @@
         @endphp
 
         <li class="flex items-start gap-3">
-            <div class="{{ $dotClasses }} mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full">
-                <x-filament::icon :icon="$stage['icon']" class="size-3.5" />
+            <div
+                class="{{ $dotClasses }} mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"
+            >
+                <x-filament::icon
+                    :icon="$stage['icon']"
+                    class="size-3.5"
+                />
             </div>
             <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $stage['label'] }}</div>
+                <div
+                    class="text-sm font-medium text-gray-900 dark:text-gray-100"
+                >
+                    {{ $stage['label'] }}
+                </div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">
                     @if ($hasStageValue)
                         {{ $stageValue->toDayDateTimeString() }}

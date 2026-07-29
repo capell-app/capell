@@ -61,11 +61,17 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
             <span class="mb-1 text-xs font-bold text-gray-600 uppercase">
                 {{ $neighbor === 'previous' ? __('Previous') : __('Next') }}
             </span>
-            <span class="line-clamp-1 text-base font-medium text-current group-hover:underline group-focus:underline">
+            <span
+                class="line-clamp-1 text-base font-medium text-current group-hover:underline group-focus:underline"
+            >
                 {{ strip_tags($label) }}
             </span>
             @if ($withSummary && $summary)
-                <span class="mt-0.5 line-clamp-2 text-sm break-words text-gray-500"> {{ strip_tags($summary) }} </span>
+                <span
+                    class="mt-0.5 line-clamp-2 text-sm break-words text-gray-500"
+                >
+                    {{ strip_tags($summary) }}
+                </span>
             @endif
         </span>
 

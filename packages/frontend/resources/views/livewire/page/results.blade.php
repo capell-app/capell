@@ -25,5 +25,10 @@
 @endphp
 
 <div class="capell-component capell-page-results capell-livewire-page-results">
-    <x-capell::layout class="layout-results" :page-slot="$pageSlot"> {{ $pageSlot }} </x-capell::layout>
+    <x-capell::layout
+        class="layout-results"
+        :page-slot="$pageSlot"
+    >
+        {{ $pageSlot }}
+    </x-capell::layout>
 </div>

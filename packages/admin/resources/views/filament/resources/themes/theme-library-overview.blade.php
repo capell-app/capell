@@ -151,66 +151,73 @@
             white-space: nowrap;
             width: 1px;
         }
+        @media(max-width: 900px)
+        {
+                   .capell-theme-library-overview {
+                       grid-template-columns: repeat(2, minmax(0, 1fr));
+                   }
+               }
+        @media(max-width: 540px)
+        {
+                   .capell-theme-library-overview {
+                       grid-template-columns: 1fr;
+                   }
 
-        @media (max-width: 900px) {
-            .capell-theme-library-overview {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
+                   .capell-theme-library-overview__item {
+                       flex-direction: column;
+                   }
 
-        @media (max-width: 540px) {
-            .capell-theme-library-overview {
-                grid-template-columns: 1fr;
-            }
+                   .capell-theme-library-overview__button {
+                       width: 100%;
+                   }
+               }
 
-            .capell-theme-library-overview__item {
-                flex-direction: column;
-            }
+               :is(.dark .capell-theme-library-overview__panel) {
+                   background: rgb(17 24 39);
+                   border-color: rgb(51 65 85);
+               }
 
-            .capell-theme-library-overview__button {
-                width: 100%;
-            }
-        }
+               :is(.dark .capell-theme-library-overview__section),
+               :is(.dark .capell-theme-library-overview__item) {
+                   background: rgb(17 24 39);
+                   border-color: rgb(51 65 85);
+               }
 
-        :is(.dark .capell-theme-library-overview__panel) {
-            background: rgb(17 24 39);
-            border-color: rgb(51 65 85);
-        }
+               :is(.dark .capell-theme-library-overview__button:disabled) {
+                   background: rgb(31 41 55);
+                   border-color: rgb(75 85 99);
+                   color: rgb(156 163 175);
+               }
 
-        :is(.dark .capell-theme-library-overview__section),
-        :is(.dark .capell-theme-library-overview__item) {
-            background: rgb(17 24 39);
-            border-color: rgb(51 65 85);
-        }
+               :is(.dark .capell-theme-library-overview__label),
+               :is(.dark .capell-theme-library-overview__note) {
+                   color: rgb(148 163 184);
+               }
 
-        :is(.dark .capell-theme-library-overview__button:disabled) {
-            background: rgb(31 41 55);
-            border-color: rgb(75 85 99);
-            color: rgb(156 163 175);
-        }
-
-        :is(.dark .capell-theme-library-overview__label),
-        :is(.dark .capell-theme-library-overview__note) {
-            color: rgb(148 163 184);
-        }
-
-        :is(.dark .capell-theme-library-overview__value),
-        :is(.dark .capell-theme-library-overview__section h2),
-        :is(.dark .capell-theme-library-overview__item-title) {
-            color: rgb(248 250 252);
-        }
+               :is(.dark .capell-theme-library-overview__value),
+               :is(.dark .capell-theme-library-overview__section h2),
+               :is(.dark .capell-theme-library-overview__item-title) {
+                   color: rgb(248 250 252);
+               }
     </style>
 @endonce
 
-<section class="capell-theme-library-overview" aria-label="{{ __('capell-admin::theme-library.title') }}">
+<section
+    class="capell-theme-library-overview"
+    aria-label="{{ __('capell-admin::theme-library.title') }}"
+>
     <div class="capell-theme-library-overview__panel">
         <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.installed') }}</p>
-        <div class="capell-theme-library-overview__value">{{ count($installed) }}</div>
+        <div class="capell-theme-library-overview__value">
+            {{ count($installed) }}
+        </div>
     </div>
 
     <div class="capell-theme-library-overview__panel">
         <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.available') }}</p>
-        <div class="capell-theme-library-overview__value">{{ count($available) }}</div>
+        <div class="capell-theme-library-overview__value">
+            {{ count($available) }}
+        </div>
         @if (count($available) > 0)
             <div class="capell-theme-library-overview__note">
                 {{ collect($available)->pluck('title')->take(2)->implode(', ') }}
@@ -225,7 +232,9 @@
 
     <div class="capell-theme-library-overview__panel">
         <p class="capell-theme-library-overview__label">{{ __('capell-admin::theme-library.sections.diagnostics') }}</p>
-        <div class="capell-theme-library-overview__value">{{ count($warnings) }}</div>
+        <div class="capell-theme-library-overview__value">
+            {{ count($warnings) }}
+        </div>
         @if (count($warnings) > 0)
             <div class="capell-theme-library-overview__note">
                 {{ collect($warnings)->pluck('title')->take(2)->implode(', ') }}
@@ -241,10 +250,16 @@
             <div class="capell-theme-library-overview__list">
                 @foreach (collect($pendingInstalls)->take(5) as $install)
                     <article class="capell-theme-library-overview__item">
-                        <div class="capell-theme-library-overview__item-title">{{ $install['name'] }}</div>
-                        <div class="capell-theme-library-overview__note">{{ $install['package'] }}</div>
+                        <div class="capell-theme-library-overview__item-title">
+                            {{ $install['name'] }}
+                        </div>
+                        <div class="capell-theme-library-overview__note">
+                            {{ $install['package'] }}
+                        </div>
                         @if (($install['command'] ?? '') !== '')
-                            <code class="capell-theme-library-overview__code"> {{ $install['command'] }} </code>
+                            <code class="capell-theme-library-overview__code">
+                                {{ $install['command'] }}
+                            </code>
                         @endif
                     </article>
                 @endforeach

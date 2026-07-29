@@ -6,7 +6,8 @@
     $flagIconRenderer = app(FlagIconRenderer::class);
 @endphp
 
-<div {{
+<div
+    {{
     $attributes->merge($getExtraAttributes())->class([
         'filament-tables-language-flags-column flex items-center gap-2',
         'px-4 py-3' => ! $isInline(),
@@ -17,7 +18,8 @@
             default => null,
         },
     ])
-}}>
+}}
+>
     @if (property_exists($record, 'language'))
         @if ($record->language->flag)
             {!!

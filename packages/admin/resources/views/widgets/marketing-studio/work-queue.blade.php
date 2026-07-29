@@ -15,11 +15,15 @@
                         class="block rounded-lg border border-gray-200 p-3 text-sm hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/10"
                     >
                         <div class="flex items-start justify-between gap-3">
-                            <span class="font-medium text-gray-950 dark:text-white">
+                            <span
+                                class="font-medium text-gray-950 dark:text-white"
+                            >
                                 {{ $item->resolvedLabel() }}
                             </span>
                             @if ($item->resolvedBadge() !== null)
-                                <span class="bg-warning-500/10 text-warning-700 dark:text-warning-300 rounded-md px-1.5 py-0.5 text-xs font-semibold">
+                                <span
+                                    class="bg-warning-500/10 text-warning-700 dark:text-warning-300 rounded-md px-1.5 py-0.5 text-xs font-semibold"
+                                >
                                     {{ $item->resolvedBadge() }}
                                 </span>
                             @endif

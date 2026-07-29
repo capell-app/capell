@@ -11,7 +11,11 @@
 
 <x-filament::dropdown placement="bottom-end">
     <x-slot name="trigger">
-        <x-filament::button :icon="Heroicon::OutlinedBuildingStorefront" color="info" type="button">
+        <x-filament::button
+            :icon="Heroicon::OutlinedBuildingStorefront"
+            color="info"
+            type="button"
+        >
             {{ $currentSite?->name ?? __('capell-admin::generic.all_sites') }}
         </x-filament::button>
     </x-slot>

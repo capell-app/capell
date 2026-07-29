@@ -1,7 +1,9 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         <section>
-            <h2 class="text-lg font-semibold">{{ __('capell-admin::generic.diagnostics') }}</h2>
+            <h2 class="text-lg font-semibold">
+                {{ __('capell-admin::generic.diagnostics') }}
+            </h2>
             <dl class="mt-3 grid gap-3 md:grid-cols-2">
                 @foreach ($this->safety() as $key => $value)
                     <div class="rounded-lg border border-gray-200 p-3">
@@ -24,8 +26,12 @@
                 @foreach ($this->makers() as $maker)
                     <li class="rounded-lg border border-gray-200 p-3">
                         <span class="font-medium">{{ $maker->key }}</span>
-                        <span class="text-gray-600"> {{ $maker->description }} </span>
-                        <div class="mt-3">{{ $this->getAction('maker_' . str_replace('.', '_', $maker->key)) }}</div>
+                        <span class="text-gray-600">
+                            {{ $maker->description }}
+                        </span>
+                        <div class="mt-3">
+                            {{ $this->getAction('maker_' . str_replace('.', '_', $maker->key)) }}
+                        </div>
                     </li>
                 @endforeach
             </ul>
@@ -36,7 +42,9 @@
             <ul class="mt-3 space-y-2">
                 @foreach ($this->configurators()->merge($this->components())->merge($this->widgets()) as $source)
                     <li class="rounded-lg border border-gray-200 p-3">
-                        <span class="font-medium"> {{ $source->kind }}: {{ $source->key }} </span>
+                        <span class="font-medium">
+                            {{ $source->kind }}: {{ $source->key }}
+                        </span>
                         <span class="block text-sm text-gray-600">
                             {{ $source->path ?? $source->class ?? $source->view }}
                         </span>

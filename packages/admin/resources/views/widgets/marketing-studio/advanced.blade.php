@@ -14,7 +14,9 @@
                         href="{{ $action->resolvedUrl() }}"
                         class="rounded-lg border border-gray-200 p-3 text-sm hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/10"
                     >
-                        <span class="font-medium text-gray-950 dark:text-white"> {{ $action->resolvedLabel() }} </span>
+                        <span class="font-medium text-gray-950 dark:text-white">
+                            {{ $action->resolvedLabel() }}
+                        </span>
                         @if ($action->resolvedDescription() !== null)
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 {{ $action->resolvedDescription() }}

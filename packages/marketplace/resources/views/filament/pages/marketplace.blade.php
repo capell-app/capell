@@ -4,12 +4,16 @@
 
 <x-filament-panels::page>
     <div class="space-y-6">
-        <div class="flex flex-col gap-4 border-b border-gray-200 pb-5 md:flex-row md:items-end md:justify-between dark:border-white/10">
+        <div
+            class="flex flex-col gap-4 border-b border-gray-200 pb-5 md:flex-row md:items-end md:justify-between dark:border-white/10"
+        >
             <div class="min-w-0">
                 <p class="text-xs font-semibold tracking-wide text-blue-600 uppercase dark:text-blue-400">
                     {{ __('capell-marketplace::marketplace.page.eyebrow') }}
                 </p>
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">
+                <h1
+                    class="mt-1 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white"
+                >
                     {{ __('capell-marketplace::marketplace.page.heading') }}
                 </h1>
                 <p class="mt-1 max-w-3xl text-sm text-gray-600 dark:text-gray-300">
@@ -17,8 +21,12 @@
                 </p>
             </div>
 
-            <div class="flex w-full items-center gap-1 overflow-x-auto border-b border-gray-200 md:w-auto dark:border-white/10">
-                <span class="border-b-2 border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300">
+            <div
+                class="flex w-full items-center gap-1 overflow-x-auto border-b border-gray-200 md:w-auto dark:border-white/10"
+            >
+                <span
+                    class="border-b-2 border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300"
+                >
                     {{ __('capell-marketplace::marketplace.page.tabs.marketplace') }}
                 </span>
                 <a
@@ -31,9 +39,13 @@
         </div>
 
         <div class="grid gap-3 md:grid-cols-4">
-            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+            <div
+                class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900"
+            >
                 <div class="flex items-start gap-3">
-                    <div class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-blue-600 dark:border-white/10 dark:bg-white/5 dark:text-blue-300">
+                    <div
+                        class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-blue-600 dark:border-white/10 dark:bg-white/5 dark:text-blue-300"
+                    >
                         @svg('heroicon-o-squares-2x2', 'h-5 w-5')
                     </div>
                     <div class="min-w-0">
@@ -50,9 +62,13 @@
                 </div>
             </div>
 
-            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+            <div
+                class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900"
+            >
                 <div class="flex items-start gap-3">
-                    <div class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-emerald-600 dark:border-white/10 dark:bg-white/5 dark:text-emerald-300">
+                    <div
+                        class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-emerald-600 dark:border-white/10 dark:bg-white/5 dark:text-emerald-300"
+                    >
                         @svg('heroicon-o-shield-check', 'h-5 w-5')
                     </div>
                     <div class="min-w-0">
@@ -69,9 +85,13 @@
                 </div>
             </div>
 
-            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+            <div
+                class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900"
+            >
                 <div class="flex items-start gap-3">
-                    <div class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-amber-600 dark:border-white/10 dark:bg-white/5 dark:text-amber-300">
+                    <div
+                        class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-amber-600 dark:border-white/10 dark:bg-white/5 dark:text-amber-300"
+                    >
                         @svg('heroicon-o-clipboard-document-check', 'h-5 w-5')
                     </div>
                     <div class="min-w-0">
@@ -88,9 +108,13 @@
                 </div>
             </div>
 
-            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900">
+            <div
+                class="rounded-lg border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-gray-900"
+            >
                 <div class="flex items-start gap-3">
-                    <div class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+                    <div
+                        class="grid size-9 shrink-0 place-items-center rounded-md border border-gray-200 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300"
+                    >
                         @svg('heroicon-o-link', 'h-5 w-5')
                     </div>
                     <div class="min-w-0">
@@ -115,7 +139,10 @@
                     :initial-search="request()->query('tableSearch')"
                 />
 
-                <div id="capell-marketplace-browser-modal-footer" class="mt-4 flex justify-end"></div>
+                <div
+                    id="capell-marketplace-browser-modal-footer"
+                    class="mt-4 flex justify-end"
+                ></div>
             </div>
 
             <aside class="space-y-4">

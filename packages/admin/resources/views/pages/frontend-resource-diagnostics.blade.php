@@ -24,9 +24,7 @@
                 {{ __('capell-admin::generic.css') }}
             </div>
             <div class="mt-1 font-mono text-sm text-gray-950 dark:text-white">
-                {{ number_format($report->byteCounts['cssRaw'] ?? 0) }} /
-                {{ number_format($report->byteCounts['cssGzip'] ?? 0) }}
-                {{ __('capell-admin::generic.bytes') }}
+                {{ number_format($report->byteCounts['cssRaw'] ?? 0) }} / {{ number_format($report->byteCounts['cssGzip'] ?? 0) }} {{ __('capell-admin::generic.bytes') }}
             </div>
         </div>
         <div class="rounded-lg border border-gray-200 p-3 dark:border-white/10">
@@ -34,9 +32,7 @@
                 {{ __('capell-admin::generic.javascript') }}
             </div>
             <div class="mt-1 font-mono text-sm text-gray-950 dark:text-white">
-                {{ number_format($report->byteCounts['jsRaw'] ?? 0) }} /
-                {{ number_format($report->byteCounts['jsGzip'] ?? 0) }}
-                {{ __('capell-admin::generic.bytes') }}
+                {{ number_format($report->byteCounts['jsRaw'] ?? 0) }} / {{ number_format($report->byteCounts['jsGzip'] ?? 0) }} {{ __('capell-admin::generic.bytes') }}
             </div>
         </div>
         <div class="rounded-lg border border-gray-200 p-3 dark:border-white/10">
@@ -87,8 +83,7 @@
                         {{ $conflict['source'] }}
                     </div>
                     <div class="mt-1 text-gray-700 dark:text-gray-300">
-                        {{ count($conflict['variants']) }}
-                        {{ __('capell-admin::generic.conflicting_variants') }}
+                        {{ count($conflict['variants']) }} {{ __('capell-admin::generic.conflicting_variants') }}
                     </div>
                 </div>
             @empty
@@ -118,8 +113,7 @@
                             <div
                                 class="mt-1 text-xs text-gray-500 dark:text-gray-400"
                             >
-                                {{ $asset['kind'] }} ·
-                                {{ $asset['loadingStrategy'] }}
+                                {{ $asset['kind'] }} · {{ $asset['loadingStrategy'] }}
                             </div>
                         </div>
                         <span

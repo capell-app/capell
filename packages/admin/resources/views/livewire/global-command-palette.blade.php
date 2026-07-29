@@ -29,9 +29,13 @@
         class="fixed inset-x-0 top-20 z-50 mx-auto max-w-xl px-4"
         style="display: none"
     >
-        <div class="overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-gray-900/10 dark:bg-gray-900 dark:ring-gray-700">
+        <div
+            class="overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-gray-900/10 dark:bg-gray-900 dark:ring-gray-700"
+        >
             {{-- Search input --}}
-            <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+            <div
+                class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800"
+            >
                 @svg(Heroicon::OutlinedMagnifyingGlass->getIconForSize(IconSize::Small), 'h-5 w-5 flex-shrink-0 text-gray-400')
                 <input
                     class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none dark:text-gray-200"
@@ -48,13 +52,18 @@
                         })
                     "
                 />
-                <kbd class="hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 sm:block dark:bg-gray-800 dark:text-gray-400">
+                <kbd
+                    class="hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 sm:block dark:bg-gray-800 dark:text-gray-400"
+                >
                     Esc
                 </kbd>
             </div>
 
             {{-- Results --}}
-            <ul class="max-h-80 overflow-y-auto py-2" role="listbox">
+            <ul
+                class="max-h-80 overflow-y-auto py-2"
+                role="listbox"
+            >
                 @forelse ($this->filteredCommands() as $command)
                     <li role="option">
                         @if ($command->url !== null)
@@ -70,10 +79,14 @@
                                     <span class="h-4 w-4 flex-shrink-0"></span>
                                 @endif
 
-                                <span class="flex-1 truncate"> {{ $command->label }} </span>
+                                <span class="flex-1 truncate">
+                                    {{ $command->label }}
+                                </span>
 
                                 @if ($command->shortcut !== null)
-                                    <kbd class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-800">
+                                    <kbd
+                                        class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-800"
+                                    >
                                         {{ $command->shortcut }}
                                     </kbd>
                                 @endif
@@ -90,10 +103,14 @@
                                     <span class="h-4 w-4 flex-shrink-0"></span>
                                 @endif
 
-                                <span class="flex-1 truncate"> {{ $command->label }} </span>
+                                <span class="flex-1 truncate">
+                                    {{ $command->label }}
+                                </span>
 
                                 @if ($command->shortcut !== null)
-                                    <kbd class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-800">
+                                    <kbd
+                                        class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-800"
+                                    >
                                         {{ $command->shortcut }}
                                     </kbd>
                                 @endif

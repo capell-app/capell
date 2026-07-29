@@ -1,5 +1,8 @@
 <li>
-    <a class="sitemap-link flex text-sm leading-tight" href="{{ $sitemapPage->editUrl ?? '#' }}">
+    <a
+        class="sitemap-link flex text-sm leading-tight"
+        href="{{ $sitemapPage->editUrl ?? '#' }}"
+    >
         @if (isset($sitemapPage->icon))
             <x-dynamic-component
                 class="mr-1 inline-block h-4 w-4 shrink-0 stroke-current"
@@ -10,7 +13,11 @@
         <span class="inline-block"> {{ $sitemapPage->label }} </span>
     </a>
 
-    <a class="sitemap-icon" href="{{ $sitemapPage->url }}" target="_blank">
+    <a
+        class="sitemap-icon"
+        href="{{ $sitemapPage->url }}"
+        target="_blank"
+    >
         @svg('heroicon-o-arrow-top-right-on-square', 'inline-block h-4 w-4 stroke-current')
     </a>
 

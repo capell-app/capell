@@ -4,10 +4,19 @@
 @section('bodyClass', 'installer-screen-install')
 
 @section('content')
-    <main class="panel" role="main">
+    <main
+        class="panel"
+        role="main"
+    >
         <header class="panel-header">
-            <h1 id="panel-heading">{{ __('capell-installer::installer.page_title') }}</h1>
-            <div class="brand-logo" aria-label="Capell" role="img">
+            <h1 id="panel-heading">
+                {{ __('capell-installer::installer.page_title') }}
+            </h1>
+            <div
+                class="brand-logo"
+                aria-label="Capell"
+                role="img"
+            >
                 @if (view()->exists('capell-installer::img.logo'))
                     @include('capell-installer::img.logo')
                 @elseif (view()->exists('capell-admin::img.logo'))
@@ -21,10 +30,22 @@
             @endunless
         </header>
 
-        <div class="errors" id="errors" role="alert" hidden>
-            <span class="errors-icon" aria-hidden="true"> ! </span>
+        <div
+            class="errors"
+            id="errors"
+            role="alert"
+            hidden
+        >
+            <span
+                class="errors-icon"
+                aria-hidden="true"
+            >
+                !
+            </span>
             <div class="errors-content">
-                <strong> {{ __('capell-installer::installer.fix_errors') }} </strong>
+                <strong>
+                    {{ __('capell-installer::installer.fix_errors') }}
+                </strong>
                 <ul id="errors-list"></ul>
             </div>
         </div>
@@ -32,7 +53,9 @@
         @if ($installId !== null)
             <div class="running-banner">
                 {{ __('capell-installer::installer.install_in_progress') }}
-                <a href="{{ route('capell-installer.progress', ['installId' => $installId]) }}">
+                <a
+                    href="{{ route('capell-installer.progress', ['installId' => $installId]) }}"
+                >
                     {{ __('capell-installer::installer.view_progress') }}
                 </a>
                 &mdash;
@@ -66,10 +89,15 @@
         @endif
 
         @if (($capellAlreadyInstalled ?? false) && ! ($canReinstall ?? false))
-            <div class="panel-body completion-panel" id="already-installed-panel">
+            <div
+                class="panel-body completion-panel"
+                id="already-installed-panel"
+            >
                 <section class="section preflight-panel">
                     <div class="preflight-header">
-                        <h2 class="section-title">{{ __('capell-installer::installer.already_installed_heading') }}</h2>
+                        <h2 class="section-title">
+                            {{ __('capell-installer::installer.already_installed_heading') }}
+                        </h2>
                         <span class="preflight-status pass">
                             {{ __('capell-installer::installer.status_complete') }}
                         </span>
@@ -90,14 +118,20 @@
                         "
                     >
                         @csrf
-                        <button class="button primary" type="submit">
+                        <button
+                            class="button primary"
+                            type="submit"
+                        >
                             {{ __('capell-installer::installer.remove_installer') }}
                         </button>
                     </form>
                 </footer>
             @endif
         @else
-            <div class="form-view" id="form-view">
+            <div
+                class="form-view"
+                id="form-view"
+            >
                 @php
                     $preflightGroups = $preflightReport['groups'] ?? [
                         'blocking' => $preflightReport['checks'] ?? [],
@@ -152,7 +186,11 @@
                 >
                     @csrf
 
-                    <input type="hidden" name="packages[]" value="capell-app/installer" />
+                    <input
+                        type="hidden"
+                        name="packages[]"
+                        value="capell-app/installer"
+                    />
 
                     <div class="panel-body">
                         <aside
@@ -160,17 +198,36 @@
                             aria-label="{{ __('capell-installer::installer.installer_flow_preview') }}"
                         >
                             <div class="installer-rail-panel">
-                                <ul class="installer-steps" aria-label="Installer sections">
-                                    <li class="installer-step active" data-step-trigger="readiness" tabindex="0">
+                                <ul
+                                    class="installer-steps"
+                                    aria-label="Installer sections"
+                                >
+                                    <li
+                                        class="installer-step active"
+                                        data-step-trigger="readiness"
+                                        tabindex="0"
+                                    >
                                         {{ __('capell-installer::installer.section_preflight') }}
                                     </li>
-                                    <li class="installer-step" data-step-trigger="site" tabindex="0">
+                                    <li
+                                        class="installer-step"
+                                        data-step-trigger="site"
+                                        tabindex="0"
+                                    >
                                         {{ __('capell-installer::installer.section_setup') }}
                                     </li>
-                                    <li class="installer-step" data-step-trigger="packages" tabindex="0">
+                                    <li
+                                        class="installer-step"
+                                        data-step-trigger="packages"
+                                        tabindex="0"
+                                    >
                                         {{ __('capell-installer::installer.workspace_packages') }}
                                     </li>
-                                    <li class="installer-step" data-step-trigger="options" tabindex="0">
+                                    <li
+                                        class="installer-step"
+                                        data-step-trigger="options"
+                                        tabindex="0"
+                                    >
                                         {{ __('capell-installer::installer.section_options') }}
                                     </li>
                                 </ul>
@@ -179,25 +236,34 @@
                             <div class="installer-rail-panel installer-meta">
                                 @foreach ($environmentStats as $environmentStat)
                                     <div class="installer-meta-row">
-                                        <strong> {{ $environmentStat['label'] }} </strong>
-                                        <span> {{ $environmentStat['value'] }} </span>
+                                        <strong>
+                                            {{ $environmentStat['label'] }}
+                                        </strong>
+                                        <span>
+                                            {{ $environmentStat['value'] }}
+                                        </span>
                                     </div>
                                 @endforeach
                             </div>
                         </aside>
 
                         <div class="installer-workspace">
-                            <section class="section preflight-panel" data-installer-step="readiness">
+                            <section
+                                class="section preflight-panel"
+                                data-installer-step="readiness"
+                            >
                                 <div class="preflight-layout">
                                     <div class="preflight-summary">
                                         <div class="preflight-score-row">
                                             <h2 class="section-title">
                                                 {{ __('capell-installer::installer.section_preflight') }}
                                             </h2>
-                                            <span @class([
+                                            <span
+                                                @class([
                                                 'preflight-status',
                                                 $preflightStatus,
-                                            ])>
+                                            ])
+                                            >
                                                 {{ __('capell-installer::installer.preflight_status_' . $preflightStatus) }}
                                             </span>
                                         </div>
@@ -217,13 +283,20 @@
                                         aria-label="{{ __('capell-installer::installer.preflight_checklist') }}"
                                     >
                                         @foreach ($preflightChecks as $check)
-                                            <article @class([
+                                            <article
+                                                @class([
                                                 'preflight-check',
                                                 $check['status'] ?? 'warning',
-                                            ])>
-                                                <span class="preflight-dot" aria-hidden="true"></span>
+                                            ])
+                                            >
+                                                <span
+                                                    class="preflight-dot"
+                                                    aria-hidden="true"
+                                                ></span>
                                                 <div class="preflight-copy">
-                                                    <strong> {{ $check['label'] }} </strong>
+                                                    <strong>
+                                                        {{ $check['label'] }}
+                                                    </strong>
                                                     <p>{{ $check['message'] }}</p>
 
                                                     @if (! empty($check['remediation']))
@@ -236,12 +309,22 @@
                                 </div>
                             </section>
 
-                            <section class="section site-setup-section" data-installer-step="site" hidden>
+                            <section
+                                class="section site-setup-section"
+                                data-installer-step="site"
+                                hidden
+                            >
                                 <p class="section-help">{{ __('capell-installer::installer.section_setup_help') }}</p>
 
                                 <div class="site-setup-grid">
-                                    <div class="field" data-field="site_url">
-                                        <label class="field-label" for="site_url">
+                                    <div
+                                        class="field"
+                                        data-field="site_url"
+                                    >
+                                        <label
+                                            class="field-label"
+                                            for="site_url"
+                                        >
                                             {{ __('capell-installer::installer.field_site_url') }}
                                         </label>
                                         <input
@@ -254,11 +337,22 @@
                                         <span class="field-error"></span>
                                     </div>
 
-                                    <div class="field" data-field="language">
-                                        <label class="field-label" for="language">
+                                    <div
+                                        class="field"
+                                        data-field="language"
+                                    >
+                                        <label
+                                            class="field-label"
+                                            for="language"
+                                        >
                                             {{ __('capell-installer::installer.field_language') }}
                                         </label>
-                                        <select id="language" name="language" required data-language-select>
+                                        <select
+                                            id="language"
+                                            name="language"
+                                            required
+                                            data-language-select
+                                        >
                                             @foreach ($languages as $code => $label)
                                                 <option
                                                     value="{{ $code }}"
@@ -268,7 +362,10 @@
                                                 </option>
                                             @endforeach
 
-                                            <option value="__custom" @selected(old('language') === '__custom')>
+                                            <option
+                                                value="__custom"
+                                                @selected(old('language') === '__custom')
+                                            >
                                                 {{ __('capell-installer::installer.field_language_custom_option') }}
                                             </option>
                                         </select>
@@ -284,7 +381,10 @@
                                         data-custom-language-fields
                                         data-field="custom_language_code"
                                     >
-                                        <label class="field-label" for="custom_language_code">
+                                        <label
+                                            class="field-label"
+                                            for="custom_language_code"
+                                        >
                                             {{ __('capell-installer::installer.field_custom_language_code') }}
                                         </label>
                                         <input
@@ -298,9 +398,14 @@
                                             list="installer-language-code-options"
                                             @if (old('language') === '__custom') required @endif
                                         />
-                                        <datalist id="installer-language-code-options">
+                                        <datalist
+                                            id="installer-language-code-options"
+                                        >
                                             @foreach ($customLanguageSuggestions as $code => $label)
-                                                <option value="{{ $code }}" label="{{ $label }}"></option>
+                                                <option
+                                                    value="{{ $code }}"
+                                                    label="{{ $label }}"
+                                                ></option>
                                             @endforeach
                                         </datalist>
                                         <small class="field-help">
@@ -311,7 +416,11 @@
                                 </div>
                             </section>
 
-                            <section class="section admin-account-section" data-installer-step="site" hidden>
+                            <section
+                                class="section admin-account-section"
+                                data-installer-step="site"
+                                hidden
+                            >
                                 <div class="admin-account-layout">
                                     <div class="admin-account-form">
                                         <h2 class="section-title">
@@ -365,8 +474,13 @@
                                                 ])
                                                 data-admin-user-fields="existing"
                                             >
-                                                <div data-field="existing_user_id">
-                                                    <label class="field-label" for="existing_user_id">
+                                                <div
+                                                    data-field="existing_user_id"
+                                                >
+                                                    <label
+                                                        class="field-label"
+                                                        for="existing_user_id"
+                                                    >
                                                         {{ __('capell-installer::installer.field_existing_user') }}
                                                     </label>
                                                     <select
@@ -374,7 +488,9 @@
                                                         name="existing_user_id"
                                                         @if ($adminUserMode === 'existing') required @endif
                                                     >
-                                                        <option value=""></option>
+                                                        <option
+                                                            value=""
+                                                        ></option>
                                                         @foreach ($existingUsers as $existingUser)
                                                             <option
                                                                 value="{{ $existingUser['id'] }}"
@@ -384,11 +500,17 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
-                                                    <span class="field-error"></span>
+                                                    <span
+                                                        class="field-error"
+                                                    ></span>
                                                 </div>
                                             </div>
                                         @else
-                                            <input type="hidden" name="admin_user_mode" value="create" />
+                                            <input
+                                                type="hidden"
+                                                name="admin_user_mode"
+                                                value="create"
+                                            />
                                         @endif
 
                                         <div
@@ -398,8 +520,14 @@
                                             ])
                                             data-admin-user-fields="create"
                                         >
-                                            <div class="field" data-field="new_user_name">
-                                                <label class="field-label" for="new_user_name">
+                                            <div
+                                                class="field"
+                                                data-field="new_user_name"
+                                            >
+                                                <label
+                                                    class="field-label"
+                                                    for="new_user_name"
+                                                >
                                                     {{ __('capell-installer::installer.field_user_name') }}
                                                 </label>
                                                 <input
@@ -410,12 +538,20 @@
                                                     value="{{ old('new_user_name', $defaultAdminUser['name'] ?? '') }}"
                                                     autocomplete="name"
                                                 />
-                                                <span class="field-error"></span>
+                                                <span
+                                                    class="field-error"
+                                                ></span>
                                             </div>
 
                                             <div class="grid-2 field-group">
-                                                <div class="field" data-field="new_user_email">
-                                                    <label class="field-label" for="new_user_email">
+                                                <div
+                                                    class="field"
+                                                    data-field="new_user_email"
+                                                >
+                                                    <label
+                                                        class="field-label"
+                                                        for="new_user_email"
+                                                    >
                                                         {{ __('capell-installer::installer.field_user_email') }}
                                                     </label>
                                                     <input
@@ -426,11 +562,19 @@
                                                         value="{{ old('new_user_email', $defaultAdminUser['email'] ?? '') }}"
                                                         autocomplete="email"
                                                     />
-                                                    <span class="field-error"></span>
+                                                    <span
+                                                        class="field-error"
+                                                    ></span>
                                                 </div>
 
-                                                <div class="field" data-field="new_user_password">
-                                                    <label class="field-label" for="new_user_password">
+                                                <div
+                                                    class="field"
+                                                    data-field="new_user_password"
+                                                >
+                                                    <label
+                                                        class="field-label"
+                                                        for="new_user_password"
+                                                    >
                                                         {{ __('capell-installer::installer.field_user_password') }}
                                                     </label>
                                                     <input
@@ -442,7 +586,9 @@
                                                         minlength="8"
                                                         autocomplete="new-password"
                                                     />
-                                                    <span class="field-error"></span>
+                                                    <span
+                                                        class="field-error"
+                                                    ></span>
                                                 </div>
                                             </div>
                                         </div>
@@ -477,7 +623,9 @@
                                         <p class="summary-label">
                                             {{ __('capell-installer::installer.admin_access_panel_title') }}
                                         </p>
-                                        <h3>{{ __('capell-installer::installer.admin_access_primary_title') }}</h3>
+                                        <h3>
+                                            {{ __('capell-installer::installer.admin_access_primary_title') }}
+                                        </h3>
                                         <p>{{ __('capell-installer::installer.admin_access_panel_body') }}</p>
                                         <dl class="admin-access-list">
                                             <div>
@@ -492,7 +640,9 @@
                                                 <dt>
                                                     {{ __('capell-installer::installer.admin_access_roles_title') }}
                                                 </dt>
-                                                <dd>{{ __('capell-installer::installer.admin_access_roles_body') }}</dd>
+                                                <dd>
+                                                    {{ __('capell-installer::installer.admin_access_roles_body') }}
+                                                </dd>
                                             </div>
                                             <div>
                                                 <dt>
@@ -507,12 +657,22 @@
                                 </div>
                             </section>
 
-                            <section class="packages-intro" data-installer-step="packages" hidden>
-                                <h2>{{ __('capell-installer::installer.packages_configure_heading') }}</h2>
+                            <section
+                                class="packages-intro"
+                                data-installer-step="packages"
+                                hidden
+                            >
+                                <h2>
+                                    {{ __('capell-installer::installer.packages_configure_heading') }}
+                                </h2>
                                 <p>{{ __('capell-installer::installer.packages_configure_body') }}</p>
                             </section>
 
-                            <input type="hidden" name="package_selection_mode" value="custom" />
+                            <input
+                                type="hidden"
+                                name="package_selection_mode"
+                                value="custom"
+                            />
 
                             @if ($visibleCorePackages)
                                 <section
@@ -533,7 +693,10 @@
                                         </div>
                                     </div>
 
-                                    <div class="package-list field" data-package-list>
+                                    <div
+                                        class="package-list field"
+                                        data-package-list
+                                    >
                                         @foreach ($visibleCorePackages as $package)
                                             <x-capell-installer::package-option
                                                 :package="$package"
@@ -547,7 +710,11 @@
                             @endif
 
                             @if ($installedPackages || $downloadablePackages)
-                                <section class="section package-section" data-installer-step="packages" hidden>
+                                <section
+                                    class="section package-section"
+                                    data-installer-step="packages"
+                                    hidden
+                                >
                                     <div class="package-section-header">
                                         <div class="package-section-copy">
                                             <h2 class="section-title">
@@ -563,7 +730,10 @@
                                         </div>
 
                                         <label class="package-select-all">
-                                            <input type="checkbox" data-package-select-all="extension" />
+                                            <input
+                                                type="checkbox"
+                                                data-package-select-all="extension"
+                                            />
                                             <span data-package-select-all-label>
                                                 {{ __('capell-installer::installer.package_select_all') }}
                                             </span>
@@ -591,7 +761,10 @@
                                         </div>
                                     </div>
 
-                                    <div class="package-list field" data-package-list>
+                                    <div
+                                        class="package-list field"
+                                        data-package-list
+                                    >
                                         @foreach ($installedPackages as $package)
                                             <x-capell-installer::package-option
                                                 :package="$package"
@@ -620,7 +793,10 @@
                                         </div>
                                     </div>
 
-                                    <div class="package-list field" data-package-list>
+                                    <div
+                                        class="package-list field"
+                                        data-package-list
+                                    >
                                         @foreach ($downloadablePackages as $package)
                                             <x-capell-installer::package-option
                                                 :package="$package"
@@ -633,19 +809,31 @@
                             @endif
 
                             @if (($showThemeSelector ?? false) && ! empty($themeOptions ?? []))
-                                <section class="section" data-installer-step="packages" hidden>
-                                    <h2 class="section-title">{{ __('capell-installer::installer.section_theme') }}</h2>
+                                <section
+                                    class="section"
+                                    data-installer-step="packages"
+                                    hidden
+                                >
+                                    <h2 class="section-title">
+                                        {{ __('capell-installer::installer.section_theme') }}
+                                    </h2>
                                     <p class="section-help">
                                         {{ __('capell-installer::installer.section_theme_help') }}
                                     </p>
 
-                                    <div class="theme-option-grid field" data-field="theme">
+                                    <div
+                                        class="theme-option-grid field"
+                                        data-field="theme"
+                                    >
                                         @foreach ($themeOptions as $themeKey => $themeOption)
                                             @php
                                                 $previewImageUrl = $themeOption['previewImageUrl'] ?? null;
                                             @endphp
 
-                                            <label class="theme-option-card" data-theme-card="{{ $themeKey }}">
+                                            <label
+                                                class="theme-option-card"
+                                                data-theme-card="{{ $themeKey }}"
+                                            >
                                                 <input
                                                     type="radio"
                                                     name="theme"
@@ -654,19 +842,32 @@
                                                     data-theme-package="{{ $themePackageNames[$themeKey] ?? '' }}"
                                                     @checked(old('theme', $defaultThemeKey ?? 'default') === $themeKey)
                                                 />
-                                                <span class="theme-option-preview" aria-hidden="true">
+                                                <span
+                                                    class="theme-option-preview"
+                                                    aria-hidden="true"
+                                                >
                                                     @if (is_string($previewImageUrl) && $previewImageUrl !== '')
-                                                        <img src="{{ $previewImageUrl }}" alt="" loading="lazy" />
+                                                        <img
+                                                            src="{{ $previewImageUrl }}"
+                                                            alt=""
+                                                            loading="lazy"
+                                                        />
                                                     @else
-                                                        <span class="theme-option-preview-fallback">
+                                                        <span
+                                                            class="theme-option-preview-fallback"
+                                                        >
                                                             {{ strtoupper(substr((string) ($themeOption['name'] ?? $themeKey), 0, 1)) }}
                                                         </span>
                                                     @endif
                                                 </span>
                                                 <span class="text">
-                                                    <strong> {{ $themeOption['name'] ?? $themeKey }} </strong>
+                                                    <strong>
+                                                        {{ $themeOption['name'] ?? $themeKey }}
+                                                    </strong>
                                                     @if (! empty($themeOption['description']))
-                                                        <span> {{ $themeOption['description'] }} </span>
+                                                        <span>
+                                                            {{ $themeOption['description'] }}
+                                                        </span>
                                                     @endif
                                                 </span>
                                             </label>
@@ -678,7 +879,11 @@
                             @endif
 
                             @unless ($developerToolingInstalled)
-                                <section class="section" data-installer-step="options" hidden>
+                                <section
+                                    class="section"
+                                    data-installer-step="options"
+                                    hidden
+                                >
                                     <h2 class="section-title">
                                         {{ __('capell-installer::installer.section_developer_tooling') }}
                                     </h2>
@@ -706,8 +911,14 @@
                                         </label>
                                     </div>
 
-                                    <div class="field" data-boost-tooling-options>
-                                        <label class="checkbox-row" style="padding-left: 28px">
+                                    <div
+                                        class="field"
+                                        data-boost-tooling-options
+                                    >
+                                        <label
+                                            class="checkbox-row"
+                                            style="padding-left: 28px"
+                                        >
                                             <input
                                                 type="checkbox"
                                                 name="configure_boost_developer_tooling"
@@ -743,8 +954,14 @@
                                 );
                             @endphp
 
-                            <section class="section" data-installer-step="options" hidden>
-                                <h2 class="section-title">{{ __('capell-installer::installer.section_options') }}</h2>
+                            <section
+                                class="section"
+                                data-installer-step="options"
+                                hidden
+                            >
+                                <h2 class="section-title">
+                                    {{ __('capell-installer::installer.section_options') }}
+                                </h2>
 
                                 <div class="field">
                                     <label class="checkbox-row">
@@ -867,7 +1084,9 @@
                                             @checked(old('run_as_job') === '1')
                                         />
                                         <span class="text">
-                                            <strong> {{ __('capell-installer::installer.option_run_as_job') }} </strong>
+                                            <strong>
+                                                {{ __('capell-installer::installer.option_run_as_job') }}
+                                            </strong>
                                             <span>
                                                 {{ __('capell-installer::installer.option_run_as_job_help') }}
                                             </span>
@@ -976,20 +1195,41 @@
 
                         <footer class="panel-footer installer-actions">
                             <div class="panel-footer-inner">
-                                <button class="button secondary" type="button" data-step-back>
+                                <button
+                                    class="button secondary"
+                                    type="button"
+                                    data-step-back
+                                >
                                     <span aria-hidden="true">&larr;</span>
                                     {{ __('capell-installer::installer.installer_back') }}
                                 </button>
-                                <button class="button primary" type="button" data-step-continue>
+                                <button
+                                    class="button primary"
+                                    type="button"
+                                    data-step-continue
+                                >
                                     {{ __('capell-installer::installer.installer_continue') }}
                                     <span aria-hidden="true">&rarr;</span>
                                 </button>
-                                <button id="submit-button" class="button primary submit" type="submit" hidden>
+                                <button
+                                    id="submit-button"
+                                    class="button primary submit"
+                                    type="submit"
+                                    hidden
+                                >
                                     <span class="spinner"></span>
-                                    <span class="label" data-submit-label>
+                                    <span
+                                        class="label"
+                                        data-submit-label
+                                    >
                                         {{ __('capell-installer::installer.submit') }}
                                     </span>
-                                    <span class="submit-arrow" aria-hidden="true"> &rarr; </span>
+                                    <span
+                                        class="submit-arrow"
+                                        aria-hidden="true"
+                                    >
+                                        &rarr;
+                                    </span>
                                 </button>
                             </div>
                         </footer>
@@ -997,26 +1237,57 @@
                 </form>
             </div>
 
-            <div class="progress-view" id="progress-view" aria-live="polite">
-                <div class="progress-status" id="progress-status">
+            <div
+                class="progress-view"
+                id="progress-view"
+                aria-live="polite"
+            >
+                <div
+                    class="progress-status"
+                    id="progress-status"
+                >
                     <span class="status-dot"></span>
-                    <span id="progress-status-label"> {{ __('capell-installer::installer.starting') }} </span>
+                    <span id="progress-status-label">
+                        {{ __('capell-installer::installer.starting') }}
+                    </span>
 
-                    <span class="current-step-strip" id="current-step-strip" hidden>
+                    <span
+                        class="current-step-strip"
+                        id="current-step-strip"
+                        hidden
+                    >
                         <span class="current-step-separator"></span>
-                        <span class="current-step-label"> {{ __('capell-installer::installer.current_step') }} </span>
-                        <strong id="current-step-name"> {{ __('capell-installer::installer.starting') }} </strong>
+                        <span class="current-step-label">
+                            {{ __('capell-installer::installer.current_step') }}
+                        </span>
+                        <strong id="current-step-name">
+                            {{ __('capell-installer::installer.starting') }}
+                        </strong>
                         <span class="current-step-spinner"></span>
                     </span>
                 </div>
 
-                <div class="progress-loader" id="progress-loader" aria-hidden="true">
+                <div
+                    class="progress-loader"
+                    id="progress-loader"
+                    aria-hidden="true"
+                >
                     <span></span>
                 </div>
 
-                <section class="failure-panel" id="failure-panel" role="alert" hidden>
+                <section
+                    class="failure-panel"
+                    id="failure-panel"
+                    role="alert"
+                    hidden
+                >
                     <div class="failure-copy">
-                        <span class="failure-icon" aria-hidden="true"> ! </span>
+                        <span
+                            class="failure-icon"
+                            aria-hidden="true"
+                        >
+                            !
+                        </span>
                         <div>
                             <h2 id="failure-title">
                                 {{ __('capell-installer::installer.installation_failed_heading') }}
@@ -1024,16 +1295,29 @@
                             <p id="failure-message"></p>
                         </div>
                     </div>
-                    <button class="button danger" id="failure-retry-button" type="button">
+                    <button
+                        class="button danger"
+                        id="failure-retry-button"
+                        type="button"
+                    >
                         {{ __('capell-installer::installer.restart_install') }}
                     </button>
                 </section>
 
-                <div class="progress-steps multi-step-progress" id="progress-steps"></div>
+                <div
+                    class="progress-steps multi-step-progress"
+                    id="progress-steps"
+                ></div>
 
-                <details class="technical-log-panel" id="technical-log-panel" open>
+                <details
+                    class="technical-log-panel"
+                    id="technical-log-panel"
+                    open
+                >
                     <summary>
-                        <span> {{ __('capell-installer::installer.technical_logs') }} </span>
+                        <span>
+                            {{ __('capell-installer::installer.technical_logs') }}
+                        </span>
                         <span class="technical-log-actions">
                             <button
                                 aria-label="{{ __('capell-installer::installer.download_report') }}"
@@ -1062,7 +1346,10 @@
                                     />
                                 </svg>
                             </button>
-                            <span class="technical-log-chevron" aria-hidden="true"></span>
+                            <span
+                                class="technical-log-chevron"
+                                aria-hidden="true"
+                            ></span>
                         </span>
                     </summary>
                     <form
@@ -1080,10 +1367,20 @@
                 </details>
 
                 <div class="progress-actions">
-                    <a class="button secondary" href="{{ route('capell-installer.show') }}" id="back-link" hidden>
+                    <a
+                        class="button secondary"
+                        href="{{ route('capell-installer.show') }}"
+                        id="back-link"
+                        hidden
+                    >
                         {{ __('capell-installer::installer.back_to_installer') }}
                     </a>
-                    <a class="button primary" href="{{ url('/admin') }}" id="admin-link" hidden>
+                    <a
+                        class="button primary"
+                        href="{{ url('/admin') }}"
+                        id="admin-link"
+                        hidden
+                    >
                         {{ __('capell-installer::installer.go_to_admin') }}
                     </a>
                 </div>
@@ -1142,7 +1439,10 @@
                 ];
             @endphp
 
-            <script id="capell-installer-config" type="application/json">
+            <script
+                id="capell-installer-config"
+                type="application/json"
+            >
                 {!! Js::encode($installerConfig) !!}
             </script>
             @foreach ($installerScriptFiles as $installerScriptFile)

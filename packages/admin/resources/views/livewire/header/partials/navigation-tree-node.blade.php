@@ -60,13 +60,21 @@
                     wire:loading.delay
                     wire:target="togglePage({{ $nodeId }}, {{ $siteId }})"
                 />
-                <span wire:loading.remove wire:target="togglePage({{ $nodeId }}, {{ $siteId }})">
+                <span
+                    wire:loading.remove
+                    wire:target="togglePage({{ $nodeId }}, {{ $siteId }})"
+                >
                     @svg(($isExpanded ? Heroicon::OutlinedChevronDown : Heroicon::OutlinedChevronRight)->getIconForSize(IconSize::Small), 'h-4 w-4')
                 </span>
             </button>
         @else
-            <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
-                <span class="h-1.5 w-1.5 rounded-full bg-gray-200 group-hover:bg-gray-300 dark:bg-white/10 dark:group-hover:bg-white/20"></span>
+            <span
+                class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center"
+                aria-hidden="true"
+            >
+                <span
+                    class="h-1.5 w-1.5 rounded-full bg-gray-200 group-hover:bg-gray-300 dark:bg-white/10 dark:group-hover:bg-white/20"
+                ></span>
             </span>
         @endif
 

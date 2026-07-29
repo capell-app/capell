@@ -33,7 +33,10 @@
         @endif
         @if ($image) poster="{{ $image->getUrl(MediaConversionEnum::Thumbnail->value) }}" @endif
     >
-        <source src="{{ asset('storage/' . $media->getPath()) }}" type="{{ $media->getMimeType() }}" />
+        <source
+            src="{{ asset('storage/' . $media->getPath()) }}"
+            type="{{ $media->getMimeType() }}"
+        />
     </video>
     <div
         class="absolute inset-0 flex h-full w-full items-center justify-center"
