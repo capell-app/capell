@@ -31,7 +31,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Sleep;
 use Illuminate\Validation\ValidationException;
 
@@ -213,12 +212,15 @@ it('rolls back state when its atomic transition timeline cannot be recorded', fu
     $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Queued);
 
     expect(DB::transactionLevel())->toBeGreaterThan(0);
-    Schema::drop('marketplace_install_attempt_events');
+    Event::listen(
+        'eloquent.creating: ' . MarketplaceInstallAttemptEvent::class,
+        fn (): never => throw new RuntimeException('Timeline recording failed.'),
+    );
 
     expect(fn (): MarketplaceInstallAttempt => TransitionMarketplaceInstallAttemptAction::run(
         $attempt,
         new MarketplaceInstallAttemptTransitionData(toStatus: MarketplaceInstallIntentStatus::Running),
-    ))->toThrow(PDOException::class);
+    ))->toThrow(RuntimeException::class, 'Timeline recording failed.');
 
     expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued)
         ->and($attempt->started_at)->toBeNull();
@@ -251,7 +253,10 @@ it('rolls back deployment evidence and classification when its timeline cannot b
     $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Queued);
 
     expect(DB::transactionLevel())->toBeGreaterThan(0);
-    Schema::drop('marketplace_install_attempt_events');
+    Event::listen(
+        'eloquent.creating: ' . MarketplaceInstallAttemptEvent::class,
+        fn (): never => throw new RuntimeException('Timeline recording failed.'),
+    );
 
     expect(fn (): MarketplaceInstallAttempt => RecordMarketplaceInstallDeploymentAction::run(
         $attempt,
@@ -259,7 +264,7 @@ it('rolls back deployment evidence and classification when its timeline cannot b
             'status' => 'failed',
             'failure_reason' => 'Publisher rejected the source update.',
         ]),
-    ))->toThrow(PDOException::class);
+    ))->toThrow(RuntimeException::class, 'Timeline recording failed.');
 
     expect($attempt->refresh()->deployment)->toBeNull()
         ->and($attempt->failure_reason)->toBeNull()
