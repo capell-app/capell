@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Database;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -84,7 +85,9 @@ final class RuntimeSchemaState
     {
         try {
             return Schema::hasTable($table);
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            $this->reportProbeFailure(['table' => $table], $throwable);
+
             return false;
         }
     }
@@ -93,9 +96,32 @@ final class RuntimeSchemaState
     {
         try {
             return Schema::hasColumn($table, $column);
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            $this->reportProbeFailure(['table' => $table, 'column' => $column], $throwable);
+
             return false;
         }
+    }
+
+    /**
+     * A failed probe still reports "absent", because every caller uses this to
+     * decide whether it may touch a table at all: reporting "present" after a
+     * failed lookup would send them into a query that cannot succeed, and
+     * throwing would turn an unavailable database into a fatal boot error for
+     * surfaces that are meant to degrade (installer, dashboard, health reports).
+     *
+     * The two cases are indistinguishable in the return value, so they are made
+     * distinguishable in the log: absence is silent, a failed probe is not.
+     *
+     * @param  array<string, string>  $target
+     */
+    private function reportProbeFailure(array $target, Throwable $throwable): void
+    {
+        Log::warning('Capell runtime schema probe failed; treating the schema as absent.', [
+            ...$target,
+            'exception' => $throwable::class,
+            'reason' => $throwable->getMessage(),
+        ]);
     }
 
     private function columnKey(string $table, string $column): string

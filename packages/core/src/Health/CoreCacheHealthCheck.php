@@ -95,6 +95,7 @@ final class CoreCacheHealthCheck implements ChecksExtensionHealth
             'misses' => $diagnostics->missCount,
             'fills' => $diagnostics->fillCount,
             'backend_failures' => $diagnostics->backendFailureCount,
+            'unlocked_increments' => $diagnostics->unlockedIncrementCount,
             'sampled_key_hashes' => $diagnostics->sampledKeyHashes,
             'activity_window_seconds' => 86400,
         ];
