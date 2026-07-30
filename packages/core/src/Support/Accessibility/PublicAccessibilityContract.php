@@ -126,6 +126,17 @@ final class PublicAccessibilityContract
     ];
 
     /**
+     * @var array<string, list<string>>
+     */
+    private const array ARIA_ENUMERATED_VALUES = [
+        'aria-checked' => ['false', 'mixed', 'true', 'undefined'],
+        'aria-expanded' => ['false', 'true', 'undefined'],
+        'aria-hidden' => ['false', 'true', 'undefined'],
+        'aria-pressed' => ['false', 'mixed', 'true', 'undefined'],
+        'aria-selected' => ['false', 'true', 'undefined'],
+    ];
+
+    /**
      * Attributes whose value is a space-separated list of element ids.
      *
      * @var list<string>
@@ -167,6 +178,17 @@ final class PublicAccessibilityContract
         'suggestion', 'superscript', 'switch', 'tab', 'table', 'tablist', 'tabpanel',
         'term', 'textbox', 'time', 'timer', 'toolbar', 'tooltip', 'tree', 'treegrid',
         'treeitem', 'widget', 'window',
+    ];
+
+    /**
+     * Abstract WAI-ARIA roles describe the taxonomy itself and must never be
+     * authored into HTML.
+     *
+     * @var list<string>
+     */
+    private const array ABSTRACT_ARIA_ROLES = [
+        'command', 'composite', 'input', 'landmark', 'range', 'roletype',
+        'section', 'sectionhead', 'select', 'structure', 'widget', 'window',
     ];
 
     /**
@@ -217,8 +239,8 @@ final class PublicAccessibilityContract
         return [
             ...$this->opaqueMarkerViolations($xpath, $root, allowOpaqueContent: false),
             ...$this->imageAlternativeTextViolations($xpath, $root),
-            ...$this->accessibleNameViolations($xpath, $root, allowOpaqueContent: false),
-            ...$this->labelAssociationViolations($xpath, $root, allowOpaqueContent: false),
+            ...$this->accessibleNameViolations($xpath, $root, resolveIdReferences: true, allowOpaqueContent: false),
+            ...$this->labelAssociationViolations($xpath, $root, resolveIdReferences: true, allowOpaqueContent: false),
             ...$this->focusOrderViolations($xpath, $root),
             ...$this->ariaWellFormednessViolations($xpath, $root, resolveIdReferences: true, allowOpaqueContent: false),
             ...$this->duplicateIdViolations($xpath, $root),
@@ -235,7 +257,7 @@ final class PublicAccessibilityContract
      */
     public function validAriaRoles(): array
     {
-        return self::VALID_ARIA_ROLES;
+        return array_values(array_diff(self::VALID_ARIA_ROLES, self::ABSTRACT_ARIA_ROLES));
     }
 
     /**
@@ -259,8 +281,18 @@ final class PublicAccessibilityContract
         return [
             ...$this->opaqueMarkerViolations($xpath, $root, $allowOpaqueContent),
             ...$this->imageAlternativeTextViolations($xpath, $root),
-            ...$this->accessibleNameViolations($xpath, $root, $allowOpaqueContent),
-            ...$this->labelAssociationViolations($xpath, $root, $allowOpaqueContent),
+            ...$this->accessibleNameViolations(
+                $xpath,
+                $root,
+                resolveIdReferences: false,
+                allowOpaqueContent: $allowOpaqueContent,
+            ),
+            ...$this->labelAssociationViolations(
+                $xpath,
+                $root,
+                resolveIdReferences: false,
+                allowOpaqueContent: $allowOpaqueContent,
+            ),
             ...$this->focusOrderViolations($xpath, $root),
             ...$this->ariaWellFormednessViolations(
                 $xpath,
@@ -343,8 +375,12 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function accessibleNameViolations(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
-    {
+    private function accessibleNameViolations(
+        DOMXPath $xpath,
+        DOMElement $root,
+        bool $resolveIdReferences,
+        bool $allowOpaqueContent,
+    ): array {
         $violations = [];
 
         foreach ($this->query($xpath, $root, './/*') as $element) {
@@ -352,7 +388,13 @@ final class PublicAccessibilityContract
                 continue;
             }
 
-            if ($this->hasAccessibleName($element, $allowOpaqueContent)) {
+            if ($this->accessibleName(
+                $xpath,
+                $root,
+                $element,
+                $resolveIdReferences,
+                $allowOpaqueContent,
+            ) !== '') {
                 continue;
             }
 
@@ -373,9 +415,13 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function labelAssociationViolations(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
-    {
-        $labelledIds = $this->labelTargetIds($xpath, $root);
+    private function labelAssociationViolations(
+        DOMXPath $xpath,
+        DOMElement $root,
+        bool $resolveIdReferences,
+        bool $allowOpaqueContent,
+    ): array {
+        $labelledIds = $this->labelTargetIds($xpath, $root, $allowOpaqueContent);
         $violations = [];
 
         foreach ($this->query($xpath, $root, './/input | .//select | .//textarea') as $control) {
@@ -383,11 +429,12 @@ final class PublicAccessibilityContract
                 continue;
             }
 
-            if ($this->hasOpaqueContent($control, $allowOpaqueContent) || $this->hasAuthoredName($control)) {
+            if ($this->hasOpaqueContent($control, $allowOpaqueContent)
+                || $this->authoredAccessibleName($xpath, $root, $control, $resolveIdReferences) !== '') {
                 continue;
             }
 
-            if ($this->hasAncestorLabel($control)) {
+            if ($this->hasAncestorLabel($control, $allowOpaqueContent)) {
                 continue;
             }
 
@@ -435,7 +482,11 @@ final class PublicAccessibilityContract
             );
         }
 
-        foreach ($this->query($xpath, $root, './/*[@aria-hidden="true"]') as $hidden) {
+        foreach ($this->query($xpath, $root, './/*[@aria-hidden]') as $hidden) {
+            if ($this->normalizedAttributeValue($hidden, 'aria-hidden') !== 'true') {
+                continue;
+            }
+
             if ($this->isFocusable($hidden)) {
                 $violations[] = sprintf(
                     '%s is aria-hidden="true" but still focusable; screen readers cannot announce it.',
@@ -474,16 +525,31 @@ final class PublicAccessibilityContract
         $violations = [];
 
         foreach ($this->query($xpath, $root, './/*[@role]') as $element) {
-            foreach (preg_split('/\s+/', trim($element->getAttribute('role')), flags: PREG_SPLIT_NO_EMPTY) ?: [] as $role) {
-                if (in_array(strtolower($role), self::VALID_ARIA_ROLES, true)) {
-                    continue;
-                }
+            $roles = $this->roleTokens($element);
+            $winningRole = $this->resolvedRole($element);
 
-                $violations[] = sprintf(
-                    '%s declares the unrecognised ARIA role "%s"; assistive technology drops unknown roles silently.',
-                    $this->describe($element),
-                    $role,
-                );
+            foreach ($roles as $role) {
+                if (in_array($role, self::ABSTRACT_ARIA_ROLES, true)) {
+                    $violations[] = sprintf(
+                        '%s declares the abstract ARIA role "%s"; abstract roles cannot be used in markup.',
+                        $this->describe($element),
+                        $role,
+                    );
+                }
+            }
+
+            if ($winningRole === null) {
+                foreach ($roles as $role) {
+                    if (in_array($role, self::VALID_ARIA_ROLES, true)) {
+                        continue;
+                    }
+
+                    $violations[] = sprintf(
+                        '%s declares the unrecognised ARIA role "%s"; assistive technology drops unknown roles silently.',
+                        $this->describe($element),
+                        $role,
+                    );
+                }
             }
         }
 
@@ -523,7 +589,7 @@ final class PublicAccessibilityContract
         foreach (self::INTERACTION_STATE_ATTRIBUTES as $attribute) {
             foreach ($this->query($xpath, $root, sprintf('.//*[@%s]', $attribute)) as $element) {
                 if ($this->isNativelyInteractive($element)
-                    || $element->hasAttribute('role')
+                    || in_array($this->resolvedRole($element), self::INTERACTIVE_ROLES, true)
                     || $this->hasOpaqueContent($element, $allowOpaqueContent)) {
                     continue;
                 }
@@ -532,6 +598,24 @@ final class PublicAccessibilityContract
                     '%s declares %s without being interactive; add the matching role or move the state onto the control.',
                     $this->describe($element),
                     $attribute,
+                );
+            }
+        }
+
+        foreach (self::ARIA_ENUMERATED_VALUES as $attribute => $allowedValues) {
+            foreach ($this->query($xpath, $root, sprintf('.//*[@%s]', $attribute)) as $element) {
+                $value = $this->normalizedAttributeValue($element, $attribute);
+
+                if (in_array($value, $allowedValues, true)) {
+                    continue;
+                }
+
+                $violations[] = sprintf(
+                    '%s declares invalid %s="%s"; expected one of: %s.',
+                    $this->describe($element),
+                    $attribute,
+                    trim($element->getAttribute($attribute)),
+                    implode(', ', $allowedValues),
                 );
             }
         }
@@ -631,7 +715,11 @@ final class PublicAccessibilityContract
             $violations[] = 'The document has no non-empty <title>.';
         }
 
-        $mainLandmarks = $this->query($xpath, $root, './/main | .//*[@role="main"]');
+        $mainLandmarks = array_values(array_filter(
+            $this->query($xpath, $root, './/main | .//*[@role]'),
+            fn (DOMElement $element): bool => $element->nodeName === 'main'
+                || $this->resolvedRole($element) === 'main',
+        ));
 
         if (count($mainLandmarks) !== 1) {
             $violations[] = sprintf(
@@ -650,22 +738,61 @@ final class PublicAccessibilityContract
         }
 
         foreach (self::REPEATABLE_LANDMARK_ELEMENTS as $landmarkElement) {
-            $landmarks = $this->query($xpath, $root, sprintf('.//%s', $landmarkElement));
+            $landmarks = array_values(array_filter(
+                $this->query($xpath, $root, sprintf('.//%s', $landmarkElement)),
+                function (DOMElement $element) use ($xpath, $root, $landmarkElement, $allowOpaqueContent): bool {
+                    if (! in_array($landmarkElement, ['form', 'section'], true)) {
+                        return true;
+                    }
+
+                    return $this->landmarkName(
+                        $xpath,
+                        $root,
+                        $element,
+                        allowOpaqueContent: $allowOpaqueContent,
+                    ) !== '';
+                },
+            ));
 
             if (count($landmarks) < 2) {
                 continue;
             }
 
+            $names = [];
+
             foreach ($landmarks as $landmark) {
-                if ($this->hasAuthoredName($landmark) || $this->hasOpaqueContent($landmark, $allowOpaqueContent)) {
+                $name = $this->landmarkName(
+                    $xpath,
+                    $root,
+                    $landmark,
+                    allowOpaqueContent: $allowOpaqueContent,
+                );
+
+                if ($name === '') {
+                    $violations[] = sprintf(
+                        'The document has %d <%s> landmarks, so each needs a distinguishing accessible name; %s has none.',
+                        count($landmarks),
+                        $landmarkElement,
+                        $this->describe($landmark),
+                    );
+
+                    continue;
+                }
+
+                $normalizedName = mb_strtolower($name);
+                $names[$normalizedName] = ($names[$normalizedName] ?? 0) + 1;
+            }
+
+            foreach ($names as $name => $count) {
+                if ($count < 2) {
                     continue;
                 }
 
                 $violations[] = sprintf(
-                    'The document has %d <%s> landmarks, so each needs a distinguishing accessible name; %s has none.',
-                    count($landmarks),
+                    'The document has %d <%s> landmarks named "%s"; repeated landmarks need distinct accessible names.',
+                    $count,
                     $landmarkElement,
-                    $this->describe($landmark),
+                    $name,
                 );
             }
         }
@@ -675,23 +802,18 @@ final class PublicAccessibilityContract
 
     private function requiresAccessibleName(DOMElement $element): bool
     {
-        $roles = array_map(
-            static fn (string $role): string => strtolower($role),
-            preg_split('/\s+/', trim($element->getAttribute('role')), flags: PREG_SPLIT_NO_EMPTY) ?: [],
-        );
+        $role = $this->resolvedRole($element);
 
-        foreach ($roles as $role) {
-            if (in_array($role, self::INTERACTIVE_ROLES, true)
-                || in_array($role, self::NAME_REQUIRED_STRUCTURAL_ROLES, true)) {
-                return true;
-            }
+        if (in_array($role, self::INTERACTIVE_ROLES, true)
+            || in_array($role, self::NAME_REQUIRED_STRUCTURAL_ROLES, true)) {
+            return true;
         }
 
-        if (in_array('presentation', $roles, true) || in_array('none', $roles, true)) {
+        if ($role === 'presentation' || $role === 'none') {
             return false;
         }
 
-        if ($element->getAttribute('aria-hidden') === 'true') {
+        if ($this->normalizedAttributeValue($element, 'aria-hidden') === 'true') {
             return false;
         }
 
@@ -706,60 +828,112 @@ final class PublicAccessibilityContract
         return in_array($element->nodeName, self::NATIVELY_INTERACTIVE_ELEMENTS, true);
     }
 
-    private function hasAccessibleName(DOMElement $element, bool $allowOpaqueContent): bool
-    {
-        if ($this->hasAuthoredName($element) || $this->hasOpaqueContent($element, $allowOpaqueContent)) {
-            return true;
+    private function accessibleName(
+        DOMXPath $xpath,
+        DOMElement $root,
+        DOMElement $element,
+        bool $resolveIdReferences,
+        bool $allowOpaqueContent,
+    ): string {
+        $authoredName = $this->authoredAccessibleName($xpath, $root, $element, $resolveIdReferences);
+
+        if ($authoredName !== '') {
+            return $authoredName;
+        }
+
+        if ($this->hasOpaqueContent($element, $allowOpaqueContent)) {
+            return 'opaque-content';
         }
 
         if ($element->nodeName === 'input') {
             $inputType = $this->inputType($element);
 
             if ($inputType === 'image') {
-                return trim($element->getAttribute('alt')) !== '';
+                return trim($element->getAttribute('alt'));
             }
 
             // `submit` and `reset` carry a user-agent default label.
             if ($inputType === 'submit' || $inputType === 'reset') {
-                return true;
+                return $inputType;
             }
 
-            return trim($element->getAttribute('value')) !== '';
+            return trim($element->getAttribute('value'));
         }
 
         // `<select>` and `<textarea>` take their name from a label, which
         // labelAssociationViolations() already reports on; do not report the
         // same control twice under two different messages.
         if ($element->nodeName === 'select' || $element->nodeName === 'textarea') {
-            return true;
+            return 'labelled-control';
         }
 
-        if ($this->textContentOf($element) !== '') {
-            return true;
+        $contentName = $this->namingTextOf($element, $allowOpaqueContent);
+
+        if ($contentName !== '') {
+            return $contentName;
         }
 
-        foreach ($this->descendantElements($element) as $descendant) {
-            if ($descendant->nodeName === 'img' && trim($descendant->getAttribute('alt')) !== '') {
-                return true;
-            }
-
-            if ($descendant->nodeName === 'title' && $this->textContentOf($descendant) !== '') {
-                return true;
-            }
-        }
-
-        return false;
+        return '';
     }
 
-    private function hasAuthoredName(DOMElement $element): bool
-    {
-        foreach (['aria-label', 'aria-labelledby', 'title'] as $attribute) {
-            if (trim($element->getAttribute($attribute)) !== '') {
-                return true;
-            }
+    private function authoredAccessibleName(
+        DOMXPath $xpath,
+        DOMElement $root,
+        DOMElement $element,
+        bool $resolveIdReferences,
+    ): string {
+        $ariaLabel = trim($element->getAttribute('aria-label'));
+
+        if ($ariaLabel !== '') {
+            return $ariaLabel;
         }
 
-        return false;
+        $labelledBy = preg_split(
+            '/\s+/',
+            trim($element->getAttribute('aria-labelledby')),
+            flags: PREG_SPLIT_NO_EMPTY,
+        ) ?: [];
+
+        if ($labelledBy !== []) {
+            $parts = [];
+
+            foreach ($labelledBy as $referencedId) {
+                $targets = $this->query($xpath, $root, sprintf('.//*[@id=%s]', $this->quote($referencedId)));
+
+                if ($targets === []) {
+                    if (! $resolveIdReferences) {
+                        return implode(' ', $labelledBy);
+                    }
+
+                    continue;
+                }
+
+                $text = $this->namingTextOf($targets[0], allowOpaqueContent: false);
+
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+
+            return implode(' ', $parts);
+        }
+
+        return trim($element->getAttribute('title'));
+    }
+
+    private function landmarkName(
+        DOMXPath $xpath,
+        DOMElement $root,
+        DOMElement $element,
+        bool $allowOpaqueContent,
+    ): string {
+        $name = $this->authoredAccessibleName($xpath, $root, $element, resolveIdReferences: true);
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        return $this->hasOpaqueContent($element, $allowOpaqueContent) ? 'opaque-content' : '';
     }
 
     private function hasOpaqueContent(DOMElement $element, bool $allowOpaqueContent): bool
@@ -783,7 +957,7 @@ final class PublicAccessibilityContract
 
     private function isLabellableControl(DOMElement $control): bool
     {
-        if ($control->getAttribute('aria-hidden') === 'true') {
+        if ($this->normalizedAttributeValue($control, 'aria-hidden') === 'true') {
             return false;
         }
 
@@ -800,14 +974,14 @@ final class PublicAccessibilityContract
     /**
      * @return list<string>
      */
-    private function labelTargetIds(DOMXPath $xpath, DOMElement $root): array
+    private function labelTargetIds(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
     {
         $targetIds = [];
 
         foreach ($this->query($xpath, $root, './/label[@for]') as $label) {
             $targetId = trim($label->getAttribute('for'));
 
-            if ($targetId !== '') {
+            if ($targetId !== '' && $this->namingTextOf($label, $allowOpaqueContent) !== '') {
                 $targetIds[] = $targetId;
             }
         }
@@ -815,13 +989,13 @@ final class PublicAccessibilityContract
         return array_values(array_unique($targetIds));
     }
 
-    private function hasAncestorLabel(DOMElement $control): bool
+    private function hasAncestorLabel(DOMElement $control, bool $allowOpaqueContent): bool
     {
         $ancestor = $control->parentNode;
 
         while ($ancestor instanceof DOMElement) {
             if ($ancestor->nodeName === 'label') {
-                return true;
+                return $this->namingTextOf($ancestor, $allowOpaqueContent) !== '';
             }
 
             $ancestor = $ancestor->parentNode;
@@ -832,6 +1006,10 @@ final class PublicAccessibilityContract
 
     private function isFocusable(DOMElement $element): bool
     {
+        if ($this->isDisabledOrHidden($element)) {
+            return false;
+        }
+
         $tabIndex = trim($element->getAttribute('tabindex'));
 
         if ($tabIndex !== '') {
@@ -851,6 +1029,10 @@ final class PublicAccessibilityContract
 
     private function isNativelyInteractive(DOMElement $element): bool
     {
+        if ($this->isDisabledOrHidden($element)) {
+            return false;
+        }
+
         if ($element->nodeName === 'input') {
             return ! in_array($this->inputType($element), self::UNLABELLABLE_INPUT_TYPES, true);
         }
@@ -867,6 +1049,105 @@ final class PublicAccessibilityContract
         $inputType = strtolower(trim($input->getAttribute('type')));
 
         return $inputType === '' ? 'text' : $inputType;
+    }
+
+    private function isDisabledOrHidden(DOMElement $element): bool
+    {
+        $current = $element;
+
+        while ($current instanceof DOMElement) {
+            if ($current->hasAttribute('hidden')
+                || $current->hasAttribute('inert')) {
+                return true;
+            }
+
+            if ($current === $element && $current->hasAttribute('disabled')) {
+                return true;
+            }
+
+            if ($current->nodeName === 'fieldset' && $current->hasAttribute('disabled')) {
+                return true;
+            }
+
+            $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function roleTokens(DOMElement $element): array
+    {
+        return array_map(
+            static fn (string $role): string => strtolower($role),
+            preg_split('/\s+/', trim($element->getAttribute('role')), flags: PREG_SPLIT_NO_EMPTY) ?: [],
+        );
+    }
+
+    private function resolvedRole(DOMElement $element): ?string
+    {
+        foreach ($this->roleTokens($element) as $role) {
+            if (in_array($role, self::VALID_ARIA_ROLES, true)
+                && ! in_array($role, self::ABSTRACT_ARIA_ROLES, true)) {
+                return $role;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizedAttributeValue(DOMElement $element, string $attribute): string
+    {
+        return strtolower(trim($element->getAttribute($attribute)));
+    }
+
+    private function namingTextOf(DOMElement $element, bool $allowOpaqueContent): string
+    {
+        if ($this->isHiddenFromNaming($element)) {
+            return '';
+        }
+
+        if ($this->hasOpaqueContent($element, $allowOpaqueContent)) {
+            return 'opaque-content';
+        }
+
+        if ($element->nodeName === 'img') {
+            return trim($element->getAttribute('alt'));
+        }
+
+        $parts = [];
+
+        foreach ($element->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                $text = $this->namingTextOf($child, $allowOpaqueContent);
+
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+
+                continue;
+            }
+
+            if ($child->nodeType === XML_TEXT_NODE) {
+                $text = $this->textContentOf($child);
+
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+        }
+
+        return trim(implode(' ', $parts));
+    }
+
+    private function isHiddenFromNaming(DOMElement $element): bool
+    {
+        return $element->hasAttribute('hidden')
+            || $element->hasAttribute('inert')
+            || $this->normalizedAttributeValue($element, 'aria-hidden') === 'true'
+            || in_array($element->nodeName, ['script', 'style', 'template'], true);
     }
 
     private function textContentOf(?DOMNode $node): string

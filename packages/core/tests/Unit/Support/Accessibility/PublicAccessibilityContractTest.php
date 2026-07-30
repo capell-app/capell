@@ -290,6 +290,93 @@ it('requires accessible names when any token in a multi-role fallback is interac
         ->toBe([]);
 });
 
+it('counts only named sections and forms as landmarks and rejects duplicate landmark names', function (): void {
+    $contract = new PublicAccessibilityContract;
+    $document = <<<'HTML'
+    <html lang="en">
+    <head><title>Home</title></head>
+    <body>
+        <main>
+            <h1>Home</h1>
+            <section><h2>Ordinary section</h2></section>
+            <section><h2>Another ordinary section</h2></section>
+            <form><button>Save</button></form>
+            <form><button>Send</button></form>
+        </main>
+    </body>
+    </html>
+    HTML;
+
+    expect($contract->inspectDocument($document))->toBe([]);
+
+    $duplicateNames = str_replace(
+        '</main>',
+        '<nav aria-label="Related"><a href="/one">One</a></nav><nav aria-label=" related "><a href="/two">Two</a></nav></main>',
+        $document,
+    );
+
+    expect(implode("\n", $contract->inspectDocument($duplicateNames)))
+        ->toContain('2 <nav> landmarks named "related"');
+});
+
+it('requires authored names to contribute non-empty computed text in rendered output', function (): void {
+    $contract = new PublicAccessibilityContract;
+    $document = <<<'HTML'
+    <html lang="en">
+    <head><title>Names</title></head>
+    <body>
+        <main>
+            <h1>Names</h1>
+            <span id="empty-label"><span aria-hidden=" TRUE ">Ignored</span></span>
+            <button aria-labelledby="empty-label"></button>
+            <label for="query"><span hidden>Ignored</span></label>
+            <input id="query" type="search">
+        </main>
+    </body>
+    </html>
+    HTML;
+
+    $violations = implode("\n", $contract->inspectDocument($document));
+
+    expect($violations)
+        ->toContain('requires an accessible name')
+        ->toContain('has no associated label')
+        ->and($contract->inspectFragment('<button><span hidden>Ignored</span></button>'))
+        ->toHaveCount(1)
+        ->and($contract->inspectFragment('<button><img hidden alt="Ignored"></button>'))
+        ->toHaveCount(1)
+        ->and($contract->inspectFragment('<button><svg aria-hidden="true"><title>Ignored</title></svg></button>'))
+        ->toHaveCount(1);
+});
+
+it('uses the first recognised concrete role token and rejects abstract roles', function (): void {
+    $contract = new PublicAccessibilityContract;
+
+    expect($contract->inspectFragment('<div role="future-button button" aria-label="Apply"></div>'))
+        ->toBe([])
+        ->and($contract->inspectFragment('<div role="presentation button"></div>'))
+        ->toBe([])
+        ->and(implode("\n", $contract->inspectFragment('<div role="widget"></div>')))
+        ->toContain('abstract ARIA role "widget"')
+        ->and($contract->inspectFragment('<div role="future-button"></div>'))
+        ->toHaveCount(1);
+});
+
+it('normalizes ARIA values and ignores disabled, hidden, and inert controls in focusability checks', function (): void {
+    $contract = new PublicAccessibilityContract;
+
+    expect($contract->inspectFragment('<button aria-expanded=" TRUE ">Menu</button>'))
+        ->toBe([])
+        ->and(implode("\n", $contract->inspectFragment('<button aria-expanded="sometimes">Menu</button>')))
+        ->toContain('invalid aria-expanded="sometimes"')
+        ->and($contract->inspectFragment('<div aria-hidden=" TRUE "><button disabled>Hidden</button></div>'))
+        ->toBe([])
+        ->and($contract->inspectFragment('<div aria-hidden="true"><div inert><a href="/x">Hidden</a></div></div>'))
+        ->toBe([])
+        ->and($contract->inspectFragment('<div aria-hidden="true"><fieldset disabled><button>Hidden</button></fieldset></div>'))
+        ->toBe([]);
+});
+
 it('resolves ARIA id references containing an apostrophe without breaking the XPath lookup', function (): void {
     $document = <<<'HTML'
     <!DOCTYPE html>
