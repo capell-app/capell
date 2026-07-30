@@ -33,6 +33,17 @@ it('preserves absolute http and https urls', function (): void {
         ->toContain('import("https://cdn.example.test/app.js")');
 });
 
+it('preserves sibling code elements without detaching their parent', function (): void {
+    $html = '<p><code>capell:install</code>, <code>capell:upgrade</code> and <code>capell:doctor</code></p>';
+
+    $minified = (new HtmlMinifier)->minify($html);
+
+    expect($minified)
+        ->toContain('<code>capell:install</code>')
+        ->toContain('<code>capell:upgrade</code>')
+        ->toContain('<code>capell:doctor</code>');
+});
+
 it('preserves alpine expression line breaks inside attributes', function (): void {
     $html = <<<'HTML'
         <section

@@ -205,7 +205,7 @@
         "symplify/monorepo-builder": "^10.3.3",
         "tanmuhittin/laravel-google-translate": "^2.4",
         "torann/geoip": "^3.0",
-        "voku/html-min": "^4.5"
+        "voku/html-min": "^5.0"
     },
     "conflict": {
         "firebase/php-jwt": "<7.0.0"
