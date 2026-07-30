@@ -110,11 +110,19 @@ function queueContractSourceFiles(string $rootPath): array
     $sourceFiles = [];
 
     foreach ($iterator as $fileInfo) {
-        if (! $fileInfo instanceof SplFileInfo || ! $fileInfo->isFile()) {
+        if (! $fileInfo instanceof SplFileInfo) {
             continue;
         }
 
-        if ($fileInfo->getExtension() !== 'php' || str_ends_with($fileInfo->getFilename(), '.blade.php')) {
+        if (! $fileInfo->isFile()) {
+            continue;
+        }
+
+        if ($fileInfo->getExtension() !== 'php') {
+            continue;
+        }
+
+        if (str_ends_with($fileInfo->getFilename(), '.blade.php')) {
             continue;
         }
 
@@ -270,7 +278,7 @@ function queueContractViolations(string $repositoryRoot, string $rootPath): arra
             $failures['QUEUE003'] = 'has no failed() handler, so exhausted attempts leave no operational trace';
         }
 
-        if ($isListener && ! ($declarations['hasUniqueContract'] && $declarations['hasUniqueId']) && ! $declarations['hasWithoutOverlapping'] && ! $declarations['hasUpstreamDebounce']) {
+        if ($isListener && (! $declarations['hasUniqueContract'] || ! $declarations['hasUniqueId']) && ! $declarations['hasWithoutOverlapping'] && ! $declarations['hasUpstreamDebounce']) {
             $failures['QUEUE004'] = 'is a queued listener with no dedupe, so a bulk edit multiplies identical jobs';
         }
 

@@ -98,8 +98,8 @@ it('throws a dedicated exception for strict table probes without repeating a mem
 
     try {
         $state->hasTableOrFail('capell_extensions');
-    } catch (SchemaProbeFailedException $exception) {
-        expect($exception->getPrevious())->toBe($probeFailure);
+    } catch (SchemaProbeFailedException $schemaProbeFailedException) {
+        expect($schemaProbeFailedException->getPrevious())->toBe($probeFailure);
     }
 });
 
@@ -115,10 +115,10 @@ it('throws a dedicated exception for strict column probes', function (): void {
 
     try {
         $state->hasColumnOrFail('layouts', 'containers');
-    } catch (SchemaProbeFailedException $exception) {
-        expect($exception->getMessage())
+    } catch (SchemaProbeFailedException $schemaProbeFailedException) {
+        expect($schemaProbeFailedException->getMessage())
             ->toBe('Unable to determine whether database column [layouts.containers] exists.')
-            ->and($exception->getPrevious())->toBe($probeFailure);
+            ->and($schemaProbeFailedException->getPrevious())->toBe($probeFailure);
 
         return;
     }

@@ -113,3 +113,37 @@ it('enforces exact queue declarations and real listener overlap protection', fun
         deleteContractGateFixture($root);
     }
 });
+
+it('accepts returned overlap middleware and independently rejects a malformed listener failure callback', function (): void {
+    $root = contractGateFixture();
+
+    try {
+        $listenerPath = $root . '/packages/fixture/src/Listeners/ProtectedListener.php';
+        $protectedListener = <<<'PHP'
+        <?php
+        final class ProtectedListener implements ShouldQueue {
+            public int $tries = 2;
+            public int $backoff = 5;
+            public function middleware(): array { return [new WithoutOverlapping('fixture')]; }
+            public function failed(object $event, ?Throwable $exception): void {}
+        }
+        PHP;
+        file_put_contents($listenerPath, $protectedListener);
+
+        expect(runContractGate($root, PHP_BINARY, 'scripts/check-queue-contract.php', '--update')->isSuccessful())->toBeTrue();
+        $baseline = json_decode((string) file_get_contents($root . '/scripts/queue-contract-baseline.json'), true, 512, JSON_THROW_ON_ERROR);
+        expect($baseline['violations'])->toBe([]);
+
+        file_put_contents(
+            $listenerPath,
+            str_replace('?Throwable $exception', 'Throwable $exception', $protectedListener),
+        );
+        $check = runContractGate($root, PHP_BINARY, 'scripts/check-queue-contract.php', '--format=json');
+        $report = json_decode($check->getOutput(), true, 512, JSON_THROW_ON_ERROR);
+
+        expect($check->getExitCode())->toBe(2)
+            ->and(array_column($report['new'], 'rule'))->toBe(['QUEUE003']);
+    } finally {
+        deleteContractGateFixture($root);
+    }
+});
