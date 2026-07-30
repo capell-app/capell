@@ -142,12 +142,13 @@ function languageKeyAuditReport(string $repositoryRoot, string $root): array
  * Flatten the audit report into stable, comparable finding identifiers.
  *
  * @param  array<string, mixed>  $report
- * @return array{unused: list<string>, missing: list<string>}
+ * @return array{unused: list<string>, missing: list<string>, dynamicSites: list<string>, dynamicFamilies: list<string>}
  */
 function languageKeyFindings(array $report): array
 {
     $unusedKeys = [];
     $missingKeys = [];
+    $dynamicSites = [];
 
     foreach ($report['unused'] as $entry) {
         if (is_array($entry) && is_string($entry['key'] ?? null)) {
@@ -161,24 +162,36 @@ function languageKeyFindings(array $report): array
         }
     }
 
+    foreach ($report['dynamic'] ?? [] as $entry) {
+        if (is_array($entry) && is_string($entry['id'] ?? null)) {
+            $dynamicSites[] = $entry['id'];
+        }
+    }
+
+    $dynamicFamilies = array_values(array_filter($report['dynamic_families'] ?? [], is_string(...)));
+
     sort($unusedKeys);
     sort($missingKeys);
+    sort($dynamicSites);
+    sort($dynamicFamilies);
 
     return [
         'unused' => array_values(array_unique($unusedKeys)),
         'missing' => array_values(array_unique($missingKeys)),
+        'dynamicSites' => array_values(array_unique($dynamicSites)),
+        'dynamicFamilies' => array_values(array_unique($dynamicFamilies)),
     ];
 }
 
 /**
  * Read the recorded translation-key debt baseline.
  *
- * @return array{unused: list<string>, missing: list<string>}
+ * @return array{unused: list<string>, missing: list<string>, dynamicSites: list<string>, dynamicFamilies: list<string>}
  */
 function languageKeyBaseline(string $baselinePath): array
 {
     if (! is_file($baselinePath)) {
-        return ['unused' => [], 'missing' => []];
+        return ['unused' => [], 'missing' => [], 'dynamicSites' => [], 'dynamicFamilies' => []];
     }
 
     $baselineContents = file_get_contents($baselinePath);
@@ -200,6 +213,8 @@ function languageKeyBaseline(string $baselinePath): array
     return [
         'unused' => array_values(array_filter($baseline['unused'], is_string(...))),
         'missing' => array_values(array_filter($baseline['missing'], is_string(...))),
+        'dynamicSites' => array_values(array_filter($baseline['dynamicSites'] ?? [], is_string(...))),
+        'dynamicFamilies' => array_values(array_filter($baseline['dynamicFamilies'] ?? [], is_string(...))),
     ];
 }
 
@@ -240,6 +255,10 @@ if ($options['update']) {
         'missingCount' => count($findings['missing']),
         'unused' => $findings['unused'],
         'missing' => $findings['missing'],
+        'dynamicSiteCount' => count($findings['dynamicSites']),
+        'dynamicFamilyCount' => count($findings['dynamicFamilies']),
+        'dynamicSites' => $findings['dynamicSites'],
+        'dynamicFamilies' => $findings['dynamicFamilies'],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 
     if ($written === false) {
@@ -263,6 +282,10 @@ $newUnused = array_values(array_diff($findings['unused'], $baseline['unused']));
 $newMissing = array_values(array_diff($findings['missing'], $baseline['missing']));
 $fixedUnused = array_values(array_diff($baseline['unused'], $findings['unused']));
 $fixedMissing = array_values(array_diff($baseline['missing'], $findings['missing']));
+$newDynamicSites = array_values(array_diff($findings['dynamicSites'], $baseline['dynamicSites']));
+$newDynamicFamilies = array_values(array_diff($findings['dynamicFamilies'], $baseline['dynamicFamilies']));
+$fixedDynamicSites = array_values(array_diff($baseline['dynamicSites'], $findings['dynamicSites']));
+$fixedDynamicFamilies = array_values(array_diff($baseline['dynamicFamilies'], $findings['dynamicFamilies']));
 
 if ($options['format'] === 'json') {
     echo json_encode([
@@ -277,6 +300,10 @@ if ($options['format'] === 'json') {
         'new_missing' => $newMissing,
         'fixed_unused' => count($fixedUnused),
         'fixed_missing' => count($fixedMissing),
+        'new_dynamic_sites' => $newDynamicSites,
+        'new_dynamic_families' => $newDynamicFamilies,
+        'fixed_dynamic_sites' => count($fixedDynamicSites),
+        'fixed_dynamic_families' => count($fixedDynamicFamilies),
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
 } else {
     printf(
@@ -312,13 +339,17 @@ if ($newUnused !== []) {
     );
 }
 
-if ($newMissing !== [] || $newUnused !== []) {
+if ($newDynamicSites !== [] || $newDynamicFamilies !== []) {
+    languageKeyReportSection('New dynamic translation sites', array_merge($newDynamicSites, $newDynamicFamilies), 'Validate the family or make the translation key static.');
+}
+
+if ($newMissing !== [] || $newUnused !== [] || $newDynamicSites !== [] || $newDynamicFamilies !== []) {
     fwrite(STDERR, "\nDo not run --update to absorb new drift. Fix the key, then re-run this check.\n");
 
     exit(2);
 }
 
-if ($fixedUnused !== [] || $fixedMissing !== []) {
+if ($fixedUnused !== [] || $fixedMissing !== [] || $fixedDynamicSites !== [] || $fixedDynamicFamilies !== []) {
     printf(
         '%sBaseline entries that no longer appear: %d unused, %d missing.%sShrink the baseline with: composer check:lang-keys -- --update%s',
         PHP_EOL,

@@ -50,6 +50,12 @@ Every in-scope class implements:
 public function failed(?Throwable $exception): void
 ```
 
+Queued listeners use Laravel's listener callback shape instead:
+
+```php
+public function failed(EventType $event, ?Throwable $exception): void
+```
+
 Without it, exhausting the retry budget writes a row to `failed_jobs` and nothing else. The handler owns the operational consequence of permanent failure: marking the domain record failed, releasing a lock or claim, emitting the structured log, and notifying whoever is waiting. It must be safe to run when the job never started successfully, so it may not assume any partial state.
 
 `packages/marketplace/src/Jobs/RunMarketplaceInstallAttemptJob.php` is the reference: it records the terminal state against the install operation so the dashboard shows a failed install rather than an install that appears to still be running.
@@ -63,6 +69,14 @@ A queued listener that reacts to a model lifecycle event fires **once per saved 
 - implement `Illuminate\Contracts\Queue\ShouldBeUnique` **and** a `uniqueId(): string` keyed on the smallest unit of work that is actually distinct — normally the site, not the model; or
 - apply `Illuminate\Queue\Middleware\WithoutOverlapping` through `middleware()`; or
 - debounce upstream so the listener enqueues one coalesced job instead of one job per save.
+
+The upstream-debounce form must be declared on the listener with a concrete reason so the gate can distinguish it from an unprotected listener:
+
+```php
+/**
+ * @queue-contract-upstream-debounce Requests are coalesced by RequestSiteSitemapRegenerationAction before regeneration is dispatched.
+ */
+```
 
 `ShouldBeUnique` without `uniqueId()` is not a declaration: Laravel then keys uniqueness on the serialized class and its properties, which is exactly the per-model granularity that caused the problem.
 
@@ -117,7 +131,7 @@ Both repositories ship `scripts/check-queue-contract.php`:
 
 In the packages repository, prefix these with `COMPOSER=composer.local.json`.
 
-The gate runs in the full preflight stage list of both repositories.
+The gate runs in the quick and full preflight stage lists of both repositories.
 
 ### The baseline is a debt ledger
 

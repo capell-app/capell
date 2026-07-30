@@ -21,7 +21,7 @@ declare(strict_types=1);
 
 /** @var array<string, string> $queueContractRules */
 $queueContractRules = [
-    'QUEUE001' => 'declare a retry budget: public int $tries (2 or more, or 0 for unlimited), tries(), or retryUntil()',
+    'QUEUE001' => 'declare a retry budget: public int $tries (2 or more, or 0 with a reason), tries(), or retryUntil()',
     'QUEUE002' => 'pair a retry budget above one attempt with $backoff, backoff(), or retryUntil()',
     'QUEUE003' => 'implement failed(?Throwable $exception): void so exhausted attempts are observable',
     'QUEUE004' => 'queued listeners fire per model save, so implement ShouldBeUnique with uniqueId(), or apply WithoutOverlapping',
@@ -167,28 +167,35 @@ function queueContractExemptions(string $contents): array
 /**
  * Describe the reliability knobs a queued class declares.
  *
- * @return array{tries: ?int, hasTriesMethod: bool, hasBackoff: bool, hasRetryUntil: bool, hasFailed: bool, hasTimeout: bool, hasUniqueContract: bool, hasUniqueId: bool, hasWithoutOverlapping: bool, callsExternalService: bool}
+ * @return array{tries: ?int, unlimitedTriesHasReason: bool, hasTriesMethod: bool, hasBackoff: bool, hasRetryUntil: bool, hasFailed: bool, hasTimeout: bool, hasUniqueContract: bool, hasUniqueId: bool, hasWithoutOverlapping: bool, hasUpstreamDebounce: bool, callsExternalService: bool}
  */
-function queueContractDeclarations(string $contents): array
+function queueContractDeclarations(string $contents, bool $isListener): array
 {
     $triesLiteral = null;
 
-    if (preg_match('/(?:public|protected)\s+(?:\??int\s+)?\$tries\s*=\s*(\d+)\s*;/', $contents, $triesMatch) === 1) {
+    if (preg_match('/public\s+int\s+\$tries\s*=\s*(\d+)\s*;/', $contents, $triesMatch) === 1) {
         $triesLiteral = (int) $triesMatch[1];
     }
 
     return [
         'tries' => $triesLiteral,
-        'hasTriesMethod' => preg_match('/function\s+tries\s*\(/', $contents) === 1,
-        'hasBackoff' => preg_match('/(?:public|protected)\s+(?:\??(?:int|array)\s+)?\$backoff\s*=/', $contents) === 1
-            || preg_match('/function\s+backoff\s*\(/', $contents) === 1,
-        'hasRetryUntil' => preg_match('/function\s+retryUntil\s*\(/', $contents) === 1,
-        'hasFailed' => preg_match('/function\s+failed\s*\(/', $contents) === 1,
-        'hasTimeout' => preg_match('/(?:public|protected)\s+(?:\??int\s+)?\$timeout\s*=/', $contents) === 1
-            || preg_match('/function\s+timeout\s*\(/', $contents) === 1,
+        'unlimitedTriesHasReason' => $triesLiteral !== 0
+            || preg_match('/\/\*\*[\s\S]*?(?:unlimited|deadline|retryUntil|operator)[\s\S]*?\*\/\s*public\s+int\s+\$tries\s*=\s*0\s*;/i', $contents) === 1,
+        'hasTriesMethod' => preg_match('/public\s+function\s+tries\s*\([^)]*\)\s*:\s*int\b/', $contents) === 1,
+        'hasBackoff' => preg_match('/public\s+(?:int|array)\s+\$backoff\s*=/', $contents) === 1
+            || preg_match('/public\s+function\s+backoff\s*\([^)]*\)\s*:\s*(?:int|array)\b/', $contents) === 1,
+        'hasRetryUntil' => preg_match('/public\s+function\s+retryUntil\s*\([^)]*\)\s*:\s*(?:\\\\?DateTimeInterface|\\\\?DateTimeImmutable|\\\\?Carbon(?:Immutable)?)\b/', $contents) === 1,
+        'hasFailed' => preg_match(
+            $isListener
+                ? '/public\s+function\s+failed\s*\([^,]+,\s*\?\\\\?Throwable\s+\$\w+\s*\)\s*:\s*void\b/'
+                : '/public\s+function\s+failed\s*\(\s*\?\\\\?Throwable\s+\$\w+\s*\)\s*:\s*void\b/',
+            $contents,
+        ) === 1,
+        'hasTimeout' => preg_match('/public\s+int\s+\$timeout\s*=/', $contents) === 1,
         'hasUniqueContract' => preg_match('/\bimplements\b[^{]*?\bShouldBeUnique\b/s', $contents) === 1,
-        'hasUniqueId' => preg_match('/function\s+uniqueId\s*\(/', $contents) === 1,
-        'hasWithoutOverlapping' => str_contains($contents, 'WithoutOverlapping'),
+        'hasUniqueId' => preg_match('/public\s+function\s+uniqueId\s*\([^)]*\)\s*:\s*string\b/', $contents) === 1,
+        'hasWithoutOverlapping' => preg_match('/public\s+function\s+middleware\s*\([^)]*\)\s*:\s*array\b[\s\S]*?return\s*\[[^\]]*new\s+WithoutOverlapping\s*\(/', $contents) === 1,
+        'hasUpstreamDebounce' => preg_match('/@queue-contract-upstream-debounce\s+\S.*$/m', $contents) === 1,
         'callsExternalService' => preg_match(
             '/(?:\bHttp::|\bProcess::|\bproc_open\s*\(|\bshell_exec\s*\(|\bcurl_init\s*\(|\bfile_get_contents\s*\(\s*[\'"]https?:)/',
             $contents,
@@ -237,14 +244,14 @@ function queueContractViolations(string $repositoryRoot, string $rootPath): arra
         }
 
         $scannedClasses++;
-        $declarations = queueContractDeclarations($contents);
-        $exemptions = queueContractExemptions($contents);
         $isListener = str_contains('/' . $normalisedPath, '/src/Listeners/');
+        $declarations = queueContractDeclarations($contents, $isListener);
+        $exemptions = queueContractExemptions($contents);
         $failures = [];
 
         $hasRetryBudget = $declarations['hasTriesMethod']
             || $declarations['hasRetryUntil']
-            || ($declarations['tries'] !== null && $declarations['tries'] !== 1);
+            || ($declarations['tries'] !== null && $declarations['tries'] !== 1 && $declarations['unlimitedTriesHasReason']);
 
         if (! $hasRetryBudget) {
             $failures['QUEUE001'] = $declarations['tries'] === 1
@@ -263,7 +270,7 @@ function queueContractViolations(string $repositoryRoot, string $rootPath): arra
             $failures['QUEUE003'] = 'has no failed() handler, so exhausted attempts leave no operational trace';
         }
 
-        if ($isListener && ! ($declarations['hasUniqueContract'] && $declarations['hasUniqueId']) && ! $declarations['hasWithoutOverlapping']) {
+        if ($isListener && ! ($declarations['hasUniqueContract'] && $declarations['hasUniqueId']) && ! $declarations['hasWithoutOverlapping'] && ! $declarations['hasUpstreamDebounce']) {
             $failures['QUEUE004'] = 'is a queued listener with no dedupe, so a bulk edit multiplies identical jobs';
         }
 

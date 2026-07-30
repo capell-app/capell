@@ -193,12 +193,14 @@ function definedTranslations(string $basePath, array $rootPaths): array
 }
 
 /**
- * @return array{static: array<string, list<string>>, dynamic: list<array{file: string, line: int, text: string}>}
+ * @param array<string, array{file: string, value: string}> $definitions
+ * @return array{static: array<string, list<string>>, dynamic: list<array{id: string, file: string, line: int, text: string, family: ?string, validated: bool}>, families: list<string>}
  */
-function usedTranslations(string $basePath, array $rootPaths): array
+function usedTranslations(string $basePath, array $rootPaths, array $definitions): array
 {
     $static = [];
     $dynamic = [];
+    $families = [];
     $callPattern = <<<'REGEX'
 ~(?:
     (?<![A-Za-z0-9_])__\s*\(
@@ -242,10 +244,48 @@ REGEX;
 
             foreach (preg_split('/\R/', $contents) ?: [] as $lineNumber => $line) {
                 if (str_contains($line, 'capell-') && preg_match($dynamicPattern, $line)) {
+                    $family = null;
+                    $validated = false;
+
+                    if (preg_match('/[\'"](?<template>capell-[a-z0-9-]+::[A-Za-z0-9_.-]*%s[A-Za-z0-9_.-]*)[\'"]/', $line, $familyMatch) === 1) {
+                        [$prefix, $suffix] = explode('%s', $familyMatch['template'], 2);
+                        $family = $prefix . '*' . $suffix;
+                        $matchingKeys = array_values(array_filter(
+                            array_keys($definitions),
+                            static fn (string $key): bool => str_starts_with($key, $prefix) && str_ends_with($key, $suffix),
+                        ));
+                        $validated = $matchingKeys !== [];
+
+                        if ($validated) {
+                            $families[$family] = true;
+
+                            foreach ($matchingKeys as $matchingKey) {
+                                $static[$matchingKey][] = $relativePath;
+                            }
+                        }
+                    }
+
+                    $literalKeys = [];
+                    if (preg_match_all('/[\'"](?<key>capell-[a-z0-9-]+::[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)[\'"]/', $line, $literalMatches) > 0) {
+                        $literalKeys = array_values(array_unique($literalMatches['key']));
+
+                        foreach ($literalKeys as $literalKey) {
+                            $static[$literalKey][] = $relativePath;
+                        }
+                    }
+
+                    $normalisedExpression = preg_replace('/\s+/', ' ', trim($line)) ?? trim($line);
+                    $siteKind = $family !== null
+                        ? 'family:' . $family
+                        : ($literalKeys !== [] ? 'choices:' . implode('|', $literalKeys) : 'expression:' . hash('sha256', $normalisedExpression));
+
                     $dynamic[] = [
+                        'id' => $relativePath . '::' . $siteKind,
                         'file' => $relativePath,
                         'line' => $lineNumber + 1,
                         'text' => trim($line),
+                        'family' => $family,
+                        'validated' => $validated,
                     ];
                 }
             }
@@ -253,15 +293,18 @@ REGEX;
     }
 
     ksort($static);
+    usort($dynamic, static fn (array $first, array $second): int => strcmp($first['id'], $second['id']));
+    ksort($families);
 
     return [
         'static' => $static,
         'dynamic' => $dynamic,
+        'families' => array_keys($families),
     ];
 }
 
 $definitions = definedTranslations($basePath, $rootPaths);
-$usage = usedTranslations($basePath, $rootPaths);
+$usage = usedTranslations($basePath, $rootPaths, $definitions);
 $usedKeys = array_keys($usage['static']);
 
 $unused = array_values(array_diff(array_keys($definitions), $usedKeys));
@@ -276,6 +319,7 @@ $report = [
     'unused_count' => count($unused),
     'missing_count' => count($missing),
     'dynamic_count' => count($usage['dynamic']),
+    'dynamic_family_count' => count($usage['families']),
     'roots' => array_values($roots),
     'unused' => array_map(static fn (string $key): array => [
         'key' => $key,
@@ -286,6 +330,7 @@ $report = [
         'used_in' => array_values(array_unique($usage['static'][$key] ?? [])),
     ], $missing),
     'dynamic' => $usage['dynamic'],
+    'dynamic_families' => $usage['families'],
 ];
 
 if ($format === 'json') {
