@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Marketplace;
 
 use Capell\Core\Data\Marketplace\ExtensionHealthReportData;
+use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Foundation\Application;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Throwable;
 
 final class BuildExtensionHealthReportAction
 {
@@ -22,6 +22,8 @@ final class BuildExtensionHealthReportAction
      */
     public function handle(string $source, ?string $instanceId = null, ?string $webhookUrl = null): array
     {
+        $extensionsTableResult = $this->extensionsTableResult();
+
         return new ExtensionHealthReportData(
             installId: $instanceId,
             appUrl: $this->configuredString('app.url'),
@@ -30,10 +32,13 @@ final class BuildExtensionHealthReportAction
             phpVersion: PHP_VERSION,
             environment: $this->configuredString('app.env'),
             generatedAt: now()->toIso8601String(),
-            extensions: $this->extensions(),
+            extensions: $this->extensions($extensionsTableResult),
             metadata: array_filter([
                 'source' => $source,
                 'webhook_url' => $webhookUrl,
+                'extensions_schema_probe' => $extensionsTableResult === SchemaProbeResult::Failed
+                    ? SchemaProbeResult::Failed->value
+                    : null,
             ], fn (mixed $value): bool => $value !== null),
         )->toArray();
     }
@@ -55,9 +60,9 @@ final class BuildExtensionHealthReportAction
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function extensions(): array
+    private function extensions(SchemaProbeResult $tableResult): array
     {
-        if (! app()->bound('db') || ! $this->extensionsTableExists()) {
+        if (! app()->bound('db') || ! $tableResult->exists()) {
             return [];
         }
 
@@ -79,12 +84,12 @@ final class BuildExtensionHealthReportAction
             ->all();
     }
 
-    private function extensionsTableExists(): bool
+    private function extensionsTableResult(): SchemaProbeResult
     {
-        try {
-            return resolve(RuntimeSchemaState::class)->hasTable('capell_extensions');
-        } catch (Throwable) {
-            return false;
+        if (! app()->bound('db')) {
+            return SchemaProbeResult::Absent;
         }
+
+        return resolve(RuntimeSchemaState::class)->tableResult('capell_extensions');
     }
 }

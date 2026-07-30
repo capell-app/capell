@@ -27,6 +27,8 @@ return [
     'database_cache_table' => 'Database cache table',
     'database_cache_table_exists' => 'The :table table exists for CACHE_STORE=database.',
     'database_cache_table_missing' => 'CACHE_STORE=database is configured but the :table table does not exist.',
+    'database_table_probe_failed' => 'Capell could not verify whether the :table table exists because the database schema probe failed.',
+    'database_table_probe_failed_remediation' => 'Restore database connectivity, then rerun this diagnostic.',
     'database_cache_table_not_required' => 'CACHE_STORE=:store does not require a database cache table.',
     'database_cache_table_remediation' => 'Run php artisan cache:table && php artisan migrate, or switch CACHE_STORE to a configured Redis/file cache store.',
     'debug_mode' => 'Debug mode',
