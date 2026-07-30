@@ -173,15 +173,80 @@ function queueContractExemptions(string $contents): array
 }
 
 /**
+ * Remove comments and string literals while preserving executable PHP tokens.
+ */
+function queueContractCodeOnly(string $contents): string
+{
+    $code = '';
+
+    foreach (token_get_all($contents) as $token) {
+        if (is_string($token)) {
+            $code .= $token;
+
+            continue;
+        }
+
+        [$id, $text] = $token;
+        $code .= in_array($id, [T_COMMENT, T_DOC_COMMENT, T_CONSTANT_ENCAPSED_STRING], true)
+            ? str_repeat(' ', strlen($text))
+            : $text;
+    }
+
+    return $code;
+}
+
+function queueContractCallsExternalService(string $contents, string $code): bool
+{
+    if (preg_match('/(?:\bHttp::|\bProcess::|\bproc_open\s*\(|\bshell_exec\s*\(|\bcurl_init\s*\()/', $code) === 1) {
+        return true;
+    }
+
+    $tokens = token_get_all($contents);
+
+    foreach ($tokens as $index => $token) {
+        if (! is_array($token)) {
+            continue;
+        }
+
+        if ($token[0] !== T_STRING) {
+            continue;
+        }
+
+        if (strtolower($token[1]) !== 'file_get_contents') {
+            continue;
+        }
+
+        for ($cursor = $index + 1, $count = count($tokens); $cursor < $count; $cursor++) {
+            $candidate = $tokens[$cursor];
+
+            if (is_array($candidate) && in_array($candidate[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            if (is_array($candidate) && $candidate[0] === T_CONSTANT_ENCAPSED_STRING) {
+                return preg_match('/^[\'"]https?:/i', $candidate[1]) === 1;
+            }
+
+            if ($candidate !== '(') {
+                break;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
  * Describe the reliability knobs a queued class declares.
  *
  * @return array{tries: ?int, unlimitedTriesHasReason: bool, hasTriesMethod: bool, hasBackoff: bool, hasRetryUntil: bool, hasFailed: bool, hasTimeout: bool, hasUniqueContract: bool, hasUniqueId: bool, hasWithoutOverlapping: bool, hasUpstreamDebounce: bool, callsExternalService: bool}
  */
 function queueContractDeclarations(string $contents, bool $isListener): array
 {
+    $code = queueContractCodeOnly($contents);
     $triesLiteral = null;
 
-    if (preg_match('/public\s+int\s+\$tries\s*=\s*(\d+)\s*;/', $contents, $triesMatch) === 1) {
+    if (preg_match('/public\s+int\s+\$tries\s*=\s*(\d+)\s*;/', $code, $triesMatch) === 1) {
         $triesLiteral = (int) $triesMatch[1];
     }
 
@@ -189,25 +254,22 @@ function queueContractDeclarations(string $contents, bool $isListener): array
         'tries' => $triesLiteral,
         'unlimitedTriesHasReason' => $triesLiteral !== 0
             || preg_match('/\/\*\*[\s\S]*?(?:unlimited|deadline|retryUntil|operator)[\s\S]*?\*\/\s*public\s+int\s+\$tries\s*=\s*0\s*;/i', $contents) === 1,
-        'hasTriesMethod' => preg_match('/public\s+function\s+tries\s*\([^)]*\)\s*:\s*int\b/', $contents) === 1,
-        'hasBackoff' => preg_match('/public\s+(?:int|array)\s+\$backoff\s*=/', $contents) === 1
-            || preg_match('/public\s+function\s+backoff\s*\([^)]*\)\s*:\s*(?:int|array)\b/', $contents) === 1,
-        'hasRetryUntil' => preg_match('/public\s+function\s+retryUntil\s*\([^)]*\)\s*:\s*(?:\\\\?DateTimeInterface|\\\\?DateTimeImmutable|\\\\?Carbon(?:Immutable)?)\b/', $contents) === 1,
+        'hasTriesMethod' => preg_match('/public\s+function\s+tries\s*\([^)]*\)\s*:\s*int\b/', $code) === 1,
+        'hasBackoff' => preg_match('/public\s+(?:int|array)\s+\$backoff\s*=/', $code) === 1
+            || preg_match('/public\s+function\s+backoff\s*\([^)]*\)\s*:\s*(?:int|array)\b/', $code) === 1,
+        'hasRetryUntil' => preg_match('/public\s+function\s+retryUntil\s*\([^)]*\)\s*:\s*(?:\\\\?DateTimeInterface|\\\\?DateTimeImmutable|\\\\?Carbon(?:Immutable)?)\b/', $code) === 1,
         'hasFailed' => preg_match(
             $isListener
                 ? '/public\s+function\s+failed\s*\([^,]+,\s*\?\\\\?Throwable\s+\$\w+\s*\)\s*:\s*void\b/'
                 : '/public\s+function\s+failed\s*\(\s*\?\\\\?Throwable\s+\$\w+\s*\)\s*:\s*void\b/',
-            $contents,
+            $code,
         ) === 1,
-        'hasTimeout' => preg_match('/public\s+int\s+\$timeout\s*=/', $contents) === 1,
-        'hasUniqueContract' => preg_match('/\bimplements\b[^{]*?\bShouldBeUnique\b/s', $contents) === 1,
-        'hasUniqueId' => preg_match('/public\s+function\s+uniqueId\s*\([^)]*\)\s*:\s*string\b/', $contents) === 1,
-        'hasWithoutOverlapping' => preg_match('/public\s+function\s+middleware\s*\([^)]*\)\s*:\s*array\b[\s\S]*?return\s*\[[^\]]*new\s+WithoutOverlapping\s*\(/', $contents) === 1,
+        'hasTimeout' => preg_match('/public\s+int\s+\$timeout\s*=/', $code) === 1,
+        'hasUniqueContract' => preg_match('/\bimplements\b[^{]*?\bShouldBeUnique\b/s', $code) === 1,
+        'hasUniqueId' => preg_match('/public\s+function\s+uniqueId\s*\([^)]*\)\s*:\s*string\b/', $code) === 1,
+        'hasWithoutOverlapping' => preg_match('/public\s+function\s+middleware\s*\([^)]*\)\s*:\s*array\b[\s\S]*?return\s*\[[^\]]*new\s+WithoutOverlapping\s*\(/', $code) === 1,
         'hasUpstreamDebounce' => preg_match('/@queue-contract-upstream-debounce\s+\S.*$/m', $contents) === 1,
-        'callsExternalService' => preg_match(
-            '/(?:\bHttp::|\bProcess::|\bproc_open\s*\(|\bshell_exec\s*\(|\bcurl_init\s*\(|\bfile_get_contents\s*\(\s*[\'"]https?:)/',
-            $contents,
-        ) === 1,
+        'callsExternalService' => queueContractCallsExternalService($contents, $code),
     ];
 }
 
@@ -231,15 +293,17 @@ function queueContractViolations(string $repositoryRoot, string $rootPath): arra
             exit(1);
         }
 
-        if (! str_contains($contents, 'ShouldQueue')) {
+        $code = queueContractCodeOnly($contents);
+
+        if (! str_contains($code, 'ShouldQueue')) {
             continue;
         }
 
-        if (preg_match('/\b(?:final\s+|abstract\s+|readonly\s+)*class\s+(\w+)[^{]*?\bimplements\b[^{]*?\bShouldQueue\b/s', $contents, $classMatch) !== 1) {
+        if (preg_match('/\b(?:final\s+|abstract\s+|readonly\s+)*class\s+(\w+)[^{]*?\bimplements\b[^{]*?\bShouldQueue\b/s', $code, $classMatch) !== 1) {
             continue;
         }
 
-        if (preg_match('/\babstract\s+class\s+\w+/', $contents) === 1) {
+        if (preg_match('/\babstract\s+class\s+\w+/', $code) === 1) {
             continue; // The concrete subclass owns the reliability contract.
         }
 

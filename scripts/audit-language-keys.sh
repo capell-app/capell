@@ -193,6 +193,65 @@ function definedTranslations(string $basePath, array $rootPaths): array
 }
 
 /**
+ * @return list<array{offset: int, line: int, text: string}>
+ */
+function dynamicTranslationCallSpans(string $contents, string $pattern): array
+{
+    if (preg_match_all($pattern, $contents, $matches, PREG_OFFSET_CAPTURE) === 0) {
+        return [];
+    }
+
+    $spans = [];
+
+    foreach ($matches[0] as [$matchedCall, $offset]) {
+        $open = strpos($contents, '(', $offset);
+
+        if ($open === false) {
+            continue;
+        }
+
+        $depth = 0;
+        $quote = null;
+        $escaped = false;
+        $end = strlen($contents);
+
+        for ($cursor = $open; $cursor < strlen($contents); $cursor++) {
+            $character = $contents[$cursor];
+
+            if ($quote !== null) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($character === '\\') {
+                    $escaped = true;
+                } elseif ($character === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+
+            if ($character === "'" || $character === '"') {
+                $quote = $character;
+            } elseif ($character === '(') {
+                $depth++;
+            } elseif ($character === ')' && --$depth === 0) {
+                $end = $cursor + 1;
+
+                break;
+            }
+        }
+
+        $spans[] = [
+            'offset' => $offset,
+            'line' => substr_count(substr($contents, 0, $offset), "\n") + 1,
+            'text' => substr($contents, $offset, $end - $offset),
+        ];
+    }
+
+    return $spans;
+}
+
+/**
  * @param array<string, array{file: string, value: string}> $definitions
  * @return array{static: array<string, list<string>>, dynamic: list<array{id: string, file: string, line: int, text: string, family: ?string, validated: bool}>, families: list<string>}
  */
@@ -242,14 +301,23 @@ REGEX;
                 }
             }
 
-            foreach (preg_split('/\R/', $contents) ?: [] as $lineNumber => $line) {
-                if (str_contains($line, 'capell-') && preg_match($dynamicPattern, $line)) {
+            foreach (dynamicTranslationCallSpans($contents, $dynamicPattern) as $callSpan) {
+                $expression = $callSpan['text'];
+
+                if (str_contains($expression, 'capell-')) {
                     $family = null;
                     $validated = false;
 
-                    if (preg_match('/[\'"](?<template>capell-[a-z0-9-]+::[A-Za-z0-9_.-]*%s[A-Za-z0-9_.-]*)[\'"]/', $line, $familyMatch) === 1) {
+                    if (preg_match('/[\'"](?<template>capell-[a-z0-9-]+::[A-Za-z0-9_.-]*%s[A-Za-z0-9_.-]*)[\'"]/', $expression, $familyMatch) === 1) {
                         [$prefix, $suffix] = explode('%s', $familyMatch['template'], 2);
                         $family = $prefix . '*' . $suffix;
+                    } elseif (preg_match('/[\'"](?<prefix>capell-[a-z0-9-]+::[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.)[\'"]\s*\./', $expression, $familyMatch) === 1) {
+                        $prefix = $familyMatch['prefix'];
+                        $suffix = '';
+                        $family = $prefix . '*';
+                    }
+
+                    if ($family !== null) {
                         $matchingKeys = array_values(array_filter(
                             array_keys($definitions),
                             static fn (string $key): bool => str_starts_with($key, $prefix) && str_ends_with($key, $suffix),
@@ -266,7 +334,7 @@ REGEX;
                     }
 
                     $literalKeys = [];
-                    if (preg_match_all('/[\'"](?<key>capell-[a-z0-9-]+::[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)[\'"]/', $line, $literalMatches) > 0) {
+                    if (preg_match_all('/[\'"](?<key>capell-[a-z0-9-]+::[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)[\'"]/', $expression, $literalMatches) > 0) {
                         $literalKeys = array_values(array_unique($literalMatches['key']));
 
                         foreach ($literalKeys as $literalKey) {
@@ -274,7 +342,7 @@ REGEX;
                         }
                     }
 
-                    $normalisedExpression = preg_replace('/\s+/', ' ', trim($line)) ?? trim($line);
+                    $normalisedExpression = preg_replace('/\s+/', ' ', trim($expression)) ?? trim($expression);
                     $siteKind = $family !== null
                         ? 'family:' . $family
                         : ($literalKeys !== [] ? 'choices:' . implode('|', $literalKeys) : 'expression:' . hash('sha256', $normalisedExpression));
@@ -282,8 +350,8 @@ REGEX;
                     $dynamic[] = [
                         'id' => $relativePath . '::' . $siteKind,
                         'file' => $relativePath,
-                        'line' => $lineNumber + 1,
-                        'text' => trim($line),
+                        'line' => $callSpan['line'],
+                        'text' => $normalisedExpression,
                         'family' => $family,
                         'validated' => $validated,
                     ];

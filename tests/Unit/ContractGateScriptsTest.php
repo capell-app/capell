@@ -46,13 +46,26 @@ it('ratchets normalized dynamic translation sites and validated families', funct
 
     try {
         file_put_contents($root . '/packages/fixture/resources/lang/en/labels.php', "<?php\nreturn ['status' => ['active' => 'Active', 'inactive' => 'Inactive']];\n");
-        file_put_contents($root . '/packages/fixture/src/Status.php', "<?php\n__(sprintf('capell-fixture::labels.status.%s', \$status));\n");
+        file_put_contents($root . '/packages/fixture/src/Status.php', <<<'PHP'
+        <?php
+        __(
+            sprintf(
+                'capell-fixture::labels.status.%s',
+                $status,
+            ),
+        );
+        __(
+            'capell-fixture::labels.status.' .
+            $status,
+        );
+        PHP);
 
         $update = runContractGate($root, PHP_BINARY, 'scripts/check-language-key-drift.php', '--update');
         expect($update->isSuccessful())->toBeTrue();
 
         $baseline = json_decode((string) file_get_contents($root . '/scripts/language-keys-baseline.json'), true, 512, JSON_THROW_ON_ERROR);
         expect($baseline['unused'])->toBe([])
+            ->and($baseline['missing'])->toBe([])
             ->and($baseline['dynamicFamilies'])->toBe(['capell-fixture::labels.status.*'])
             ->and($baseline['dynamicSites'])->toHaveCount(1);
 
@@ -62,6 +75,28 @@ it('ratchets normalized dynamic translation sites and validated families', funct
         expect($check->getExitCode())->toBe(2);
         $report = json_decode($check->getOutput(), true, 512, JSON_THROW_ON_ERROR);
         expect($report['new_dynamic_sites'])->toHaveCount(1);
+    } finally {
+        deleteContractGateFixture($root);
+    }
+});
+
+it('ignores queue declaration and external-call decoys in comments and strings', function (): void {
+    $root = contractGateFixture();
+
+    try {
+        file_put_contents($root . '/packages/fixture/src/Listeners/DecoyListener.php', <<<'PHP'
+        <?php
+        final class DecoyListener implements ShouldQueue {
+            // public int $tries = 3; public int $backoff = 10; Http::get('https://example.test');
+            public string $description = 'public function failed(?Throwable $exception): void; new WithoutOverlapping("decoy");';
+        }
+        PHP);
+
+        $check = runContractGate($root, PHP_BINARY, 'scripts/check-queue-contract.php', '--format=json');
+        $report = json_decode($check->getOutput(), true, 512, JSON_THROW_ON_ERROR);
+
+        expect($check->getExitCode())->toBe(2)
+            ->and(array_column($report['new'], 'rule'))->toBe(['QUEUE001', 'QUEUE003', 'QUEUE004']);
     } finally {
         deleteContractGateFixture($root);
     }
