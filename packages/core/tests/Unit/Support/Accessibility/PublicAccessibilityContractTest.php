@@ -412,6 +412,22 @@ it('keeps semantic interactivity separate from effective HTML focusability', fun
         </fieldset>
     </div>
     HTML))->toBe([]);
+
+    $nonFormControls = $contract->inspectFragment(<<<'HTML'
+    <div aria-hidden="true">
+        <fieldset disabled>
+            <legend>Legend text</legend>
+            <a href="/still-focusable">Anchor remains focusable</a>
+            <div tabindex="0">Custom control remains focusable</div>
+        </fieldset>
+    </div>
+    HTML);
+
+    expect($nonFormControls)
+        ->toHaveCount(2)
+        ->and(implode("\n", $nonFormControls))
+        ->toContain('<a href="/still-focusable">')
+        ->toContain('<div>');
 });
 
 it('allows a directly referenced hidden subtree to contribute an accessible name', function (): void {

@@ -1067,6 +1067,10 @@ final class PublicAccessibilityContract
             return true;
         }
 
+        if (! $this->supportsDisabledAttribute($element)) {
+            return false;
+        }
+
         $ancestor = $element->parentNode;
 
         while ($ancestor instanceof DOMElement) {
