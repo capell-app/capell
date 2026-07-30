@@ -23,9 +23,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
-use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
-use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
@@ -138,9 +136,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.facade.capell-database', 'facade', CapellDatabase::class, ExtensionSurfaceStability::Experimental, 'Static database platform resolution facade.'),
-            $this->entry('core.dto.database-full-text-search', 'dto', DatabaseFullTextSearch::class, ExtensionSurfaceStability::Experimental, 'Typed full-text predicate, relevance, and native-mode result.'),
             $this->entry('core.dto.database-index-definition', 'dto', DatabaseIndexDefinition::class, ExtensionSurfaceStability::Experimental, 'Portable database index definition.'),
-            $this->entry('core.dto.database-search-expression', 'dto', DatabaseSearchExpression::class, ExtensionSurfaceStability::Experimental, 'Weighted search expression; zero omits relevance.'),
             $this->entry('core.dto.sql-fragment', 'dto', SqlFragment::class, ExtensionSurfaceStability::Experimental, 'Bound SQL fragment shared by database dialect contracts.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),

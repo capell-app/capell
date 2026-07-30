@@ -223,16 +223,6 @@
             "contractTestId": "core.site-spec-applier"
         },
         {
-            "id": "core.dto.database-full-text-search",
-            "kind": "dto",
-            "identifier": "Capell\\Core\\Data\\Database\\DatabaseFullTextSearch",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed full-text predicate, relevance, and native-mode result.",
-            "contractTestId": null
-        },
-        {
             "id": "core.dto.database-index-definition",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Database\\DatabaseIndexDefinition",
@@ -240,16 +230,6 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Portable database index definition.",
-            "contractTestId": null
-        },
-        {
-            "id": "core.dto.database-search-expression",
-            "kind": "dto",
-            "identifier": "Capell\\Core\\Data\\Database\\DatabaseSearchExpression",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Weighted search expression; zero omits relevance.",
             "contractTestId": null
         },
         {

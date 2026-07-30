@@ -13,7 +13,6 @@ use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
 use Override;
 use PDO;
-use Throwable;
 use WeakMap;
 
 class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
@@ -31,7 +30,6 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
         if (! $connection instanceof Connection) {
             return match ($capability) {
                 DatabaseCapability::PrefixIndex,
-                DatabaseCapability::FullTextIndex,
                 DatabaseCapability::ForeignKeyDrop,
                 DatabaseCapability::GeneratedColumnInspection,
                 DatabaseCapability::GeneratedColumn,
@@ -45,7 +43,6 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
 
         return match ($capability) {
             DatabaseCapability::PrefixIndex,
-            DatabaseCapability::FullTextIndex,
             DatabaseCapability::ForeignKeyDrop,
             DatabaseCapability::GeneratedColumnInspection => true,
             DatabaseCapability::GeneratedColumn => $server->generatedColumns,
@@ -104,53 +101,6 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             $this->identifier($column, '`'),
             $this->jsonPathLiteral($path),
         ));
-    }
-
-    public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment
-    {
-        return new SqlFragment(sprintf(
-            'ALTER TABLE %s ADD FULLTEXT %s (%s)',
-            $this->identifier($index->table, '`'),
-            $this->identifier($index->name, '`'),
-            implode(', ', array_map(fn (string $column): string => $this->identifier($column, '`'), $index->columns)),
-        ));
-    }
-
-    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool
-    {
-        if (! $this->supports(DatabaseCapability::FullTextIndex, $connection)) {
-            return false;
-        }
-
-        try {
-            $indexes = $connection->getSchemaBuilder()->getIndexes($index->table);
-        } catch (Throwable) {
-            return false;
-        }
-
-        $requiredColumns = $this->normalizedColumnSet($index->columns);
-
-        foreach ($indexes as $existingIndex) {
-            $type = $existingIndex['type'];
-            $columns = $existingIndex['columns'];
-            if (! is_string($type)) {
-                continue;
-            }
-
-            if (strtolower($type) !== 'fulltext') {
-                continue;
-            }
-
-            if (! is_array($columns)) {
-                continue;
-            }
-
-            if ($this->normalizedColumnSet($columns) === $requiredColumns) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     public function inspectGeneratedColumn(string $table, string $column, ?Connection $connection = null): SqlFragment
@@ -220,20 +170,5 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
             storedGeneratedColumns: version_compare($numericVersion, $family === DatabaseFamily::MariaDb ? '10.2.0' : '5.7.0', '>='),
             functionalIndexes: $family === DatabaseFamily::MySql && version_compare($numericVersion, '8.0.13', '>='),
         );
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $columns
-     * @return list<string>
-     */
-    private function normalizedColumnSet(array $columns): array
-    {
-        $normalized = array_values(array_unique(array_map(
-            static fn (mixed $column): string => mb_strtolower((string) $column),
-            $columns,
-        )));
-        sort($normalized);
-
-        return $normalized;
     }
 }

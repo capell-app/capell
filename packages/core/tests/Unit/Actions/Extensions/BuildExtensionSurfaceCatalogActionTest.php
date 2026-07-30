@@ -16,9 +16,7 @@ use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
-use Capell\Core\Data\Database\DatabaseFullTextSearch;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
-use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
@@ -173,9 +171,7 @@ it('classifies the database compatibility seam as experimental', function (): vo
         'core.contract.database-provisioner' => DatabaseProvisioner::class,
         'core.contract.database-query-dialect' => DatabaseQueryDialect::class,
         'core.contract.database-schema-dialect' => DatabaseSchemaDialect::class,
-        'core.dto.database-full-text-search' => DatabaseFullTextSearch::class,
         'core.dto.database-index-definition' => DatabaseIndexDefinition::class,
-        'core.dto.database-search-expression' => DatabaseSearchExpression::class,
         'core.dto.sql-fragment' => SqlFragment::class,
         'core.enum.database-capability' => DatabaseCapability::class,
         'core.enum.database-date-operation' => DatabaseDateOperation::class,

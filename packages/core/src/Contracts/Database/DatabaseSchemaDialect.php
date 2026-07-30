@@ -21,10 +21,6 @@ interface DatabaseSchemaDialect
 
     public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): ?SqlFragment;
 
-    public function fullTextIndex(DatabaseIndexDefinition $index): ?SqlFragment;
-
-    public function hasCompatibleFullTextIndex(DatabaseIndexDefinition $index, Connection $connection): bool;
-
     public function hasConstraint(string $table, string $constraint, Connection $connection): bool;
 
     public function hasTrigger(string $trigger, Connection $connection): bool;

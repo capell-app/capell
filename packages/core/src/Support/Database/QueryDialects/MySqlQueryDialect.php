@@ -4,50 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Database\QueryDialects;
 
-use Capell\Core\Data\Database\DatabaseFullTextSearch;
-use Capell\Core\Data\Database\DatabaseSearchExpression;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
-use Override;
 
 final class MySqlQueryDialect extends AbstractQueryDialect
 {
-    /**
-     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
-     */
-    #[Override]
-    public function fullTextSearch(array $expressions, string $query, bool $native = false): DatabaseFullTextSearch
-    {
-        $fallback = parent::fullTextSearch($expressions, $query);
-        $terms = $this->fullTextTerms($query);
-
-        if (! $native || $terms === []) {
-            return $fallback;
-        }
-
-        $columns = implode(', ', array_map(
-            static fn (DatabaseSearchExpression $expression): string => $expression->expression->sql,
-            $expressions,
-        ));
-        $expressionBindings = $this->bindings(array_map(
-            static fn (DatabaseSearchExpression $expression): SqlFragment => $expression->expression,
-            array_values($expressions),
-        ));
-        $booleanQuery = implode(' ', array_map(
-            static fn (string $term): string => '+' . self::escapeBooleanTerm($term) . '*',
-            $terms,
-        ));
-
-        return new DatabaseFullTextSearch(
-            predicate: new SqlFragment(
-                sprintf('MATCH (%s) AGAINST (? IN BOOLEAN MODE)', $columns),
-                [...$expressionBindings, $booleanQuery],
-            ),
-            relevance: $fallback->relevance,
-            native: true,
-        );
-    }
-
     public function concatenate(SqlFragment ...$expressions): SqlFragment
     {
         return new SqlFragment(
@@ -125,15 +86,6 @@ final class MySqlQueryDialect extends AbstractQueryDialect
         return new SqlFragment(
             sprintf("JSON_SEARCH(%s, 'one', %s, '!', ?) IS NOT NULL", $expression->sql, $escapedNeedle),
             [...$expression->bindings, ...$needle->bindings, $path],
-        );
-    }
-
-    private static function escapeBooleanTerm(string $term): string
-    {
-        return str_replace(
-            ['\\', '+', '-', '>', '<', '(', ')', '~', '*', '"', '@'],
-            ['\\\\', '\+', '\-', '\>', '\<', '\(', '\)', '\~', '\*', '\"', '\@'],
-            $term,
         );
     }
 }

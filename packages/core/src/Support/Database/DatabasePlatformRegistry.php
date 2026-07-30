@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database;
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
-use Capell\Core\Data\Database\DatabaseFullTextSearch;
-use Capell\Core\Data\Database\DatabaseIndexDefinition;
-use Capell\Core\Data\Database\DatabaseSearchExpression;
-use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -24,18 +19,13 @@ final class DatabasePlatformRegistry
     /** @var array<string, DatabasePlatform> */
     private array $platforms = [];
 
-    private readonly FullTextIndexCompatibilityCache $fullTextIndexCompatibility;
-
     /**
      * @param  iterable<DatabasePlatform>  $platforms
      */
     public function __construct(
         iterable $platforms = [],
-        ?FullTextIndexCompatibilityCache $fullTextIndexCompatibility = null,
         private readonly ?DatabaseManager $connections = null,
     ) {
-        $this->fullTextIndexCompatibility = $fullTextIndexCompatibility ?? new FullTextIndexCompatibilityCache;
-
         foreach ($platforms as $platform) {
             $this->register($platform);
         }
@@ -52,37 +42,6 @@ final class DatabasePlatformRegistry
         }
 
         return $this;
-    }
-
-    /**
-     * @param  non-empty-list<DatabaseSearchExpression>  $expressions
-     */
-    public function fullTextSearch(
-        Connection|Model $context,
-        DatabaseIndexDefinition $index,
-        array $expressions,
-        string $query,
-    ): DatabaseFullTextSearch {
-        $connection = $context instanceof Connection
-            ? $context
-            : $context->getConnection();
-
-        $platform = $this->for($connection);
-        $native = $this->hasCompatibleFullTextIndex($platform, $index, $connection);
-
-        return $platform->queryDialect()->fullTextSearch($expressions, $query, $native);
-    }
-
-    public function forgetFullTextIndexCompatibility(
-        Connection $connection,
-        ?DatabaseIndexDefinition $index = null,
-    ): void {
-        $this->fullTextIndexCompatibility->forget($connection, $index);
-    }
-
-    public function flushFullTextIndexCompatibility(): void
-    {
-        $this->fullTextIndexCompatibility->flush();
     }
 
     public function for(Connection|Model|string|null $context = null): DatabasePlatform
@@ -128,41 +87,6 @@ final class DatabasePlatformRegistry
         return $this->forResolvedConnection($connection);
     }
 
-    public function createFullTextIndex(
-        Connection $connection,
-        DatabaseIndexDefinition $index,
-    ): bool {
-        $fragment = $this->forResolvedConnection($connection)
-            ->schemaDialect()
-            ->fullTextIndex($index);
-
-        if (! $fragment instanceof SqlFragment) {
-            return false;
-        }
-
-        try {
-            return $connection->statement($fragment->sql, $fragment->bindings);
-        } finally {
-            $this->forgetFullTextIndexCompatibility($connection, $index);
-        }
-    }
-
-    public function dropFullTextIndex(
-        Connection $connection,
-        DatabaseIndexDefinition $index,
-    ): void {
-        try {
-            $connection->getSchemaBuilder()->table(
-                $index->table,
-                static function (Blueprint $table) use ($index): void {
-                    $table->dropIndex($index->name);
-                },
-            );
-        } finally {
-            $this->forgetFullTextIndexCompatibility($connection, $index);
-        }
-    }
-
     private function forResolvedConnection(Connection $connection): DatabasePlatform
     {
         $driver = strtolower($connection->getDriverName());
@@ -178,17 +102,5 @@ final class DatabasePlatformRegistry
             && $schema->serverCapabilities($connection)->family === DatabaseFamily::MariaDb
                 ? $this->platforms['mariadb']
                 : $platform;
-    }
-
-    private function hasCompatibleFullTextIndex(
-        DatabasePlatform $platform,
-        DatabaseIndexDefinition $index,
-        Connection $connection,
-    ): bool {
-        return $this->fullTextIndexCompatibility->remember(
-            $connection,
-            $index,
-            fn (): bool => $platform->schemaDialect()->hasCompatibleFullTextIndex($index, $connection),
-        );
     }
 }

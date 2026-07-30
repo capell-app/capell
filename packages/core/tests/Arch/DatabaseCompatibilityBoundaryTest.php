@@ -81,7 +81,6 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
 
             if (in_array($relative, [
                 'packages/core/src/Support/Database/DatabasePlatformRegistry.php',
-                'packages/core/src/Support/Database/FullTextIndexCompatibilityCache.php',
             ], true)) {
                 continue;
             }
