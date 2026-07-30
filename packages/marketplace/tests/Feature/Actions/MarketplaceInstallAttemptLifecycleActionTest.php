@@ -27,7 +27,6 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\Factory;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -219,7 +218,7 @@ it('rolls back state when its atomic transition timeline cannot be recorded', fu
     expect(fn (): MarketplaceInstallAttempt => TransitionMarketplaceInstallAttemptAction::run(
         $attempt,
         new MarketplaceInstallAttemptTransitionData(toStatus: MarketplaceInstallIntentStatus::Running),
-    ))->toThrow(QueryException::class);
+    ))->toThrow(PDOException::class);
 
     expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued)
         ->and($attempt->started_at)->toBeNull();
@@ -260,7 +259,7 @@ it('rolls back deployment evidence and classification when its timeline cannot b
             'status' => 'failed',
             'failure_reason' => 'Publisher rejected the source update.',
         ]),
-    ))->toThrow(QueryException::class);
+    ))->toThrow(PDOException::class);
 
     expect($attempt->refresh()->deployment)->toBeNull()
         ->and($attempt->failure_reason)->toBeNull()
