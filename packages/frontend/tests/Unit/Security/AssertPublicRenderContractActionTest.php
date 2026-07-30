@@ -18,9 +18,11 @@ use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -206,6 +208,25 @@ it('surfaces schema probe failures instead of silently dropping public render co
         result: 'passed',
         response: new Response('<main>News</main>', Response::HTTP_OK),
     ))->toThrow(SchemaProbeFailedException::class);
+});
+
+it('preserves a public render violation when recording it hits a schema probe failure', function (): void {
+    Exceptions::fake();
+
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with('capell_public_render_contract_events')
+        ->andThrow(new RuntimeException('database unavailable'));
+
+    resolve(RuntimeSchemaState::class)->forgetTable('capell_public_render_contract_events');
+
+    expect(fn () => AssertPublicRenderContractAction::run(
+        new Response('<main data-source="vendor/capell-app/">Edit</main>', Response::HTTP_OK),
+    ))->toThrow(PublicRenderContractViolationException::class, 'Capell internal marker');
+
+    Exceptions::assertReported(
+        fn (SchemaProbeFailedException $exception): bool => $exception->getPrevious()?->getMessage() === 'database unavailable',
+    );
 });
 
 it('redacts sensitive public render contract event diagnostics before persistence', function (): void {
