@@ -43,13 +43,12 @@ use DOMXPath;
  *   document-scoped invariants are meaningful and IDREFs must actually resolve.
  *
  * Callers that analyse Blade *sources* rather than rendered HTML (see the
- * theme fleet's `AssertsPublicThemeAccessibility` trait) can mark any subtree
- * whose real content is unknowable at analysis time with
- * {@see OPAQUE_CONTENT_ATTRIBUTE}. An element carrying that attribute, or
- * containing a descendant that carries it, is treated as "may supply its own
- * accessible name", which keeps the contract free of false positives around
- * `<x-…>` components and slot content. The attribute is an analysis-time
- * marker only and must never appear in real public output.
+ * theme fleet's `AssertsPublicThemeAccessibility` trait) use
+ * {@see inspectSkeletonFragment()}. That entry point permits callers to mark
+ * a subtree whose real content is unknowable with
+ * {@see OPAQUE_CONTENT_ATTRIBUTE}. The rendered fragment/document entry
+ * points reject that analysis-only marker and never let it suppress a real
+ * output defect.
  */
 final class PublicAccessibilityContract
 {
@@ -178,28 +177,19 @@ final class PublicAccessibilityContract
      */
     public function inspectFragment(string $html): array
     {
-        if (trim($html) === '') {
-            return [];
-        }
+        return $this->inspectFragmentMarkup($html, allowOpaqueContent: false);
+    }
 
-        $document = $this->parse($html, wrapAsFragment: true);
-        $root = $document->getElementById(self::FRAGMENT_ROOT_ID);
-
-        if (! $root instanceof DOMElement) {
-            return ['The markup could not be parsed as HTML.'];
-        }
-
-        $xpath = new DOMXPath($document);
-
-        return [
-            ...$this->imageAlternativeTextViolations($xpath, $root),
-            ...$this->accessibleNameViolations($xpath, $root),
-            ...$this->labelAssociationViolations($xpath, $root),
-            ...$this->focusOrderViolations($xpath, $root),
-            ...$this->ariaWellFormednessViolations($xpath, $root, resolveIdReferences: false),
-            ...$this->duplicateIdViolations($xpath, $root),
-            ...$this->headingNestingViolations($xpath, $root),
-        ];
+    /**
+     * Inspects a static-analysis skeleton whose component placeholders may
+     * carry the analysis-only opaque-content marker.
+     *
+     * @return list<string> Human-readable violations, empty when the skeleton
+     *                      satisfies the decidable fragment contract.
+     */
+    public function inspectSkeletonFragment(string $html): array
+    {
+        return $this->inspectFragmentMarkup($html, allowOpaqueContent: true);
     }
 
     /**
@@ -225,14 +215,15 @@ final class PublicAccessibilityContract
         $xpath = new DOMXPath($document);
 
         return [
+            ...$this->opaqueMarkerViolations($xpath, $root, allowOpaqueContent: false),
             ...$this->imageAlternativeTextViolations($xpath, $root),
-            ...$this->accessibleNameViolations($xpath, $root),
-            ...$this->labelAssociationViolations($xpath, $root),
+            ...$this->accessibleNameViolations($xpath, $root, allowOpaqueContent: false),
+            ...$this->labelAssociationViolations($xpath, $root, allowOpaqueContent: false),
             ...$this->focusOrderViolations($xpath, $root),
-            ...$this->ariaWellFormednessViolations($xpath, $root, resolveIdReferences: true),
+            ...$this->ariaWellFormednessViolations($xpath, $root, resolveIdReferences: true, allowOpaqueContent: false),
             ...$this->duplicateIdViolations($xpath, $root),
-            ...$this->headingNestingViolations($xpath, $root),
-            ...$this->documentStructureViolations($xpath, $root),
+            ...$this->headingNestingViolations($xpath, $root, allowOpaqueContent: false),
+            ...$this->documentStructureViolations($xpath, $root, allowOpaqueContent: false),
         ];
     }
 
@@ -245,6 +236,77 @@ final class PublicAccessibilityContract
     public function validAriaRoles(): array
     {
         return self::VALID_ARIA_ROLES;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function inspectFragmentMarkup(string $html, bool $allowOpaqueContent): array
+    {
+        if (trim($html) === '') {
+            return [];
+        }
+
+        $document = $this->parse($html, wrapAsFragment: true);
+        $root = $document->getElementById(self::FRAGMENT_ROOT_ID);
+
+        if (! $root instanceof DOMElement) {
+            return ['The markup could not be parsed as HTML.'];
+        }
+
+        $xpath = new DOMXPath($document);
+
+        return [
+            ...$this->opaqueMarkerViolations($xpath, $root, $allowOpaqueContent),
+            ...$this->imageAlternativeTextViolations($xpath, $root),
+            ...$this->accessibleNameViolations($xpath, $root, $allowOpaqueContent),
+            ...$this->labelAssociationViolations($xpath, $root, $allowOpaqueContent),
+            ...$this->focusOrderViolations($xpath, $root),
+            ...$this->ariaWellFormednessViolations(
+                $xpath,
+                $root,
+                resolveIdReferences: false,
+                allowOpaqueContent: $allowOpaqueContent,
+            ),
+            ...$this->duplicateIdViolations($xpath, $root),
+            ...$this->headingNestingViolations($xpath, $root, $allowOpaqueContent),
+        ];
+    }
+
+    /**
+     * The opaque marker is an analysis-only sentinel. Seeing it in rendered
+     * output is both a public implementation leak and an attempt to bypass
+     * checks that must remain strict for real HTML.
+     *
+     * @return list<string>
+     */
+    private function opaqueMarkerViolations(
+        DOMXPath $xpath,
+        DOMElement $root,
+        bool $allowOpaqueContent,
+    ): array {
+        if ($allowOpaqueContent) {
+            return [];
+        }
+
+        $markedElements = $this->query(
+            $xpath,
+            $root,
+            sprintf('.//*[@%s]', self::OPAQUE_CONTENT_ATTRIBUTE),
+        );
+
+        if ($root->hasAttribute(self::OPAQUE_CONTENT_ATTRIBUTE)) {
+            array_unshift($markedElements, $root);
+        }
+
+        return array_map(
+            fn (DOMElement $element): string => sprintf(
+                '%s exposes the analysis-only %s marker in rendered public output.',
+                $this->describe($element),
+                self::OPAQUE_CONTENT_ATTRIBUTE,
+            ),
+            $markedElements,
+        );
     }
 
     /**
@@ -281,7 +343,7 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function accessibleNameViolations(DOMXPath $xpath, DOMElement $root): array
+    private function accessibleNameViolations(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
     {
         $violations = [];
 
@@ -290,7 +352,7 @@ final class PublicAccessibilityContract
                 continue;
             }
 
-            if ($this->hasAccessibleName($element)) {
+            if ($this->hasAccessibleName($element, $allowOpaqueContent)) {
                 continue;
             }
 
@@ -311,7 +373,7 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function labelAssociationViolations(DOMXPath $xpath, DOMElement $root): array
+    private function labelAssociationViolations(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
     {
         $labelledIds = $this->labelTargetIds($xpath, $root);
         $violations = [];
@@ -321,7 +383,7 @@ final class PublicAccessibilityContract
                 continue;
             }
 
-            if ($this->hasOpaqueContent($control) || $this->hasAuthoredName($control)) {
+            if ($this->hasOpaqueContent($control, $allowOpaqueContent) || $this->hasAuthoredName($control)) {
                 continue;
             }
 
@@ -403,8 +465,12 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function ariaWellFormednessViolations(DOMXPath $xpath, DOMElement $root, bool $resolveIdReferences): array
-    {
+    private function ariaWellFormednessViolations(
+        DOMXPath $xpath,
+        DOMElement $root,
+        bool $resolveIdReferences,
+        bool $allowOpaqueContent,
+    ): array {
         $violations = [];
 
         foreach ($this->query($xpath, $root, './/*[@role]') as $element) {
@@ -456,7 +522,9 @@ final class PublicAccessibilityContract
 
         foreach (self::INTERACTION_STATE_ATTRIBUTES as $attribute) {
             foreach ($this->query($xpath, $root, sprintf('.//*[@%s]', $attribute)) as $element) {
-                if ($this->isNativelyInteractive($element) || $element->hasAttribute('role') || $this->hasOpaqueContent($element)) {
+                if ($this->isNativelyInteractive($element)
+                    || $element->hasAttribute('role')
+                    || $this->hasOpaqueContent($element, $allowOpaqueContent)) {
                     continue;
                 }
 
@@ -516,7 +584,7 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function headingNestingViolations(DOMXPath $xpath, DOMElement $root): array
+    private function headingNestingViolations(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
     {
         $violations = [];
         $previousLevel = null;
@@ -532,7 +600,7 @@ final class PublicAccessibilityContract
                 );
             }
 
-            if ($this->textContentOf($heading) === '' && ! $this->hasOpaqueContent($heading)) {
+            if ($this->textContentOf($heading) === '' && ! $this->hasOpaqueContent($heading, $allowOpaqueContent)) {
                 $violations[] = sprintf('<%s> is empty; an empty heading announces nothing.', $heading->nodeName);
             }
 
@@ -549,7 +617,7 @@ final class PublicAccessibilityContract
      *
      * @return list<string>
      */
-    private function documentStructureViolations(DOMXPath $xpath, DOMElement $root): array
+    private function documentStructureViolations(DOMXPath $xpath, DOMElement $root, bool $allowOpaqueContent): array
     {
         $violations = [];
 
@@ -589,7 +657,7 @@ final class PublicAccessibilityContract
             }
 
             foreach ($landmarks as $landmark) {
-                if ($this->hasAuthoredName($landmark) || $this->hasOpaqueContent($landmark)) {
+                if ($this->hasAuthoredName($landmark) || $this->hasOpaqueContent($landmark, $allowOpaqueContent)) {
                     continue;
                 }
 
@@ -607,13 +675,19 @@ final class PublicAccessibilityContract
 
     private function requiresAccessibleName(DOMElement $element): bool
     {
-        $role = strtolower(trim($element->getAttribute('role')));
+        $roles = array_map(
+            static fn (string $role): string => strtolower($role),
+            preg_split('/\s+/', trim($element->getAttribute('role')), flags: PREG_SPLIT_NO_EMPTY) ?: [],
+        );
 
-        if (in_array($role, self::INTERACTIVE_ROLES, true) || in_array($role, self::NAME_REQUIRED_STRUCTURAL_ROLES, true)) {
-            return true;
+        foreach ($roles as $role) {
+            if (in_array($role, self::INTERACTIVE_ROLES, true)
+                || in_array($role, self::NAME_REQUIRED_STRUCTURAL_ROLES, true)) {
+                return true;
+            }
         }
 
-        if ($role === 'presentation' || $role === 'none') {
+        if (in_array('presentation', $roles, true) || in_array('none', $roles, true)) {
             return false;
         }
 
@@ -632,9 +706,9 @@ final class PublicAccessibilityContract
         return in_array($element->nodeName, self::NATIVELY_INTERACTIVE_ELEMENTS, true);
     }
 
-    private function hasAccessibleName(DOMElement $element): bool
+    private function hasAccessibleName(DOMElement $element, bool $allowOpaqueContent): bool
     {
-        if ($this->hasAuthoredName($element) || $this->hasOpaqueContent($element)) {
+        if ($this->hasAuthoredName($element) || $this->hasOpaqueContent($element, $allowOpaqueContent)) {
             return true;
         }
 
@@ -688,8 +762,12 @@ final class PublicAccessibilityContract
         return false;
     }
 
-    private function hasOpaqueContent(DOMElement $element): bool
+    private function hasOpaqueContent(DOMElement $element, bool $allowOpaqueContent): bool
     {
+        if (! $allowOpaqueContent) {
+            return false;
+        }
+
         if ($element->hasAttribute(self::OPAQUE_CONTENT_ATTRIBUTE)) {
             return true;
         }

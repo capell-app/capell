@@ -256,10 +256,38 @@ it('treats an opaque subtree as capable of supplying its own accessible name', f
     $contract = new PublicAccessibilityContract;
     $opaque = PublicAccessibilityContract::OPAQUE_CONTENT_ATTRIBUTE;
 
-    expect($contract->inspectFragment(sprintf('<button><span %s="1"></span></button>', $opaque)))->toBe([])
-        ->and($contract->inspectFragment(sprintf('<input type="text" name="q" %s="1" />', $opaque)))->toBe([])
-        ->and($contract->inspectFragment(sprintf('<div aria-expanded="false" %s="1">x</div>', $opaque)))->toBe([])
+    expect($contract->inspectSkeletonFragment(sprintf('<button><span %s="1"></span></button>', $opaque)))->toBe([])
+        ->and($contract->inspectSkeletonFragment(sprintf('<input type="text" name="q" %s="1" />', $opaque)))->toBe([])
+        ->and($contract->inspectSkeletonFragment(sprintf('<div aria-expanded="false" %s="1">x</div>', $opaque)))->toBe([])
         ->and($contract->inspectFragment('<button><span></span></button>'))->toHaveCount(1);
+});
+
+it('rejects the analysis-only opaque marker in rendered fragments and documents', function (): void {
+    $contract = new PublicAccessibilityContract;
+    $opaque = PublicAccessibilityContract::OPAQUE_CONTENT_ATTRIBUTE;
+    $fragmentViolations = $contract->inspectFragment(sprintf('<button %s="1"></button>', $opaque));
+    $documentViolations = $contract->inspectDocument(sprintf(
+        '<html lang="en"><head><title>Home</title></head><body><main><h1 %s="1"></h1></main></body></html>',
+        $opaque,
+    ));
+
+    expect(implode("\n", $fragmentViolations))
+        ->toContain('analysis-only data-capell-accessibility-opaque marker')
+        ->toContain('requires an accessible name')
+        ->and(implode("\n", $documentViolations))
+        ->toContain('analysis-only data-capell-accessibility-opaque marker')
+        ->toContain('<h1> is empty');
+});
+
+it('requires accessible names when any token in a multi-role fallback is interactive', function (): void {
+    $contract = new PublicAccessibilityContract;
+
+    expect($contract->inspectFragment('<div role="button checkbox"></div>'))
+        ->toHaveCount(1)
+        ->and($contract->inspectFragment('<div role="button checkbox"></div>')[0])
+        ->toContain('requires an accessible name')
+        ->and($contract->inspectFragment('<div role="button checkbox" aria-label="Select item"></div>'))
+        ->toBe([]);
 });
 
 it('resolves ARIA id references containing an apostrophe without breaking the XPath lookup', function (): void {
