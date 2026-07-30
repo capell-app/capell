@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Support\Http\OutboundHttpRetry;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 
@@ -246,6 +248,16 @@ it('does not retry redirect responses when Laravel provides no response exceptio
     expect($response->status())->toBe(302);
 
     Http::assertSentCount(1);
+});
+
+it('does not retry status codes outside the HTTP server error range', function (): void {
+    $response = Mockery::mock(Response::class);
+    $response->shouldReceive('status')->andReturn(600);
+    $response->expects('toPsrResponse')->andReturn(new GuzzleHttp\Psr7\Response(599));
+    $exception = new RequestException($response);
+    $method = new ReflectionMethod(OutboundHttpRetry::class, 'shouldRetry');
+
+    expect($method->invoke(OutboundHttpRetry::make(), $exception))->toBeFalse();
 });
 
 it('retries connection failures', function (): void {

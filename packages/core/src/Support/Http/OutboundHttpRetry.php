@@ -128,7 +128,7 @@ final class OutboundHttpRetry
 
         $status = $exception->response->status();
 
-        return $status === 429 || $status >= 500;
+        return $status === 429 || ($status >= 500 && $status <= 599);
     }
 
     private function retryAfterDelay(RequestException $exception): ?int
