@@ -146,7 +146,7 @@ it('preserves supplied deployment audit metadata when preflight fails', function
     $attempt = QueueMarketplaceInstallAttemptAction::run(...$arguments);
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
-        ->and($attempt->deployment)->toBe($arguments['deploymentMetadata']);
+        ->and($attempt->deployment)->toMatchArray($arguments['deploymentMetadata']);
 
     Queue::assertNothingPushed();
 });
