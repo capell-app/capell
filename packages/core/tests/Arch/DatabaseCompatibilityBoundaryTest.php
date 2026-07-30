@@ -6,6 +6,10 @@ use PHPUnit\Framework\Assert;
 
 function capellDatabaseCompatibilityStringViolation(string $value): ?string
 {
+    if (strtolower(trim($value, " \t\n\r\0\x0B'\"")) === 'concat(') {
+        return null;
+    }
+
     $dialectFunction = '/\\b(?:CONCAT|FIELD|DATE_FORMAT|JSON_CONTAINS|JSON_EXTRACT|JSON_SEARCH|JSON_UNQUOTE|JSON_VALUE|TIMESTAMPDIFF|STRPOS|INSTR|strftime|json_each|json_extract|json_tree|jsonb_path_query|plainto_tsquery|to_tsvector|ts_rank(?:_cd)?)\\s*\\(/i';
     $positionFunction = '/\\bposition\\s*\\([^)]*\\bin\\b[^)]*\\)/i';
     $fullTextOperator = '/\\bmatch\\s*\\([^)]*\\)\\s+against\\b|\\bUSING\\s+GIN\\b/i';
@@ -79,9 +83,7 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
                 continue;
             }
 
-            if (in_array($relative, [
-                'packages/core/src/Support/Database/DatabasePlatformRegistry.php',
-            ], true)) {
+            if ($relative === 'packages/core/src/Support/Database/DatabasePlatformRegistry.php') {
                 continue;
             }
 
@@ -144,4 +146,5 @@ it('ignores database words used in non-SQL prose', function (string $prose): voi
 })->with([
     'fulltext prose' => 'The FULLTEXT feature is optional for this package.',
     'ilike prose' => 'This behaves ILIKE the previous implementation.',
+    'partial XPath concat function' => 'concat(',
 ]);
