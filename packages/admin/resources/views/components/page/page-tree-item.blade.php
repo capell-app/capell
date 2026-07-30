@@ -26,7 +26,13 @@
         {{ $ancestorLabel }} {{ $page->name }}
     </x-filament::link>
 
-    <x-filament::link href="{{ $url }}" tag="a" target="_blank" size="xs" :weight="FontWeight::Normal">
+    <x-filament::link
+        href="{{ $url }}"
+        tag="a"
+        target="_blank"
+        size="xs"
+        :weight="FontWeight::Normal"
+    >
         {{ $url }}
     </x-filament::link>
 </div>

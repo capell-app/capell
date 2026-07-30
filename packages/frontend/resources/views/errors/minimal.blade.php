@@ -18,8 +18,14 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    />
+    <meta
+        name="robots"
+        content="noindex"
+    />
 
     <title>@yield('title')</title>
 
@@ -113,7 +119,10 @@
 </head>
 <body>
     <main>
-        <section class="error-page" aria-labelledby="error-headline">
+        <section
+            class="error-page"
+            aria-labelledby="error-headline"
+        >
             {{--
                     Served as a static, cacheable file rather than an inline
                     SVG so the error page stays lightweight under load.
@@ -132,12 +141,22 @@
                 @yield('message')
             </p>
 
-            <h1 id="error-headline" class="error-page__headline">{{ $headline }}</h1>
+            <h1
+                id="error-headline"
+                class="error-page__headline"
+            >
+                {{ $headline }}
+            </h1>
 
             <p class="error-page__description">{{ $description }}</p>
 
             @if ($showHomepageLink)
-                <a class="error-page__home" href="{{ url('/') }}"> {{ __('Back to homepage') }} </a>
+                <a
+                    class="error-page__home"
+                    href="{{ url('/') }}"
+                >
+                    {{ __('Back to homepage') }}
+                </a>
             @endif
         </section>
     </main>

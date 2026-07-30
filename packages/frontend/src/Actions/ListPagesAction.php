@@ -12,6 +12,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\RenderedModelTracker;
+use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Data\PageListingSpec;
 use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageListingCache;
@@ -32,46 +33,21 @@ final class ListPagesAction
     use AsFake;
     use AsObject;
 
-    /**
-     * @param  Pageable<Model>|null  $page
-     * @param  class-string<PageModel>|non-empty-string|null  $morphModel
-     * @param  Closure(Builder<Model>): void|null  $modifyQuery
-     * @return Collection<int, PageModel>|LengthAwarePaginator<int, PageModel>
-     */
-    public function handle(
-        Language $language,
-        ?Site $site = null,
-        ?Pageable $page = null,
-        ?string $type = null,
-        ?int $limit = null,
-        ?int $paginationPage = null,
-        ?PageOrderEnum $ordering = null,
-        ?string $pageType = null,
-        null|string|BackedEnum $pageGroup = null,
-        ?string $typeKey = null,
-        bool $optionalLanguage = false,
-        bool $withChildrenCount = false,
-        bool $withChildren = false,
-        bool $withPagination = false,
-        bool $withParent = false,
-        bool $withDate = false,
-        bool $onlyListableTypes = true,
-        string $paginationKey = 'pages',
-        string $cacheKeyPrepend = '',
-        ?string $morphModel = null,
-        bool $useCache = true,
-        ?Closure $modifyQuery = null,
-    ): Collection|LengthAwarePaginator {
-        if ($withPagination && ($limit === null || $limit === 0)) {
+    /** @return Collection<int, PageModel>|LengthAwarePaginator<int, PageModel> */
+    public function handle(PageListingRequestData $request): Collection|LengthAwarePaginator
+    {
+        $limit = $request->limit;
+
+        if ($request->withPagination && ($limit === null || $limit === 0)) {
             $limit = config('capell-frontend.pagination_limit', 10);
         }
 
-        if ($withPagination && $limit === null) {
+        if ($request->withPagination && $limit === null) {
             $limit = 10;
         }
 
-        $morphedModel = filled($morphModel)
-            ? (Relation::getMorphedModel($morphModel) ?? $morphModel)
+        $morphedModel = filled($request->morphModel)
+            ? (Relation::getMorphedModel($request->morphModel) ?? $request->morphModel)
             : Page::class;
 
         if (! is_subclass_of($morphedModel, Model::class)
@@ -83,65 +59,56 @@ final class ListPagesAction
             $model = $morphedModel;
         }
 
+        $ordering = $request->ordering;
+
         if (! $ordering instanceof PageOrderEnum && $model !== Page::class) {
             $ordering = $model::defaultOrdering();
         }
 
-        if ($optionalLanguage) {
-            $cacheKeyPrepend = 'optionalLanguage-' . $cacheKeyPrepend;
-        }
-
-        $spec = PageListingSpec::fromGetPages(
-            language: $language,
-            site: $site,
-            page: $page,
-            type: $type,
-            limit: $limit,
-            ordering: $ordering,
-            pageType: $pageType,
-            pageGroup: $pageGroup,
-            typeKey: $typeKey,
-            optionalLanguage: $optionalLanguage,
-            onlyListableTypes: $onlyListableTypes,
-            morphModel: $morphModel,
-            cacheKeySuffix: $cacheKeyPrepend,
+        $spec = PageListingSpec::fromRequest(
+            request: $request,
+            effectiveLimit: $limit,
+            effectiveOrdering: $ordering,
         );
 
         $idLoader = fn (): array => $this->buildIdQuery(
             model: $model,
-            language: $language,
-            site: $site,
-            page: $page,
-            type: $type,
+            language: $request->language,
+            site: $request->site,
+            page: $request->page,
+            type: $request->type,
             ordering: $ordering,
-            pageType: $pageType,
-            pageGroup: $pageGroup instanceof BackedEnum ? $pageGroup->value : $pageGroup,
-            typeKey: $typeKey,
-            optionalLanguage: $optionalLanguage,
-            onlyListableTypes: $onlyListableTypes,
-            modifyQuery: $modifyQuery,
+            pageType: $request->pageType,
+            pageGroup: $request->pageGroup instanceof BackedEnum
+                ? (string) $request->pageGroup->value
+                : $request->pageGroup,
+            typeKey: $request->typeKey,
+            optionalLanguage: $request->optionalLanguage,
+            onlyListableTypes: $request->onlyListableTypes,
+            modifyQuery: $request->modifyQuery,
         )->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
+        $useCache = $request->canUseCache();
         $listingCache = resolve(PageListingCache::class);
         $allIds = $useCache ? $listingCache->getIds($spec, $idLoader) : $idLoader();
 
-        if (! $withPagination && $limit !== null) {
+        if (! $request->withPagination && $limit !== null) {
             $allIds = array_slice($allIds, 0, $limit);
         }
 
-        if ($withPagination) {
+        if ($request->withPagination) {
             return $this->paginate(
                 ids: $allIds,
                 model: $model,
-                site: $site,
-                language: $language,
+                site: $request->site,
+                language: $request->language,
                 limit: (int) $limit,
-                paginationPage: $paginationPage,
-                paginationKey: $paginationKey,
-                withParent: $withParent,
-                withChildren: $withChildren,
-                withChildrenCount: $withChildrenCount,
-                withDate: $withDate,
+                paginationPage: $request->paginationPage,
+                paginationKey: $request->paginationKey,
+                withParent: $request->withParent,
+                withChildren: $request->withChildren,
+                withChildrenCount: $request->withChildrenCount,
+                withDate: $request->withDate,
                 useCache: $useCache,
             );
         }
@@ -149,12 +116,13 @@ final class ListPagesAction
         $pages = resolve(PageHydrator::class)->hydrate(
             ids: $allIds,
             morphType: $model,
-            site: $site,
-            language: $language,
-            withParent: $withParent,
-            withChildren: $withChildren,
-            withChildrenCount: $withChildrenCount,
-            withDate: $withDate,
+            site: $request->site,
+            language: $request->language,
+            withParent: $request->withParent,
+            withChildren: $request->withChildren,
+            withChildrenCount: $request->withChildrenCount,
+            withDate: $request->withDate,
+            useCache: $useCache,
         );
 
         if ($useCache) {
@@ -197,6 +165,7 @@ final class ListPagesAction
             withChildren: $withChildren,
             withChildrenCount: $withChildrenCount,
             withDate: $withDate,
+            useCache: $useCache,
         );
 
         $paginator = new LengthAwarePaginator(
@@ -248,12 +217,12 @@ final class ListPagesAction
 
         $query
             ->select($query->getModel()->getTable() . '.id')
-            ->withWhereHas('translation', fn (BuilderContract $translationQuery): BuilderContract => $translationQuery->when(
+            ->whereHas('translation', fn (BuilderContract $translationQuery): BuilderContract => $translationQuery->when(
                 $optionalLanguage,
                 fn (BuilderContract $innerQuery): BuilderContract => LanguagesOrderScope::applyTo($innerQuery, $languageIds),
                 fn (BuilderContract $innerQuery) => $innerQuery->where('language_id', $language->id),
             ))
-            ->withWhereHas(
+            ->whereHas(
                 'pageUrl',
                 fn (BuilderContract $urlQuery) => $urlQuery->whereNull('type')
                     ->enabled()
@@ -263,7 +232,7 @@ final class ListPagesAction
                         fn (BuilderContract $innerQuery) => $innerQuery->where('language_id', $language->id),
                     ),
             )
-            ->withWhereHas(
+            ->whereHas(
                 'blueprint',
                 fn (BuilderContract $typeQuery) => $typeQuery
                     ->when($pageType, fn (BuilderContract $innerQuery) => $innerQuery->where('type', $pageType))

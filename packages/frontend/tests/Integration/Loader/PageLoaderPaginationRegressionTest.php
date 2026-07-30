@@ -7,6 +7,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,7 +18,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 // ---------------------------------------------------------------------------
 
 /**
- * Call PageLoader::getPages with pagination enabled and a fixed limit of 3.
+ * Call PageLoader::list with pagination enabled and a fixed limit of 3.
  *
  * @param  int[]  $pageIds  Restrict results to these IDs (to isolate test data).
  */
@@ -30,7 +31,7 @@ function loadPaginatedPages(
     ?int $paginationPage,
 ): LengthAwarePaginator {
     /** @var LengthAwarePaginator<Page> */
-    return PageLoader::getPages(
+    return PageLoader::list(new PageListingRequestData(
         language: $language,
         site: $site,
         limit: $limit,
@@ -40,12 +41,12 @@ function loadPaginatedPages(
         typeKey: $type->key,
         withPagination: true,
         paginationKey: 'pages',
-        cacheKeyPrepend: 'pagination-regression-test',
+        cacheKeySuffix: 'pagination-regression-test',
         useCache: false,
         modifyQuery: function (Builder $query) use ($pageIds): void {
             $query->whereIn('id', $pageIds);
         },
-    );
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +169,7 @@ it('orders pages with identical published dates deterministically by id descendi
 
     // Run multiple times to catch non-determinism (SQLite can return stable
     // order, but two runs with different WHERE orderings confirm the tiebreaker).
-    $runA = PageLoader::getPages(
+    $runA = PageLoader::list(new PageListingRequestData(
         language: $this->language,
         site: $this->site,
         ordering: PageOrderEnum::Latest,
@@ -178,9 +179,9 @@ it('orders pages with identical published dates deterministically by id descendi
         modifyQuery: function (Builder $query) use ($tiePageIds): void {
             $query->whereIn('id', $tiePageIds);
         },
-    );
+    ));
 
-    $runB = PageLoader::getPages(
+    $runB = PageLoader::list(new PageListingRequestData(
         language: $this->language,
         site: $this->site,
         ordering: PageOrderEnum::Latest,
@@ -191,7 +192,7 @@ it('orders pages with identical published dates deterministically by id descendi
             // Same IDs but reversed in the WHERE clause to exercise different query plans.
             $query->whereIn('id', array_reverse($tiePageIds));
         },
-    );
+    ));
 
     // IDs must be highest-first because scopePublishedLatest adds ORDER BY id DESC as tiebreaker.
     $expectedOrder = [

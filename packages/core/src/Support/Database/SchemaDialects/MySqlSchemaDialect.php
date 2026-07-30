@@ -11,6 +11,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
+use Override;
 use PDO;
 use WeakMap;
 
@@ -102,12 +103,49 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
         ));
     }
 
-    public function inspectGeneratedColumn(string $table, string $column): SqlFragment
+    public function inspectGeneratedColumn(string $table, string $column, ?Connection $connection = null): SqlFragment
     {
         return new SqlFragment(
             'SELECT generation_expression FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
-            [$table, $column],
+            [$this->physicalTableName($table, $connection), $column],
         );
+    }
+
+    public function hasConstraint(string $table, string $constraint, Connection $connection): bool
+    {
+        return $connection->query()
+            ->fromRaw('information_schema.TABLE_CONSTRAINTS')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->where('TABLE_NAME', $this->physicalTableName($table, $connection))
+            ->where('CONSTRAINT_NAME', $constraint)
+            ->exists();
+    }
+
+    public function hasTrigger(string $trigger, Connection $connection): bool
+    {
+        return $connection->query()
+            ->fromRaw('information_schema.TRIGGERS')
+            ->whereRaw('TRIGGER_SCHEMA = DATABASE()')
+            ->where('TRIGGER_NAME', $trigger)
+            ->exists();
+    }
+
+    #[Override]
+    public function hasForeignKeyReference(
+        string $table,
+        string $column,
+        string $foreignTable,
+        string $foreignColumn,
+        Connection $connection,
+    ): bool {
+        return $connection->query()
+            ->fromRaw('information_schema.KEY_COLUMN_USAGE')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->where('TABLE_NAME', $this->physicalTableName($table, $connection))
+            ->where('COLUMN_NAME', $column)
+            ->where('REFERENCED_TABLE_NAME', $this->physicalTableName($foreignTable, $connection))
+            ->where('REFERENCED_COLUMN_NAME', $foreignColumn)
+            ->exists();
     }
 
     public function serverCapabilities(Connection $connection): MySqlServerCapabilities

@@ -132,11 +132,10 @@
                     @svg(Heroicon::OutlinedPencil->getIconForSize(IconSize::Small), 'h-3.5 w-3.5 shrink-0', ['aria-hidden' => 'true'])
                     <span class="truncate">
                         @if ($view->editorName !== null)
-                                {{ $view->editorName }} ·
+                            {{ $view->editorName }} ·
                         @endif
 
-                        {{ __('capell-admin::publish_panel.updated') }}
-                        {{ $view->updatedAt->diffForHumans() }}
+                        {{ __('capell-admin::publish_panel.updated') }} {{ $view->updatedAt->diffForHumans() }}
                     </span>
                 </span>
             @endif
@@ -148,8 +147,9 @@
                 >
                     @svg(Heroicon::OutlinedPlus->getIconForSize(IconSize::Small), 'h-3.5 w-3.5 shrink-0', ['aria-hidden' => 'true'])
                     <span class="truncate">
-                        {{ __('capell-admin::publish_panel.created') }}
-                        {{ $view->createdAt->diffForHumans() }}@if ($view->creatorName !== null)· {{ $view->creatorName }}
+                        {{ __('capell-admin::publish_panel.created') }} {{ $view->createdAt->diffForHumans() }}
+                        @if ($view->creatorName !== null)
+                            · {{ $view->creatorName }}
                         @endif
                     </span>
                 </span>

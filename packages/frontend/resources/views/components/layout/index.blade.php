@@ -35,7 +35,9 @@ $htmlContentStructure = ContentStructure::Html;
     'pageSlot' => null,
 ])
 @if ($isSystemPageLayout)
-    <div {{ $attributes->merge(['class' => 'capell-component capell-layout-index flex min-h-screen flex-col bg-slate-50 text-slate-950']) }}>
+    <div
+        {{ $attributes->merge(['class' => 'capell-component capell-layout-index flex min-h-screen flex-col bg-slate-50 text-slate-950']) }}
+    >
         <main
             id="main"
             class="capell-component capell-layout-main mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-6 py-12 text-center"
@@ -67,7 +69,9 @@ $htmlContentStructure = ContentStructure::Html;
         </main>
     </div>
 @else
-    <div {{ $attributes->merge(['class' => 'capell-component capell-layout-index flex min-h-screen flex-col']) }}>
+    <div
+        {{ $attributes->merge(['class' => 'capell-component capell-layout-index flex min-h-screen flex-col']) }}
+    >
         <a
             class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-gray-900 focus:shadow"
             href="#main"
@@ -81,7 +85,9 @@ $htmlContentStructure = ContentStructure::Html;
             @if (view()->exists($theme['meta']['header_file']))
                 {!! view($theme['meta']['header_file'])->render() !!}
             @else
-                <x-dynamic-component :component="$theme['meta']['header_file']" />
+                <x-dynamic-component
+                    :component="$theme['meta']['header_file']"
+                />
             @endif
         @endif
 
@@ -101,7 +107,9 @@ $htmlContentStructure = ContentStructure::Html;
             @if (view()->exists($theme['meta']['footer_file']))
                 {!! view($theme['meta']['footer_file'])->render() !!}
             @else
-                <x-dynamic-component :component="$theme['meta']['footer_file']" />
+                <x-dynamic-component
+                    :component="$theme['meta']['footer_file']"
+                />
             @endif
         @endif
     </div>

@@ -7,6 +7,7 @@ use Capell\Admin\Policies\RedirectPolicy;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -15,6 +16,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -50,6 +52,27 @@ it('shows redirect import and export actions to users with the matching permissi
         ->assertSuccessful()
         ->assertActionVisible('importRedirects')
         ->assertActionVisible(ExportAction::class);
+});
+
+it('eager loads the target page while rendering automatic redirects', function (): void {
+    test()->actingAsAdmin();
+
+    $page = Page::factory()->createOne(['name' => 'Redirect target page']);
+
+    PageUrl::factory()
+        ->site($page->site)
+        ->page($page)
+        ->redirect()
+        ->createOne();
+
+    Model::preventLazyLoading();
+
+    try {
+        Livewire::test(ManageRedirects::class)
+            ->assertSuccessful();
+    } finally {
+        Model::preventLazyLoading(false);
+    }
 });
 
 it('can create a manual redirect with database-backed fields', function (): void {

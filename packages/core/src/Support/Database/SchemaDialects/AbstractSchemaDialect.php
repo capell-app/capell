@@ -5,10 +5,33 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\SchemaDialects;
 
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Illuminate\Database\Connection;
 use InvalidArgumentException;
 
 abstract class AbstractSchemaDialect
 {
+    public function hasForeignKeyReference(
+        string $table,
+        string $column,
+        string $foreignTable,
+        string $foreignColumn,
+        Connection $connection,
+    ): bool {
+        $foreignTable = $this->physicalTableName($foreignTable, $connection);
+
+        return collect($connection->getSchemaBuilder()->getForeignKeys($table))
+            ->contains(static fn (array $foreignKey): bool => $foreignKey['columns'] === [$column]
+                && $foreignKey['foreign_table'] === $foreignTable
+                && in_array($foreignKey['foreign_columns'], [[$foreignColumn], []], true));
+    }
+
+    protected function physicalTableName(string $table, ?Connection $connection = null): string
+    {
+        return $connection instanceof Connection
+            ? $connection->getTablePrefix() . $table
+            : $table;
+    }
+
     protected function identifier(string $identifier, string $quote): string
     {
         throw_unless(

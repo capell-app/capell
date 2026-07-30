@@ -162,7 +162,6 @@ final class QueueMarketplaceInstallAttemptAction
             eligibility: $eligibility->toArray(),
             context: $this->contextWithComposerAuth($context, $acquisition->composerAuth),
             deployment: $deploymentMetadata,
-            failureReason: null,
             telemetryStatus: $telemetryStatus,
             idempotencyKey: $idempotencyKey,
             timelineMessage: (string) __('capell-marketplace::marketplace.operations.timeline_created'),

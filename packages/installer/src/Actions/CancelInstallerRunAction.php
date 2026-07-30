@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Installer\Actions;
 
 use Capell\Installer\Support\InstallerSessionRepository;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CancelInstallerRunAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

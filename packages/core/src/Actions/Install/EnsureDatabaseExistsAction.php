@@ -32,7 +32,7 @@ final class EnsureDatabaseExistsAction
         }
 
         try {
-            $platform = CapellDatabase::for($driver);
+            $platform = CapellDatabase::forDriver($driver);
         } catch (UnsupportedDatabaseDriver) {
             return;
         }

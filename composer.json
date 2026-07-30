@@ -59,8 +59,9 @@
         "phpstan": "@analyze",
         "phpstan:baseline-check": "bash scripts/check-phpstan-baseline-growth.sh",
         "phpstan:deprecations": "XDEBUG_MODE=off php -d opcache.enable_cli=1 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/deprecations.neon",
-        "prettier": "npx prettier --write \"packages/**/*.{css,js,yml,json,md}\"",
-        "prettier:check": "npx prettier --check \"packages/**/*.{css,js,yml,json,md}\"",
+        "prettier": "npx prettier --write \"packages/**/*.{css,js,yml,json,md,blade.php}\"",
+        "prettier:check": "npx prettier --check \"packages/**/*.{css,js,yml,json,md,blade.php}\"",
+        "prettier:ci": "npx prettier --check \"packages/**/*.{css,js,yml,blade.php}\"",
         "eslint": "npx eslint 'packages/*/resources/js/**/*.js' --max-warnings=0",
         "security:audit": "composer audit --locked",
         "preflight": [

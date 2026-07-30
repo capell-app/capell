@@ -358,9 +358,7 @@ it('preserves the step failure when final cache cleanup also fails', function ()
         ->andReturnUsing(function () use (&$cacheClearCall, $cleanupFailure): void {
             $cacheClearCall++;
 
-            if ($cacheClearCall === 2) {
-                throw $cleanupFailure;
-            }
+            throw_if($cacheClearCall === 2, $cleanupFailure);
         });
 
     $lines = [];
@@ -389,9 +387,7 @@ it('propagates final cache cleanup failures when the step succeeds', function ()
         ->andReturnUsing(function () use (&$cacheClearCall, $cleanupFailure): void {
             $cacheClearCall++;
 
-            if ($cacheClearCall === 2) {
-                throw $cleanupFailure;
-            }
+            throw_if($cacheClearCall === 2, $cleanupFailure);
         });
 
     $lines = [];

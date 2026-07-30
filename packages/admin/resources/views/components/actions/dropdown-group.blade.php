@@ -11,5 +11,9 @@
 @endphp
 
 @if ($group->isVisible() && $hasActions)
-    <x-filament-actions::group class="fi-btn-group-dropdown" :button="true" :group="$group" />
+    <x-filament-actions::group
+        class="fi-btn-group-dropdown"
+        :button="true"
+        :group="$group"
+    />
 @endif

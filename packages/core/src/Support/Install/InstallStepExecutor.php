@@ -59,9 +59,7 @@ final class InstallStepExecutor
             try {
                 CapellCore::clearExtensionCache();
             } catch (Throwable $cleanupFailure) {
-                if (! $stepFailed) {
-                    throw $cleanupFailure;
-                }
+                throw_unless($stepFailed, $cleanupFailure);
 
                 try {
                     report($cleanupFailure);

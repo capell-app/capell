@@ -10,7 +10,9 @@
         @else
             <ol class="space-y-3">
                 @foreach ($this->items() as $item)
-                    <li class="before:bg-primary-500 relative pl-5 text-sm before:absolute before:top-2 before:left-0 before:h-2 before:w-2 before:rounded-full">
+                    <li
+                        class="before:bg-primary-500 relative pl-5 text-sm before:absolute before:top-2 before:left-0 before:h-2 before:w-2 before:rounded-full"
+                    >
                         <a
                             href="{{ $item->resolvedUrl() }}"
                             class="font-medium text-gray-950 hover:underline dark:text-white"

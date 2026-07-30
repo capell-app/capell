@@ -37,15 +37,22 @@
 >
     <div class="flex gap-3">
         @if ($icon)
-            <div @class([
+            <div
+                @class([
                 'flex-shrink-0',
                 $iconVerticalAlignment === 'start' ? 'self-start' : 'self-center',
-            ])>
-                <x-filament::icon :icon="$icon" :class="$iconClasses" />
+            ])
+            >
+                <x-filament::icon
+                    :icon="$icon"
+                    :class="$iconClasses"
+                />
             </div>
         @endif
 
-        <div class="flex-1 items-center space-y-3 md:flex md:justify-between md:gap-3 md:space-y-0">
+        <div
+            class="flex-1 items-center space-y-3 md:flex md:justify-between md:gap-3 md:space-y-0"
+        >
             @if ($title || $description)
                 <div class="space-y-0.5">
                     @if ($title)
@@ -59,10 +66,12 @@
             @endif
 
             @if ($actions)
-                <div @class([
+                <div
+                    @class([
                     'flex items-center gap-3',
                     $actionsVerticalAlignment === 'start' ? 'self-start' : 'self-center',
-                ])>
+                ])
+                >
                     <div class="flex items-center gap-3 whitespace-nowrap">
                         @foreach ($actions as $action)
                             @if ($action->isVisible())

@@ -3,11 +3,17 @@
     $truncate_length = 120;
 @endphp
 
-<div {{ $attributes->merge($getExtraAttributes())->class(['filament-tables-key-value-column flex w-full flex-col gap-2 p-4']) }}>
+<div
+    {{ $attributes->merge($getExtraAttributes())->class(['filament-tables-key-value-column flex w-full flex-col gap-2 p-4']) }}
+>
     <table class="w-full table-fixed text-sm">
         <thead class="border-b border-gray-100">
-            <th class="w-1/2 p-2 text-left text-sm font-light">{{ __('capell-admin::table.old_value') }}</th>
-            <th class="p-2 text-left text-sm font-light">{{ __('capell-admin::table.new_value') }}</th>
+            <th class="w-1/2 p-2 text-left text-sm font-light">
+                {{ __('capell-admin::table.old_value') }}
+            </th>
+            <th class="p-2 text-left text-sm font-light">
+                {{ __('capell-admin::table.new_value') }}
+            </th>
         </thead>
         <tbody>
             @foreach ($record->new_values as $key => $new_value)
@@ -19,17 +25,21 @@
 
                 <tr>
                     <td class="border-r border-gray-100 px-2 pt-2">
-                        <span class="inline-block rounded bg-gray-50 px-2 py-1 text-xs font-semibold">
+                        <span
+                            class="inline-block rounded bg-gray-50 px-2 py-1 text-xs font-semibold"
+                        >
                             {{ $key }}
                         </span>
                     </td>
                     <td class="border-gray-100 px-2 pt-2">&nbsp;</td>
                 </tr>
                 <tr>
-                    <td @class([
+                    <td
+                        @class([
                         'border-r border-gray-100 p-2 text-xs leading-tight text-gray-600',
                         'border-b' => ! $loop->last,
-                    ])>
+                    ])
+                    >
                         <div
                             class="inline"
                             x-data="{
@@ -54,10 +64,12 @@
                             </button>
                         </div>
                     </td>
-                    <td @class([
+                    <td
+                        @class([
                         'border-gray-100 p-2 text-xs leading-tight text-gray-600',
                         'border-b' => ! $loop->last,
-                    ])>
+                    ])
+                    >
                         <div
                             class="inline"
                             x-data="{

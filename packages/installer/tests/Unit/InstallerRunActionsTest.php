@@ -51,10 +51,10 @@ function installerPreflightReport(): array
 /** @param array<string, mixed> $report */
 function bindInstallerRunPreflight(array $report): void
 {
-    app()->instance(InstallerPreflight::class, new class($report)
+    app()->instance(InstallerPreflight::class, new readonly class($report)
     {
         /** @param array<string, mixed> $report */
-        public function __construct(private readonly array $report) {}
+        public function __construct(private array $report) {}
 
         /** @return array<string, mixed> */
         public function run(?InstallInputData $inputData = null): array
@@ -70,12 +70,11 @@ it('starts queued and browser-step runs behind typed mode results', function ():
 
     bindInstallerRunPreflight(installerPreflightReport());
 
-    $action = resolve(StartInstallerRunAction::class);
     $queuedInstallId = '11111111-1111-4111-a111-111111111111';
     $browserInstallId = '22222222-2222-4222-a222-222222222222';
 
-    $queued = $action->handle($queuedInstallId, installerRunInput(), InstallerRunMode::Queued);
-    $browser = $action->handle($browserInstallId, installerRunInput(), InstallerRunMode::BrowserSteps);
+    $queued = StartInstallerRunAction::run($queuedInstallId, installerRunInput(), InstallerRunMode::Queued);
+    $browser = StartInstallerRunAction::run($browserInstallId, installerRunInput(), InstallerRunMode::BrowserSteps);
 
     expect($queued)->toBeInstanceOf(InstallerRunStartData::class)
         ->and($queued->mode)->toBe(InstallerRunMode::Queued)
@@ -99,7 +98,7 @@ it('runs synchronous starts and records their success summary', function (): voi
         ->once();
 
     $installId = '21212121-2121-4121-a121-212121212121';
-    $result = resolve(StartInstallerRunAction::class)->handle(
+    $result = StartInstallerRunAction::run(
         $installId,
         installerRunInput(),
         InstallerRunMode::Synchronous,
@@ -137,7 +136,7 @@ it('does not clear a foreign lock when a synchronous start fails', function (): 
             throw new RuntimeException('Synchronous install failed');
         });
 
-    $result = resolve(StartInstallerRunAction::class)->handle(
+    $result = StartInstallerRunAction::run(
         $installId,
         installerRunInput(),
         InstallerRunMode::Synchronous,
@@ -167,9 +166,8 @@ it('returns typed replay and out-of-sequence step results without executing a st
     );
     $sessions->recordCompletedStep($installId, 'already-complete', 'expected-next');
 
-    $action = resolve(AdvanceInstallerRunAction::class);
-    $replay = $action->handle($installId, 'already-complete');
-    $outOfSequence = $action->handle($installId, 'not-started');
+    $replay = AdvanceInstallerRunAction::run($installId, 'already-complete');
+    $outOfSequence = AdvanceInstallerRunAction::run($installId, 'not-started');
 
     expect($replay)->toBeInstanceOf(InstallerRunStepData::class)
         ->and($replay->code)->toBe(InstallerRunStepResultCode::Running)
@@ -199,7 +197,7 @@ it('advances a passing preflight step and records its report', function (): void
     );
     bindInstallerRunPreflight(installerPreflightReport());
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREFLIGHT_CHECKS,
     );
@@ -241,7 +239,7 @@ it('returns a typed preflight failure without clearing a foreign lock', function
     ]];
     bindInstallerRunPreflight($failedPreflight);
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREFLIGHT_CHECKS,
     );
@@ -274,7 +272,7 @@ it('advances a successful installer step', function (): void {
         ->once()
         ->andReturnNull();
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
@@ -306,7 +304,7 @@ it('returns a typed execution failure without clearing a foreign lock', function
         ->once()
         ->andThrow(new RuntimeException('Step exploded'));
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
@@ -336,7 +334,7 @@ it('clears its owned lock when an installer step fails', function (): void {
         ->once()
         ->andThrow(new RuntimeException('Owned step failed'));
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
@@ -367,7 +365,7 @@ it('completes the final step and preserves a foreign lock', function (): void {
         ->once()
         ->andReturnNull();
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
@@ -396,7 +394,7 @@ it('replays an already completed run without clearing a foreign lock', function 
     $sessions->putStatus($foreignInstallId, 'running');
     $sessions->lock($foreignInstallId);
 
-    $result = resolve(AdvanceInstallerRunAction::class)->handle(
+    $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
@@ -424,8 +422,8 @@ it('reads terminal progress and builds a typed diagnostic report', function (): 
         json_encode(['message' => 'Install failed'], JSON_THROW_ON_ERROR),
     );
 
-    $progress = resolve(ReadInstallerRunProgressAction::class)->handle($installId);
-    $report = resolve(BuildInstallerRunReportAction::class)->handle($installId);
+    $progress = ReadInstallerRunProgressAction::run($installId);
+    $report = BuildInstallerRunReportAction::run($installId);
 
     expect($progress)->toBeInstanceOf(InstallerRunProgressData::class)
         ->and($progress->status)->toBe('failed')
@@ -452,7 +450,7 @@ it('does not clear a foreign lock when reading stale terminal progress', functio
     $sessions->putStatus($foreignInstallId, 'running');
     $sessions->lock($foreignInstallId);
 
-    $progress = resolve(ReadInstallerRunProgressAction::class)->handle($installId);
+    $progress = ReadInstallerRunProgressAction::run($installId);
 
     expect($progress->status)->toBe('failed')
         ->and($sessions->activeInstallId())->toBe($foreignInstallId);
@@ -468,7 +466,7 @@ it('cancels one run without clearing another run lock', function (): void {
     $sessions->putStatus($activeInstallId, 'running');
     $sessions->lock($activeInstallId);
 
-    resolve(CancelInstallerRunAction::class)->handle($cancelledInstallId);
+    CancelInstallerRunAction::run($cancelledInstallId);
 
     expect($sessions->hasInstallSessionState($cancelledInstallId))->toBeFalse()
         ->and($sessions->activeInstallId())->toBe($activeInstallId);

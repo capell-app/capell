@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static DatabasePlatform for(Connection|Model|string|null $context = null)
+ * @method static DatabasePlatform forDriver(string $driver)
+ * @method static DatabasePlatform forConnection(?string $connectionName = null)
  *
  * @see DatabasePlatformRegistry
  */

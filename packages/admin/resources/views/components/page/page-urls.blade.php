@@ -10,14 +10,22 @@
     $flagIconRenderer = $viewData['flagIconRenderer'];
 @endphp
 
-<x-filament::section compact collapsible>
-    <x-slot name="heading">{{ __('capell-admin::generic.page_urls') }}</x-slot>
+<x-filament::section
+    compact
+    collapsible
+>
+    <x-slot name="heading">
+        {{ __('capell-admin::generic.page_urls') }}
+    </x-slot>
     <div class="flex flex-col divide-y divide-gray-200 dark:divide-gray-700">
         @foreach ($pageUrls as $pageUrl)
             @php($fullUrl = PageUrlPresenter::fullUrl($pageUrl))
             <div class="py-1">
                 @if ($fullUrl !== null)
-                    <x-filament::link :href="$fullUrl" target="_blank">
+                    <x-filament::link
+                        :href="$fullUrl"
+                        target="_blank"
+                    >
                         @if ($pageUrl->language && $pageUrl->language->flag)
                             {!!
                                 $flagIconRenderer->render(

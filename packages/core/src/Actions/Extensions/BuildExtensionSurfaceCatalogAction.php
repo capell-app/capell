@@ -23,6 +23,8 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
+use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
@@ -45,6 +47,10 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
+use Capell\Core\Enums\Database\DatabaseCapability;
+use Capell\Core\Enums\Database\DatabaseDateOperation;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Core\Enums\Metrics\MetricAggregation;
@@ -130,6 +136,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.facade.capell-database', 'facade', CapellDatabase::class, ExtensionSurfaceStability::Experimental, 'Static database platform resolution facade.'),
+            $this->entry('core.dto.database-index-definition', 'dto', DatabaseIndexDefinition::class, ExtensionSurfaceStability::Experimental, 'Portable database index definition.'),
+            $this->entry('core.dto.sql-fragment', 'dto', SqlFragment::class, ExtensionSurfaceStability::Experimental, 'Bound SQL fragment shared by database dialect contracts.'),
             $this->entry('core.dto.extension-contribution', 'dto', ExtensionContributionData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution data.', 'core.extension-contribution-data'),
             $this->entry('core.dto.frontend-route-reservation', 'dto', FrontendRouteReservationData::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation data.'),
             $this->entry('core.dto.metric-collection-result', 'dto', MetricCollectionResultData::class, ExtensionSurfaceStability::Experimental, 'Typed metric collection result.'),
@@ -152,6 +160,10 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.project-build-site', 'dto', ProjectBuildSiteData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build site.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-site-spec-reference', 'dto', ProjectBuildSiteSpecReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build SiteSpec reference.', 'core.project-build-manifest-data'),
             $this->entry('core.enum.frontend-route-reservation-type', 'enum', FrontendRouteReservationType::class, ExtensionSurfaceStability::Experimental, 'Supported frontend route reservation types.'),
+            $this->entry('core.enum.database-capability', 'enum', DatabaseCapability::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capabilities.'),
+            $this->entry('core.enum.database-date-operation', 'enum', DatabaseDateOperation::class, ExtensionSurfaceStability::Experimental, 'Portable database date operations.'),
+            $this->entry('core.enum.database-family', 'enum', DatabaseFamily::class, ExtensionSurfaceStability::Experimental, 'Supported database families.'),
+            $this->entry('core.enum.database-provisioning-result', 'enum', DatabaseProvisioningResult::class, ExtensionSurfaceStability::Experimental, 'Database provisioning outcomes.'),
             $this->entry('core.enum.metric-aggregation', 'enum', MetricAggregation::class, ExtensionSurfaceStability::Experimental, 'Supported metric aggregations.'),
             $this->entry('core.enum.metric-backfill-policy', 'enum', MetricBackfillPolicy::class, ExtensionSurfaceStability::Experimental, 'Supported metric backfill policies.'),
             $this->entry('core.enum.metric-collection-status', 'enum', MetricCollectionStatus::class, ExtensionSurfaceStability::Experimental, 'Metric collection outcomes.'),

@@ -14,11 +14,15 @@
             )
         !!}
     @else
-        <span class="hover:text-primary-600 dark:hover:text-primary-400 text-xs font-medium text-gray-400 dark:text-gray-300">
+        <span
+            class="hover:text-primary-600 dark:hover:text-primary-400 text-xs font-medium text-gray-400 dark:text-gray-300"
+        >
             {{ $language->name }}
         </span>
     @endif
-    <span class="hover:text-primary-600 dark:hover:text-primary-400 text-sm font-medium text-gray-400 dark:text-gray-300">
+    <span
+        class="hover:text-primary-600 dark:hover:text-primary-400 text-sm font-medium text-gray-400 dark:text-gray-300"
+    >
         {{ $url }}
     </span>
 </div>

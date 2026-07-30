@@ -12,8 +12,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+        name="robots"
+        content="noindex, nofollow"
+    />
     <title>Draft preview — {{ $page->name }}</title>
     <style>
         :root {
@@ -94,29 +100,40 @@
         .translation .content {
             line-height: 1.6;
         }
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: #18181b;
-                color: #f4f4f5;
-            }
-            .translation {
-                background: #27272a;
-                border-color: #3f3f46;
-            }
-            .preview-meta,
-            .translation-meta {
-                color: #a1a1aa;
-            }
-        }
+        @media(prefers-color-scheme: dark)
+        {
+                   body {
+                       background: #18181b;
+                       color: #f4f4f5;
+                   }
+                   .translation {
+                       background: #27272a;
+                       border-color: #3f3f46;
+                   }
+                   .preview-meta,
+                   .translation-meta {
+                       color: #a1a1aa;
+                   }
+               }
     </style>
 </head>
 <body>
-    <div class="preview-banner" role="status" aria-live="polite">
+    <div
+        class="preview-banner"
+        role="status"
+        aria-live="polite"
+    >
         <span>
             <strong>Draft preview</strong>
-            — this view is gated by a signed URL and is not visible to the public.
+            — this view is gated by a signed URL and is not visible to the
+            public.
         </span>
-        <a class="close" href="javascript:window.close()"> Close preview </a>
+        <a
+            class="close"
+            href="javascript:window.close()"
+        >
+            Close preview
+        </a>
     </div>
     <main class="preview-content">
         <p class="preview-meta">

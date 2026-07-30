@@ -20,11 +20,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $tableNames = config('permission.table_names', [
-            'roles' => 'roles',
-            'model_has_permissions' => 'model_has_permissions',
-            'model_has_roles' => 'model_has_roles',
-        ]);
+        $tableNames = $this->tableNames();
 
         $columnName = $this->columnName(config('permission.column_names.team_foreign_key'), 'team_id');
         $modelMorphKey = $this->columnName(config('permission.column_names.model_morph_key'), 'model_id');
@@ -113,11 +109,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        $tableNames = config('permission.table_names', [
-            'roles' => 'roles',
-            'model_has_permissions' => 'model_has_permissions',
-            'model_has_roles' => 'model_has_roles',
-        ]);
+        $tableNames = $this->tableNames();
 
         $columnName = $this->columnName(config('permission.column_names.team_foreign_key'), 'team_id');
         $modelMorphKey = $this->columnName(config('permission.column_names.model_morph_key'), 'model_id');
@@ -250,6 +242,46 @@ return new class extends Migration
     private function teamUniqueIndexName(string $tableName, string $pivot): string
     {
         return str_replace(['-', '.'], '_', strtolower($tableName . '_team_' . $pivot . '_model_type_unique'));
+    }
+
+    /**
+     * @return array{
+     *     roles: non-empty-string,
+     *     model_has_permissions: non-empty-string,
+     *     model_has_roles: non-empty-string
+     * }
+     */
+    private function tableNames(): array
+    {
+        $configured = config('permission.table_names');
+
+        throw_unless(is_array($configured), RuntimeException::class, 'Permission table names must be configured as an array.');
+
+        $tableNames = [];
+
+        foreach (['roles', 'model_has_permissions', 'model_has_roles'] as $key) {
+            $tableName = $configured[$key] ?? null;
+
+            if (! is_string($tableName) || trim($tableName) === '') {
+                throw new RuntimeException(sprintf(
+                    'Permission table name [%s] must be a non-empty string.',
+                    $key,
+                ));
+            }
+
+            $tableName = trim($tableName);
+
+            if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $tableName) !== 1) {
+                throw new RuntimeException(sprintf(
+                    'Permission table name [%s] must be a safe SQL identifier.',
+                    $key,
+                ));
+            }
+
+            $tableNames[$key] = $tableName;
+        }
+
+        return $tableNames;
     }
 
     private function columnName(mixed $configured, string $default): string

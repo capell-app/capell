@@ -5,7 +5,6 @@
     'resourcePlan' => null,
 ])
 
-{{-- format-ignore-start --}}
 @php
     use Capell\Core\Enums\MediaConversionEnum;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
@@ -130,15 +129,12 @@
         ->all();
 
 @endphp
-{{-- format-ignore-end --}}
 <head>
     <meta charset="utf-8" />
 
-    {{-- format-ignore-start --}}
     <title>
         @yield('meta_title', trans(strip_tags($title), $translationVariables))
     </title>
-    {{-- format-ignore-end --}}
 
     <base href="{{ $siteDomain?->full_url }}" />
 
@@ -147,7 +143,6 @@
         content="width=device-width, initial-scale=1"
     />
 
-    {{-- format-ignore-start --}}
     @if ($fonts)
         @php
             $isGoogleFont = false;
@@ -174,24 +169,23 @@
         @endphp
         @if ($isGoogleFont)
             <link
-                    rel="preconnect"
-                    href="https://fonts.googleapis.com"
+                rel="preconnect"
+                href="https://fonts.googleapis.com"
             />
             <link
-                    rel="preconnect"
-                    href="https://fonts.gstatic.com"
-                    crossorigin
+                rel="preconnect"
+                href="https://fonts.gstatic.com"
+                crossorigin
             />
         @endif
 
         @foreach ($fontUrls as $fontUrl)
             <link
-                    href="{{ $fontUrl }}"
-                    rel="stylesheet"
+                href="{{ $fontUrl }}"
+                rel="stylesheet"
             />
         @endforeach
     @endif
-    {{-- format-ignore-end --}}
 
     @if ($renderedFrontendResources instanceof RenderedFrontendResourcesData)
         {!! $renderedFrontendResources->headHtml !!}
@@ -291,7 +285,6 @@
         </style>
     @endif
 
-    {{-- format-ignore-start --}}
     <style>
         :root {
             --font-family: {!! HeadContentSanitizer::cssValue(PublicModelMeta::get($theme, 'font_family'), 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"') !!};
@@ -333,8 +326,8 @@
         {!! HeadContentSanitizer::css((string) ($theme->custom_css ?? '')) !!}
     </style>
     @if ($fonts)
-        @foreach ($fonts as $themeFont)
-            @php
+    @foreach ($fonts as $themeFont)
+    @php
                 if (($themeFont['type'] ?? null) === \Capell\Core\Enums\FontTypeEnum::Local->value && isset($themeFont['files']) && is_array($themeFont['files']) && !empty($themeFont['files']) && isset($themeFont['name'])) {
                     $src = collect($themeFont['files'])->map(
                         function (string $fontFile, int $index) use ($fontResolver, $themeFont): string {
@@ -365,7 +358,6 @@
             @endphp
         @endforeach
     @endif
-    {{-- format-ignore-end --}}
     @stack('styles')
 
     @if ($runtimeManifest?->usesLivewire ?? $livewireEnabled)

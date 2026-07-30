@@ -156,7 +156,10 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
                 loading="{{ $loading }}"
             @endif
         >
-            <source src="{{ $media->getFullUrl() }}" type="{{ $media->getMimeType() }}" />
+            <source
+                src="{{ $media->getFullUrl() }}"
+                type="{{ $media->getMimeType() }}"
+            />
             {{ __('Your browser does not support the video tag.') }}
         </video>
         @svg('heroicon-s-play', [

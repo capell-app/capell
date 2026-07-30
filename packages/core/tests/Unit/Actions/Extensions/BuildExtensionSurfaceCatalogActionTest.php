@@ -16,6 +16,8 @@ use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
+use Capell\Core\Data\Database\DatabaseIndexDefinition;
+use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
@@ -27,8 +29,13 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
+use Capell\Core\Enums\Database\DatabaseCapability;
+use Capell\Core\Enums\Database\DatabaseDateOperation;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
@@ -164,6 +171,13 @@ it('classifies the database compatibility seam as experimental', function (): vo
         'core.contract.database-provisioner' => DatabaseProvisioner::class,
         'core.contract.database-query-dialect' => DatabaseQueryDialect::class,
         'core.contract.database-schema-dialect' => DatabaseSchemaDialect::class,
+        'core.dto.database-index-definition' => DatabaseIndexDefinition::class,
+        'core.dto.sql-fragment' => SqlFragment::class,
+        'core.enum.database-capability' => DatabaseCapability::class,
+        'core.enum.database-date-operation' => DatabaseDateOperation::class,
+        'core.enum.database-family' => DatabaseFamily::class,
+        'core.enum.database-provisioning-result' => DatabaseProvisioningResult::class,
+        'core.facade.capell-database' => CapellDatabase::class,
         'core.registry.database-platform' => DatabasePlatformRegistry::class,
         'core.tag.database-platform' => DatabasePlatform::TAG,
     ];

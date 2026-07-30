@@ -172,7 +172,7 @@ final class InstallerPreflight
 
         if ($driver !== '') {
             try {
-                $required[] = CapellDatabase::for($driver)->phpExtension();
+                $required[] = CapellDatabase::forDriver($driver)->phpExtension();
             } catch (UnsupportedDatabaseDriver) {
                 return $this->check(
                     'php-extensions',

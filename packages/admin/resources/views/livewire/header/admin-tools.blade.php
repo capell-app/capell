@@ -40,7 +40,11 @@
                 >
                     @include('capell-admin::img.logo')
                 </span>
-                <x-filament::badge color="gray" size="sm" class="float-right ml-2">
+                <x-filament::badge
+                    color="gray"
+                    size="sm"
+                    class="float-right ml-2"
+                >
                     {{ CapellCore::getInstalledPrettyVersion('capell-app/admin') }}
                 </x-filament::badge>
             </x-filament::dropdown.header>

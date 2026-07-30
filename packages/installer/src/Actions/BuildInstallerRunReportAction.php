@@ -10,10 +10,12 @@ use Capell\Installer\Data\InstallerRunReportData;
 use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildInstallerRunReportAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

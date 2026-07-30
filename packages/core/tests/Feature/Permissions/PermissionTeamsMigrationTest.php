@@ -56,6 +56,36 @@ afterEach(function (): void {
     Schema::dropIfExists('cap_mig_roles');
 });
 
+it('rejects malformed table configuration before schema mutation', function (
+    string $key,
+    mixed $value,
+    string $message,
+): void {
+    config()->set('permission.table_names.' . $key, $value);
+    $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_05_10_190832_19_add_team_id_to_permission_tables.php';
+
+    expect(fn () => $migration->up())->toThrow(RuntimeException::class, $message)
+        ->and(Schema::hasColumn('cap_mig_roles', 'team_id'))->toBeFalse()
+        ->and(Schema::hasColumn('cap_mig_mhr', 'team_id'))->toBeFalse()
+        ->and(Schema::hasColumn('cap_mig_mhp', 'team_id'))->toBeFalse();
+})->with([
+    'empty roles table' => [
+        'roles',
+        '',
+        'Permission table name [roles] must be a non-empty string.',
+    ],
+    'blank model roles table' => [
+        'model_has_roles',
+        '   ',
+        'Permission table name [model_has_roles] must be a non-empty string.',
+    ],
+    'unsafe model permissions table' => [
+        'model_has_permissions',
+        'model_has_permissions; DROP TABLE roles',
+        'Permission table name [model_has_permissions] must be a safe SQL identifier.',
+    ],
+]);
+
 it('adds team-compatible permission schema idempotently and reverses it safely', function (): void {
     $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_05_10_190832_19_add_team_id_to_permission_tables.php';
 

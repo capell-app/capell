@@ -9,8 +9,11 @@ on:
       - 'packages/**/*.js'
       - 'packages/**/*.css'
       - 'packages/**/*.yml'
+      - 'packages/**/*.blade.php'
       - 'package.json'
       - 'package-lock.json'
+      - 'composer.json'
+      - 'scripts/lint-changed.sh'
       - '.github/workflows/asset-formatting.yml'
 
 permissions:
@@ -28,7 +31,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
-          node-version: '18.18.0'
+          node-version: '22.x'
           cache: npm
 
       - name: Set up PHP
@@ -41,4 +44,4 @@ jobs:
         run: npm ci
 
       - name: Check Prettier formatting
-        run: npx prettier --check 'packages/**/*.{css,js,yml}' '!packages/**/node_modules/**'
+        run: composer prettier:ci

@@ -95,7 +95,7 @@ If adjusting public rendering, cache generation, sitemap generation, or static o
 
 ## Getting Help
 
-Open a GitHub Discussion or Issue with reproduction steps and environment details.
+Open a GitHub Issue with reproduction steps and environment details, or visit https://capell.app/support for additional help.
 
 ## Package Independence
 

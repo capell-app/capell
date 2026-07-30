@@ -4,5 +4,28 @@
     "singleQuote": true,
     "trailingComma": "all",
     "singleAttributePerLine": true,
-    "plugins": ["prettier-plugin-tailwindcss"]
+    "plugins": ["prettier-plugin-blade", "prettier-plugin-tailwindcss"],
+    "overrides": [
+        {
+            "files": ["*.blade.php"],
+            "options": {
+                "parser": "blade",
+                "tabWidth": 4,
+                "embeddedLanguageFormatting": "off",
+                "bladeDirectiveArgSpacing": "none",
+                "bladeDirectiveArgSpacingOverrides": [
+                    "if",
+                    "elseif",
+                    "unless",
+                    "while",
+                    "for",
+                    "foreach",
+                    "forelse",
+                    "switch",
+                    "case"
+                ],
+                "bladeSlotClosingTag": "preserve"
+            }
+        }
+    ]
 }

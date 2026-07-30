@@ -11,11 +11,13 @@
     'theme',
 ])
 
-<body @class([
+<body
+    @class([
     'layout-' . $layout->key,
     PublicModelMeta::get($layout, 'body_class'),
     PublicModelMeta::get($theme, 'body_class'),
     $bodyClass,
-])>
+])
+>
     {{ $slot }}
 </body>

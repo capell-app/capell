@@ -15,18 +15,19 @@ use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class AdvanceInstallerRunAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(
         private readonly InstallerSessionRepository $sessions,
         private readonly InstallerRemediation $remediation,
         private readonly AdminUserModelGuard $adminUserModelGuard,
-        private readonly CacheInstallerSuccessSummaryAction $cacheSuccessSummary,
     ) {}
 
     public function handle(string $installId, string $stepKey): InstallerRunStepData
@@ -106,7 +107,7 @@ final class AdvanceInstallerRunAction
 
         if ($nextStep === null) {
             $reporter->markComplete();
-            $this->cacheSuccessSummary->handle($installId, $inputData);
+            CacheInstallerSuccessSummaryAction::run($installId, $inputData);
             $this->sessions->clearActiveLock($installId);
 
             return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);

@@ -7,7 +7,9 @@
 ])
 @if ($results && method_exists($results, 'links'))
     @if ($results->hasPages())
-        <div {{ $attributes->merge(['class' => 'capell-component capell-pagination-index pagination'])->only('class') }}>
+        <div
+            {{ $attributes->merge(['class' => 'capell-component capell-pagination-index pagination'])->only('class') }}
+        >
             @if ($withLinks)
                 <div class="flex-1 md:hidden">
                     {{

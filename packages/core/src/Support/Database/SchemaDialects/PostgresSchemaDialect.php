@@ -68,11 +68,30 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
         ));
     }
 
-    public function inspectGeneratedColumn(string $table, string $column): SqlFragment
+    public function inspectGeneratedColumn(string $table, string $column, ?Connection $connection = null): SqlFragment
     {
         return new SqlFragment(
             'SELECT generation_expression FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?',
-            [$table, $column],
+            [$this->physicalTableName($table, $connection), $column],
         );
+    }
+
+    public function hasConstraint(string $table, string $constraint, Connection $connection): bool
+    {
+        return $connection->query()
+            ->fromRaw('information_schema.table_constraints')
+            ->whereRaw('constraint_schema = current_schema()')
+            ->where('table_name', $this->physicalTableName($table, $connection))
+            ->where('constraint_name', $constraint)
+            ->exists();
+    }
+
+    public function hasTrigger(string $trigger, Connection $connection): bool
+    {
+        return $connection->query()
+            ->fromRaw('information_schema.triggers')
+            ->whereRaw('trigger_schema = current_schema()')
+            ->where('trigger_name', $trigger)
+            ->exists();
     }
 }

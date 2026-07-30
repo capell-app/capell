@@ -1,17 +1,23 @@
 <div class="space-y-4 text-sm">
     <div class="grid grid-cols-3 gap-3">
         <div>
-            <strong> {{ __('capell-admin::bulk_actions.preview_changes') }} </strong>
+            <strong>
+                {{ __('capell-admin::bulk_actions.preview_changes') }}
+            </strong>
             <br />
             {{ $preview->changed() }}
         </div>
         <div>
-            <strong> {{ __('capell-admin::bulk_actions.preview_unchanged') }} </strong>
+            <strong>
+                {{ __('capell-admin::bulk_actions.preview_unchanged') }}
+            </strong>
             <br />
             {{ $preview->unchanged() }}
         </div>
         <div>
-            <strong> {{ __('capell-admin::bulk_actions.preview_blocked') }} </strong>
+            <strong>
+                {{ __('capell-admin::bulk_actions.preview_blocked') }}
+            </strong>
             <br />
             {{ $preview->blocked() }}
         </div>

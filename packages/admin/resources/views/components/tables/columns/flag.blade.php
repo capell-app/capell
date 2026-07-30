@@ -11,7 +11,8 @@
     $flagIconRenderer = app(FlagIconRenderer::class);
 @endphp
 
-<span {{
+<span
+    {{
     $attributes->merge($getExtraAttributes())->class([
         'filament-tables-flag-column flex w-full items-center',
         'px-4 py-3' => ! $isInline(),
@@ -22,7 +23,8 @@
             default => null,
         },
     ])
-}}>
+}}
+>
     @if ($state->flag)
         {!! $flagIconRenderer->render($state->flag, $state->name) !!}
     @else

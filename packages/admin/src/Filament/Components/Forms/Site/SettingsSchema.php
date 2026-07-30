@@ -63,6 +63,6 @@ class SettingsSchema
             return $resolver->resolveTypeByKey($context->typeKey, ConfiguratorTypeEnum::Site)->getKey();
         }
 
-        return $resolver->resolveDefaultType(ConfiguratorTypeEnum::Site)->getKey();
+        return $resolver->resolveOrCreateDefaultSiteType()->getKey();
     }
 }

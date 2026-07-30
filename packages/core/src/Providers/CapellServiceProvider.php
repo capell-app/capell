@@ -173,6 +173,7 @@ use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Routing\Router;
@@ -458,13 +459,16 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(SiteAccessPolicyRegistry::class);
         $this->app->scoped(
             DatabasePlatformRegistry::class,
-            fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry([
-                $app->make(MySqlDatabasePlatform::class),
-                $app->make(MariaDbDatabasePlatform::class),
-                $app->make(SqliteDatabasePlatform::class),
-                $app->make(PostgresDatabasePlatform::class),
-                ...$app->tagged(DatabasePlatform::TAG),
-            ]),
+            fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
+                [
+                    $app->make(MySqlDatabasePlatform::class),
+                    $app->make(MariaDbDatabasePlatform::class),
+                    $app->make(SqliteDatabasePlatform::class),
+                    $app->make(PostgresDatabasePlatform::class),
+                    ...$app->tagged(DatabasePlatform::TAG),
+                ],
+                $app->make(DatabaseManager::class),
+            ),
         );
         $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
             $app->make(SqliteDatabaseBackupDriver::class),

@@ -13,13 +13,15 @@
     }
 @endphp
 
-<li {{
+<li
+    {{
     $attributes->class([
         'list-item',
         'capell-component capell-list-item',
         'active' => $active,
     ])
-}}>
+}}
+>
     <a
         href="{{ $item->data['url'] ?? '' }}"
         @class([
@@ -33,7 +35,10 @@
     </a>
 
     @if ($children->isNotEmpty())
-        <x-capell::list class="ml-2" gap="gap-y-0.5">
+        <x-capell::list
+            class="ml-2"
+            gap="gap-y-0.5"
+        >
             @foreach ($children as $child)
                 <x-dynamic-component
                     :component="! empty($child->data['component']) ? $child->data['component'] : 'capell::list.item'"

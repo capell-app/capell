@@ -33,6 +33,7 @@ final class PageHydrator
         bool $withChildrenCount = false,
         bool $withDate = false,
         bool $withEvents = true,
+        bool $useCache = true,
     ): Collection {
         if ($ids === []) {
             return new Collection;
@@ -41,7 +42,14 @@ final class PageHydrator
         $models = new Collection;
 
         foreach ($ids as $id) {
-            $model = $this->modelCache->get($morphType, $id, $site, $language, $withEvents);
+            $model = $this->modelCache->get(
+                type: $morphType,
+                id: $id,
+                site: $site,
+                language: $language,
+                withEvents: $withEvents,
+                useCache: $useCache,
+            );
 
             if ($model instanceof Pageable) {
                 $models->push($model);
@@ -49,7 +57,7 @@ final class PageHydrator
         }
 
         if ($withParent) {
-            $this->injectParents($models, $site, $language, $withEvents);
+            $this->injectParents($models, $site, $language, $withEvents, $useCache);
         }
 
         if ($withChildrenCount) {
@@ -70,16 +78,28 @@ final class PageHydrator
     /**
      * @param  Collection<int, Model&Pageable<Model>>  $models
      */
-    private function injectParents(Collection $models, ?Site $site, Language $language, bool $withEvents): void
-    {
-        $models->each(function (Model $model) use ($site, $language, $withEvents): void {
+    private function injectParents(
+        Collection $models,
+        ?Site $site,
+        Language $language,
+        bool $withEvents,
+        bool $useCache,
+    ): void {
+        $models->each(function (Model $model) use ($site, $language, $withEvents, $useCache): void {
             $parentId = $model->getAttribute('parent_id');
 
             if ($parentId === null) {
                 return;
             }
 
-            $parent = $this->modelCache->get(Page::class, $parentId, $site, $language, $withEvents);
+            $parent = $this->modelCache->get(
+                type: Page::class,
+                id: $parentId,
+                site: $site,
+                language: $language,
+                withEvents: $withEvents,
+                useCache: $useCache,
+            );
             $model->setRelation('parent', $parent);
 
             if ($parent instanceof Page) {

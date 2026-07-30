@@ -9,6 +9,7 @@ use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Support\Database\SchemaDialects\MySqlSchemaDialect;
 use Illuminate\Database\Connection;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -21,8 +22,10 @@ final class DatabasePlatformRegistry
     /**
      * @param  iterable<DatabasePlatform>  $platforms
      */
-    public function __construct(iterable $platforms = [])
-    {
+    public function __construct(
+        iterable $platforms = [],
+        private readonly ?DatabaseManager $connections = null,
+    ) {
         foreach ($platforms as $platform) {
             $this->register($platform);
         }
@@ -43,19 +46,53 @@ final class DatabasePlatformRegistry
 
     public function for(Connection|Model|string|null $context = null): DatabasePlatform
     {
-        $connection = $this->connection($context);
-        $driver = $connection?->getDriverName()
-            ?? strtolower(trim(is_string($context) ? $context : ''));
-
-        if ($driver === '') {
-            $connection = DB::connection();
-            $driver = $connection->getDriverName();
+        if ($context instanceof Connection) {
+            return $this->forResolvedConnection($context);
         }
 
-        $platform = $this->platforms[$driver]
-            ?? throw new UnsupportedDatabaseDriver(sprintf('Unsupported database driver [%s].', $driver));
+        if ($context instanceof Model) {
+            return $this->forResolvedConnection($context->getConnection());
+        }
 
-        if ($driver !== 'mysql' || ! $connection instanceof Connection || ! isset($this->platforms['mariadb'])) {
+        if ($context === null || trim($context) === '') {
+            return $this->forConnection();
+        }
+
+        $driver = strtolower(trim($context));
+
+        if (isset($this->platforms[$driver])) {
+            return $this->forDriver($driver);
+        }
+
+        if (is_array(config('database.connections.' . $context))) {
+            return $this->forConnection($context);
+        }
+
+        return $this->forDriver($driver);
+    }
+
+    public function forDriver(string $driver): DatabasePlatform
+    {
+        $driver = strtolower(trim($driver));
+
+        return $this->platforms[$driver]
+            ?? throw new UnsupportedDatabaseDriver(sprintf('Unsupported database driver [%s].', $driver));
+    }
+
+    public function forConnection(?string $connectionName = null): DatabasePlatform
+    {
+        $connection = $this->connections?->connection($connectionName)
+            ?? DB::connection($connectionName);
+
+        return $this->forResolvedConnection($connection);
+    }
+
+    private function forResolvedConnection(Connection $connection): DatabasePlatform
+    {
+        $driver = strtolower($connection->getDriverName());
+        $platform = $this->forDriver($driver);
+
+        if ($driver !== 'mysql' || ! isset($this->platforms['mariadb'])) {
             return $platform;
         }
 
@@ -65,22 +102,5 @@ final class DatabasePlatformRegistry
             && $schema->serverCapabilities($connection)->family === DatabaseFamily::MariaDb
                 ? $this->platforms['mariadb']
                 : $platform;
-    }
-
-    private function connection(Connection|Model|string|null $context): ?Connection
-    {
-        if ($context instanceof Connection) {
-            return $context;
-        }
-
-        if ($context instanceof Model) {
-            return $context->getConnection();
-        }
-
-        if (is_string($context) && ! isset($this->platforms[strtolower(trim($context))]) && is_array(config('database.connections.' . $context))) {
-            return DB::connection($context);
-        }
-
-        return null;
     }
 }

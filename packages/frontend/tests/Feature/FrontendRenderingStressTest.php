@@ -12,6 +12,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -70,7 +71,7 @@ it('keeps frontend listings paginated against a large CMS dataset', function ():
         $queryCount++;
     });
 
-    $pages = PageLoader::getPages(
+    $pages = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         limit: 12,
@@ -78,9 +79,9 @@ it('keeps frontend listings paginated against a large CMS dataset', function ():
         ordering: PageOrderEnum::Latest,
         pageType: 'page',
         withPagination: true,
-        cacheKeyPrepend: 'large-rendering-stress',
+        cacheKeySuffix: 'large-rendering-stress',
         useCache: false,
-    );
+    ));
 
     assert($pages instanceof LengthAwarePaginator);
 
