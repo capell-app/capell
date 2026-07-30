@@ -4,25 +4,52 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Database;
 
+use Capell\Core\Enums\SchemaProbeResult;
+use Capell\Core\Exceptions\SchemaProbeFailedException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 final class RuntimeSchemaState
 {
-    /** @var array<string, bool> */
+    /** @var array<string, SchemaProbeResult> */
     private array $tables = [];
 
-    /** @var array<string, bool> */
+    /** @var array<string, SchemaProbeResult> */
     private array $columns = [];
 
+    /** @var array<string, Throwable> */
+    private array $tableFailures = [];
+
+    /** @var array<string, Throwable> */
+    private array $columnFailures = [];
+
     public function hasTable(string $table, bool $refresh = false): bool
+    {
+        return $this->tableResult($table, $refresh)->exists();
+    }
+
+    public function tableResult(string $table, bool $refresh = false): SchemaProbeResult
     {
         if ($refresh || ! array_key_exists($table, $this->tables)) {
             $this->tables[$table] = $this->probeTable($table);
         }
 
         return $this->tables[$table];
+    }
+
+    /**
+     * @throws SchemaProbeFailedException
+     */
+    public function hasTableOrFail(string $table, bool $refresh = false): bool
+    {
+        $result = $this->tableResult($table, $refresh);
+
+        if ($result === SchemaProbeResult::Failed) {
+            throw SchemaProbeFailedException::forTable($table, $this->tableFailures[$table]);
+        }
+
+        return $result->exists();
     }
 
     /**
@@ -35,10 +62,18 @@ final class RuntimeSchemaState
             $this->hasTable($table, $refresh);
         }
 
-        return $this->tables;
+        return array_map(
+            static fn (SchemaProbeResult $result): bool => $result->exists(),
+            $this->tables,
+        );
     }
 
     public function hasColumn(string $table, string $column, bool $refresh = false): bool
+    {
+        return $this->columnResult($table, $column, $refresh)->exists();
+    }
+
+    public function columnResult(string $table, string $column, bool $refresh = false): SchemaProbeResult
     {
         $key = $this->columnKey($table, $column);
 
@@ -47,6 +82,20 @@ final class RuntimeSchemaState
         }
 
         return $this->columns[$key];
+    }
+
+    /**
+     * @throws SchemaProbeFailedException
+     */
+    public function hasColumnOrFail(string $table, string $column, bool $refresh = false): bool
+    {
+        $result = $this->columnResult($table, $column, $refresh);
+
+        if ($result === SchemaProbeResult::Failed) {
+            throw SchemaProbeFailedException::forColumn($table, $column, $this->columnFailures[$this->columnKey($table, $column)]);
+        }
+
+        return $result->exists();
     }
 
     public function refreshTable(string $table): bool
@@ -63,55 +112,67 @@ final class RuntimeSchemaState
     {
         $this->tables = [];
         $this->columns = [];
+        $this->tableFailures = [];
+        $this->columnFailures = [];
     }
 
     public function forgetTable(string $table): void
     {
-        unset($this->tables[$table]);
+        unset($this->tables[$table], $this->tableFailures[$table]);
 
         foreach (array_keys($this->columns) as $key) {
             if (str_starts_with($key, $table . '.')) {
-                unset($this->columns[$key]);
+                unset($this->columns[$key], $this->columnFailures[$key]);
+
             }
         }
     }
 
     public function forgetColumn(string $table, string $column): void
     {
-        unset($this->columns[$this->columnKey($table, $column)]);
+        $key = $this->columnKey($table, $column);
+
+        unset($this->columns[$key], $this->columnFailures[$key]);
     }
 
-    private function probeTable(string $table): bool
+    private function probeTable(string $table): SchemaProbeResult
     {
         try {
-            return Schema::hasTable($table);
+            unset($this->tableFailures[$table]);
+
+            return Schema::hasTable($table)
+                ? SchemaProbeResult::Present
+                : SchemaProbeResult::Absent;
         } catch (Throwable $throwable) {
+            $this->tableFailures[$table] = $throwable;
             $this->reportProbeFailure(['table' => $table], $throwable);
 
-            return false;
+            return SchemaProbeResult::Failed;
         }
     }
 
-    private function probeColumn(string $table, string $column): bool
+    private function probeColumn(string $table, string $column): SchemaProbeResult
     {
+        $key = $this->columnKey($table, $column);
+
         try {
-            return Schema::hasColumn($table, $column);
+            unset($this->columnFailures[$key]);
+
+            return Schema::hasColumn($table, $column)
+                ? SchemaProbeResult::Present
+                : SchemaProbeResult::Absent;
         } catch (Throwable $throwable) {
+            $this->columnFailures[$key] = $throwable;
             $this->reportProbeFailure(['table' => $table, 'column' => $column], $throwable);
 
-            return false;
+            return SchemaProbeResult::Failed;
         }
     }
 
     /**
-     * A failed probe still reports "absent", because every caller uses this to
-     * decide whether it may touch a table at all: reporting "present" after a
-     * failed lookup would send them into a query that cannot succeed, and
-     * throwing would turn an unavailable database into a fatal boot error for
-     * surfaces that are meant to degrade (installer, dashboard, health reports).
-     *
-     * The two cases are indistinguishable in the return value, so they are made
-     * distinguishable in the log: absence is silent, a failed probe is not.
+     * Failed probes are memoized separately from genuine absence so strict
+     * callers can surface the original failure without repeating the probe,
+     * while boolean callers retain fail-closed degradation and bounded logging.
      *
      * @param  array<string, string>  $target
      */

@@ -199,7 +199,7 @@ final class ExtensionLifecycleRepository
     private function tableExists(bool $refresh = false): bool
     {
         return app()->bound('db')
-            && $this->schemaState->hasTable('capell_extensions', refresh: $refresh);
+            && $this->schemaState->hasTableOrFail('capell_extensions', refresh: $refresh);
     }
 
     /** @return array<string, string|null> */

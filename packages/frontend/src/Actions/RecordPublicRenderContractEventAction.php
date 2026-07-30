@@ -93,11 +93,7 @@ final class RecordPublicRenderContractEventAction
 
     private function eventsTableExists(): bool
     {
-        try {
-            return resolve(RuntimeSchemaState::class)->hasTable('capell_public_render_contract_events');
-        } catch (Throwable) {
-            return false;
-        }
+        return resolve(RuntimeSchemaState::class)->hasTableOrFail('capell_public_render_contract_events');
     }
 
     private function context(): ?FrontendContextReader
