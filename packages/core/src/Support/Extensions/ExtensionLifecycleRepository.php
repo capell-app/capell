@@ -64,7 +64,7 @@ final class ExtensionLifecycleRepository
 
     public function recordInstalled(string $name, ?PackageData $package): void
     {
-        if (! $this->tableExists(refresh: true)) {
+        if (! $this->writableTableExists()) {
             return;
         }
 
@@ -94,7 +94,7 @@ final class ExtensionLifecycleRepository
         ?PackageData $package,
         array $metadata = [],
     ): void {
-        if (! $this->tableExists(refresh: true)) {
+        if (! $this->writableTableExists()) {
             return;
         }
 
@@ -120,7 +120,7 @@ final class ExtensionLifecycleRepository
 
     public function delete(string $name): void
     {
-        if (! $this->tableExists(refresh: true)) {
+        if (! $this->writableTableExists()) {
             return;
         }
 
@@ -200,6 +200,12 @@ final class ExtensionLifecycleRepository
     {
         return app()->bound('db')
             && $this->schemaState->hasTable('capell_extensions', refresh: $refresh);
+    }
+
+    private function writableTableExists(): bool
+    {
+        return app()->bound('db')
+            && $this->schemaState->hasTableOrFail('capell_extensions', refresh: true);
     }
 
     /** @return array<string, string|null> */

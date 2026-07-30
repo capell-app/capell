@@ -11,6 +11,7 @@ use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Models\MarketplaceInstall;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 it('builds extension health reports from installed extension runtime state', function (): void {
     config([
@@ -77,18 +78,21 @@ it('builds extension health reports from installed extension runtime state', fun
         ]);
 });
 
-it('omits extension state when runtime schema checks are unavailable', function (): void {
-    app()->instance(RuntimeSchemaState::class, new class
-    {
-        public function hasTable(string $table): bool
-        {
-            throw new RuntimeException('schema connection unavailable');
-        }
-    });
+it('marks extension state as unverifiable when runtime schema probes fail', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with('capell_extensions')
+        ->andThrow(new RuntimeException('schema connection unavailable'));
+
+    resolve(RuntimeSchemaState::class)->forgetTable('capell_extensions');
 
     $report = BuildExtensionHealthReportAction::run(source: 'heartbeat');
 
-    expect($report['extensions'])->toBe([]);
+    expect($report['extensions'])->toBe([])
+        ->and($report['metadata'])->toMatchArray([
+            'source' => 'heartbeat',
+            'extensions_schema_probe' => 'failed',
+        ]);
 });
 
 it('creates a separate marketplace install when an explicit new install id is supplied', function (): void {

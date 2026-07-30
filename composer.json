@@ -28,6 +28,8 @@
     "scripts": {
         "check:composer-paths": "@php scripts/check-composer-local-paths.php",
         "check:support-contract": "@php scripts/check-support-contract.php",
+        "check:queue-contract": "@php scripts/check-queue-contract.php",
+        "check:lang-keys": "@php scripts/check-language-key-drift.php",
         "check:docs-links": "@php scripts/check-docs-links.php",
         "check:docs-orphans": "@php scripts/check-docs-orphans.php",
         "check:docs-requirements": "@php scripts/check-docs-requirements.php",

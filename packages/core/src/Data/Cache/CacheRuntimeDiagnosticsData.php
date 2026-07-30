@@ -20,6 +20,7 @@ final class CacheRuntimeDiagnosticsData extends Data
         public readonly int $missCount,
         public readonly int $fillCount,
         public readonly int $backendFailureCount,
+        public readonly int $unlockedIncrementCount,
         public readonly array $sampledKeyHashes,
     ) {}
 }

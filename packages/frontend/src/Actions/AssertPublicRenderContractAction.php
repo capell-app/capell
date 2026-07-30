@@ -7,6 +7,7 @@ namespace Capell\Frontend\Actions;
 use Capell\Core\Actions\Packages\BuildPackageCapabilityGraphAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PackageCapability;
+use Capell\Core\Exceptions\SchemaProbeFailedException;
 use Capell\Core\Models\Blueprint;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Enums\FrontendRenderAudience;
@@ -76,13 +77,17 @@ final class AssertPublicRenderContractAction
                 RecordPublicRenderContractEventAction::run('passed', $response);
             }
         } catch (PublicRenderContractViolationException $publicRenderContractViolationException) {
-            RecordPublicRenderContractEventAction::run(
-                result: 'failed',
-                response: $response,
-                reason: $publicRenderContractViolationException->reason,
-                matchedMarker: $publicRenderContractViolationException->matched,
-                category: $publicRenderContractViolationException->category,
-            );
+            try {
+                RecordPublicRenderContractEventAction::run(
+                    result: 'failed',
+                    response: $response,
+                    reason: $publicRenderContractViolationException->reason,
+                    matchedMarker: $publicRenderContractViolationException->matched,
+                    category: $publicRenderContractViolationException->category,
+                );
+            } catch (SchemaProbeFailedException $schemaProbeFailedException) {
+                report($schemaProbeFailedException);
+            }
 
             throw $publicRenderContractViolationException;
         }

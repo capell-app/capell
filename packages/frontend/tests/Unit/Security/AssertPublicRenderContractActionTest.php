@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Exceptions\SchemaProbeFailedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PublicRenderContractEvent;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Frontend\Actions\AssertPublicHtmlContainsNoAuthoringSurfaceAction;
@@ -16,9 +18,12 @@ use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 beforeEach(function (): void {
@@ -187,6 +192,41 @@ it('records failed public render contract events', function (): void {
         ->and($event->matched_marker)->toBe('vendor/capell-app/')
         ->and($event->url_hash)->toBe(hash('xxh128', 'https://example.test/news?signature=plain-signature'))
         ->and($event->source)->toBe('public_render_contract');
+});
+
+it('surfaces schema probe failures instead of silently dropping public render contract events', function (): void {
+    config(['capell-frontend.public_render_contract_events.record_passed' => true]);
+
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with('capell_public_render_contract_events')
+        ->andThrow(new RuntimeException('database unavailable'));
+
+    resolve(RuntimeSchemaState::class)->forgetTable('capell_public_render_contract_events');
+
+    expect(fn () => RecordPublicRenderContractEventAction::run(
+        result: 'passed',
+        response: new Response('<main>News</main>', Response::HTTP_OK),
+    ))->toThrow(SchemaProbeFailedException::class);
+});
+
+it('preserves a public render violation when recording it hits a schema probe failure', function (): void {
+    Exceptions::fake();
+
+    Schema::shouldReceive('hasTable')
+        ->once()
+        ->with('capell_public_render_contract_events')
+        ->andThrow(new RuntimeException('database unavailable'));
+
+    resolve(RuntimeSchemaState::class)->forgetTable('capell_public_render_contract_events');
+
+    expect(fn () => AssertPublicRenderContractAction::run(
+        new Response('<main data-source="vendor/capell-app/">Edit</main>', Response::HTTP_OK),
+    ))->toThrow(PublicRenderContractViolationException::class, 'Capell internal marker');
+
+    Exceptions::assertReported(
+        fn (SchemaProbeFailedException $exception): bool => $exception->getPrevious()?->getMessage() === 'database unavailable',
+    );
 });
 
 it('redacts sensitive public render contract event diagnostics before persistence', function (): void {

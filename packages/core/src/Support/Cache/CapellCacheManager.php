@@ -16,6 +16,7 @@ use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use LogicException;
 use Throwable;
 
@@ -49,6 +50,12 @@ final class CapellCacheManager
     private int $cacheFillCount = 0;
 
     private int $cacheBackendFailureCount = 0;
+
+    /**
+     * Counts increments that ran without the coordination lock they wanted,
+     * because acquiring it failed. See withCacheIncrementLock().
+     */
+    private int $unlockedCacheIncrementCount = 0;
 
     /** @var list<string> */
     private array $sampledKeyHashes = [];
@@ -264,13 +271,13 @@ final class CapellCacheManager
         $this->cacheMissCount = 0;
         $this->cacheFillCount = 0;
         $this->cacheBackendFailureCount = 0;
+        $this->unlockedCacheIncrementCount = 0;
         $this->sampledKeyHashes = [];
     }
 
     public function runtimeDiagnostics(): CacheRuntimeDiagnosticsData
     {
-        $storeName = config('cache.default');
-        $storeName = is_string($storeName) && $storeName !== '' ? $storeName : 'default';
+        $storeName = $this->configuredCacheStoreName();
 
         $driver = config(sprintf('cache.stores.%s.driver', $storeName));
 
@@ -285,6 +292,7 @@ final class CapellCacheManager
             missCount: $persisted['misses'] + $this->cacheMissCount,
             fillCount: $persisted['fills'] + $this->cacheFillCount,
             backendFailureCount: $persisted['backend_failures'] + $this->cacheBackendFailureCount,
+            unlockedIncrementCount: $persisted['unlocked_increments'] + $this->unlockedCacheIncrementCount,
             sampledKeyHashes: array_values(array_slice(array_unique([
                 ...$persisted['sampled_key_hashes'],
                 ...$this->sampledKeyHashes,
@@ -675,6 +683,19 @@ final class CapellCacheManager
         return $fallback;
     }
 
+    /**
+     * Serialise a non-atomic increment behind a cache lock.
+     *
+     * Stores without a native atomic increment (file, database) read-modify-write
+     * the counter, so two concurrent bumps can collapse into one. The lock closes
+     * that window.
+     *
+     * When the lock cannot be taken the increment still runs, unlocked: a lost
+     * generation bump degrades cache freshness, which is preferable to failing the
+     * request that triggered it. That degradation is silent by nature, though, so
+     * it is logged and counted here — a rising unlocked-increment rate means the
+     * lock backend is unhealthy and cache invalidation can no longer be trusted.
+     */
     private function withCacheIncrementLock(string $key, Closure $callback): int
     {
         if ($this->cacheStoreHasAtomicIncrement()) {
@@ -684,9 +705,28 @@ final class CapellCacheManager
         try {
             return Cache::lock('capell.cache.increment.' . hash('sha256', $key), 10)
                 ->block(5, $callback);
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            // Unlike the read and write paths, a LogicException is not rethrown
+            // here: a store without lock support raises BadMethodCallException,
+            // which is exactly the degraded case this fallback exists for.
+            $this->unlockedCacheIncrementCount++;
+
+            Log::warning('Capell cache increment ran unlocked after lock acquisition failed.', [
+                'key_hash' => substr(hash('sha256', $key), 0, 16),
+                'store' => $this->configuredCacheStoreName(),
+                'exception' => $throwable::class,
+                'reason' => $throwable->getMessage(),
+            ]);
+
             return $callback();
         }
+    }
+
+    private function configuredCacheStoreName(): string
+    {
+        $storeName = config('cache.default');
+
+        return is_string($storeName) && $storeName !== '' ? $storeName : 'default';
     }
 
     private function cacheStoreHasAtomicIncrement(): bool
@@ -773,6 +813,7 @@ final class CapellCacheManager
             && $this->cacheMissCount === 0
             && $this->cacheFillCount === 0
             && $this->cacheBackendFailureCount === 0
+            && $this->unlockedCacheIncrementCount === 0
             && $this->sampledKeyHashes === []) {
             return;
         }
@@ -803,7 +844,7 @@ final class CapellCacheManager
         }
     }
 
-    /** @return array{hits: int, misses: int, fills: int, backend_failures: int} */
+    /** @return array{hits: int, misses: int, fills: int, backend_failures: int, unlocked_increments: int} */
     private function runtimeDiagnosticCounters(): array
     {
         return [
@@ -811,10 +852,11 @@ final class CapellCacheManager
             'misses' => $this->cacheMissCount,
             'fills' => $this->cacheFillCount,
             'backend_failures' => $this->cacheBackendFailureCount,
+            'unlocked_increments' => $this->unlockedCacheIncrementCount,
         ];
     }
 
-    /** @return array{hits: int, misses: int, fills: int, backend_failures: int, sampled_key_hashes: list<string>} */
+    /** @return array{hits: int, misses: int, fills: int, backend_failures: int, unlocked_increments: int, sampled_key_hashes: list<string>} */
     private function persistedRuntimeDiagnostics(): array
     {
         try {
@@ -826,6 +868,7 @@ final class CapellCacheManager
                 'misses' => (int) $cache->get($this->runtimeDiagnosticKey('misses'), 0),
                 'fills' => (int) $cache->get($this->runtimeDiagnosticKey('fills'), 0),
                 'backend_failures' => (int) $cache->get($this->runtimeDiagnosticKey('backend_failures'), 0),
+                'unlocked_increments' => (int) $cache->get($this->runtimeDiagnosticKey('unlocked_increments'), 0),
                 'sampled_key_hashes' => is_array($samples)
                     ? array_values(array_filter($samples, is_string(...)))
                     : [],
@@ -838,6 +881,7 @@ final class CapellCacheManager
                 'misses' => 0,
                 'fills' => 0,
                 'backend_failures' => 0,
+                'unlocked_increments' => 0,
                 'sampled_key_hashes' => [],
             ];
         }

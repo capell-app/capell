@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Plugins;
 
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Http\OutboundHttpRetry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -40,10 +41,15 @@ class PluginPackagesFetcher
             return collect();
         }
 
-        $response = Http::acceptJson()
-            ->connectTimeout(5)
-            ->timeout(10)
-            ->withOptions(['allow_redirects' => false])
+        // Fetching the packages catalogue is an idempotent read, so retrying a
+        // throttled or briefly unavailable source is safe.
+        $response = OutboundHttpRetry::fromConfig('capell.plugins_http')
+            ->apply(
+                Http::acceptJson()
+                    ->connectTimeout(5)
+                    ->timeout(10)
+                    ->withOptions(['allow_redirects' => false]),
+            )
             ->get($url);
 
         if (! $response->ok()) {

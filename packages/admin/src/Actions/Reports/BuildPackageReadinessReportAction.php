@@ -16,6 +16,7 @@ use Capell\Core\Data\Diagnostics\PackageReadinessPackageData;
 use Capell\Core\Data\PackageCapabilityGraphData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageCapability;
+use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\PublicRenderContractEvent;
 use Capell\Core\Support\Database\RuntimeSchemaState;
@@ -151,10 +152,29 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        $missingTables = array_values(array_filter(
-            $requiredTables,
-            fn (string $table): bool => ! $this->schemaState->hasTable($table),
-        ));
+        $tableResults = collect($requiredTables)
+            ->mapWithKeys(fn (string $table): array => [$table => $this->schemaState->tableResult($table)]);
+        $unverifiableTables = $tableResults
+            ->filter(fn (SchemaProbeResult $result): bool => $result === SchemaProbeResult::Failed)
+            ->keys()
+            ->all();
+
+        if ($unverifiableTables !== []) {
+            return new PackageReadinessCheckData(
+                key: 'migrations',
+                label: __('capell-admin::reports.package_readiness_check_migrations'),
+                passed: false,
+                severity: 'warning',
+                message: __('capell-admin::reports.package_readiness_migrations_unverifiable_tables', [
+                    'tables' => implode(', ', $unverifiableTables),
+                ]),
+            );
+        }
+
+        $missingTables = $tableResults
+            ->filter(fn (SchemaProbeResult $result): bool => $result === SchemaProbeResult::Absent)
+            ->keys()
+            ->all();
 
         if ($missingTables !== []) {
             return new PackageReadinessCheckData(
@@ -285,7 +305,19 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        if (! $this->schemaState->hasTable('capell_public_render_contract_events')) {
+        $eventsTableResult = $this->schemaState->tableResult('capell_public_render_contract_events');
+
+        if ($eventsTableResult === SchemaProbeResult::Failed) {
+            return new PackageReadinessCheckData(
+                key: 'public_render_safety',
+                label: __('capell-admin::reports.package_readiness_check_public_render_safety'),
+                passed: false,
+                severity: 'warning',
+                message: __('capell-admin::reports.package_readiness_public_render_unverifiable'),
+            );
+        }
+
+        if ($eventsTableResult === SchemaProbeResult::Absent) {
             return new PackageReadinessCheckData(
                 key: 'public_render_safety',
                 label: __('capell-admin::reports.package_readiness_check_public_render_safety'),

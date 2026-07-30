@@ -1,0 +1,48 @@
+{
+    "schemaVersion": 1,
+    "standard": "docs/standards/queue-reliability.md",
+    "root": "packages",
+    "violationCount": 8,
+    "violations": [
+        {
+            "id": "packages/admin/src/Jobs/RunFrontendBuildJob.php::QUEUE001",
+            "rule": "QUEUE001",
+            "class": "RunFrontendBuildJob"
+        },
+        {
+            "id": "packages/core/src/Jobs/RunCapellInstallJob.php::QUEUE003",
+            "rule": "QUEUE003",
+            "class": "RunCapellInstallJob"
+        },
+        {
+            "id": "packages/frontend/src/Jobs/PurgeCdnCacheJob.php::QUEUE003",
+            "rule": "QUEUE003",
+            "class": "PurgeCdnCacheJob"
+        },
+        {
+            "id": "packages/frontend/src/Jobs/PurgeCdnCacheJob.php::QUEUE005",
+            "rule": "QUEUE005",
+            "class": "PurgeCdnCacheJob"
+        },
+        {
+            "id": "packages/marketplace/src/Jobs/ResumeMarketplaceInstallFlowJob.php::QUEUE001",
+            "rule": "QUEUE001",
+            "class": "ResumeMarketplaceInstallFlowJob"
+        },
+        {
+            "id": "packages/marketplace/src/Jobs/ResumeMarketplaceInstallFlowJob.php::QUEUE003",
+            "rule": "QUEUE003",
+            "class": "ResumeMarketplaceInstallFlowJob"
+        },
+        {
+            "id": "packages/marketplace/src/Jobs/SendMarketplaceInstallTelemetryJob.php::QUEUE003",
+            "rule": "QUEUE003",
+            "class": "SendMarketplaceInstallTelemetryJob"
+        },
+        {
+            "id": "packages/marketplace/src/Jobs/WarmMarketplaceCatalogueCacheJob.php::QUEUE003",
+            "rule": "QUEUE003",
+            "class": "WarmMarketplaceCatalogueCacheJob"
+        }
+    ]
+}

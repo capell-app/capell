@@ -15,6 +15,8 @@ $requested = array_values(array_filter(
 
 /** @var array<string, string> $quickStages */
 $quickStages = [
+    'queue-contract' => 'check:queue-contract',
+    'language-keys' => 'check:lang-keys',
     'phpstan' => 'analyze',
     'rector' => 'rector:all:check',
     'pint' => 'cs:check',
@@ -27,6 +29,8 @@ $quickStages = [
 $fullStages = [
     'composer-paths' => 'check:composer-paths',
     'support-contract' => 'check:support-contract',
+    'queue-contract' => 'check:queue-contract',
+    'language-keys' => 'check:lang-keys',
     'docs-links' => 'check:docs-links',
     'root-docs' => 'check:root-docs',
     'docs-orphans' => 'check:docs-orphans',

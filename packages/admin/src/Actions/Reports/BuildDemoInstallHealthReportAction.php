@@ -15,9 +15,9 @@ use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\Diagnostics\CapellInstallationState;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
-use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
@@ -125,7 +125,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
                 ),
                 new ReportMetricData(
                     label: __('capell-admin::reports.demo_install_health_metric_pages'),
-                    value: $this->schemaState->hasTable('pages') ? Page::query()->count() : 0,
+                    value: $this->tableRowCount('pages'),
                     description: __('capell-admin::reports.demo_install_health_metric_pages_description'),
                 ),
                 new ReportMetricData(
@@ -246,10 +246,31 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private function eventSourcingTablesCheck(): DoctorCheckResultData
     {
-        $missingTables = array_values(array_filter(
-            self::EVENT_SOURCING_TABLES,
-            fn (string $table): bool => ! $this->schemaState->hasTable($table),
-        ));
+        $tableResults = collect(self::EVENT_SOURCING_TABLES)
+            ->mapWithKeys(fn (string $table): array => [$table => $this->schemaState->tableResult($table)]);
+        $unverifiableTables = $tableResults
+            ->filter(fn (SchemaProbeResult $result): bool => $result === SchemaProbeResult::Failed)
+            ->keys()
+            ->all();
+
+        if ($unverifiableTables !== []) {
+            return new DoctorCheckResultData(
+                label: __('capell-admin::reports.demo_install_health_check_event_sourcing'),
+                passed: false,
+                message: __('capell-admin::reports.demo_install_health_event_sourcing_unverifiable', [
+                    'tables' => implode(', ', $unverifiableTables),
+                ]),
+                remediation: __('capell-admin::reports.demo_install_health_schema_probe_remediation'),
+                id: 'core.schema.event-sourcing',
+                severity: DoctorCheckSeverity::Warning,
+                evidence: ['unverifiable_tables' => $unverifiableTables],
+            );
+        }
+
+        $missingTables = $tableResults
+            ->filter(fn (SchemaProbeResult $result): bool => $result === SchemaProbeResult::Absent)
+            ->keys()
+            ->all();
 
         if ($missingTables !== []) {
             return new DoctorCheckResultData(
@@ -276,7 +297,21 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private function settingsRowsCheck(): DoctorCheckResultData
     {
-        if ($this->settingsRowsCount() > 0) {
+        $settingsRowsCount = $this->settingsRowsCount();
+
+        if ($settingsRowsCount === 'Unavailable') {
+            return new DoctorCheckResultData(
+                label: __('capell-admin::reports.demo_install_health_check_settings_rows'),
+                passed: false,
+                message: __('capell-admin::reports.demo_install_health_settings_rows_unverifiable'),
+                remediation: __('capell-admin::reports.demo_install_health_schema_probe_remediation'),
+                id: 'admin.settings.rows',
+                severity: DoctorCheckSeverity::Warning,
+                evidence: ['table' => 'settings', 'schema_probe' => SchemaProbeResult::Failed->value],
+            );
+        }
+
+        if ($settingsRowsCount > 0) {
             return new DoctorCheckResultData(
                 label: __('capell-admin::reports.demo_install_health_check_settings_rows'),
                 passed: true,
@@ -296,13 +331,34 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         );
     }
 
-    private function settingsRowsCount(): int
+    private function settingsRowsCount(): int|string
     {
-        if (! $this->schemaState->hasTable('settings')) {
+        $tableResult = $this->schemaState->tableResult('settings');
+
+        if ($tableResult === SchemaProbeResult::Failed) {
+            return 'Unavailable';
+        }
+
+        if ($tableResult === SchemaProbeResult::Absent) {
             return 0;
         }
 
         return $this->connections->connection()->table('settings')->count();
+    }
+
+    private function tableRowCount(string $table): int|string
+    {
+        $tableResult = $this->schemaState->tableResult($table);
+
+        if ($tableResult === SchemaProbeResult::Failed) {
+            return 'Unavailable';
+        }
+
+        if ($tableResult === SchemaProbeResult::Absent) {
+            return 0;
+        }
+
+        return $this->connections->connection()->table($table)->count();
     }
 
     private function installedPackagesCount(): int

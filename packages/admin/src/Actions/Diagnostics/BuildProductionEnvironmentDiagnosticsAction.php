@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Diagnostics;
 
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
+use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -134,7 +135,16 @@ final class BuildProductionEnvironmentDiagnosticsAction
             );
         }
 
-        $tableExists = resolve(RuntimeSchemaState::class)->hasTable($table);
+        $tableResult = resolve(RuntimeSchemaState::class)->tableResult($table);
+
+        if ($tableResult === SchemaProbeResult::Failed) {
+            return $this->unverifiableTableCheck(
+                label: (string) __('capell-admin::diagnostics.database_cache_table'),
+                table: $table,
+            );
+        }
+
+        $tableExists = $tableResult->exists();
 
         return new DiagnosticCheckData(
             status: $tableExists ? 'green' : 'red',
@@ -171,7 +181,16 @@ final class BuildProductionEnvironmentDiagnosticsAction
             );
         }
 
-        $tableExists = resolve(RuntimeSchemaState::class)->hasTable($table);
+        $tableResult = resolve(RuntimeSchemaState::class)->tableResult($table);
+
+        if ($tableResult === SchemaProbeResult::Failed) {
+            return $this->unverifiableTableCheck(
+                label: (string) __('capell-admin::diagnostics.queue_jobs_table'),
+                table: $table,
+            );
+        }
+
+        $tableExists = $tableResult->exists();
 
         return new DiagnosticCheckData(
             status: $tableExists ? 'green' : 'red',
@@ -196,7 +215,16 @@ final class BuildProductionEnvironmentDiagnosticsAction
     private function failedJobsTableCheck(): DiagnosticCheckData
     {
         $table = $this->stringConfig('queue.failed.table', 'failed_jobs');
-        $tableExists = resolve(RuntimeSchemaState::class)->hasTable($table);
+        $tableResult = resolve(RuntimeSchemaState::class)->tableResult($table);
+
+        if ($tableResult === SchemaProbeResult::Failed) {
+            return $this->unverifiableTableCheck(
+                label: (string) __('capell-admin::diagnostics.failed_jobs_table'),
+                table: $table,
+            );
+        }
+
+        $tableExists = $tableResult->exists();
 
         return new DiagnosticCheckData(
             status: $tableExists ? 'green' : 'amber',
@@ -217,6 +245,16 @@ final class BuildProductionEnvironmentDiagnosticsAction
             label: (string) __('capell-admin::diagnostics.session_driver'),
             detail: (string) __('capell-admin::diagnostics.session_driver_detail', ['driver' => $driver]),
             remediation: $driver === 'array' ? (string) __('capell-admin::diagnostics.session_driver_remediation') : null,
+        );
+    }
+
+    private function unverifiableTableCheck(string $label, string $table): DiagnosticCheckData
+    {
+        return new DiagnosticCheckData(
+            status: 'amber',
+            label: $label,
+            detail: (string) __('capell-admin::diagnostics.database_table_probe_failed', ['table' => $table]),
+            remediation: (string) __('capell-admin::diagnostics.database_table_probe_failed_remediation'),
         );
     }
 
