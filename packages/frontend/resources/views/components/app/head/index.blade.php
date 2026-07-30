@@ -9,6 +9,7 @@
     use Capell\Core\Enums\MediaConversionEnum;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
     use Capell\Frontend\Actions\ResolvePageRobotsDirectivesAction;
+    use Capell\Frontend\Actions\RenderCustomHeadAction;
     use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
     use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
     use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
@@ -399,11 +400,7 @@
 
     {!! HeadContentSanitizer::headSnippet(data_get($pageMeta, 'meta_tags')) !!}
 
-    <x-capell::app.head.custom
-        :title="$title"
-        :description="$description"
-        :keywords="$keywords"
-    />
+    {!! RenderCustomHeadAction::run($title, $description, $keywords) !!}
 
     @yield('meta')
 </head>
