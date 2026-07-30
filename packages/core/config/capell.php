@@ -186,6 +186,12 @@ return [
     'plugins_source_url' => env('CAPELL_PLUGINS_SOURCE_URL', 'https://plugin.capell.app/packages.json'),
     // Cache TTL in seconds for plugin packages
     'plugins_cache_ttl' => env('CAPELL_PLUGINS_CACHE_TTL', 3600),
+    // Outbound retry policy for the plugin packages catalogue fetch, an idempotent read.
+    'plugins_http' => [
+        'retry_times' => env('CAPELL_PLUGINS_RETRY_TIMES', 3),
+        'retry_delay_ms' => env('CAPELL_PLUGINS_RETRY_DELAY_MS', 500),
+        'retry_after_max_ms' => env('CAPELL_PLUGINS_RETRY_AFTER_MAX_MS', 60000),
+    ],
     // Marketplace public web URL for package/theme image paths when marketplace config is not installed.
     'marketplace_web_url' => env('CAPELL_MARKETPLACE_WEB_URL', 'https://capell.app'),
     // Cached plugin packages list
