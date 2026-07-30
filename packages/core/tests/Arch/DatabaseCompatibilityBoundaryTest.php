@@ -79,9 +79,7 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
                 continue;
             }
 
-            if (in_array($relative, [
-                'packages/core/src/Support/Database/DatabasePlatformRegistry.php',
-            ], true)) {
+            if ($relative === 'packages/core/src/Support/Database/DatabasePlatformRegistry.php') {
                 continue;
             }
 
