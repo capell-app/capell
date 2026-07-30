@@ -99,8 +99,11 @@ These commands are defined in the root `composer.json` or `package.json`:
 | `composer prepare`                 | Discover Testbench packages                                                 |
 | `composer test:fast`               | Run the sharded fast Pest command while developing                          |
 | `composer test`                    | Run the full Pest test suite                                                |
-| `composer lint`                    | Run changed-file Pint formatting                                            |
-| `composer analyze`                 | Run the fast PHPStan configuration                                          |
+| `composer lint`                    | Apply Pint formatting across the repository (alias of `cs:fix`)             |
+| `composer lint:changed`            | Run Pint, Prettier, and ESLint over changed files only                      |
+| `composer analyze`                 | Run the full PHPStan configuration (alias of `analyze:full`)                |
+| `composer analyze:source`          | Analyse package source only — the fast iteration loop, not a gate           |
+| `composer analyze:tests`           | Analyse test suites only — the fast iteration loop, not a gate              |
 | `composer preflight`               | Run all standard gates and report every independent failure                 |
 | `composer preflight:all`           | Apply Rector and Pint, then report all repository-wide gate failures        |
 | `composer preflight:fix`           | Apply Rector, Pint, and Prettier changes, then run `preflight:all`          |

@@ -8,7 +8,7 @@
 [![Coverage](https://img.shields.io/codecov/c/github/capell-app/capell?style=flat-square&logo=codecov&logoColor=white)](https://app.codecov.io/gh/capell-app/capell)
 <br>
 [![PHPStan Level 8](https://img.shields.io/badge/PHPStan-level%208-777BB4?style=flat-square&logo=php&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Parameters Typed](https://img.shields.io/badge/parameters%20typed-98.9%25-2F855A?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Parameters Typed](https://img.shields.io/badge/parameters%20typed-99.2%25-2F855A?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Dependencies Audited](https://img.shields.io/badge/dependencies-audited-885630?style=flat-square&logo=composer&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)

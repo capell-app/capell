@@ -34,8 +34,14 @@ parameters:
         - ../packages/admin/resources/views
         - ../packages/core/resources/views
         - ../packages/frontend/resources/views
+    # Floors sit at the tree's current measured coverage, so they ratchet: new
+    # untyped params, returns, properties, or constants fail the build rather
+    # than eroding a number nobody is watching. Raise these when the gap closes;
+    # never lower one to make a change pass.
     type_coverage:
-        param_type: 98.9
+        param_type: 99.2
+        return_type: 99.9
+        property_type: 100
         constant_type: 100
     stubFiles:
         - stubs/filament-macros.stub

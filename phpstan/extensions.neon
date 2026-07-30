@@ -1,0 +1,11 @@
+# Extension wiring shared by every analysis config. Kept separate from
+# common.neon so the root config and the split source/tests configs load an
+# identical extension set: a rule that fired in only one of them would make the
+# narrow configs disagree with the full run they are meant to approximate.
+
+includes:
+    - ../vendor/phpstan/phpstan/conf/bleedingEdge.neon
+    - ../vendor/phpstan/phpstan-mockery/extension.neon
+    - ../vendor/larastan/larastan/extension.neon
+    - ../vendor/pestphp/pest-plugin-phpstan/extension.neon
+    - ../vendor/tomasvotruba/type-coverage/config/extension.neon

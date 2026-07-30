@@ -33,6 +33,7 @@ $fullStages = [
     'language-keys' => 'check:lang-keys',
     'docs-links' => 'check:docs-links',
     'root-docs' => 'check:root-docs',
+    'readme-engineering-standards' => 'check:readme-engineering-standards',
     'docs-orphans' => 'check:docs-orphans',
     'docs-requirements' => 'check:docs-requirements',
     'docs-env' => 'check:docs-env',
