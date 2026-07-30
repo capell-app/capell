@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Services;
 
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
+use Capell\Core\Support\Http\OutboundHttpRetry;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Marketplace\Actions\BuildMarketplaceConnectionContextAction;
@@ -628,6 +629,19 @@ final class MarketplaceClient
         return config('capell-marketplace.marketplace.base_url') . $path;
     }
 
+    /**
+     * Retry policy for idempotent marketplace reads only.
+     *
+     * Catalogue and extension lookups are safe to repeat. The signed write paths are
+     * deliberately excluded: connection and install-flow exchanges consume single-use
+     * codes, install and upgrade authorizations mint licence grants, and feedback,
+     * install-intent telemetry, and heartbeat all create or mutate remote state.
+     */
+    private function readRetryPolicy(): OutboundHttpRetry
+    {
+        return OutboundHttpRetry::fromConfig('capell-marketplace.marketplace.read_retry');
+    }
+
     /** @param array<string, mixed> $payload */
     private function postJson(string $path, array $payload): Response
     {
@@ -690,7 +704,9 @@ final class MarketplaceClient
         ?array $marketplaceContext = null,
         bool $notFoundAsEmpty = false,
     ): array {
-        $request = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))->acceptJson();
+        $request = $this->readRetryPolicy()->apply(
+            Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))->acceptJson(),
+        );
 
         if ($marketplaceContext !== null) {
             $request->withHeaders($this->marketplaceContextHeaders($marketplaceContext));
@@ -719,9 +735,12 @@ final class MarketplaceClient
      */
     private function fetchExtensionData(string $path, array $marketplaceContext, ?string $missingDataMessage = null): ?array
     {
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
-            ->acceptJson()
-            ->withHeaders($this->marketplaceContextHeaders($marketplaceContext))
+        $response = $this->readRetryPolicy()
+            ->apply(
+                Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+                    ->acceptJson()
+                    ->withHeaders($this->marketplaceContextHeaders($marketplaceContext)),
+            )
             ->get($this->marketplaceUrl($path));
 
         if ($response->notFound()) {
