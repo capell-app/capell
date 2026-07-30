@@ -377,6 +377,60 @@ it('normalizes ARIA values and ignores disabled, hidden, and inert controls in f
         ->toBe([]);
 });
 
+it('keeps semantic interactivity separate from effective HTML focusability', function (): void {
+    $contract = new PublicAccessibilityContract;
+
+    expect($contract->inspectFragment('<button disabled aria-expanded="true">Menu</button>'))
+        ->toBe([]);
+
+    $disabledAnchor = $contract->inspectFragment(
+        '<div aria-hidden="true"><a href="/still-focusable" disabled>Still focusable</a></div>',
+    );
+
+    expect($disabledAnchor)
+        ->toHaveCount(1)
+        ->and($disabledAnchor[0])
+        ->toContain('focusable inside an aria-hidden="true" subtree');
+
+    $fieldset = $contract->inspectFragment(<<<'HTML'
+    <div aria-hidden="true">
+        <fieldset disabled>
+            <legend><button>First legend remains focusable</button></legend>
+            <button>Disabled by fieldset</button>
+        </fieldset>
+    </div>
+    HTML);
+
+    expect($fieldset)
+        ->toHaveCount(1);
+
+    expect($contract->inspectFragment(<<<'HTML'
+    <div aria-hidden="true">
+        <fieldset disabled>
+            <legend>Legend text</legend>
+            <button>Disabled by fieldset</button>
+        </fieldset>
+    </div>
+    HTML))->toBe([]);
+});
+
+it('allows a directly referenced hidden subtree to contribute an accessible name', function (): void {
+    $document = <<<'HTML'
+    <html lang="en">
+    <head><title>Hidden label</title></head>
+    <body>
+        <main>
+            <h1>Hidden label</h1>
+            <span id="hidden-button-name" hidden><span>Open filters</span></span>
+            <button aria-labelledby="hidden-button-name"></button>
+        </main>
+    </body>
+    </html>
+    HTML;
+
+    expect(new PublicAccessibilityContract()->inspectDocument($document))->toBe([]);
+});
+
 it('resolves ARIA id references containing an apostrophe without breaking the XPath lookup', function (): void {
     $document = <<<'HTML'
     <!DOCTYPE html>

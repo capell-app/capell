@@ -429,8 +429,10 @@ final class PublicAccessibilityContract
                 continue;
             }
 
-            if ($this->hasOpaqueContent($control, $allowOpaqueContent)
-                || $this->authoredAccessibleName($xpath, $root, $control, $resolveIdReferences) !== '') {
+            if (in_array(true, [
+                $this->hasOpaqueContent($control, $allowOpaqueContent),
+                $this->authoredAccessibleName($xpath, $root, $control, $resolveIdReferences) !== '',
+            ], true)) {
                 continue;
             }
 
@@ -470,8 +472,7 @@ final class PublicAccessibilityContract
 
         foreach ($this->query($xpath, $root, './/*[@tabindex]') as $element) {
             $tabIndex = trim($element->getAttribute('tabindex'));
-
-            if ($tabIndex === '0' || $tabIndex === '-1') {
+            if (in_array($tabIndex, ['0', '-1'], true)) {
                 continue;
             }
 
@@ -588,17 +589,17 @@ final class PublicAccessibilityContract
 
         foreach (self::INTERACTION_STATE_ATTRIBUTES as $attribute) {
             foreach ($this->query($xpath, $root, sprintf('.//*[@%s]', $attribute)) as $element) {
-                if ($this->isNativelyInteractive($element)
-                    || in_array($this->resolvedRole($element), self::INTERACTIVE_ROLES, true)
-                    || $this->hasOpaqueContent($element, $allowOpaqueContent)) {
-                    continue;
+                if (! in_array(true, [
+                    $this->isNativelyInteractive($element),
+                    in_array($this->resolvedRole($element), self::INTERACTIVE_ROLES, true),
+                    $this->hasOpaqueContent($element, $allowOpaqueContent),
+                ], true)) {
+                    $violations[] = sprintf(
+                        '%s declares %s without being interactive; add the matching role or move the state onto the control.',
+                        $this->describe($element),
+                        $attribute,
+                    );
                 }
-
-                $violations[] = sprintf(
-                    '%s declares %s without being interactive; add the matching role or move the state onto the control.',
-                    $this->describe($element),
-                    $attribute,
-                );
             }
         }
 
@@ -908,7 +909,11 @@ final class PublicAccessibilityContract
                     continue;
                 }
 
-                $text = $this->namingTextOf($targets[0], allowOpaqueContent: false);
+                $text = $this->namingTextOf(
+                    $targets[0],
+                    allowOpaqueContent: false,
+                    allowHiddenSubtree: $this->isHiddenFromNaming($targets[0]),
+                );
 
                 if ($text !== '') {
                     $parts[] = $text;
@@ -946,13 +951,7 @@ final class PublicAccessibilityContract
             return true;
         }
 
-        foreach ($this->descendantElements($element) as $descendant) {
-            if ($descendant->hasAttribute(self::OPAQUE_CONTENT_ATTRIBUTE)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->descendantElements($element), fn (DOMElement $descendant): bool => $descendant->hasAttribute(self::OPAQUE_CONTENT_ATTRIBUTE));
     }
 
     private function isLabellableControl(DOMElement $control): bool
@@ -1006,7 +1005,7 @@ final class PublicAccessibilityContract
 
     private function isFocusable(DOMElement $element): bool
     {
-        if ($this->isDisabledOrHidden($element)) {
+        if ($this->isHiddenOrInert($element) || $this->isEffectivelyDisabled($element)) {
             return false;
         }
 
@@ -1029,10 +1028,6 @@ final class PublicAccessibilityContract
 
     private function isNativelyInteractive(DOMElement $element): bool
     {
-        if ($this->isDisabledOrHidden($element)) {
-            return false;
-        }
-
         if ($element->nodeName === 'input') {
             return ! in_array($this->inputType($element), self::UNLABELLABLE_INPUT_TYPES, true);
         }
@@ -1051,25 +1046,75 @@ final class PublicAccessibilityContract
         return $inputType === '' ? 'text' : $inputType;
     }
 
-    private function isDisabledOrHidden(DOMElement $element): bool
+    private function isHiddenOrInert(DOMElement $element): bool
     {
         $current = $element;
 
         while ($current instanceof DOMElement) {
-            if ($current->hasAttribute('hidden')
-                || $current->hasAttribute('inert')) {
-                return true;
-            }
-
-            if ($current === $element && $current->hasAttribute('disabled')) {
-                return true;
-            }
-
-            if ($current->nodeName === 'fieldset' && $current->hasAttribute('disabled')) {
+            if ($current->hasAttribute('hidden') || $current->hasAttribute('inert')) {
                 return true;
             }
 
             $current = $current->parentNode;
+        }
+
+        return false;
+    }
+
+    private function isEffectivelyDisabled(DOMElement $element): bool
+    {
+        if ($this->supportsDisabledAttribute($element) && $element->hasAttribute('disabled')) {
+            return true;
+        }
+
+        $ancestor = $element->parentNode;
+
+        while ($ancestor instanceof DOMElement) {
+            if ($ancestor->nodeName === 'fieldset'
+                && $ancestor->hasAttribute('disabled')
+                && ! $this->isInsideFirstLegend($element, $ancestor)) {
+                return true;
+            }
+
+            $ancestor = $ancestor->parentNode;
+        }
+
+        return false;
+    }
+
+    private function supportsDisabledAttribute(DOMElement $element): bool
+    {
+        return in_array(
+            $element->nodeName,
+            ['button', 'fieldset', 'input', 'optgroup', 'option', 'select', 'textarea'],
+            true,
+        );
+    }
+
+    private function isInsideFirstLegend(DOMElement $element, DOMElement $fieldset): bool
+    {
+        $firstLegend = null;
+
+        foreach ($fieldset->childNodes as $child) {
+            if ($child instanceof DOMElement && $child->nodeName === 'legend') {
+                $firstLegend = $child;
+
+                break;
+            }
+        }
+
+        if (! $firstLegend instanceof DOMElement) {
+            return false;
+        }
+
+        $ancestor = $element;
+
+        while ($ancestor instanceof DOMElement && $ancestor !== $fieldset) {
+            if ($ancestor === $firstLegend) {
+                return true;
+            }
+
+            $ancestor = $ancestor->parentNode;
         }
 
         return false;
@@ -1081,7 +1126,7 @@ final class PublicAccessibilityContract
     private function roleTokens(DOMElement $element): array
     {
         return array_map(
-            static fn (string $role): string => strtolower($role),
+            strtolower(...),
             preg_split('/\s+/', trim($element->getAttribute('role')), flags: PREG_SPLIT_NO_EMPTY) ?: [],
         );
     }
@@ -1103,9 +1148,12 @@ final class PublicAccessibilityContract
         return strtolower(trim($element->getAttribute($attribute)));
     }
 
-    private function namingTextOf(DOMElement $element, bool $allowOpaqueContent): string
-    {
-        if ($this->isHiddenFromNaming($element)) {
+    private function namingTextOf(
+        DOMElement $element,
+        bool $allowOpaqueContent,
+        bool $allowHiddenSubtree = false,
+    ): string {
+        if (! $allowHiddenSubtree && $this->isHiddenFromNaming($element)) {
             return '';
         }
 
@@ -1121,7 +1169,7 @@ final class PublicAccessibilityContract
 
         foreach ($element->childNodes as $child) {
             if ($child instanceof DOMElement) {
-                $text = $this->namingTextOf($child, $allowOpaqueContent);
+                $text = $this->namingTextOf($child, $allowOpaqueContent, $allowHiddenSubtree);
 
                 if ($text !== '') {
                     $parts[] = $text;
@@ -1144,10 +1192,12 @@ final class PublicAccessibilityContract
 
     private function isHiddenFromNaming(DOMElement $element): bool
     {
-        return $element->hasAttribute('hidden')
-            || $element->hasAttribute('inert')
-            || $this->normalizedAttributeValue($element, 'aria-hidden') === 'true'
-            || in_array($element->nodeName, ['script', 'style', 'template'], true);
+        return in_array(true, [
+            $element->hasAttribute('hidden'),
+            $element->hasAttribute('inert'),
+            $this->normalizedAttributeValue($element, 'aria-hidden') === 'true',
+            in_array($element->nodeName, ['script', 'style', 'template'], true),
+        ], true);
     }
 
     private function textContentOf(?DOMNode $node): string
