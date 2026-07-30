@@ -52,46 +52,47 @@ php artisan list capell
 
 Common host commands:
 
-| Command                                                                                                                                                 | Use                                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `capell:install`                                                                                                                                        | Install Capell packages, default data, admin access, and selected optional packages. |
-| `capell:upgrade`                                                                                                                                        | Run host package upgrade flow and migrations.                                        |
-| `capell:doctor`                                                                                                                                         | Run host diagnostic checks.                                                          |
-| `capell:extension-audit`                                                                                                                                | Validate extension contracts and manifests.                                          |
-| `capell:package:lint`                                                                                                                                    | Lint package manifests, versions, assets, and shared extension contracts.             |
-| `capell:extensions:repair-composer-drift`                                                                                                               | Repair Composer-actionable extension drift outside dashboard requests.               |
-| `capell:package-cache` / `capell:package-cache:clear`                                                                                                   | Warm or clear package discovery cache.                                               |
+| Command                                                                                                                                                                      | Use                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `capell:install`                                                                                                                                                             | Install Capell packages, default data, admin access, and selected optional packages. |
+| `capell:upgrade`                                                                                                                                                             | Run host package upgrade flow and migrations.                                        |
+| `capell:doctor`                                                                                                                                                              | Run host diagnostic checks.                                                          |
+| `capell:extension-audit`                                                                                                                                                     | Validate extension contracts and manifests.                                          |
+| `capell:package:lint`                                                                                                                                                        | Lint package manifests, versions, assets, and shared extension contracts.            |
+| `capell:extensions:repair-composer-drift`                                                                                                                                    | Repair Composer-actionable extension drift outside dashboard requests.               |
+| `capell:package-cache` / `capell:package-cache:clear`                                                                                                                        | Warm or clear package discovery cache.                                               |
 | `capell:make`, `capell:make-action`, `capell:make-data`, `capell:make-extender`, `capell:make:extension`, `capell:make:theme`, `capell:make-schema`, `capell:make-blueprint` | Generate host/app/package scaffolding.                                               |
-| `capell:admin-install`, `capell:admin-setup`, `capell:admin-upgrade`                                                                                    | Admin package install/setup/upgrade surfaces.                                        |
-| `capell:admin-cache-widgets`, `capell:admin-clear-widgets-cache`, `capell:admin-cache-configurators`, `capell:admin-clear-configurators-cache`          | Warm or clear Admin registries.                                                      |
-| `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`                                                                   | Frontend package lifecycle commands.                                                 |
+| `capell:admin-install`, `capell:admin-setup`, `capell:admin-upgrade`                                                                                                         | Admin package install/setup/upgrade surfaces.                                        |
+| `capell:admin-cache-widgets`, `capell:admin-clear-widgets-cache`, `capell:admin-cache-configurators`, `capell:admin-clear-configurators-cache`                               | Warm or clear Admin registries.                                                      |
+| `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`                                                                                        | Frontend package lifecycle commands.                                                 |
 
 Optional-package commands such as `capell:static-site`, `capell:xml-sitemap`, and `capell:frontend-tailwind-assets` only exist when their package is installed.
 
 ## Development Routes
 
-| Need                                    | Read                                                   |
-| --------------------------------------- | ------------------------------------------------------ |
-| Apply repository coding conventions     | [Coding standards](../standards/coding-standards.md)   |
-| Decide host vs package vs app ownership | [Host, package, or app code](package-boundaries.md)    |
-| Pick an install path                    | [Install matrix](../getting-started/install-matrix.md) |
-| Configure local repo work               | [Local development](local-development.md)              |
-| Work with the 1.x monorepo branch       | [Monorepo 1.x branch](monorepo-1x-branch.md)           |
-| Run Capell in containers                | [Container development](container-development.md)      |
-| Install or repair admin setup           | [Admin install setup](admin-install-setup.md)          |
-| Seed content safely                     | [Seeding content](seeding-content.md)                  |
-| Understand page revisions and rollback  | [Page event history](page-event-history.md)            |
-| Add settings migrations                 | [Settings migrations](settings-migrations.md)          |
-| Work with public page API output        | [Public page API](public-page-api.md)                  |
-| Understand CI and Pest shards           | [CI and test shards](ci.md)                            |
-| Measure Blade view test coverage        | [Blade view coverage](blade-view-coverage.md)          |
-| Look up config keys and env vars        | [Configuration reference](configuration.md)            |
-| Create package authoring surfaces       | [Package authoring](../platform/package-authoring.md)  |
+| Need                                    | Read                                                            |
+| --------------------------------------- | --------------------------------------------------------------- |
+| Apply repository coding conventions     | [Coding standards](../standards/coding-standards.md)            |
+| Make queued work survive failures       | [Queued work reliability](../standards/queue-reliability.md)    |
+| Decide host vs package vs app ownership | [Host, package, or app code](package-boundaries.md)             |
+| Pick an install path                    | [Install matrix](../getting-started/install-matrix.md)          |
+| Configure local repo work               | [Local development](local-development.md)                       |
+| Work with the 1.x monorepo branch       | [Monorepo 1.x branch](monorepo-1x-branch.md)                    |
+| Run Capell in containers                | [Container development](container-development.md)               |
+| Install or repair admin setup           | [Admin install setup](admin-install-setup.md)                   |
+| Seed content safely                     | [Seeding content](seeding-content.md)                           |
+| Understand page revisions and rollback  | [Page event history](page-event-history.md)                     |
+| Add settings migrations                 | [Settings migrations](settings-migrations.md)                   |
+| Work with public page API output        | [Public page API](public-page-api.md)                           |
+| Understand CI and Pest shards           | [CI and test shards](ci.md)                                     |
+| Measure Blade view test coverage        | [Blade view coverage](blade-view-coverage.md)                   |
+| Look up config keys and env vars        | [Configuration reference](configuration.md)                     |
+| Create package authoring surfaces       | [Package authoring](../platform/package-authoring.md)           |
 | Follow package provider conventions     | [Package provider conventions](package-provider-conventions.md) |
-| Diagnose environment or registry state  | [Diagnostics](diagnostics.md)                          |
-| Decide where docs belong                | [Docs ownership rules](docs-ownership.md)              |
-| Avoid unsafe extension/package patterns | [Do not do this](do-not-do-this.md)                    |
-| Capture useful docs screenshots         | [Screenshot state guide](screenshot-state-guide.md)    |
+| Diagnose environment or registry state  | [Diagnostics](diagnostics.md)                                   |
+| Decide where docs belong                | [Docs ownership rules](docs-ownership.md)                       |
+| Avoid unsafe extension/package patterns | [Do not do this](do-not-do-this.md)                             |
+| Capture useful docs screenshots         | [Screenshot state guide](screenshot-state-guide.md)             |
 
 ## Configuration
 
