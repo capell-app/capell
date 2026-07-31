@@ -40,7 +40,11 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
 
     foreach ($composer['scripts'] as $name => $script) {
         foreach ((array) $script as $command) {
-            if (! is_string($command) || ! str_contains($command, 'vendor/bin/pest')) {
+            if (! is_string($command)) {
+                continue;
+            }
+
+            if (! str_contains($command, 'vendor/bin/pest')) {
                 continue;
             }
 
