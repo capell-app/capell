@@ -1,9 +1,5 @@
 includes:
-    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
-    - vendor/phpstan/phpstan-mockery/extension.neon
-    - vendor/larastan/larastan/extension.neon
-    - vendor/pestphp/pest-plugin-phpstan/extension.neon
-    - vendor/tomasvotruba/type-coverage/config/extension.neon
+    - phpstan/extensions.neon
     - phpstan/common.neon
 
 parameters:

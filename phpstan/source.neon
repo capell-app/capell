@@ -1,0 +1,46 @@
+# Production code only: packages/ minus the per-package test suites. Use this
+# for the iteration loop. It is NOT a replacement for `composer analyze` —
+# ignore-errors.neon and the type-coverage thresholds are written against the
+# full tree, so both are relaxed here (see below) and only the full run gates.
+
+includes:
+    - extensions.neon
+    - common.neon
+
+parameters:
+    treatPhpDocTypesAsCertain: false
+    # ignore-errors.neon covers packages/ and tests/ together. Analysing one
+    # half leaves the other half's entries unmatched, which the full config
+    # (reportUnmatchedIgnoredErrors: true) is the right place to police.
+    reportUnmatchedIgnoredErrors: false
+    # Type coverage is a whole-tree percentage. Enforcing it against a subset
+    # would gate on a different denominator than the number in common.neon.
+    type_coverage:
+        param_type: 0
+        return_type: 0
+        property_type: 0
+        constant_type: 0
+    # A trait whose only users are test classes reads as unused once the suites
+    # are out of scope. The full config still owns this check, where it can see
+    # both halves of the tree and the answer is meaningful.
+    ignoreErrors:
+        -
+            identifier: trait.unused
+    parallel:
+        maximumNumberOfProcesses: 4
+    paths:
+        - ../packages
+        - ../scripts/benchmark-boot.php
+        - ../scripts/benchmark-boot-child.php
+        - ../scripts/benchmark-boot-support.php
+    excludePaths:
+        analyse:
+            # The trailing /* is load-bearing: without it the pattern matches the
+            # directory entry only, and every file inside it is still analysed —
+            # against Pest helper functions that live in the suites this config
+            # deliberately does not load.
+            - ../packages/*/tests/*
+    scanFiles:
+        - ../scripts/release/ReleaseEligibility.php
+        - ../scripts/test-all/TestAllMatrix.php
+    tmpDir: %currentWorkingDirectory%/var/phpstan/source

@@ -1,0 +1,39 @@
+# Test code only: the root suite plus every per-package suite. Same relaxations
+# as source.neon — this is a fast feedback config, not a gate.
+
+includes:
+    - extensions.neon
+    - common.neon
+
+parameters:
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    type_coverage:
+        param_type: 0
+        return_type: 0
+        property_type: 0
+        constant_type: 0
+    # See source.neon: unused-trait detection is only meaningful when both the
+    # source tree and the suites are in scope, which is the full config's job.
+    ignoreErrors:
+        -
+            identifier: trait.unused
+    parallel:
+        maximumNumberOfProcesses: 4
+    # Listed one by one on purpose. PHPStan expands fnmatch patterns in
+    # excludePaths but NOT in paths: a `../packages/*/tests` entry here does not
+    # resolve, and the run dies with no output at all rather than reporting a
+    # bad path. Add a line when a package gains a suite.
+    paths:
+        - ../tests
+        - ../packages/admin/tests
+        - ../packages/core/tests
+        - ../packages/frontend/tests
+        - ../packages/installer/tests
+        - ../packages/marketplace/tests
+    # The root suite exercises these script-only classes, which live outside any
+    # analysed path; the full config scans them for the same reason.
+    scanFiles:
+        - ../scripts/release/ReleaseEligibility.php
+        - ../scripts/test-all/TestAllMatrix.php
+    tmpDir: %currentWorkingDirectory%/var/phpstan/tests
