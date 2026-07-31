@@ -1,3 +1,4 @@
+const { spawnSync } = require('node:child_process')
 const fs = require('fs')
 const path = require('path')
 
@@ -11,10 +12,17 @@ const ignoredDirectories = new Set([
 
 const ignoredMarkdownPrefixes = [
     '.github/',
-    '.superpowers/',
     'docs/', // documentation pages may be text-only; referenced visuals are still validated
     'packages/core/resources/boost/skills/',
 ]
+
+/**
+ * Local planning notes are working material, not shipped documentation. They
+ * quote proposed markup for other files, so their image paths are relative to
+ * wherever that markup will land rather than to the note itself. They are
+ * excluded from the audit entirely, not merely from the visual requirement.
+ */
+const excludedMarkdownPrefixes = ['.superpowers/', 'docs/superpowers/']
 
 const ignoredMarkdownFiles = new Set([
     'ACTION-PLAN.md',
@@ -79,6 +87,46 @@ const screenshotManifests = [
         .flatMap((repoRoot) => collectScreenshotManifests(repoRoot)),
 ]
 
+/**
+ * This check guards the documentation that ships with the repository. Untracked
+ * and gitignored paths — local planning notes under docs/superpowers, scratch
+ * output, generated bundles — are not part of that surface, and their Markdown
+ * routinely quotes proposed markup whose paths are only valid somewhere else.
+ * Enumerating through git keeps the audit to committed documentation.
+ *
+ * @return {string[]|null} Absolute paths, or null when git cannot answer.
+ */
+function collectTrackedMarkdownFiles(repoRoot) {
+    const result = spawnSync(
+        'git',
+        [
+            '-C',
+            repoRoot,
+            'ls-files',
+            '--cached',
+            '--exclude-standard',
+            '-z',
+            '*.md',
+        ],
+        { encoding: 'utf8' },
+    )
+
+    if (result.error || result.status !== 0) {
+        return null
+    }
+
+    return result.stdout
+        .split('\0')
+        .filter(Boolean)
+        .map((relativePath) => path.join(repoRoot, relativePath))
+        .filter(
+            (filePath) =>
+                !filePath
+                    .split(path.sep)
+                    .some((segment) => ignoredDirectories.has(segment)),
+        )
+}
+
 function collectMarkdownFiles(directory, files = []) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
         if (ignoredDirectories.has(entry.name)) {
@@ -133,6 +181,17 @@ function localImagePaths(markdown) {
         .filter((imagePath) => !imagePath.includes('shields.io'))
 }
 
+function isExcludedFromAudit(repoRelativePath) {
+    const normalizedPath = repoRelativePath
+        .split(path.sep)
+        .join('/')
+        .replace(/^\.\//, '')
+
+    return excludedMarkdownPrefixes.some((prefix) =>
+        normalizedPath.startsWith(prefix),
+    )
+}
+
 function shouldRequireVisual(filePath) {
     const normalizedPath = filePath.replace(/^\.\//, '')
     const basename = path.basename(normalizedPath)
@@ -158,7 +217,15 @@ function checkMarkdownVisuals() {
     for (const repoRoot of repoRoots) {
         const relativeRepoRoot = path.relative(process.cwd(), repoRoot) || '.'
 
-        for (const filePath of collectMarkdownFiles(repoRoot).sort()) {
+        const markdownFiles =
+            collectTrackedMarkdownFiles(repoRoot) ??
+            collectMarkdownFiles(repoRoot)
+
+        for (const filePath of markdownFiles.sort()) {
+            if (isExcludedFromAudit(path.relative(repoRoot, filePath))) {
+                continue
+            }
+
             const markdown = fs.readFileSync(filePath, 'utf8')
             const imagePaths = localImagePaths(markdown)
             const displayPath = path
