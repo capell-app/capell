@@ -48,9 +48,6 @@ The real CMS test starts after the first launch. Someone edits the homepage at 4
 
 Capell keeps its core lean and grows through packages, so the CMS can expand with the application instead of arriving as a monolith. The free core stands on its own; the paid packages add the power tools. These are the ten headline features from [capell.app/features](https://capell.app/features):
 
-[![AI Ready](https://img.shields.io/badge/AI-ready-6D28D9?style=flat-square)](docs/getting-started/ai-ready.md)
-Content stays structured and permissioned, so it is [ready for search engines and AI](docs/getting-started/ai-ready.md) without scraping or admin leakage.
-
 | Feature                         | What it gives you                                                                                                                                    |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Extendable core                 | A lean, fast core you grow through verified packages, each with a production footprint you can inspect before it installs                            |
@@ -63,6 +60,9 @@ Content stays structured and permissioned, so it is [ready for search engines an
 | SEO Suite                       | Live scoring, schema, redirects, and Search Console, all inside the admin                                                                            |
 | Site search                     | Relevance-tuned results with synonyms and typo tolerance, plus a report of what visitors search for and cannot find                                  |
 | Performance pipeline            | Pages are cached and each ships route-specific critical CSS generated from your real stylesheet                                                      |
+
+[![AI Ready](https://img.shields.io/badge/AI-ready-6D28D9?style=flat-square)](docs/getting-started/ai-ready.md)
+Content stays structured and permissioned, so it is [ready for search engines and AI](docs/getting-started/ai-ready.md) without scraping or admin leakage.
 
 Optional capabilities arrive as Laravel packages you add when the work needs them. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path — the [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation, and the live [extensions directory](https://capell.app/extensions) is the authority for what is currently installable.
 
