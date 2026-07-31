@@ -1,6 +1,6 @@
 # Capell CMS
 
-![Capell CMS — Core at the foundation, with Frontend and Admin branching off it and both feeding search and AI readiness](docs/images/capell-readme-hero.jpg)
+![Fine-line engraved blueprint on deep navy showing Capell's foundation feeding two branching structures, with the Capell wordmark on the left](docs/images/capell-readme-hero.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
