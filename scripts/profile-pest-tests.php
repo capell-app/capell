@@ -45,7 +45,7 @@ foreach ($files as $file) {
     $startedAt = microtime(true);
 
     passthru(
-        PHP_BINARY . ' -d memory_limit=1536M vendor/bin/pest ' . escapeshellarg((string) $file) . ' --configuration=phpunit.xml --compact',
+        PHP_BINARY . ' vendor/bin/pest ' . escapeshellarg((string) $file) . ' --configuration=phpunit.xml --compact',
         $exitCode,
     );
 
