@@ -78,6 +78,29 @@ such as `install`, `require`, `update`, and `remove` are not: the hybrid `vendor
 contains symlinks into the primary checkout. Manage dependencies in the primary
 checkout, then re-run `scripts/init-worktree.sh --force` in each worktree.
 
+## Node dependencies
+
+`scripts/init-worktree.sh` gives the worktree its own `node_modules/` as well as its
+own `vendor/`. It needs one: `composer preflight` runs prettier and eslint, so without
+`node_modules/` the whole preflight exits before a single PHP stage runs, and the error
+names npm rather than the real cause.
+
+Unlike `vendor/`, this is not shared. The script clones the directory copy-on-write,
+which on APFS shares the underlying blocks with the primary checkout until something
+writes — about a second, and almost no disk. On a filesystem without clone support it
+falls back to `npm ci`. An existing `node_modules/` is left alone.
+
+### npm is safe here, unlike composer
+
+The warning above about dependency-mutating Composer commands does not apply to npm.
+Because `node_modules/` is a real directory rather than a symlink, `npm install` and
+`npm ci` in a worktree cannot reach the primary checkout.
+
+That isolation is the reason for the clone. `npm ci` deletes `node_modules/` before it
+installs, so had the directory been symlinked, one `npm ci` in one worktree would have
+wiped the primary checkout's copy out from under every other worktree and session using
+it.
+
 ## Running tests in a worktree
 
 Identical to the primary checkout, but note that this repo's tooling needs an explicit
