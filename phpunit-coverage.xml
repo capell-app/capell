@@ -40,12 +40,15 @@
       workers alike, because PHPUnit's <ini> handling cannot distinguish them, so
       it is sized for the parent's merge step.
 
-      4G is not a guess. It is what this repo ran coverage with until #216, when
-      it was passed as an effective `passthru-php` value and no ini directive
-      existed to override it. Raise it only against a measured peak RSS from a
-      completed run, not against headroom.
+      8G is not a guess. Run 30619680673 completed all 6115 tests and then died
+      with `Allowed memory size of 4294967296 bytes exhausted (tried to allocate
+      1608519680 bytes)` inside php-code-coverage's Serializer, so the merge step
+      demonstrably needs more than 4G plus a further 1.5G for the single largest
+      allocation. 8G covers that with headroom and still fits a 16GB hosted
+      runner alongside the workers. Raise it only against a measured peak RSS
+      from a completed run, not against headroom.
     -->
-    <ini name="memory_limit" value="4G"/>
+    <ini name="memory_limit" value="8G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
