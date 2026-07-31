@@ -38,9 +38,14 @@
       deserialises and merges all of them, so the parent peaks in the multi GB
       range while the workers stay around 300MB. The limit applies to parent and
       workers alike, because PHPUnit's <ini> handling cannot distinguish them, so
-      this is sized for the parent's merge step.
+      it is sized for the parent's merge step.
+
+      4G is not a guess. It is what this repo ran coverage with until #216, when
+      it was passed as an effective `passthru-php` value and no ini directive
+      existed to override it. Raise it only against a measured peak RSS from a
+      completed run, not against headroom.
     -->
-    <ini name="memory_limit" value="8G"/>
+    <ini name="memory_limit" value="4G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
