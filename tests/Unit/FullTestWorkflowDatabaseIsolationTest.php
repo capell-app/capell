@@ -10,10 +10,35 @@ it('gates the exact PR and dispatch topology through repository-owned Test All s
         flags: JSON_THROW_ON_ERROR,
     );
     $workflow = (string) file_get_contents($root . '/.github/workflows/test-full.yml');
+    $phpunit = (string) file_get_contents($root . '/phpunit.xml');
 
-    expect($composer['scripts']['test:fast:ci'] ?? null)
-        ->not->toContain('--passthru-php')
-        ->and($composer['scripts']['test:database:ci'] ?? null)
+    $pestFiveRunnerScripts = [
+        'test:unit',
+        'test:fast',
+        'test:fast:ci',
+        'test:all',
+        'test:all:ci',
+        'test:tia',
+        'test:shards',
+    ];
+
+    foreach ($pestFiveRunnerScripts as $script) {
+        expect($composer['scripts'][$script] ?? null)
+            ->toBeString()
+            ->not->toContain('--passthru-php');
+    }
+
+    foreach (['coverage', 'coverage-report'] as $script) {
+        $commands = $composer['scripts'][$script] ?? null;
+
+        expect($commands)->toBeArray();
+
+        foreach ($commands as $command) {
+            expect($command)->toBeString()->not->toContain('--passthru-php');
+        }
+    }
+
+    expect($composer['scripts']['test:database:ci'] ?? null)
         ->toContain('--log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}')
         ->toContain("--passthru-php='-d memory_limit=1G'")
         ->and($composer['scripts']['test:database:package:ci'] ?? null)
@@ -21,6 +46,8 @@ it('gates the exact PR and dispatch topology through repository-owned Test All s
         ->toContain('--group=${PEST_TEST_GROUP:?PEST_TEST_GROUP must be set}')
         ->toContain("--passthru-php='-d memory_limit=1G'")
         ->toContain('--do-not-fail-on-empty-test-suite')
+        ->and($phpunit)
+        ->toContain('<ini name="memory_limit" value="1G"/>')
         ->and($workflow)
         ->toContain('pull_request:')
         ->toContain('workflow_dispatch:')
