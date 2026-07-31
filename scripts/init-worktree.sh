@@ -20,6 +20,11 @@
 #
 # It then verifies the result and refuses to leave a poisoned vendor/ behind.
 #
+# Finally it gives the worktree its own node_modules/, which composer preflight
+# needs for the prettier and eslint stages. That one is a copy-on-write clone
+# rather than a symlink, because npm ci deletes the directory before installing
+# and would take the primary checkout's copy with it.
+#
 # Usage:  bash scripts/init-worktree.sh [--force]
 
 set -euo pipefail
@@ -120,6 +125,37 @@ case "$resolved" in
     ;;
 esac
 
+# ---------------------------------------------------------------------------
+# node_modules. `composer preflight` runs prettier and eslint, so a worktree
+# without node_modules/ fails the entire preflight before a single PHP stage
+# runs — the error names npm but reads like the worktree itself is broken.
+#
+# This is deliberately NOT a symlink. vendor/ can share packages because they
+# are only ever read; node_modules is different. `npm ci` DELETES the directory
+# before it installs, so one npm command in one worktree would wipe the primary
+# checkout's node_modules out from under every other session using it. Node
+# also resolves symlinks to their realpath, so tools would load their own
+# dependencies from the primary tree — the same wrong-tree class of bug this
+# script exists to prevent for vendor/.
+#
+# A copy-on-write clone gives isolation at symlink speed. On APFS the clone
+# shares blocks with the primary until something writes, so it costs about a
+# second and almost no disk, and any later npm write stays inside this
+# worktree.
+# ---------------------------------------------------------------------------
+if [ -e node_modules ]; then
+    echo "node_modules/ already exists, leaving it alone."
+elif [ ! -d "$PRIMARY_ROOT/node_modules" ]; then
+    echo "Primary checkout has no node_modules/, so there is nothing to clone."
+    echo "Run 'npm ci' here if you need the prettier and eslint preflight stages."
+elif cp -Rc "$PRIMARY_ROOT/node_modules" node_modules 2>/dev/null; then
+    echo "Cloned node_modules/ ($(find node_modules -maxdepth 1 -mindepth 1 | wc -l | tr -d ' ') entries, copy-on-write, isolated from the primary)."
+else
+    rm -rf node_modules
+    echo "Copy-on-write clone unavailable (not an APFS volume?), running npm ci instead."
+    npm ci
+fi
+
 cat <<'EOF'
 
 Done. Remember that this repo's tooling needs an explicit memory limit:
@@ -131,6 +167,9 @@ Done. Remember that this repo's tooling needs an explicit memory limit:
 Parts of vendor/ are shared with the primary checkout. Composer scripts are safe,
 but never run composer install/require/update/remove from this worktree — dependency
 mutations can write through the shared package symlinks.
+
+node_modules/ is a copy-on-write clone, not a symlink, so npm is safe here: an
+npm install or npm ci in this worktree cannot reach the primary checkout.
 
 KNOWN LIMITATION — read before trusting a full-suite run.
 Third-party packages are symlinked, so any code that walks upward from inside
