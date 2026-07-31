@@ -103,24 +103,24 @@
             "@coverage",
             "@test:mutate:ci"
         ],
-        "test:unit": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
-        "release-contracts": "@php -d memory_limit=1G -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest tests/Integration/Release --colors=always --compact --configuration=phpunit.xml",
-        "test:fast": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:fast:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --configuration=phpunit.xml",
+        "test:unit": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
+        "release-contracts": "@php -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest tests/Integration/Release --colors=always --compact --configuration=phpunit.xml",
+        "test:fast": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:fast:ci": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --shard=${PEST_SHARD:-1/1} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --configuration=phpunit.xml",
         "test:preflight": "@test:all:ci",
-        "test:preflight:serial": "@php -d memory_limit=1536M -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:all": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
-        "test:all:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
+        "test:preflight:serial": "@php -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:all": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --stop-on-error --stop-on-failure --configuration=phpunit.xml",
+        "test:all:ci": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --configuration=phpunit.xml",
         "test:all:matrix:local": [
             "Composer\\Config::disableProcessTimeout",
             "@php scripts/run-test-all-matrix.php"
         ],
-        "test:tia": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --tia --configuration=phpunit.xml",
+        "test:tia": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --tia --configuration=phpunit.xml",
         "test:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --passthru-php='-d memory_limit=1G' --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --ansi",
         "test:database:package:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --passthru-php='-d memory_limit=1G' --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --group=${PEST_TEST_GROUP:?PEST_TEST_GROUP must be set} --do-not-fail-on-empty-test-suite --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --ansi",
-        "test:sentinel:unit:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest tests/Unit/FullTestWorkflowDatabaseIsolationTest.php packages/core/tests/Unit/Support/Database/RuntimeSchemaStateTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationRegistryTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationExecutorTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
-        "test:sentinel:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest packages/core/tests/Feature/Permissions/PermissionTeamsMigrationTest.php packages/core/tests/Feature/Permissions/GlobalPermissionTeamUniquenessMigrationTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
-        "test:shards": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --update-shards --configuration=phpunit.xml",
+        "test:sentinel:unit:ci": "@php -d max_execution_time=0 vendor/bin/pest tests/Unit/FullTestWorkflowDatabaseIsolationTest.php packages/core/tests/Unit/Support/Database/RuntimeSchemaStateTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationRegistryTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationExecutorTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
+        "test:sentinel:database:ci": "@php -d max_execution_time=0 vendor/bin/pest packages/core/tests/Feature/Permissions/PermissionTeamsMigrationTest.php packages/core/tests/Feature/Permissions/GlobalPermissionTeamUniquenessMigrationTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
+        "test:shards": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --compact --update-shards --configuration=phpunit.xml",
         "test:profile": "@php scripts/profile-pest-tests.php",
         "benchmark:boot": "@php scripts/benchmark-boot.php",
         "test:types": "@php vendor/bin/pest --configuration=phpunit.xml --type-coverage",
@@ -129,20 +129,20 @@
             "@prepare",
             "@test:preflight"
         ],
-        "coverage:blade": "@php -d memory_limit=4G -d max_execution_time=0 vendor/bin/pest --blade-coverage --parallel --colors=always --configuration=phpunit.xml",
+        "coverage:blade": "@php -d max_execution_time=0 vendor/bin/pest --blade-coverage --parallel --colors=always --configuration=phpunit-coverage.xml",
         "coverage": [
             "@prepare",
             "@php vendor/bin/testbench optimize --except=routes --ansi",
-            "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --min=90 --parallel --colors=always --configuration=phpunit.xml"
+            "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --min=90 --parallel --colors=always --configuration=phpunit-coverage.xml"
         ],
         "coverage-report": [
             "rm -rf .cache/phpunit/code-coverage",
             "@prepare",
             "@php vendor/bin/testbench optimize --except=routes --ansi",
-            "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --coverage-html=coverage --parallel --colors=always --configuration=phpunit.xml"
+            "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --coverage-html=coverage --parallel --colors=always --configuration=phpunit-coverage.xml"
         ],
-        "test:mutate": "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --colors=always --configuration=phpunit.xml",
-        "test:mutate:ci": "@php -d memory_limit=4G -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --min=${PEST_MUTATION_MIN:-81} --colors=always --configuration=phpunit.xml",
+        "test:mutate": "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --colors=always --configuration=phpunit-coverage.xml",
+        "test:mutate:ci": "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --min=${PEST_MUTATION_MIN:-81} --colors=always --configuration=phpunit-coverage.xml",
         "clear": [
             "@check:vendor-integrity",
             "CACHE_STORE=array \"$PHP_BINARY\" vendor/bin/testbench package:purge-skeleton --ansi",

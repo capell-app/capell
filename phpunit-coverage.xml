@@ -29,21 +29,18 @@
   </source>
   <php>
     <!--
-      Authoritative PHP memory limit for every test process.
+      Coverage variant of phpunit.xml. Identical to it except for this limit;
+      CoverageWorkflowTest fails if the two files drift in any other way, so edit
+      them together.
 
-      PHPUnit applies <ini> entries through ini_set() while bootstrapping, in the
-      runner and in every parallel worker alike. That runs after PHP has read the
-      command line, so it overrides a `-d memory_limit=` flag and paratest's
-      `passthru-php` option. Setting the limit anywhere else has no effect, so
-      change it here. Workers inherit nothing else: delete this line and they drop
-      to the host php.ini default.
-
-      1G is sized for a test worker. Coverage runs need far more, because the
-      parallel runner deserialises every worker's coverage set in the parent to
-      merge them, so they use phpunit-coverage.xml instead. Keep the two files
-      identical apart from this value; CoverageWorkflowTest enforces that.
+      Coverage needs far more than a test worker does. In parallel mode each
+      worker writes its coverage set to a temp file (~200MB each) and the parent
+      deserialises and merges all of them, so the parent peaks in the multi GB
+      range while the workers stay around 300MB. The limit applies to parent and
+      workers alike, because PHPUnit's <ini> handling cannot distinguish them, so
+      this is sized for the parent's merge step.
     -->
-    <ini name="memory_limit" value="1G"/>
+    <ini name="memory_limit" value="8G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
