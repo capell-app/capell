@@ -1,29 +1,16 @@
 # Capell CMS
 
-![Capell CMS — Core at the foundation, with Frontend and Admin branching off it and both feeding search and AI readiness](docs/images/capell-readme-hero.jpg)
+![Fine-line engraved blueprint on deep navy showing Capell's foundation feeding two branching structures, with the Capell wordmark on the left](docs/images/capell-readme-hero.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
-[![Quality Gates](https://img.shields.io/github/actions/workflow/status/capell-app/capell/code-quality-and-styling.yml?branch=main&style=flat-square&label=quality%20gates&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/capell-app/capell?style=flat-square&logo=codecov&logoColor=white)](https://app.codecov.io/gh/capell-app/capell)
-<br>
-[![PHPStan Level 8](https://img.shields.io/badge/PHPStan-level%208-777BB4?style=flat-square&logo=php&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Parameters Typed](https://img.shields.io/badge/parameters%20typed-99.2%25-2F855A?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
-[![Dependencies Audited](https://img.shields.io/badge/dependencies-audited-885630?style=flat-square&logo=composer&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
-[![AI Ready](https://img.shields.io/badge/AI-ready-6D28D9?style=flat-square)](docs/getting-started/ai-ready.md)
-[![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
-**This isn’t another CMS.**
+**Every change can be undone.**
 
-Capell is an open-source CMS for Laravel, built on Filament.
-
-Capell starts where most custom CMS builds end. Reusable page patterns, previews, revision history, rollback, roll-forward and safe upgrades are already built and ready to extend.
-
-Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.
-
-Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Because that content stays structured and permissioned, it is [ready for search engines and AI](docs/getting-started/ai-ready.md) without scraping or admin leakage.
+Capell is an open-source CMS for Laravel, built on Filament. It starts where custom builds end: page patterns, previews, revision history, rollback and safe upgrades are already built and ready to extend.
 
 Install it into an existing Laravel application with two commands:
 
@@ -32,7 +19,9 @@ composer require capell-app/installer
 php artisan capell:install
 ```
 
-[Open the live demo](https://capell.app/demo) · [See all features](https://capell.app/features) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Build a page](docs/getting-started/building-pages.md) · [Read the fit guide](docs/getting-started/why-capell.md)
+[Open the live demo](https://capell.app/demo) · [See all features](https://capell.app/features) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Build a page](docs/getting-started/building-pages.md) · [Read the fit guide](docs/getting-started/why-capell.md) · [Read the docs](https://docs.capell.app)
+
+Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
 ## See it running a real site
 
@@ -72,13 +61,16 @@ Capell keeps its core lean and grows through packages, so the CMS can expand wit
 | Site search                     | Relevance-tuned results with synonyms and typo tolerance, plus a report of what visitors search for and cannot find                                  |
 | Performance pipeline            | Pages are cached and each ships route-specific critical CSS generated from your real stylesheet                                                      |
 
+[![AI Ready](https://img.shields.io/badge/AI-ready-6D28D9?style=flat-square)](docs/getting-started/ai-ready.md)
+Content stays structured and permissioned, so it is [ready for search engines and AI](docs/getting-started/ai-ready.md) without scraping or admin leakage.
+
 Optional capabilities arrive as Laravel packages you add when the work needs them. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path — the [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation, and the live [extensions directory](https://capell.app/extensions) is the authority for what is currently installable.
 
 Package authors should start with the [extension-point chooser](docs/packages/extension-point-chooser.md) and [package authoring guide](docs/packages/README.md). Capell packages extend registries and lifecycle contracts instead of patching host classes.
 
 ## Built as a standard Laravel package
 
-There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
+There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
 
 The public foundation is five packages:
 
@@ -188,6 +180,11 @@ For the shipped 1.x line, each minor receives security fixes for 24 months from 
 Commercial facts live on the Capell website so this README does not preserve stale prices, package counts, discounts, or checkout claims. Capell Foundation is MIT-licensed. Paid marketplace packages remain commercially licensed under their separate terms; public visibility never grants protected package access. See [LICENSE.md](LICENSE.md) for the Foundation terms.
 
 ## Contributing to this repository
+
+[![Quality Gates](https://img.shields.io/github/actions/workflow/status/capell-app/capell/code-quality-and-styling.yml?branch=main&style=flat-square&label=quality%20gates&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![PHPStan Level 8](https://img.shields.io/badge/PHPStan-level%208-777BB4?style=flat-square&logo=php&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Parameters Typed](https://img.shields.io/badge/parameters%20typed-99.2%25-2F855A?style=flat-square)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
+[![Dependencies Audited](https://img.shields.io/badge/dependencies-audited-885630?style=flat-square&logo=composer&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 
 This source monorepo contains the five foundation packages and their release-contract tests. It is not the package name installed into customer applications.
 
