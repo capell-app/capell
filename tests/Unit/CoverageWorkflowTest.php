@@ -10,5 +10,5 @@ it('lets the coverage workflow control its PHP memory limit', function (): void 
     expect($workflow)
         ->toContain('php -d memory_limit=-1')
         ->and($phpunitConfiguration)
-        ->not->toContain('<ini name="memory_limit"');
+        ->toContain('<ini name="memory_limit" value="1G"/>');
 });
