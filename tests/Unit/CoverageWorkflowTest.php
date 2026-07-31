@@ -29,7 +29,7 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
     // `--passthru-php`. The phpunit configuration is therefore the only place that
     // can set the limit, and any other declaration lies about the effective value.
     expect($mainConfiguration)->toContain('<ini name="memory_limit" value="1G"/>')
-        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="4G"/>');
+        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="8G"/>');
 
     // The coverage variant exists only to raise that limit for the parallel
     // runner's merge step. Everything else must stay in lockstep.
@@ -86,4 +86,35 @@ it('runs every coverage and mutation workload against the coverage configuration
     }
 
     expect($workflow)->toContain('--configuration=phpunit-coverage.xml');
+});
+
+it('runs the release coverage workload in parallel', function (): void {
+    $root = dirname(__DIR__, 2);
+    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
+    $composer = json_decode(
+        (string) file_get_contents($root . '/composer.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    // The workflow hand-rolls its own pest invocation so it can add --coverage-clover,
+    // which means it can drift from the `coverage` script it mirrors. Serial coverage
+    // took 3940s on run 30619680673 and pushed the job past an hour, so the parallel
+    // flag is the part of that script the workflow must never lose.
+    $workflowCoverageCommand = null;
+
+    foreach (explode("\n", $workflow) as $line) {
+        if (str_contains($line, 'vendor/bin/pest') && str_contains($line, '--coverage')) {
+            $workflowCoverageCommand = $line;
+        }
+    }
+
+    expect($workflowCoverageCommand)->not->toBeNull()
+        ->and($workflowCoverageCommand)->toContain('--parallel');
+
+    foreach ((array) $composer['scripts']['coverage'] as $command) {
+        if (is_string($command) && str_contains($command, 'vendor/bin/pest')) {
+            expect($command)->toContain('--parallel');
+        }
+    }
 });
