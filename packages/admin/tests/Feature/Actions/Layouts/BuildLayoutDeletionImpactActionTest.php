@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Layouts\BuildLayoutDeletionImpactAction;
+use Capell\Admin\Support\Layouts\LayoutCardData;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -30,7 +31,7 @@ it('uses the selected aggregate when it is already available', function (): void
         ->and($impact->referencesUrl)->not->toBeNull();
 });
 
-it('counts every registered variation within the current actor site scope when no aggregate is loaded', function (): void {
+it('does not claim actor-scoped usage is globally authoritative when no aggregate is loaded', function (): void {
     $layout = Layout::factory()->createOne();
     $assignedSite = Site::factory()->createOne();
     $hiddenSite = Site::factory()->createOne();
@@ -77,6 +78,65 @@ it('counts every registered variation within the current actor site scope when n
     $impact = BuildLayoutDeletionImpactAction::run($layout);
 
     expect($impact->knownReferenceCount)->toBe(2)
-        ->and($impact->authoritative)->toBeTrue()
+        ->and($impact->authoritative)->toBeFalse()
         ->and($impact->affectedLabel)->toBe('2 known pages');
 });
+
+it('does not mark a layout as unused when hidden-site usage is outside the actor scope', function (): void {
+    $layout = Layout::factory()->createOne(['status' => true]);
+    $assignedSite = Site::factory()->createOne();
+    $hiddenSite = Site::factory()->createOne();
+    Page::factory()->site($hiddenSite)->layout($layout)->createOne();
+
+    test()->actingAs(scopedLayoutImpactUser(collect([$assignedSite->getKey()])));
+
+    $impact = BuildLayoutDeletionImpactAction::run($layout);
+    $card = LayoutCardData::fromLayout($layout);
+    $html = view('capell-admin::components.record-deletion-impact', ['impact' => $impact])->render();
+
+    expect($impact->knownReferenceCount)->toBe(0)
+        ->and($impact->authoritative)->toBeFalse()
+        ->and(collect($card->states())->pluck('key')->all())->not->toContain('unused')
+        ->and($html)->toContain('No tracked uses')
+        ->not->toContain('Unused');
+});
+
+/** @param Collection<int, int> $assignedSiteIds */
+function scopedLayoutImpactUser(Collection $assignedSiteIds): Authenticatable
+{
+    $user = new class extends Authenticatable implements FilamentUser
+    {
+        /** @use HasFactory<Factory<static>> */
+        use HasFactory;
+
+        /** @var Collection<int, int> */
+        public Collection $assignedSiteIds;
+
+        protected $table = 'users';
+
+        public function canAccessPanel(Panel $panel): bool
+        {
+            return true;
+        }
+
+        /** @return Collection<int, int> */
+        public function getAssignedSiteIds(): Collection
+        {
+            return $this->assignedSiteIds;
+        }
+
+        public function isGlobalAdmin(): bool
+        {
+            return false;
+        }
+    };
+
+    $user->forceFill([
+        'name' => 'Scoped layout impact user',
+        'email' => fake()->unique()->safeEmail(),
+        'password' => bcrypt('password'),
+    ]);
+    $user->assignedSiteIds = $assignedSiteIds;
+
+    return $user;
+}

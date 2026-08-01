@@ -7,9 +7,11 @@ namespace Capell\Admin\Actions\Layouts;
 use Capell\Admin\Data\RecordDeletionImpactData;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Filament\Resources\Resource;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -21,11 +23,11 @@ final class BuildLayoutDeletionImpactAction
     public function handle(Layout $layout): RecordDeletionImpactData
     {
         $pagesCount = $this->pagesCount($layout);
+        $authoritative = $this->isUsageAuthoritative();
 
         return new RecordDeletionImpactData(
             knownReferenceCount: $pagesCount,
-            // The aggregate includes every registered page variation within the current actor's site scope.
-            authoritative: true,
+            authoritative: $authoritative,
             noReferencesLabel: (string) __('capell-admin::generic.deletion_impact_unused'),
             affectedLabel: $pagesCount > 0
                 ? (string) trans_choice('capell-admin::generic.deletion_impact_pages', $pagesCount, ['count' => $pagesCount])
@@ -45,7 +47,7 @@ final class BuildLayoutDeletionImpactAction
 
         return new RecordDeletionImpactData(
             knownReferenceCount: $knownReferenceCount,
-            authoritative: true,
+            authoritative: $this->isUsageAuthoritative(),
             noReferencesLabel: (string) __('capell-admin::generic.deletion_impact_unused'),
             affectedLabel: $knownReferenceCount > 0
                 ? (string) trans_choice('capell-admin::generic.deletion_impact_pages', $knownReferenceCount, ['count' => $knownReferenceCount])
@@ -60,6 +62,13 @@ final class BuildLayoutDeletionImpactAction
         return is_numeric($pagesCount)
             ? (int) $pagesCount
             : ResolveLayoutUsageAction::run($layout);
+    }
+
+    private function isUsageAuthoritative(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
     }
 
     private function pagesUrl(Layout $layout, int $pagesCount): ?string

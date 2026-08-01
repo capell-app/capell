@@ -9,6 +9,7 @@ use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
@@ -17,6 +18,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -92,7 +94,7 @@ class LayoutSelect extends Select
             ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
                 $pagesCountAttribute = $record->getAttributes()['pages_count'] ?? null;
-                $hasAuthoritativePagesCount = is_numeric($pagesCountAttribute);
+                $hasAuthoritativePagesCount = is_numeric($pagesCountAttribute) && $this->isUsageCountAuthoritative();
                 $pagesCount = $hasAuthoritativePagesCount ? (int) $pagesCountAttribute : 0;
 
                 $data = [
@@ -184,6 +186,13 @@ class LayoutSelect extends Select
         }
 
         return null;
+    }
+
+    private function isUsageCountAuthoritative(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
     }
 
     /**

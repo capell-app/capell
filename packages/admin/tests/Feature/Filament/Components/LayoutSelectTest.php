@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
 use Capell\Core\Models\Layout;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+
+uses(CreatesAdminUser::class);
 
 it('layout select search ordering binds user supplied search text', function (): void {
     $component = LayoutSelect::make('layout_id');
@@ -65,6 +68,8 @@ it('layout select keeps thumbnail in selected option without rendering preview b
 });
 
 it('marks disabled and unused layouts in select options', function (): void {
+    test()->actingAsAdmin();
+
     $component = LayoutSelect::make('layout_id');
     $layout = Layout::factory()->createOne(['status' => false]);
     $layout->setAttribute('pages_count', 0);
