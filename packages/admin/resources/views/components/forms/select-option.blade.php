@@ -5,6 +5,8 @@
     'image' => '',
     'label' => '',
     'prefix' => '',
+    'states' => [],
+    'relationships' => [],
     'inline' => false,
     'size' => '',
 ])
@@ -55,6 +57,15 @@
                 class="select-selected-hidden inline-block text-xs font-light tracking-wide text-gray-500 group-hover:text-inherit"
             >
                 {{ $description }}
+            </span>
+        @endif
+
+        @if ($states !== [] || $relationships !== [])
+            <span class="mt-1 flex flex-wrap gap-1">
+                @include('capell-admin::components.record-state-summary', [
+                    'states' => $states,
+                    'relationships' => $relationships,
+                ])
             </span>
         @endif
     </div>
