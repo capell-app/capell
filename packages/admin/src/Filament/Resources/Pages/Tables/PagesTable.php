@@ -16,6 +16,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\BlueprintColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\LanguagesColumn;
+use Capell\Admin\Filament\Components\Tables\Columns\Page\PageAvailabilityColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\Page\PagePublishStatusColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\Page\PageSummaryColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\SiteColumn;
@@ -474,6 +475,7 @@ class PagesTable implements TableConfigurator
             ->with($relations)
             ->withCount([
                 'children',
+                'pageUrls',
             ])
             ->tap(fn (Builder $query): Builder => resolve(PageTableStatusResolver::class)->modifyQuery($query));
     }
@@ -539,6 +541,7 @@ class PagesTable implements TableConfigurator
                 ->sortable()
                 ->searchable(query: self::applyNameSearch(...))
                 ->toggleable(),
+            PageAvailabilityColumn::make('availability'),
             PagePublishStatusColumn::make('publish_status'),
             DateColumn::make('updated_at'),
             TextColumn::make('translation.title')
