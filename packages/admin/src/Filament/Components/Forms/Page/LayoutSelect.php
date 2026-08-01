@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Actions\Layouts\ResolveLayoutUsageAction;
 use Capell\Admin\Data\RecordRelationshipCountData;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
@@ -87,9 +88,7 @@ class LayoutSelect extends Select
             ])
             ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
-                $pagesCount = is_numeric($record->getAttributes()['pages_count'] ?? null)
-                    ? (int) $record->getAttributes()['pages_count']
-                    : $record->pages()->count();
+                $pagesCount = ResolveLayoutUsageAction::run($record);
 
                 $data = [
                     'label' => $record->name,
