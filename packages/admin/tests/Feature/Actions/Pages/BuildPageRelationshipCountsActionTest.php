@@ -15,5 +15,8 @@ it('builds child and page url relationship counts from preloaded relations', fun
 
     expect($data->childrenCount)->toBe(2)
         ->and($data->urlCount)->toBe(1)
+        ->and(urldecode((string) $data->pageUrlsUrl))
+        ->toContain('filters[pageable][pageable_type]=' . $page->getMorphClass())
+        ->toContain('filters[pageable][pageable_id]=' . $page->getKey())
         ->and(collect($data->counts())->pluck('key')->all())->toBe(['children', 'urls']);
 });

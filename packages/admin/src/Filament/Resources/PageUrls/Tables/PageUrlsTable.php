@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\LanguageColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
+use Capell\Admin\Filament\Components\Tables\Filters\PageSelectFilter;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\PageUrls\Schemas\PageUrlForm;
 use Capell\Admin\Support\AdminSurfaceLookup;
@@ -69,6 +70,7 @@ class PageUrlsTable implements TableConfigurator
             ->defaultSort('created_at', 'desc')
             ->columns(static::getTableColumns())
             ->filters([
+                PageSelectFilter::make('pageable'),
                 SelectFilter::make('type')
                     ->label(__('capell-admin::table.type'))
                     ->options(PageUrlTypeEnum::options())

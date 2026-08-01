@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Tables;
 
 use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
+use Capell\Admin\Actions\Pages\BuildPageDeletionImpactAction;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Enums\FilamentColorEnum;
@@ -133,6 +134,9 @@ class PagesTable implements TableConfigurator
                         }),
                     ReplicatePageAction::make(),
                     DeleteAction::make()
+                        ->modalContent(fn (PageModel $record) => view('capell-admin::components.record-deletion-impact', [
+                            'impact' => BuildPageDeletionImpactAction::run($record),
+                        ]))
                         ->before(self::beforeRecordDelete(...))
                         ->after(self::afterRecordDeleted(...)),
                 ])
@@ -146,6 +150,9 @@ class PagesTable implements TableConfigurator
                 BulkMovePagesBulkAction::make(),
                 ...static::getExtenderBulkActions(),
                 DeleteBulkAction::make()
+                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records) => view('capell-admin::components.record-deletion-impact', [
+                        'impact' => app(BuildPageDeletionImpactAction::class)->handleMany($records),
+                    ]))
                     ->before(self::beforeBulkDelete(...))
                     ->after(self::afterBulkDelete(...)),
                 RestoreBulkAction::make(),
@@ -214,6 +221,16 @@ class PagesTable implements TableConfigurator
                 ->native(false)
                 ->options(self::getPublishStatusFilterOptions())
                 ->query(self::applyPublishStatusFilterQuery(...)),
+
+            SelectFilter::make('availability')
+                ->label(__('capell-admin::table.page_availability'))
+                ->native(false)
+                ->options([
+                    'no_active_url' => __('capell-admin::table.page_availability_no_active_url'),
+                    'some_urls_disabled' => __('capell-admin::table.page_availability_some_urls_disabled'),
+                ])
+                ->query(self::applyAvailabilityFilterQuery(...))
+                ->indicateUsing(self::indicateAvailabilityFilter(...)),
 
             TrashedFilter::make()
                 ->native(false),
@@ -314,6 +331,37 @@ class PagesTable implements TableConfigurator
             PublishVisibilityStateEnum::expired => $query->expired(),
             PublishVisibilityStateEnum::published => $query->published(),
             default => $query,
+        };
+    }
+
+    /**
+     * @param  Builder<PageModel>  $query
+     * @param  array<string, mixed>  $data
+     * @return Builder<PageModel>
+     */
+    protected static function applyAvailabilityFilterQuery(Builder $query, array $data): Builder
+    {
+        $value = is_string($data['value'] ?? null) ? $data['value'] : null;
+
+        return match ($value) {
+            'no_active_url' => $query->whereDoesntHave(
+                'pageUrls',
+                fn (BuilderContract $query): BuilderContract => $query->where('status', true),
+            ),
+            'some_urls_disabled' => $query
+                ->whereHas('pageUrls', fn (BuilderContract $query): BuilderContract => $query->where('status', true))
+                ->whereHas('pageUrls', fn (BuilderContract $query): BuilderContract => $query->where('status', false)),
+            default => $query,
+        };
+    }
+
+    /** @param array<string, mixed> $data */
+    protected static function indicateAvailabilityFilter(array $data): ?string
+    {
+        return match ($data['value'] ?? null) {
+            'no_active_url' => (string) __('capell-admin::table.page_availability_no_active_url'),
+            'some_urls_disabled' => (string) __('capell-admin::table.page_availability_some_urls_disabled'),
+            default => null,
         };
     }
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
-use Capell\Admin\Actions\Layouts\ResolveLayoutUsageAction;
 use Capell\Admin\Data\RecordRelationshipCountData;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
@@ -92,9 +91,9 @@ class LayoutSelect extends Select
             ])
             ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
-                $pagesCount = is_numeric($record->getAttributes()['pages_count'] ?? null)
-                    ? (int) $record->getAttributes()['pages_count']
-                    : ResolveLayoutUsageAction::run($record);
+                $pagesCountAttribute = $record->getAttributes()['pages_count'] ?? null;
+                $hasAuthoritativePagesCount = is_numeric($pagesCountAttribute);
+                $pagesCount = $hasAuthoritativePagesCount ? (int) $pagesCountAttribute : 0;
 
                 $data = [
                     'label' => $record->name,
@@ -108,7 +107,7 @@ class LayoutSelect extends Select
                             icon: Heroicon::OutlinedEyeSlash,
                             priority: 10,
                         ) : null,
-                        $pagesCount === 0 ? new RecordStateData(
+                        $hasAuthoritativePagesCount && $pagesCount === 0 ? new RecordStateData(
                             key: 'unused',
                             label: (string) __('capell-admin::table.layout_usage_unused'),
                             description: (string) __('capell-admin::table.layout_usage_unused_tooltip'),
@@ -122,6 +121,7 @@ class LayoutSelect extends Select
                             key: 'pages',
                             label: (string) __('capell-admin::table.total_pages'),
                             count: $pagesCount,
+                            authoritative: $hasAuthoritativePagesCount,
                         ),
                     ],
                 ];

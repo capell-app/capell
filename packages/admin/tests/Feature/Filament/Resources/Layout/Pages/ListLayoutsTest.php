@@ -141,6 +141,25 @@ it('makes disabled and unused layouts obvious in the list', function (): void {
         ->assertSee(__('capell-admin::table.layout_usage_unused'));
 });
 
+it('filters disabled and unused layouts from the selected variation-aware aggregate', function (): void {
+    $disabledLayout = Layout::factory()->createOne(['status' => false]);
+    $unusedLayout = Layout::factory()->createOne();
+    $usedLayout = Layout::factory()->createOne();
+    Page::factory()->layout($usedLayout)->createOne();
+
+    $component = Livewire::test(ListLayouts::class)
+        ->assertSuccessful()
+        ->filterTable('disabled')
+        ->assertCanSeeTableRecords([$disabledLayout])
+        ->assertCanNotSeeTableRecords([$unusedLayout, $usedLayout]);
+
+    $component
+        ->resetTableFilters()
+        ->filterTable('unused')
+        ->assertCanSeeTableRecords([$disabledLayout, $unusedLayout])
+        ->assertCanNotSeeTableRecords([$usedLayout]);
+});
+
 it('can search layouts', function (): void {
     $layouts = Layout::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Language(%d)', $sequence->index)])

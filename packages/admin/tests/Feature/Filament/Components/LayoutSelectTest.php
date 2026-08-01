@@ -6,6 +6,7 @@ use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
 use Capell\Core\Models\Layout;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 it('layout select search ordering binds user supplied search text', function (): void {
@@ -66,10 +67,22 @@ it('layout select keeps thumbnail in selected option without rendering preview b
 it('marks disabled and unused layouts in select options', function (): void {
     $component = LayoutSelect::make('layout_id');
     $layout = Layout::factory()->createOne(['status' => false]);
+    $layout->setAttribute('pages_count', 0);
 
     expect($component->getOptionLabelFromRecord($layout))
         ->toContain(__('capell-admin::form.disabled'))
         ->toContain(__('capell-admin::table.layout_usage_unused'));
+});
+
+it('does not run a fallback usage query while rendering an option without the selected aggregate', function (): void {
+    $component = LayoutSelect::make('layout_id');
+    $layout = Layout::factory()->createOne();
+
+    DB::enableQueryLog();
+    $component->getOptionLabelFromRecord($layout);
+
+    expect(collect(DB::getQueryLog())->pluck('query')->implode(' '))
+        ->not->toContain('from "pages"');
 });
 
 it('loads a single cross-variation usage aggregate for relationship options', function (): void {

@@ -45,6 +45,7 @@ return [
     'deletion_impact_layouts' => '{1}:count known layout|[2,*]:count known layouts',
     'deletion_impact_no_tracked_uses' => 'No tracked uses',
     'deletion_impact_pages' => '{1}:count known page|[2,*]:count known pages',
+    'deletion_impact_page_urls' => '{1}:count known page URL|[2,*]:count known page URLs',
     'deletion_impact_unused' => 'Unused',
     'deletion_impact_widget_uses' => '{1}:count known widget use|[2,*]:count known widget uses',
     'site_delete_domains_affected' => ':count domain|:count domains',

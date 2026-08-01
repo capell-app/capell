@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Layouts;
 
-use Capell\Admin\Actions\Layouts\ResolveLayoutUsageAction;
+use Capell\Admin\Actions\Layouts\BuildLayoutDeletionImpactAction;
 use Capell\Admin\Data\RecordRelationshipCountData;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Core\Models\Layout;
@@ -24,6 +24,8 @@ final class LayoutCardData extends Data
         public bool $isDefault,
         public bool $isEnabled,
         public int $pagesCount,
+        public bool $pagesCountAuthoritative,
+        public ?string $pagesUrl,
         public ?string $siteName,
         public ?string $themeName,
         public int $containerCount,
@@ -34,6 +36,7 @@ final class LayoutCardData extends Data
     public static function fromLayout(Layout $layout): self
     {
         $containerNames = self::containerNames($layout);
+        $deletionImpact = BuildLayoutDeletionImpactAction::run($layout);
 
         return new self(
             title: $layout->name,
@@ -41,9 +44,9 @@ final class LayoutCardData extends Data
             imageUrl: self::imageUrl($layout),
             isDefault: $layout->default,
             isEnabled: $layout->status,
-            pagesCount: is_numeric($layout->getAttributes()['pages_count'] ?? null)
-                ? (int) $layout->getAttributes()['pages_count']
-                : ResolveLayoutUsageAction::run($layout),
+            pagesCount: $deletionImpact->knownReferenceCount,
+            pagesCountAuthoritative: $deletionImpact->authoritative,
+            pagesUrl: $deletionImpact->referencesUrl,
             siteName: $layout->site?->name,
             themeName: $layout->theme?->name,
             containerCount: count($containerNames),
@@ -64,7 +67,7 @@ final class LayoutCardData extends Data
                 icon: Heroicon::OutlinedEyeSlash,
                 priority: 10,
             ) : null,
-            $this->pagesCount === 0 ? new RecordStateData(
+            $this->pagesCountAuthoritative && $this->pagesCount === 0 ? new RecordStateData(
                 key: 'unused',
                 label: (string) __('capell-admin::table.layout_usage_unused'),
                 description: (string) __('capell-admin::table.layout_usage_unused_tooltip'),
@@ -83,6 +86,8 @@ final class LayoutCardData extends Data
                 key: 'pages',
                 label: (string) __('capell-admin::table.total_pages'),
                 count: $this->pagesCount,
+                authoritative: $this->pagesCountAuthoritative,
+                url: $this->pagesUrl,
             ),
         ];
     }
