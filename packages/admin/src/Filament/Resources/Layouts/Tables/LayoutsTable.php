@@ -87,30 +87,8 @@ class LayoutsTable implements TableConfigurator
             ->emptyStateIcon('heroicon-o-rectangle-group');
     }
 
-    /**
-     * @param  Builder<Layout>  $query
-     * @return Builder<Layout>
-     */
-    protected static function getTableQueryModifier(Builder $query): Builder
-    {
-        return $query->with([
-            'creator',
-            'editor',
-            'image',
-            'site',
-            'theme',
-        ])
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ])
-            ->select([
-                'layouts.*',
-                self::getUsesCountSelect($query, 'pages_count'),
-            ]);
-    }
-
     /** @param Builder<Layout> $query */
-    protected static function getUsesCountSelect(Builder $query, ?string $alias = null): ExpressionContract
+    public static function getUsesCountSelect(Builder $query, ?string $alias = null): ExpressionContract
     {
         $baseTable = $query->getModel()->getTable();
 
@@ -143,6 +121,28 @@ class LayoutsTable implements TableConfigurator
 
         /** @var literal-string $expression */
         return DB::raw($expression);
+    }
+
+    /**
+     * @param  Builder<Layout>  $query
+     * @return Builder<Layout>
+     */
+    protected static function getTableQueryModifier(Builder $query): Builder
+    {
+        return $query->with([
+            'creator',
+            'editor',
+            'image',
+            'site',
+            'theme',
+        ])
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
+            ->select([
+                'layouts.*',
+                self::getUsesCountSelect($query, 'pages_count'),
+            ]);
     }
 
     /** @return array<int, mixed> */

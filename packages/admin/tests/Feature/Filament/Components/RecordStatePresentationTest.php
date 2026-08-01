@@ -51,5 +51,6 @@ it('renders state metadata in custom select options without changing the base op
     expect($html)
         ->toContain('Homepage')
         ->toContain('Disabled')
-        ->toContain('select-option-label');
+        ->toContain('select-option-label')
+        ->not->toContain('<span class="mt-1 flex flex-wrap gap-1">');
 });

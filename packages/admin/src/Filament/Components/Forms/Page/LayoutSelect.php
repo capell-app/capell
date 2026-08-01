@@ -9,6 +9,7 @@ use Capell\Admin\Data\RecordRelationshipCountData;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
+use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
@@ -41,7 +42,10 @@ class LayoutSelect extends Select
                 name: 'layout',
                 titleAttribute: 'name',
                 modifyQueryUsing: fn (Builder $query, ?string $search = null) => $this->applyAccessibleLayoutQuery($query)
-                    ->withCount('pages')
+                    ->select([
+                        'layouts.*',
+                        LayoutsTable::getUsesCountSelect($query, 'pages_count'),
+                    ])
                     ->with(['image'])
                     ->where(
                         // On MySQL, JSON_CONTAINS returns NULL for an absent key, so a
@@ -88,7 +92,9 @@ class LayoutSelect extends Select
             ])
             ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
-                $pagesCount = ResolveLayoutUsageAction::run($record);
+                $pagesCount = is_numeric($record->getAttributes()['pages_count'] ?? null)
+                    ? (int) $record->getAttributes()['pages_count']
+                    : ResolveLayoutUsageAction::run($record);
 
                 $data = [
                     'label' => $record->name,

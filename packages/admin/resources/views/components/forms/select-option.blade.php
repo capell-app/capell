@@ -61,12 +61,12 @@
         @endif
 
         @if ($states !== [] || $relationships !== [])
-            <span class="mt-1 flex flex-wrap gap-1">
+            <div class="mt-1 flex flex-wrap gap-1">
                 @include('capell-admin::components.record-state-summary', [
                     'states' => $states,
                     'relationships' => $relationships,
                 ])
-            </span>
+            </div>
         @endif
     </div>
 </div>

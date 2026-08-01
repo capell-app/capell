@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
 use Capell\Core\Models\Layout;
+use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 
@@ -69,6 +70,19 @@ it('marks disabled and unused layouts in select options', function (): void {
     expect($component->getOptionLabelFromRecord($layout))
         ->toContain(__('capell-admin::form.disabled'))
         ->toContain(__('capell-admin::table.layout_usage_unused'));
+});
+
+it('loads a single cross-variation usage aggregate for relationship options', function (): void {
+    $component = LayoutSelect::make('layout_id');
+    $property = new ReflectionProperty(Select::class, 'modifyRelationshipQueryUsing');
+    $modifyQuery = $property->getValue($component);
+
+    expect($modifyQuery)->toBeInstanceOf(Closure::class);
+    assert($modifyQuery instanceof Closure);
+
+    $query = $component->evaluate($modifyQuery, ['query' => Layout::query(), 'search' => null]);
+
+    expect($query->toSql())->toContain('pages_count');
 });
 
 /**
