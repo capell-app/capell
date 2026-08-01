@@ -132,6 +132,15 @@ it('renders layouts as cards with expandable container metadata', function (): v
         ->assertSee(__('capell-admin::table.last_updated'));
 });
 
+it('makes disabled and unused layouts obvious in the list', function (): void {
+    Layout::factory()->createOne(['status' => false]);
+
+    Livewire::test(ListLayouts::class)
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::form.disabled'))
+        ->assertSee(__('capell-admin::table.layout_usage_unused'));
+});
+
 it('can search layouts', function (): void {
     $layouts = Layout::factory()
         ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Language(%d)', $sequence->index)])

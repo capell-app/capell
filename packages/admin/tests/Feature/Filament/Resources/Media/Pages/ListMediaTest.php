@@ -227,3 +227,16 @@ it('shows usage counts and can filter recently deleted media', function (): void
         ->assertCanSeeTableRecords([$deletedImage])
         ->assertCanNotSeeTableRecords([$image]);
 });
+
+it('labels media with no attachments as unused', function (): void {
+    $owner = Page::factory()->createOne();
+
+    CapellMedia::factory()->model($owner)->createOne([
+        'name' => 'Unused image',
+        'file_name' => 'unused.jpg',
+    ]);
+
+    Livewire::test(ListMedia::class)
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::table.unused'));
+});
