@@ -62,6 +62,15 @@ it('layout select keeps thumbnail in selected option without rendering preview b
         ->not->toHaveKey(LayoutSelect::BELOW_CONTENT_SCHEMA_KEY);
 });
 
+it('marks disabled and unused layouts in select options', function (): void {
+    $component = LayoutSelect::make('layout_id');
+    $layout = Layout::factory()->createOne(['status' => false]);
+
+    expect($component->getOptionLabelFromRecord($layout))
+        ->toContain(__('capell-admin::form.disabled'))
+        ->toContain(__('capell-admin::table.layout_usage_unused'));
+});
+
 /**
  * @return array<string, mixed>
  */

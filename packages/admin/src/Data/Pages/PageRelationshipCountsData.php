@@ -17,11 +17,12 @@ final class PageRelationshipCountsData extends Data
 
     public static function fromPage(Page $page): self
     {
-        $childrenCount = is_numeric($page->getAttribute('children_count'))
-            ? (int) $page->getAttribute('children_count')
+        $attributes = $page->getAttributes();
+        $childrenCount = is_numeric($attributes['children_count'] ?? null)
+            ? (int) $attributes['children_count']
             : ($page->relationLoaded('children') ? $page->children->count() : $page->children()->count());
-        $urlCount = is_numeric($page->getAttribute('page_urls_count'))
-            ? (int) $page->getAttribute('page_urls_count')
+        $urlCount = is_numeric($attributes['page_urls_count'] ?? null)
+            ? (int) $attributes['page_urls_count']
             : ($page->relationLoaded('pageUrls') ? $page->pageUrls->count() : $page->pageUrls()->count());
 
         return new self(

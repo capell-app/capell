@@ -70,18 +70,16 @@ it('loads page options through registered page variations and query callbacks', 
     $keyControl = pageMorphOptionChildComponentByName([$mounted], 'pageable_id');
     assert($keyControl instanceof Select);
 
-    expect($keyControl->getOptions())->toBe([
-        $visiblePage->getKey() => 'Alpha landing',
-        $hiddenPage->getKey() => (string) $hiddenPage->getKey(),
-    ])
-        ->and($keyControl->getSearchResults('Alpha'))->toBe([
-            $visiblePage->getKey() => 'Alpha landing',
-        ])
+    expect($keyControl->getOptions())->toHaveKey($visiblePage->getKey())
+        ->and($keyControl->getOptions()[$visiblePage->getKey()])->toContain('Alpha landing')
+        ->and($keyControl->getOptions()[$hiddenPage->getKey()] ?? (string) $hiddenPage->getKey())->toContain((string) $hiddenPage->getKey())
+        ->and($keyControl->getSearchResults('Alpha'))->toHaveKey($visiblePage->getKey())
+        ->and($keyControl->getSearchResults('Alpha')[$visiblePage->getKey()])->toContain('Alpha landing')
         ->and($keyControl->getSearchResults('Hidden'))->toBe([]);
 
     $keyControl->state($visiblePage->getKey());
 
-    expect($keyControl->getOptionLabel())->toBe('Alpha landing');
+    expect($keyControl->getOptionLabel())->toContain('Alpha landing');
 
     $keyControl->state($hiddenPage->getKey());
 

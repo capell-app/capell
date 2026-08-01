@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\MutateContentPresenterAction;
+use Capell\Admin\Actions\Pages\BuildPageRelationshipCountsAction;
+use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Actions\Pages\SavePageAuthoringAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
 use Capell\Admin\Contracts\Extenders\PageEditExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
+use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Data\Pages\PageAuthoringInputData;
+use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ListenerEnum;
 use Capell\Admin\Enums\ResourceEnum;
@@ -43,6 +47,7 @@ use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ContentLock;
 use Capell\Core\Models\Language;
@@ -232,14 +237,16 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Override]
     public function getSubheading(): string|Htmlable|null
     {
-        // Site, Page type, and Layout are editable in the form (Settings schema),
-        // so the header only surfaces the page URL — rendered as a clickable link
-        // to the live page when one is resolvable.
         $pageUrl = $this->record->pageUrls->first();
         $fullUrl = $pageUrl instanceof PageUrl ? PageUrlPresenter::fullUrl($pageUrl) : null;
+        $summary = view('capell-admin::components.record-state-summary', [
+            'states' => $this->recordStates(),
+            'relationships' => BuildPageRelationshipCountsAction::run($this->record)->counts(),
+        ])->render();
 
         return new HtmlString(sprintf(
-            '<span class="flex flex-wrap gap-1.5">%s</span>',
+            '<div class="flex flex-wrap items-center gap-1.5">%s%s</div>',
+            $summary,
             $this->subheadingMetaChipLink(
                 (string) __('capell-admin::table.url'),
                 $this->pageDisplayUrl(),
@@ -642,6 +649,26 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
 
         return new HtmlString($label . e($model->name));
+    }
+
+    /** @return list<RecordStateData> */
+    private function recordStates(): array
+    {
+        $publishStatus = resolve(PageTableStatusResolver::class)->resolve($this->record);
+
+        return array_values(array_filter([
+            ResolvePageAvailabilityStateAction::run($this->record)->state(),
+            new RecordStateData(
+                key: 'publish_status',
+                label: $publishStatus->label,
+                shortLabel: $publishStatus->shortLabel,
+                description: $publishStatus->tooltip,
+                color: $publishStatus->color,
+                icon: $publishStatus->icon,
+                priority: 20,
+                isExceptional: $this->record->publishVisibilityState() !== PublishVisibilityStateEnum::published,
+            ),
+        ]));
     }
 
     /**

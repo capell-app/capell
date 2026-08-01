@@ -188,7 +188,7 @@ it('can retrieve data', function (): void {
         ]);
 });
 
-it('shows only the page url as a link in the edit page subheading', function (): void {
+it('shows page state and the page url as a link in the edit page subheading', function (): void {
     $site = Site::factory()
         ->withTranslations(siteDomainData: [
             'scheme' => 'https',
@@ -208,7 +208,7 @@ it('shows only the page url as a link in the edit page subheading', function ():
         ->site($site)
         ->page($page)
         ->language($site->language)
-        ->createOne(['url' => '/context-page']);
+        ->createOne(['url' => '/context-page', 'status' => false]);
 
     $component = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
@@ -219,9 +219,10 @@ it('shows only the page url as a link in the edit page subheading', function ():
     expect($subheading)->toBeInstanceOf(Htmlable::class);
     assert($subheading instanceof Htmlable);
 
-    // Site, Page type, and Layout were moved out of the header into the form, so
-    // the subheading now surfaces only the URL — rendered as a clickable link.
+    // Site, Page type, and Layout remain in the form; the header surfaces state
+    // and the URL — rendered as a clickable link when one is resolvable.
     expect($subheading->toHtml())
+        ->toContain(__('capell-admin::table.page_availability_no_active_url'))
         ->toContain(__('capell-admin::table.url'))
         ->toContain('https://example.test/context-page')
         ->toContain('<a href="https://example.test/context-page"')

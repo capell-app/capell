@@ -117,6 +117,11 @@
         <div
             class="min-h-8 space-y-1 text-sm leading-6 text-gray-600 dark:text-gray-300"
         >
+            @include('capell-admin::components.record-state-summary', [
+                'states' => $card->states(),
+                'relationships' => $card->relationships(),
+            ])
+
             @if ($card->themeName !== null)
                 <p class="truncate">{{ $card->themeName }}</p>
             @endif

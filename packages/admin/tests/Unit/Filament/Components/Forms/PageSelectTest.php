@@ -10,6 +10,7 @@ use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Schemas\Schema;
@@ -48,6 +49,25 @@ it('does not preload page options into initial admin form payloads', function ()
     $component = PageSelect::make('page_id');
 
     expect($component->isPreloaded())->toBeFalse();
+});
+
+it('marks pages with no active urls in select options', function (): void {
+    $site = Site::factory()->withTranslations()->create();
+    $type = Blueprint::factory()->page()->create(['key' => 'article']);
+    $page = Page::factory()->site($site)->type($type)->create(['name' => 'Disabled page']);
+
+    PageUrl::factory()
+        ->page($page)
+        ->site($site)
+        ->language($site->language)
+        ->create(['status' => false]);
+
+    $options = pageSelectOptions(PageSelect::make('page_id')->pageType('article'), siteId: $site->getKey());
+
+    expect($options[$page->getKey()])->toContain(
+        __('capell-admin::table.page_availability_no_active_url'),
+        __('capell-admin::table.page_relationship_urls'),
+    );
 });
 
 it('filters page options by admin resource group', function (): void {

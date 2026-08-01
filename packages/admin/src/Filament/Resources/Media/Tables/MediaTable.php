@@ -242,8 +242,14 @@ class MediaTable implements TableConfigurator
             TextColumn::make('usage_count')
                 ->label(__('capell-admin::table.usage'))
                 ->badge()
-                ->color(fn (int $state): string => $state === 0 ? 'gray' : ($state > 5 ? 'warning' : 'success'))
+                ->color(fn (int $state): string => $state === 0 ? 'warning' : ($state > 5 ? 'warning' : 'success'))
                 ->getStateUsing(fn (Media $record): int => $record->usage_count)
+                ->formatStateUsing(fn (int $state): string => $state === 0
+                    ? (string) __('capell-admin::table.unused')
+                    : (string) $state)
+                ->tooltip(fn (int $state): string => $state === 0
+                    ? (string) __('capell-admin::table.asset_usage_unused_tooltip')
+                    : (string) trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
                 ->toggleable(),
             DateColumn::make('created_at'),
         ];
