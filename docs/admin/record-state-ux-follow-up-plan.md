@@ -498,14 +498,24 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
   consequence copy without changing delete eligibility. Capture no customer
   data and do not perform a deletion.
 
-- [ ] **Step 3: Reconcile documentation and ledger**
+- [ ] **Step 3: Request and resolve the Sol expert review**
+
+  Request a read-only Sol review of the exact Core/Admin and Layout Builder
+  diffs after the focused suites pass. Give the reviewer the approved design,
+  the authority rule for `Unused`, the no-query-in-rendering rule, and the
+  known unrelated companion PHPStan finding. Resolve every P1/P2 finding and
+  any low-risk P3 correctness/accessibility issue, then rerun the focused tests
+  that cover the changed area. Record accepted residuals only when they are
+  explicitly outside this slice.
+
+- [ ] **Step 4: Reconcile documentation and ledger**
 
   Mark completed plan checkboxes, update the design status to implemented, and
   add exact commits/test output/review result to CAP-0080. Preserve the primary
   ledger checkout's unrelated changes by using a dedicated ledger branch or
   worktree; do not push, open a PR, merge, release, deploy, seed, or migrate.
 
-- [ ] **Step 4: Commit closeout documentation separately in each repository**
+- [ ] **Step 5: Commit closeout documentation separately in each repository**
 
   ```bash
   git add docs/admin/record-state-ux-follow-up-design.md docs/admin/record-state-ux-follow-up-plan.md
