@@ -146,6 +146,31 @@ Site scoping and resource authorization remain intact. Where an authoritative
 global count cannot be disclosed, the UI uses actor-scoped wording rather than
 misrepresenting the result.
 
+## Relationship Counts
+
+Counts are included when they answer a useful dependency question and can be
+loaded as part of the owning surface query. They are secondary metadata, not a
+second badge cluster. Zero values are rendered as an exceptional state only
+when they have a meaningful name such as `Unused`; routine positive counts are
+shown compactly or behind an existing details/usage link.
+
+The first slice may expose these bounded counts:
+
+- Pages: child pages and page URLs, with active URL wording kept separate from
+  the raw URL count.
+- Layouts: pages using the layout across all registered page variations,
+  containers, and configured widgets where those values are already available
+  without decoding unbounded content in the view.
+- Widgets: layouts using the widget and widget assets attached to it.
+- Widget assets: owning widget, valid target references, and the relevant
+  integrity count rather than a misleading usage count.
+- Media: tracked asset attachments/usages, with a link to the usage list.
+
+Counts are not added when they require per-row queries, expose an incomplete
+reference boundary as authoritative, or compete with the primary record name
+and action controls. Detail headers may show a fuller `Used by`, `Contains`, or
+`Has` summary; table rows and selectors use the shortest useful form.
+
 ## Surface Behaviour
 
 ### Page editor
@@ -202,14 +227,18 @@ remain visually quiet.
 
 Non-zero usage counts link to accessible referencing pages. Layout selectors
 reuse the same state data and authoritative variation-aware count used by the
-list.
+list. The detail header may also show child counts for containers/widgets when
+they are query-preloaded; the card keeps only the page-use count and its
+existing expandable container summary.
 
 ### Media
 
 The media table makes zero usage explicit and filterable. The label is
 `Unused` only if attachment tracking is exhaustive for the supported reference
 contract; otherwise it is `No tracked uses`. Editors receive a usage path
-before any future cleanup action is considered.
+before any future cleanup action is considered. The table keeps the existing
+usage count as the primary relationship count and does not add speculative
+counts for untracked rich-text or package-owned references.
 
 ### Layout Builder widgets
 
@@ -218,7 +247,9 @@ usage consistently. `Unavailable` means the widget cannot be newly placed; it
 does not imply that existing placements have disappeared.
 
 Usage resolution includes every Layout Builder-owned reference form required
-to make an exhaustive claim. Positive counts link to layouts where permitted.
+to make an exhaustive claim. Positive layout and asset counts link to the
+referencing records where permitted; zero counts become `Unused` only when the
+same complete reference query proves zero.
 
 ### Layout Builder widget assets
 
@@ -226,7 +257,9 @@ Widget assets receive integrity states rather than a generic unused state.
 Valid layout-level defaults may intentionally have no pageable reference.
 Missing required widget, target asset, pageable, container, or occurrence
 references are resolved according to the package's actual invariants and shown
-as `Broken reference` or `Orphaned`.
+as `Broken reference` or `Orphaned`. The detail surface may show the owning
+widget and target counts, but the table does not imply that a nullable pageable
+field is an unused asset.
 
 ## Visual and Accessibility Rules
 
