@@ -9,6 +9,7 @@ use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Core\Models\Page;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Contracts\Support\Htmlable;
 
 final class PageAvailabilityColumn extends TextColumn
 {
@@ -24,10 +25,10 @@ final class PageAvailabilityColumn extends TextColumn
             ->alignCenter()
             ->width(0)
             ->toggleable()
-            ->getStateUsing(fn (Page $record): ?string => $this->resolveState($record)?->shortLabel ?? $this->resolveState($record)?->label)
+            ->getStateUsing(fn (Page $record): ?string => $this->stateLabel($record))
             ->tooltip(fn (Page $record): ?string => $this->resolveState($record)?->description)
-            ->color(fn (Page $record): string => $this->resolveState($record)?->color ?? 'gray')
-            ->icon(fn (Page $record): BackedEnum|string|null => $this->resolveState($record)?->icon);
+            ->color(fn (Page $record): string => $this->stateColor($record))
+            ->icon(fn (Page $record): BackedEnum|string|Htmlable|null => $this->resolveState($record)?->icon);
     }
 
     private function resolveState(Page $page): ?RecordStateData
@@ -39,5 +40,19 @@ final class PageAvailabilityColumn extends TextColumn
         }
 
         return $this->states[$key];
+    }
+
+    private function stateLabel(Page $page): ?string
+    {
+        $state = $this->resolveState($page);
+
+        return $state === null ? null : ($state->shortLabel ?? $state->label);
+    }
+
+    private function stateColor(Page $page): string
+    {
+        $state = $this->resolveState($page);
+
+        return $state === null ? 'gray' : $state->color;
     }
 }
