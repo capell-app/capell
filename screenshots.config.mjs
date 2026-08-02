@@ -14,6 +14,7 @@ const displayUrl =
 
 export default {
     schemaVersion: 1,
+    preCapture: 'scripts/screenshots/initialize-record-state-screenshot-fixture.mjs',
     repoRoots: ['.'],
     outputRoots: [
         'docs/images',

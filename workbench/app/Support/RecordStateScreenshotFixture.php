@@ -31,63 +31,13 @@ final class RecordStateScreenshotFixture
 
     private const string MediaUuid = 'c6de44d7-a8d4-4c5d-9e24-7c6492811d48';
 
-    public static function pagesUrl(): string
+    /**
+     * Seeds the screenshot database before the runner starts concurrent HTTP
+     * captures. Fixture routes are deliberately read-only.
+     */
+    public static function initialize(): void
     {
-        self::rebuild();
-
-        return PageResource::getUrl('index');
-    }
-
-    public static function layoutsUrl(): string
-    {
-        self::rebuild();
-
-        return LayoutResource::getUrl('index');
-    }
-
-    public static function pageEditUrl(): string
-    {
-        $page = self::rebuild();
-
-        return PageResource::getUrl('edit', ['record' => $page]);
-    }
-
-    public static function mediaListUrl(): string
-    {
-        self::rebuild();
-
-        return MediaResource::getUrl('index');
-    }
-
-    public static function mediaEditUrl(): string
-    {
-        self::rebuild();
-
-        return MediaResource::getUrl('edit', ['record' => self::media()]);
-    }
-
-    public static function page(): Page
-    {
-        self::rebuild();
-
-        return Page::query()->where('name', self::PageName)->sole();
-    }
-
-    public static function disabledLayout(): Layout
-    {
-        self::rebuild();
-
-        return Layout::query()->where('key', self::DisabledLayoutKey)->sole();
-    }
-
-    public static function media(): Media
-    {
-        return Media::query()->where('uuid', self::MediaUuid)->sole();
-    }
-
-    private static function rebuild(): Page
-    {
-        return DB::transaction(function (): Page {
+        DB::transaction(static function (): void {
             $site = Site::query()->first();
             $blueprint = Blueprint::query()->pageType()->first();
 
@@ -134,9 +84,65 @@ final class RecordStateScreenshotFixture
             );
 
             self::ensureUnusedMedia($page);
-
-            return $page->refresh();
         });
+    }
+
+    public static function pagesUrl(): string
+    {
+        return PageResource::getUrl('index');
+    }
+
+    public static function layoutsUrl(): string
+    {
+        return LayoutResource::getUrl('index');
+    }
+
+    public static function pageEditUrl(): string
+    {
+        return PageResource::getUrl('edit', ['record' => self::page()]);
+    }
+
+    public static function mediaListUrl(): string
+    {
+        return MediaResource::getUrl('index');
+    }
+
+    public static function mediaEditUrl(): string
+    {
+        $media = self::media();
+
+        if (! $media instanceof Media) {
+            throw new ModelNotFoundException('The record-state screenshot fixture has not been initialized.');
+        }
+
+        return MediaResource::getUrl('edit', ['record' => $media]);
+    }
+
+    public static function page(): Page
+    {
+        $page = Page::query()->where('name', self::PageName)->first();
+
+        if (! $page instanceof Page) {
+            throw new ModelNotFoundException('The record-state screenshot fixture has not been initialized.');
+        }
+
+        return $page;
+    }
+
+    public static function disabledLayout(): Layout
+    {
+        $layout = Layout::query()->where('key', self::DisabledLayoutKey)->first();
+
+        if (! $layout instanceof Layout) {
+            throw new ModelNotFoundException('The record-state screenshot fixture has not been initialized.');
+        }
+
+        return $layout;
+    }
+
+    public static function media(): ?Media
+    {
+        return Media::query()->where('uuid', self::MediaUuid)->first();
     }
 
     private static function pageLayout(Site $site): Layout

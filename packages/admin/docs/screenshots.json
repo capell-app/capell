@@ -42,11 +42,11 @@
             "target": "PageResource",
             "scenario": "admin-index",
             "url": "/screenshot-fixtures/record-states/pages",
-            "waitFor": ".fi-ta",
+            "waitFor": "tr:has-text('Scheduled page without an active URL'):has-text('Scheduled'):has-text('No active URL')",
             "interactions": [
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-ta"
+                    "selector": "tr:has-text('Scheduled page without an active URL'):has-text('Scheduled'):has-text('No active URL')"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
@@ -63,11 +63,11 @@
             "target": "LayoutResource",
             "scenario": "admin-index",
             "url": "/screenshot-fixtures/record-states/layouts",
-            "waitFor": ".capell-layout-card-record",
+            "waitFor": ".capell-layout-card-record:has-text('Disabled unused layout'):has-text('Disabled'):has-text('Unused layout')",
             "interactions": [
                 {
                     "type": "scrollIntoView",
-                    "selector": ".capell-layout-card-record"
+                    "selector": ".capell-layout-card-record:has-text('Disabled unused layout'):has-text('Disabled'):has-text('Unused layout')"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
@@ -91,11 +91,11 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-ta:has-text('Unused screenshot fixture image')"
+                    "selector": ".fi-ta-row:has-text('unused-screenshot-fixture.jpg'):has-text('No tracked uses')"
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-ta:has-text('Unused screenshot fixture image')"
+                    "selector": ".fi-ta-row:has-text('unused-screenshot-fixture.jpg'):has-text('No tracked uses')"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
@@ -112,7 +112,7 @@
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
             "url": "/screenshot-fixtures/record-states/media-editor",
-            "waitFor": ".fi-fo-tabs",
+            "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))",
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png",
             "required": false,
@@ -127,7 +127,7 @@
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
             "url": "/screenshot-fixtures/record-states/media-editor",
-            "waitFor": ".fi-fo-tabs",
+            "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Metadata'))",
             "beforeWait": [
                 {
                     "type": "click",
@@ -137,11 +137,11 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-fo-tabs-panel:has-text('No usage relationships recorded yet.')"
+                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-fo-tabs-panel:has-text('No usage relationships recorded yet.')"
+                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
@@ -170,25 +170,26 @@
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-fo-select-wrp:has(label:has-text('Layout'))"
+                    "selector": ".fi-fo-field:has(label[for='form.layout_id'])"
                 },
                 {
                     "type": "click",
-                    "selector": ".fi-fo-select-wrp:has(label:has-text('Layout')) .fi-select-input-btn"
+                    "selector": ".fi-fo-field:has(label[for='form.layout_id']) .fi-select-input-btn"
+                },
+                {
+                    "type": "fill",
+                    "selector": ".fi-fo-field:has(label[for='form.layout_id']) input[aria-label='Search']",
+                    "value": "Disabled unused layout"
                 }
             ],
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-select-input-option:has(.select-option-label):has-text('Disabled unused layout')"
-                },
-                {
-                    "type": "waitFor",
-                    "selector": ".fi-select-input-option:has-text('Disabled'):has-text('Unused layout')"
+                    "selector": ".fi-fo-field:has(label[for='form.layout_id']) .fi-select-input-option:has(.select-option-label:has-text('Disabled unused layout')):has-text('Disabled'):has-text('Unused layout')"
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-select-input-option:has(.select-option-label):has-text('Disabled unused layout')"
+                    "selector": ".fi-fo-field:has(label[for='form.layout_id']) .fi-select-input-option:has(.select-option-label:has-text('Disabled unused layout')):has-text('Disabled'):has-text('Unused layout')"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
