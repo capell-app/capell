@@ -60,10 +60,14 @@ it('initializes idempotent record-state fixtures at actual Filament list and edi
 
     RecordStateScreenshotFixture::initialize();
 
+    $reinitializedMedia = RecordStateScreenshotFixture::media();
+
+    assert($reinitializedMedia instanceof Media);
+
     expect(RecordStateScreenshotFixture::pagesUrl())->toBe($pagesUrl)
         ->and(RecordStateScreenshotFixture::page()->getKey())->toBe($page->getKey())
         ->and(RecordStateScreenshotFixture::disabledLayout()->getKey())->toBe($layout->getKey())
-        ->and(RecordStateScreenshotFixture::media()->getKey())->toBe($media->getKey());
+        ->and($reinitializedMedia->getKey())->toBe($media->getKey());
 });
 
 it('denies guests access to record-state fixture routes', function (): void {
