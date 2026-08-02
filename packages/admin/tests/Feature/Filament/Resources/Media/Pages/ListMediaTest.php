@@ -278,5 +278,9 @@ it('filters media by tracked attachment use and links positive usage counts', fu
 
     $usageColumn->record($unusedMedia);
 
-    expect($usageColumn->getUrl($usageColumn->getState()))->toBeNull();
+    expect($usageColumn->getUrl($usageColumn->getState()))
+        ->toBeNull()
+        ->and($usageColumn->getTooltip($usageColumn->getState()))
+        ->toBe(__('capell-admin::table.asset_usage_no_tracked_uses_tooltip'))
+        ->toBe('No tracked uses');
 });

@@ -260,7 +260,7 @@ class MediaTable implements TableConfigurator
                     ? (string) __('capell-admin::table.no_tracked_uses')
                     : (string) $state)
                 ->tooltip(fn (int $state): string => $state === 0
-                    ? (string) __('capell-admin::table.asset_usage_unused_tooltip')
+                    ? (string) __('capell-admin::table.asset_usage_no_tracked_uses_tooltip')
                     : (string) trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
                 ->url(fn (Media $record, int $state): ?string => $state > 0 ? self::getUsageUrl($record) : null)
                 ->toggleable(),

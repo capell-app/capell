@@ -8,6 +8,7 @@ return [
     'admin_configurator' => 'Admin configurator',
     'asset_type' => 'Asset type',
     'asset_usage_count_tooltip' => ':count record uses this asset.|:count records use this asset.',
+    'asset_usage_no_tracked_uses_tooltip' => 'No tracked uses',
     'asset_usage_unused_tooltip' => 'No records currently use this asset.',
     'author' => 'Author',
     'biography' => 'Biography',
