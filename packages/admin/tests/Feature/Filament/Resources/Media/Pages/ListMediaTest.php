@@ -16,6 +16,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -233,6 +234,39 @@ it('shows usage counts and can filter recently deleted media', function (): void
         ->assertCanNotSeeTableRecords([$image]);
 });
 
+it('projects tracked usage counts without per-row attachment queries', function (): void {
+    $owner = Page::factory()->createOne();
+    $media = CapellMedia::factory()
+        ->count(6)
+        ->model($owner)
+        ->create();
+
+    $media->each(function (CapellMedia $item, int $index) use ($owner): void {
+        AssetAttachment::query()->create([
+            'related_type' => $owner->getMorphClass(),
+            'related_id' => $owner->getKey(),
+            'asset_type' => $item->getMorphClass(),
+            'asset_id' => $item->getKey(),
+            'order' => $index + 1,
+        ]);
+    });
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    Livewire::test(ListMedia::class)
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords($media)
+        ->assertTableColumnStateSet('usage_count', 1, $media->first());
+
+    $perRowAttachmentCounts = collect(DB::getQueryLog())
+        ->pluck('query')
+        ->filter(static fn (string $query): bool => str_starts_with(strtolower($query), 'select count(*)')
+            && str_contains($query, 'asset_attachments'));
+
+    expect($perRowAttachmentCounts)->toBeEmpty();
+});
+
 it('filters media by tracked attachment use and links positive usage counts', function (): void {
     $owner = Page::factory()->createOne();
 
@@ -264,7 +298,7 @@ it('filters media by tracked attachment use and links positive usage counts', fu
         ->assertCanNotSeeTableRecords([$usedMedia])
         ->assertSee(__('capell-admin::table.no_tracked_uses'));
 
-    Livewire::test(ListMedia::class)
+    $usedLivewire = Livewire::test(ListMedia::class)
         ->assertSuccessful()
         ->filterTable('tracked_use', 'used')
         ->assertCanSeeTableRecords([$usedMedia])
@@ -274,10 +308,18 @@ it('filters media by tracked attachment use and links positive usage counts', fu
 
     expect($usageColumn)->not->toBeNull();
 
+    $usedMedia = $usedLivewire->instance()->getTableRecords()->firstWhere('id', $usedMedia->getKey());
+
+    expect($usedMedia)->toBeInstanceOf(CapellMedia::class);
+
     $usageColumn->record($usedMedia);
 
     expect($usageColumn->getUrl($usageColumn->getState()))
         ->toBe(MediaResource::getUrl('edit', ['record' => $usedMedia]));
+
+    $unusedMedia = $livewire->instance()->getTableRecords()->firstWhere('id', $unusedMedia->getKey());
+
+    expect($unusedMedia)->toBeInstanceOf(CapellMedia::class);
 
     $usageColumn->record($unusedMedia);
 
@@ -335,6 +377,10 @@ it('limits tracked media usage to accessible related records', function (): void
     $usageColumn = $livewire->instance()->getTable()->getColumn('usage_count');
 
     expect($usageColumn)->not->toBeNull();
+
+    $media = $livewire->instance()->getTableRecords()->firstWhere('id', $media->getKey());
+
+    expect($media)->toBeInstanceOf(CapellMedia::class);
 
     $usageColumn->record($media);
 

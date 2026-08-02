@@ -57,6 +57,7 @@ class MediaTable implements TableConfigurator
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(self::withTrackedUsageCount(...))
             ->columns(static::getTableColumns())
             ->filters([
                 SelectFilter::make('collection_name')
@@ -254,7 +255,7 @@ class MediaTable implements TableConfigurator
                 ->label(__('capell-admin::table.usage'))
                 ->badge()
                 ->color(fn (int $state): string => $state === 0 ? 'warning' : ($state > 5 ? 'warning' : 'success'))
-                ->getStateUsing(MediaScope::trackedUsageCount(...))
+                ->getStateUsing(fn (Media $record): int => (int) $record->getAttribute('tracked_usage_count'))
                 ->formatStateUsing(fn (int $state): string => $state === 0
                     ? self::noTrackedUsageLabel()
                     : (string) $state)
@@ -310,16 +311,35 @@ class MediaTable implements TableConfigurator
         };
     }
 
-    /** @param Builder<Media> $query */
+    /**
+     * @param  Builder<Media>  $query
+     * @return Builder<Media>
+     */
     protected static function whereTrackedUsageExists(Builder $query): Builder
     {
         return $query->whereExists(self::trackedUsageSubquery($query));
     }
 
-    /** @param Builder<Media> $query */
+    /**
+     * @param  Builder<Media>  $query
+     * @return Builder<Media>
+     */
     protected static function whereTrackedUsageDoesNotExist(Builder $query): Builder
     {
         return $query->whereNotExists(self::trackedUsageSubquery($query));
+    }
+
+    /**
+     * @param  Builder<Media>  $query
+     * @return Builder<Media>
+     */
+    protected static function withTrackedUsageCount(Builder $query): Builder
+    {
+        $media = $query->getModel();
+
+        return $query
+            ->select($media->qualifyColumn('*'))
+            ->selectSub(self::trackedUsageCountSubquery($query), 'tracked_usage_count');
     }
 
     /**
@@ -332,6 +352,19 @@ class MediaTable implements TableConfigurator
         return MediaScope::applyAssetAttachmentsForCurrentActor(
             AssetAttachment::query()
                 ->selectRaw('1')
+                ->where($attachments->qualifyColumn('asset_type'), $query->getModel()->getMorphClass())
+                ->whereColumn($attachments->qualifyColumn('asset_id'), $query->qualifyColumn($query->getModel()->getKeyName())),
+        )->toBase();
+    }
+
+    /** @param Builder<Media> $query */
+    protected static function trackedUsageCountSubquery(Builder $query): QueryBuilder
+    {
+        $attachments = new AssetAttachment;
+
+        return MediaScope::applyAssetAttachmentsForCurrentActor(
+            AssetAttachment::query()
+                ->selectRaw('COUNT(*)')
                 ->where($attachments->qualifyColumn('asset_type'), $query->getModel()->getMorphClass())
                 ->whereColumn($attachments->qualifyColumn('asset_id'), $query->qualifyColumn($query->getModel()->getKeyName())),
         )->toBase();
