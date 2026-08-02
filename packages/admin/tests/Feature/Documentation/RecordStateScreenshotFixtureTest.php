@@ -71,6 +71,12 @@ it('denies guests access to record-state fixture routes', function (): void {
         ->assertForbidden();
 });
 
+it('denies authenticated users without admin-panel access to record-state fixture routes', function (): void {
+    test()->actingAsUser()
+        ->get('/screenshot-fixtures/record-states/pages')
+        ->assertForbidden();
+});
+
 it('redirects authenticated requests to seeded Filament surfaces without writing fixture records', function (): void {
     test()->actingAsAdmin();
     RecordStateScreenshotFixture::initialize();
