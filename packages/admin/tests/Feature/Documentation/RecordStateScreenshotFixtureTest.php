@@ -71,6 +71,11 @@ it('denies guests access to record-state fixture routes', function (): void {
         ->assertForbidden();
 });
 
+it('does not expose a screenshot fixture login endpoint', function (): void {
+    test()->get('/screenshot-fixtures/login')
+        ->assertNotFound();
+});
+
 it('denies authenticated users without admin-panel access to record-state fixture routes', function (): void {
     test()->actingAsUser()
         ->get('/screenshot-fixtures/record-states/pages')

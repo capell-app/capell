@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
@@ -11,20 +10,6 @@ use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
-
-Route::get('/screenshot-fixtures/login', static function (): RedirectResponse {
-    $userModel = (string) config('auth.providers.users.model');
-    $user = $userModel::query()
-        ->where('email', env('CAPELL_SCREENSHOT_ADMIN_EMAIL', 'admin@example.com'))
-        ->firstOrFail();
-
-    assert($user instanceof Authenticatable);
-
-    auth()->login($user);
-    request()->session()->regenerate();
-
-    return redirect('/admin');
-})->middleware('web');
 
 Route::get('/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()))
     ->middleware('web');
