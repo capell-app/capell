@@ -94,8 +94,9 @@ class LayoutSelect extends Select
             ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
                 $pagesCountAttribute = $record->getAttributes()['pages_count'] ?? null;
-                $hasAuthoritativePagesCount = is_numeric($pagesCountAttribute) && $this->isUsageCountAuthoritative();
-                $pagesCount = $hasAuthoritativePagesCount ? (int) $pagesCountAttribute : 0;
+                $hasPagesCount = is_numeric($pagesCountAttribute);
+                $pagesCount = $hasPagesCount ? (int) $pagesCountAttribute : 0;
+                $hasAuthoritativePagesCount = $hasPagesCount && $this->isUsageCountAuthoritative();
 
                 $data = [
                     'label' => $record->name,

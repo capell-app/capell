@@ -271,6 +271,7 @@ class LayoutsTable implements TableConfigurator
                 ->indicateUsing(fn (): string => (string) __('capell-admin::form.disabled')),
             Filter::make('unused')
                 ->label(__('capell-admin::table.unused'))
+                ->visible(self::canFilterUnusedLayouts(...))
                 ->query(fn (Builder $query): Builder => $query->where(self::getUsesCountSelect($query), 0))
                 ->indicateUsing(fn (): string => (string) __('capell-admin::table.unused')),
             TrashedFilter::make(),
@@ -296,5 +297,12 @@ class LayoutsTable implements TableConfigurator
             $qualifiedPageTable,
             $assignedSiteIds->implode(','),
         );
+    }
+
+    private static function canFilterUnusedLayouts(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
     }
 }

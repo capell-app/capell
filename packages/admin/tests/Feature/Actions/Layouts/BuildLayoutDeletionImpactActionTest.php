@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Layouts\BuildLayoutDeletionImpactAction;
 use Capell\Admin\Support\Layouts\LayoutCardData;
+use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Collection;
 
 uses(CreatesAdminUser::class);
 
@@ -39,41 +34,7 @@ it('does not claim actor-scoped usage is globally authoritative when no aggregat
     Page::factory()->count(2)->site($assignedSite)->layout($layout)->create();
     Page::factory()->count(3)->site($hiddenSite)->layout($layout)->create();
 
-    $user = new class extends Authenticatable implements FilamentUser
-    {
-        /** @use HasFactory<Factory<static>> */
-        use HasFactory;
-
-        /** @var Collection<int, int> */
-        public Collection $assignedSiteIds;
-
-        protected $table = 'users';
-
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-
-        /** @return Collection<int, int> */
-        public function getAssignedSiteIds(): Collection
-        {
-            return $this->assignedSiteIds;
-        }
-
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
-    };
-
-    $user->forceFill([
-        'name' => 'Scoped layout impact user',
-        'email' => fake()->unique()->safeEmail(),
-        'password' => bcrypt('password'),
-    ]);
-    $user->assignedSiteIds = collect([$assignedSite->getKey()]);
-
-    test()->actingAs($user);
+    test()->actingAs(ScopedAdminUser::make(collect([$assignedSite->getKey()])));
 
     $impact = BuildLayoutDeletionImpactAction::run($layout);
 
@@ -88,7 +49,7 @@ it('does not mark a layout as unused when hidden-site usage is outside the actor
     $hiddenSite = Site::factory()->createOne();
     Page::factory()->site($hiddenSite)->layout($layout)->createOne();
 
-    test()->actingAs(scopedLayoutImpactUser(collect([$assignedSite->getKey()])));
+    test()->actingAs(ScopedAdminUser::make(collect([$assignedSite->getKey()])));
 
     $impact = BuildLayoutDeletionImpactAction::run($layout);
     $card = LayoutCardData::fromLayout($layout);
@@ -100,43 +61,3 @@ it('does not mark a layout as unused when hidden-site usage is outside the actor
         ->and($html)->toContain('No tracked uses')
         ->not->toContain('Unused');
 });
-
-/** @param Collection<int, int> $assignedSiteIds */
-function scopedLayoutImpactUser(Collection $assignedSiteIds): Authenticatable
-{
-    $user = new class extends Authenticatable implements FilamentUser
-    {
-        /** @use HasFactory<Factory<static>> */
-        use HasFactory;
-
-        /** @var Collection<int, int> */
-        public Collection $assignedSiteIds;
-
-        protected $table = 'users';
-
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-
-        /** @return Collection<int, int> */
-        public function getAssignedSiteIds(): Collection
-        {
-            return $this->assignedSiteIds;
-        }
-
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
-    };
-
-    $user->forceFill([
-        'name' => 'Scoped layout impact user',
-        'email' => fake()->unique()->safeEmail(),
-        'password' => bcrypt('password'),
-    ]);
-    $user->assignedSiteIds = $assignedSiteIds;
-
-    return $user;
-}
