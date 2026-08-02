@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Media;
 
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\MediaScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Media;
@@ -40,7 +41,7 @@ final class BuildMediaUsageItemsAction
             );
         }
 
-        $relations = $media->assetRelations()
+        $relations = MediaScope::applyAssetAttachmentsForCurrentActor($media->assetRelations()->getQuery())
             ->with('related')
             ->orderBy('order')
             ->limit(12)

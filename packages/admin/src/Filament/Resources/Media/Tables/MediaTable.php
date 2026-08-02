@@ -27,7 +27,6 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
-use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -99,7 +98,7 @@ class MediaTable implements TableConfigurator
                     ->native(false)
                     ->options([
                         'used' => __('capell-admin::table.tracked_use_used'),
-                        'unused' => __('capell-admin::table.no_tracked_uses'),
+                        'unused' => self::noTrackedUsageLabel(),
                     ])
                     ->query(self::applyTrackedUseFilterQuery(...))
                     ->indicateUsing(self::indicateTrackedUseFilter(...)),
@@ -255,12 +254,12 @@ class MediaTable implements TableConfigurator
                 ->label(__('capell-admin::table.usage'))
                 ->badge()
                 ->color(fn (int $state): string => $state === 0 ? 'warning' : ($state > 5 ? 'warning' : 'success'))
-                ->getStateUsing(fn (Media $record): int => $record->usage_count)
+                ->getStateUsing(MediaScope::trackedUsageCount(...))
                 ->formatStateUsing(fn (int $state): string => $state === 0
-                    ? (string) __('capell-admin::table.no_tracked_uses')
+                    ? self::noTrackedUsageLabel()
                     : (string) $state)
                 ->tooltip(fn (int $state): string => $state === 0
-                    ? (string) __('capell-admin::table.asset_usage_no_tracked_uses_tooltip')
+                    ? self::noTrackedUsageTooltip()
                     : (string) trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
                 ->url(fn (Media $record, int $state): ?string => $state > 0 ? self::getUsageUrl($record) : null)
                 ->toggleable(),
@@ -306,7 +305,7 @@ class MediaTable implements TableConfigurator
     {
         return match ($data['value'] ?? null) {
             'used' => (string) __('capell-admin::table.tracked_use_used'),
-            'unused' => (string) __('capell-admin::table.no_tracked_uses'),
+            'unused' => self::noTrackedUsageLabel(),
             default => null,
         };
     }
@@ -325,22 +324,31 @@ class MediaTable implements TableConfigurator
 
     /**
      * @param  Builder<Media>  $query
-     * @return Closure(QueryBuilder): void
      */
-    protected static function trackedUsageSubquery(Builder $query): Closure
+    protected static function trackedUsageSubquery(Builder $query): QueryBuilder
     {
         $attachments = new AssetAttachment;
-        $attachmentTable = $attachments->getTable();
-        $mediaKey = $query->qualifyColumn($query->getModel()->getKeyName());
-        $mediaMorphClass = $query->getModel()->getMorphClass();
 
-        return static function (QueryBuilder $attachmentQuery) use ($attachmentTable, $mediaKey, $mediaMorphClass): void {
-            $attachmentQuery
+        return MediaScope::applyAssetAttachmentsForCurrentActor(
+            AssetAttachment::query()
                 ->selectRaw('1')
-                ->from($attachmentTable)
-                ->where($attachmentTable . '.asset_type', $mediaMorphClass)
-                ->whereColumn($attachmentTable . '.asset_id', $mediaKey);
-        };
+                ->where($attachments->qualifyColumn('asset_type'), $query->getModel()->getMorphClass())
+                ->whereColumn($attachments->qualifyColumn('asset_id'), $query->qualifyColumn($query->getModel()->getKeyName())),
+        )->toBase();
+    }
+
+    protected static function noTrackedUsageLabel(): string
+    {
+        return (string) __(MediaScope::isGlobalActor()
+            ? 'capell-admin::table.no_tracked_uses'
+            : 'capell-admin::table.no_accessible_tracked_uses');
+    }
+
+    protected static function noTrackedUsageTooltip(): string
+    {
+        return (string) __(MediaScope::isGlobalActor()
+            ? 'capell-admin::table.asset_usage_no_tracked_uses_tooltip'
+            : 'capell-admin::table.asset_usage_no_accessible_tracked_uses_tooltip');
     }
 
     protected static function getUsageUrl(Media $media): ?string
