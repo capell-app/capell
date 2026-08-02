@@ -2,7 +2,7 @@
 
 **Task:** CAP-0080
 **Date:** 2026-08-01
-**Status:** Approved direction; ready for implementation planning
+**Status:** Implemented and locally verified — 2026-08-02
 
 ## Objective
 
@@ -40,13 +40,13 @@ Each supported resource gets a small, explicit set of exceptional-state
 filters. Filter labels and counts use the existing translated state language;
 they are never icon-only.
 
-| Resource | Filters / discovery states | Count meaning |
-| --- | --- | --- |
-| Pages | No active URL, scheduled, expired, draft, and URLs disabled | Count is the current scoped query result, never a global claim. |
-| Layouts | Disabled and unused | `Unused` is available only from the existing exhaustive variation-aware layout-use aggregate. |
-| Media | Unused or no tracked uses | The label follows the attachment tracker authority flag. |
-| Widgets | Unused and unavailable | Unused uses the complete Layout Builder-owned usage boundary; unavailable does not imply removal of existing placements. |
-| Widget assets | Broken reference and unscoped | These are integrity states, not usage states. |
+| Resource      | Filters / discovery states                                  | Count meaning                                                                                                            |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Pages         | No active URL, scheduled, expired, draft, and URLs disabled | Count is the current scoped query result, never a global claim.                                                          |
+| Layouts       | Disabled and unused                                         | `Unused` is available only from the existing exhaustive variation-aware layout-use aggregate.                            |
+| Media         | Unused or no tracked uses                                   | The label follows the attachment tracker authority flag.                                                                 |
+| Widgets       | Unused and unavailable                                      | Unused uses the complete Layout Builder-owned usage boundary; unavailable does not imply removal of existing placements. |
+| Widget assets | Broken reference and unscoped                               | These are integrity states, not usage states.                                                                            |
 
 Tables retain their ordinary default order and quiet enabled/in-use rows.
 Exceptional filters may appear as tabs only when the resource already uses
@@ -88,7 +88,7 @@ The confirmation has three outcomes:
 
 - **No known references:** retain the normal confirmation. Say `Unused` only
   when the relevant usage query is authoritative; otherwise say `No tracked
-  uses`.
+uses`.
 - **Known references:** show the number and type of direct records that will
   be affected or left without their dependency. Provide a view-uses link when
   available.
@@ -141,7 +141,7 @@ cross-site totals the actor cannot inspect.
   facts or uses one bounded aggregate query. Views and closures never query.
 - `authoritative` is propagated to labels and confirmations. Actor-scoped or
   extension-limited zero counts render `No tracked uses` or `No accessible
-  uses`, never `Unused`.
+uses`, never `Unused`.
 - URLs respect resource authorization, site, language, page variation, and
   current table filter conventions. A missing safe URL leaves the count
   non-clickable.
@@ -165,3 +165,18 @@ Focused tests cover:
 Run the narrow Admin and Layout Builder Pest suites first, then the relevant
 package static analysis. The companion repository's full analysis remains a
 separate gate if its existing NavigationSelect nullable-string finding persists.
+
+## Closeout Evidence
+
+- Core/Admin: 46 focused tests / 297 assertions, the record-state fixture suite
+  (5 / 37), and `composer analyze` pass.
+- Layout Builder: 33 focused tests / 555 assertions, targeted PHPStan and Pint
+  pass. The full companion analysis remains blocked only by the pre-existing
+  nullable-label issue in `packages/navigation`'s `NavigationSelect`.
+- Authenticated documentation captures pass: Core 12 light/dark variants and
+  Layout Builder's two integrity tables, all with zero failures. The page
+  layout selector capture renders Filament's HTML option markup with explicit
+  Disabled and Unused layout states.
+- Sol's final review approved the implementation after the media projection,
+  direct-login removal, workbench-only fixture seeding, and read-only presenter
+  fixes.

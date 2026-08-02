@@ -8,6 +8,15 @@
 
 **Tech Stack:** PHP 8.4, Laravel, Filament 4, Spatie Laravel Data, Pest, Blade, Core/Admin packages, and the Layout Builder companion package.
 
+**Closeout:** Implemented and locally verified on 2026-08-02. Core/Admin
+focused tests (46 / 297), record-state fixture tests (5 / 37), and full static
+analysis pass. Layout Builder focused tests (33 / 555), targeted static
+analysis, screenshot-runner JavaScript tests (5 / 5), and two authenticated
+integrity captures pass. Full companion analysis remains blocked by the
+pre-existing nullable-label finding in `packages/navigation`'s
+`NavigationSelect`, outside this slice. Sol final review approved all
+task-owned changes.
+
 ---
 
 ## File Map
@@ -41,79 +50,79 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
 - Modify: `packages/admin/resources/lang/en/generic.php`
 - Test: `packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php`
 
-- [ ] **Step 1: Write failing rendering and data tests**
+- [x] **Step 1: Write failing rendering and data tests**
 
-  Add tests that construct these three cases and render the component:
+    Add tests that construct these three cases and render the component:
 
-  ```php
-  new RecordDeletionImpactData(
-      knownReferenceCount: 0,
-      authoritative: true,
-      noReferencesLabel: __('capell-admin::generic.deletion_impact_unused'),
-  );
+    ```php
+    new RecordDeletionImpactData(
+        knownReferenceCount: 0,
+        authoritative: true,
+        noReferencesLabel: __('capell-admin::generic.deletion_impact_unused'),
+    );
 
-  new RecordDeletionImpactData(
-      knownReferenceCount: 3,
-      authoritative: true,
-      affectedLabel: trans_choice('capell-admin::generic.deletion_impact_pages', 3, ['count' => 3]),
-      referencesUrl: '/admin/pages?filters[layout_id][value]=7',
-  );
+    new RecordDeletionImpactData(
+        knownReferenceCount: 3,
+        authoritative: true,
+        affectedLabel: trans_choice('capell-admin::generic.deletion_impact_pages', 3, ['count' => 3]),
+        referencesUrl: '/admin/pages?filters[layout_id][value]=7',
+    );
 
-  new RecordDeletionImpactData(
-      knownReferenceCount: 0,
-      authoritative: false,
-      noReferencesLabel: __('capell-admin::generic.deletion_impact_no_tracked_uses'),
-  );
-  ```
+    new RecordDeletionImpactData(
+        knownReferenceCount: 0,
+        authoritative: false,
+        noReferencesLabel: __('capell-admin::generic.deletion_impact_no_tracked_uses'),
+    );
+    ```
 
-  Assert visible text in all cases, a link only for the known-reference case,
-  and that neither zero case renders the word `Unused` unless `authoritative`
-  is true.
+    Assert visible text in all cases, a link only for the known-reference case,
+    and that neither zero case renders the word `Unused` unless `authoritative`
+    is true.
 
-- [ ] **Step 2: Run the focused test to verify the missing contract**
+- [x] **Step 2: Run the focused test to verify the missing contract**
 
-  Run:
+    Run:
 
-  ```bash
-  ./vendor/bin/pest packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php --configuration=phpunit.xml
-  ```
+    ```bash
+    ./vendor/bin/pest packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php --configuration=phpunit.xml
+    ```
 
-  Expected: FAIL because the Data class and Blade component do not exist.
+    Expected: FAIL because the Data class and Blade component do not exist.
 
-- [ ] **Step 3: Implement the immutable contract and accessible component**
+- [x] **Step 3: Implement the immutable contract and accessible component**
 
-  Create `RecordDeletionImpactData` with this public constructor shape:
+    Create `RecordDeletionImpactData` with this public constructor shape:
 
-  ```php
-  final class RecordDeletionImpactData extends Data
-  {
-      public function __construct(
-          public readonly int $knownReferenceCount,
-          public readonly bool $authoritative,
-          public readonly string $noReferencesLabel,
-          public readonly ?string $affectedLabel = null,
-          public readonly ?string $referencesUrl = null,
-          public readonly ?string $reviewLabel = null,
-      ) {}
-  }
-  ```
+    ```php
+    final class RecordDeletionImpactData extends Data
+    {
+        public function __construct(
+            public readonly int $knownReferenceCount,
+            public readonly bool $authoritative,
+            public readonly string $noReferencesLabel,
+            public readonly ?string $affectedLabel = null,
+            public readonly ?string $referencesUrl = null,
+            public readonly ?string $reviewLabel = null,
+        ) {}
+    }
+    ```
 
-  The Blade component must render `noReferencesLabel` when the count is zero;
-  otherwise it renders `affectedLabel` and wraps it in an anchor only when
-  `referencesUrl` is non-empty. `reviewLabel` is supplementary visible copy for
-  incomplete/broken evidence. Do not compose HTML in an Action.
+    The Blade component must render `noReferencesLabel` when the count is zero;
+    otherwise it renders `affectedLabel` and wraps it in an anchor only when
+    `referencesUrl` is non-empty. `reviewLabel` is supplementary visible copy for
+    incomplete/broken evidence. Do not compose HTML in an Action.
 
-- [ ] **Step 4: Add translations and verify the test passes**
+- [x] **Step 4: Add translations and verify the test passes**
 
-  Add singular/plural impact labels and the two explicit zero labels to
-  `generic.php`, then rerun Step 2. Expected: PASS.
+    Add singular/plural impact labels and the two explicit zero labels to
+    `generic.php`, then rerun Step 2. Expected: PASS.
 
-- [ ] **Step 5: Commit the shared contract**
+- [x] **Step 5: Commit the shared contract**
 
-  ```bash
-  git add packages/admin/src/Data/RecordDeletionImpactData.php packages/admin/resources/views/components/record-deletion-impact.blade.php packages/admin/resources/lang/en/generic.php packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php
-  git commit -m "feat(admin): add record deletion impact summaries"
-  ```
+    ```bash
+    git add packages/admin/src/Data/RecordDeletionImpactData.php packages/admin/resources/views/components/record-deletion-impact.blade.php packages/admin/resources/lang/en/generic.php packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php
+    git commit -m "feat(admin): add record deletion impact summaries"
+    ```
 
 ### Task 2: Add page and layout availability discovery, count links, and delete copy
 
@@ -133,115 +142,115 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
 - Test: `packages/admin/tests/Feature/Filament/Resources/Layout/Pages/ListLayoutsTest.php`
 - Test: `packages/admin/tests/Feature/Filament/Components/LayoutSelectTest.php`
 
-- [ ] **Step 1: Write failing Action tests for bounded page and layout facts**
+- [x] **Step 1: Write failing Action tests for bounded page and layout facts**
 
-  Cover a page with zero/one URL and a layout used by pages in two registered
-  page variations. Assert the Actions return these exact facts:
+    Cover a page with zero/one URL and a layout used by pages in two registered
+    page variations. Assert the Actions return these exact facts:
 
-  ```php
-  expect(BuildPageDeletionImpactAction::run($page))->toMatchObject([
-      'knownReferenceCount' => 1,
-      'authoritative' => true,
-      'referencesUrl' => PageUrlResource::getUrl('index', [
-          'filters[pageable][pageable_type]' => $page->getMorphClass(),
-          'filters[pageable][pageable_id]' => $page->getKey(),
-      ]),
-  ]);
+    ```php
+    expect(BuildPageDeletionImpactAction::run($page))->toMatchObject([
+        'knownReferenceCount' => 1,
+        'authoritative' => true,
+        'referencesUrl' => PageUrlResource::getUrl('index', [
+            'filters[pageable][pageable_type]' => $page->getMorphClass(),
+            'filters[pageable][pageable_id]' => $page->getKey(),
+        ]),
+    ]);
 
-  expect(BuildLayoutDeletionImpactAction::run($layout))->toMatchObject([
-      'knownReferenceCount' => 2,
-      'authoritative' => true,
-  ]);
-  ```
+    expect(BuildLayoutDeletionImpactAction::run($layout))->toMatchObject([
+        'knownReferenceCount' => 2,
+        'authoritative' => true,
+    ]);
+    ```
 
-  The layout test must prove both variation tables contribute to the count and
-  that a site-scoped actor sees only permitted page references.
+    The layout test must prove both variation tables contribute to the count and
+    that a site-scoped actor sees only permitted page references.
 
-- [ ] **Step 2: Add failing table/filter tests**
+- [x] **Step 2: Add failing table/filter tests**
 
-  In `PagesTableAvailabilityFilterTest`, reflect and invoke a new
-  `applyAvailabilityFilterQuery(Builder $query, array $data)` for:
+    In `PagesTableAvailabilityFilterTest`, reflect and invoke a new
+    `applyAvailabilityFilterQuery(Builder $query, array $data)` for:
 
-  ```php
-  ['value' => 'no_active_url']
-  ['value' => 'some_urls_disabled']
-  ```
+    ```php
+    ['value' => 'no_active_url']
+    ['value' => 'some_urls_disabled']
+    ```
 
-  Seed enabled and disabled `PageUrl` rows and assert the first query selects
-  only pages without an enabled URL while the second selects pages that have at
-  least one enabled URL and at least one disabled URL. In `ListLayoutsTest`,
-  assert `disabled` and `unused` filters respect the existing
-  `getUsesCountSelect()` site constraint and that a positive page count renders
-  a page-list URL. In `LayoutSelectTest`, assert the same aggregate produces a
-  deep link, not a fresh per-option query.
+    Seed enabled and disabled `PageUrl` rows and assert the first query selects
+    only pages without an enabled URL while the second selects pages that have at
+    least one enabled URL and at least one disabled URL. In `ListLayoutsTest`,
+    assert `disabled` and `unused` filters respect the existing
+    `getUsesCountSelect()` site constraint and that a positive page count renders
+    a page-list URL. In `LayoutSelectTest`, assert the same aggregate produces a
+    deep link, not a fresh per-option query.
 
-- [ ] **Step 3: Run the focused failing tests**
+- [x] **Step 3: Run the focused failing tests**
 
-  Run:
+    Run:
 
-  ```bash
-  ./vendor/bin/pest packages/admin/tests/Feature/Actions/Pages/BuildPageDeletionImpactActionTest.php packages/admin/tests/Feature/Actions/Layouts/BuildLayoutDeletionImpactActionTest.php packages/admin/tests/Feature/Filament/Resources/Page/Tables/PagesTableAvailabilityFilterTest.php packages/admin/tests/Feature/Filament/Resources/Layout/Pages/ListLayoutsTest.php packages/admin/tests/Feature/Filament/Components/LayoutSelectTest.php --configuration=phpunit.xml
-  ```
+    ```bash
+    ./vendor/bin/pest packages/admin/tests/Feature/Actions/Pages/BuildPageDeletionImpactActionTest.php packages/admin/tests/Feature/Actions/Layouts/BuildLayoutDeletionImpactActionTest.php packages/admin/tests/Feature/Filament/Resources/Page/Tables/PagesTableAvailabilityFilterTest.php packages/admin/tests/Feature/Filament/Resources/Layout/Pages/ListLayoutsTest.php packages/admin/tests/Feature/Filament/Components/LayoutSelectTest.php --configuration=phpunit.xml
+    ```
 
-  Expected: FAIL because the Actions, availability filter, and URL-bearing
-  relationship data are not implemented.
+    Expected: FAIL because the Actions, availability filter, and URL-bearing
+    relationship data are not implemented.
 
-- [ ] **Step 4: Implement the page data flow**
+- [x] **Step 4: Implement the page data flow**
 
-  Add a `SelectFilter::make('availability')` to `PagesTable::getBaseTableFilters()`
-  with translated options `no_active_url` and `some_urls_disabled`. Implement
-  its query with relationships, not presentation state:
+    Add a `SelectFilter::make('availability')` to `PagesTable::getBaseTableFilters()`
+    with translated options `no_active_url` and `some_urls_disabled`. Implement
+    its query with relationships, not presentation state:
 
-  ```php
-  return match ($value) {
-      'no_active_url' => $query->whereDoesntHave('pageUrls', fn (Builder $urlQuery): Builder => $urlQuery->where('status', true)),
-      'some_urls_disabled' => $query
-          ->whereHas('pageUrls', fn (Builder $urlQuery): Builder => $urlQuery->where('status', true))
-          ->whereHas('pageUrls', fn (Builder $urlQuery): Builder => $urlQuery->where('status', false)),
-      default => $query,
-  };
-  ```
+    ```php
+    return match ($value) {
+        'no_active_url' => $query->whereDoesntHave('pageUrls', fn (Builder $urlQuery): Builder => $urlQuery->where('status', true)),
+        'some_urls_disabled' => $query
+            ->whereHas('pageUrls', fn (Builder $urlQuery): Builder => $urlQuery->where('status', true))
+            ->whereHas('pageUrls', fn (Builder $urlQuery): Builder => $urlQuery->where('status', false)),
+        default => $query,
+    };
+    ```
 
-  Add `Filter::make('pageable')` to `PageUrlsTable` with hidden
-  `pageable_type` and `pageable_id` fields, and apply both columns when they
-  are populated. Make `PageRelationshipCountsData::fromPage()` supply the
-  matching Page URL index URL only when `page_urls_count > 0`.
-  `BuildPageDeletionImpactAction` reuses that count and URL; it does not
-  inspect page content or discover indirect uses.
-  Set the record and bulk Page delete modal content to the shared impact
-  component, preserving `validateDelete()` and `PageDeletedAction` hooks.
+    Add `Filter::make('pageable')` to `PageUrlsTable` with hidden
+    `pageable_type` and `pageable_id` fields, and apply both columns when they
+    are populated. Make `PageRelationshipCountsData::fromPage()` supply the
+    matching Page URL index URL only when `page_urls_count > 0`.
+    `BuildPageDeletionImpactAction` reuses that count and URL; it does not
+    inspect page content or discover indirect uses.
+    Set the record and bulk Page delete modal content to the shared impact
+    component, preserving `validateDelete()` and `PageDeletedAction` hooks.
 
-- [ ] **Step 5: Implement variation-aware layout flow**
+- [x] **Step 5: Implement variation-aware layout flow**
 
-  Add `TernaryFilter::make('status')` for disabled layouts and a separate `Filter::make('unused')`
-  that compares the same `LayoutsTable::getUsesCountSelect($query)` expression
-  to zero. Reuse the existing selected aggregate in `LayoutCardData` and
-  `LayoutSelect`; populate `RecordRelationshipCountData::$url` only from a
-  stable filtered page-resource URL. Do not loop through page variations in a
-  formatter closure.
+    Add `TernaryFilter::make('status')` for disabled layouts and a separate `Filter::make('unused')`
+    that compares the same `LayoutsTable::getUsesCountSelect($query)` expression
+    to zero. Reuse the existing selected aggregate in `LayoutCardData` and
+    `LayoutSelect`; populate `RecordRelationshipCountData::$url` only from a
+    stable filtered page-resource URL. Do not loop through page variations in a
+    formatter closure.
 
-  `BuildLayoutDeletionImpactAction` receives a Layout with `pages_count` when
-  present and otherwise performs one actor-scoped variation aggregate. It marks
-  the result authoritative only for that complete registered variation query.
-  Attach the shared component to individual and bulk Layout delete actions
-  without changing `validateDelete()` behaviour.
+    `BuildLayoutDeletionImpactAction` receives a Layout with `pages_count` when
+    present and otherwise performs one actor-scoped variation aggregate. It marks
+    the result authoritative only for that complete registered variation query.
+    Attach the shared component to individual and bulk Layout delete actions
+    without changing `validateDelete()` behaviour.
 
-- [ ] **Step 6: Run tests and static analysis**
+- [x] **Step 6: Run tests and static analysis**
 
-  Rerun Step 3, then run:
+    Rerun Step 3, then run:
 
-  ```bash
-  composer analyze
-  ```
+    ```bash
+    composer analyze
+    ```
 
-  Expected: focused tests PASS and static analysis reports 0 errors.
+    Expected: focused tests PASS and static analysis reports 0 errors.
 
-- [ ] **Step 7: Commit page and layout work**
+- [x] **Step 7: Commit page and layout work**
 
-  ```bash
-  git add packages/admin/src/Actions/Pages packages/admin/src/Actions/Layouts packages/admin/src/Data/Pages/PageRelationshipCountsData.php packages/admin/src/Filament/Resources/PageUrls/Tables/PageUrlsTable.php packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php packages/admin/src/Support/Layouts/LayoutCardData.php packages/admin/src/Filament/Components/Forms/Page/LayoutSelect.php packages/admin/resources/lang/en/table.php packages/admin/resources/lang/en/generic.php packages/admin/tests/Feature/Actions/Pages packages/admin/tests/Feature/Actions/Layouts packages/admin/tests/Feature/Filament/Resources/Page packages/admin/tests/Feature/Filament/Resources/Layout packages/admin/tests/Feature/Filament/Components/LayoutSelectTest.php
-  git commit -m "feat(admin): make page and layout exceptions actionable"
-  ```
+    ```bash
+    git add packages/admin/src/Actions/Pages packages/admin/src/Actions/Layouts packages/admin/src/Data/Pages/PageRelationshipCountsData.php packages/admin/src/Filament/Resources/PageUrls/Tables/PageUrlsTable.php packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php packages/admin/src/Support/Layouts/LayoutCardData.php packages/admin/src/Filament/Components/Forms/Page/LayoutSelect.php packages/admin/resources/lang/en/table.php packages/admin/resources/lang/en/generic.php packages/admin/tests/Feature/Actions/Pages packages/admin/tests/Feature/Actions/Layouts packages/admin/tests/Feature/Filament/Resources/Page packages/admin/tests/Feature/Filament/Resources/Layout packages/admin/tests/Feature/Filament/Components/LayoutSelectTest.php
+    git commit -m "feat(admin): make page and layout exceptions actionable"
+    ```
 
 ### Task 3: Add media tracked-use discovery without inventing an exhaustive asset claim
 
@@ -251,41 +260,41 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
 - Modify: `packages/admin/resources/lang/en/table.php`
 - Test: `packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php`
 
-- [ ] **Step 1: Write failing media filter and deep-link tests**
+- [x] **Step 1: Write failing media filter and deep-link tests**
 
-  Seed one media record with an `AssetAttachment` and one without. Assert a new
-  `tracked_use` filter selects only the zero-attachment record and its indicator
-  says `No tracked uses`. Assert the existing
-  positive usage count continues to link to the existing media usage surface;
-  zero remains text, never a cleanup action.
+    Seed one media record with an `AssetAttachment` and one without. Assert a new
+    `tracked_use` filter selects only the zero-attachment record and its indicator
+    says `No tracked uses`. Assert the existing
+    positive usage count continues to link to the existing media usage surface;
+    zero remains text, never a cleanup action.
 
-- [ ] **Step 2: Run the focused test to confirm failure**
+- [x] **Step 2: Run the focused test to confirm failure**
 
-  ```bash
-  ./vendor/bin/pest packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php --configuration=phpunit.xml
-  ```
+    ```bash
+    ./vendor/bin/pest packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php --configuration=phpunit.xml
+    ```
 
-  Expected: FAIL because no tracked-use filter is registered.
+    Expected: FAIL because no tracked-use filter is registered.
 
-- [ ] **Step 3: Implement the bounded filter and presentation**
+- [x] **Step 3: Implement the bounded filter and presentation**
 
-  Add a `SelectFilter::make('tracked_use')` with `used` and `unused` options.
-  Use the model's existing attachment usage query/count source rather than a
-  generic media `doesntHave()` relation, so the predicate exactly matches the
-  established `usage_count` semantics. Keep the `usage_count` column's warning
-  badge, use `No tracked uses` for zero, and add an owner-authorized usage URL
-  only for positive counts. The attachment tracker is not represented as a
-  complete cross-extension reference boundary.
+    Add a `SelectFilter::make('tracked_use')` with `used` and `unused` options.
+    Use the model's existing attachment usage query/count source rather than a
+    generic media `doesntHave()` relation, so the predicate exactly matches the
+    established `usage_count` semantics. Keep the `usage_count` column's warning
+    badge, use `No tracked uses` for zero, and add an owner-authorized usage URL
+    only for positive counts. The attachment tracker is not represented as a
+    complete cross-extension reference boundary.
 
-- [ ] **Step 4: Rerun test and commit**
+- [x] **Step 4: Rerun test and commit**
 
-  ```bash
-  ./vendor/bin/pest packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php --configuration=phpunit.xml
-  git add packages/admin/src/Filament/Resources/Media/Tables/MediaTable.php packages/admin/resources/lang/en/table.php packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php
-  git commit -m "feat(admin): filter media by tracked usage"
-  ```
+    ```bash
+    ./vendor/bin/pest packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php --configuration=phpunit.xml
+    git add packages/admin/src/Filament/Resources/Media/Tables/MediaTable.php packages/admin/resources/lang/en/table.php packages/admin/tests/Feature/Filament/Resources/Media/Pages/ListMediaTest.php
+    git commit -m "feat(admin): filter media by tracked usage"
+    ```
 
-  Expected: test PASS; the commit contains no media deletion or storage changes.
+    Expected: test PASS; the commit contains no media deletion or storage changes.
 
 ### Task 4: Make Layout Builder widget and widget-asset state discoverable in tables, headers, and selects
 
@@ -302,92 +311,92 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
 - Test: `packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php`
 - Test: `packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php`
 
-- [ ] **Step 1: Write failing widget state tests**
+- [x] **Step 1: Write failing widget state tests**
 
-  Extend table coverage to prove that widgets with `layouts_count = 0` match an
-  `unused` filter, disabled widgets match the existing status filter, and the
-  `WidgetSelect` label includes both disabled/unavailable and usage state.
-  Seed a widget asset with a missing `asset` target and one with a valid
-  layout-level target without pageable fields; assert their integrity filter
-  separates `broken_reference` from `unscoped`.
+    Extend table coverage to prove that widgets with `layouts_count = 0` match an
+    `unused` filter, disabled widgets match the existing status filter, and the
+    `WidgetSelect` label includes both disabled/unavailable and usage state.
+    Seed a widget asset with a missing `asset` target and one with a valid
+    layout-level target without pageable fields; assert their integrity filter
+    separates `broken_reference` from `unscoped`.
 
-  Add a deletion-impact Action test asserting a widget with layout placements
-  receives a positive count and Layout index URL, while a zero count uses the
-  authority-aware zero label. The test must use the existing indexed
-  `layouts_count` query/source and must not construct JSON layout content in
-  PHP.
+    Add a deletion-impact Action test asserting a widget with layout placements
+    receives a positive count and Layout index URL, while a zero count uses the
+    authority-aware zero label. The test must use the existing indexed
+    `layouts_count` query/source and must not construct JSON layout content in
+    PHP.
 
-- [ ] **Step 2: Run the companion focused tests and confirm failure**
+- [x] **Step 2: Run the companion focused tests and confirm failure**
 
-  ```bash
-  ./vendor/bin/pest packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php --configuration=phpunit.xml
-  ```
+    ```bash
+    ./vendor/bin/pest packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php --configuration=phpunit.xml
+    ```
 
-  Expected: FAIL because the filters, select state metadata, header summary,
-  and deletion-impact Action are absent.
+    Expected: FAIL because the filters, select state metadata, header summary,
+    and deletion-impact Action are absent.
 
-- [ ] **Step 3: Implement widget state and safe impact flow**
+- [x] **Step 3: Implement widget state and safe impact flow**
 
-  Ensure `WidgetsTable` selects the existing `layouts_count` aggregate once;
-  add a `Filter::make('usage')` that uses its query-safe source for `unused`.
-  Update `WidgetSelect` to eager-load the same count plus status and pass
-  `RecordStateData`/`RecordRelationshipCountData` into `HasCustomSelectOption`:
+    Ensure `WidgetsTable` selects the existing `layouts_count` aggregate once;
+    add a `Filter::make('usage')` that uses its query-safe source for `unused`.
+    Update `WidgetSelect` to eager-load the same count plus status and pass
+    `RecordStateData`/`RecordRelationshipCountData` into `HasCustomSelectOption`:
 
-  ```php
-  'states' => array_values(array_filter([
-      $record->isDisabled() ? new RecordStateData(
-          key: 'disabled',
-          label: (string) __('capell-admin::generic.disabled'),
-          description: (string) __('capell-layout-builder::table.widget_unavailable_tooltip'),
-          color: 'danger',
-          icon: Heroicon::OutlinedEyeSlash,
-          priority: 10,
-      ) : null,
-      $layoutsCount === 0 ? new RecordStateData(
-          key: 'unused',
-          label: (string) __('capell-admin::table.unused'),
-          description: (string) __('capell-layout-builder::table.widget_usage_unused_tooltip'),
-          color: 'warning',
-          icon: Heroicon::OutlinedExclamationTriangle,
-          priority: 20,
-      ) : null,
-  ])),
-  'relationships' => [new RecordRelationshipCountData(
-      key: 'layouts',
-      label: (string) __('capell-admin::table.total_layouts'),
-      count: $layoutsCount,
-      url: $layoutsCount > 0 ? $layoutsUrl : null,
-  )],
-  ```
+    ```php
+    'states' => array_values(array_filter([
+        $record->isDisabled() ? new RecordStateData(
+            key: 'disabled',
+            label: (string) __('capell-admin::generic.disabled'),
+            description: (string) __('capell-layout-builder::table.widget_unavailable_tooltip'),
+            color: 'danger',
+            icon: Heroicon::OutlinedEyeSlash,
+            priority: 10,
+        ) : null,
+        $layoutsCount === 0 ? new RecordStateData(
+            key: 'unused',
+            label: (string) __('capell-admin::table.unused'),
+            description: (string) __('capell-layout-builder::table.widget_usage_unused_tooltip'),
+            color: 'warning',
+            icon: Heroicon::OutlinedExclamationTriangle,
+            priority: 20,
+        ) : null,
+    ])),
+    'relationships' => [new RecordRelationshipCountData(
+        key: 'layouts',
+        label: (string) __('capell-admin::table.total_layouts'),
+        count: $layoutsCount,
+        url: $layoutsCount > 0 ? $layoutsUrl : null,
+    )],
+    ```
 
-  Replace `EditWidget::getSubheading()`'s hand-built disabled span with the
-  shared Admin state summary. Add the custom Admin `DeleteAction` modal content
-  from `BuildWidgetDeletionImpactAction` to widget delete actions only;
-  preserve soft-delete and force-delete authorization.
+    Replace `EditWidget::getSubheading()`'s hand-built disabled span with the
+    shared Admin state summary. Add the custom Admin `DeleteAction` modal content
+    from `BuildWidgetDeletionImpactAction` to widget delete actions only;
+    preserve soft-delete and force-delete authorization.
 
-  In `WidgetAssetsTable`, eager-load `widget`, `asset`, and `pageable`; add a
-  dedicated state filter whose predicates match the existing `usage_status`
-  logic. Missing targets are `Broken reference`; valid no-pageable assignment
-  is `Unscoped`. Do not call either `Unused`.
+    In `WidgetAssetsTable`, eager-load `widget`, `asset`, and `pageable`; add a
+    dedicated state filter whose predicates match the existing `usage_status`
+    logic. Missing targets are `Broken reference`; valid no-pageable assignment
+    is `Unscoped`. Do not call either `Unused`.
 
-- [ ] **Step 4: Rerun focused tests and package-local static analysis**
+- [x] **Step 4: Rerun focused tests and package-local static analysis**
 
-  ```bash
-  ./vendor/bin/pest packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php --configuration=phpunit.xml
-  ./vendor/bin/phpstan analyse packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetsTable.php packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetAssetsTable.php packages/layout-builder/src/Filament/Components/Forms/WidgetSelect.php packages/layout-builder/src/Filament/Resources/Widgets/Pages/EditWidget.php --memory-limit=4G --configuration=phpstan.neon
-  ```
+    ```bash
+    ./vendor/bin/pest packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php --configuration=phpunit.xml
+    ./vendor/bin/phpstan analyse packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetsTable.php packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetAssetsTable.php packages/layout-builder/src/Filament/Components/Forms/WidgetSelect.php packages/layout-builder/src/Filament/Resources/Widgets/Pages/EditWidget.php --memory-limit=4G --configuration=phpstan.neon
+    ```
 
-  Expected: focused tests PASS and targeted PHPStan reports 0 errors. If the
-  unrelated `NavigationSelect` nullable-string finding still blocks full
-  companion analysis, record it separately and do not alter that unrelated
-  file.
+    Expected: focused tests PASS and targeted PHPStan reports 0 errors. If the
+    unrelated `NavigationSelect` nullable-string finding still blocks full
+    companion analysis, record it separately and do not alter that unrelated
+    file.
 
-- [ ] **Step 5: Commit companion resource work**
+- [x] **Step 5: Commit companion resource work**
 
-  ```bash
-  git add packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php packages/layout-builder/src/Filament/Resources/Widgets packages/layout-builder/src/Filament/Components/Forms/WidgetSelect.php packages/layout-builder/resources/lang/en/table.php packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php
-  git commit -m "feat(layout-builder): make widget states actionable"
-  ```
+    ```bash
+    git add packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php packages/layout-builder/src/Filament/Resources/Widgets packages/layout-builder/src/Filament/Components/Forms/WidgetSelect.php packages/layout-builder/resources/lang/en/table.php packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php
+    git commit -m "feat(layout-builder): make widget states actionable"
+    ```
 
 ### Task 5: Turn the existing Layout Health widget into a scoped work queue
 
@@ -402,65 +411,65 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
 - Test: `packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php`
 - Test: `packages/layout-builder/tests/Unit/LayoutBuilderThirdRoundResidualCoverageTest.php`
 
-- [ ] **Step 1: Write failing work-queue Action tests**
+- [x] **Step 1: Write failing work-queue Action tests**
 
-  Build fixtures for unused widgets, disabled widgets, broken widget assets,
-  unscoped widget assets, disabled layouts, and a page with no active URL.
-  Assert the Action returns only items accessible to the actor, each item has a
-  translated label/count, and only records with a stable resource query receive
-  a URL. Assert a zero count for a non-authoritative boundary has label `No
-  tracked uses`, not `Unused`.
+    Build fixtures for unused widgets, disabled widgets, broken widget assets,
+    unscoped widget assets, disabled layouts, and a page with no active URL.
+    Assert the Action returns only items accessible to the actor, each item has a
+    translated label/count, and only records with a stable resource query receive
+    a URL. Assert a zero count for a non-authoritative boundary has label `No
+tracked uses`, not `Unused`.
 
-- [ ] **Step 2: Run the focused test to confirm failure**
+- [x] **Step 2: Run the focused test to confirm failure**
 
-  ```bash
-  ./vendor/bin/pest packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php packages/layout-builder/tests/Unit/LayoutBuilderThirdRoundResidualCoverageTest.php --configuration=phpunit.xml
-  ```
+    ```bash
+    ./vendor/bin/pest packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php packages/layout-builder/tests/Unit/LayoutBuilderThirdRoundResidualCoverageTest.php --configuration=phpunit.xml
+    ```
 
-  Expected: FAIL because the Action and work-queue data are missing.
+    Expected: FAIL because the Action and work-queue data are missing.
 
-- [ ] **Step 3: Implement one bounded work-queue Action**
+- [x] **Step 3: Implement one bounded work-queue Action**
 
-  Create this data shape:
+    Create this data shape:
 
-  ```php
-  final class LayoutHealthWorkQueueItemData extends Data
-  {
-      public function __construct(
-          public readonly string $key,
-          public readonly string $label,
-          public readonly int $count,
-          public readonly string $color,
-          public readonly ?string $url,
-          public readonly bool $authoritative,
-      ) {}
-  }
-  ```
+    ```php
+    final class LayoutHealthWorkQueueItemData extends Data
+    {
+        public function __construct(
+            public readonly string $key,
+            public readonly string $label,
+            public readonly int $count,
+            public readonly string $color,
+            public readonly ?string $url,
+            public readonly bool $authoritative,
+        ) {}
+    }
+    ```
 
-  `BuildLayoutHealthWorkQueueAction` owns all queries and returns a short,
-  deterministic list. It uses `AdminSurfaceLookup::resourceIfRegistered()`
-  before attempting Admin URLs, applies the current actor's scope to layouts
-  and pages, and returns no page/layout item when the matching Admin resource is
-  unavailable. It never loops over layout JSON to count uses.
+    `BuildLayoutHealthWorkQueueAction` owns all queries and returns a short,
+    deterministic list. It uses `AdminSurfaceLookup::resourceIfRegistered()`
+    before attempting Admin URLs, applies the current actor's scope to layouts
+    and pages, and returns no page/layout item when the matching Admin resource is
+    unavailable. It never loops over layout JSON to count uses.
 
-  Add `Collection<int, LayoutHealthWorkQueueItemData> $workQueue` to
-  `LayoutHealthData`, replace the widget's ad-hoc unused-widget query with the
-  Action result, and render a compact linked list under a translated
-  `Needs attention` heading. Preserve the existing group and least-used-widget
-  information in the same rendering path.
+    Add `Collection<int, LayoutHealthWorkQueueItemData> $workQueue` to
+    `LayoutHealthData`, replace the widget's ad-hoc unused-widget query with the
+    Action result, and render a compact linked list under a translated
+    `Needs attention` heading. Preserve the existing group and least-used-widget
+    information in the same rendering path.
 
-- [ ] **Step 4: Verify presentation and query safety**
+- [x] **Step 4: Verify presentation and query safety**
 
-  Rerun Step 2 and add a view assertion for the heading, count, state label,
-  and URL. Confirm the Blade view accesses only `$data->workQueue` properties;
-  it must not call model relations or Actions.
+    Rerun Step 2 and add a view assertion for the heading, count, state label,
+    and URL. Confirm the Blade view accesses only `$data->workQueue` properties;
+    it must not call model relations or Actions.
 
-- [ ] **Step 5: Commit the health queue**
+- [x] **Step 5: Commit the health queue**
 
-  ```bash
-  git add packages/layout-builder/src/Data/Dashboard packages/layout-builder/src/Actions/BuildLayoutHealthWorkQueueAction.php packages/layout-builder/src/Filament/Widgets/LayoutHealthFilamentWidget.php packages/layout-builder/resources/views/filament/widgets/layout-health.blade.php packages/layout-builder/resources/lang/en packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php packages/layout-builder/tests/Unit/LayoutBuilderThirdRoundResidualCoverageTest.php
-  git commit -m "feat(layout-builder): add record health work queue"
-  ```
+    ```bash
+    git add packages/layout-builder/src/Data/Dashboard packages/layout-builder/src/Actions/BuildLayoutHealthWorkQueueAction.php packages/layout-builder/src/Filament/Widgets/LayoutHealthFilamentWidget.php packages/layout-builder/resources/views/filament/widgets/layout-health.blade.php packages/layout-builder/resources/lang/en packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php packages/layout-builder/tests/Unit/LayoutBuilderThirdRoundResidualCoverageTest.php
+    git commit -m "feat(layout-builder): add record health work queue"
+    ```
 
 ### Task 6: Run regression verification, update the design status, and record the cross-repository handoff
 
@@ -470,58 +479,58 @@ Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages
 - Modify: `docs/admin/record-state-ux-follow-up-plan.md`
 - Modify: `/Users/ben/Sites/internal-ledger/projects/capell/TODO.md` in a safe ledger branch/worktree only
 
-- [ ] **Step 1: Run focused cross-repository regression suites**
+- [x] **Step 1: Run focused cross-repository regression suites**
 
-  In Core/Admin:
+    In Core/Admin:
 
-  ```bash
-  ./vendor/bin/pest packages/admin/tests/Feature/Actions/Pages packages/admin/tests/Feature/Actions/Layouts packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php packages/admin/tests/Feature/Filament/Resources/Page packages/admin/tests/Feature/Filament/Resources/Layout packages/admin/tests/Feature/Filament/Resources/Media --configuration=phpunit.xml
-  composer analyze
-  php scripts/check-docs-links.php
-  ```
+    ```bash
+    ./vendor/bin/pest packages/admin/tests/Feature/Actions/Pages packages/admin/tests/Feature/Actions/Layouts packages/admin/tests/Feature/Filament/Components/RecordDeletionImpactPresentationTest.php packages/admin/tests/Feature/Filament/Resources/Page packages/admin/tests/Feature/Filament/Resources/Layout packages/admin/tests/Feature/Filament/Resources/Media --configuration=phpunit.xml
+    composer analyze
+    php scripts/check-docs-links.php
+    ```
 
-  In Layout Builder:
+    In Layout Builder:
 
-  ```bash
-  ./vendor/bin/pest packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php --configuration=phpunit.xml
-  ./vendor/bin/phpstan analyse packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php packages/layout-builder/src/Actions/BuildLayoutHealthWorkQueueAction.php packages/layout-builder/src/Filament/Resources/Widgets packages/layout-builder/src/Filament/Widgets/LayoutHealthFilamentWidget.php --memory-limit=4G --configuration=phpstan.neon
-  ```
+    ```bash
+    ./vendor/bin/pest packages/layout-builder/tests/Unit/Filament/LayoutBuilderResourceTableCoverageTest.php packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Unit/WidgetDeletionImpactActionTest.php packages/layout-builder/tests/Unit/BuildLayoutHealthWorkQueueActionTest.php --configuration=phpunit.xml
+    ./vendor/bin/phpstan analyse packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php packages/layout-builder/src/Actions/BuildLayoutHealthWorkQueueAction.php packages/layout-builder/src/Filament/Resources/Widgets packages/layout-builder/src/Filament/Widgets/LayoutHealthFilamentWidget.php --memory-limit=4G --configuration=phpstan.neon
+    ```
 
-  Expected: focused suites and targeted static analysis PASS. Report the known
-  unrelated full companion PHPStan failure only if it still occurs.
+    Expected: focused suites and targeted static analysis PASS. Report the known
+    unrelated full companion PHPStan failure only if it still occurs.
 
-- [ ] **Step 2: Perform an Admin browser/user test if the local application is available**
+- [x] **Step 2: Perform an Admin browser/user test if the local application is available**
 
-  Verify a disabled/scheduled page, unused layout, unused/no-tracked-use media,
-  unused widget, and broken widget asset in their actual table and selected
-  option. Verify each deep link preserves its filter and that delete modals show
-  consequence copy without changing delete eligibility. Capture no customer
-  data and do not perform a deletion.
+    Verify a disabled/scheduled page, unused layout, unused/no-tracked-use media,
+    unused widget, and broken widget asset in their actual table and selected
+    option. Verify each deep link preserves its filter and that delete modals show
+    consequence copy without changing delete eligibility. Capture no customer
+    data and do not perform a deletion.
 
-- [ ] **Step 3: Request and resolve the Sol expert review**
+- [x] **Step 3: Request and resolve the Sol expert review**
 
-  Request a read-only Sol review of the exact Core/Admin and Layout Builder
-  diffs after the focused suites pass. Give the reviewer the approved design,
-  the authority rule for `Unused`, the no-query-in-rendering rule, and the
-  known unrelated companion PHPStan finding. Resolve every P1/P2 finding and
-  any low-risk P3 correctness/accessibility issue, then rerun the focused tests
-  that cover the changed area. Record accepted residuals only when they are
-  explicitly outside this slice.
+    Request a read-only Sol review of the exact Core/Admin and Layout Builder
+    diffs after the focused suites pass. Give the reviewer the approved design,
+    the authority rule for `Unused`, the no-query-in-rendering rule, and the
+    known unrelated companion PHPStan finding. Resolve every P1/P2 finding and
+    any low-risk P3 correctness/accessibility issue, then rerun the focused tests
+    that cover the changed area. Record accepted residuals only when they are
+    explicitly outside this slice.
 
-- [ ] **Step 4: Reconcile documentation and ledger**
+- [x] **Step 4: Reconcile documentation and ledger**
 
-  Mark completed plan checkboxes, update the design status to implemented, and
-  add exact commits/test output/review result to CAP-0080. Preserve the primary
-  ledger checkout's unrelated changes by using a dedicated ledger branch or
-  worktree; do not push, open a PR, merge, release, deploy, seed, or migrate.
+    Mark completed plan checkboxes, update the design status to implemented, and
+    add exact commits/test output/review result to CAP-0080. Preserve the primary
+    ledger checkout's unrelated changes by using a dedicated ledger branch or
+    worktree; do not push, open a PR, merge, release, deploy, seed, or migrate.
 
-- [ ] **Step 5: Commit closeout documentation separately in each repository**
+- [x] **Step 5: Commit closeout documentation separately in each repository**
 
-  ```bash
-  git add docs/admin/record-state-ux-follow-up-design.md docs/admin/record-state-ux-follow-up-plan.md
-  git commit -m "docs(admin): record state UX follow-up verification"
-  ```
+    ```bash
+    git add docs/admin/record-state-ux-follow-up-design.md docs/admin/record-state-ux-follow-up-plan.md
+    git commit -m "docs(admin): record state UX follow-up verification"
+    ```
 
-  Commit the ledger only on its dedicated branch with a CAP-0080-specific
-  message. Keep Core/Admin and Layout Builder commits focused; do not combine
-  companion changes with the existing unrelated release-catalogue history.
+    Commit the ledger only on its dedicated branch with a CAP-0080-specific
+    message. Keep Core/Admin and Layout Builder commits focused; do not combine
+    companion changes with the existing unrelated release-catalogue history.
