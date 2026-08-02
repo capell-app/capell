@@ -299,10 +299,20 @@ it('limits tracked media usage to accessible related records', function (): void
     $hiddenPage = Page::factory()->site($hiddenSite)->createOne([
         'name' => 'Hidden dependent page',
     ]);
+    $visiblePage = Page::factory()->site($assignedSite)->createOne([
+        'name' => 'Visible dependent page',
+    ]);
 
     AssetAttachment::query()->create([
         'related_type' => $hiddenPage->getMorphClass(),
         'related_id' => $hiddenPage->getKey(),
+        'asset_type' => $media->getMorphClass(),
+        'asset_id' => $media->getKey(),
+        'order' => 1,
+    ]);
+    AssetAttachment::query()->create([
+        'related_type' => $visiblePage->getMorphClass(),
+        'related_id' => $visiblePage->getKey(),
         'asset_type' => $media->getMorphClass(),
         'asset_id' => $media->getKey(),
         'order' => 1,
@@ -313,14 +323,13 @@ it('limits tracked media usage to accessible related records', function (): void
     $livewire = Livewire::test(ListMedia::class)
         ->assertSuccessful()
         ->assertCanSeeTableRecords([$media])
-        ->assertTableColumnStateSet('usage_count', 0, $media)
-        ->assertSee(__('capell-admin::table.no_accessible_tracked_uses'))
-        ->filterTable('tracked_use', 'unused')
+        ->assertTableColumnStateSet('usage_count', 1, $media)
+        ->filterTable('tracked_use', 'used')
         ->assertCanSeeTableRecords([$media]);
 
     Livewire::test(ListMedia::class)
         ->assertSuccessful()
-        ->filterTable('tracked_use', 'used')
+        ->filterTable('tracked_use', 'unused')
         ->assertCanNotSeeTableRecords([$media]);
 
     $usageColumn = $livewire->instance()->getTable()->getColumn('usage_count');
@@ -330,14 +339,15 @@ it('limits tracked media usage to accessible related records', function (): void
     $usageColumn->record($media);
 
     expect($usageColumn->getUrl($usageColumn->getState()))
-        ->toBeNull()
+        ->toBe(MediaResource::getUrl('edit', ['record' => $media]))
         ->and($usageColumn->getTooltip($usageColumn->getState()))
-        ->toBe(__('capell-admin::table.asset_usage_no_accessible_tracked_uses_tooltip'));
+        ->toBe(trans_choice('capell-admin::table.asset_usage_count_tooltip', 1, ['count' => 1]));
 
     $usageItems = BuildMediaUsageItemsAction::run($media);
 
     expect($usageItems)
-        ->toHaveCount(1)
-        ->and($usageItems[0]['title'])
-        ->not->toBe($hiddenPage->name);
+        ->toHaveCount(2)
+        ->and(collect($usageItems)->pluck('title')->all())
+        ->toContain($visiblePage->name)
+        ->not->toContain($hiddenPage->name);
 });
