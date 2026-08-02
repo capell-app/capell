@@ -21,11 +21,13 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\MediaScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\UrlTypeEnum;
+use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -43,6 +45,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
@@ -91,6 +94,15 @@ class MediaTable implements TableConfigurator
                         ->sort()
                         ->all())
                     ->searchable(),
+                SelectFilter::make('tracked_use')
+                    ->label(__('capell-admin::table.tracked_use'))
+                    ->native(false)
+                    ->options([
+                        'used' => __('capell-admin::table.tracked_use_used'),
+                        'unused' => __('capell-admin::table.no_tracked_uses'),
+                    ])
+                    ->query(self::applyTrackedUseFilterQuery(...))
+                    ->indicateUsing(self::indicateTrackedUseFilter(...)),
                 TrashedFilter::make()
                     ->native(false),
             ])
@@ -245,11 +257,12 @@ class MediaTable implements TableConfigurator
                 ->color(fn (int $state): string => $state === 0 ? 'warning' : ($state > 5 ? 'warning' : 'success'))
                 ->getStateUsing(fn (Media $record): int => $record->usage_count)
                 ->formatStateUsing(fn (int $state): string => $state === 0
-                    ? (string) __('capell-admin::table.unused')
+                    ? (string) __('capell-admin::table.no_tracked_uses')
                     : (string) $state)
                 ->tooltip(fn (int $state): string => $state === 0
                     ? (string) __('capell-admin::table.asset_usage_unused_tooltip')
                     : (string) trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
+                ->url(fn (Media $record, int $state): ?string => $state > 0 ? self::getUsageUrl($record) : null)
                 ->toggleable(),
             DateColumn::make('created_at'),
         ];
@@ -270,6 +283,73 @@ class MediaTable implements TableConfigurator
             : ($model->getAttribute('title') !== null && $model->getAttribute('title') !== '' ? (string) $model->getAttribute('title') : '#' . $model->getKey());
 
         return sprintf('%s — %s', Str::headline($type), $name);
+    }
+
+    /**
+     * @param  Builder<Media>  $query
+     * @param  array<string, mixed>  $data
+     * @return Builder<Media>
+     */
+    protected static function applyTrackedUseFilterQuery(Builder $query, array $data): Builder
+    {
+        $value = is_string($data['value'] ?? null) ? $data['value'] : null;
+
+        return match ($value) {
+            'used' => self::whereTrackedUsageExists($query),
+            'unused' => self::whereTrackedUsageDoesNotExist($query),
+            default => $query,
+        };
+    }
+
+    /** @param array<string, mixed> $data */
+    protected static function indicateTrackedUseFilter(array $data): ?string
+    {
+        return match ($data['value'] ?? null) {
+            'used' => (string) __('capell-admin::table.tracked_use_used'),
+            'unused' => (string) __('capell-admin::table.no_tracked_uses'),
+            default => null,
+        };
+    }
+
+    /** @param Builder<Media> $query */
+    protected static function whereTrackedUsageExists(Builder $query): Builder
+    {
+        return $query->whereExists(self::trackedUsageSubquery($query));
+    }
+
+    /** @param Builder<Media> $query */
+    protected static function whereTrackedUsageDoesNotExist(Builder $query): Builder
+    {
+        return $query->whereNotExists(self::trackedUsageSubquery($query));
+    }
+
+    /**
+     * @param  Builder<Media>  $query
+     * @return Closure(QueryBuilder): void
+     */
+    protected static function trackedUsageSubquery(Builder $query): Closure
+    {
+        $attachments = new AssetAttachment;
+        $attachmentTable = $attachments->getTable();
+        $mediaKey = $query->qualifyColumn($query->getModel()->getKeyName());
+        $mediaMorphClass = $query->getModel()->getMorphClass();
+
+        return static function (QueryBuilder $attachmentQuery) use ($attachmentTable, $mediaKey, $mediaMorphClass): void {
+            $attachmentQuery
+                ->selectRaw('1')
+                ->from($attachmentTable)
+                ->where($attachmentTable . '.asset_type', $mediaMorphClass)
+                ->whereColumn($attachmentTable . '.asset_id', $mediaKey);
+        };
+    }
+
+    protected static function getUsageUrl(Media $media): ?string
+    {
+        if (! Gate::allows('update', $media)) {
+            return null;
+        }
+
+        return AdminSurfaceLookup::resource(ResourceEnum::Media)::getUrl('edit', ['record' => $media]);
     }
 
     private static function editThemeOwnerAction(): Action
