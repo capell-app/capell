@@ -40,10 +40,19 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "target": "PageResource",
+            "scenario": "admin-index",
+            "url": "/screenshot-fixtures/record-states/pages",
+            "waitFor": ".fi-ta",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-ta"
+                }
+            ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-pages-list.png",
             "required": true,
-            "notes": "Used in the Admin overview to show the page tree entry point."
+            "notes": "Uses the request-time fixture at the real Pages resource URL to show a scheduled page whose only public URL is disabled."
         },
         {
             "id": "admin-layouts-list",
@@ -53,12 +62,18 @@
             "targetType": "admin-surface",
             "target": "LayoutResource",
             "scenario": "admin-index",
-            "url": "/layouts",
-            "waitFor": "table",
+            "url": "/screenshot-fixtures/record-states/layouts",
+            "waitFor": ".capell-layout-card-record",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".capell-layout-card-record"
+                }
+            ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-layouts-list.png",
             "required": false,
-            "notes": "Shows layout cards and their site, theme, replication, and deletion actions.",
+            "notes": "Uses the request-time fixture at the real Layouts resource URL to show a disabled layout with no page uses.",
             "covers": [
                 "packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php"
             ]
@@ -70,10 +85,23 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "target": "MediaResource",
+            "scenario": "admin-index",
+            "url": "/screenshot-fixtures/record-states/media",
+            "waitFor": ".fi-ta",
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-ta:has-text('Unused screenshot fixture image')"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-ta:has-text('Unused screenshot fixture image')"
+                }
+            ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-list.png",
             "required": true,
-            "notes": "Used in the Admin overview to show the media library resource."
+            "notes": "Uses the request-time fixture at the real Media resource URL to show an asset with zero tracked usage."
         },
         {
             "id": "admin-media-edit-focal-point",
@@ -83,12 +111,12 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
-            "url": "/media",
-            "waitFor": "table",
+            "url": "/screenshot-fixtures/record-states/media-editor",
+            "waitFor": ".fi-fo-tabs",
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png",
             "required": false,
-            "notes": "Optional until the manifest grows edit-record actions; shown as the media resource surface for now."
+            "notes": "Optional crop-tab capture at the real Media edit URL, backed by the zero-tracked-usage fixture."
         },
         {
             "id": "admin-media-edit-localized-metadata",
@@ -98,12 +126,78 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
-            "url": "/media",
-            "waitFor": "table",
+            "url": "/screenshot-fixtures/record-states/media-editor",
+            "waitFor": ".fi-fo-tabs",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Metadata')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-fo-tabs-panel:has-text('No usage relationships recorded yet.')"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-fo-tabs-panel:has-text('No usage relationships recorded yet.')"
+                }
+            ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png",
             "required": false,
-            "notes": "Optional until the manifest grows edit-record actions; shown as the media resource surface for now."
+            "notes": "Optional metadata-tab capture at the real Media edit URL, including the zero tracked usage state."
+        },
+        {
+            "id": "admin-page-layout-select-record-states",
+            "title": "Page layout selector record states.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage/LayoutSelect",
+            "scenario": "admin-index",
+            "url": "/screenshot-fixtures/record-states/page-editor",
+            "waitFor": ".fi-select-input-option:has(.select-option-label)",
+            "beforeWait": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-section:has(.fi-section-header-heading:has-text('Page configuration'))"
+                },
+                {
+                    "type": "click",
+                    "selector": ".fi-section:has(.fi-section-header-heading:has-text('Page configuration')) .fi-section-header"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-fo-select-wrp:has(label:has-text('Layout'))"
+                },
+                {
+                    "type": "click",
+                    "selector": ".fi-fo-select-wrp:has(label:has-text('Layout')) .fi-select-input-btn"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-select-input-option:has(.select-option-label):has-text('Disabled unused layout')"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-select-input-option:has-text('Disabled'):has-text('Unused layout')"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-select-input-option:has(.select-option-label):has-text('Disabled unused layout')"
+                }
+            ],
+            "docsPage": "packages/admin/docs/overview.md",
+            "output": "packages/admin/docs/images/screenshots/admin-page-layout-select-record-states.png",
+            "required": false,
+            "notes": "Opens Filament's HTML-enabled searchable LayoutSelect so the disabled and unused state chips and page count render inside the dropdown option.",
+            "covers": [
+                "packages/admin/src/Filament/Components/Forms/Page/LayoutSelect.php"
+            ]
         },
         {
             "id": "page-history-timeline",

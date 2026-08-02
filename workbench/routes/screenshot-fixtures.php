@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
+use Workbench\App\Support\RecordStateScreenshotFixture;
 
 Route::get('/screenshot-fixtures/login', static function (): RedirectResponse {
     $userModel = (string) config('auth.providers.users.model');
@@ -31,6 +32,21 @@ Route::get('/admin/screenshot-fixtures/page-building-blocks-editor', static fn (
     ->middleware('web');
 
 Route::get('/screenshot-fixtures/page-history', static fn (): RedirectResponse => redirect()->to(PageHistoryFixture::editUrl()))
+    ->middleware('web');
+
+Route::get('/screenshot-fixtures/record-states/pages', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pagesUrl()))
+    ->middleware('web');
+
+Route::get('/screenshot-fixtures/record-states/layouts', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::layoutsUrl()))
+    ->middleware('web');
+
+Route::get('/screenshot-fixtures/record-states/page-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pageEditUrl()))
+    ->middleware('web');
+
+Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaListUrl()))
+    ->middleware('web');
+
+Route::get('/screenshot-fixtures/record-states/media-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaEditUrl()))
     ->middleware('web');
 
 Route::get('/api/v1/marketplace-fixtures/seo-suite/{image}.svg', static fn (string $image): Response => response(MarketplaceFixture::imageSvg($image), 200)
