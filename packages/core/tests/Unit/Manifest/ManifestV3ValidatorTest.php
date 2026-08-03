@@ -237,6 +237,17 @@ it('declares package security metadata in the manifest v3 json schema', function
         ->and(data_get($schema, 'properties.security.properties.publicSurface.properties.routeNames.$ref'))->toBe('#/$defs/stringList');
 });
 
+it('declares safe package-relative Marketplace screenshot paths in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.marketplace.properties.screenshots.items.properties.path.pattern'))
+        ->toBe('^(?!/)(?![A-Za-z]:/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\]*[^/\\\\]$');
+});
+
 it('rejects malformed package security contract metadata', function (Closure $mutate, string $message): void {
     $validator = new ManifestValidator;
     $manifest = manifestV3Fixture('valid-premium-package');
@@ -462,6 +473,18 @@ it('rejects incomplete or malformed manifest v3 contract sections', function (Cl
             $manifest['marketplace']['screenshots'] = ['screenshot.png'];
         },
         'marketplace.screenshots.0',
+    ],
+    'marketplace screenshot traversing outside the package' => [
+        function (array &$manifest): void {
+            $manifest['marketplace']['screenshots'][0]['path'] = '../another-package/docs/screenshots/example.png';
+        },
+        'marketplace.screenshots.0.path',
+    ],
+    'marketplace screenshot directory without a filename' => [
+        function (array &$manifest): void {
+            $manifest['marketplace']['screenshots'][0]['path'] = 'docs/screenshots/';
+        },
+        'marketplace.screenshots.0.path',
     ],
 ]);
 

@@ -36,11 +36,34 @@ final readonly class MarketplaceSectionValidator implements ManifestSectionValid
 
             $this->rules->requiredStrings($screenshot, ['path', 'alt', 'caption']);
 
+            if (! $this->isSafePackageRelativePath((string) $screenshot['path'])) {
+                throw InvalidManifestException::invalidField(
+                    sprintf('marketplace.screenshots.%d.path', $index),
+                    'must be a safe package-relative path',
+                );
+            }
+
             foreach (['alt', 'caption'] as $field) {
                 if (mb_strlen(trim((string) $screenshot[$field])) < 12) {
                     throw InvalidManifestException::invalidField(sprintf('marketplace.screenshots.%d.%s', $index, $field), 'must be usable descriptive text');
                 }
             }
         }
+    }
+
+    private function isSafePackageRelativePath(string $path): bool
+    {
+        if (trim($path) === ''
+            || str_starts_with($path, '/')
+            || preg_match('/^[A-Za-z]:\//', $path) === 1
+            || str_ends_with($path, '/')
+            || str_contains($path, '\\')) {
+            return false;
+        }
+
+        return array_filter(
+            explode('/', $path),
+            static fn (string $segment): bool => in_array($segment, ['', '.', '..'], true),
+        ) === [];
     }
 }
