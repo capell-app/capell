@@ -17,6 +17,12 @@ class InstallerTestCase extends PackagesTestCase
     }
 
     #[Override]
+    protected function shouldResetTestbenchMigrationState(): bool
+    {
+        return true;
+    }
+
+    #[Override]
     protected function getPackageProviders(mixed $app): array
     {
         return [
