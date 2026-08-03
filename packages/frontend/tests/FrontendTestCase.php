@@ -42,6 +42,12 @@ class FrontendTestCase extends AbstractTestCase
         );
     }
 
+    #[Override]
+    protected function shouldResetTestbenchMigrationState(): bool
+    {
+        return false;
+    }
+
     protected function getPackageServiceName(): string
     {
         return 'capell-frontend';

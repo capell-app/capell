@@ -155,6 +155,32 @@ abstract class AbstractTestCase extends TestCase
         return IsolatedTestbenchSkeleton::basePath();
     }
 
+    #[Override]
+    protected function setUpInteractsWithMigrations(): void
+    {
+        if ($this->shouldResetTestbenchMigrationState()) {
+            parent::setUpInteractsWithMigrations();
+        }
+    }
+
+    #[Override]
+    protected function tearDownInteractsWithMigrations(): void
+    {
+        if ($this->shouldResetTestbenchMigrationState()) {
+            parent::tearDownInteractsWithMigrations();
+        }
+    }
+
+    /**
+     * Testbench resets SQLite refresh state when it tears down each application.
+     * Package fixtures that keep Laravel's transaction boundary do not need that
+     * reset, so concrete package cases can opt into schema reuse safely.
+     */
+    protected function shouldResetTestbenchMigrationState(): bool
+    {
+        return true;
+    }
+
     protected function resolveApplicationConfiguration(mixed $app): void
     {
         $this->ignoreDeprecatedPdoMysqlConstants();
