@@ -11,6 +11,7 @@ use Capell\Frontend\Actions\ResolvePublicPageRequestAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Data\PageResolutionData;
 use Capell\Frontend\Data\PublicPageResolutionInputData;
+use Capell\Frontend\Support\Http\CrawlerDetector;
 use Capell\Frontend\Support\Logging\FrontendLogger;
 use Capell\Frontend\Support\Routing\PageResolutionRouteMetadataApplier;
 use Closure;
@@ -21,6 +22,7 @@ final class PageResolveStep
     public function __construct(
         private readonly FrontendLogger $logger,
         private readonly PageResolutionRouteMetadataApplier $routeMetadataApplier,
+        private readonly CrawlerDetector $crawlers,
     ) {}
 
     public function handle(FrontendWork $work, Closure $next): mixed
@@ -78,9 +80,12 @@ final class PageResolveStep
 
     private function shouldAbortForBot(FrontendWork $work): bool
     {
-        $ua = $work->request->headers->get('User-Agent') ?? '';
+        $userAgent = $work->request->headers->get('User-Agent') ?? '';
 
-        return $ua !== '' && stripos($ua, 'bot') !== false;
+        // An absent User-Agent used to fall through here as "not a bot"; keep
+        // that behaviour so a header-stripping proxy still gets the soft path,
+        // and defer the actual classification to the shared detector.
+        return $userAgent !== '' && $this->crawlers->isCrawler($userAgent);
     }
 
     private function applyResolution(FrontendWork $work, PageResolutionData $resolution): void

@@ -9,10 +9,23 @@ use Capell\Frontend\Http\Middleware\RejectReservedFrontendPaths;
 
 final class FrontendRouteMiddlewareRegistry
 {
-    /** @var list<class-string|string> */
+    /**
+     * `frontend.language_detect` is declared here in the base list rather than
+     * inserted by a provider, so its position cannot depend on boot order. It
+     * must sit AFTER the reserved-domain and reserved-path rejections — those
+     * requests have to 404 before any language logic considers them — and
+     * BEFORE `web`: the HTML cache middleware runs after `web`, so a
+     * header-driven redirect has to happen upstream of it, and the preference
+     * cookie has to be attached to the response directly because
+     * `AddQueuedCookiesToResponse` lives inside `web` and never runs when a
+     * pre-`web` middleware short-circuits.
+     *
+     * @var list<class-string|string>
+     */
     private array $middleware = [
         RejectReservedFrontendDomains::class,
         RejectReservedFrontendPaths::class,
+        'frontend.language_detect',
         'web',
         'frontend.maintenance',
         'workspace.context',

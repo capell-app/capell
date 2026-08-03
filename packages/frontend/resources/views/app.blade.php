@@ -1,8 +1,14 @@
 @php
+    use Capell\Core\Models\Language;
+    use Capell\Core\Support\Locale\HtmlLanguageAttribute;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
     use Capell\Frontend\Support\Security\JsonLdScriptSanitizer;
+
+    $documentLanguage = ($language ?? null) instanceof Language ? $language : Frontend::language();
+    $documentLanguageCode = HtmlLanguageAttribute::forLanguage($documentLanguage);
+    $documentDirection = $documentLanguage?->direction() ?? Language::directionForCode(app()->getLocale());
 
     $site = Frontend::site();
     $siteMeta = $site?->meta ?? [];
@@ -15,7 +21,8 @@
 <!DOCTYPE html>
 <html
     class="h-full"
-    lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+    lang="{{ $documentLanguageCode }}"
+    dir="{{ $documentDirection }}"
 >
     <x-capell::app.head
         :livewire-enabled="$usesLivewire"

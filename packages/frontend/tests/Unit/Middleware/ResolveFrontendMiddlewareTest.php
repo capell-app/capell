@@ -6,6 +6,7 @@ use Capell\Frontend\Contracts\FrontendKernelInterface;
 use Capell\Frontend\Data\ErrorData;
 use Capell\Frontend\Data\FrontendBootstrapResult;
 use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -60,5 +61,6 @@ function resolveFallbackMiddleware(): ResolveFrontendMiddleware
             }
         },
         resolve(FrontendState::class),
+        resolve(FrontendLocaleScope::class),
     );
 }

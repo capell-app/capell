@@ -15,6 +15,8 @@ beforeEach(function (): void {
 });
 
 it('manages language-backed tabs through the mounted repeater component', function (): void {
+    config()->set('laravel_google_translate.google_translate_api_key', 'test-api-key');
+
     $english = Language::factory()->english()->createOne();
     $french = Language::factory()->french()->createOne();
     $german = Language::factory()->german()->createOne();
@@ -192,12 +194,70 @@ it('prepares tab and create-item icon presentation outside the Blade view', func
     expect($component->getTabPresentation('english-tab'))->toBe([
         'badge' => 'Draft',
         'badgeColor' => 'warning',
+        'badgeTooltip' => null,
         'icon' => 'flag-gb',
         'isFlagIcon' => true,
         'label' => null,
     ])->and($component->getCreateItemIcon(['icon' => 'flag-fr']))->toBeNull()
         ->and($component->getCreateItemIcon(['icon' => 'heroicon-o-language']))->toBe('heroicon-o-language')
         ->and($component->getCreateItemIcon([]))->toBeNull();
+});
+
+it('disables the auto-translate action until translation api credentials are configured', function (): void {
+    config()->set('capell-admin.auto_translate_language_text', true);
+    config()->set('laravel_google_translate', [
+        'google_translate_api_key' => null,
+        'yandex_translate_api_key' => null,
+        'custom_api_translator' => null,
+    ]);
+
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')->tabs([TextInput::make('title')]),
+        ['english-tab' => ['language_id' => 1, 'title' => 'One']],
+    );
+
+    expect($component->hasTranslationApiCredentials())->toBeFalse();
+
+    $action = $component->translateAction();
+
+    expect($action->isVisible())->toBeTrue()
+        ->and($action->isDisabled())->toBeTrue()
+        ->and($action->getTooltip())->toBe(__('capell-admin::generic.auto_translate_unavailable_info'));
+
+    config()->set('laravel_google_translate.google_translate_api_key', 'test-api-key');
+
+    $enabledAction = $component->translateAction();
+
+    expect($component->hasTranslationApiCredentials())->toBeTrue()
+        ->and($enabledAction->isDisabled())->toBeFalse()
+        ->and($enabledAction->getTooltip())->toBe(__('capell-admin::generic.auto_translate_info'));
+});
+
+it('keeps the auto-translate action available for a custom api translator', function (): void {
+    config()->set('laravel_google_translate', [
+        'google_translate_api_key' => null,
+        'yandex_translate_api_key' => null,
+        'custom_api_translator' => 'App\\Translators\\CustomApiTranslator',
+    ]);
+
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')->tabs([TextInput::make('title')]),
+        ['english-tab' => ['language_id' => 1, 'title' => 'One']],
+    );
+
+    expect($component->hasTranslationApiCredentials())->toBeTrue()
+        ->and($component->translateAction()->isDisabled())->toBeFalse();
+});
+
+it('hides the auto-translate action when the admin config disables it', function (): void {
+    config()->set('capell-admin.auto_translate_language_text', false);
+
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')->tabs([TextInput::make('title')]),
+        ['english-tab' => ['language_id' => 1, 'title' => 'One']],
+    );
+
+    expect($component->translateAction()->isVisible())->toBeFalse();
 });
 
 /**

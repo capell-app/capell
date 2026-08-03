@@ -1,7 +1,7 @@
 @extends('errors::minimal')
 
-@section('title', __('Payment Required'))
+@section('title', __('capell-frontend::errors.payment_required_title'))
 @section('code', '402')
-@section('message', __('Payment Required'))
-@section('headline', __('Payment required'))
-@section('description', __('Access to this page requires an active subscription or payment.'))
+@section('message', __('capell-frontend::errors.payment_required_message'))
+@section('headline', __('capell-frontend::errors.payment_required_headline'))
+@section('description', __('capell-frontend::errors.payment_required_description'))

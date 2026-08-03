@@ -71,6 +71,7 @@
                             :icon="$tab['isFlagIcon'] ? null : $tab['icon']"
                             :badge="$tab['badge']"
                             :badge-color="$tab['badgeColor']"
+                            :title="$tab['badgeTooltip']"
                             wire:key="{{ $this->getId() }}.{{ $item->getStatePath() }}.{{ $field::class }}.nav"
                             x-bind:aria-selected="tab === {{ $loop->iteration }}"
                             x-on:click.stop="tab = {{ $loop->iteration }}"

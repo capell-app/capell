@@ -1,7 +1,7 @@
 @extends('errors::minimal')
 
-@section('title', __('Not Found'))
+@section('title', __('capell-frontend::errors.not_found_title'))
 @section('code', '404')
-@section('message', __('Not Found'))
-@section('headline', __('We can’t find that page'))
-@section('description', __('The page you’re looking for may have moved or no longer exists.'))
+@section('message', __('capell-frontend::errors.not_found_message'))
+@section('headline', __('capell-frontend::errors.not_found_headline'))
+@section('description', __('capell-frontend::errors.not_found_description'))

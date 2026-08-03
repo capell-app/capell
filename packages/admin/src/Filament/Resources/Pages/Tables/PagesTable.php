@@ -213,6 +213,14 @@ class PagesTable implements TableConfigurator
                 ->query(self::applyFilterQuery(...))
                 ->indicateUsing(self::indicateFilter(...)),
 
+            SelectFilter::make('missing_translation')
+                ->label(__('capell-admin::filter.missing_translation'))
+                ->searchable()
+                ->options(self::getLanguageOptions(...))
+                ->getSearchResultsUsing(self::getLanguageSearchResults(...))
+                ->query(self::applyMissingTranslationFilterQuery(...))
+                ->indicateUsing(self::indicateMissingTranslationFilter(...)),
+
             DateFilter::make('visible_from')
                 ->label(__('capell-admin::form.publish_date')),
 
@@ -442,6 +450,56 @@ class PagesTable implements TableConfigurator
         }
 
         return $indicators;
+    }
+
+    /**
+     * Matches pages that have no translation row for the chosen language, and pages
+     * whose row for that language carries neither a title nor content. A row cloned
+     * from the default language counts as translated: the blobs are not compared.
+     *
+     * @param  Builder<PageModel>  $query
+     * @param  array<string, mixed>  $data
+     * @return Builder<PageModel>
+     */
+    protected static function applyMissingTranslationFilterQuery(Builder $query, array $data): Builder
+    {
+        $languageId = $data['value'] ?? null;
+
+        if ($languageId === null || $languageId === '') {
+            return $query;
+        }
+
+        return $query->whereDoesntHave(
+            'translations',
+            fn (BuilderContract $query): BuilderContract => $query
+                ->where('language_id', (int) $languageId)
+                ->where(fn (BuilderContract $query): BuilderContract => $query
+                    ->where('title', '!=', '')
+                    ->orWhere('content', '!=', '')),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected static function indicateMissingTranslationFilter(array $data): ?string
+    {
+        $languageId = $data['value'] ?? null;
+
+        if ($languageId === null || $languageId === '') {
+            return null;
+        }
+
+        /** @var class-string<Language> $model */
+        $model = Language::class;
+
+        $language = $model::query()->find($languageId);
+
+        if (! $language instanceof Language) {
+            return null;
+        }
+
+        return (string) __('capell-admin::filter.missing_translation_indicator', ['language' => $language->name]);
     }
 
     protected static function shouldShowSystemPagesFilter(ResourcePage|HasPageResource $livewire): bool
@@ -833,6 +891,7 @@ class PagesTable implements TableConfigurator
             'site_id',
             'blueprint_id',
             'filter',
+            'missing_translation',
             'layout_id',
             'visible_from',
             'trashed',

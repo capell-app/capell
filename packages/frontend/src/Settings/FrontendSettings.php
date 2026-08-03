@@ -6,6 +6,7 @@ namespace Capell\Frontend\Settings;
 
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchemaContract;
+use Capell\Frontend\Enums\VisitorLanguageDetection;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Spatie\LaravelSettings\Settings;
 
@@ -26,6 +27,13 @@ class FrontendSettings extends Settings implements SettingsContract, SettingsSch
     public bool $custom_maintenance_page_enabled = true;
 
     public ?string $scheduled_publication_invalidation_checkpoint = null;
+
+    /**
+     * One of {@see VisitorLanguageDetection}. Stored as a
+     * plain string so an unrecognised persisted value degrades to `off` instead
+     * of throwing while the whole settings group is hydrated.
+     */
+    public string $visitor_language_detection = 'off';
 
     /** @var array<int, string> */
     public array $meta_schema = [];

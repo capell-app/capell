@@ -10,6 +10,7 @@ use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\Concerns\HasImportExportHeaderActions;
 use Capell\Admin\Filament\Concerns\Validate\LanguageValidation;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
+use Capell\Admin\Filament\Resources\Languages\Actions\ExportTranslationsAction;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Languages\Widgets\LanguagesAlertsWidget;
 use Capell\Admin\Support\AdminSurfaceLookup;
@@ -54,6 +55,7 @@ class ManageLanguages extends ManageRecords implements ValidatesDelete
     protected function getActions(): array
     {
         return $this->prependImportHeaderAction([
+            ExportTranslationsAction::make(),
             CreateAction::make()
                 ->modalDescription(__('capell-admin::generic.create_language_info'))
                 ->after(function (self $livewire, array $data, Language $record, CreateAction $action): void {

@@ -6,6 +6,7 @@ namespace Capell\Frontend\Http\Middleware;
 
 use Capell\Frontend\Actions\RenderFallbackPublicViewAction;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\State\FrontendState;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -19,10 +20,12 @@ final class ResolveFrontendMiddleware
     public function __construct(
         private readonly FrontendKernelInterface $kernel,
         private readonly FrontendState $state,
+        private readonly FrontendLocaleScope $localeScope,
     ) {}
 
     public function handle(Request $request, Closure $next): Response|RedirectResponse
     {
+        $this->localeScope->restore();
         $this->state->reset();
 
         try {

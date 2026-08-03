@@ -91,6 +91,10 @@ final class PageModelCache
         $relations = [
             'layout.theme',
             'pageUrls',
+            // The head's hreflang cluster pairs every pageUrl with a real translation row, so
+            // `translations` must travel with `pageUrls`: public Blade may only read hydrated
+            // relations (PublicViewQueryGuard). Do not drop this to slim the cached payload.
+            'translations',
             'image.translations',
             'blueprint',
             'canonicalPage.pageUrls',

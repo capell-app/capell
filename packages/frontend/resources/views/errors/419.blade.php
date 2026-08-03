@@ -1,7 +1,7 @@
 @extends('errors::minimal')
 
-@section('title', __('Page Expired'))
+@section('title', __('capell-frontend::errors.page_expired_title'))
 @section('code', '419')
-@section('message', __('Page Expired'))
-@section('headline', __('Your session expired'))
-@section('description', __('For your security, this page timed out. Please go back and try again.'))
+@section('message', __('capell-frontend::errors.page_expired_message'))
+@section('headline', __('capell-frontend::errors.page_expired_headline'))
+@section('description', __('capell-frontend::errors.page_expired_description'))

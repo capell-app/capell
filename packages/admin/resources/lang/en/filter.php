@@ -22,6 +22,8 @@ return [
     'language' => 'Language',
     'login_from' => 'Login From',
     'login_until' => 'Login Until',
+    'missing_translation' => 'Untranslated into',
+    'missing_translation_indicator' => 'Untranslated into :language',
     'page' => 'Page',
     'parent' => 'Parent',
     'paid' => 'Paid',

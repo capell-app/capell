@@ -17,13 +17,9 @@ use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
+use Capell\Frontend\Support\Kernel\FrontendKernelSteps;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
-use Capell\Frontend\Support\Kernel\Steps\PageResolveStep;
 use Capell\Frontend\Support\Kernel\Steps\RegisterThemeViewsStep;
-use Capell\Frontend\Support\Kernel\Steps\SetUrlGeneratorStep;
-use Capell\Frontend\Support\Kernel\Steps\SiteResolveStep;
-use Capell\Frontend\Support\Kernel\Steps\ThemeResolverStep;
 use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
@@ -401,23 +397,10 @@ abstract class AbstractPage extends Component
     /** @return array<int, callable|string> */
     private function frontendContextResolutionSteps(): array
     {
-        $excludedSteps = [
+        return FrontendKernelSteps::without([
             RegisterThemeViewsStep::class,
             NotifySubscribersStep::class,
-        ];
-
-        return array_values(array_filter(
-            config('frontend.kernel.steps', [
-                SiteResolveStep::class,
-                SetUrlGeneratorStep::class,
-                PageResolveStep::class,
-                LayoutResolverStep::class,
-                ThemeResolverStep::class,
-                RegisterThemeViewsStep::class,
-                NotifySubscribersStep::class,
-            ]),
-            fn (mixed $step): bool => is_string($step) && ! in_array($step, $excludedSteps, true),
-        ));
+        ]);
     }
 
     private function getLayoutFile(?Layout $layout): string

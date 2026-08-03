@@ -54,6 +54,7 @@ use Capell\Frontend\Contracts\UrlSignatureVerifierInterface;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
+use Capell\Frontend\Http\Middleware\DetectVisitorLanguage;
 use Capell\Frontend\Http\Middleware\ETagMiddleware;
 use Capell\Frontend\Http\Middleware\NullWorkspaceContextMiddleware;
 use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtmlCacheable;
@@ -105,16 +106,12 @@ use Capell\Frontend\Support\Fragments\FrontendInteractionTargetCapabilityContrib
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Capell\Frontend\Support\Html\HtmlMinifier as VokuHtmlMinifier;
 use Capell\Frontend\Support\Kernel\FrontendKernel;
-use Capell\Frontend\Support\Kernel\Steps\LayoutResolverStep;
-use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;
-use Capell\Frontend\Support\Kernel\Steps\PageResolveStep;
-use Capell\Frontend\Support\Kernel\Steps\RegisterThemeViewsStep;
-use Capell\Frontend\Support\Kernel\Steps\SetUrlGeneratorStep;
-use Capell\Frontend\Support\Kernel\Steps\SiteResolveStep;
-use Capell\Frontend\Support\Kernel\Steps\ThemeResolverStep;
+use Capell\Frontend\Support\Kernel\FrontendKernelSteps;
 use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
 use Capell\Frontend\Support\Loader\DefaultSystemPageResolver;
 use Capell\Frontend\Support\Loader\NullRedirectResolver;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
+use Capell\Frontend\Support\Locale\VisitorLanguageCookie;
 use Capell\Frontend\Support\Logging\FrontendLogger;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
 use Capell\Frontend\Support\Maintenance\MaintenancePagePathResolver;
@@ -265,23 +262,11 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerFrontendContextBindings();
 
-        $this->app->scoped(FrontendKernelInterface::class, function (Application $app): FrontendKernelInterface {
-            $steps = config('frontend.kernel.steps', [
-                SiteResolveStep::class,
-                SetUrlGeneratorStep::class,
-                PageResolveStep::class,
-                LayoutResolverStep::class,
-                ThemeResolverStep::class,
-                RegisterThemeViewsStep::class,
-                NotifySubscribersStep::class,
-            ]);
-
-            return new FrontendKernel(
-                $app->make(Pipeline::class),
-                $steps,
-                $app->make(FrontendState::class),
-            );
-        });
+        $this->app->scoped(FrontendKernelInterface::class, fn (Application $app): FrontendKernelInterface => new FrontendKernel(
+            $app->make(Pipeline::class),
+            FrontendKernelSteps::configured(),
+            $app->make(FrontendState::class),
+        ));
 
         $this->app->singleton(ThemeViewRegistrar::class, function (Application $app): ThemeViewRegistrar {
             $finder = $app->make('view.finder');
@@ -310,8 +295,10 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(OnFrontendContextResolved::class);
         $this->app->singleton(FragmentCache::class, fn (Application $app): FragmentCache => new FragmentCache($app->make(Repository::class)));
         $this->app->alias(FragmentCache::class, 'capell-frontend.fragment-cache');
+        $this->app->singleton(FrontendLocaleScope::class);
         $this->app->tag([
             ThemeViewRegistrar::class,
+            FrontendLocaleScope::class,
         ], Resettable::TAG);
 
         $this->app->scoped(FragmentCacheDirective::class);
@@ -408,7 +395,28 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerPublicViewQueryListener()
             ->registerScheduledPublicationInvalidation()
             ->registerSettingsSchemas()
+            ->registerVisitorLanguageDetection()
             ->registerViewComposers();
+    }
+
+    private function registerVisitorLanguageDetection(): self
+    {
+        VisitorLanguageCookie::exemptFromEncryption();
+
+        // Registered unconditionally: reading the setting during boot would put a
+        // settings query on every request, and the component itself is a no-op
+        // unless detection is set to `banner`. The banner is a pure function of
+        // host + path (every site language is rendered, the client picks one), so
+        // it is safe to bake into the shared HTML cache entry.
+        $this->callAfterResolving(RenderHookRegistry::class, function (RenderHookRegistry $registry): void {
+            $registry->registerView(
+                RenderHookLocation::BodyEnd,
+                'capell::components.language-suggestion-banner',
+                priority: 90,
+            );
+        });
+
+        return $this;
     }
 
     private function registerAssetOptimizationBindings(): void
@@ -493,6 +501,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         Route::aliasMiddleware('frontend.asset-optimization', AssetOptimizationMiddleware::class);
         Route::aliasMiddleware('frontend.anonymous_cacheable_render', PreventAuthenticatedFrontendRenderingWhenHtmlCacheable::class);
         Route::aliasMiddleware('frontend.rendering_strategy', RenderingStrategyMiddleware::class);
+        Route::aliasMiddleware('frontend.language_detect', DetectVisitorLanguage::class);
         Route::aliasMiddleware('frontend.resolve', ResolveFrontendMiddleware::class);
         Route::aliasMiddleware('frontend.maintenance', ServeStaticMaintenancePage::class);
         Route::aliasMiddleware('workspace.context', NullWorkspaceContextMiddleware::class);

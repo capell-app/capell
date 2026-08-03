@@ -7,6 +7,8 @@ namespace Capell\Frontend\Http\Controllers;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Enums\PageTypeEnum;
+use Capell\Core\Models\Language;
+use Capell\Core\Support\Locale\HtmlLanguageAttribute;
 use Capell\Core\ThemeStudio\Exceptions\ThemeNotFoundException;
 use Capell\Frontend\Actions\PrepareFrontendRenderAction;
 use Capell\Frontend\Actions\RenderFallbackPublicViewAction;
@@ -86,6 +88,7 @@ class PageController extends BaseController
         } catch (ThemeNotFoundException) {
             return $this->diagnosticServiceUnavailableResponse(
                 (string) __('capell-frontend::errors.theme_unavailable'),
+                $renderContext->language,
             );
         }
 
@@ -94,18 +97,20 @@ class PageController extends BaseController
                 (string) __('capell-frontend::errors.renderer_unavailable', [
                     'runtime' => $preparedRender->runtime === FrontendRuntime::Livewire ? 'Livewire' : 'Inertia',
                 ]),
+                $renderContext->language,
             );
         }
 
         return $preparedRender->renderer->render($preparedRender->renderContext);
     }
 
-    private function diagnosticServiceUnavailableResponse(string $message): SymfonyResponse
+    private function diagnosticServiceUnavailableResponse(string $message, ?Language $language = null): SymfonyResponse
     {
         $title = (string) __('capell-frontend::errors.frontend_unavailable');
+        $htmlLang = HtmlLanguageAttribute::forLanguage($language);
 
         return response(
-            '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>'
+            '<!doctype html><html lang="' . e($htmlLang) . '"><head><meta charset="utf-8"><title>'
                 . e($title)
                 . '</title></head><body><h1>'
                 . e($title)

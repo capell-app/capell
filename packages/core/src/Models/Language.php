@@ -109,6 +109,27 @@ class Language extends Model implements Defaultable, Statusable, Userstampable
     use SoftDeletes;
 
     /**
+     * Root language subtags rendered right to left when a language carries no explicit `meta.rtl` choice.
+     *
+     * @var list<string>
+     */
+    public const array RTL_ROOT_LANGUAGES = [
+        'ar',
+        'arc',
+        'ckb',
+        'dv',
+        'fa',
+        'he',
+        'ks',
+        'ku',
+        'ps',
+        'sd',
+        'ug',
+        'ur',
+        'yi',
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -126,6 +147,22 @@ class Language extends Model implements Defaultable, Statusable, Userstampable
     ];
 
     protected static string $factory = LanguageFactory::class;
+
+    /**
+     * Text direction for a language tag, matched on its root subtag so `ar-EG` resolves like `ar`.
+     */
+    public static function directionForCode(?string $code): string
+    {
+        $normalised = strtolower(str_replace('_', '-', trim((string) $code)));
+
+        if ($normalised === '') {
+            return 'ltr';
+        }
+
+        $root = strtok($normalised, '-');
+
+        return in_array($root === false ? $normalised : $root, self::RTL_ROOT_LANGUAGES, true) ? 'rtl' : 'ltr';
+    }
 
     /** @return array<int, string> */
     public static function getLanguageLocales(): array
@@ -180,6 +217,26 @@ class Language extends Model implements Defaultable, Statusable, Userstampable
             ->merge($this->sitesLanguage)
             ->unique('id')
             ->values();
+    }
+
+    /**
+     * Text direction for this language, honouring an explicit `meta.rtl` choice before the root subtag list.
+     */
+    public function direction(): string
+    {
+        $meta = $this->meta;
+
+        if (is_array($meta) && array_key_exists('rtl', $meta) && $meta['rtl'] !== null && $meta['rtl'] !== '') {
+            return filter_var($meta['rtl'], FILTER_VALIDATE_BOOLEAN) ? 'rtl' : 'ltr';
+        }
+
+        $tag = (string) ($this->code ?? '');
+
+        if (trim($tag) === '') {
+            $tag = (string) ($this->locale ?? '');
+        }
+
+        return self::directionForCode($tag);
     }
 
     /** @param Builder<Language> $query */

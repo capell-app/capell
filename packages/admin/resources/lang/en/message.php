@@ -135,6 +135,7 @@ return [
     'remove_container_confirmation' => 'Remove this container and its widgets from the layout?',
     'remove_widget_confirmation' => 'Remove this widget from the layout?',
     'replicate_success' => 'Replication complete.',
+    'required_translation_languages_missing' => 'The following required languages are missing: :languages.',
     'resource_deleted' => 'Resource deleted.',
     'resource_expired' => 'Resource expired.',
     'resource_pending' => 'Resource pending.',
