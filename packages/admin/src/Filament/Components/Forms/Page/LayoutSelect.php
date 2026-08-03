@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Data\RecordRelationshipCountData;
+use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
+use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
@@ -14,6 +18,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -38,7 +43,10 @@ class LayoutSelect extends Select
                 name: 'layout',
                 titleAttribute: 'name',
                 modifyQueryUsing: fn (Builder $query, ?string $search = null) => $this->applyAccessibleLayoutQuery($query)
-                    ->withCount('pages')
+                    ->select([
+                        'layouts.*',
+                        LayoutsTable::getUsesCountSelect($query, 'pages_count'),
+                    ])
                     ->with(['image'])
                     ->where(
                         // On MySQL, JSON_CONTAINS returns NULL for an absent key, so a
@@ -85,9 +93,40 @@ class LayoutSelect extends Select
             ])
             ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
+                $pagesCountAttribute = $record->getAttributes()['pages_count'] ?? null;
+                $hasPagesCount = is_numeric($pagesCountAttribute);
+                $pagesCount = $hasPagesCount ? (int) $pagesCountAttribute : 0;
+                $hasAuthoritativePagesCount = $hasPagesCount && $this->isUsageCountAuthoritative();
+
                 $data = [
                     'label' => $record->name,
-                    'count' => $record->pages_count,
+                    'count' => $pagesCount,
+                    'states' => array_values(array_filter([
+                        ! $record->status ? new RecordStateData(
+                            key: 'disabled',
+                            label: (string) __('capell-admin::form.disabled'),
+                            description: (string) __('capell-admin::table.status'),
+                            color: 'danger',
+                            icon: Heroicon::OutlinedEyeSlash,
+                            priority: 10,
+                        ) : null,
+                        $hasAuthoritativePagesCount && $pagesCount === 0 ? new RecordStateData(
+                            key: 'unused',
+                            label: (string) __('capell-admin::table.layout_usage_unused'),
+                            description: (string) __('capell-admin::table.layout_usage_unused_tooltip'),
+                            color: 'warning',
+                            icon: Heroicon::OutlinedExclamationTriangle,
+                            priority: 20,
+                        ) : null,
+                    ])),
+                    'relationships' => [
+                        new RecordRelationshipCountData(
+                            key: 'pages',
+                            label: (string) __('capell-admin::table.total_pages'),
+                            count: $pagesCount,
+                            authoritative: $hasAuthoritativePagesCount,
+                        ),
+                    ],
                 ];
 
                 $imageUrl = $this->layoutPreviewImageUrl($record);
@@ -148,6 +187,13 @@ class LayoutSelect extends Select
         }
 
         return null;
+    }
+
+    private function isUsageCountAuthoritative(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
     }
 
     /**

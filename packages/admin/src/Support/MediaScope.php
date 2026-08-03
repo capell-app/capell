@@ -6,6 +6,7 @@ namespace Capell\Admin\Support;
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
@@ -25,6 +26,57 @@ final class MediaScope
      */
     public static function applyForCurrentActor(Builder $query): Builder
     {
+        return self::applyRelatedModelScopeForCurrentActor($query, 'model');
+    }
+
+    /**
+     * @param  Builder<AssetAttachment>  $query
+     * @return Builder<AssetAttachment>
+     */
+    public static function applyAssetAttachmentsForCurrentActor(Builder $query): Builder
+    {
+        /** @var Builder<AssetAttachment> $scopedQuery */
+        $scopedQuery = self::applyRelatedModelScopeForCurrentActor($query, 'related');
+
+        return $scopedQuery;
+    }
+
+    public static function trackedUsageCount(Media $media): int
+    {
+        return self::applyAssetAttachmentsForCurrentActor($media->assetRelations()->getQuery())->count();
+    }
+
+    public static function isGlobalActor(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
+    }
+
+    public static function actorCanUseMedia(?Authenticatable $actor, Media $media): bool
+    {
+        if (! $actor instanceof Authenticatable) {
+            return false;
+        }
+
+        if (SiteScope::isGlobalActor($actor)) {
+            return true;
+        }
+
+        $media->loadMissing('model');
+        $owner = $media->model;
+
+        return self::actorCanUseOwner($actor, $owner);
+    }
+
+    /**
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private static function applyRelatedModelScopeForCurrentActor(Builder $query, string $relation): Builder
+    {
         $actor = auth()->user();
 
         if (! $actor instanceof Authenticatable) {
@@ -38,19 +90,19 @@ final class MediaScope
         $assignedSiteIds = $actor->getAssignedSiteIds();
 
         if ($assignedSiteIds->isEmpty()) {
-            return $query->where(function (Builder $nestedQuery): void {
+            return $query->where(function (Builder $nestedQuery) use ($relation): void {
                 $nestedQuery->whereHasMorph(
-                    'model',
+                    $relation,
                     [Layout::class],
                     fn (Builder $ownerQuery): Builder => $ownerQuery->whereNull('site_id'),
                 );
             });
         }
 
-        return $query->where(function (Builder $nestedQuery) use ($assignedSiteIds): void {
+        return $query->where(function (Builder $nestedQuery) use ($assignedSiteIds, $relation): void {
             $nestedQuery
                 ->whereHasMorph(
-                    'model',
+                    $relation,
                     [
                         ...CapellCore::getPageVariationModels(),
                         Site::class,
@@ -75,7 +127,7 @@ final class MediaScope
                     },
                 )
                 ->orWhereHasMorph(
-                    'model',
+                    $relation,
                     [Translation::class],
                     fn (Builder $translationQuery): Builder => $translationQuery->whereHasMorph(
                         'translatable',
@@ -95,22 +147,6 @@ final class MediaScope
                     ),
                 );
         });
-    }
-
-    public static function actorCanUseMedia(?Authenticatable $actor, Media $media): bool
-    {
-        if (! $actor instanceof Authenticatable) {
-            return false;
-        }
-
-        if (SiteScope::isGlobalActor($actor)) {
-            return true;
-        }
-
-        $media->loadMissing('model');
-        $owner = $media->model;
-
-        return self::actorCanUseOwner($actor, $owner);
     }
 
     private static function actorCanUseOwner(Authenticatable $actor, Model $owner): bool

@@ -2,27 +2,14 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
+use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
-
-Route::get('/screenshot-fixtures/login', static function (): RedirectResponse {
-    $userModel = (string) config('auth.providers.users.model');
-    $user = $userModel::query()
-        ->where('email', env('CAPELL_SCREENSHOT_ADMIN_EMAIL', 'admin@example.com'))
-        ->firstOrFail();
-
-    assert($user instanceof Authenticatable);
-
-    auth()->login($user);
-    request()->session()->regenerate();
-
-    return redirect('/admin');
-})->middleware('web');
+use Workbench\App\Support\RecordStateScreenshotFixture;
 
 Route::get('/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()))
     ->middleware('web');
@@ -32,6 +19,21 @@ Route::get('/admin/screenshot-fixtures/page-building-blocks-editor', static fn (
 
 Route::get('/screenshot-fixtures/page-history', static fn (): RedirectResponse => redirect()->to(PageHistoryFixture::editUrl()))
     ->middleware('web');
+
+Route::get('/screenshot-fixtures/record-states/pages', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pagesUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
+Route::get('/screenshot-fixtures/record-states/layouts', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::layoutsUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
+Route::get('/screenshot-fixtures/record-states/page-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pageEditUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
+Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaListUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
+Route::get('/screenshot-fixtures/record-states/media-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaEditUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/api/v1/marketplace-fixtures/seo-suite/{image}.svg', static fn (string $image): Response => response(MarketplaceFixture::imageSvg($image), 200)
     ->header('Content-Type', 'image/svg+xml'))->where('image', '[A-Za-z0-9_-]+');

@@ -122,7 +122,7 @@ it('loads focal point and crop preset state for an image', function (): void {
         ->assertSee('Landing Page');
 });
 
-it('hides media usage edit urls when the actor cannot edit related records', function (): void {
+it('omits inaccessible media usage relations', function (): void {
     Route::get('/admin/pages/{record}/edit', fn (): string => '')
         ->name('filament.admin.resources.pages.edit');
 
@@ -149,9 +149,11 @@ it('hides media usage edit urls when the actor cannot edit related records', fun
 
     $limitedItems = BuildMediaUsageItemsAction::run($media);
 
-    expect($limitedItems)->toHaveCount(2)
+    expect($limitedItems)
+        ->toHaveCount(1)
         ->and($limitedItems[0]['url'])->toBeNull()
-        ->and($limitedItems[1]['url'])->toBeNull();
+        ->and(collect($limitedItems)->pluck('title')->all())
+        ->not->toContain($page->name);
 });
 
 it('saves focal point crop presets and localized metadata', function (): void {

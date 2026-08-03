@@ -1,0 +1,58 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Filament\Components\Tables\Columns\Page;
+
+use BackedEnum;
+use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
+use Capell\Admin\Data\RecordStateData;
+use Capell\Core\Models\Page;
+use Filament\Tables\Columns\TextColumn;
+use Illuminate\Contracts\Support\Htmlable;
+
+final class PageAvailabilityColumn extends TextColumn
+{
+    /** @var array<int|string, RecordStateData|null> */
+    private array $states = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->label(__('capell-admin::table.page_availability'))
+            ->badge()
+            ->alignCenter()
+            ->width(0)
+            ->toggleable()
+            ->getStateUsing(fn (Page $record): ?string => $this->stateLabel($record))
+            ->tooltip(fn (Page $record): ?string => $this->resolveState($record)?->description)
+            ->color(fn (Page $record): string => $this->stateColor($record))
+            ->icon(fn (Page $record): BackedEnum|string|Htmlable|null => $this->resolveState($record)?->icon);
+    }
+
+    private function resolveState(Page $page): ?RecordStateData
+    {
+        $key = $page->getKey() ?? spl_object_id($page);
+
+        if (! array_key_exists($key, $this->states)) {
+            $this->states[$key] = ResolvePageAvailabilityStateAction::run($page)->state();
+        }
+
+        return $this->states[$key];
+    }
+
+    private function stateLabel(Page $page): ?string
+    {
+        $state = $this->resolveState($page);
+
+        return $state === null ? null : ($state->shortLabel ?? $state->label);
+    }
+
+    private function stateColor(Page $page): string
+    {
+        $state = $this->resolveState($page);
+
+        return $state === null ? 'gray' : $state->color;
+    }
+}

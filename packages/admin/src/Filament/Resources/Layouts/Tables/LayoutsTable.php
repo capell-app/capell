@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Layouts\Tables;
 
+use Capell\Admin\Actions\Layouts\BuildLayoutDeletionImpactAction;
 use Capell\Admin\Actions\ReplicateLayoutAction;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
@@ -19,7 +20,6 @@ use Capell\Admin\Filament\Resources\Layouts\Pages\ListLayouts;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Themes\Tables\ThemesTable;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
-use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
@@ -31,11 +31,11 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\Layout\View;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -43,12 +43,9 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Expression as ExpressionContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\LazyCollection;
 
 class LayoutsTable implements TableConfigurator
@@ -74,6 +71,9 @@ class LayoutsTable implements TableConfigurator
                 RestoreBulkAction::make(),
                 ForceDeleteBulkAction::make(),
                 DeleteBulkAction::make()
+                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records) => view('capell-admin::components.record-deletion-impact', [
+                        'impact' => app(BuildLayoutDeletionImpactAction::class)->handleMany($records),
+                    ]))
                     ->before(function (ListLayouts $livewire, DeleteBulkAction $action, EloquentCollection|Collection|LazyCollection $records): void {
                         $records->each(function (Layout $record) use ($livewire, $action): void {
                             if (! $livewire->validateDelete($record)) {
@@ -87,30 +87,8 @@ class LayoutsTable implements TableConfigurator
             ->emptyStateIcon('heroicon-o-rectangle-group');
     }
 
-    /**
-     * @param  Builder<Layout>  $query
-     * @return Builder<Layout>
-     */
-    protected static function getTableQueryModifier(Builder $query): Builder
-    {
-        return $query->with([
-            'creator',
-            'editor',
-            'image',
-            'site',
-            'theme',
-        ])
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ])
-            ->select([
-                'layouts.*',
-                self::getUsesCountSelect($query, 'pages_count'),
-            ]);
-    }
-
     /** @param Builder<Layout> $query */
-    protected static function getUsesCountSelect(Builder $query, ?string $alias = null): ExpressionContract
+    public static function getUsesCountSelect(Builder $query, ?string $alias = null): ExpressionContract
     {
         $baseTable = $query->getModel()->getTable();
 
@@ -145,6 +123,28 @@ class LayoutsTable implements TableConfigurator
         return DB::raw($expression);
     }
 
+    /**
+     * @param  Builder<Layout>  $query
+     * @return Builder<Layout>
+     */
+    protected static function getTableQueryModifier(Builder $query): Builder
+    {
+        return $query->with([
+            'creator',
+            'editor',
+            'image',
+            'site',
+            'theme',
+        ])
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
+            ->select([
+                'layouts.*',
+                self::getUsesCountSelect($query, 'pages_count'),
+            ]);
+    }
+
     /** @return array<int, mixed> */
     protected static function getTableActions(): array
     {
@@ -175,6 +175,9 @@ class LayoutsTable implements TableConfigurator
                 ReplicateAction::make()
                     ->replicaModelAction(ReplicateLayoutAction::class),
                 DeleteAction::make()
+                    ->modalContent(fn (Layout $record) => view('capell-admin::components.record-deletion-impact', [
+                        'impact' => BuildLayoutDeletionImpactAction::run($record),
+                    ]))
                     ->before(function (ListLayouts $livewire, Layout $record, DeleteAction $action): void {
                         if (! $livewire->validateDelete($record)) {
                             $action->cancel();
@@ -222,45 +225,6 @@ class LayoutsTable implements TableConfigurator
                 ->numeric()
                 ->disabledClick()
                 ->toggleable()
-                ->formatStateUsing(
-                    function (Layout $record, int $state): ?HtmlString {
-                        if ($state === 0) {
-                            return null;
-                        }
-
-                        $urls = [];
-
-                        foreach (CapellCore::getPageVariations() as $pageVariation) {
-                            $model = Relation::getMorphedModel($pageVariation->model) ?? $pageVariation->model;
-
-                            $count = SiteScope::applyForCurrentActor($model::query())
-                                ->where('layout_id', $record->id)
-                                ->count();
-
-                            if ($count > 0) {
-                                /** @var class-string<resource> $resource */
-                                $resource = AdminSurfaceLookup::resource(ResourceEnum::Page, $pageVariation->resourceName);
-
-                                $url = $resource::getUrl(
-                                    'index',
-                                    [
-                                        'filters[layout_id][value]' => $record->id,
-                                        'filters[system_pages][value]' => '1',
-                                    ],
-                                );
-
-                                $urls[] = [
-                                    'url' => $url,
-                                    'label' => __('capell-admin::table.layout_pages_of_type', ['type' => $pageVariation->name, 'count' => $count]),
-                                ];
-                            }
-                        }
-
-                        return new HtmlString(Blade::render('capell-admin::components.tables.urls', [
-                            'urls' => $urls,
-                        ]));
-                    },
-                )
                 ->hidden(),
             StatusIconColumn::make('status')
                 ->hidden(),
@@ -301,6 +265,15 @@ class LayoutsTable implements TableConfigurator
             SelectFilter::make('theme_id')
                 ->label(__('capell-admin::form.theme'))
                 ->relationship(name: 'theme', titleAttribute: 'name'),
+            Filter::make('disabled')
+                ->label(__('capell-admin::form.disabled'))
+                ->query(fn (Builder $query): Builder => $query->where('status', false))
+                ->indicateUsing(fn (): string => (string) __('capell-admin::form.disabled')),
+            Filter::make('unused')
+                ->label(__('capell-admin::table.unused'))
+                ->visible(self::canFilterUnusedLayouts(...))
+                ->query(fn (Builder $query): Builder => $query->where(self::getUsesCountSelect($query), 0))
+                ->indicateUsing(fn (): string => (string) __('capell-admin::table.unused')),
             TrashedFilter::make(),
         ];
     }
@@ -324,5 +297,12 @@ class LayoutsTable implements TableConfigurator
             $qualifiedPageTable,
             $assignedSiteIds->implode(','),
         );
+    }
+
+    private static function canFilterUnusedLayouts(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
     }
 }

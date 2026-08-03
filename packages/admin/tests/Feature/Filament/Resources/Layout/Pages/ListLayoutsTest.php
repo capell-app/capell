@@ -7,6 +7,7 @@ use Capell\Admin\Filament\Resources\Layouts\Pages\ListLayouts;
 use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\Layouts\LayoutCardData;
+use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -16,13 +17,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Testing\TestAction;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Factories\Sequence;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -35,46 +30,6 @@ uses(CreatesAdminUser::class)
 beforeEach(function (): void {
     test()->actingAsAdmin();
 });
-
-/** @param SupportCollection<int, int> $assignedSiteIds */
-function createScopedUserForListLayoutsTest(SupportCollection $assignedSiteIds): Authenticatable
-{
-    $user = new class extends Authenticatable implements FilamentUser
-    {
-        /** @use HasFactory<Factory<static>> */
-        use HasFactory;
-
-        /** @var SupportCollection<int, int> */
-        public SupportCollection $assignedSiteIds;
-
-        protected $table = 'users';
-
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-
-        /** @return SupportCollection<int, int> */
-        public function getAssignedSiteIds(): SupportCollection
-        {
-            return $this->assignedSiteIds;
-        }
-
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
-    };
-
-    $user->forceFill([
-        'name' => 'Scoped Layout User',
-        'email' => fake()->unique()->safeEmail(),
-        'password' => bcrypt('password'),
-    ]);
-    $user->assignedSiteIds = $assignedSiteIds;
-
-    return $user;
-}
 
 it('can list layouts', function (): void {
     $layouts = Layout::factory()->count(5)->create();
@@ -130,6 +85,49 @@ it('renders layouts as cards with expandable container metadata', function (): v
         ->assertSee(__('capell-admin::table.layout_containers'))
         ->assertSee(__('capell-admin::table.expand'))
         ->assertSee(__('capell-admin::table.last_updated'));
+});
+
+it('makes disabled and unused layouts obvious in the list', function (): void {
+    Layout::factory()->createOne(['status' => false]);
+
+    Livewire::test(ListLayouts::class)
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::form.disabled'))
+        ->assertSee(__('capell-admin::table.layout_usage_unused'));
+});
+
+it('filters disabled and unused layouts from the selected variation-aware aggregate', function (): void {
+    $disabledLayout = Layout::factory()->createOne(['status' => false]);
+    $unusedLayout = Layout::factory()->createOne();
+    $usedLayout = Layout::factory()->createOne();
+    Page::factory()->layout($usedLayout)->createOne();
+
+    $component = Livewire::test(ListLayouts::class)
+        ->assertSuccessful()
+        ->filterTable('disabled')
+        ->assertCanSeeTableRecords([$disabledLayout])
+        ->assertCanNotSeeTableRecords([$unusedLayout, $usedLayout]);
+
+    $component
+        ->resetTableFilters()
+        ->filterTable('unused')
+        ->assertCanSeeTableRecords([$disabledLayout, $unusedLayout])
+        ->assertCanNotSeeTableRecords([$usedLayout]);
+});
+
+it('hides the unused filter and its indicator from site-scoped actors', function (): void {
+    $layout = Layout::factory()->createOne(['name' => 'Hidden usage layout']);
+    $assignedSite = Site::factory()->createOne();
+    $hiddenSite = Site::factory()->createOne();
+    Page::factory()->site($hiddenSite)->layout($layout)->createOne();
+
+    test()->actingAs(ScopedAdminUser::make(collect([$assignedSite->getKey()])));
+
+    Livewire::test(ListLayouts::class)
+        ->assertSuccessful()
+        ->assertTableFilterHidden('unused')
+        ->set('tableFilters.unused.isActive', true)
+        ->assertDontSee(__('capell-admin::table.unused'));
 });
 
 it('can search layouts', function (): void {
@@ -240,7 +238,7 @@ it('page counts only include assigned sites for non-global users', function (): 
     Page::factory()->count(2)->site($assignedSite)->layout($layout)->create();
     Page::factory()->count(3)->site($hiddenSite)->layout($layout)->create();
 
-    test()->actingAs(createScopedUserForListLayoutsTest(collect([$assignedSite->getKey()])));
+    test()->actingAs(ScopedAdminUser::make(collect([$assignedSite->getKey()])));
 
     $method = new ReflectionMethod(LayoutsTable::class, 'getTableQueryModifier');
 

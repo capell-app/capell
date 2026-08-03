@@ -3,9 +3,17 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
+use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+
+uses(CreatesAdminUser::class);
 
 it('layout select search ordering binds user supplied search text', function (): void {
     $component = LayoutSelect::make('layout_id');
@@ -60,6 +68,67 @@ it('layout select keeps thumbnail in selected option without rendering preview b
         ->toContain('generated-layout-previews/layout-preview.png')
         ->and(layoutSelectChildComponents($component))
         ->not->toHaveKey(LayoutSelect::BELOW_CONTENT_SCHEMA_KEY);
+});
+
+it('marks disabled and unused layouts in select options', function (): void {
+    test()->actingAsAdmin();
+
+    $component = LayoutSelect::make('layout_id');
+    $layout = Layout::factory()->createOne(['status' => false]);
+    $layout->setAttribute('pages_count', 0);
+
+    expect($component->getOptionLabelFromRecord($layout))
+        ->toContain(__('capell-admin::form.disabled'))
+        ->toContain(__('capell-admin::table.layout_usage_unused'));
+});
+
+it('keeps the actor-visible usage count without marking it as globally authoritative', function (): void {
+    $layout = Layout::factory()->createOne(['status' => true]);
+    $assignedSite = Site::factory()->createOne();
+    $hiddenSite = Site::factory()->createOne();
+    Page::factory()->site($assignedSite)->layout($layout)->createOne();
+    Page::factory()->count(2)->site($hiddenSite)->layout($layout)->create();
+
+    test()->actingAs(ScopedAdminUser::make(collect([$assignedSite->getKey()])));
+
+    $component = LayoutSelect::make('layout_id');
+    $property = new ReflectionProperty(Select::class, 'modifyRelationshipQueryUsing');
+    $modifyQuery = $property->getValue($component);
+    assert($modifyQuery instanceof Closure);
+
+    $layout = $component->evaluate($modifyQuery, ['query' => Layout::query(), 'search' => null])
+        ->whereKey($layout->getKey())
+        ->sole();
+
+    $option = $component->getOptionLabelFromRecord($layout);
+
+    expect($option)
+        ->toContain('Pages: 1')
+        ->not->toContain(__('capell-admin::table.layout_usage_unused'));
+});
+
+it('does not run a fallback usage query while rendering an option without the selected aggregate', function (): void {
+    $component = LayoutSelect::make('layout_id');
+    $layout = Layout::factory()->createOne();
+
+    DB::enableQueryLog();
+    $component->getOptionLabelFromRecord($layout);
+
+    expect(collect(DB::getQueryLog())->pluck('query')->implode(' '))
+        ->not->toContain('from "pages"');
+});
+
+it('loads a single cross-variation usage aggregate for relationship options', function (): void {
+    $component = LayoutSelect::make('layout_id');
+    $property = new ReflectionProperty(Select::class, 'modifyRelationshipQueryUsing');
+    $modifyQuery = $property->getValue($component);
+
+    expect($modifyQuery)->toBeInstanceOf(Closure::class);
+    assert($modifyQuery instanceof Closure);
+
+    $query = $component->evaluate($modifyQuery, ['query' => Layout::query(), 'search' => null]);
+
+    expect($query->toSql())->toContain('pages_count');
 });
 
 /**

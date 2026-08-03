@@ -17,6 +17,7 @@ use Capell\Admin\Filament\Concerns\Validate\LayoutValidation;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\Layouts\LayoutCardData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Filament\Actions\ActionGroup;
@@ -61,6 +62,17 @@ class EditLayout extends EditRecord implements ValidatesDelete
                 ['name' => Str::limit($this->recordTitleText(), 40)],
             ),
         );
+    }
+
+    #[Override]
+    public function getSubheading(): string|Htmlable|null
+    {
+        $card = LayoutCardData::fromLayout($this->record);
+
+        return new HtmlString(view('capell-admin::components.record-state-summary', [
+            'states' => $card->states(),
+            'relationships' => $card->relationships(),
+        ])->render());
     }
 
     protected function afterSave(): void

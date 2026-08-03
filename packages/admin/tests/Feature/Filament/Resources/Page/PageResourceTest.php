@@ -13,6 +13,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -159,6 +160,8 @@ it('constrains page blueprints and builds global search details with breadcrumbs
         ->withTranslations(data: ['title' => 'Translated search title'])
         ->createOne(['name' => 'Stored page name']);
 
+    PageUrl::query()->where('pageable_id', $page->getKey())->update(['status' => false]);
+
     $details = array_map(
         filamentText(...),
         PageResource::getGlobalSearchResultDetails($page->load(['site', 'ancestors', 'translation'])),
@@ -175,5 +178,6 @@ it('constrains page blueprints and builds global search details with breadcrumbs
         ->and($systemOnlyQuery->pluck('id')->all())->toContain($systemBlueprint->getKey())
         ->and($systemOnlyQuery->pluck('id')->all())->not->toContain($defaultBlueprint->getKey(), $marketingBlueprint->getKey(), $ungroupedBlueprint->getKey())
         ->and($details[0] ?? null)->toBe('Translated search title')
-        ->and($details[1] ?? null)->toContain('Regional Site', 'Parent section');
+        ->and($details[1] ?? null)->toContain('Regional Site', 'Parent section')
+        ->and(implode(' ', $details))->toContain(__('capell-admin::table.page_availability_no_active_url'));
 });

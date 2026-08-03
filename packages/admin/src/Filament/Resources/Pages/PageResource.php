@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages;
 
 use BackedEnum;
+use Capell\Admin\Actions\Pages\BuildPageRelationshipCountsAction;
+use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Contracts\Extenders\PageResourcePageExtender;
 use Capell\Admin\Contracts\Extenders\PageResourceWidgetExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
+use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
+use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
@@ -33,6 +37,7 @@ use Capell\Core\Actions\GetNameFromTranslationsAction;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -118,6 +123,11 @@ class PageResource extends Resource implements ValidatesDelete
                 'translation',
                 'blueprint:id,name',
                 'ancestors',
+                'pageUrls',
+            ])
+            ->withCount([
+                'children',
+                'pageUrls',
             ]);
     }
 
@@ -141,6 +151,14 @@ class PageResource extends Resource implements ValidatesDelete
         if ($breadcrumb instanceof HtmlString) {
             $details[] = $breadcrumb;
         }
+
+        $details[] = view('capell-admin::components.record-state-summary', [
+            'states' => array_values(array_filter([
+                ResolvePageAvailabilityStateAction::run($record)->state(),
+                self::globalSearchPublishState($record),
+            ])),
+            'relationships' => BuildPageRelationshipCountsAction::run($record)->counts(),
+        ])->render();
 
         return $details;
     }
@@ -381,6 +399,22 @@ class PageResource extends Resource implements ValidatesDelete
             ->applyWhere($query->getQuery());
 
         return $query;
+    }
+
+    private static function globalSearchPublishState(Page $page): RecordStateData
+    {
+        $status = resolve(PageTableStatusResolver::class)->resolve($page);
+
+        return new RecordStateData(
+            key: 'publish_status',
+            label: $status->label,
+            shortLabel: $status->shortLabel,
+            description: $status->tooltip,
+            color: $status->color,
+            icon: $status->icon,
+            priority: 20,
+            isExceptional: $page->publishVisibilityState() !== PublishVisibilityStateEnum::published,
+        );
     }
 
     private static function buildGlobalSearchBreadcrumbs(Page $record): ?HtmlString

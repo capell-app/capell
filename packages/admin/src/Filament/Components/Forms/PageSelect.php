@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Components\Forms;
 
 use Aimeos\Nestedset\NestedSet;
+use Capell\Admin\Actions\Pages\BuildPageRelationshipCountsAction;
+use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\HintEditAction;
@@ -62,9 +64,19 @@ class PageSelect extends Select
                     search: $search,
                 );
             })
-            ->getOptionLabelUsing(fn (?int $value): ?string => SiteScope::applyForCurrentActor(Page::query())
-                ->where('id', $value)
-                ->value('name'))
+            ->getOptionLabelUsing(function (?int $value): ?string {
+                if ($value === null) {
+                    return null;
+                }
+
+                $page = SiteScope::applyForCurrentActor(Page::query())
+                    ->with(['pageUrls', 'ancestors'])
+                    ->withCount(['children', 'pageUrls'])
+                    ->whereKey($value)
+                    ->first();
+
+                return $page instanceof Page ? $this->pageOptionLabel($page) : null;
+            })
             ->options(function (self $component, ?Model $record, Get $get): array {
                 $site_id = $get('site_id') ?? ($record instanceof Site ? $record->id : null);
 
@@ -217,9 +229,12 @@ class PageSelect extends Select
      */
     protected function getPageOptions(?int $site_id = null, ?string $search = null): array
     {
-        $relations = ['ancestors' => fn (BuilderContract $query): BuilderContract => $query instanceof Builder
+        $relations = [
+            'pageUrls',
+            'ancestors' => fn (BuilderContract $query): BuilderContract => $query instanceof Builder
             ? $this->applyPageTableExtenders($query)
-            : $query];
+            : $query,
+        ];
 
         if ($site_id === null || $site_id === 0) {
             $relations[] = 'site';
@@ -290,6 +305,7 @@ class PageSelect extends Select
 
         $pages = $query
             ->with($relations)
+            ->withCount(['children', 'pageUrls'])
             ->orderBy('site_id')
             ->orderBy(NestedSet::LFT, 'asc')
             ->get();
@@ -307,22 +323,7 @@ class PageSelect extends Select
 
         /** @var Collection<int, Page> $pages */
         $pages->each(function (Page $page) use (&$options, $site_id): void {
-            $label = '';
-
-            if ($site_id === null || $site_id === 0) {
-                $label .= $page->site->name . ' » ';
-            }
-
-            if ($page->ancestors->isNotEmpty()) {
-                $label .= $page->ancestors->pluck('name')
-                    ->map(fn (string $item): string => Str::limit($item, 30))
-                    ->implode(' » ')
-                    . ' » ';
-            }
-
-            $label .= Str::limit($page->name, 40);
-
-            $options[$page->getKey()] = $label;
+            $options[$page->getKey()] = $this->pageOptionLabel($page, $site_id);
         });
 
         if ($total > $limit) {
@@ -330,6 +331,32 @@ class PageSelect extends Select
         }
 
         return $options;
+    }
+
+    private function pageOptionLabel(Page $page, ?int $site_id = null): string
+    {
+        $label = '';
+
+        if (($site_id === null || $site_id === 0) && $page->relationLoaded('site')) {
+            $label .= $page->site->name . ' » ';
+        }
+
+        if ($page->ancestors->isNotEmpty()) {
+            $label .= $page->ancestors->pluck('name')
+                ->map(fn (string $item): string => Str::limit($item, 30))
+                ->implode(' » ')
+                . ' » ';
+        }
+
+        $label .= Str::limit($page->name, 40);
+
+        return static::getSelectOption($page, [
+            'label' => $label,
+            'states' => array_values(array_filter([
+                ResolvePageAvailabilityStateAction::run($page)->state(),
+            ])),
+            'relationships' => BuildPageRelationshipCountsAction::run($page)->counts(),
+        ]);
     }
 
     private function modalHeadingText(Action $action): string

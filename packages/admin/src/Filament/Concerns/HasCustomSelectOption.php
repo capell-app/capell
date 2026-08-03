@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 trait HasCustomSelectOption
 {
     /**
-     * @param  array<string, mixed>|null  $data
+     * @param  array{label?: string, count?: int|string, description?: string, icon?: string, image?: string, prefix?: string, inline?: bool, size?: string, states?: iterable<object>, relationships?: iterable<object>}|null  $data
      */
     public static function getSelectOption(Model $record, ?array $data = null): string
     {

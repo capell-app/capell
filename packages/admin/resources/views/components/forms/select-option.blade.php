@@ -5,6 +5,8 @@
     'image' => '',
     'label' => '',
     'prefix' => '',
+    'states' => [],
+    'relationships' => [],
     'inline' => false,
     'size' => '',
 ])
@@ -56,6 +58,15 @@
             >
                 {{ $description }}
             </span>
+        @endif
+
+        @if ($states !== [] || $relationships !== [])
+            <div class="mt-1 flex flex-wrap gap-1">
+                @include('capell-admin::components.record-state-summary', [
+                    'states' => $states,
+                    'relationships' => $relationships,
+                ])
+            </div>
         @endif
     </div>
 </div>

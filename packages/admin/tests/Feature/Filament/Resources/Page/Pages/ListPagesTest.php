@@ -474,6 +474,42 @@ it('renders compact page health indicators in the page summary', function (): vo
         ->assertTableActionHidden(VisitUrlAction::getDefaultName(), record: $page);
 });
 
+it('filters pages by direct URL availability without inventing a page status', function (): void {
+    $noActiveUrlPage = Page::factory()->createOne(['name' => 'No active URL page']);
+    $noActiveUrlPage->pageUrls()->update(['status' => false]);
+
+    $partiallyDisabledPage = Page::factory()->site($noActiveUrlPage->site)->createOne(['name' => 'Partially disabled URL page']);
+    PageUrl::factory()
+        ->page($partiallyDisabledPage)
+        ->site($partiallyDisabledPage->site)
+        ->language($partiallyDisabledPage->site->language)
+        ->createOne(['status' => false]);
+    PageUrl::factory()
+        ->page($partiallyDisabledPage)
+        ->site($partiallyDisabledPage->site)
+        ->language($partiallyDisabledPage->site->language)
+        ->createOne(['status' => true]);
+
+    $activePage = Page::factory()->site($noActiveUrlPage->site)->createOne(['name' => 'Active URL page']);
+    PageUrl::factory()
+        ->page($activePage)
+        ->site($activePage->site)
+        ->language($activePage->site->language)
+        ->createOne(['status' => true]);
+
+    $component = Livewire::test(ListPages::class)
+        ->assertSuccessful()
+        ->filterTable('availability', 'no_active_url')
+        ->assertCanSeeTableRecords([$noActiveUrlPage])
+        ->assertCanNotSeeTableRecords([$partiallyDisabledPage, $activePage]);
+
+    $component
+        ->resetTableFilters()
+        ->filterTable('availability', 'some_urls_disabled')
+        ->assertCanSeeTableRecords([$partiallyDisabledPage])
+        ->assertCanNotSeeTableRecords([$noActiveUrlPage, $activePage]);
+});
+
 it('page table status can be supplied by a package resolver', function (): void {
     $visiblePage = Page::factory()->createOne(['name' => 'Visible workflow page']);
     Page::factory()->createOne(['name' => 'Hidden workflow page']);
