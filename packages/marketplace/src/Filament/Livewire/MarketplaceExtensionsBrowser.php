@@ -13,6 +13,7 @@ use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
@@ -216,7 +217,11 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $selection = $this->marketplaceSelectionReview();
 
-        if (! $selection['can_install']
+        // A host that cannot run an automated install must not be able to reach
+        // a preflight failure through the confirm path; it gets the manual
+        // instructions instead.
+        if (! $this->marketplaceEnvironmentReadiness()->canInstallAutomatically()
+            || ! $selection['can_install']
             || ! $this->installReviewedMarketplaceExtensionsConfirmed
             || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged)) {
             Notification::make()
@@ -379,6 +384,28 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     public function marketplaceEnvironmentReadiness(): MarketplaceEnvironmentReadinessData
     {
         return $this->marketplaceEnvironmentReadiness ??= EvaluateMarketplaceEnvironmentReadinessAction::run();
+    }
+
+    /**
+     * Where an operator goes to read the commands they must run themselves.
+     *
+     * A host that cannot install for the user still has a fully browsable
+     * catalogue, so the manual instructions on the extension detail page become
+     * the primary call to action rather than a hidden disclosure.
+     */
+    public function manualInstallInstructionsUrl(string $slug): ?string
+    {
+        if ($slug === '') {
+            return null;
+        }
+
+        try {
+            return MarketplaceExtensionDetailPage::getUrl(['slug' => $slug]);
+        } catch (Throwable) {
+            // A panel that has not registered the detail page still gets the
+            // explanation, just without a link to follow.
+            return null;
+        }
     }
 
     public function render(): mixed

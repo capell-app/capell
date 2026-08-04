@@ -9,9 +9,11 @@ use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\SubmitExtensionFeedbackAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
 use Capell\Marketplace\Data\ExtensionFeedbackData;
+use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Widgets\ExtensionHealthAlertsFilamentWidget;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -53,6 +55,8 @@ final class MarketplaceExtensionDetailPage extends Page
     protected string $view = 'capell-marketplace::filament.pages.marketplace-extension-detail';
 
     private ?ExtensionDetailData $resolvedDetail = null;
+
+    private ?MarketplaceEnvironmentReadinessData $environmentReadiness = null;
 
     #[Override]
     public static function canAccess(): bool
@@ -316,6 +320,26 @@ final class MarketplaceExtensionDetailPage extends Page
             'composer' => $detail->manualComposerRequireCommand(),
             'install' => $detail->manualExtensionInstallCommand(),
         ];
+    }
+
+    public function environmentReadiness(): MarketplaceEnvironmentReadinessData
+    {
+        return $this->environmentReadiness ??= EvaluateMarketplaceEnvironmentReadinessAction::run();
+    }
+
+    /**
+     * On a host that cannot install for the user, the manual commands stop being
+     * a disclosure and become the primary call to action.
+     */
+    public function requiresManualInstallInstructions(): bool
+    {
+        return $this->manualInstallCommands() !== []
+            && ! $this->environmentReadiness()->canInstallAutomatically();
+    }
+
+    public function showManualInstallInstructions(): void
+    {
+        $this->showManualInstallCommands = true;
     }
 
     public function ratingIsRequired(): bool

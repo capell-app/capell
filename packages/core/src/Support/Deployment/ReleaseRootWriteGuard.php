@@ -31,12 +31,18 @@ final class ReleaseRootWriteGuard
     }
 
     /**
-     * Report why the guard would refuse, without throwing.
+     * Report why the guard would refuse the operation, as a value.
      *
      * Readiness reporting has to describe the host before anybody commits to an
-     * operation, so it needs the reason as a value rather than as an exception.
+     * operation, so no host condition is reported as an exception here. A
+     * malformed $relativePaths entry is a caller bug rather than a host fact and
+     * still raises InvalidArgumentException, exactly as assertWritable does.
+     *
      *
      * @param  list<string>  $relativePaths
+     *
+     * @throws InvalidArgumentException when a relative path is empty, absolute,
+     *                                  or contains parent traversal
      */
     public function check(
         string $operation,
@@ -48,7 +54,12 @@ final class ReleaseRootWriteGuard
     }
 
     /**
+     * The refusal as a typed reason, with the same contract as check().
+     *
      * @param  list<string>  $relativePaths
+     *
+     * @throws InvalidArgumentException when a relative path is empty, absolute,
+     *                                  or contains parent traversal
      */
     public function refusalReason(
         string $operation,

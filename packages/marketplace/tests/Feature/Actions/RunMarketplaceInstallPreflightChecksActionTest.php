@@ -41,16 +41,36 @@ it('fails preflight when the host cannot run an automated install', function ():
         ->and($processExecution['docs_anchor'])->toBe('process-execution');
 });
 
-it('translates every preflight message rather than hardcoding English', function (): void {
+it('resolves a translation for every preflight message rather than emitting a raw key', function (): void {
     fakeMarketplaceEnvironmentReadiness();
 
     $result = RunMarketplaceInstallPreflightChecksAction::run(preflightAttempt());
 
+    expect($result['checks'])->not->toBe([]);
+
+    foreach ($result['checks'] as $check) {
+        expect($check['message'])->not->toBe('')
+            ->and($check['message'])->not->toContain('capell-marketplace::')
+            ->and($check['remediation'] ?? '')->not->toContain('capell-marketplace::');
+    }
+
+    // Spot-check that a per-attempt message really comes from the lang file
+    // rather than merely looking like prose.
     $queueReady = collect($result['checks'])->firstWhere('name', 'queue_ready');
 
     expect($queueReady['message'])->toBe(
         (string) __('capell-marketplace::marketplace.readiness.preflight.queue_ready_pass'),
-    )->and($queueReady['message'])->not->toContain('capell-marketplace::');
+    );
+});
+
+it('reports the queue retry_after rule once, as a readiness check', function (): void {
+    fakeMarketplaceEnvironmentReadiness();
+
+    $names = array_column(RunMarketplaceInstallPreflightChecksAction::run(preflightAttempt())['checks'], 'name');
+
+    // One condition, one failure: the rule lives in readiness and the
+    // per-attempt preflight must not restate it under a second name.
+    expect($names)->not->toContain('queue_retry_after');
 });
 
 it('carries remediation and a docs anchor on every per-attempt failure', function (): void {

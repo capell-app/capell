@@ -254,7 +254,7 @@ it('stops orchestration side effects when queueing returns a cancelled theme att
     Event::listen(
         'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
         function (MarketplaceInstallAttemptEvent $event): void {
-            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+            if (($event->context['check'] ?? null) !== 'queue_ready') {
                 return;
             }
 

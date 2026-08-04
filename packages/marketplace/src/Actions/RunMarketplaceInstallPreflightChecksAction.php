@@ -52,7 +52,9 @@ final class RunMarketplaceInstallPreflightChecksAction
             $this->check('package_not_installed', ! $this->packageAlreadyInstalled($attempt->composer_name) || $this->allowsInstalledPackageRetry($attempt)),
             $this->check('no_duplicate_active_install', ! $this->hasDuplicateActiveInstall($attempt)),
             $this->check('queue_ready', config('queue.default') !== null),
-            $this->check('queue_retry_after', $this->queueRetryAfterIsSafe()),
+            // The queue retry_after rule is not repeated here: readiness owns it
+            // as `environment_timeout_chain`, and a user must not be shown two
+            // differently worded failures for one condition.
         ];
 
         $passed = collect($checks)->every(fn (array $check): bool => $check['passed']);
@@ -132,13 +134,5 @@ final class RunMarketplaceInstallPreflightChecksAction
             ->whereKey($attempt->retry_of_id)
             ->where('failure_type', MarketplaceInstallFailureType::CancelledAfterComposer->value)
             ->exists();
-    }
-
-    private function queueRetryAfterIsSafe(): bool
-    {
-        $connectionName = (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database');
-        $retryAfter = config('queue.connections.' . $connectionName . '.retry_after');
-
-        return ! is_numeric($retryAfter) || (int) $retryAfter > 720;
     }
 }

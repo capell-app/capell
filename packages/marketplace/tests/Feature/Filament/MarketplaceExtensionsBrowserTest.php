@@ -11,9 +11,11 @@ use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionReviewData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
@@ -26,6 +28,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -1663,3 +1666,85 @@ function marketplaceBrowserExtensionPayload(array $overrides = []): array
         ...$overrides,
     ];
 }
+
+/**
+ * Put the browser on the review step with one selected extension, so a test can
+ * assert what a host of a given capability is offered before it confirms.
+ */
+function reviewMarketplaceBrowserWithOneSelection(): Testable
+{
+    Http::fake([
+        'https://marketplace.test/api/extensions?*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'seo-suite',
+                    'name' => 'SEO Suite',
+                    'composer_name' => 'capell-app/seo-suite',
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+        '*' => Http::response(['data' => []]),
+    ]);
+
+    return Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/seo-suite')
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'review');
+}
+
+it('says nothing about readiness on a host that can install automatically', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
+
+    // Every warning shown on a healthy host is a warning the user learns to
+    // ignore on an unhealthy one.
+    reviewMarketplaceBrowserWithOneSelection()
+        ->assertDontSeeHtml('data-capell-marketplace-readiness-banner')
+        ->assertDontSeeHtml('data-capell-marketplace-readiness-summary')
+        ->assertSee(__('capell-marketplace::marketplace.selection.confirm_download_install_label'));
+});
+
+it('explains the host and names its capability when an install is not automatic', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::ManualOnly,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    reviewMarketplaceBrowserWithOneSelection()
+        ->assertSeeHtml('data-capell-marketplace-readiness-banner')
+        ->assertSeeHtml('data-capell-marketplace-readiness-summary')
+        ->assertSeeHtml('data-capell-marketplace-readiness-capability="manual_only"')
+        ->assertSeeHtml('data-capell-marketplace-readiness-check="process_execution"');
+});
+
+it('offers install instructions instead of a confirmation on a manual-only host', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::ManualOnly,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    reviewMarketplaceBrowserWithOneSelection()
+        ->assertSeeHtml('data-capell-marketplace-manual-install-cta')
+        ->assertDontSee(__('capell-marketplace::marketplace.selection.confirm_download_install_label'))
+        ->assertSee(__('capell-marketplace::marketplace.readiness.manual_install_cta_heading'));
+});
+
+it('refuses to queue an install on a manual-only host even when confirmation is forced', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::ManualOnly,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    // The checkbox is not rendered, so this is the crafted-request case: the
+    // gate has to hold on the server, not only in the markup.
+    reviewMarketplaceBrowserWithOneSelection()
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->call('installReviewedMarketplaceExtensions');
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+});

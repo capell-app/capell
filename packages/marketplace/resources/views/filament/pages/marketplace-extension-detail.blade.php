@@ -60,7 +60,7 @@
                     <section
                         class="space-y-3"
                         aria-labelledby="marketplace-extension-screenshots-heading"
-                        data-marketplace-extension-screenshots
+                        data-capell-marketplace-extension-screenshots
                     >
                         <div
                             class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"
@@ -120,7 +120,7 @@
             @if ($detail->documentationUrl !== null)
                 <section
                     class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
-                    data-marketplace-extension-docs
+                    data-capell-marketplace-extension-docs
                 >
                     <h2
                         class="text-base font-semibold text-gray-950 dark:text-white"
@@ -190,6 +190,35 @@
                 $manualInstallCommands = $this->manualInstallCommands();
             @endphp
 
+            @if ($this->requiresManualInstallInstructions())
+                {{-- This host cannot install for the operator, so the commands
+                     they must run are the primary action rather than an
+                     optional disclosure below it. --}}
+                <div
+                    data-capell-marketplace-manual-install-cta
+                    data-capell-marketplace-readiness-capability="{{ $this->environmentReadiness()->capability->value }}"
+                    class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+                >
+                    <p class="font-semibold text-amber-950 dark:text-amber-100">
+                        {{ __('capell-marketplace::marketplace.readiness.manual_install_cta_heading') }}
+                    </p>
+
+                    <p class="text-amber-800 dark:text-amber-200">
+                        {{ __('capell-marketplace::marketplace.readiness.manual_install_cta_body') }}
+                    </p>
+
+                    @unless ($showManualInstallCommands)
+                        <button
+                            type="button"
+                            wire:click="showManualInstallInstructions"
+                            class="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-500"
+                        >
+                            {{ __('capell-marketplace::marketplace.readiness.manual_install_cta_button') }}
+                        </button>
+                    @endunless
+                </div>
+            @endif
+
             @if ($manualInstallCommands !== [])
                 <div class="space-y-3">
                     <label
@@ -207,7 +236,7 @@
                     @if ($showManualInstallCommands)
                         <div
                             class="grid gap-3 md:grid-cols-2"
-                            data-marketplace-manual-install-commands
+                            data-capell-marketplace-manual-install-commands
                         >
                             <div class="space-y-2">
                                 <h3

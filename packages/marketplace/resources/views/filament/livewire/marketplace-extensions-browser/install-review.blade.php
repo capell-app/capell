@@ -1,11 +1,20 @@
 @php
     /** @var array<string, mixed> $selection */
+    /** @var \Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData $readiness */
+    use Capell\Marketplace\Enums\MarketplaceInstallCapability;
+
     $dependencyCount = count($selection['dependency_records']);
+    $canInstallAutomatically = $readiness->canInstallAutomatically();
+
+    // A healthy host has nothing to warn about here, and a summary that always
+    // speaks turns into noise directly above the confirmation.
+    $showReadinessSummary = $readiness->capability !== MarketplaceInstallCapability::Automated
+        || $readiness->failedChecks() !== [];
 @endphp
 
 <div
     class="space-y-5"
-    x-init="$nextTick(() => $el.querySelector('[data-marketplace-review-heading]')?.focus())"
+    x-init="$nextTick(() => $el.querySelector('[data-capell-marketplace-review-heading]')?.focus())"
 >
     <div
         class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
@@ -13,7 +22,7 @@
         <div class="space-y-1">
             <h3
                 tabindex="-1"
-                data-marketplace-review-heading
+                data-capell-marketplace-review-heading
                 class="text-base font-semibold text-gray-950 outline-none dark:text-white"
             >
                 {{ __('capell-marketplace::marketplace.selection.review_heading') }}
@@ -381,49 +390,95 @@
     @endif
 
     {{-- The host's capability belongs before the confirmation, not after it. --}}
-    <div
-        data-capell-marketplace-readiness-summary
-        data-capell-marketplace-readiness-capability="{{ $readiness->capability->value }}"
-        class="space-y-2 rounded-lg border border-gray-200 bg-white p-4 text-sm dark:border-white/10 dark:bg-gray-900"
-    >
-        <h4 class="text-sm font-semibold text-gray-950 dark:text-white">
-            {{ __('capell-marketplace::marketplace.readiness.summary_heading') }}
-        </h4>
+    @if ($showReadinessSummary)
+        <div
+            data-capell-marketplace-readiness-summary
+            data-capell-marketplace-readiness-capability="{{ $readiness->capability->value }}"
+            class="space-y-2 rounded-lg border border-gray-200 bg-white p-4 text-sm dark:border-white/10 dark:bg-gray-900"
+        >
+            <h4 class="text-sm font-semibold text-gray-950 dark:text-white">
+                {{ __('capell-marketplace::marketplace.readiness.summary_heading') }}
+            </h4>
 
-        <p class="text-gray-600 dark:text-gray-400">
-            {{ $readiness->capability->getLabel() }} — {{ __('capell-marketplace::marketplace.readiness.banner.' . $readiness->capability->value) }}
-        </p>
-
-        @foreach ([...$readiness->failedChecks(), ...$readiness->warnedChecks()] as $readinessCheck)
-            <p
-                data-capell-marketplace-readiness-check="{{ $readinessCheck->key }}"
-                class="text-gray-600 dark:text-gray-400"
-            >
-                {{ $readinessCheck->message }}
-
-                @if ($readinessCheck->remediation !== null)
-                    {{ $readinessCheck->remediation }}
-                @endif
+            <p class="text-gray-600 dark:text-gray-400">
+                {{ $readiness->capability->getLabel() }} — {{ __('capell-marketplace::marketplace.readiness.banner.' . $readiness->capability->value) }}
             </p>
-        @endforeach
-    </div>
 
-    <label
-        class="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-500/30 dark:bg-blue-500/10"
-    >
-        <x-filament::input.checkbox
-            wire:model.live="installReviewedMarketplaceExtensionsConfirmed"
-        />
+            @foreach ([...$readiness->failedChecks(), ...$readiness->warnedChecks()] as $readinessCheck)
+                <p
+                    data-capell-marketplace-readiness-check="{{ $readinessCheck->key }}"
+                    class="text-gray-600 dark:text-gray-400"
+                >
+                    {{ $readinessCheck->message }}
 
-        <span class="space-y-1">
-            <span class="block font-semibold text-blue-950 dark:text-blue-100">
-                {{ __('capell-marketplace::marketplace.selection.confirm_download_install_label') }}
+                    @if ($readinessCheck->remediation !== null)
+                        {{ $readinessCheck->remediation }}
+                    @endif
+                </p>
+            @endforeach
+        </div>
+    @endif
+
+    @if ($canInstallAutomatically)
+        <label
+            class="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-500/30 dark:bg-blue-500/10"
+        >
+            <x-filament::input.checkbox
+                wire:model.live="installReviewedMarketplaceExtensionsConfirmed"
+            />
+
+            <span class="space-y-1">
+                <span
+                    class="block font-semibold text-blue-950 dark:text-blue-100"
+                >
+                    {{ __('capell-marketplace::marketplace.selection.confirm_download_install_label') }}
+                </span>
+                <span class="block text-blue-800 dark:text-blue-200">
+                    {{ __('capell-marketplace::marketplace.selection.confirm_download_install_help') }}
+                </span>
             </span>
-            <span class="block text-blue-800 dark:text-blue-200">
-                {{ __('capell-marketplace::marketplace.selection.confirm_download_install_help') }}
-            </span>
-        </span>
-    </label>
+        </label>
+    @else
+        {{-- The confirmation is withheld rather than disabled: on this host the
+             install is something the operator runs, so the instructions are the
+             call to action. --}}
+        <div
+            data-capell-marketplace-manual-install-cta
+            data-capell-marketplace-readiness-capability="{{ $readiness->capability->value }}"
+            class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+        >
+            <p class="font-semibold text-amber-950 dark:text-amber-100">
+                {{ __('capell-marketplace::marketplace.readiness.manual_install_cta_heading') }}
+            </p>
+
+            <p class="text-amber-800 dark:text-amber-200">
+                {{ __('capell-marketplace::marketplace.readiness.manual_install_cta_body') }}
+            </p>
+
+            <div class="flex flex-wrap gap-2">
+                @foreach ($selection['explicit_records'] as $record)
+                    @php
+                        $recordSlug = is_string($record['slug'] ?? null) ? $record['slug'] : '';
+                        $instructionsUrl = $this->manualInstallInstructionsUrl($recordSlug);
+                    @endphp
+
+                    @if ($instructionsUrl !== null)
+                        <a
+                            href="{{ $instructionsUrl }}"
+                            data-capell-marketplace-manual-install-link="{{ $recordSlug }}"
+                            class="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-500"
+                        >
+                            {{
+                                __('capell-marketplace::marketplace.readiness.manual_install_cta_action', [
+                                    'name' => $record['name'] ?? $recordSlug,
+                                ])
+                            }}
+                        </a>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     <template x-teleport="#capell-marketplace-browser-modal-footer">
         <div
@@ -442,11 +497,11 @@
                 wire:click="installReviewedMarketplaceExtensions"
                 wire:loading.attr="disabled"
                 wire:target="installReviewedMarketplaceExtensions"
-                @disabled(! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged))
+                @disabled(! $canInstallAutomatically || ! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged))
                 @class([
                     'inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition',
-                    'bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' => $selection['can_install'] && $this->installReviewedMarketplaceExtensionsConfirmed && (! $selection['contains_beta'] || $this->betaMarketplaceExtensionsAcknowledged),
-                    'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500' => ! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged),
+                    'bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' => $canInstallAutomatically && $selection['can_install'] && $this->installReviewedMarketplaceExtensionsConfirmed && (! $selection['contains_beta'] || $this->betaMarketplaceExtensionsAcknowledged),
+                    'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500' => ! $canInstallAutomatically || ! $selection['can_install'] || ! $this->installReviewedMarketplaceExtensionsConfirmed || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged),
                 ])
             >
                 <span

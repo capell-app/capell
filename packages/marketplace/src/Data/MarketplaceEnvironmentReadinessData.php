@@ -22,6 +22,20 @@ final class MarketplaceEnvironmentReadinessData extends Data
         public readonly array $checks = [],
     ) {}
 
+    /**
+     * A non-nullable array property is inferred as `required`, which makes
+     * validateAndCreate reject the empty list this data legitimately carries
+     * when no check has been recorded.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function rules(): array
+    {
+        return [
+            'checks' => ['sometimes', 'array'],
+        ];
+    }
+
     public function canInstallAutomatically(): bool
     {
         return $this->capability->allowsAutomatedInstall();

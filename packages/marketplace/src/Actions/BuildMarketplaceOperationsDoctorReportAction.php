@@ -10,6 +10,7 @@ use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceQueueTimeoutChain;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -175,26 +176,27 @@ final class BuildMarketplaceOperationsDoctorReportAction
 
     private function queueRetryAfterCheck(): DoctorCheckResultData
     {
-        $connectionName = (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database');
-        $retryAfter = config('queue.connections.' . $connectionName . '.retry_after');
-        $retryAfterSeconds = is_numeric($retryAfter) ? (int) $retryAfter : null;
-        $isSafe = $retryAfterSeconds === null || $retryAfterSeconds > 720;
+        $chain = MarketplaceQueueTimeoutChain::resolve();
+        $isSafe = $chain->isSafe();
 
         return new DoctorCheckResultData(
             label: (string) __('capell-marketplace::marketplace.operations.doctor_queue_label'),
             passed: $isSafe,
             message: $isSafe
                 ? (string) __('capell-marketplace::marketplace.operations.doctor_queue_healthy')
-                : (string) __('capell-marketplace::marketplace.operations.doctor_queue_unhealthy', ['seconds' => $retryAfterSeconds]),
+                : (string) __('capell-marketplace::marketplace.operations.doctor_queue_unhealthy', [
+                    'seconds' => $chain->retryAfterSeconds,
+                    'job_timeout' => $chain->jobTimeoutSeconds,
+                ]),
             remediation: $isSafe
                 ? null
                 : (string) __('capell-marketplace::marketplace.operations.doctor_queue_remediation'),
             id: 'marketplace.operations.queue-retry-after',
             severity: DoctorCheckSeverity::Critical,
             evidence: [
-                'connection' => $connectionName,
-                'retry_after_seconds' => $retryAfterSeconds,
-                'job_timeout_seconds' => 720,
+                'connection' => $chain->connectionName,
+                'retry_after_seconds' => $chain->retryAfterSeconds,
+                'job_timeout_seconds' => $chain->jobTimeoutSeconds,
             ],
         );
     }

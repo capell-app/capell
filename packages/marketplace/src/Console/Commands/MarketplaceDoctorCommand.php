@@ -36,12 +36,13 @@ final class MarketplaceDoctorCommand extends Command
             }
         }
 
-        $this->line(sprintf(
-            '       %s',
-            __('capell-marketplace::marketplace.operations.doctor_docs_hint', [
+        // Only worth saying when there is something to look up. A passing report
+        // should end without homework.
+        if ($report->status !== 'passed') {
+            $this->line((string) __('capell-marketplace::marketplace.operations.doctor_docs_hint', [
                 'path' => EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH,
-            ]),
-        ));
+            ]));
+        }
 
         return $report->status === 'passed' ? self::SUCCESS : self::FAILURE;
     }

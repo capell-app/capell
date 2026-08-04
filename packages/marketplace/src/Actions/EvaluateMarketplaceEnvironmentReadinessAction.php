@@ -11,8 +11,8 @@ use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
-use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
+use Capell\Marketplace\Support\MarketplaceQueueTimeoutChain;
 use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -220,27 +220,17 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
 
     private function timeoutChainCheck(): MarketplaceReadinessCheckData
     {
-        $connectionName = (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database');
-        $retryAfter = config('queue.connections.' . $connectionName . '.retry_after');
-        $retryAfterSeconds = is_numeric($retryAfter) ? (int) $retryAfter : null;
+        $chain = MarketplaceQueueTimeoutChain::resolve();
 
-        $composerTimeout = RunMarketplaceInstallAttemptJob::COMPOSER_TIMEOUT_SECONDS;
-        $jobTimeout = RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS;
-
-        // A retry_after at or below the job timeout makes the queue re-dispatch a
-        // job that is still running Composer, so the same install runs twice.
-        $safe = $composerTimeout < $jobTimeout
-            && ($retryAfterSeconds === null || $retryAfterSeconds > $jobTimeout);
-
-        if ($safe) {
+        if ($chain->isSafe()) {
             return $this->passed('timeout_chain');
         }
 
         return $this->failed('timeout_chain', byDesign: false, replacements: [
-            'connection' => $connectionName,
-            'retry_after' => $retryAfterSeconds ?? 0,
-            'job_timeout' => $jobTimeout,
-            'composer_timeout' => $composerTimeout,
+            'connection' => $chain->connectionName,
+            'retry_after' => $chain->retryAfterSeconds ?? 0,
+            'job_timeout' => $chain->jobTimeoutSeconds,
+            'composer_timeout' => $chain->composerTimeoutSeconds,
         ]);
     }
 

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -34,8 +35,8 @@ it('renders marketplace extension details with health alerts and accessible feed
         ->assertSee('Install from Marketplace')
         ->assertSee('Screenshots')
         ->assertSee('5 screenshots')
-        ->assertSee('data-marketplace-extension-screenshots', false)
-        ->assertSee('data-marketplace-extension-docs', false)
+        ->assertSee('data-capell-marketplace-extension-screenshots', false)
+        ->assertSee('data-capell-marketplace-extension-docs', false)
         ->assertSee('Admin overview')
         ->assertSee('Frontend output')
         ->assertSee('loading="lazy"', false)
@@ -58,7 +59,7 @@ it('renders marketplace extension details with health alerts and accessible feed
         ->assertSee('target="_blank"', false)
         ->assertSee('rel="noopener noreferrer"', false)
         ->set('showManualInstallCommands', true)
-        ->assertSee('data-marketplace-manual-install-commands', false)
+        ->assertSee('data-capell-marketplace-manual-install-commands', false)
         ->assertSee('composer require capell-app/seo-suite:^2.1.0')
         ->assertSee('php artisan capell:extension-install capell-app/seo-suite')
         ->set('feedbackStatus', 'pending')
@@ -203,3 +204,53 @@ function marketplaceDetailResponse(bool $canComment = true, bool $canRate = true
         ],
     ]);
 }
+
+it('promotes the install instructions to the primary action on a manual-only host', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse(),
+    ]);
+
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::ManualOnly);
+
+    // A manual-only host keeps a fully browsable catalogue; what changes is that
+    // running the commands becomes the action, not a hidden disclosure.
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertSeeHtml('data-capell-marketplace-manual-install-cta')
+        ->assertSee(__('capell-marketplace::marketplace.readiness.manual_install_cta_button'))
+        ->assertDontSee('composer require capell-app/seo-suite:^2.1.0')
+        ->call('showManualInstallInstructions')
+        ->assertSet('showManualInstallCommands', true)
+        ->assertSee('composer require capell-app/seo-suite:^2.1.0');
+});
+
+it('keeps the install instructions a disclosure on a host that installs automatically', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse(),
+    ]);
+
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertDontSeeHtml('data-capell-marketplace-manual-install-cta')
+        ->assertSee(__('capell-marketplace::marketplace.detail.manual_install_checkbox_label'));
+});
