@@ -46,12 +46,12 @@ final class PageAvailabilityData extends Data
         if ($this->disabledUrlCount > 0) {
             return new RecordStateData(
                 key: 'some_urls_disabled',
-                label: (string) trans_choice(
+                label: trans_choice(
                     'capell-admin::table.page_availability_some_urls_disabled',
                     $this->disabledUrlCount,
                     ['count' => $this->disabledUrlCount],
                 ),
-                description: (string) trans_choice(
+                description: trans_choice(
                     'capell-admin::table.page_availability_some_urls_disabled_tooltip',
                     $this->disabledUrlCount,
                     ['count' => $this->disabledUrlCount],

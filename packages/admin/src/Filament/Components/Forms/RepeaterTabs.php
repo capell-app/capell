@@ -100,15 +100,18 @@ class RepeaterTabs extends Repeater
     }
 
     /**
-     * @return array{badge: mixed, badgeColor: mixed, icon: ?string, isFlagIcon: bool, label: mixed}
+     * @return array{badge: mixed, badgeColor: mixed, badgeTooltip: ?string, icon: ?string, isFlagIcon: bool, label: mixed}
      */
     public function getTabPresentation(string|int $itemKey): array
     {
         $badge = $this->getItemBadge($itemKey);
         $badgeColor = null;
+        $badgeTooltip = null;
 
         if (is_array($badge)) {
             $badgeColor = $badge['color'] ?? null;
+            $tooltip = $badge['tooltip'] ?? null;
+            $badgeTooltip = is_string($tooltip) ? $tooltip : null;
             $badge = $badge['label'];
         }
 
@@ -117,6 +120,7 @@ class RepeaterTabs extends Repeater
         return [
             'badge' => $badge,
             'badgeColor' => $badgeColor,
+            'badgeTooltip' => $badgeTooltip,
             'icon' => $icon,
             'isFlagIcon' => is_string($icon) && str_starts_with($icon, 'flag-'),
             'label' => $this->getItemLabel((string) $itemKey),
@@ -471,16 +475,44 @@ class RepeaterTabs extends Repeater
         }
     }
 
+    /**
+     * The auto-translate button wraps tanmuhittin/laravel-google-translate, which only
+     * reaches a real translation API when one of its keys is configured. Without a key
+     * the package falls back to an unauthenticated scraper that fails at request time,
+     * so the button is disabled rather than left to error on click.
+     */
+    public function hasTranslationApiCredentials(): bool
+    {
+        $config = config('laravel_google_translate');
+
+        if (! is_array($config)) {
+            return false;
+        }
+
+        foreach (['google_translate_api_key', 'yandex_translate_api_key', 'custom_api_translator'] as $key) {
+            $value = $config[$key] ?? null;
+
+            if (is_string($value) && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function translateAction(): Action
     {
+        $hasCredentials = $this->hasTranslationApiCredentials();
+
         return Action::make('translate')
             ->label(__('capell-admin::button.auto_translate'))
-            ->tooltip(__('capell-admin::generic.auto_translate_info'))
+            ->tooltip(__($hasCredentials ? 'capell-admin::generic.auto_translate_info' : 'capell-admin::generic.auto_translate_unavailable_info'))
             ->color('gray')
             ->icon('heroicon-o-sparkles')
             ->size(Size::Small)
             ->requiresConfirmation()
             ->grouped()
+            ->disabled(! $hasCredentials)
             ->visible(config('capell-admin.auto_translate_language_text', true))
             ->modalHeading(__('capell-admin::generic.auto_translate'))
             ->modalDescription(__('capell-admin::generic.auto_translate_confirm'))

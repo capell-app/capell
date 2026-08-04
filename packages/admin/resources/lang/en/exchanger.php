@@ -62,6 +62,12 @@ return [
         'completed' => 'Sites exported',
         'label' => 'Export site',
     ],
+    'export_translations' => [
+        'all_languages' => 'All languages of the site',
+        'description' => 'Downloads one CSV row per record and target language. Blueprint content is exported as the stored JSON blob, not as individual fields.',
+        'label' => 'Export translations',
+        'submit' => 'Download CSV',
+    ],
     'failure_reason' => 'Failure reason',
     'group_layouts' => 'Layouts',
     'group_media' => 'Media',

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Frontend\Filament\Settings;
 
 use Capell\Core\Contracts\SettingsSchema;
+use Capell\Frontend\Enums\VisitorLanguageDetection;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -46,6 +48,21 @@ class FrontendSettingsSchema implements SettingsSchema
                                 ->label(__('capell-frontend::form.custom_maintenance_page_enabled'))
                                 ->helperText(__('capell-frontend::form.custom_maintenance_page_enabled_helper')),
                         ]),
+                ]),
+            // Its own section, not a row inside "Performance": this changes what
+            // a visitor is SHOWN, not how fast it is served. An administrator
+            // looking for language behaviour would never open Performance.
+            Section::make(__('capell-frontend::form.languages'))
+                ->columnSpanFull()
+                ->description(__('capell-frontend::form.languages_info'))
+                ->schema([
+                    Select::make('visitor_language_detection')
+                        ->label(__('capell-frontend::form.visitor_language_detection'))
+                        ->helperText(__('capell-frontend::form.visitor_language_detection_helper'))
+                        ->options(VisitorLanguageDetection::options())
+                        ->default(VisitorLanguageDetection::Off->value)
+                        ->selectablePlaceholder(false)
+                        ->required(),
                 ]),
         ];
     }

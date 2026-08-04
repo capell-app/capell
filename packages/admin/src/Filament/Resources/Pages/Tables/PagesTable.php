@@ -70,6 +70,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -134,7 +136,7 @@ class PagesTable implements TableConfigurator
                         }),
                     ReplicatePageAction::make(),
                     DeleteAction::make()
-                        ->modalContent(fn (PageModel $record) => view('capell-admin::components.record-deletion-impact', [
+                        ->modalContent(fn (PageModel $record): Factory|View => view('capell-admin::components.record-deletion-impact', [
                             'impact' => BuildPageDeletionImpactAction::run($record),
                         ]))
                         ->before(self::beforeRecordDelete(...))
@@ -150,8 +152,8 @@ class PagesTable implements TableConfigurator
                 BulkMovePagesBulkAction::make(),
                 ...static::getExtenderBulkActions(),
                 DeleteBulkAction::make()
-                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records) => view('capell-admin::components.record-deletion-impact', [
-                        'impact' => app(BuildPageDeletionImpactAction::class)->handleMany($records),
+                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records): Factory|View => view('capell-admin::components.record-deletion-impact', [
+                        'impact' => resolve(BuildPageDeletionImpactAction::class)->handleMany($records),
                     ]))
                     ->before(self::beforeBulkDelete(...))
                     ->after(self::afterBulkDelete(...)),
@@ -212,6 +214,14 @@ class PagesTable implements TableConfigurator
                 ])
                 ->query(self::applyFilterQuery(...))
                 ->indicateUsing(self::indicateFilter(...)),
+
+            SelectFilter::make('missing_translation')
+                ->label(__('capell-admin::filter.missing_translation'))
+                ->searchable()
+                ->options(self::getLanguageOptions(...))
+                ->getSearchResultsUsing(self::getLanguageSearchResults(...))
+                ->query(self::applyMissingTranslationFilterQuery(...))
+                ->indicateUsing(self::indicateMissingTranslationFilter(...)),
 
             DateFilter::make('visible_from')
                 ->label(__('capell-admin::form.publish_date')),
@@ -442,6 +452,56 @@ class PagesTable implements TableConfigurator
         }
 
         return $indicators;
+    }
+
+    /**
+     * Matches pages that have no translation row for the chosen language, and pages
+     * whose row for that language carries neither a title nor content. A row cloned
+     * from the default language counts as translated: the blobs are not compared.
+     *
+     * @param  Builder<PageModel>  $query
+     * @param  array<string, mixed>  $data
+     * @return Builder<PageModel>
+     */
+    protected static function applyMissingTranslationFilterQuery(Builder $query, array $data): Builder
+    {
+        $languageId = $data['value'] ?? null;
+
+        if ($languageId === null || $languageId === '') {
+            return $query;
+        }
+
+        return $query->whereDoesntHave(
+            'translations',
+            fn (BuilderContract $query): BuilderContract => $query
+                ->where('language_id', (int) $languageId)
+                ->where(fn (BuilderContract $query): BuilderContract => $query
+                    ->where('title', '!=', '')
+                    ->orWhere('content', '!=', '')),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected static function indicateMissingTranslationFilter(array $data): ?string
+    {
+        $languageId = $data['value'] ?? null;
+
+        if ($languageId === null || $languageId === '') {
+            return null;
+        }
+
+        /** @var class-string<Language> $model */
+        $model = Language::class;
+
+        $language = $model::query()->find($languageId);
+
+        if (! $language instanceof Language) {
+            return null;
+        }
+
+        return (string) __('capell-admin::filter.missing_translation_indicator', ['language' => $language->name]);
     }
 
     protected static function shouldShowSystemPagesFilter(ResourcePage|HasPageResource $livewire): bool
@@ -833,6 +893,7 @@ class PagesTable implements TableConfigurator
             'site_id',
             'blueprint_id',
             'filter',
+            'missing_translation',
             'layout_id',
             'visible_from',
             'trashed',

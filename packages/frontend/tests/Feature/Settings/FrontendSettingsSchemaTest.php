@@ -8,6 +8,7 @@ use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -41,13 +42,41 @@ it('frontend settings fields are grouped inside contained sections', function ()
     $schema = Mockery::mock(Schema::class);
     $components = FrontendSettingsSchema::make($schema);
 
-    expect($components)
-        ->toHaveCount(1)
-        ->each->toBeInstanceOf(Section::class);
+    // The contract is the SHAPE, not the count: nothing may sit loose at the top
+    // level, every top-level element is a contained Section, and each section
+    // actually holds something. Asserting those directly means adding a section
+    // for a genuinely new topic does not require editing this test, while a
+    // field escaping to the top level still fails it.
+    expect($components)->not->toBeEmpty();
 
     foreach ($components as $component) {
+        // A field that escaped to the top level fails right here.
+        expect($component)->toBeInstanceOf(Section::class);
         expect($component->isContained())->toBeTrue();
+        expect(rawChildComponents($component))->not->toBeEmpty();
     }
+});
+
+it('keeps visitor language detection out of the performance section', function (): void {
+    $schema = Mockery::mock(Schema::class);
+    $components = FrontendSettingsSchema::make($schema);
+
+    $languagesIndex = collect($components)
+        ->search(fn (Component $section): bool => collectSchemaComponents(rawChildComponents($section))
+            ->contains(fn (Component $component): bool => $component instanceof Select
+                && $component->getName() === 'visitor_language_detection'));
+
+    $performanceIndex = collect($components)
+        ->search(fn (Component $section): bool => collectSchemaComponents(rawChildComponents($section))
+            ->contains(fn (Component $component): bool => $component instanceof Checkbox
+                && $component->getName() === 'cache_enabled'));
+
+    // The setting must be reachable in the UI at all...
+    expect($languagesIndex)->not->toBeFalse();
+
+    // ...and it changes what a visitor is SHOWN, not how fast it is served, so
+    // it deliberately does not live alongside the caching controls.
+    expect($languagesIndex)->not->toBe($performanceIndex);
 });
 
 it('frontend settings include custom system page toggles', function (): void {

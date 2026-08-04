@@ -7,6 +7,11 @@
 
 @php
     use Capell\Core\Enums\MediaConversionEnum;
+    use Capell\Core\Models\Language;
+    use Capell\Core\Models\PageUrl;
+    use Capell\Core\Models\SiteDomain;
+    use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+    use Illuminate\Database\Eloquent\Model;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
     use Capell\Frontend\Actions\ResolvePageRobotsDirectivesAction;
     use Capell\Frontend\Actions\RenderCustomHeadAction;
@@ -120,9 +125,44 @@
 
     $canonicalUrl = ResolvePageCanonicalUrlAction::run($page, $language);
     $robots = ResolvePageRobotsDirectivesAction::run($page, $language);
-    $defaultAlternateUrl = $pageUrls->firstWhere('language_id', $site->language_id)?->full_url
-        ?? $pageUrl?->full_url
-        ?? $siteDomain?->full_url;
+    $alternateLanguage = static fn (PageUrl $url): ?Language => $url->relationLoaded('language') && $url->language
+        ? $url->language
+        : ($url->language_id === $language?->id ? $language : null);
+    // Public Blade must not query (PublicViewQueryGuard). The alternate cluster needs the
+    // page's translation rows to know which languages really resolve — a page URL without a
+    // translation 404s in ResolvePublicPageByUrlAction, so advertising it is a broken alternate.
+    // `translations` is therefore eager-loaded alongside `pageUrls` upstream, in
+    // PageModelCache::canonicalRelations() and PageLoader (loadPage/getSystemPage). Keep this a
+    // pure read: never restore loadMissing()/lazy access here, fix the loader instead.
+    $translatedLanguageIds = $page instanceof Model && $page->relationLoaded('translations')
+        ? $page->translations->pluck('language_id')->all()
+        : [];
+    $alternatePageUrls = $pageUrls instanceof EloquentCollection
+        ? $pageUrls
+            ->filter(fn (PageUrl $url): bool => $url->type === null
+                && $url->status
+                && in_array($url->language_id, $translatedLanguageIds, true)
+                && $alternateLanguage($url) instanceof Language
+                && $url->relationLoaded('siteDomain')
+                && $url->siteDomain instanceof SiteDomain)
+            ->values()
+        : collect();
+
+    if ($alternatePageUrls->count() < 2) {
+        $alternatePageUrls = collect();
+    }
+
+    $alternates = $alternatePageUrls
+        ->map(fn (PageUrl $url): array => [
+            'href' => $url->full_url,
+            'hreflang' => Str::of($alternateLanguage($url)->locale ?: $alternateLanguage($url)->code)->lower()->replace('_', '-')->toString(),
+        ])
+        ->sortBy('hreflang')
+        ->values();
+
+    $defaultAlternateUrl = $site === null
+        ? null
+        : $alternatePageUrls->firstWhere('language_id', $site->language_id)?->full_url;
     $pageVariables = GetPageVariablesAction::run($page, $site);
     $translationVariables = collect($pageVariables)
         ->filter(fn (mixed $value): bool => is_scalar($value) || $value instanceof Stringable)
@@ -248,22 +288,10 @@
         />
     @endif
 
-    @foreach ($pageUrls as $url)
-        @php
-            $urlLanguage = $url->relationLoaded('language') && $url->language
-                ? $url->language
-                : ($url->language_id === $language->id ? $language : null);
-
-            $alternateSiteDomain = $url->relationLoaded('siteDomain') ? $url->siteDomain : null;
-
-            if (! $alternateSiteDomain?->full_url || ! $urlLanguage) {
-                continue;
-            }
-        @endphp
-
+    @foreach ($alternates as $alternate)
         <link
-            href="{{ $url->full_url }}"
-            hreflang="{{ Str::of($urlLanguage->locale)->lower()->replace('_', '-') }}"
+            href="{{ $alternate['href'] }}"
+            hreflang="{{ $alternate['hreflang'] }}"
             rel="alternate"
         />
     @endforeach

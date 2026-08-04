@@ -46,13 +46,13 @@ final class PageAvailabilityColumn extends TextColumn
     {
         $state = $this->resolveState($page);
 
-        return $state === null ? null : ($state->shortLabel ?? $state->label);
+        return $state instanceof RecordStateData ? $state->shortLabel ?? $state->label : (null);
     }
 
     private function stateColor(Page $page): string
     {
         $state = $this->resolveState($page);
 
-        return $state === null ? 'gray' : $state->color;
+        return $state instanceof RecordStateData ? $state->color : 'gray';
     }
 }

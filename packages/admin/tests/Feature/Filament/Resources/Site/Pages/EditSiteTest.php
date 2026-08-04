@@ -310,6 +310,11 @@ it('can translate translations', function (): void {
     $fakeTranslator = new ApiTranslatorContract;
     app()->bind(ApiTranslate::class, fn (): ApiTranslate => new ApiTranslate($fakeTranslator, 1000, 0));
 
+    // The auto-translate action stays disabled until a translation API key is
+    // configured. Binding a translator is standing in for exactly that
+    // configured state, so declare the key too.
+    config()->set('laravel_google_translate.google_translate_api_key', 'test-key');
+
     $languages = [
         Language::factory()->english()->create(),
         Language::factory()->german()->create(),

@@ -1,7 +1,7 @@
 @extends('errors::minimal')
 
-@section('title', __('Forbidden'))
+@section('title', __('capell-frontend::errors.forbidden_title'))
 @section('code', '403')
-@section('message', __($exception->getMessage() ?: 'Forbidden'))
-@section('headline', __('You don’t have access to this page'))
-@section('description', __('You don’t have permission to view this page. If you think this is a mistake, please contact your administrator.'))
+@section('message', $exception->getMessage() ?: __('capell-frontend::errors.forbidden_message'))
+@section('headline', __('capell-frontend::errors.forbidden_headline'))
+@section('description', __('capell-frontend::errors.forbidden_description'))

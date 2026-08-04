@@ -11,8 +11,6 @@ it('orders independent state dimensions by priority', function (): void {
         new RecordStateData(
             key: 'used',
             label: 'Used by 2 pages',
-            shortLabel: null,
-            description: null,
             color: 'success',
             icon: Heroicon::OutlinedLink,
             priority: 30,
@@ -20,8 +18,6 @@ it('orders independent state dimensions by priority', function (): void {
         new RecordStateData(
             key: 'scheduled',
             label: 'Scheduled for 14 August',
-            shortLabel: null,
-            description: null,
             color: 'info',
             icon: Heroicon::OutlinedClock,
             priority: 20,
@@ -29,8 +25,6 @@ it('orders independent state dimensions by priority', function (): void {
         new RecordStateData(
             key: 'no_active_url',
             label: 'No active URL',
-            shortLabel: null,
-            description: null,
             color: 'danger',
             icon: Heroicon::OutlinedEyeSlash,
             priority: 10,

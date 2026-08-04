@@ -12,12 +12,14 @@ use Capell\Admin\Support\Loader\LanguageLoader;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Blueprintable;
+use Capell\Core\Models\Contracts\Translatable as TranslatableContract;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
 use Closure;
+use DateTimeInterface;
 use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -105,10 +107,6 @@ class TranslationsRepeater extends RepeaterTabs
                     return null;
                 }
 
-                if ($record->language->isDefault()) {
-                    return null;
-                }
-
                 /**
                  * CheckTranslationCompletenessAction accepts the nested key shape generated
                  * by GetFlatComponentKeysAction, but its static contract is narrower.
@@ -117,18 +115,7 @@ class TranslationsRepeater extends RepeaterTabs
                  */
                 $keys = GetFlatComponentKeysAction::run($component);
 
-                $percent = CheckTranslationCompletenessAction::run($record, $keys);
-
-                if ($percent === null || $percent === 100) {
-                    return null;
-                }
-
-                $color = $percent >= 75 ? 'success' : ($percent >= 50 ? 'warning' : 'danger');
-
-                return [
-                    'label' => $percent . '%',
-                    'color' => $color,
-                ];
+                return $this->resolveItemBadge($record, $keys);
             })
             ->itemIcon(function (RepeaterTabs $component, string $uuid, array $state): ?string {
                 $language = static::getLanguage($component, $uuid, $state);
@@ -160,6 +147,68 @@ class TranslationsRepeater extends RepeaterTabs
         );
 
         return $data;
+    }
+
+    /**
+     * Resolves the tab badge for a single translation row. The badge closure only
+     * has the repeater item uuid, so this method names the record-level contract
+     * it delegates to and keeps it directly testable.
+     *
+     * @param  array<string, array<int, string>|null>  $keys
+     * @return array{label: string, color: string, tooltip: string}|null
+     */
+    public function resolveItemBadge(Translation $record, array $keys): ?array
+    {
+        if ($record->language->isDefault()) {
+            return null;
+        }
+
+        $percent = CheckTranslationCompletenessAction::run($record, $keys);
+
+        if ($percent === null) {
+            return null;
+        }
+
+        $defaultTranslation = $this->resolveDefaultTranslation($record);
+        $isOutdated = $this->isOutdatedAgainstDefault($record, $defaultTranslation);
+
+        if ($percent === 100) {
+            if ($isOutdated) {
+                return [
+                    'label' => __('capell-admin::generic.translation_outdated'),
+                    'color' => 'warning',
+                    'tooltip' => __('capell-admin::generic.translation_outdated_info'),
+                ];
+            }
+
+            if ($defaultTranslation instanceof Translation && $this->mirrorsDefault($record, $defaultTranslation, $keys)) {
+                return [
+                    'label' => __('capell-admin::generic.translation_untranslated'),
+                    'color' => 'gray',
+                    'tooltip' => __('capell-admin::generic.translation_untranslated_info'),
+                ];
+            }
+
+            return [
+                'label' => __('capell-admin::generic.translation_complete'),
+                'color' => 'success',
+                'tooltip' => __('capell-admin::generic.translation_complete_info'),
+            ];
+        }
+
+        if ($isOutdated) {
+            return [
+                'label' => $percent . '% · ' . __('capell-admin::generic.translation_outdated'),
+                'color' => $percent >= 50 ? 'warning' : 'danger',
+                'tooltip' => __('capell-admin::generic.translation_outdated_info'),
+            ];
+        }
+
+        return [
+            'label' => $percent . '%',
+            'color' => $percent >= 75 ? 'info' : ($percent >= 50 ? 'warning' : 'danger'),
+            'tooltip' => __('capell-admin::generic.translation_incomplete_info'),
+        ];
     }
 
     public function withoutRelationship(): static
@@ -211,6 +260,81 @@ class TranslationsRepeater extends RepeaterTabs
         return $query->select(['id', 'name', 'flag'])
             ->enabled()
             ->ordered();
+    }
+
+    private function resolveDefaultTranslation(Translation $record): ?Translation
+    {
+        $record->loadMissing('translatable');
+
+        $translatable = $record->getRelation('translatable');
+
+        if (! $translatable instanceof TranslatableContract) {
+            return null;
+        }
+
+        $defaultTranslation = $translatable
+            ->translations()
+            ->whereRelation('language', 'default', true)
+            ->first();
+
+        return $defaultTranslation instanceof Translation ? $defaultTranslation : null;
+    }
+
+    private function isOutdatedAgainstDefault(Translation $record, ?Translation $defaultTranslation): bool
+    {
+        if (! $defaultTranslation instanceof Translation) {
+            return false;
+        }
+
+        if ($defaultTranslation->is($record)) {
+            return false;
+        }
+
+        $defaultUpdatedAt = $defaultTranslation->getAttribute('updated_at');
+        $recordUpdatedAt = $record->getAttribute('updated_at');
+
+        if (! $defaultUpdatedAt instanceof DateTimeInterface || ! $recordUpdatedAt instanceof DateTimeInterface) {
+            return false;
+        }
+
+        return $defaultUpdatedAt > $recordUpdatedAt;
+    }
+
+    /**
+     * A language added to a site starts as a clone of the default-language row
+     * (see SetupSiteLanguageAction), so a byte-identical row is untranslated
+     * rather than complete.
+     *
+     * @param  array<string, array<int, string>|null>  $keys
+     */
+    private function mirrorsDefault(Translation $record, Translation $defaultTranslation, array $keys): bool
+    {
+        if ($defaultTranslation->is($record)) {
+            return false;
+        }
+
+        $defaultAttributes = $defaultTranslation->getAttributes();
+        $recordAttributes = $record->getAttributes();
+
+        $compared = 0;
+
+        foreach (array_keys($keys) as $key) {
+            if (! array_key_exists($key, $defaultAttributes)) {
+                continue;
+            }
+
+            if (! array_key_exists($key, $recordAttributes)) {
+                continue;
+            }
+
+            if ($defaultAttributes[$key] !== $recordAttributes[$key]) {
+                return false;
+            }
+
+            $compared++;
+        }
+
+        return $compared > 0;
     }
 
     private function getMinItemsClosure(): Closure
@@ -297,7 +421,9 @@ class TranslationsRepeater extends RepeaterTabs
             if ($missingLanguageIds !== []) {
                 $missingLanguages = $requiredLanguages->whereIn('id', $missingLanguageIds);
                 $missingLanguageNames = $missingLanguages->pluck('name')->toArray();
-                $fail('The following required languages are missing: ' . implode(', ', $missingLanguageNames) . '.');
+                $fail(__('capell-admin::message.required_translation_languages_missing', [
+                    'languages' => implode(', ', $missingLanguageNames),
+                ]));
             }
         };
     }

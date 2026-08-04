@@ -12,6 +12,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Carbon\CarbonInterface;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -268,6 +269,112 @@ it('adds the only available page translation language when add action arguments 
         'language_id' => $welsh->getKey(),
     ]);
 });
+
+it('flags a translation whose default language was edited more recently', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+
+    $site = Site::factory()->language($english)->createOne();
+    $blueprint = Blueprint::factory()->page()->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+
+    $welshTranslation = savedTranslationForTest($page, $welsh, 'Croeso', now()->subDay());
+    $englishTranslation = savedTranslationForTest($page, $english, 'Welcome', now());
+
+    $component = mountedBaseTranslationsRepeaterForTest([
+        'site_id' => $site->getKey(),
+        'blueprint_id' => $blueprint->getKey(),
+        'translations' => [],
+    ]);
+
+    expect($englishTranslation->getRawOriginal('updated_at'))
+        ->toBeGreaterThan($welshTranslation->getRawOriginal('updated_at'));
+
+    expect($component->resolveItemBadge($welshTranslation, ['title' => null]))->toBe([
+        'label' => __('capell-admin::generic.translation_outdated'),
+        'color' => 'warning',
+        'tooltip' => __('capell-admin::generic.translation_outdated_info'),
+    ]);
+});
+
+it('does not report a freshly cloned language row as complete', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+
+    $site = Site::factory()->language($english)->createOne();
+    $blueprint = Blueprint::factory()->page()->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+
+    $clonedAt = now();
+    $englishTranslation = savedTranslationForTest($page, $english, 'Welcome', $clonedAt);
+    $clonedTranslation = savedTranslationForTest($page, $welsh, 'Welcome', $clonedAt);
+
+    $component = mountedBaseTranslationsRepeaterForTest([
+        'site_id' => $site->getKey(),
+        'blueprint_id' => $blueprint->getKey(),
+        'translations' => [],
+    ]);
+
+    expect($englishTranslation->getRawOriginal('updated_at'))
+        ->toBe($clonedTranslation->getRawOriginal('updated_at'));
+
+    expect($component->resolveItemBadge($clonedTranslation, ['title' => null]))->toBe([
+        'label' => __('capell-admin::generic.translation_untranslated'),
+        'color' => 'gray',
+        'tooltip' => __('capell-admin::generic.translation_untranslated_info'),
+    ]);
+});
+
+it('reserves the success badge for a translated and current language row', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+
+    $site = Site::factory()->language($english)->createOne();
+    $blueprint = Blueprint::factory()->page()->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+
+    $englishTranslation = savedTranslationForTest($page, $english, 'Welcome', now()->subDay());
+    $welshTranslation = savedTranslationForTest($page, $welsh, 'Croeso', now());
+
+    $component = mountedBaseTranslationsRepeaterForTest([
+        'site_id' => $site->getKey(),
+        'blueprint_id' => $blueprint->getKey(),
+        'translations' => [],
+    ]);
+
+    expect($welshTranslation->getRawOriginal('updated_at'))
+        ->toBeGreaterThan($englishTranslation->getRawOriginal('updated_at'));
+
+    expect($component->resolveItemBadge($welshTranslation, ['title' => null]))->toBe([
+        'label' => __('capell-admin::generic.translation_complete'),
+        'color' => 'success',
+        'tooltip' => __('capell-admin::generic.translation_complete_info'),
+    ])->and($component->resolveItemBadge($englishTranslation, ['title' => null]))->toBeNull();
+});
+
+it('resolves the missing required languages failure through the translator', function (): void {
+    expect(__('capell-admin::message.required_translation_languages_missing', ['languages' => 'Welsh']))
+        ->toBe('The following required languages are missing: Welsh.');
+});
+
+/**
+ * TranslationFactory seeds a random `updated_at`, and Eloquent preserves an
+ * already-dirty timestamp on save, so staleness fixtures must pin the column on
+ * every row they compare rather than relying on save order.
+ */
+function savedTranslationForTest(Page $page, Language $language, string $title, CarbonInterface $updatedAt): Translation
+{
+    $translation = Translation::factory()
+        ->language($language)
+        ->make([
+            'title' => $title,
+            'updated_at' => $updatedAt,
+        ]);
+
+    $page->translations()->save($translation);
+
+    return $translation->refresh();
+}
 
 /**
  * @param  array<string, mixed>  $state

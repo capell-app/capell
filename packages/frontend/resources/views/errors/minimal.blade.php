@@ -9,9 +9,9 @@
     $manifestCopy = $fallbackManifest['copy'];
     $showHomepageLink = request()->getPathInfo() !== '/';
     $headline = ($manifestCopy['headline'] ?? null)
-        ?: trim($__env->yieldContent('headline', __('Something went wrong')));
+        ?: trim($__env->yieldContent('headline', __('capell-frontend::errors.default_headline')));
     $description = ($manifestCopy['description'] ?? null)
-        ?: trim($__env->yieldContent('description', __('Try again later.')));
+        ?: trim($__env->yieldContent('description', __('capell-frontend::errors.default_description')));
 @endphp
 
 <!DOCTYPE html>
@@ -155,7 +155,7 @@
                     class="error-page__home"
                     href="{{ url('/') }}"
                 >
-                    {{ __('Back to homepage') }}
+                    {{ __('capell-frontend::errors.back_to_homepage') }}
                 </a>
             @endif
         </section>

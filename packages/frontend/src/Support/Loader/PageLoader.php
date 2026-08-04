@@ -101,6 +101,9 @@ class PageLoader
                 $builder->with([
                     'layout',
                     'pageUrls.siteDomain',
+                    // Paired with pageUrls for the head's hreflang cluster; public Blade only
+                    // reads hydrated relations (PublicViewQueryGuard).
+                    'translations',
                 ])
                     ->withWhereHas(
                         'blueprint',
@@ -367,13 +370,16 @@ class PageLoader
         }
 
         /** @var Model&Pageable<Model> $page */
-        // Canonical relations (translation, pageUrl, layout, pageUrls) are already
-        // loaded by PageModelCache. loadMissing is a safety net for any extras that
+        // Canonical relations (translation, pageUrl, layout, pageUrls, translations) are
+        // already loaded by PageModelCache. loadMissing is a safety net for any extras that
         // callers set up outside the canonical set.
         $page->loadMissing([
             'canonicalPage.pageUrls',
             'layout.theme',
             'pageUrls',
+            // Required by the head's hreflang cluster, which may only read hydrated
+            // relations (PublicViewQueryGuard). Keep it loaded wherever pageUrls is.
+            'translations',
             'translation' => fn (BuilderContract $query): BuilderContract => $query->where(
                 'language_id',
                 $language->id,

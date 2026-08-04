@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Http\Middleware;
 
+use Capell\Core\Support\Locale\HtmlLanguageAttribute;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
@@ -191,8 +192,14 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
 
     private function lockdownFallbackResponse(): Response
     {
+        $title = (string) __('capell-frontend::errors.service_unavailable_title');
+        $body = (string) __('capell-frontend::errors.service_unavailable_body');
+
         return response(
-            '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Service unavailable</title></head><body><main><h1>Service unavailable</h1><p>This site is temporarily unavailable.</p></main></body></html>',
+            '<!doctype html><html lang="' . e(HtmlLanguageAttribute::current())
+                . '"><head><meta charset="utf-8"><title>' . e($title)
+                . '</title></head><body><main><h1>' . e($title)
+                . '</h1><p>' . e($body) . '</p></main></body></html>',
             503,
             ['Content-Type' => 'text/html; charset=UTF-8'],
         );

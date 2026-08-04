@@ -2,7 +2,10 @@
     'impact',
 ])
 
-<div {{ $attributes->class('flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300') }} role="status">
+<div
+    {{ $attributes->class('flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300') }}
+    role="status"
+>
     @if ($impact->knownReferenceCount === 0)
         <span>
             {{ $impact->authoritative

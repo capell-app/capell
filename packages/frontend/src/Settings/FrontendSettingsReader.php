@@ -6,6 +6,7 @@ namespace Capell\Frontend\Settings;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
+use Capell\Frontend\Enums\VisitorLanguageDetection;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Throwable;
 
@@ -37,6 +38,22 @@ class FrontendSettingsReader implements FrontendSettingsReaderInterface
             return $this->settings()->minify_html;
         } catch (Throwable) {
             return config('capell-frontend.minify_html', true) === true;
+        }
+    }
+
+    /**
+     * Spatie settings throws while loading the WHOLE group when any property is
+     * missing a row, so a site that has not run `settings:migrate` must still
+     * get a usable answer here rather than a 500 on every public request.
+     */
+    public function visitorLanguageDetection(): VisitorLanguageDetection
+    {
+        try {
+            return VisitorLanguageDetection::fromValue($this->settings()->visitor_language_detection);
+        } catch (Throwable) {
+            return VisitorLanguageDetection::fromValue(
+                config('capell-frontend.visitor_language_detection', VisitorLanguageDetection::Off->value),
+            );
         }
     }
 

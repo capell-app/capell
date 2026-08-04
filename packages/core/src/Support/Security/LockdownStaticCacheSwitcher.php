@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Security;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\Locale\HtmlLanguageAttribute;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Date;
 use RecursiveDirectoryIterator;
@@ -165,7 +166,9 @@ final class LockdownStaticCacheSwitcher
 
     private function lockdownHtml(): string
     {
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Service unavailable</title></head><body><main><h1>Service unavailable</h1><p>This site is temporarily unavailable.</p></main></body></html>';
+        return '<!doctype html><html lang="' . e(HtmlLanguageAttribute::current())
+            . '"><head><meta charset="utf-8"><title>Service unavailable</title></head>'
+            . '<body><main><h1>Service unavailable</h1><p>This site is temporarily unavailable.</p></main></body></html>';
     }
 
     private function stringValue(mixed $value): ?string

@@ -1,7 +1,7 @@
 @extends('errors::minimal')
 
-@section('title', __('Too Many Requests'))
+@section('title', __('capell-frontend::errors.too_many_requests_title'))
 @section('code', '429')
-@section('message', __('Too Many Requests'))
-@section('headline', __('Slow down a moment'))
-@section('description', __('You’ve made a few too many requests. Please wait a little while before trying again.'))
+@section('message', __('capell-frontend::errors.too_many_requests_message'))
+@section('headline', __('capell-frontend::errors.too_many_requests_headline'))
+@section('description', __('capell-frontend::errors.too_many_requests_description'))

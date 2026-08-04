@@ -102,14 +102,14 @@ class LayoutSelect extends Select
                     'label' => $record->name,
                     'count' => $pagesCount,
                     'states' => array_values(array_filter([
-                        ! $record->status ? new RecordStateData(
+                        $record->status ? null : new RecordStateData(
                             key: 'disabled',
                             label: (string) __('capell-admin::form.disabled'),
                             description: (string) __('capell-admin::table.status'),
                             color: 'danger',
                             icon: Heroicon::OutlinedEyeSlash,
                             priority: 10,
-                        ) : null,
+                        ),
                         $hasAuthoritativePagesCount && $pagesCount === 0 ? new RecordStateData(
                             key: 'unused',
                             label: (string) __('capell-admin::table.layout_usage_unused'),
