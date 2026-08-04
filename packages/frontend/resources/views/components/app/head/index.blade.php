@@ -155,7 +155,7 @@
     $alternates = $alternatePageUrls
         ->map(fn (PageUrl $url): array => [
             'href' => $url->full_url,
-            'hreflang' => Str::of($alternateLanguage($url)->locale)->lower()->replace('_', '-')->toString(),
+            'hreflang' => Str::of($alternateLanguage($url)->locale ?: $alternateLanguage($url)->code)->lower()->replace('_', '-')->toString(),
         ])
         ->sortBy('hreflang')
         ->values();
