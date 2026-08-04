@@ -131,7 +131,7 @@ class SiteResource extends Resource
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return __('capell-admin::generic.sites');
+        return __('capell-admin::model_labels.sites');
     }
 
     /** @return class-string<SitePolicy> */

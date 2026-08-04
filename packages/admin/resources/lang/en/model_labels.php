@@ -22,6 +22,10 @@ declare(strict_types=1);
 | navigation label, or the sidebar link stops naming the page it opens.
 | AdminLabelContractTest in capell-app enforces both rules.
 |
+| Some entries are plural only. Filament derives the singular from the
+| resource's class name, which already reads correctly for those ("layout",
+| "page"); only the plural had to be moved off a shared `generic` key.
+|
 */
 
 return [
@@ -31,8 +35,12 @@ return [
     'block_templates' => 'block templates',
     'blueprint' => 'blueprint',
     'blueprints' => 'blueprints',
+    'layouts' => 'layouts',
+    'pages' => 'pages',
     'redirect' => 'redirect',
     'redirects' => 'redirects',
     'role' => 'role',
     'roles' => 'roles',
+    'sites' => 'sites',
+    'users' => 'users',
 ];

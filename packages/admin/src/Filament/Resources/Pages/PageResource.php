@@ -216,7 +216,7 @@ class PageResource extends Resource implements ValidatesDelete
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return __('capell-admin::generic.pages');
+        return __('capell-admin::model_labels.pages');
     }
 
     #[Override]
