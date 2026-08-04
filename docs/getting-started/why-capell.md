@@ -1,7 +1,5 @@
 # Why Capell
 
-![Capell, an MIT-licensed Laravel CMS built on Filament, installed with composer require capell-app/installer and php artisan capell:install](../images/capell-readme-banner.jpg)
-
 Capell is a Laravel CMS built on Filament. It lets the people who own a website's content manage its pages, addresses, images, and publishing themselves, without moving the whole product into a separate CMS.
 
 Its strongest practical difference is not another field builder. Capell makes change safer. Every page edit is kept, so a page can be compared against an earlier version and put back. Upgrades can be previewed before they run, are recorded when they do, and can be reversed where a step says that is safe.

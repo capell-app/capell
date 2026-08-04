@@ -1,7 +1,5 @@
 # How Capell Works
 
-![Capell How Capell Works screenshot](../images/capell-readme-banner.jpg)
-
 Capell is built as a package-based CMS foundation for Laravel. The host packages in this repository own the main schema, admin surface, frontend surface, and plugin lifecycle support, while larger features ship as optional add-on packages.
 
 ## The Core Model

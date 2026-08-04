@@ -1,7 +1,5 @@
 # Capell Inertia Runtime
 
-![Capell Inertia Runtime screenshot](../images/capell-readme-banner.jpg)
-
 Use Inertia when a theme or package needs a Vue or React frontend while keeping Capell as the source of truth for sites, pages, layouts, public assets, and output safety.
 
 The bridge is package-owned. A host app should install the runtime package, one client adapter, and any Inertia theme/component package it needs; it should not copy theme-specific Inertia setup into app code.

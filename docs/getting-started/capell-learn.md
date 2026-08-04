@@ -1,7 +1,5 @@
 # Capell Learn
 
-![Capell Learn screenshot](../images/capell-readme-banner.jpg)
-
 Capell Learn is the quickest path through the core concepts behind Capell. Start with the model relationships, then move into page authoring and extension points.
 
 ## Core Model Relationships
