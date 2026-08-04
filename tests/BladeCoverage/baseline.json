@@ -23,7 +23,6 @@
         "packages/admin/resources/views/components/tables/columns/assets.blade.php": "db613ed5cc8e7bb2f5ede5ce7742915abe7383d2479a5c9c63b9583b9a15894b",
         "packages/admin/resources/views/components/tables/columns/badge/icon-badge.blade.php": "861e5993f401ce37cb6553fc1a7c4bd84841af33046662234c92b8157ab752bf",
         "packages/admin/resources/views/components/tables/columns/flag.blade.php": "92d7542a275d1a8e30ba4b1473828d2df032c349928643a86309564bf2604a69",
-        "packages/admin/resources/views/components/tables/columns/history-meta.blade.php": "817df30a415cace68c8ccf55a1c722b041220174c57999ed5c926318b11c708e",
         "packages/admin/resources/views/components/tables/columns/key-value.blade.php": "8422531fe287bca388fc001bee8359d155b174fc9105fb12ab8befa194c303e0",
         "packages/admin/resources/views/components/tables/columns/language-flags.blade.php": "e1ed6c3193cacff5ffd2acf0226ecb1e77415030139400fabb23d9c73a7e8a13",
         "packages/admin/resources/views/components/tables/columns/locale-flags.blade.php": "74718bf1e2c457d452f86b8d1ad4e098bb3a3c0320573d1f9390e87a1d02ea94",
