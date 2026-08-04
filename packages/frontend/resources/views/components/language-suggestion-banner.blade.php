@@ -97,7 +97,8 @@
                                 href="#"
                                 rel="alternate nofollow"
                                 hreflang="{{ $targetTag }}"
-                            >{{ trans('capell-frontend::languages.suggestion_switch', ['language' => $targetLanguage->name], $uiTag) }}</a>
+                                >{{ trans('capell-frontend::languages.suggestion_switch', ['language' => $targetLanguage->name], $uiTag) }}</a
+                            >
                         </p>
 
                         <p
@@ -118,7 +119,8 @@
                                 href="#"
                                 rel="alternate nofollow"
                                 hreflang="{{ $targetTag }}"
-                            >{{ trans('capell-frontend::languages.redirected_revert', ['language' => $targetLanguage->name], $uiTag) }}</a>
+                                >{{ trans('capell-frontend::languages.redirected_revert', ['language' => $targetLanguage->name], $uiTag) }}</a
+                            >
                         </p>
                     @endforeach
                 </div>
@@ -185,19 +187,19 @@
             color: inherit;
             text-decoration: underline;
         }
-
-        @media (prefers-reduced-motion: no-preference) {
-            .capell-language-banner {
-                animation: capell-language-banner-in 180ms ease-out;
-            }
-
-            @keyframes capell-language-banner-in {
-                from {
-                    opacity: 0;
-                    transform: translateY(0.5rem);
-                }
-            }
-        }
+        @media(prefers-reduced-motion: no-preference)
+        {
+                   .capell-language-banner {
+                       animation: capell-language-banner-in 180ms ease-out;
+                   }
+        @keyframes
+        capell-language-banner-in {
+                       from {
+                           opacity: 0;
+                           transform: translateY(0.5rem);
+                       }
+                   }
+               }
     </style>
 
     <script>
