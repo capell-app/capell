@@ -64,6 +64,16 @@ final class MarketplaceExtensionDetailPage extends Page
         return auth()->user()?->can(MarketplacePermission::ViewMarketplacePage->value) ?? false;
     }
 
+    /**
+     * Without this Filament humanises the class name, so anywhere the label is
+     * read it says "Marketplace Extension Detail Page".
+     */
+    #[Override]
+    public static function getNavigationLabel(): string
+    {
+        return (string) __('capell-marketplace::marketplace.detail.title');
+    }
+
     public function mount(string $slug): void
     {
         $this->extensionSlug = $slug;

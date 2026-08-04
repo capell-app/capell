@@ -36,6 +36,18 @@ class RoleResource extends ShieldRoleResource
     }
 
     #[Override]
+    public static function getModelLabel(): string
+    {
+        return (string) __('capell-admin::model_labels.role');
+    }
+
+    #[Override]
+    public static function getPluralModelLabel(): string
+    {
+        return (string) __('capell-admin::model_labels.roles');
+    }
+
+    #[Override]
     public static function getNavigationParentItem(): ?string
     {
         return (string) __('capell-admin::navigation.users');

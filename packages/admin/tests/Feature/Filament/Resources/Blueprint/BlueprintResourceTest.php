@@ -32,8 +32,8 @@ it('uses blueprint labels', function (): void {
         ->assertOk();
 
     expect(BlueprintResource::getNavigationLabel())->toBe((string) __('capell-admin::navigation.blueprints'))
-        ->and(BlueprintResource::getModelLabel())->toBe((string) __('capell-admin::generic.blueprint'))
-        ->and(BlueprintResource::getPluralModelLabel())->toBe((string) __('capell-admin::generic.blueprints'))
+        ->and(BlueprintResource::getModelLabel())->toBe((string) __('capell-admin::model_labels.blueprint'))
+        ->and(BlueprintResource::getPluralModelLabel())->toBe((string) __('capell-admin::model_labels.blueprints'))
         ->and(BlueprintResource::getNavigationIcon())->toBe(Heroicon::OutlinedDocumentDuplicate)
         ->and(BlueprintResource::getActiveNavigationIcon())->toBe(Heroicon::DocumentDuplicate);
 });

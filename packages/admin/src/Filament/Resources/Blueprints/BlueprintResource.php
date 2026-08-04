@@ -91,13 +91,13 @@ class BlueprintResource extends Resource
     #[Override]
     public static function getModelLabel(): string
     {
-        return (string) __('capell-admin::generic.blueprint');
+        return (string) __('capell-admin::model_labels.blueprint');
     }
 
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return (string) __('capell-admin::generic.blueprints');
+        return (string) __('capell-admin::model_labels.blueprints');
     }
 
     #[Override]
