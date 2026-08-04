@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -38,7 +39,8 @@ class RemovePackageAction
         $lockPath = base_path('composer.lock');
         $originalComposer = $this->files->exists($composerPath) ? $this->files->get($composerPath) : null;
         $originalLock = $this->files->exists($lockPath) ? $this->files->get($lockPath) : null;
-        $command = ['composer', 'remove', $name, '--no-interaction', '--no-scripts'];
+        $composer = new RuntimeBinaryResolver()->composer();
+        $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts'];
         $composerSucceeded = false;
 
         try {
@@ -49,7 +51,7 @@ class RemovePackageAction
 
             if ($bundleUpdate['update_members'] !== []) {
                 $command = [
-                    'composer',
+                    ...$composer,
                     'update',
                     ...$bundleUpdate['update_members'],
                     '--with-dependencies',
@@ -132,7 +134,7 @@ class RemovePackageAction
         ?string $lockContents,
     ): void {
         $process = $this->processFactory->make(
-            ['composer', 'install', '--no-interaction', '--no-scripts'],
+            [...new RuntimeBinaryResolver()->composer(), 'install', '--no-interaction', '--no-scripts'],
             base_path(),
         );
         $process->setEnv(ComposerProcessEnvironment::forInstall($_SERVER));

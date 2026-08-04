@@ -139,7 +139,7 @@ function bindSetupRemoveProcessFactory(): void
         ->shouldReceive('make')
         ->once()
         ->with(
-            Mockery::on(fn (array|string $command): bool => $command === ['composer', 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts']),
+            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts']),
             Mockery::type('string'),
         )
         ->andReturn($process);

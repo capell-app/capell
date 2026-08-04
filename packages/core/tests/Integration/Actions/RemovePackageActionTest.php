@@ -44,7 +44,7 @@ beforeEach(function (): void {
 
     $mockFactory
         ->shouldReceive('make')
-        ->with(Mockery::on(fn (array|string $command): bool => $command === ['composer', 'remove', 'vendor/package', '--no-interaction', '--no-scripts']), Mockery::type('string'))
+        ->with(Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'vendor/package', '--no-interaction', '--no-scripts']), Mockery::type('string'))
         ->andReturn($mockProcess);
 
     app()->instance(ProcessFactoryInterface::class, $mockFactory);
@@ -86,7 +86,7 @@ it('removes a package', function (): void {
 it('builds a symfony process from the factory', function (): void {
     $factory = new SymfonyProcessFactory;
 
-    $process = $factory->make(['composer', 'remove', 'vendor/package', '--no-interaction', '--no-scripts'], base_path());
+    $process = $factory->make([...capellComposerArgv(), 'remove', 'vendor/package', '--no-interaction', '--no-scripts'], base_path());
     $commandLine = $process->getCommandLine();
 
     expect($process)
@@ -130,7 +130,7 @@ it('promotes bundle members while preserving direct constraints', function (): v
     $process->shouldReceive('getOutput')->andReturn('Bundle removed');
     $process->shouldReceive('isSuccessful')->andReturnTrue();
     $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->with(['composer', 'remove', 'capell-app/widget-showcase', '--no-interaction', '--no-scripts'], Mockery::type('string'))->once()->andReturn($process);
+    $factory->shouldReceive('make')->with([...capellComposerArgv(), 'remove', 'capell-app/widget-showcase', '--no-interaction', '--no-scripts'], Mockery::type('string'))->once()->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
 
     RemovePackageAction::run('capell-app/widget-showcase');
@@ -186,7 +186,7 @@ it('uses allow-listed diagnostics when composer removal fails', function (string
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with(['composer', 'remove', 'vendor/unsafe-package', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'remove', 'vendor/unsafe-package', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -279,11 +279,11 @@ it('restores composer files when post-composer bundle finalization fails', funct
     $recovery->shouldReceive('isSuccessful')->andReturnTrue();
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with(['composer', 'remove', 'vendor/finalization-showcase', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'remove', 'vendor/finalization-showcase', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
     $factory->shouldReceive('make')
-        ->with(['composer', 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($recovery);
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -325,7 +325,7 @@ it('updates already-direct bundle members and verifies the bundle leaves the loc
     $process->shouldReceive('isSuccessful')->andReturnTrue();
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with(['composer', 'update', 'vendor/member', '--with-dependencies', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'update', 'vendor/member', '--with-dependencies', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -367,11 +367,11 @@ it('restores composer files when a transitive bundle remains locked', function (
     $recovery->shouldReceive('isSuccessful')->andReturnTrue();
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with(['composer', 'update', 'vendor/member', '--with-dependencies', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'update', 'vendor/member', '--with-dependencies', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
     $factory->shouldReceive('make')
-        ->with(['composer', 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($recovery);
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -445,11 +445,11 @@ it('restores composer files and reports safe operator diagnostics when recovery 
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with(['composer', 'remove', 'vendor/recovery-showcase', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'remove', 'vendor/recovery-showcase', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($removal);
     $factory->shouldReceive('make')
-        ->with(['composer', 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($recovery);
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -512,13 +512,13 @@ it('wraps recovery process creation setup and timeout failures safely', function
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with(['composer', 'remove', 'vendor/throwing-package', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'remove', 'vendor/throwing-package', '--no-interaction', '--no-scripts'], Mockery::type('string'))
         ->once()
         ->andReturn($removal);
 
     if ($failurePoint === 'creation') {
         $factory->shouldReceive('make')
-            ->with(['composer', 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+            ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
             ->once()
             ->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): never {
                 $filesystem->contents[$composerPath] = '{"corrupted":"creation"}';
@@ -537,7 +537,7 @@ it('wraps recovery process creation setup and timeout failures safely', function
                 throw new RuntimeException('Recovery setup exposed recovery-setup-secret.');
             });
         } else {
-            $timedProcess = new Process(['composer', 'install', 'timeout-secret']);
+            $timedProcess = new Process([...capellComposerArgv(), 'install', 'timeout-secret']);
             $timedProcess->setTimeout(300);
             $timeout = new ProcessTimedOutException($timedProcess, ProcessTimedOutException::TYPE_GENERAL);
 
@@ -552,7 +552,7 @@ it('wraps recovery process creation setup and timeout failures safely', function
         }
 
         $factory->shouldReceive('make')
-            ->with(['composer', 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+            ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
             ->once()
             ->andReturn($recovery);
     }

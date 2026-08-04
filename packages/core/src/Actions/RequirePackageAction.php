@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -57,7 +58,7 @@ class RequirePackageAction
         $env = $this->prepareComposerAuthEnv($token, $provider, $domain);
 
         $processFactory = self::$processFactory ?? fn (array $args, string $cwd, ?array $env): Process => new Process($args, $cwd, $env);
-        $process = $processFactory(['composer', 'require', $name], base_path(), $env);
+        $process = $processFactory([...new RuntimeBinaryResolver()->composer(), 'require', $name], base_path(), $env);
         $process->setTimeout(300);
         $process->disableOutput();
 

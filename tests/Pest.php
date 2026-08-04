@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Tests\AdminTestCase;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Core\Tests\CoreTestCase;
 use Capell\Frontend\Tests\FrontendTestCase;
 use Capell\Installer\Tests\InstallerTestCase;
@@ -31,6 +32,20 @@ pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/test
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests', '../Packages/frontend/tests');
 pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests', '../Packages/installer/tests');
 pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests', '../Packages/marketplace/tests');
+
+/**
+ * The Composer invocation this host actually uses.
+ *
+ * Composer commands are argv arrays built from RuntimeBinaryResolver, so a test
+ * that pins the literal string "composer" pins the resolver's answer on one
+ * machine. Asking the resolver keeps the assertion about the command shape.
+ *
+ * @return list<string>
+ */
+function capellComposerArgv(): array
+{
+    return new RuntimeBinaryResolver()->composer();
+}
 
 /**
  * Declare the host a Marketplace test assumes.
