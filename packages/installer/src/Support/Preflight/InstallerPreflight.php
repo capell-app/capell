@@ -9,6 +9,7 @@ use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\DB;
@@ -203,7 +204,7 @@ final class InstallerPreflight
     /** @return array<string, string> */
     private function processSupport(): array
     {
-        if (function_exists('proc_open')) {
+        if (ProcessExecutionSupport::isAvailable()) {
             return $this->check('process-support', 'Process execution', 'pass', 'PHP can run Composer and Artisan subprocesses.');
         }
 
@@ -575,7 +576,7 @@ final class InstallerPreflight
     /** @param array<int, string> $command */
     private function commandCheck(string $key, string $label, array $command, bool $required): array
     {
-        if (! function_exists('proc_open')) {
+        if (! ProcessExecutionSupport::isAvailable()) {
             return $this->check($key, $label, $required ? 'fail' : 'warning', 'Cannot test command because proc_open is disabled.');
         }
 

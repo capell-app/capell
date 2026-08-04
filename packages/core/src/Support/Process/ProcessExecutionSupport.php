@@ -16,7 +16,20 @@ final class ProcessExecutionSupport
 {
     public static function isAvailable(): bool
     {
-        return function_exists('proc_open') && ! self::isDisabled('proc_open');
+        return self::isAvailableWith((string) ini_get('disable_functions'));
+    }
+
+    /**
+     * The same answer for a supplied disable_functions list.
+     *
+     * disable_functions is PHP_INI_SYSTEM, so a shared host that disables
+     * proc_open cannot be reproduced at runtime. Taking the list as an argument
+     * is the only way to exercise that host in a test.
+     */
+    public static function isAvailableWith(string $disableFunctions): bool
+    {
+        return function_exists('proc_open')
+            && ! in_array('proc_open', self::disabledFunctionsFrom($disableFunctions), true);
     }
 
     public static function isDisabled(string $function): bool
