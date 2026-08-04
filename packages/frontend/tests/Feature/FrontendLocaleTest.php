@@ -8,11 +8,17 @@ use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Tests\Support\Concerns\TestingFrontend;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
 
 uses(TestingFrontend::class);
+
+afterEach(function (): void {
+    resolve(FrontendLocaleScope::class)->restore();
+    Date::setLocale('en');
+    CarbonImmutable::setLocale('en');
+});
 
 /**
  * The public locale must be a pure function of host + path, never of request
@@ -47,7 +53,7 @@ it('applies the resolved site language to the application and Carbon locale', fu
     resolve(FrontendKernelInterface::class)->bootstrap(localeSiteRequest($french, 'fr.example.com'));
 
     expect(app()->getLocale())->toBe('fr');
-    expect(Carbon::getLocale())->toBe('fr');
+    expect(Date::getLocale())->toBe('fr');
     expect(CarbonImmutable::getLocale())->toBe('fr');
 });
 
@@ -60,7 +66,7 @@ it('leaves the application locale untouched on a default-language domain', funct
     resolve(FrontendKernelInterface::class)->bootstrap(localeSiteRequest($english, 'en.example.com'));
 
     expect(app()->getLocale())->toBe('en');
-    expect(Carbon::getLocale())->toBe('en');
+    expect(Date::getLocale())->toBe('en');
 });
 
 it('ignores the Accept-Language header when resolving the public locale', function (): void {
@@ -90,7 +96,7 @@ it('restores the incoming default locale so it cannot leak into a later request'
     resolve(FrontendLocaleScope::class)->restore();
 
     expect(app()->getLocale())->toBe('en');
-    expect(Carbon::getLocale())->toBe('en');
+    expect(Date::getLocale())->toBe('en');
     expect(CarbonImmutable::getLocale())->toBe('en');
 });
 

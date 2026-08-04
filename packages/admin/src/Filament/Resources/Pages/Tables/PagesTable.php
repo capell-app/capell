@@ -70,6 +70,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -134,7 +136,7 @@ class PagesTable implements TableConfigurator
                         }),
                     ReplicatePageAction::make(),
                     DeleteAction::make()
-                        ->modalContent(fn (PageModel $record) => view('capell-admin::components.record-deletion-impact', [
+                        ->modalContent(fn (PageModel $record): Factory|View => view('capell-admin::components.record-deletion-impact', [
                             'impact' => BuildPageDeletionImpactAction::run($record),
                         ]))
                         ->before(self::beforeRecordDelete(...))
@@ -150,8 +152,8 @@ class PagesTable implements TableConfigurator
                 BulkMovePagesBulkAction::make(),
                 ...static::getExtenderBulkActions(),
                 DeleteBulkAction::make()
-                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records) => view('capell-admin::components.record-deletion-impact', [
-                        'impact' => app(BuildPageDeletionImpactAction::class)->handleMany($records),
+                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records): Factory|View => view('capell-admin::components.record-deletion-impact', [
+                        'impact' => resolve(BuildPageDeletionImpactAction::class)->handleMany($records),
                     ]))
                     ->before(self::beforeBulkDelete(...))
                     ->after(self::afterBulkDelete(...)),

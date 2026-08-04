@@ -131,12 +131,19 @@ final class VisitorLanguageSiblingResolver
 
         foreach ($site->siteDomains as $domain) {
             $languageId = (int) $domain->language_id;
-
-            if (! $domain->status || $languageId === (int) $currentLanguage->getKey()) {
+            if (! $domain->status) {
                 continue;
             }
 
-            if (! $domain->language instanceof Language || $this->tag($domain->language) === '') {
+            if ($languageId === (int) $currentLanguage->getKey()) {
+                continue;
+            }
+
+            if (! $domain->language instanceof Language) {
+                continue;
+            }
+
+            if ($this->tag($domain->language) === '') {
                 continue;
             }
 

@@ -22,15 +22,13 @@ function readExportedCsv(StreamedResponse $response): array
 
     $handle = fopen('php://temp', 'r+b');
 
-    if ($handle === false) {
-        throw new RuntimeException('Unable to open a temporary stream to read the exported CSV.');
-    }
+    throw_if($handle === false, RuntimeException::class, 'Unable to open a temporary stream to read the exported CSV.');
 
     fwrite($handle, $csv);
     rewind($handle);
 
     $rows = [];
-    while (($row = fgetcsv($handle)) !== false) {
+    while (($row = fgetcsv($handle, escape: '\\')) !== false) {
         /** @var list<string> $row */
         $rows[] = $row;
     }

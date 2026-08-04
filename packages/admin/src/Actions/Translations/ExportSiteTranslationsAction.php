@@ -63,10 +63,10 @@ class ExportSiteTranslationsAction
                 }
 
                 fwrite($handle, "\u{FEFF}");
-                fputcsv($handle, self::COLUMNS);
+                fputcsv($handle, self::COLUMNS, escape: '\\');
 
                 foreach ($rows as $row) {
-                    fputcsv($handle, $row);
+                    fputcsv($handle, $row, escape: '\\');
                 }
 
                 fclose($handle);

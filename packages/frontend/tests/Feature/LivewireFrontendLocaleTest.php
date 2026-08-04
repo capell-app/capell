@@ -8,10 +8,19 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Livewire\Page\AbstractPage;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\State\FrontendState;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
 use Livewire\Livewire;
+
+afterEach(function (): void {
+    resolve(FrontendLocaleScope::class)->restore();
+    Date::setLocale('en');
+    CarbonImmutable::setLocale('en');
+});
 
 /**
  * Livewire updates POST to /livewire and never re-run the frontend.resolve

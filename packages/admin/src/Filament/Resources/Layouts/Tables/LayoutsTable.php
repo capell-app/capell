@@ -41,6 +41,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Query\Expression as ExpressionContract;
+use Illuminate\Contracts\View\Factory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -71,8 +72,8 @@ class LayoutsTable implements TableConfigurator
                 RestoreBulkAction::make(),
                 ForceDeleteBulkAction::make(),
                 DeleteBulkAction::make()
-                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records) => view('capell-admin::components.record-deletion-impact', [
-                        'impact' => app(BuildLayoutDeletionImpactAction::class)->handleMany($records),
+                    ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records): Factory|\Illuminate\Contracts\View\View => view('capell-admin::components.record-deletion-impact', [
+                        'impact' => resolve(BuildLayoutDeletionImpactAction::class)->handleMany($records),
                     ]))
                     ->before(function (ListLayouts $livewire, DeleteBulkAction $action, EloquentCollection|Collection|LazyCollection $records): void {
                         $records->each(function (Layout $record) use ($livewire, $action): void {
@@ -175,7 +176,7 @@ class LayoutsTable implements TableConfigurator
                 ReplicateAction::make()
                     ->replicaModelAction(ReplicateLayoutAction::class),
                 DeleteAction::make()
-                    ->modalContent(fn (Layout $record) => view('capell-admin::components.record-deletion-impact', [
+                    ->modalContent(fn (Layout $record): Factory|\Illuminate\Contracts\View\View => view('capell-admin::components.record-deletion-impact', [
                         'impact' => BuildLayoutDeletionImpactAction::run($record),
                     ]))
                     ->before(function (ListLayouts $livewire, Layout $record, DeleteAction $action): void {

@@ -59,14 +59,14 @@ final class LayoutCardData extends Data
     public function states(): array
     {
         return array_values(array_filter([
-            ! $this->isEnabled ? new RecordStateData(
+            $this->isEnabled ? null : new RecordStateData(
                 key: 'disabled',
                 label: (string) __('capell-admin::form.disabled'),
                 description: (string) __('capell-admin::table.status'),
                 color: 'danger',
                 icon: Heroicon::OutlinedEyeSlash,
                 priority: 10,
-            ) : null,
+            ),
             $this->pagesCountAuthoritative && $this->pagesCount === 0 ? new RecordStateData(
                 key: 'unused',
                 label: (string) __('capell-admin::table.layout_usage_unused'),

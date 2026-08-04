@@ -72,6 +72,6 @@ it('emits a left-to-right direction for a left-to-right language', function (): 
 it('falls back to the application locale when no language is resolved', function (): void {
     app()->setLocale('en');
 
-    expect(HtmlLanguageAttribute::forLanguage(null))->toBe('en')
+    expect(HtmlLanguageAttribute::forLanguage())->toBe('en')
         ->and(Language::directionForCode(app()->getLocale()))->toBe('ltr');
 });

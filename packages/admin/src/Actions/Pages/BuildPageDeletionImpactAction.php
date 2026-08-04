@@ -27,7 +27,7 @@ final class BuildPageDeletionImpactAction
             authoritative: true,
             noReferencesLabel: (string) __('capell-admin::generic.deletion_impact_unused'),
             affectedLabel: $urls->count > 0
-                ? (string) trans_choice('capell-admin::generic.deletion_impact_page_urls', $urls->count, ['count' => $urls->count])
+                ? trans_choice('capell-admin::generic.deletion_impact_page_urls', $urls->count, ['count' => $urls->count])
                 : null,
             referencesUrl: $urls->url,
         );
@@ -47,7 +47,7 @@ final class BuildPageDeletionImpactAction
             authoritative: true,
             noReferencesLabel: (string) __('capell-admin::generic.deletion_impact_unused'),
             affectedLabel: $knownReferenceCount > 0
-                ? (string) trans_choice('capell-admin::generic.deletion_impact_page_urls', $knownReferenceCount, ['count' => $knownReferenceCount])
+                ? trans_choice('capell-admin::generic.deletion_impact_page_urls', $knownReferenceCount, ['count' => $knownReferenceCount])
                 : null,
         );
     }

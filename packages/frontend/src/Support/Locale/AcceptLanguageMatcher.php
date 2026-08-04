@@ -46,8 +46,11 @@ final class AcceptLanguageMatcher
 
             $segments = explode(';', $part);
             $tag = $this->normalise(mb_trim($segments[0]));
+            if ($tag === '') {
+                continue;
+            }
 
-            if ($tag === '' || $tag === '*') {
+            if ($tag === '*') {
                 continue;
             }
 

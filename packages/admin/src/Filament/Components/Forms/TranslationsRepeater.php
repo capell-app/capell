@@ -319,7 +319,11 @@ class TranslationsRepeater extends RepeaterTabs
         $compared = 0;
 
         foreach (array_keys($keys) as $key) {
-            if (! array_key_exists($key, $defaultAttributes) || ! array_key_exists($key, $recordAttributes)) {
+            if (! array_key_exists($key, $defaultAttributes)) {
+                continue;
+            }
+
+            if (! array_key_exists($key, $recordAttributes)) {
                 continue;
             }
 

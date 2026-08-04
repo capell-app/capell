@@ -261,7 +261,7 @@ class MediaTable implements TableConfigurator
                     : (string) $state)
                 ->tooltip(fn (int $state): string => $state === 0
                     ? self::noTrackedUsageTooltip()
-                    : (string) trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
+                    : trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
                 ->url(fn (Media $record, int $state): ?string => $state > 0 ? self::getUsageUrl($record) : null)
                 ->toggleable(),
             DateColumn::make('created_at'),

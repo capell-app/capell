@@ -30,7 +30,7 @@ final class BuildLayoutDeletionImpactAction
             authoritative: $authoritative,
             noReferencesLabel: (string) __('capell-admin::generic.deletion_impact_unused'),
             affectedLabel: $pagesCount > 0
-                ? (string) trans_choice('capell-admin::generic.deletion_impact_pages', $pagesCount, ['count' => $pagesCount])
+                ? trans_choice('capell-admin::generic.deletion_impact_pages', $pagesCount, ['count' => $pagesCount])
                 : null,
             referencesUrl: $this->pagesUrl($layout, $pagesCount),
         );
@@ -50,7 +50,7 @@ final class BuildLayoutDeletionImpactAction
             authoritative: $this->isUsageAuthoritative(),
             noReferencesLabel: (string) __('capell-admin::generic.deletion_impact_unused'),
             affectedLabel: $knownReferenceCount > 0
-                ? (string) trans_choice('capell-admin::generic.deletion_impact_pages', $knownReferenceCount, ['count' => $knownReferenceCount])
+                ? trans_choice('capell-admin::generic.deletion_impact_pages', $knownReferenceCount, ['count' => $knownReferenceCount])
                 : null,
         );
     }

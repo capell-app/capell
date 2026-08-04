@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Locale;
 
 use Capell\Core\Octane\Resettable;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Translation\Translator;
+use Illuminate\Support\Facades\Date;
 
 /**
  * Applies the resolved site locale to the application for the current request and
@@ -66,7 +66,7 @@ final class FrontendLocaleScope implements Resettable
         $this->app->setLocale($locale);
         $this->app->make(Translator::class)->setLocale($locale);
 
-        Carbon::setLocale($locale);
+        Date::setLocale($locale);
         CarbonImmutable::setLocale($locale);
     }
 

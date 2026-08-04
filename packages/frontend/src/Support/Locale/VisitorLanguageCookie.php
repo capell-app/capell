@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Locale;
 
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Support\Facades\Date;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -62,7 +64,7 @@ final class VisitorLanguageCookie
     public static function exemptFromEncryption(): void
     {
         /** @var class-string $middleware */
-        $middleware = 'Illuminate\Cookie\Middleware\EncryptCookies';
+        $middleware = EncryptCookies::class;
 
         if (! class_exists($middleware) || ! method_exists($middleware, 'except')) {
             return;
@@ -92,7 +94,7 @@ final class VisitorLanguageCookie
     {
         return Cookie::create(self::NAME)
             ->withValue($tag)
-            ->withExpires(time() + (self::LIFETIME_MINUTES * 60))
+            ->withExpires(Date::now()->getTimestamp() + (self::LIFETIME_MINUTES * 60))
             ->withPath('/')
             ->withSecure($secure)
             // Readable by the banner script, so not HttpOnly.
@@ -105,7 +107,7 @@ final class VisitorLanguageCookie
     {
         return Cookie::create(self::ORIGIN_NAME)
             ->withValue($tag . ' ' . $url)
-            ->withExpires(time() + self::ORIGIN_LIFETIME_SECONDS)
+            ->withExpires(Date::now()->getTimestamp() + self::ORIGIN_LIFETIME_SECONDS)
             ->withPath('/')
             ->withSecure($secure)
             ->withHttpOnly(false)

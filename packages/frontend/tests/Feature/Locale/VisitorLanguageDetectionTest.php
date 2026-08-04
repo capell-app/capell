@@ -81,9 +81,9 @@ function visitorLanguageFixture(string $primaryCode = 'en'): array
 
 function visitorLanguageMode(VisitorLanguageDetection $mode): void
 {
-    app()->bind(FrontendSettingsReaderInterface::class, fn (): object => new class($mode) implements FrontendSettingsReaderInterface
+    app()->bind(FrontendSettingsReaderInterface::class, fn (): object => new readonly class($mode) implements FrontendSettingsReaderInterface
     {
-        public function __construct(private readonly VisitorLanguageDetection $mode) {}
+        public function __construct(private VisitorLanguageDetection $mode) {}
 
         public function settings(): FrontendSettings
         {
