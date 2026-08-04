@@ -147,7 +147,7 @@ class LayoutResource extends Resource implements ValidatesDelete
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return __('capell-admin::generic.layouts');
+        return __('capell-admin::model_labels.layouts');
     }
 
     #[Override]

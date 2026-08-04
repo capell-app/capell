@@ -77,6 +77,6 @@ class UserResource extends Resource
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return __('capell-admin::generic.users');
+        return __('capell-admin::model_labels.users');
     }
 }
