@@ -29,7 +29,7 @@ return [
     'login_audits' => 'Login audits',
     'media_health' => 'Media health',
     'page_children' => 'Child pages',
-    'page_not_found' => 'Page not found',
+    'page_not_found' => 'Missing pages',
     'page_siblings' => 'Other pages under :parent',
     'page_layout_element_asset' => 'Page Layout Element Asset: :name',
     'related_pages' => 'Related Pages',
