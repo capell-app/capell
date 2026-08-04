@@ -1,7 +1,5 @@
 # AI-Ready Capell
 
-![Capell AI-Ready Capell screenshot](../images/capell-readme-banner.jpg)
-
 Capell Foundation gives optional AI packages structured, permissioned CMS context and a safe public-rendering boundary before a provider is added.
 
 AI features work best when they have trustworthy context: page records, URLs, language state, media metadata, package boundaries, workflow state, permissions, queues, cache dependencies, and a clear public output contract. Capell gives Laravel teams that foundation before an AI provider is added.

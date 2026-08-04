@@ -2,8 +2,6 @@
 
 Use this page to find the shortest route to your next task.
 
-![Capell Pages admin surface](images/capell-readme-banner.jpg)
-
 ## Choose Your Path
 
 | I want to...                  | Start with                                                              | Then read                                                                                                                                        |

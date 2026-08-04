@@ -1,7 +1,5 @@
 # Capell Interactions
 
-![Capell Interactions screenshot](../images/capell-readme-banner.jpg)
-
 Capell Interactions lets an editor attach a public action to a widget or [Layout Builder](https://docs.capell.app/packages/layout-builder) block. The action can open another widget in a modal, slide in a form, reveal inline content, replace a region, or fetch a Layout Builder fragment only when the visitor asks for it.
 
 The target is not a separate mini-app. It is a normal Capell widget or public Layout Builder block rendered through the same typed, tested rendering pipeline as the rest of the page. That is the point of the feature: rich interactive pages without one-off theme JavaScript, hidden IDs in HTML, or bespoke controller routes for every campaign.
