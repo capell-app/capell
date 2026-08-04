@@ -20,6 +20,7 @@ use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
@@ -253,5 +254,6 @@ it('runs two operations without leaking classified Capell state', function (): v
             ComponentRegistry::class,
             LockdownStore::class,
             ThemeViewRegistrar::class,
+            FrontendLocaleScope::class,
         ]);
 });

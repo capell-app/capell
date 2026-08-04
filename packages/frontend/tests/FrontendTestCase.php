@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Tests\Support\View\Components\PackageAlert;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Capell\Frontend\Providers\FrontendServiceProvider;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Tests\AbstractTestCase;
 use Filament\Actions\ActionsServiceProvider;
 use Filament\FilamentServiceProvider;
@@ -40,6 +41,22 @@ class FrontendTestCase extends AbstractTestCase
             resolve(SettingsMigrationProviderInterface::class)->getSettingMigrations(),
             __DIR__ . '/../../../packages/frontend/database/settings',
         );
+    }
+
+    /**
+     * Frontend requests push the served site language into the application and
+     * Carbon locale. ResolveFrontendMiddleware restores it and production also
+     * has the terminating callback, but a Livewire update never passes through
+     * that middleware and the test kernel never terminates the application. A
+     * leaked Carbon locale silently changes locale-dependent values — month
+     * names, the first day of the week — for every test that runs afterwards in
+     * the same process, including other packages' tests.
+     */
+    protected function tearDown(): void
+    {
+        resolve(FrontendLocaleScope::class)->restore();
+
+        parent::tearDown();
     }
 
     #[Override]

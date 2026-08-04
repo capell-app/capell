@@ -28,6 +28,24 @@ final class ResolveFrontendMiddleware
         $this->localeScope->restore();
         $this->state->reset();
 
+        // The site locale must not outlive this request. app()->terminating()
+        // is not guaranteed to run — it does not fire under the test kernel, and
+        // a leaked Carbon locale silently changes locale-dependent values such
+        // as the first day of the week for everything that runs afterwards. The
+        // response body is already rendered by the time the stack unwinds, so
+        // restoring here is both safe and deterministic.
+        try {
+            return $this->resolve($request, $next);
+        } finally {
+            $this->localeScope->restore();
+        }
+    }
+
+    /**
+     * @param  Closure(Request): Response  $next
+     */
+    private function resolve(Request $request, Closure $next): Response|RedirectResponse
+    {
         try {
             $result = $this->kernel->bootstrap($request);
         } catch (NotFoundHttpException $notFoundHttpException) {

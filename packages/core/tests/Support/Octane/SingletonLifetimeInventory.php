@@ -72,6 +72,7 @@ use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
+use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -171,6 +172,7 @@ final class SingletonLifetimeInventory
             ReservedFrontendPathRegistry::class => self::boot('Reserved paths are package boot registrations.'),
             ReservedFrontendDomainRegistry::class => self::boot('Reserved domains are package boot registrations.'),
             ThemeViewRegistrar::class => self::tagged('View finder namespace hints are restored after every operation.'),
+            FrontendLocaleScope::class => self::tagged('The incoming application and Carbon locale are captured for the served site language and restored after every operation.'),
             FrontendRouteMiddlewareRegistry::class => self::boot('Route middleware declarations are package boot registrations.'),
             FrontendResourceRegistry::class => self::boot('Frontend resources are package boot registrations.'),
             FrontendPackageDependencyRegistry::class => self::boot('Frontend package dependencies are package boot registrations.'),

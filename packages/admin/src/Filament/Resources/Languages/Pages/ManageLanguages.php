@@ -55,7 +55,6 @@ class ManageLanguages extends ManageRecords implements ValidatesDelete
     protected function getActions(): array
     {
         return $this->prependImportHeaderAction([
-            ExportTranslationsAction::make(),
             CreateAction::make()
                 ->modalDescription(__('capell-admin::generic.create_language_info'))
                 ->after(function (self $livewire, array $data, Language $record, CreateAction $action): void {
@@ -77,6 +76,7 @@ class ManageLanguages extends ManageRecords implements ValidatesDelete
                         });
                     }
                 }),
+            ExportTranslationsAction::make(),
         ]);
     }
 }
