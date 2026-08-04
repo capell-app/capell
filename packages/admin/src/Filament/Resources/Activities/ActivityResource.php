@@ -71,7 +71,7 @@ final class ActivityResource extends Resource
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return __('capell-admin::activity.activities');
+        return __('capell-admin::model_labels.activities');
     }
 
     #[Override]
@@ -83,7 +83,7 @@ final class ActivityResource extends Resource
     #[Override]
     public static function getModelLabel(): string
     {
-        return __('capell-admin::activity.activity');
+        return __('capell-admin::model_labels.activity');
     }
 
     #[Override]

@@ -56,13 +56,13 @@ final class BlockTemplateResource extends Resource
     #[Override]
     public static function getModelLabel(): string
     {
-        return (string) __('capell-admin::form.block_template');
+        return (string) __('capell-admin::model_labels.block_template');
     }
 
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return (string) __('capell-admin::navigation.block_templates');
+        return (string) __('capell-admin::model_labels.block_templates');
     }
 
     #[Override]
