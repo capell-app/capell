@@ -80,6 +80,11 @@ abstract class MarketplaceTestCase extends AbstractTestCase
 
         $app->make(Repository::class)->set('queue.connections.database.retry_after', 900);
 
+        // The Marketplace suite is written against a host that can install
+        // extensions itself. Tests about incapable hosts say so explicitly.
+        $app->make(Repository::class)->set('capell.server_side_tooling', true);
+        $app->make(Repository::class)->set('capell.release_root_mode', 'mutable');
+
         foreach (['installer', 'marketplace'] as $packageDirectory) {
             $manifest = json_decode(
                 (string) file_get_contents(dirname(__DIR__, 2) . '/' . $packageDirectory . '/capell.json'),

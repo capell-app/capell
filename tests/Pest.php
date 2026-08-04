@@ -6,6 +6,11 @@ use Capell\Admin\Tests\AdminTestCase;
 use Capell\Core\Tests\CoreTestCase;
 use Capell\Frontend\Tests\FrontendTestCase;
 use Capell\Installer\Tests\InstallerTestCase;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
+use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
+use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Tests\MarketplaceTestCase;
 use Capell\Tests\PackagesTestCase;
 use Illuminate\Contracts\Support\Htmlable;
@@ -26,6 +31,41 @@ pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/test
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests', '../Packages/frontend/tests');
 pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests', '../Packages/installer/tests');
 pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests', '../Packages/marketplace/tests');
+
+/**
+ * Declare the host a Marketplace test assumes.
+ *
+ * Environment readiness probes the machine the suite happens to run on — a test
+ * runner's release root can sit behind a symlink, and server-side tooling is off
+ * by default — so a test about per-attempt behaviour has to state the host it
+ * assumes rather than inherit the runner's.
+ */
+function fakeMarketplaceEnvironmentReadiness(
+    MarketplaceInstallCapability $capability = MarketplaceInstallCapability::Automated,
+    MarketplaceReadinessStatus $processExecutionStatus = MarketplaceReadinessStatus::Pass,
+): MarketplaceEnvironmentReadinessData {
+    $readiness = new MarketplaceEnvironmentReadinessData(
+        capability: $capability,
+        checks: [
+            new MarketplaceReadinessCheckData(
+                key: 'process_execution',
+                status: $processExecutionStatus,
+                message: 'Process execution readiness for this test host.',
+                remediation: $processExecutionStatus === MarketplaceReadinessStatus::Pass
+                    ? null
+                    : 'Remove proc_open from disable_functions in php.ini.',
+                docsAnchor: $processExecutionStatus === MarketplaceReadinessStatus::Pass
+                    ? null
+                    : 'process-execution',
+                byDesign: $processExecutionStatus === MarketplaceReadinessStatus::Fail,
+            ),
+        ],
+    );
+
+    bindFakeAction(EvaluateMarketplaceEnvironmentReadinessAction::class, $readiness);
+
+    return $readiness;
+}
 
 /**
  * Bind a fake for a final action class into the Laravel container.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Deployment;
 
+use Capell\Core\Enums\Deployment\ReleaseRootWriteRefusal;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -20,11 +21,59 @@ final class ReleaseRootWriteGuard
         ?string $releaseRoot = null,
         bool $requiresServerSideTooling = false,
     ): void {
+        $refusal = $this->evaluate($operation, $relativePaths, $releaseRoot, $requiresServerSideTooling);
+
+        if ($refusal === null) {
+            return;
+        }
+
+        throw new RuntimeException($refusal['message']);
+    }
+
+    /**
+     * Report why the guard would refuse, without throwing.
+     *
+     * Readiness reporting has to describe the host before anybody commits to an
+     * operation, so it needs the reason as a value rather than as an exception.
+     *
+     * @param  list<string>  $relativePaths
+     */
+    public function check(
+        string $operation,
+        array $relativePaths,
+        ?string $releaseRoot = null,
+        bool $requiresServerSideTooling = false,
+    ): ?string {
+        return $this->evaluate($operation, $relativePaths, $releaseRoot, $requiresServerSideTooling)['message'] ?? null;
+    }
+
+    /**
+     * @param  list<string>  $relativePaths
+     */
+    public function refusalReason(
+        string $operation,
+        array $relativePaths,
+        ?string $releaseRoot = null,
+        bool $requiresServerSideTooling = false,
+    ): ?ReleaseRootWriteRefusal {
+        return $this->evaluate($operation, $relativePaths, $releaseRoot, $requiresServerSideTooling)['reason'] ?? null;
+    }
+
+    /**
+     * @param  list<string>  $relativePaths
+     * @return array{reason: ReleaseRootWriteRefusal, message: string}|null
+     */
+    private function evaluate(
+        string $operation,
+        array $relativePaths,
+        ?string $releaseRoot,
+        bool $requiresServerSideTooling,
+    ): ?array {
         $root = rtrim($releaseRoot ?? base_path(), DIRECTORY_SEPARATOR);
         $mode = config('capell.release_root_mode', self::MUTABLE_MODE);
 
         if ($requiresServerSideTooling && config('capell.server_side_tooling', false) !== true) {
-            throw new RuntimeException(sprintf(
+            return $this->refusal(ReleaseRootWriteRefusal::ServerSideToolingDisabled, sprintf(
                 '%s is blocked because CAPELL_SERVER_SIDE_TOOLING is disabled. '
                 . 'Install the extension while building the next release, or explicitly enable '
                 . 'server-side tooling for a directly addressed mutable deployment.',
@@ -33,7 +82,7 @@ final class ReleaseRootWriteGuard
         }
 
         if (! is_string($mode) || $mode !== self::MUTABLE_MODE) {
-            throw new RuntimeException(sprintf(
+            return $this->refusal(ReleaseRootWriteRefusal::ReleaseRootNotMutable, sprintf(
                 '%s is blocked because CAPELL_RELEASE_ROOT_MODE is %s. '
                 . 'Runtime release-root writes require a directly addressed mutable build root; '
                 . 'run this operation while building the next release instead.',
@@ -43,7 +92,7 @@ final class ReleaseRootWriteGuard
         }
 
         if ($root === '' || ! str_starts_with($root, DIRECTORY_SEPARATOR)) {
-            throw new RuntimeException(sprintf(
+            return $this->refusal(ReleaseRootWriteRefusal::ReleaseRootNotAbsolute, sprintf(
                 '%s is blocked because the application release root is not an absolute path: %s.',
                 $operation,
                 $root === '' ? '[empty]' : $root,
@@ -53,7 +102,7 @@ final class ReleaseRootWriteGuard
         $symlink = $this->firstSymlinkComponent($root);
 
         if ($symlink !== null) {
-            throw new RuntimeException(sprintf(
+            return $this->refusal(ReleaseRootWriteRefusal::ReleaseRootTraversesSymlink, sprintf(
                 '%s is blocked because the application release root traverses the symlink %s. '
                 . 'Writing through an atomic current-release symlink can modify an old release; '
                 . 'run this operation while building the next release instead.',
@@ -72,13 +121,23 @@ final class ReleaseRootWriteGuard
                 continue;
             }
 
-            throw new RuntimeException(sprintf(
+            return $this->refusal(ReleaseRootWriteRefusal::ReleaseRootPathNotWritable, sprintf(
                 '%s is blocked because release-root path %s is not writable by the current PHP process. '
                 . 'Keep the deployed release immutable and run this operation while building the next release.',
                 $operation,
                 $path,
             ));
         }
+
+        return null;
+    }
+
+    /**
+     * @return array{reason: ReleaseRootWriteRefusal, message: string}
+     */
+    private function refusal(ReleaseRootWriteRefusal $reason, string $message): array
+    {
+        return ['reason' => $reason, 'message' => $message];
     }
 
     private function firstSymlinkComponent(string $path): ?string

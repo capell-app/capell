@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Support\Facades\Schema;
@@ -33,7 +34,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
     public function handle(int $staleAfterMinutes = 15): DoctorReportData
     {
         $schemaCheck = $this->schemaCheck();
-        $checks = collect([$schemaCheck]);
+        $checks = collect([$this->environmentReadinessCheck(), $schemaCheck]);
 
         if ($schemaCheck->passed) {
             $checks->push($this->stuckOperationsCheck($staleAfterMinutes));
@@ -44,6 +45,50 @@ final class BuildMarketplaceOperationsDoctorReportAction
         return new DoctorReportData(
             status: $checks->every(static fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
             checks: $checks,
+        );
+    }
+
+    /**
+     * Surface the canonical readiness evaluation, so the doctor and the admin
+     * describe the host in the same words.
+     *
+     * A manual-only host is a supported hosting shape rather than a fault, so it
+     * must not fail the report and take the command's exit code with it. Only a
+     * blocked host — one that is misconfigured — does that.
+     */
+    private function environmentReadinessCheck(): DoctorCheckResultData
+    {
+        $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run();
+
+        $failed = $readiness->failedChecks();
+        $warned = $readiness->warnedChecks();
+
+        return new DoctorCheckResultData(
+            label: (string) __('capell-marketplace::marketplace.operations.doctor_readiness_label'),
+            passed: ! $readiness->isBlocked(),
+            message: (string) __('capell-marketplace::marketplace.operations.doctor_readiness_message', [
+                'capability' => $readiness->capability->getLabel(),
+            ]),
+            remediation: $failed === []
+                ? null
+                : implode(' ', array_values(array_unique(array_filter(array_map(
+                    static fn (MarketplaceReadinessCheckData $check): ?string => $check->remediation,
+                    $failed,
+                ))))),
+            id: 'marketplace.operations.environment-readiness',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'capability' => $readiness->capability->value,
+                'failed_checks' => array_map(
+                    static fn (MarketplaceReadinessCheckData $check): string => $check->key,
+                    $failed,
+                ),
+                'warned_checks' => array_map(
+                    static fn (MarketplaceReadinessCheckData $check): string => $check->key,
+                    $warned,
+                ),
+                'docs_path' => EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH,
+            ],
         );
     }
 

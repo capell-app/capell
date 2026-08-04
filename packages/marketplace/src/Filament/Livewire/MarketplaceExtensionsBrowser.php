@@ -6,8 +6,10 @@ namespace Capell\Marketplace\Filament\Livewire;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
+use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
@@ -60,6 +62,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     /** @var array<string, mixed>|null */
     private ?array $resolvedMarketplaceSelectionReview = null;
+
+    private ?MarketplaceEnvironmentReadinessData $marketplaceEnvironmentReadiness = null;
 
     public function mount(?string $lockedKind = null, bool $includeLocalExtensionState = true, ?string $initialSearch = null): void
     {
@@ -366,6 +370,15 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
             forceAvailableOnly: true,
         );
+    }
+
+    /**
+     * The host's install capability, so the catalogue can say what this site can
+     * do before anyone selects an extension rather than after they confirm one.
+     */
+    public function marketplaceEnvironmentReadiness(): MarketplaceEnvironmentReadinessData
+    {
+        return $this->marketplaceEnvironmentReadiness ??= EvaluateMarketplaceEnvironmentReadinessAction::run();
     }
 
     public function render(): mixed

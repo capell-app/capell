@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
@@ -15,25 +16,43 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Symfony\Component\Process\ExecutableFinder;
 
+/**
+ * Per-attempt install preflight, prefixed with the host-level readiness checks.
+ *
+ * The readiness evaluation is the canonical answer about the host; this action
+ * adds only the facts that depend on the attempt itself.
+ */
 final class RunMarketplaceInstallPreflightChecksAction
 {
     use AsFake;
     use AsObject;
 
     /**
-     * @return array{passed: bool, checks: list<array{name: string, passed: bool, message: string}>}
+     * Readiness entries are prefixed so they cannot collide with the per-attempt
+     * checks, which ask narrower questions under similar names.
+     */
+    private const string READINESS_PREFIX = 'environment_';
+
+    /**
+     * @return array{passed: bool, checks: list<array{name: string, passed: bool, message: string, remediation: string|null, docs_anchor: string|null}>}
      */
     public function handle(MarketplaceInstallAttempt $attempt): array
     {
+        $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run();
+
         $checks = [
-            $this->check('php_cli', is_string((new ExecutableFinder)->find('php')), 'PHP CLI binary is available.'),
-            $this->check('composer_binary', is_string((new ExecutableFinder)->find('composer')), 'Composer binary is available.'),
-            $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json')), 'composer.json is writable.'),
-            $this->check('composer_lock', ! is_file(base_path('composer.lock')) || is_writable(base_path('composer.lock')), 'composer.lock is writable or absent.'),
-            $this->check('package_not_installed', ! $this->packageAlreadyInstalled($attempt->composer_name) || $this->allowsInstalledPackageRetry($attempt), 'Package is not already installed in Capell or is eligible for cancel-after-Composer recovery.'),
-            $this->check('no_duplicate_active_install', ! $this->hasDuplicateActiveInstall($attempt), 'No duplicate active install exists.'),
-            $this->check('queue_ready', config('queue.default') !== null, 'Queue connection is configured.'),
-            $this->check('queue_retry_after', $this->queueRetryAfterIsSafe(), 'Queue retry_after exceeds the Marketplace installer timeout.'),
+            ...array_map(
+                fn (MarketplaceReadinessCheckData $check): array => $this->readinessCheck($check),
+                $readiness->checks,
+            ),
+            $this->check('php_cli', is_string(new ExecutableFinder()->find('php'))),
+            $this->check('composer_binary', is_string(new ExecutableFinder()->find('composer'))),
+            $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json'))),
+            $this->check('composer_lock', ! is_file(base_path('composer.lock')) || is_writable(base_path('composer.lock'))),
+            $this->check('package_not_installed', ! $this->packageAlreadyInstalled($attempt->composer_name) || $this->allowsInstalledPackageRetry($attempt)),
+            $this->check('no_duplicate_active_install', ! $this->hasDuplicateActiveInstall($attempt)),
+            $this->check('queue_ready', config('queue.default') !== null),
+            $this->check('queue_retry_after', $this->queueRetryAfterIsSafe()),
         ];
 
         $passed = collect($checks)->every(fn (array $check): bool => $check['passed']);
@@ -54,15 +73,30 @@ final class RunMarketplaceInstallPreflightChecksAction
         ];
     }
 
-    /** @return array{name: string, passed: bool, message: string} */
-    private function check(string $name, bool $passed, string $successMessage): array
+    /** @return array{name: string, passed: bool, message: string, remediation: string|null, docs_anchor: string|null} */
+    private function readinessCheck(MarketplaceReadinessCheckData $check): array
+    {
+        // A warning is honest reporting, not a reason to refuse the attempt.
+        return [
+            'name' => self::READINESS_PREFIX . $check->key,
+            'passed' => ! $check->failed(),
+            'message' => $check->message,
+            'remediation' => $check->remediation,
+            'docs_anchor' => $check->docsAnchor,
+        ];
+    }
+
+    /** @return array{name: string, passed: bool, message: string, remediation: string|null, docs_anchor: string|null} */
+    private function check(string $name, bool $passed): array
     {
         return [
             'name' => $name,
             'passed' => $passed,
-            'message' => $passed ? $successMessage : __('capell-marketplace::marketplace.operations.preflight_failed_check', [
-                'check' => str_replace('_', ' ', $name),
-            ]),
+            'message' => (string) __('capell-marketplace::marketplace.readiness.preflight.' . $name . ($passed ? '_pass' : '_fail')),
+            'remediation' => $passed
+                ? null
+                : (string) __('capell-marketplace::marketplace.readiness.preflight.' . $name . '_remediation'),
+            'docs_anchor' => $passed ? null : str_replace('_', '-', $name),
         ];
     }
 

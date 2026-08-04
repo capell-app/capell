@@ -380,6 +380,34 @@
         </label>
     @endif
 
+    {{-- The host's capability belongs before the confirmation, not after it. --}}
+    <div
+        data-capell-marketplace-readiness-summary
+        data-capell-marketplace-readiness-capability="{{ $readiness->capability->value }}"
+        class="space-y-2 rounded-lg border border-gray-200 bg-white p-4 text-sm dark:border-white/10 dark:bg-gray-900"
+    >
+        <h4 class="text-sm font-semibold text-gray-950 dark:text-white">
+            {{ __('capell-marketplace::marketplace.readiness.summary_heading') }}
+        </h4>
+
+        <p class="text-gray-600 dark:text-gray-400">
+            {{ $readiness->capability->getLabel() }} — {{ __('capell-marketplace::marketplace.readiness.banner.' . $readiness->capability->value) }}
+        </p>
+
+        @foreach ([...$readiness->failedChecks(), ...$readiness->warnedChecks()] as $readinessCheck)
+            <p
+                data-capell-marketplace-readiness-check="{{ $readinessCheck->key }}"
+                class="text-gray-600 dark:text-gray-400"
+            >
+                {{ $readinessCheck->message }}
+
+                @if ($readinessCheck->remediation !== null)
+                    {{ $readinessCheck->remediation }}
+                @endif
+            </p>
+        @endforeach
+    </div>
+
     <label
         class="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-500/30 dark:bg-blue-500/10"
     >

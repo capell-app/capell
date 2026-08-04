@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Deployment\ReleaseRootWriteRefusal;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 
 it('blocks runtime tooling when the deployment does not opt in', function (): void {
@@ -101,4 +102,72 @@ it('rejects release-root paths with parent traversal', function (): void {
             releaseRoot: base_path(),
         );
     })->toThrow(InvalidArgumentException::class, 'without parent traversal');
+});
+
+it('reports the refusal without throwing and returns null when the write is allowed', function (): void {
+    $temporaryRoot = realpath(sys_get_temp_dir());
+    throw_unless(is_string($temporaryRoot), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
+
+    $root = $temporaryRoot . '/capell-checkable-release-' . bin2hex(random_bytes(4));
+    mkdir($root . '/database', 0755, true);
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    try {
+        $guard = new ReleaseRootWriteGuard;
+
+        expect($guard->check('Publishing pending Capell migrations', ['database/migrations'], $root))->toBeNull()
+            ->and($guard->refusalReason('Publishing pending Capell migrations', ['database/migrations'], $root))->toBeNull();
+    } finally {
+        rmdir($root . '/database');
+        rmdir($root);
+    }
+});
+
+it('returns the same message the assertion throws, for the same host', function (): void {
+    config()->set('capell.release_root_mode', 'immutable');
+    config()->set('capell.server_side_tooling', true);
+
+    $guard = new ReleaseRootWriteGuard;
+    $reported = $guard->check('Installing a Marketplace extension with Composer', ['composer.json'], base_path());
+
+    $thrown = null;
+
+    try {
+        $guard->assertWritable('Installing a Marketplace extension with Composer', ['composer.json'], base_path());
+    } catch (RuntimeException $exception) {
+        $thrown = $exception->getMessage();
+    }
+
+    expect($reported)->toBe($thrown)
+        ->and($reported)->toContain('CAPELL_RELEASE_ROOT_MODE is immutable');
+});
+
+it('classifies a deliberately immutable release root as refused by design', function (): void {
+    config()->set('capell.release_root_mode', 'atomic');
+    config()->set('capell.server_side_tooling', true);
+
+    $reason = new ReleaseRootWriteGuard()->refusalReason(
+        'Installing a Marketplace extension with Composer',
+        ['composer.json'],
+        base_path(),
+    );
+
+    expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootNotMutable)
+        ->and($reason?->isByDesign())->toBeTrue();
+});
+
+it('classifies a release root that is not an absolute path as misconfigured', function (): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    $reason = new ReleaseRootWriteGuard()->refusalReason(
+        'Installing a Marketplace extension with Composer',
+        ['composer.json'],
+        'relative/release/root',
+    );
+
+    expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootNotAbsolute)
+        ->and($reason?->isByDesign())->toBeFalse();
 });

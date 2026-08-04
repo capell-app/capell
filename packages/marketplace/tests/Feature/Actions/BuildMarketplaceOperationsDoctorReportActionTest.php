@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 
@@ -55,4 +57,25 @@ it('fails when queue retry_after can make a long operation run twice', function 
             'retry_after_seconds' => 90,
             'job_timeout_seconds' => 720,
         ]);
+});
+
+it('reports the host install capability without failing a manual-only host', function (): void {
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::ManualOnly);
+
+    $check = BuildMarketplaceOperationsDoctorReportAction::run()
+        ->checks
+        ->firstWhere('id', 'marketplace.operations.environment-readiness');
+
+    expect($check?->passed)->toBeTrue()
+        ->and($check?->evidence['capability'])->toBe(MarketplaceInstallCapability::ManualOnly->value)
+        ->and($check?->evidence['docs_path'])->toBe(EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH);
+});
+
+it('fails the report when the host is blocked', function (): void {
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Blocked);
+
+    $report = BuildMarketplaceOperationsDoctorReportAction::run();
+
+    expect($report->status)->toBe('failed')
+        ->and($report->checks->firstWhere('id', 'marketplace.operations.environment-readiness')?->passed)->toBeFalse();
 });

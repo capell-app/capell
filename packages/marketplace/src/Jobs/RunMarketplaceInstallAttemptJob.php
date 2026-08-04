@@ -47,9 +47,15 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     use Queueable;
     use SerializesModels;
 
-    private const int COMPOSER_TIMEOUT_SECONDS = 600;
+    /**
+     * Public so environment readiness can check the composer/job/retry_after
+     * chain against the real numbers instead of a second copy of them.
+     */
+    public const int COMPOSER_TIMEOUT_SECONDS = 600;
 
-    public int $timeout = 720;
+    public const int JOB_TIMEOUT_SECONDS = 720;
+
+    public int $timeout = self::JOB_TIMEOUT_SECONDS;
 
     /**
      * Unlimited attempts, bounded by retryUntil(). This is deliberate: a job that

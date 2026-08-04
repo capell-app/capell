@@ -114,9 +114,14 @@
                 </div>
             </div>
 
+            @include('capell-marketplace::filament.partials.marketplace-readiness-banner', [
+                'readiness' => $this->marketplaceEnvironmentReadiness(),
+            ])
+
             @if ($marketplaceStep === 'review')
                 @include('capell-marketplace::filament.livewire.marketplace-extensions-browser.install-review', [
                     'selection' => $selection,
+                    'readiness' => $this->marketplaceEnvironmentReadiness(),
                 ])
             @else
                 {{ $this->table }}
