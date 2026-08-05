@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -41,6 +43,9 @@ it('renders marketplace extension details with health alerts and accessible feed
         ->assertSee('5 screenshots')
         ->assertSee('data-capell-marketplace-extension-screenshots', false)
         ->assertSee('data-capell-marketplace-extension-docs', false)
+        ->assertSee('data-capell-marketplace-suite="growth"', false)
+        ->assertSee('data-capell-marketplace-suite-member="capell-app/html-cache"', false)
+        ->assertSee('data-capell-marketplace-trial', false)
         ->assertSee('Admin overview')
         ->assertSee('Frontend output')
         ->assertSee('loading="lazy"', false)
@@ -81,6 +86,69 @@ it('renders marketplace extension details with health alerts and accessible feed
         ->call('submitFeedback')
         ->assertHasErrors(['feedbackRating'])
         ->assertSee('feedback-rating-error', false);
+});
+
+it('renders activation-required licence input and keeps server failures as field validation', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000123',
+        'signing_secret_encrypted' => 'test-secret',
+        'connection_mode' => MarketplaceConnectionMode::AccountLinked,
+        'account_id' => 'acct_123',
+        'account_email_verified_at' => now(),
+        'last_heartbeat_at' => now(),
+    ]);
+
+    config([
+        'app.url' => 'https://example.test',
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [[
+                'slug' => 'activation-suite',
+                'name' => 'Activation Suite',
+                'composer_name' => 'capell-app/activation-suite',
+                'kind' => 'plugin',
+                'is_paid' => true,
+                'price_cents' => 4900,
+                'install_eligibility' => [
+                    'state' => 'activation_required',
+                ],
+            ]],
+        ]),
+        'https://marketplace.test/api/extensions/activation-suite' => Http::response([
+            'data' => [
+                'slug' => 'activation-suite',
+                'name' => 'Activation Suite',
+                'composer_name' => 'capell-app/activation-suite',
+                'kind' => 'plugin',
+                'is_paid' => true,
+                'price_cents' => 4900,
+                'install_eligibility' => [
+                    'state' => 'activation_required',
+                ],
+                'licence' => [
+                    'licence_status' => 'purchased',
+                    'can_install' => false,
+                ],
+            ],
+        ]),
+        'https://marketplace.test/api/extensions/activation-suite/install-authorization' => Http::response([
+            'message' => 'Private server failure detail.',
+        ], 422),
+    ]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'activation-suite'])
+        ->assertSee('data-capell-marketplace-licence-form', false)
+        ->set('licenseKey', 'invalid-key')
+        ->call('activateLicence')
+        ->assertHasErrors(['licenseKey'])
+        ->assertSee(__('capell-marketplace::marketplace.install.license_key_invalid'))
+        ->assertDontSee('Private server failure detail.');
 });
 
 it('marks rating-only feedback as required in the rendered controls', function (): void {
@@ -190,6 +258,11 @@ function marketplaceDetailResponse(bool $canComment = true, bool $canRate = true
             'display_name' => 'Advanced SEO Suite',
             'product' => ['group' => 'Marketing', 'tier' => 'premium', 'bundle' => 'growth'],
             'commercial' => ['requestedCertification' => 'first-party', 'supportPolicy' => 'priority'],
+            'trial' => [
+                'label' => 'Try Advanced SEO Suite',
+                'duration_days' => 14,
+                'description' => 'Full access during the trial.',
+            ],
             'surfaces' => ['admin', 'frontend'],
             'dependencies' => ['requires' => ['capell-app/html-cache']],
             'performance' => ['frontendRenderBudgetMs' => 15],

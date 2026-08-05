@@ -11,7 +11,9 @@ use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\AssertNoActiveMarketplaceOperationAction;
+use Capell\Marketplace\Actions\BuildMarketplaceSuitePresentationAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
 use Capell\Marketplace\Actions\SubmitExtensionFeedbackAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
@@ -19,6 +21,9 @@ use Capell\Marketplace\Data\ExtensionFeedbackData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallRequestData;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
+use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceUpdateChangelogPresenter;
@@ -51,6 +56,8 @@ final class MarketplaceExtensionDetailPage extends Page
     public ?string $feedbackTip = null;
 
     public ?string $feedbackStatus = null;
+
+    public ?string $licenseKey = null;
 
     public ?string $detailLoadError = null;
 
@@ -162,6 +169,64 @@ final class MarketplaceExtensionDetailPage extends Page
     public function canInstall(): bool
     {
         return (bool) $this->detail()?->licence?->canInstall;
+    }
+
+    public function requiresLicenceKey(): bool
+    {
+        $detail = $this->detail();
+
+        if (! $detail instanceof ExtensionDetailData) {
+            return false;
+        }
+
+        return $detail->installEligibilityPolicy?->state === MarketplaceInstallState::ActivationRequired
+            || $detail->installEligibility === MarketplaceInstallState::ActivationRequired->value;
+    }
+
+    public function activateLicence(): void
+    {
+        abort_unless(self::canAccess(), 403);
+
+        $validated = Validator::make([
+            'licenseKey' => $this->licenseKey,
+        ], [
+            'licenseKey' => ['required', 'string', 'max:512'],
+        ], [], [
+            'licenseKey' => (string) __('capell-marketplace::marketplace.install.license_key_label'),
+        ])->validate();
+        $detail = $this->detail();
+
+        if (! $detail instanceof ExtensionDetailData) {
+            return;
+        }
+
+        $user = auth()->user();
+
+        try {
+            InstallMarketplaceExtensionAction::run(MarketplaceInstallRequestData::make(
+                extensionSlug: $detail->slug,
+                options: [
+                    'composer_name' => $detail->composerName,
+                    'install_eligibility_policy' => $detail->installEligibilityPolicy?->toArray(),
+                    'license_key' => $validated['licenseKey'],
+                    '_validation_errors' => true,
+                ],
+                actor: $user instanceof Authenticatable
+                    ? MarketplaceInstallActorData::fromAuthenticatable($user)
+                    : MarketplaceInstallActorData::system('marketplace-extension-detail'),
+                betaAcknowledged: false,
+                source: MarketplaceInstallSource::LocalUi,
+            ));
+        } catch (ValidationException $validationException) {
+            $message = collect($validationException->errors())->flatten()->first();
+            $this->addError('licenseKey', is_string($message)
+                ? $message
+                : (string) __('capell-marketplace::marketplace.install.license_key_invalid'));
+
+            return;
+        }
+
+        $this->reset('licenseKey');
     }
 
     /**
@@ -392,6 +457,24 @@ final class MarketplaceExtensionDetailPage extends Page
         }
 
         return (string) Number::currency($priceCents / 100, $detail?->currency ?? 'USD');
+    }
+
+    /**
+     * @return array{
+     *   bundle: string,
+     *   members: list<array{name: string, composer_name: string, price: string|null}>,
+     *   combined_price: string,
+     *   member_total: string|null,
+     *   savings: string|null
+     * }|null
+     */
+    public function suitePresentation(): ?array
+    {
+        $detail = $this->detail();
+
+        return $detail instanceof ExtensionDetailData
+            ? BuildMarketplaceSuitePresentationAction::run($detail)
+            : null;
     }
 
     public function compatibilityLabel(): string

@@ -359,6 +359,39 @@
         </div>
     @endif
 
+    @if ($this->marketplaceSelectionRequiresLicenceKey($selection))
+        <label
+            class="block space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+            data-capell-marketplace-licence-form
+        >
+            <span
+                class="block font-semibold text-amber-950 dark:text-amber-100"
+            >
+                {{ __('capell-marketplace::marketplace.install.license_key_label') }}
+            </span>
+            <x-filament::input.wrapper
+                :valid="! $errors->has('marketplaceLicenseKey')"
+            >
+                <x-filament::input
+                    type="password"
+                    wire:model="marketplaceLicenseKey"
+                    autocomplete="off"
+                    data-capell-marketplace-licence-key
+                />
+            </x-filament::input.wrapper>
+            <span class="block text-amber-800 dark:text-amber-200">
+                {{ __('capell-marketplace::marketplace.install.license_key_help') }}
+            </span>
+            @error('marketplaceLicenseKey')
+                <span
+                    class="block text-danger-600"
+                    data-capell-marketplace-licence-error
+                    >{{ $message }}</span
+                >
+            @enderror
+        </label>
+    @endif
+
     {{-- Only asked when a theme is actually being installed, and off by default:
          applying a theme changes what every visitor sees. --}}
     @if ($this->marketplaceSelectionContainsTheme())

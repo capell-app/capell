@@ -422,13 +422,11 @@ it('renders safe commercial status when connection details are explicitly availa
     ])->render();
 
     expect($content)
-        ->toContain('Capell Membership')
-        ->toContain('GBP 199.00')
-        ->toContain('GBP 159.20')
-        ->toContain('38 products')
-        ->toContain('£49.00')
-        ->toContain('https://capell.test/customer/packages')
-        ->toContain('https://capell.test/support/request')
+        ->toContain(__('capell-marketplace::marketplace.purchases.page_title'))
+        ->toContain('data-capell-marketplace-purchases-link')
+        ->not->toContain('GBP 199.00')
+        ->not->toContain('£49.00')
+        ->not->toContain('https://capell.test/support/request')
         ->not->toContain('secret-value')
         ->not->toContain('acct_123');
 });

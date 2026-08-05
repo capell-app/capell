@@ -64,6 +64,8 @@
             $tier,
             $certification,
             $record['support_policy'] ?? null,
+            $record['bundle_label'] ?? null,
+            $record['trial_label'] ?? null,
             ...(is_array($record['surface_labels'] ?? null) ? $record['surface_labels'] : []),
         ]));
         $categoryLabels = is_array($record['category_labels'] ?? null) ? $record['category_labels'] : [];
@@ -258,6 +260,9 @@
     aria-labelledby="{{ $cardTitleId }}"
     data-catalogue-role="{{ $catalogueRole }}"
     data-extension-maturity="{{ $maturity }}"
+    @if ($isMarketplaceRecord && is_string($record['product_bundle'] ?? null))
+        data-capell-marketplace-product-bundle="{{ $record['product_bundle'] }}"
+    @endif
     data-included-with-capell-all="{{ $includedWithCapellAll ? 'true' : 'false' }}"
 >
     <figure class="relative h-28 overflow-hidden bg-gray-100 dark:bg-gray-950">

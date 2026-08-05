@@ -39,6 +39,46 @@
             </div>
         </x-filament::section>
 
+        @if ($data['membership'] !== null)
+            <x-filament::section
+                :heading="data_get($data, 'membership.name', __('capell-marketplace::marketplace.marketplace.commercial.membership_heading'))"
+            >
+                <div
+                    class="space-y-3"
+                    data-capell-marketplace-membership-comparison
+                >
+                    @if ($data['membership_price'] !== null && $data['membership_renewal_price'] !== null)
+                        <p>
+                            {{ __('capell-marketplace::marketplace.purchases.membership_price', [
+                                'price' => $data['membership_price'],
+                                'renewal' => $data['membership_renewal_price'],
+                            ]) }}
+                        </p>
+                    @endif
+
+                    <p class="text-sm text-gray-600 dark:text-gray-300">
+                        {{ __('capell-marketplace::marketplace.marketplace.commercial.membership_includes', [
+                            'products' => data_get($data, 'membership.included_product_count', 0),
+                            'users' => data_get($data, 'membership.named_user_limit', 0),
+                            'new' => $data['new_membership_product_count'],
+                        ]) }}
+                    </p>
+
+                    @if ($data['priority_support_price'] !== null)
+                        <p class="text-sm text-gray-600 dark:text-gray-300">
+                            {{ __('capell-marketplace::marketplace.purchases.priority_support', ['price' => $data['priority_support_price']]) }}
+                        </p>
+                    @endif
+                </div>
+            </x-filament::section>
+        @endif
+
+        @if ($data['expired_explanation'] !== null)
+            <p class="text-sm text-gray-600 dark:text-gray-300" data-capell-marketplace-expired-explanation>
+                {{ $data['expired_explanation'] }}
+            </p>
+        @endif
+
         <x-filament::section
             :heading="__('capell-marketplace::marketplace.purchases.installed_heading')"
         >

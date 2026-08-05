@@ -420,6 +420,37 @@ it('allows Capell Membership extensions into the hosted install review', functio
         ->assertSee(__('capell-marketplace::marketplace.selection.premium_notice'));
 });
 
+it('renders the offline licence fallback in an activation-required review', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'activation-suite',
+                    'name' => 'Activation Suite',
+                    'composer_name' => 'capell-app/activation-suite',
+                    'is_paid' => true,
+                    'install_state' => 'activation_required',
+                    'install_eligibility' => [
+                        'state' => 'activation_required',
+                    ],
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/activation-suite')
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'review')
+        ->assertSee('data-capell-marketplace-licence-form', false)
+        ->assertSee(__('capell-marketplace::marketplace.install.license_key_label'))
+        ->assertSee(__('capell-marketplace::marketplace.install.license_key_help'));
+});
+
 it('queues a free marketplace extension install from the grouped browser footer', function (): void {
     grantMarketplaceBrowserManagementAccess();
     Queue::fake();

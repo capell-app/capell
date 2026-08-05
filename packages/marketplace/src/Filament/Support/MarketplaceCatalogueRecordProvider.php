@@ -762,6 +762,9 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'product_group' => $extension->productGroup,
             'product_tier' => $extension->productTier,
             'product_bundle' => $extension->productBundle,
+            'bundle_label' => $extension->productBundle !== null
+                ? (string) __('capell-marketplace::marketplace.suites.bundle_badge', ['bundle' => str($extension->productBundle)->headline()])
+                : null,
             'catalogue_role' => $extension->catalogueRole,
             'maturity' => $extension->maturity,
             'maturity_label' => $extension->maturityLabel,
@@ -772,7 +775,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'image_url' => $this->marketplaceImageUrl($extension->imageUrl),
             'image_urls' => $this->marketplaceImageUrls($extension->imageUrls),
             'price_cents' => $extension->priceCents,
+            'currency' => $extension->currency,
             'price_label' => $this->priceLabel($extension),
+            'trial' => $extension->trial,
+            'trial_label' => $this->trialLabel($extension->trial),
             'is_paid' => $extension->isPaid,
             'is_featured' => $extension->isFeatured,
             'featured_rank' => $extension->featuredRank,
@@ -813,6 +819,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'is_compatible' => $isCompatible,
             'compatibility_warnings' => $this->compatibilityWarnings($compatibilityDetails),
             'activation_required' => $extension->activationRequired,
+            'server_install_state' => $extension->installState,
             'install_authorized' => $extension->installAuthorized,
             'install_eligibility_policy' => $eligibility->toArray(),
             'install_in_progress' => $activeInstallOperation instanceof MarketplaceInstallAttempt,
@@ -877,6 +884,22 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         }
 
         return (string) Number::currency($extension->priceCents / 100, $extension->currency);
+    }
+
+    /** @param array<string, mixed> $trial */
+    private function trialLabel(array $trial): ?string
+    {
+        $label = $trial['label'] ?? null;
+
+        if (is_string($label) && $label !== '') {
+            return $label;
+        }
+
+        $days = $trial['days'] ?? $trial['duration_days'] ?? null;
+
+        return is_numeric($days) && (int) $days > 0
+            ? (string) trans_choice('capell-marketplace::marketplace.suites.trial_days', (int) $days, ['count' => (int) $days])
+            : null;
     }
 
     private function isFreeProductTier(ExtensionListingData $extension): bool

@@ -360,12 +360,10 @@ final class MarketplaceCatalogueTable
                     TextInput::make('price_min')
                         ->label((string) __('capell-marketplace::marketplace.filters.price_min'))
                         ->numeric()
-                        ->prefix('$')
                         ->placeholder('0'),
                     TextInput::make('price_max')
                         ->label((string) __('capell-marketplace::marketplace.filters.price_max'))
                         ->numeric()
-                        ->prefix('$')
                         ->placeholder('99'),
                 ])
                 ->indicateUsing(fn (array $data): array => $this->priceFilterIndicators($data)),

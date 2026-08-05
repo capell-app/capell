@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Actions\Marketplace\ResolveExtensionLicenceDecisionAction;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Illuminate\Support\Number;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -22,20 +23,38 @@ final class BuildMarketplacePurchasesPageDataAction
      *   installed: list<array<string, mixed>>,
      *   renewal_url: string|null,
      *   support_url: string|null,
-     *   currency: string
+     *   membership: array<string, mixed>|null,
+     *   membership_price: string|null,
+     *   membership_renewal_price: string|null,
+     *   new_membership_product_count: int,
+     *   priority_support_price: string|null,
+     *   expired_explanation: string|null,
+     *   currency: string|null
      * }
      */
     public function handle(): array
     {
         $commercial = resolve(MarketplaceInstanceResolver::class)->latest()?->connection_metadata['commercial'] ?? [];
         $commercial = is_array($commercial) ? $commercial : [];
+        $membership = is_array($commercial['membership_comparison'] ?? null)
+            ? $commercial['membership_comparison']
+            : null;
+        $currency = $this->optionalString($commercial['currency'] ?? data_get($membership, 'currency'));
 
         return [
             'purchases' => $this->purchases($commercial),
             'installed' => $this->installedPaidExtensions(),
             'renewal_url' => $this->optionalString($commercial['renewal_url'] ?? null),
             'support_url' => $this->optionalString($commercial['support_url'] ?? null),
-            'currency' => $this->optionalString($commercial['currency'] ?? null) ?? 'USD',
+            'membership' => $membership,
+            'membership_price' => $this->money($membership['price_cents'] ?? null, $currency),
+            'membership_renewal_price' => $this->money($membership['renewal_price_cents'] ?? null, $currency),
+            'new_membership_product_count' => is_numeric($commercial['new_membership_product_count'] ?? null)
+                ? (int) $commercial['new_membership_product_count']
+                : 0,
+            'priority_support_price' => $this->money($commercial['priority_support_price_cents'] ?? null, $currency),
+            'expired_explanation' => $this->optionalString($commercial['expired_explanation'] ?? null),
+            'currency' => $currency,
         ];
     }
 
@@ -107,5 +126,14 @@ final class BuildMarketplacePurchasesPageDataAction
     private function optionalString(mixed $value): ?string
     {
         return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    private function money(mixed $cents, ?string $currency): ?string
+    {
+        if (! is_numeric($cents) || $currency === null) {
+            return null;
+        }
+
+        return (string) Number::currency((int) $cents / 100, $currency);
     }
 }

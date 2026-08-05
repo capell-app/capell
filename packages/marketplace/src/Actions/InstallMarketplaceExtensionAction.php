@@ -31,6 +31,7 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -154,6 +155,17 @@ final class InstallMarketplaceExtensionAction
 
             return null;
         } catch (Throwable $throwable) {
+            if (($data['_validation_errors'] ?? false) === true) {
+                Log::warning('capell-marketplace: licence activation failed', [
+                    'slug' => $listing->slug,
+                    'exception' => $throwable,
+                ]);
+
+                throw ValidationException::withMessages([
+                    'license_key' => (string) __('capell-marketplace::marketplace.install.license_key_invalid'),
+                ]);
+            }
+
             $this->handleAuthorizationFailure($throwable, $listing, $arguments, $selectedInstallOptions, $eligibility);
 
             return null;

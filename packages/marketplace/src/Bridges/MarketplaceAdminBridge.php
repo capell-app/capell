@@ -22,6 +22,7 @@ use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Marketplace\Support\MarketplaceExtensionRemovalCoordinator;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
@@ -43,6 +44,10 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
         $registrar->page(MarketplacePackageOperationsPage::class);
         $registrar->page(MarketplacePurchasesPage::class);
         $registrar->page(ThemeExtensionPage::class);
+        $registrar->filamentDashboardWidget(
+            MarketplaceCommercialWarningFilamentWidget::class,
+            DashboardEnum::Main,
+        );
         $registrar->filamentDashboardWidget(
             MarketplacePackageOperationsAlertFilamentWidget::class,
             DashboardEnum::Main,

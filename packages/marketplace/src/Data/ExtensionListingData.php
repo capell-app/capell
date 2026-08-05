@@ -82,6 +82,8 @@ final class ExtensionListingData extends Data
         public readonly string $maturityLabel = 'Labs',
         public readonly bool $includedWithCapellAll = false,
         public readonly string $currency = 'USD',
+        /** @var array<string, mixed> */
+        public readonly array $trial = [],
     ) {}
 
     /**
@@ -155,6 +157,7 @@ final class ExtensionListingData extends Data
             maturityLabel: $catalogueReleaseMetadata->maturityLabel,
             includedWithCapellAll: $catalogueReleaseMetadata->includedWithCapellAll,
             currency: self::nonEmptyString($item['currency'] ?? $item['price_currency'] ?? data_get($item, 'commercial.currency')) ?? 'USD',
+            trial: self::arrayValue($item['trial'] ?? data_get($item, 'commercial.trial', [])),
         );
     }
 
@@ -445,7 +448,7 @@ final class ExtensionListingData extends Data
             'effective_certification', 'certification', 'support_policy', 'private_docs_entitled',
             'performance', 'performance_budget', 'contribution_summary', 'contributions_summary',
             'install_eligibility', 'eligibility', 'blocked_reason', 'next_action', 'surfaces', 'dependencies',
-            'catalogue_role', 'maturity', 'maturity_label', 'included_with_capell_all',
+            'catalogue_role', 'maturity', 'maturity_label', 'included_with_capell_all', 'trial',
             'metadata',
         ];
 

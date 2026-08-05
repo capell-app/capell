@@ -19,6 +19,7 @@ use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
@@ -75,6 +76,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     public bool $installReviewedMarketplaceExtensionsConfirmed = false;
 
     public bool $betaMarketplaceExtensionsAcknowledged = false;
+
+    public ?string $marketplaceLicenseKey = null;
 
     /**
      * Default OFF, and it says so on the label. Applying a theme replaces what
@@ -368,6 +371,14 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return;
         }
 
+        if ($this->marketplaceSelectionRequiresLicenceKey($selection)) {
+            $this->validate([
+                'marketplaceLicenseKey' => ['required', 'string', 'max:512'],
+            ], [], [
+                'marketplaceLicenseKey' => (string) __('capell-marketplace::marketplace.install.license_key_label'),
+            ]);
+        }
+
         if ($this->marketplaceSelectionNeedsHostedFlow($selection)) {
             try {
                 $this->redirect(StartMarketplaceInstallFlowAction::run(new CreateMarketplaceInstallFlowSessionData(
@@ -412,17 +423,28 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         $installComposerNames = $selection['install_composer_names'];
 
         foreach ($selection['install_records'] as $record) {
-            $redirectUrl = resolve(MarketplaceCatalogueTable::class)->installExtension(
-                arguments: $record,
-                data: [
-                    'install_options' => [
-                        ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
-                        ...$this->themeActivationInstallOption($record),
-                        'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
+            try {
+                $redirectUrl = resolve(MarketplaceCatalogueTable::class)->installExtension(
+                    arguments: $record,
+                    data: [
+                        'license_key' => $this->marketplaceLicenseKey,
+                        '_validation_errors' => true,
+                        'install_options' => [
+                            ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
+                            ...$this->themeActivationInstallOption($record),
+                            'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
+                        ],
                     ],
-                ],
-                redirectAccountActions: true,
-            );
+                    redirectAccountActions: true,
+                );
+            } catch (ValidationException $validationException) {
+                $message = collect($validationException->errors())->flatten()->first();
+                $this->addError('marketplaceLicenseKey', is_string($message)
+                    ? $message
+                    : (string) __('capell-marketplace::marketplace.install.license_key_invalid'));
+
+                return;
+            }
 
             if (is_string($redirectUrl) && $redirectUrl !== '') {
                 $this->redirect($redirectUrl);
@@ -433,6 +455,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $this->selectedMarketplaceComposerNames = [];
         $this->selectedMarketplaceInstallOptions = [];
+        $this->marketplaceLicenseKey = null;
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
         $this->resolvedMarketplaceSelectionReview = null;
         $this->activeMarketplaceInstallAttemptIds = $this->activeMarketplaceInstallAttemptIdsFor($installComposerNames);
@@ -719,6 +742,15 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         );
     }
 
+    /**
+     * @param  array{install_records: array<int, array<string, mixed>>}  $selection
+     */
+    public function marketplaceSelectionRequiresLicenceKey(array $selection): bool
+    {
+        return collect($selection['install_records'])
+            ->contains(fn (array $record): bool => $this->marketplaceRecordRequiresLicenceKey($record));
+    }
+
     private function authorizeMarketplaceAccess(): void
     {
         abort_unless(MarketplacePage::canAccess(), 403);
@@ -897,10 +929,25 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 continue;
             }
 
+            if ($this->marketplaceRecordRequiresLicenceKey($record) && filled($this->marketplaceLicenseKey)) {
+                continue;
+            }
+
             return true;
         }
 
         return false;
+    }
+
+    /** @param array<string, mixed> $record */
+    private function marketplaceRecordRequiresLicenceKey(array $record): bool
+    {
+        return in_array(MarketplaceInstallState::ActivationRequired->value, [
+            $record['marketplace_install_state'] ?? null,
+            $record['install_state'] ?? null,
+            $record['server_install_state'] ?? null,
+            data_get($record, 'install_eligibility_policy.state'),
+        ], true);
     }
 
     /**

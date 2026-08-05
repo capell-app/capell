@@ -1481,6 +1481,31 @@ it('can build marketplace records for a locked theme browser', function (): void
         && ! array_key_exists('installed_status', $request->data()));
 });
 
+it('surfaces server bundle and trial terms as catalogue badges', function (): void {
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceCatalogueExtensionPayload([
+                    'slug' => 'growth-suite',
+                    'name' => 'Growth Suite',
+                    'composer_name' => 'capell-app/growth-suite',
+                    'product' => ['bundle' => 'growth'],
+                    'trial' => ['duration_days' => 14],
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $record = resolve(MarketplaceCatalogueRecordProvider::class)->records()[0];
+
+    expect($record['product_bundle'])->toBe('growth')
+        ->and($record['bundle_label'])->toBe('Growth suite')
+        ->and($record['trial'])->toBe(['duration_days' => 14])
+        ->and($record['trial_label'])->toBe('14-day trial')
+        ->and($record['currency'])->toBe('USD');
+});
+
 it('locks marketplace catalogue records and filters to the configured extension kind', function (): void {
     Http::fake([
         'https://marketplace.test/api/extensions*' => Http::response([

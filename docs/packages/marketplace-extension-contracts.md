@@ -18,6 +18,17 @@ Declare Marketplace-visible metadata in `capell.json`:
 
 Keep package docs and Marketplace metadata aligned with the generated extension catalogue. Do not describe optional package behavior as a built-in host feature.
 
+## Suites And Trials
+
+Suite and trial presentation is driven only by Marketplace server data. The client does not calculate entitlement or trial eligibility.
+
+- A suite declares its stable group through `product.bundle` and its installable members through `dependencies.requires`.
+- The hosted quote must price every paid member individually and return one entitlement per priced member. The client reuses that basket; it must not infer a member entitlement from the suite label alone.
+- Member prices must use the same currency before the client can show a sum-of-parts total or savings. Missing or mixed-currency prices suppress that comparison.
+- Trial terms must be returned in `trial` or `commercial.trial`. The server owns availability, duration, checkout pricing, start and expiry semantics; the client only renders supplied terms and sends the selection through the hosted flow.
+
+These are server-contract requirements. A client release must remain conservative when the fields are absent: no invented trial, price, saving, or entitlement.
+
 ## Extension Points
 
 Marketplace-aware packages should use existing host contracts:

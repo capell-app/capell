@@ -117,6 +117,77 @@
                 @endif
             </section>
 
+            @php
+                $suite = $this->suitePresentation();
+            @endphp
+
+            @if ($suite !== null)
+                <section
+                    class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                    data-capell-marketplace-suite="{{ $suite['bundle'] }}"
+                >
+                    <div>
+                        <h2
+                            class="text-base font-semibold text-gray-950 dark:text-white"
+                        >
+                            {{ __('capell-marketplace::marketplace.suites.heading') }}
+                        </h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                            {{ __('capell-marketplace::marketplace.suites.description') }}
+                        </p>
+                    </div>
+
+                    <ul class="space-y-2">
+                        @foreach ($suite['members'] as $member)
+                            <li
+                                class="flex items-center justify-between gap-3 text-sm"
+                                data-capell-marketplace-suite-member="{{ $member['composer_name'] }}"
+                            >
+                                <span>{{ $member['name'] }}</span>
+                                @if ($member['price'] !== null)
+                                    <span>{{ $member['price'] }}</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <div class="space-y-1 text-sm">
+                        <p>{{ __('capell-marketplace::marketplace.suites.combined_price', ['price' => $suite['combined_price']]) }}</p>
+                        @if ($suite['member_total'] !== null)
+                            <p>{{ __('capell-marketplace::marketplace.suites.member_total', ['price' => $suite['member_total']]) }}</p>
+                        @endif
+                        @if ($suite['savings'] !== null)
+                            <p class="font-semibold" data-capell-marketplace-suite-savings>
+                                {{ __('capell-marketplace::marketplace.suites.savings', ['price' => $suite['savings']]) }}
+                            </p>
+                        @endif
+                    </div>
+                </section>
+            @endif
+
+            @if ($detail->trial !== [])
+                <section
+                    class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                    data-capell-marketplace-trial
+                >
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
+                        {{ data_get($detail->trial, 'label', __('capell-marketplace::marketplace.suites.trial_heading')) }}
+                    </h2>
+                    @if (is_string(data_get($detail->trial, 'description')))
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                            {{ data_get($detail->trial, 'description') }}
+                        </p>
+                    @endif
+                    @if (is_numeric(data_get($detail->trial, 'days', data_get($detail->trial, 'duration_days'))))
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                            {{ trans_choice('capell-marketplace::marketplace.suites.trial_days', (int) data_get($detail->trial, 'days', data_get($detail->trial, 'duration_days')), ['count' => (int) data_get($detail->trial, 'days', data_get($detail->trial, 'duration_days'))]) }}
+                        </p>
+                    @endif
+                </section>
+            @endif
+
             @if ($detail->documentationUrl !== null)
                 <section
                     class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
@@ -185,6 +256,50 @@
                     </div>
                 </div>
             </section>
+
+            @if ($this->requiresLicenceKey())
+                <form
+                    wire:submit="activateLicence"
+                    class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10"
+                    data-capell-marketplace-licence-form
+                >
+                    <label class="block space-y-1 text-sm">
+                        <span
+                            class="font-semibold text-amber-950 dark:text-amber-100"
+                        >
+                            {{ __('capell-marketplace::marketplace.install.license_key_label') }}
+                        </span>
+                        <x-filament::input.wrapper
+                            :valid="! $errors->has('licenseKey')"
+                        >
+                            <x-filament::input
+                                type="password"
+                                wire:model="licenseKey"
+                                autocomplete="off"
+                                data-capell-marketplace-licence-key
+                            />
+                        </x-filament::input.wrapper>
+                        <span class="block text-amber-800 dark:text-amber-200">
+                            {{ __('capell-marketplace::marketplace.install.license_key_help') }}
+                        </span>
+                        @error('licenseKey')
+                            <span
+                                class="block text-sm text-danger-600"
+                                data-capell-marketplace-licence-error
+                                >{{ $message }}</span
+                            >
+                        @enderror
+                    </label>
+
+                    <x-filament::button
+                        type="submit"
+                        wire:loading.attr="disabled"
+                        wire:target="activateLicence"
+                    >
+                        {{ __('capell-marketplace::marketplace.install.license_key_submit') }}
+                    </x-filament::button>
+                </form>
+            @endif
 
             @php
                 $manualInstallCommands = $this->manualInstallCommands();
