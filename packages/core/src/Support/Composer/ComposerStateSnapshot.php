@@ -113,9 +113,9 @@ final class ComposerStateSnapshot
      * state neither the caller nor Composer intended.
      *
      * @param  array<string, string|false>|null  $environment  The environment the caller's other
-     *                                                   Composer subprocesses run under. Defaults to the install
-     *                                                   environment, so a caller with no special needs matches the
-     *                                                   rest of core.
+     *                                                         Composer subprocesses run under. Defaults to the install
+     *                                                         environment, so a caller with no special needs matches the
+     *                                                         rest of core.
      */
     public function restoreInstalledPackages(
         ProcessFactoryInterface $processFactory,
