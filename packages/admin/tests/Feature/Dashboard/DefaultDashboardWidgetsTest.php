@@ -28,6 +28,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamen
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Models\Site;
+use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
@@ -78,6 +79,7 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
         CapellInfoFilamentWidget::class,
         ListPagesFilamentWidget::class,
         RecentActivityFilamentWidget::class,
+        MarketplaceCommercialWarningFilamentWidget::class,
         MarketplacePackageOperationsAlertFilamentWidget::class,
     ]);
 });
@@ -157,6 +159,7 @@ it('falls back to filament sort values after pinned dashboard Filament widgets w
         ->toBe([
             ListPagesFilamentWidget::class,
             RecentActivityFilamentWidget::class,
+            MarketplaceCommercialWarningFilamentWidget::class,
             MarketplacePackageOperationsAlertFilamentWidget::class,
         ]);
 });

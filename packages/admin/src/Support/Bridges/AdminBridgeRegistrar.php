@@ -16,6 +16,7 @@ use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionQuickActionProvider;
+use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
 use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
@@ -147,6 +148,20 @@ final class AdminBridgeRegistrar
     public function resourceHeaderActionExtender(string $extenderClass): void
     {
         app()->tag([$extenderClass], ResourceHeaderActionExtender::TAG);
+    }
+
+    /**
+     * Replace whatever performs extension removals on this site.
+     *
+     * A bind rather than a tag: unlike the extenders, there is exactly one
+     * answer to "how does this site remove an extension", and two registrations
+     * would mean two removals of the same package.
+     *
+     * @param  class-string<ExtensionRemovalCoordinator>  $coordinatorClass
+     */
+    public function extensionRemovalCoordinator(string $coordinatorClass): void
+    {
+        app()->bind(ExtensionRemovalCoordinator::class, $coordinatorClass);
     }
 
     /** @param class-string<PendingThemeInstallProvider> $providerClass */

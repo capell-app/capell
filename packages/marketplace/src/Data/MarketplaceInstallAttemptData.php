@@ -8,6 +8,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Carbon\CarbonInterface;
 use Spatie\LaravelData\Data;
 
@@ -19,6 +20,7 @@ final class MarketplaceInstallAttemptData extends Data
      * @param  array<string, mixed>  $context
      * @param  array<string, mixed>  $deployment
      * @param  array<string, mixed>  $timelineContext
+     * @param  array<string, mixed>  $uninstallOptions
      */
     public function __construct(
         public readonly string $extensionSlug,
@@ -27,6 +29,8 @@ final class MarketplaceInstallAttemptData extends Data
         public readonly string $kind,
         public readonly MarketplaceInstallIntentStatus $status,
         public readonly bool $betaAcknowledged,
+        public readonly MarketplaceOperationType $operation = MarketplaceOperationType::Install,
+        public readonly array $uninstallOptions = [],
         public readonly ?MarketplaceInstallPolicyEvidenceData $policyEvidence = null,
         public readonly ?MarketplaceInstallActorData $actor = null,
         public readonly ?MarketplaceInstallSource $source = null,

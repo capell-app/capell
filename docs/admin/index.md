@@ -17,6 +17,7 @@ Use this section if you edit content, administer a site, or extend Capell's Fila
 | Register a dashboard Filament widget   | [Register a dashboard Filament widget](dashboard-widget-development.md) |
 | Work with media records                | [Media management](media-management.md)                                 |
 | Manage installed themes                | [Theme Library](theme-library.md)                                       |
+| Install and manage Marketplace extensions | [Marketplace](marketplace.md)                                        |
 | Generate theme images                  | [Generated theme images](generated-theme-images.md)                     |
 | Recover from broken admin state        | [Recovery Center](recovery.md)                                          |
 | Review the record state UX design      | [Record state UX design](record-state-ux-design.md)                     |

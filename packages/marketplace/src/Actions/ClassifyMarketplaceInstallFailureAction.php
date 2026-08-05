@@ -90,6 +90,12 @@ final class ClassifyMarketplaceInstallFailureAction
             return MarketplaceInstallFailureType::PackageNotDiscovered;
         }
 
+        // QueueWorkerMissing is deliberately not classified from text. The only
+        // thing that can know no worker ever claimed an attempt is the code
+        // holding the attempt and its age, and it passes the type explicitly on
+        // the transition. Matching it here as well would let any message that
+        // happened to mention a queue worker claim the same diagnosis.
+
         if (str_contains($haystack, 'cancelled after composer')) {
             return MarketplaceInstallFailureType::CancelledAfterComposer;
         }

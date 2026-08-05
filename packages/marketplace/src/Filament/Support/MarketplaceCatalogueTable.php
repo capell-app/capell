@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Support;
 
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\ExtensionKind;
@@ -13,11 +14,13 @@ use Capell\Marketplace\Enums\MarketplaceExtensionCategory;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Enums\MarketplaceSort;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -30,6 +33,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 final class MarketplaceCatalogueTable
 {
@@ -74,6 +78,9 @@ final class MarketplaceCatalogueTable
             ->filtersFormSchema(fn (array $filters): array => $this->marketplaceFiltersFormSchema($filters, $lockedKind))
             ->columns([
                 LayoutView::make($extensionCardView),
+            ])
+            ->recordActions([
+                $this->updateExtensionTableAction(),
             ])
             ->contentGrid([
                 'md' => 2,
@@ -176,6 +183,29 @@ final class MarketplaceCatalogueTable
     }
 
     /**
+     * Queue an update for one catalogue row.
+     *
+     * The table renders the card view, but a record action is what a table
+     * consumer reaches for, and without one the presenter's UpdateAvailable
+     * label, colour and tooltip had no production caller at all — three branches
+     * that only tests could reach.
+     *
+     * @param  array<string, mixed>  $record
+     */
+    public function updateExtension(array $record): MarketplaceInstallAttempt
+    {
+        $user = auth()->user();
+
+        return UpdateMarketplaceExtensionAction::run(
+            composerName: (string) ($record['composer_name'] ?? ''),
+            actor: $user instanceof Authenticatable
+                ? MarketplaceInstallActorData::fromAuthenticatable($user)
+                : MarketplaceInstallActorData::system('marketplace-catalogue-table'),
+            source: MarketplaceInstallSource::TableHelper,
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return array<int, mixed>
      */
@@ -216,6 +246,42 @@ final class MarketplaceCatalogueTable
                 ->compact()
                 ->columnSpanFull(),
         ];
+    }
+
+    private function updateExtensionTableAction(): Action
+    {
+        return Action::make('updateMarketplaceExtension')
+            ->label(fn (array $record): string => $this->installActionPresenter->label($record))
+            ->color(fn (array $record): string => $this->installActionPresenter->color($record))
+            ->tooltip(fn (array $record): string => $this->installActionPresenter->tooltip($record))
+            ->icon(Heroicon::OutlinedArrowPath)
+            ->visible(fn (array $record): bool => $this->installActionPresenter->canUpdate($record))
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $record): string => (string) __('capell-marketplace::marketplace.updates.confirm_heading', [
+                'name' => (string) ($record['name'] ?? $record['composer_name'] ?? ''),
+            ]))
+            ->action(function (array $record): void {
+                try {
+                    $attempt = $this->updateExtension($record);
+                } catch (ValidationException $validationException) {
+                    Notification::make()
+                        ->warning()
+                        ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
+                        ->body(collect($validationException->errors())->flatten()->first()
+                            ?? (string) __('capell-marketplace::marketplace.selection.unavailable_body'))
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title((string) __('capell-marketplace::marketplace.updates.queued_title'))
+                    ->body((string) __('capell-marketplace::marketplace.updates.queued_body', [
+                        'name' => $attempt->extension_name,
+                    ]))
+                    ->send();
+            });
     }
 
     /**
@@ -294,12 +360,10 @@ final class MarketplaceCatalogueTable
                     TextInput::make('price_min')
                         ->label((string) __('capell-marketplace::marketplace.filters.price_min'))
                         ->numeric()
-                        ->prefix('$')
                         ->placeholder('0'),
                     TextInput::make('price_max')
                         ->label((string) __('capell-marketplace::marketplace.filters.price_max'))
                         ->numeric()
-                        ->prefix('$')
                         ->placeholder('99'),
                 ])
                 ->indicateUsing(fn (array $data): array => $this->priceFilterIndicators($data)),

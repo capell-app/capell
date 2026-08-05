@@ -8,26 +8,34 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageUninstalled;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Models\Layout;
-use Capell\Core\Models\Site;
+use Capell\Core\Support\Packages\ActiveThemeUninstallGuard;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
-use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Exception;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Event;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static void run(PackageData $package, bool $delete = false, bool $deleteData = false)
+ * @method static void run(PackageData $package, bool $delete = false, bool $deleteData = false, bool $requiresServerSideTooling = false)
  */
 class UninstallPackageAction
 {
     use AsFake;
     use AsObject;
 
-    public static function handle(PackageData $package, bool $delete = false, bool $deleteData = false): void
-    {
+    /**
+     * @param  bool  $requiresServerSideTooling  Whether the Composer removal this
+     *                                           uninstall may trigger is an unattended write driven by an HTTP
+     *                                           request. A property of the call site rather than of the removal:
+     *                                           the admin panel passes true, `capell:extension-uninstall` — which an
+     *                                           operator runs directly in a terminal — leaves it false.
+     */
+    public static function handle(
+        PackageData $package,
+        bool $delete = false,
+        bool $deleteData = false,
+        bool $requiresServerSideTooling = false,
+    ): void {
         if (! $package->isInstalled()) {
             throw new Exception(sprintf("Plugin '%s' is not installed.", $package->name));
         }
@@ -40,7 +48,7 @@ class UninstallPackageAction
             );
         }
 
-        self::guardActiveTheme($package);
+        new ActiveThemeUninstallGuard()->assert($package);
 
         resolve(PackageLifecycleRunner::class)->run(
             package: $package,
@@ -52,7 +60,7 @@ class UninstallPackageAction
         );
 
         if ($delete && $package->getKind() === 'bundle') {
-            RemovePackageAction::run($package->name);
+            RemovePackageAction::run($package->name, requiresServerSideTooling: $requiresServerSideTooling);
             DeleteExtensionDataAction::run($package);
             self::finalizeUninstall($package);
 
@@ -68,41 +76,8 @@ class UninstallPackageAction
         self::finalizeUninstall($package);
 
         if ($delete) {
-            RemovePackageAction::run($package->name);
+            RemovePackageAction::run($package->name, requiresServerSideTooling: $requiresServerSideTooling);
         }
-    }
-
-    private static function guardActiveTheme(PackageData $package): void
-    {
-        $themeKey = $package->getThemeKey();
-
-        if ($themeKey === null) {
-            return;
-        }
-
-        $activeGlobally = app()->bound(ThemeStudioSettings::class)
-            && resolve(ThemeStudioSettings::class)->activeTheme === $themeKey;
-        $siteCount = Site::query()->whereHas(
-            'theme',
-            fn (Builder $themeQuery): Builder => $themeQuery->where('key', $themeKey),
-        )->count();
-        $layoutCount = Layout::query()->whereHas(
-            'theme',
-            fn (Builder $themeQuery): Builder => $themeQuery->where('key', $themeKey),
-        )->count();
-
-        if (! $activeGlobally && $siteCount === 0 && $layoutCount === 0) {
-            return;
-        }
-
-        throw new Exception(sprintf(
-            "Theme package '%s' cannot be uninstalled while theme '%s' is in use (%d site(s), %d layout(s), global active theme: %s). Assign another installed theme to every site and layout and switch the global active theme first.",
-            $package->name,
-            $themeKey,
-            $siteCount,
-            $layoutCount,
-            $activeGlobally ? 'yes' : 'no',
-        ));
     }
 
     private static function finalizeUninstall(PackageData $package): void

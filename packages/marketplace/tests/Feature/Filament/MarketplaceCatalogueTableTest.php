@@ -64,6 +64,16 @@ function tagMarketplaceCataloguePublisher(MarketplaceComposerChangePublisher $pu
     app()->tag(['test.marketplace.composer-change-publisher'], MarketplaceComposerChangePublisher::TAG);
 }
 
+/**
+ * Install telemetry is pinned to the Marketplace queue connection, so it no
+ * longer happens to run inline with the request that created the attempt. These
+ * end-to-end assertions still want the payload it sends, so they run the job.
+ */
+function runMarketplaceTelemetryJobFor(MarketplaceInstallAttempt $attempt): void
+{
+    new SendMarketplaceInstallTelemetryJob((int) $attempt->getKey())->handle(resolve(MarketplaceClient::class));
+}
+
 it('builds marketplace table records from filtered marketplace listings', function (): void {
     Http::fake([
         'https://marketplace.test/api/extensions*' => Http::response([
@@ -909,6 +919,40 @@ it('throttles duplicate marketplace catalogue warm failure warnings', function (
     WarmMarketplaceCatalogueCacheAction::run();
 });
 
+it('persists update_available on the catalogue record, not just inside the presenter', function (): void {
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceCatalogueExtensionPayload([
+                    'slug' => 'seo-suite',
+                    'name' => 'SEO Suite',
+                    'composer_name' => 'capell-app/seo-suite',
+                    'latest_version' => '2.1.0',
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records(
+        filters: [
+            'installed_status' => ['value' => 'installed'],
+        ],
+    );
+
+    // Asserted through the provider rather than the presenter: the presenter
+    // was already right, and the provider was handing it a record with
+    // has_update_available stripped out, so marketplace_install_state collapsed
+    // to `installed` and every consumer of the persisted value was blind to it.
+    expect($records[0]['has_update_available'])->toBeTrue()
+        ->and($records[0]['marketplace_install_state'])->toBe(MarketplaceInstallState::UpdateAvailable->value)
+        ->and(resolve(MarketplaceCatalogueTable::class)->marketplaceInstallState($records[0]))
+        ->toBe(MarketplaceInstallState::UpdateAvailable);
+});
+
 it('marks installed marketplace records with update and compatibility state', function (): void {
     CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
@@ -1437,6 +1481,31 @@ it('can build marketplace records for a locked theme browser', function (): void
         && ! array_key_exists('installed_status', $request->data()));
 });
 
+it('surfaces server bundle and trial terms as catalogue badges', function (): void {
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceCatalogueExtensionPayload([
+                    'slug' => 'growth-suite',
+                    'name' => 'Growth Suite',
+                    'composer_name' => 'capell-app/growth-suite',
+                    'product' => ['bundle' => 'growth'],
+                    'trial' => ['duration_days' => 14],
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $record = resolve(MarketplaceCatalogueRecordProvider::class)->records()[0];
+
+    expect($record['product_bundle'])->toBe('growth')
+        ->and($record['bundle_label'])->toBe('Growth suite')
+        ->and($record['trial'])->toBe(['duration_days' => 14])
+        ->and($record['trial_label'])->toBe('14-day trial')
+        ->and($record['currency'])->toBe('USD');
+});
+
 it('locks marketplace catalogue records and filters to the configured extension kind', function (): void {
     Http::fake([
         'https://marketplace.test/api/extensions*' => Http::response([
@@ -1522,14 +1591,16 @@ it('installs a free marketplace extension using selected options and queued tele
 
     Http::assertNotSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/seo-suite/install-authorization');
 
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    runMarketplaceTelemetryJobFor($attempt);
+
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/install-intents'
         && $request->data()['slug'] === 'seo-suite'
         && $request->data()['install_options'] === ['starter_content' => true]);
 
-    $attempt = MarketplaceInstallAttempt::query()->sole();
-
     expect($attempt->requested_options)->toBe(['starter_content' => true])
-        ->and($attempt->telemetry_status)->toBe('synced');
+        ->and($attempt->refresh()->telemetry_status)->toBe('synced');
 });
 
 it('records free install attempts as pending before queued telemetry syncs', function (): void {
@@ -1552,7 +1623,14 @@ it('records free install attempts as pending before queued telemetry syncs', fun
 
     expect($attempt->telemetry_status)->toBe('pending');
 
-    Queue::assertPushed(SendMarketplaceInstallTelemetryJob::class);
+    // Dispatched, and dispatched where a Marketplace worker will actually see
+    // it: a host with a dedicated Marketplace queue runs only that queue, so an
+    // inherited application default would leave the telemetry unsent forever.
+    Queue::assertPushed(
+        SendMarketplaceInstallTelemetryJob::class,
+        fn (SendMarketplaceInstallTelemetryJob $job): bool => $job->connection === config('capell-marketplace.marketplace.operations_queue_connection')
+            && $job->queue === config('capell-marketplace.marketplace.operations_queue'),
+    );
     Http::assertNotSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/seo-suite/install-authorization');
 });
 
@@ -1835,6 +1913,9 @@ it('can install filament peek through the admin marketplace catalogue', function
         ]);
 
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/filament-peek');
+
+    runMarketplaceTelemetryJobFor($attempt);
+
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/install-intents');
 });
 

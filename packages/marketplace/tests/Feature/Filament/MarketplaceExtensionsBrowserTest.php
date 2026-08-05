@@ -5,15 +5,19 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
+use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionReviewData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
+use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
@@ -21,11 +25,13 @@ use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
+use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -414,6 +420,37 @@ it('allows Capell Membership extensions into the hosted install review', functio
         ->assertSee(__('capell-marketplace::marketplace.selection.premium_notice'));
 });
 
+it('renders the offline licence fallback in an activation-required review', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'activation-suite',
+                    'name' => 'Activation Suite',
+                    'composer_name' => 'capell-app/activation-suite',
+                    'is_paid' => true,
+                    'install_state' => 'activation_required',
+                    'install_eligibility' => [
+                        'state' => 'activation_required',
+                    ],
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/activation-suite')
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'review')
+        ->assertSee('data-capell-marketplace-licence-form', false)
+        ->assertSee(__('capell-marketplace::marketplace.install.license_key_label'))
+        ->assertSee(__('capell-marketplace::marketplace.install.license_key_help'));
+});
+
 it('queues a free marketplace extension install from the grouped browser footer', function (): void {
     grantMarketplaceBrowserManagementAccess();
     Queue::fake();
@@ -504,7 +541,12 @@ it('queues a free marketplace extension install from the grouped browser footer'
         ->assertSet('selectedMarketplaceComposerNames', ['capell-app/login-audit'])
         ->set('installReviewedMarketplaceExtensionsConfirmed', true)
         ->call('installReviewedMarketplaceExtensions')
-        ->assertSet('selectedMarketplaceComposerNames', []);
+        ->assertSet('selectedMarketplaceComposerNames', [])
+        // Confirming keeps the operator in the modal and shows the operation
+        // running, instead of navigating them away from the catalogue at the
+        // moment the thing they asked for starts working.
+        ->assertSet('marketplaceStep', 'progress')
+        ->assertNoRedirect();
 
     $attempt = expectPresent(MarketplaceInstallAttempt::query()->first());
 
@@ -516,10 +558,14 @@ it('queues a free marketplace extension install from the grouped browser footer'
         ->and($attempt->requested_options)->toBe(['seed_examples' => true])
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued);
 
-    $component->assertRedirect(MarketplacePackageOperationsPage::getUrl([
-        'tab' => 'active',
-        'operation' => $attempt->getKey(),
-    ]));
+    // The redirect is still reachable — it is now something the operator picks.
+    $component
+        ->assertSet('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->call('viewMarketplaceInstallOperations')
+        ->assertRedirect(MarketplacePackageOperationsPage::getUrl([
+            'tab' => 'active',
+            'operation' => $attempt->getKey(),
+        ]));
 
     Queue::assertPushed(RunMarketplaceInstallAttemptJob::class);
 
@@ -1663,3 +1709,240 @@ function marketplaceBrowserExtensionPayload(array $overrides = []): array
         ...$overrides,
     ];
 }
+
+/**
+ * Put the browser on the review step with one selected extension, so a test can
+ * assert what a host of a given capability is offered before it confirms.
+ */
+function reviewMarketplaceBrowserWithOneSelection(): Testable
+{
+    Http::fake([
+        'https://marketplace.test/api/extensions?*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'seo-suite',
+                    'name' => 'SEO Suite',
+                    'composer_name' => 'capell-app/seo-suite',
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+        '*' => Http::response(['data' => []]),
+    ]);
+
+    return Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/seo-suite')
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'review');
+}
+
+it('summarises install readiness on a host that can install automatically', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
+
+    reviewMarketplaceBrowserWithOneSelection()
+        ->assertDontSeeHtml('data-capell-marketplace-readiness-banner')
+        ->assertSeeHtml('data-capell-marketplace-readiness-summary')
+        ->assertSee(__('capell-marketplace::marketplace.install.default_confirmation'))
+        ->assertSee(__('capell-marketplace::marketplace.selection.confirm_download_install_label'));
+});
+
+it('explains the host and names its capability when an install is not automatic', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::ManualOnly,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    reviewMarketplaceBrowserWithOneSelection()
+        ->assertSeeHtml('data-capell-marketplace-readiness-banner')
+        ->assertSeeHtml('data-capell-marketplace-readiness-summary')
+        ->assertSeeHtml('data-capell-marketplace-readiness-capability="manual_only"')
+        ->assertSeeHtml('data-capell-marketplace-readiness-check="process_execution"');
+});
+
+it('offers install instructions instead of a confirmation on a manual-only host', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::ManualOnly,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    reviewMarketplaceBrowserWithOneSelection()
+        ->assertSeeHtml('data-capell-marketplace-manual-install-cta')
+        ->assertDontSee(__('capell-marketplace::marketplace.selection.confirm_download_install_label'))
+        ->assertSee(__('capell-marketplace::marketplace.readiness.manual_install_cta_heading'));
+});
+
+it('refuses to queue an install on a manual-only host even when confirmation is forced', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::ManualOnly,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    // The checkbox is not rendered, so this is the crafted-request case: the
+    // gate has to hold on the server, not only in the markup.
+    reviewMarketplaceBrowserWithOneSelection()
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->call('installReviewedMarketplaceExtensions');
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+});
+
+it('shows a per-card progress pill for each operation the modal started', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    $runningAttempt = MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/seo-suite',
+        'extension_slug' => 'seo-suite',
+        'extension_name' => 'SEO Suite',
+        'kind' => 'tool',
+        'status' => MarketplaceInstallIntentStatus::Running,
+        'composer_command' => 'composer require capell-app/seo-suite',
+        'current_stage' => MarketplaceInstallFailureStage::Composer->value,
+        'progress_current' => 1,
+        'progress_total' => 5,
+        'queued_at' => now(),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('marketplaceResultsFetched', true)
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $runningAttempt->getKey()])
+        ->assertSee('data-capell-marketplace-install-progress', false)
+        ->assertSee('data-capell-marketplace-progress-pill="capell-app/seo-suite"', false)
+        ->assertSee('data-capell-marketplace-progress-stage="composer"', false)
+        ->assertSee('data-capell-marketplace-progress-status="running"', false)
+        // The stage the operator is watching, named in their language rather
+        // than left as a raw enum value.
+        ->assertSee(__('capell-marketplace::marketplace.progress.stage_composer'))
+        // And the way out to the full timeline, still available.
+        ->assertSee('data-capell-marketplace-view-operations', false);
+});
+
+it('reports each stage of a running install through the progress pill', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    $attempt = MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/seo-suite',
+        'extension_slug' => 'seo-suite',
+        'extension_name' => 'SEO Suite',
+        'kind' => 'tool',
+        'status' => MarketplaceInstallIntentStatus::Running,
+        'composer_command' => 'composer require capell-app/seo-suite',
+        'current_stage' => MarketplaceInstallFailureStage::HealthCheck->value,
+        'progress_current' => 4,
+        'progress_total' => 5,
+        'queued_at' => now(),
+    ]);
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()]);
+
+    expect($component->instance()->marketplaceInstallProgress())->toBe([[
+        'id' => (int) $attempt->getKey(),
+        'name' => 'SEO Suite',
+        'composer_name' => 'capell-app/seo-suite',
+        'status' => MarketplaceInstallIntentStatus::Running->value,
+        'stage' => MarketplaceInstallFailureStage::HealthCheck->value,
+        'stage_label' => (string) __('capell-marketplace::marketplace.progress.stage_health_check'),
+        'progress_current' => 4,
+        'progress_total' => 5,
+        'active' => true,
+        'succeeded' => false,
+        'failure_reason' => null,
+    ]])
+        ->and($component->instance()->hasActiveMarketplaceInstalls())->toBeTrue();
+
+    $attempt->forceFill([
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'progress_current' => 5,
+    ])->save();
+
+    // Polling stops the moment nothing is still running.
+    expect($component->instance()->hasActiveMarketplaceInstalls())->toBeFalse()
+        ->and($component->instance()->marketplaceInstallProgress()[0]['stage_label'])
+        ->toBe((string) __('capell-marketplace::marketplace.progress.stage_completed'));
+});
+
+it('offers to apply a theme after install, off by default, and never for a plugin', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions?*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'aurora-theme',
+                    'name' => 'Aurora',
+                    'composer_name' => 'capell-app/aurora-theme',
+                    'kind' => 'theme',
+                    'latest_version' => '1.0.0',
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [
+                marketplaceBrowserExtensionPayload([
+                    'slug' => 'aurora-theme',
+                    'name' => 'Aurora',
+                    'composer_name' => 'capell-app/aurora-theme',
+                    'kind' => 'theme',
+                    'latest_version' => '1.0.0',
+                ]),
+            ],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/aurora-theme')
+        ->call('showMarketplaceInstallReview')
+        // Applying a theme changes what every visitor sees, so it is opt-in.
+        ->assertSet('activateMarketplaceThemesAfterInstall', false)
+        ->assertSee('data-capell-marketplace-activate-theme-option', false)
+        ->assertSee(__('capell-marketplace::marketplace.selection.activate_theme_after_install_label'));
+});
+
+it('carries the activate-after-install choice from the review screen into the theme install intent', function (bool $activate): void {
+    // Driven through the real Livewire → install path on purpose. Calling
+    // RecordThemeInstallIntentAction directly would prove only that the action
+    // stores what it is handed, and would not notice the checkbox being dropped
+    // on the way there — which is exactly what it was doing.
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+
+    $themePayload = marketplaceBrowserExtensionPayload([
+        'slug' => 'aurora-theme',
+        'name' => 'Aurora',
+        'composer_name' => 'capell-app/aurora-theme',
+        'kind' => 'theme',
+        'latest_version' => '1.0.0',
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/aurora-theme' => Http::response(['data' => $themePayload]),
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response(['data' => [$themePayload]]),
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [$themePayload],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/aurora-theme')
+        ->call('showMarketplaceInstallReview')
+        ->set('activateMarketplaceThemesAfterInstall', $activate)
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->call('installReviewedMarketplaceExtensions');
+
+    $intent = MarketplaceInstallIntent::query()
+        ->where('composer_name', 'capell-app/aurora-theme')
+        ->sole();
+
+    expect(data_get($intent->metadata, 'acquisition.' . RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL))
+        ->toBe($activate);
+})->with([true, false]);

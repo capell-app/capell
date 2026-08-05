@@ -617,7 +617,7 @@ it('does not dispatch a retry when cancellation commits after retry preflight', 
     Event::listen(
         'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
         function (MarketplaceInstallAttemptEvent $event): void {
-            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+            if (($event->context['check'] ?? null) !== 'queue_ready') {
                 return;
             }
 

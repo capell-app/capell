@@ -7,8 +7,11 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
+use Capell\Marketplace\Support\MarketplaceQueueTimeoutChain;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,7 +36,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
     public function handle(int $staleAfterMinutes = 15): DoctorReportData
     {
         $schemaCheck = $this->schemaCheck();
-        $checks = collect([$schemaCheck]);
+        $checks = collect([$this->environmentReadinessCheck(), $schemaCheck, $this->authWorkspaceCheck()]);
 
         if ($schemaCheck->passed) {
             $checks->push($this->stuckOperationsCheck($staleAfterMinutes));
@@ -41,9 +44,95 @@ final class BuildMarketplaceOperationsDoctorReportAction
             $checks->push($this->queueRetryAfterCheck());
         }
 
+        // Severity is what decides the report status, not `passed` alone: a
+        // check exists to describe a condition honestly, and only a Critical
+        // one may red-light the health gates and the command's exit code. A
+        // check that must fail the report therefore has to declare itself
+        // Critical rather than borrow the effect from an aggregate that
+        // ignores severity.
         return new DoctorReportData(
-            status: $checks->every(static fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
+            status: $checks->contains(static fn (DoctorCheckResultData $check): bool => $check->isCriticalFailure())
+                ? 'failed'
+                : 'passed',
             checks: $checks,
+        );
+    }
+
+    /**
+     * Surface the canonical readiness evaluation, so the doctor and the admin
+     * describe the host in the same words.
+     *
+     * A manual-only host is a supported hosting shape rather than a fault, so it
+     * must not fail the report and take the command's exit code with it. Only a
+     * blocked host — one that is misconfigured — does that.
+     */
+    private function environmentReadinessCheck(): DoctorCheckResultData
+    {
+        $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run();
+
+        $failed = $readiness->failedChecks();
+        $warned = $readiness->warnedChecks();
+
+        return new DoctorCheckResultData(
+            label: (string) __('capell-marketplace::marketplace.operations.doctor_readiness_label'),
+            passed: ! $readiness->isBlocked(),
+            message: (string) __('capell-marketplace::marketplace.operations.doctor_readiness_message', [
+                'capability' => $readiness->capability->getLabel(),
+            ]),
+            remediation: $failed === []
+                ? null
+                : implode(' ', array_values(array_unique(array_filter(array_map(
+                    static fn (MarketplaceReadinessCheckData $check): ?string => $check->remediation,
+                    $failed,
+                ))))),
+            id: 'marketplace.operations.environment-readiness',
+            severity: DoctorCheckSeverity::Critical,
+            evidence: [
+                'capability' => $readiness->capability->value,
+                'failed_checks' => array_map(
+                    static fn (MarketplaceReadinessCheckData $check): string => $check->key,
+                    $failed,
+                ),
+                'warned_checks' => array_map(
+                    static fn (MarketplaceReadinessCheckData $check): string => $check->key,
+                    $warned,
+                ),
+                'docs_path' => EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH,
+            ],
+        );
+    }
+
+    /**
+     * An install killed mid-Composer never reaches the cleanup that removes its
+     * throwaway Composer home, and each one holds an auth file. The runner sweeps
+     * them at the start of the next run, so this is a warning about accumulated
+     * debris rather than something the operator must act on.
+     *
+     * Debris present is a genuine `false`, and it says so. It does not take the
+     * report's status with it because it is Warning-severity and the aggregate
+     * reads severity.
+     */
+    private function authWorkspaceCheck(): DoctorCheckResultData
+    {
+        $stale = new MarketplaceComposerAuthWorkspace()->stale();
+
+        return new DoctorCheckResultData(
+            label: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_label'),
+            passed: $stale === [],
+            message: $stale === []
+                ? (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_healthy')
+                : (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_unhealthy', [
+                    'count' => count($stale),
+                ]),
+            remediation: $stale === []
+                ? null
+                : (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_remediation'),
+            id: 'marketplace.operations.composer-auth-files',
+            severity: DoctorCheckSeverity::Warning,
+            evidence: [
+                'count' => count($stale),
+                'stale_after_seconds' => MarketplaceComposerAuthWorkspace::staleAfterSeconds(),
+            ],
         );
     }
 
@@ -95,6 +184,12 @@ final class BuildMarketplaceOperationsDoctorReportAction
         );
     }
 
+    /**
+     * Critical, not Warning: unresolved failed and timed-out operations are the
+     * one thing here whose remediation genuinely asks the operator to go and do
+     * something, and nothing clears them on its own. Under severity-aware
+     * aggregation, Warning would have silently stopped failing the report.
+     */
     private function failedOperationsCheck(): DoctorCheckResultData
     {
         $failed = MarketplaceInstallAttempt::query()
@@ -115,7 +210,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
                 ? null
                 : (string) __('capell-marketplace::marketplace.operations.doctor_review_operations'),
             id: 'marketplace.operations.failed',
-            severity: DoctorCheckSeverity::Warning,
+            severity: DoctorCheckSeverity::Critical,
             evidence: [
                 'count' => $failed->count(),
                 'operations' => $failed->map(static fn (MarketplaceInstallAttempt $attempt): array => [
@@ -130,26 +225,27 @@ final class BuildMarketplaceOperationsDoctorReportAction
 
     private function queueRetryAfterCheck(): DoctorCheckResultData
     {
-        $connectionName = (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database');
-        $retryAfter = config('queue.connections.' . $connectionName . '.retry_after');
-        $retryAfterSeconds = is_numeric($retryAfter) ? (int) $retryAfter : null;
-        $isSafe = $retryAfterSeconds === null || $retryAfterSeconds > 720;
+        $chain = MarketplaceQueueTimeoutChain::resolve();
+        $isSafe = $chain->isSafe();
 
         return new DoctorCheckResultData(
             label: (string) __('capell-marketplace::marketplace.operations.doctor_queue_label'),
             passed: $isSafe,
             message: $isSafe
                 ? (string) __('capell-marketplace::marketplace.operations.doctor_queue_healthy')
-                : (string) __('capell-marketplace::marketplace.operations.doctor_queue_unhealthy', ['seconds' => $retryAfterSeconds]),
+                : (string) __('capell-marketplace::marketplace.operations.doctor_queue_unhealthy', [
+                    'seconds' => $chain->retryAfterSeconds,
+                    'job_timeout' => $chain->jobTimeoutSeconds,
+                ]),
             remediation: $isSafe
                 ? null
                 : (string) __('capell-marketplace::marketplace.operations.doctor_queue_remediation'),
             id: 'marketplace.operations.queue-retry-after',
             severity: DoctorCheckSeverity::Critical,
             evidence: [
-                'connection' => $connectionName,
-                'retry_after_seconds' => $retryAfterSeconds,
-                'job_timeout_seconds' => 720,
+                'connection' => $chain->connectionName,
+                'retry_after_seconds' => $chain->retryAfterSeconds,
+                'job_timeout_seconds' => $chain->jobTimeoutSeconds,
             ],
         );
     }

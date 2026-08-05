@@ -13,6 +13,9 @@ use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
+use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
+use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Capell\Tests\AbstractTestCase;
 use CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider;
@@ -80,6 +83,11 @@ abstract class MarketplaceTestCase extends AbstractTestCase
 
         $app->make(Repository::class)->set('queue.connections.database.retry_after', 900);
 
+        // The Marketplace suite is written against a host that can install
+        // extensions itself. Tests about incapable hosts say so explicitly.
+        $app->make(Repository::class)->set('capell.server_side_tooling', true);
+        $app->make(Repository::class)->set('capell.release_root_mode', 'mutable');
+
         foreach (['installer', 'marketplace'] as $packageDirectory) {
             $manifest = json_decode(
                 (string) file_get_contents(dirname(__DIR__, 2) . '/' . $packageDirectory . '/capell.json'),
@@ -94,5 +102,23 @@ abstract class MarketplaceTestCase extends AbstractTestCase
 
         CapellCore::forcePackageInstalled(AdminServiceProvider::$packageName);
         CapellCore::forcePackageInstalled(MarketplaceServiceProvider::$packageName);
+
+        // Any test that reaches a successful install would otherwise run the
+        // real post-operation health check, which spawns
+        // `php artisan capell:health-probe` as a genuine subprocess. That ties
+        // this whole suite to a working PHP binary and to how PHP_BINARY happens
+        // to resolve on the runner, for a question those tests are not asking.
+        // RunPostOperationHealthCheckActionTest rebinds the real action and is
+        // where the subprocess stays covered end to end.
+        $app->instance(RunPostOperationHealthCheckAction::class, new class
+        {
+            public function handle(int $budgetSeconds): MarketplaceHealthCheckResultData
+            {
+                return new MarketplaceHealthCheckResultData(
+                    bootProbe: MarketplaceHealthProbeOutcome::Passed,
+                    httpProbe: MarketplaceHealthProbeOutcome::Skipped,
+                );
+            }
+        });
     }
 }

@@ -22,6 +22,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceApprovalUrl;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -112,7 +113,7 @@ final class MarketplaceClient
     {
         $heartbeatUrl = $this->marketplaceUrl('/instances/heartbeat');
 
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+        $response = $this->pendingRequest()
             ->acceptJson()
             ->post($heartbeatUrl, $payload);
 
@@ -513,7 +514,7 @@ final class MarketplaceClient
         ];
         $payload = $this->signedFreeTelemetryPayload($payload);
 
-        $response = Http::timeout(config('capell-marketplace.marketplace.telemetry_timeout_seconds', 3))
+        $response = $this->pendingRequest(config('capell-marketplace.marketplace.telemetry_timeout_seconds', 3))
             ->acceptJson()
             ->post($this->marketplaceUrl('/extensions/install-intents'), $payload);
 
@@ -630,6 +631,47 @@ final class MarketplaceClient
     }
 
     /**
+     * Every outbound marketplace call, with this host's network shape applied.
+     *
+     * A host behind a corporate proxy, or one whose TLS is terminated by an
+     * appliance presenting a private CA, cannot reach the marketplace at all
+     * without these. Building every request here is what keeps one call from
+     * quietly bypassing them.
+     */
+    private function pendingRequest(mixed $timeoutSeconds = null): PendingRequest
+    {
+        $request = Http::timeout(
+            is_numeric($timeoutSeconds)
+                ? (int) $timeoutSeconds
+                : (int) config('capell-marketplace.marketplace.timeout_seconds', 10),
+        );
+
+        $proxy = config('capell-marketplace.marketplace.http.proxy');
+
+        if (is_string($proxy) && $proxy !== '') {
+            $request->withOptions(['proxy' => $proxy]);
+        }
+
+        $verify = config('capell-marketplace.marketplace.http.verify');
+
+        if (is_string($verify) && $verify !== '') {
+            // A path to a CA bundle, or the string form of the boolean an
+            // environment variable can express.
+            $request->withOptions([
+                'verify' => match (strtolower($verify)) {
+                    'false', '0' => false,
+                    'true', '1' => true,
+                    default => $verify,
+                },
+            ]);
+        } elseif (is_bool($verify)) {
+            $request->withOptions(['verify' => $verify]);
+        }
+
+        return $request;
+    }
+
+    /**
      * Retry policy for idempotent marketplace reads only.
      *
      * Catalogue and extension lookups are safe to repeat. The signed write paths are
@@ -645,7 +687,7 @@ final class MarketplaceClient
     /** @param array<string, mixed> $payload */
     private function postJson(string $path, array $payload): Response
     {
-        return Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+        return $this->pendingRequest()
             ->acceptJson()
             ->post($this->marketplaceUrl($path), $payload);
     }
@@ -705,7 +747,7 @@ final class MarketplaceClient
         bool $notFoundAsEmpty = false,
     ): array {
         $request = $this->readRetryPolicy()->apply(
-            Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))->acceptJson(),
+            $this->pendingRequest()->acceptJson(),
         );
 
         if ($marketplaceContext !== null) {
@@ -737,7 +779,7 @@ final class MarketplaceClient
     {
         $response = $this->readRetryPolicy()
             ->apply(
-                Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+                $this->pendingRequest()
                     ->acceptJson()
                     ->withHeaders($this->marketplaceContextHeaders($marketplaceContext)),
             )
@@ -784,7 +826,7 @@ final class MarketplaceClient
 
         throw_if(! is_string($signature) || $signature === '', RuntimeException::class, 'Unable to sign marketplace request payload.');
 
-        return Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+        return $this->pendingRequest()
             ->withHeaders([
                 'X-Capell-Instance' => $instanceId,
                 'X-Capell-Signature' => $signature,

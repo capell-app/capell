@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Data;
 
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
+use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Spatie\LaravelData\Data;
 
@@ -16,6 +17,13 @@ final class MarketplaceInstallAttemptTransitionData extends Data
         public readonly MarketplaceInstallIntentStatus $toStatus,
         public readonly ?string $failureReason = null,
         public readonly ?MarketplaceInstallFailureStage $failureStage = null,
+        /**
+         * Set when the caller already knows why, rather than leaving it to be
+         * inferred from the failure text. Classification by substring is a
+         * fallback for messages that come from Composer or a third party; a
+         * caller that produced the failure itself should say so outright.
+         */
+        public readonly ?MarketplaceInstallFailureType $failureType = null,
         public readonly ?MarketplaceComposerResultData $composerResult = null,
         public readonly ?string $outputExcerpt = null,
         public readonly ?string $errorExcerpt = null,

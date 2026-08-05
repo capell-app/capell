@@ -28,7 +28,7 @@ Core does not own:
 - the Filament admin panel, resources, dashboard surfaces, and editor workflow; that is `capell-app/admin`
 - public request handling and public HTML rendering; that is `capell-app/frontend`
 - browser installer routes and setup removal; that is `capell-app/installer`
-- catalogue browsing, account linking, domain verification, and install authorization; that is `capell-app/marketplace`
+- catalogue browsing, account linking, and install authorization; that is `capell-app/marketplace`
 - visual layout building, frontend authoring, generated HTML cache, SEO, blog, navigation, or migration/recovery features; those live in add-on packages
 
 ## Install

@@ -15,6 +15,17 @@ final class RecordThemeInstallIntentAction
     use AsObject;
 
     /**
+     * The install option that says the operator wants this theme applied once
+     * it is installed, rather than merely downloaded.
+     *
+     * Owned here, next to the intent it is stored on, because the review
+     * checkbox that writes it and the install path that reads it live in
+     * different layers and a re-spelled string literal between them is a
+     * setting that silently stops working.
+     */
+    public const string ACTIVATE_AFTER_INSTALL = 'activate_after_install';
+
+    /**
      * @param  array<string, mixed>  $metadata
      */
     public function handle(

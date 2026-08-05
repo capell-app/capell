@@ -25,7 +25,13 @@ final class MarketplaceInstallActionPresenter
     public function state(array $record): MarketplaceInstallState
     {
         if ((bool) ($record['is_installed'] ?? false)) {
-            return MarketplaceInstallState::Installed;
+            // Before the short-circuit, not after it. Every installed extension
+            // used to collapse to Installed, which is why nothing has ever been
+            // able to render an update action: the detection was complete and
+            // the state machine threw the answer away.
+            return $this->canUpdate($record)
+                ? MarketplaceInstallState::UpdateAvailable
+                : MarketplaceInstallState::Installed;
         }
 
         if ((bool) ($record['install_in_progress'] ?? false)) {
@@ -66,11 +72,53 @@ final class MarketplaceInstallActionPresenter
     }
 
     /**
+     * Whether this record may be updated in place right now.
+     *
+     * MarketplaceInstallEligibilityData::$canUpdate is the marketplace's own
+     * answer and is what gates this, rather than a second notion of update
+     * entitlement invented in the presenter. A policy that records no state at
+     * all has no opinion, and an installation whose marketplace connection has
+     * gone quiet should still be able to take a free update.
+     *
+     * @param  array<string, mixed>  $record
+     */
+    public function canUpdate(array $record): bool
+    {
+        if (! (bool) ($record['is_installed'] ?? false)) {
+            return false;
+        }
+
+        if (! (bool) ($record['has_update_available'] ?? false)) {
+            return false;
+        }
+
+        // An extension with an operation already running is not a second
+        // operation waiting to be queued; the global Composer lock would only
+        // serialise what the operator should not have been offered.
+        if ((bool) ($record['install_in_progress'] ?? false)) {
+            return false;
+        }
+
+        if (! (bool) ($record['is_compatible'] ?? true)) {
+            return false;
+        }
+
+        $policy = $this->eligibilityPolicy($record);
+
+        if ($policy->blocksInstall()) {
+            return false;
+        }
+
+        return ! $policy->state instanceof MarketplaceInstallState || $policy->canUpdate;
+    }
+
+    /**
      * @param  array<string, mixed>  $record
      */
     public function label(array $record): string
     {
         return match ($this->state($record)) {
+            MarketplaceInstallState::UpdateAvailable => (string) __('capell-marketplace::marketplace.updates.button'),
             MarketplaceInstallState::PurchaseRequired => (string) __('capell-marketplace::marketplace.install.purchase_button'),
             MarketplaceInstallState::ActivationRequired => (string) __('capell-marketplace::marketplace.install.activate_button'),
             MarketplaceInstallState::Incompatible => (string) __('capell-marketplace::marketplace.install.incompatible_button'),
@@ -85,7 +133,9 @@ final class MarketplaceInstallActionPresenter
     public function color(array $record): string
     {
         return match ($this->state($record)) {
-            MarketplaceInstallState::PurchaseRequired, MarketplaceInstallState::ActivationRequired => 'warning',
+            MarketplaceInstallState::UpdateAvailable,
+            MarketplaceInstallState::PurchaseRequired,
+            MarketplaceInstallState::ActivationRequired => 'warning',
             MarketplaceInstallState::Incompatible, MarketplaceInstallState::Blocked => 'gray',
             default => 'primary',
         };
@@ -100,6 +150,10 @@ final class MarketplaceInstallActionPresenter
 
         if ($blockReason !== null) {
             return (string) __('capell-marketplace::marketplace.install.blocked.' . $blockReason . '.tooltip');
+        }
+
+        if ($this->state($record) === MarketplaceInstallState::UpdateAvailable) {
+            return (string) __('capell-marketplace::marketplace.updates.tooltip');
         }
 
         return (string) __('capell-marketplace::marketplace.install.tooltip');
