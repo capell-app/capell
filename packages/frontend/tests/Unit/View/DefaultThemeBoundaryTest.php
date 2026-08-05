@@ -9,6 +9,16 @@ it('keeps shared frontend layout free of foundation chrome fallbacks', function 
         ->and($layout)->not->toContain("'capell::footer'");
 });
 
+it('keeps layout preparation out of the component view', function (): void {
+    $layout = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/index.blade.php');
+    $component = file_get_contents(dirname(__DIR__, 3) . '/src/View/Components/Layout.php');
+
+    expect($layout)->not->toContain('<?php')
+        ->and($layout)->not->toContain("app('")
+        ->and($component)->toContain('declare(strict_types=1)')
+        ->and($component)->toContain('final class Layout extends Component');
+});
+
 it('exposes the shared main content render hook', function (): void {
     $main = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/main.blade.php');
     $locations = file_get_contents(dirname(__DIR__, 3) . '/src/Enums/RenderHookLocation.php');

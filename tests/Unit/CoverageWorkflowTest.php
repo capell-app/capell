@@ -29,7 +29,7 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
     // `--passthru-php`. The phpunit configuration is therefore the only place that
     // can set the limit, and any other declaration lies about the effective value.
     expect($mainConfiguration)->toContain('<ini name="memory_limit" value="1G"/>')
-        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="8G"/>');
+        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="12G"/>');
 
     // The coverage variant exists only to raise that limit for the parallel
     // runner's merge step. Everything else must stay in lockstep.
@@ -86,6 +86,38 @@ it('runs every coverage and mutation workload against the coverage configuration
     }
 
     expect($workflow)->toContain('--configuration=phpunit-coverage.xml');
+});
+
+it('pins an array cache store around the release coverage optimize step', function (): void {
+    // Testbench seeds the skeleton environment from its own .env.example when
+    // the workbench directory carries no environment file, and that ships
+    // CACHE_STORE=database. `testbench optimize` then asks laravel-data to write
+    // its cached structures into a `cache` table the in-memory sqlite connection
+    // has never migrated, which took run 30982165320 down before a single test
+    // ran. The process environment wins over the skeleton file, so both the
+    // workflow and the scripts must set the store themselves.
+    $root = dirname(__DIR__, 2);
+    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
+    $composer = json_decode(
+        (string) file_get_contents($root . '/composer.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect($workflow)->toContain('CACHE_STORE: array');
+
+    foreach (['coverage', 'coverage-report'] as $name) {
+        $optimizeCommands = array_filter(
+            (array) ($composer['scripts'][$name] ?? []),
+            static fn (mixed $command): bool => is_string($command) && str_contains($command, 'testbench optimize'),
+        );
+
+        expect($optimizeCommands)->not->toBeEmpty();
+
+        foreach ($optimizeCommands as $command) {
+            expect($command)->toStartWith('CACHE_STORE=array ');
+        }
+    }
 });
 
 it('runs the release coverage workload in parallel', function (): void {

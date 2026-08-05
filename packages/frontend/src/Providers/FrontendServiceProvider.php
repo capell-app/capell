@@ -157,6 +157,7 @@ use Capell\Frontend\Support\Themes\FrontendThemePreviewRenderer;
 use Capell\Frontend\Support\Themes\ThemeTokenHeadCloseHook;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
+use Capell\Frontend\View\Components\Layout as FrontendLayout;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Schedule;
@@ -368,6 +369,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         parent::registeringPackage();
 
+        Blade::component(FrontendLayout::class, 'capell::layout');
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
     }
