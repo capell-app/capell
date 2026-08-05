@@ -29,7 +29,7 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
     // `--passthru-php`. The phpunit configuration is therefore the only place that
     // can set the limit, and any other declaration lies about the effective value.
     expect($mainConfiguration)->toContain('<ini name="memory_limit" value="1G"/>')
-        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="8G"/>');
+        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="12G"/>');
 
     // The coverage variant exists only to raise that limit for the parallel
     // runner's merge step. Everything else must stay in lockstep.
