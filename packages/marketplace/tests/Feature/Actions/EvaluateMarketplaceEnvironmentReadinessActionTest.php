@@ -9,9 +9,12 @@ use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
+use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
+use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
 
 beforeEach(function (): void {
     EvaluateMarketplaceEnvironmentReadinessAction::forget();
+    MarketplaceWorkerHeartbeat::forget();
     configureHealthyMarketplaceHost();
 });
 
@@ -126,13 +129,42 @@ it('warns when a configured binary is wrong even though resolution falls back pa
         ->and($readiness->check('composer_binary')?->message)->toContain('/nonexistent/capell/composer');
 });
 
-it('reports the queue worker check honestly instead of a fabricated pass', function (): void {
+it('warns about the queue worker while no heartbeat has been seen', function (): void {
     $queueWorker = EvaluateMarketplaceEnvironmentReadinessAction::run(
         releaseRoot: marketplaceReadinessReleaseRoot(),
     )->check('queue_worker');
 
     expect($queueWorker?->status)->toBe(MarketplaceReadinessStatus::Warn)
-        ->and($queueWorker?->failed())->toBeFalse();
+        ->and($queueWorker?->failed())->toBeFalse()
+        ->and($queueWorker?->remediation)->toContain(MarketplaceQueueWorkerCommand::forInstallation());
+});
+
+it('passes the queue worker check once a worker heartbeat has landed', function (): void {
+    MarketplaceWorkerHeartbeat::record();
+    EvaluateMarketplaceEnvironmentReadinessAction::forget();
+
+    $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run(
+        releaseRoot: marketplaceReadinessReleaseRoot(),
+    );
+
+    expect($readiness->check('queue_worker')?->status)->toBe(MarketplaceReadinessStatus::Pass)
+        ->and($readiness->capability)->toBe(MarketplaceInstallCapability::Automated);
+});
+
+it('warns rather than fails when the marketplace queue runs synchronously', function (): void {
+    config()->set('capell-marketplace.marketplace.operations_queue_connection', 'sync');
+    config()->set('queue.connections.sync.driver', 'sync');
+    EvaluateMarketplaceEnvironmentReadinessAction::forget();
+
+    $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run(
+        releaseRoot: marketplaceReadinessReleaseRoot(),
+    );
+
+    // Synchronous installs block the request instead of never happening, so
+    // this is a degraded mode rather than a broken host.
+    expect($readiness->check('queue_worker')?->status)->toBe(MarketplaceReadinessStatus::Warn)
+        ->and($readiness->check('queue_worker')?->failed())->toBeFalse()
+        ->and($readiness->capability)->toBe(MarketplaceInstallCapability::Automated);
 });
 
 it('gives every failing and warning check remediation text and a docs anchor', function (): void {

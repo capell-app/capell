@@ -16,5 +16,6 @@ enum MarketplaceInstallFailureType: string
     case DeploymentFailed = 'deployment_failed';
     case DeploymentUnavailable = 'deployment_unavailable';
     case CancelledAfterComposer = 'cancelled_after_composer';
+    case QueueWorkerMissing = 'queue_worker_missing';
     case Unknown = 'unknown';
 }

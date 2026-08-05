@@ -64,6 +64,16 @@ function tagMarketplaceCataloguePublisher(MarketplaceComposerChangePublisher $pu
     app()->tag(['test.marketplace.composer-change-publisher'], MarketplaceComposerChangePublisher::TAG);
 }
 
+/**
+ * Install telemetry is pinned to the Marketplace queue connection, so it no
+ * longer happens to run inline with the request that created the attempt. These
+ * end-to-end assertions still want the payload it sends, so they run the job.
+ */
+function runMarketplaceTelemetryJobFor(MarketplaceInstallAttempt $attempt): void
+{
+    new SendMarketplaceInstallTelemetryJob((int) $attempt->getKey())->handle(resolve(MarketplaceClient::class));
+}
+
 it('builds marketplace table records from filtered marketplace listings', function (): void {
     Http::fake([
         'https://marketplace.test/api/extensions*' => Http::response([
@@ -1522,14 +1532,16 @@ it('installs a free marketplace extension using selected options and queued tele
 
     Http::assertNotSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/seo-suite/install-authorization');
 
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    runMarketplaceTelemetryJobFor($attempt);
+
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/install-intents'
         && $request->data()['slug'] === 'seo-suite'
         && $request->data()['install_options'] === ['starter_content' => true]);
 
-    $attempt = MarketplaceInstallAttempt::query()->sole();
-
     expect($attempt->requested_options)->toBe(['starter_content' => true])
-        ->and($attempt->telemetry_status)->toBe('synced');
+        ->and($attempt->refresh()->telemetry_status)->toBe('synced');
 });
 
 it('records free install attempts as pending before queued telemetry syncs', function (): void {
@@ -1835,6 +1847,9 @@ it('can install filament peek through the admin marketplace catalogue', function
         ]);
 
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/filament-peek');
+
+    runMarketplaceTelemetryJobFor($attempt);
+
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/install-intents');
 });
 

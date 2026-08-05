@@ -7,14 +7,17 @@ namespace Capell\Marketplace\Jobs;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallOperationTelemetryAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
+use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
 use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceInstallOperationProgressAction;
@@ -27,6 +30,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
 use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -162,6 +166,18 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
 
     public function handle(MarketplaceComposerRunner $composer): void
     {
+        // Reaching handle() at all is the only proof that a worker is consuming
+        // this queue, so it is recorded before anything that can fail.
+        MarketplaceWorkerHeartbeat::record();
+
+        // Before the lock, not after it. On a node-local cache store
+        // Cache::lock() succeeds on every node at once, so two workers would run
+        // Composer against the same release root believing they hold it — the
+        // worst outcome this system has. A loud failure is strictly better.
+        new MultiNodeTopologyGuard()->assertCacheStoreIsShared(
+            EvaluateMarketplaceEnvironmentReadinessAction::OPERATION,
+        );
+
         $startedAt = hrtime(true);
         $this->startedAtNanoseconds = $startedAt;
         $peakMemoryBefore = memory_get_peak_usage(true);
@@ -335,8 +351,14 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                 return;
             }
 
+            // Every other process serving this application is still running the
+            // code from before the install, so this happens before the operator
+            // is told the install is done — and what it could not reach travels
+            // with that notification.
+            $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
+
             try {
-                NotifyMarketplaceInstallCompletedAction::run($attempt->refresh());
+                NotifyMarketplaceInstallCompletedAction::run($attempt->refresh(), $runtimeNotice);
                 $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_notification_sent', MarketplaceInstallFailureStage::Notification);
             } catch (Throwable $throwable) {
                 report($throwable);

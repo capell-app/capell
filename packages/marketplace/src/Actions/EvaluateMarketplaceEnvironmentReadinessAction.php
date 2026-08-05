@@ -14,6 +14,8 @@ use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Capell\Marketplace\Support\MarketplaceQueueTimeoutChain;
+use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
+use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
 use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -49,7 +51,11 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
      */
     public const string DOCS_PATH = 'docs/operations/marketplace-hosting.md';
 
-    private const string OPERATION = 'Installing a Marketplace extension with Composer';
+    /**
+     * Public so the install job can assert the same topology rules against the
+     * same words the readiness report shows the operator.
+     */
+    public const string OPERATION = 'Installing a Marketplace extension with Composer';
 
     /** @var list<string> */
     private const array RELEASE_ROOT_PATHS = ['composer.json', 'composer.lock', 'vendor'];
@@ -219,13 +225,32 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
         );
     }
 
+    /**
+     * Never a failure, in either shape it can take. A synchronous connection
+     * still installs, blocking the request rather than never running; and an
+     * absent heartbeat means a worker has not been seen, not that one will
+     * never arrive. Failing here would block a host that works.
+     */
     private function queueWorkerCheck(): MarketplaceReadinessCheckData
     {
-        // Whether a worker is actually consuming the Marketplace queue is not
-        // knowable until the worker heartbeat lands. Reporting an unverified
-        // pass here would be the exact lie this readiness concept exists to
-        // remove, so this stays a warning until then.
-        return $this->warned('queue_worker');
+        $replacements = [
+            'command' => MarketplaceQueueWorkerCommand::forInstallation(),
+            'connection' => MarketplaceQueueWorkerCommand::connectionName(),
+            'queue' => MarketplaceQueueWorkerCommand::queueName(),
+        ];
+
+        if (MarketplaceQueueWorkerCommand::isSynchronous()) {
+            return $this->warned(
+                'queue_worker',
+                messageKey: 'queue_worker_sync',
+                replacements: $replacements,
+                remediationKey: 'queue_worker_sync_remediation',
+            );
+        }
+
+        return MarketplaceWorkerHeartbeat::isFresh()
+            ? $this->passed('queue_worker', replacements: $replacements)
+            : $this->warned('queue_worker', replacements: $replacements);
     }
 
     private function sharedCacheCheck(): MarketplaceReadinessCheckData
@@ -280,13 +305,17 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
     }
 
     /** @param array<string, scalar> $replacements */
-    private function warned(string $key, ?string $messageKey = null, array $replacements = []): MarketplaceReadinessCheckData
-    {
+    private function warned(
+        string $key,
+        ?string $messageKey = null,
+        array $replacements = [],
+        ?string $remediationKey = null,
+    ): MarketplaceReadinessCheckData {
         return new MarketplaceReadinessCheckData(
             key: $key,
             status: MarketplaceReadinessStatus::Warn,
             message: $this->message($messageKey ?? $key . '_warn', $replacements),
-            remediation: $this->message($key . '_remediation', $replacements),
+            remediation: $this->message($remediationKey ?? $key . '_remediation', $replacements),
             docsAnchor: $this->anchor($key),
         );
     }

@@ -23,7 +23,13 @@ final class NotifyMarketplaceInstallCompletedAction
     use AsFake;
     use AsObject;
 
-    public function handle(MarketplaceInstallAttempt $attempt): void
+    /**
+     * @param  string|null  $runtimeNotice  What could not be refreshed on this
+     *                                      operator's behalf. Carried in the body rather than left to the
+     *                                      timeline, because an install they believe is live everywhere is
+     *                                      exactly the belief this corrects.
+     */
+    public function handle(MarketplaceInstallAttempt $attempt, ?string $runtimeNotice = null): void
     {
         $user = ResolveMarketplaceInstallAttemptUserAction::run($attempt);
 
@@ -31,11 +37,17 @@ final class NotifyMarketplaceInstallCompletedAction
             return;
         }
 
+        $body = (string) __('capell-marketplace::marketplace.install.installed_body', [
+            'name' => $attempt->extension_name,
+        ]);
+
+        if (is_string($runtimeNotice) && $runtimeNotice !== '') {
+            $body .= ' ' . $runtimeNotice;
+        }
+
         $notification = FilamentNotification::make(MarketplaceInstallNotifications::operationId($attempt->composer_name))
             ->title((string) __('capell-marketplace::marketplace.install.installed'))
-            ->body((string) __('capell-marketplace::marketplace.install.installed_body', [
-                'name' => $attempt->extension_name,
-            ]))
+            ->body($body)
             ->success()
             ->persistent();
 

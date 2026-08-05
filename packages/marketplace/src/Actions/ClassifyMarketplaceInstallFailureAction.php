@@ -90,6 +90,10 @@ final class ClassifyMarketplaceInstallFailureAction
             return MarketplaceInstallFailureType::PackageNotDiscovered;
         }
 
+        if (str_contains($haystack, 'queue worker')) {
+            return MarketplaceInstallFailureType::QueueWorkerMissing;
+        }
+
         if (str_contains($haystack, 'cancelled after composer')) {
             return MarketplaceInstallFailureType::CancelledAfterComposer;
         }

@@ -14,13 +14,18 @@ use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
+use Capell\Marketplace\Contracts\MarketplaceRuntimeRefresher;
 use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Jobs\RecordMarketplaceWorkerHeartbeatJob;
+use Capell\Marketplace\Support\ArtisanMarketplaceRuntimeRefresher;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerScriptRunner;
+use Illuminate\Console\Scheduling\Schedule;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
@@ -85,6 +90,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
                 fn (): MarketplaceCatalogueRecordProvider => resolve(MarketplaceCatalogueRecordProvider::class),
             );
             $this->app->bind(MarketplaceComposerChangePublisherRegistry::class);
+            $this->app->singletonIf(MarketplaceRuntimeRefresher::class, ArtisanMarketplaceRuntimeRefresher::class);
 
             $this->app->bind(
                 'capell.marketplace.activation-verifier',
@@ -100,6 +106,8 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             return $this;
         }
 
+        $this->scheduleWorkerHeartbeatProbe();
+
         return $this->registerLivewireComponentDefinitions([
             'capell-marketplace.marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
             'capell-marketplace::marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
@@ -107,5 +115,27 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             'namespace' => 'capell-marketplace',
             'classNamespace' => 'Capell\\Marketplace\\Filament\\Livewire',
         ]);
+    }
+
+    /**
+     * Keep the worker heartbeat current on a quiet installation.
+     *
+     * Marketplace jobs record a heartbeat as they run, but an installation that
+     * has not installed anything for a week has no jobs to record one — and an
+     * operator who then starts an install deserves to know whether a worker is
+     * there before they wait on it, not after.
+     *
+     * Pointless on a synchronous connection, where the probe would run inside
+     * the scheduler and prove only that the scheduler is alive.
+     */
+    private function scheduleWorkerHeartbeatProbe(): void
+    {
+        if (MarketplaceQueueWorkerCommand::isSynchronous()) {
+            return;
+        }
+
+        $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
+            $schedule->job(new RecordMarketplaceWorkerHeartbeatJob)->everyMinute();
+        });
     }
 }

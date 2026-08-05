@@ -35,6 +35,21 @@ return [
         'warm_throttle_seconds' => 60,
         'operations_queue_connection' => env('CAPELL_MARKETPLACE_QUEUE_CONNECTION', 'database'),
         'operations_queue' => env('CAPELL_MARKETPLACE_QUEUE', 'capell-marketplace'),
+        /*
+         * How long an operation may sit in the queue before the operator is told
+         * that nothing is consuming it. A queued install that no worker ever
+         * claims produces no error of its own, so this is the only signal there
+         * is. Two minutes leaves room for a busy worker to finish the job in
+         * front without accusing a healthy host of being broken.
+         */
+        'queued_stale_after_seconds' => env('CAPELL_MARKETPLACE_QUEUED_STALE_AFTER_SECONDS', 120),
+        /*
+         * How long a recorded worker heartbeat still counts as evidence that a
+         * worker is consuming the Marketplace queue. The scheduled probe runs
+         * every minute, so this tolerates a handful of missed runs before the
+         * readiness report stops claiming a worker is there.
+         */
+        'worker_heartbeat_stale_after_seconds' => env('CAPELL_MARKETPLACE_WORKER_HEARTBEAT_STALE_AFTER_SECONDS', 300),
         'catalogue_page_limit' => env('CAPELL_MARKETPLACE_CATALOGUE_PAGE_LIMIT', 3),
         'webhook_url' => env('CAPELL_MARKETPLACE_WEBHOOK_URL'),
         'webhook_secret' => env('CAPELL_MARKETPLACE_WEBHOOK_SECRET'),

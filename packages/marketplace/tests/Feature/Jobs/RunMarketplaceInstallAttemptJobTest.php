@@ -20,6 +20,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
+use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\BroadcastNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -44,6 +45,52 @@ it('guards each install attempt and bounds lock-contention retries', function ()
         ->and($job->uniqueId())->toBe('42')
         ->and($job->tries)->toBe(0)
         ->and($job->backoff())->toBe([30, 60, 120, 300]);
+});
+
+it('refuses to run against a node-local cache store where the composer lock cannot hold', function (): void {
+    config()->set('capell.multi_node', true);
+    config()->set('cache.default', 'array');
+    config()->set('cache.stores.array.driver', 'array');
+
+    $attempt = marketplaceOperationAttempt();
+
+    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
+    {
+        public static bool $ran = false;
+
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            self::$ran = true;
+
+            return new MarketplaceComposerResultData(exitCode: 0, output: '', errorOutput: '');
+        }
+    });
+
+    $composer = resolve(MarketplaceComposerRunner::class);
+
+    expect(fn (): mixed => new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($composer))
+        ->toThrow(RuntimeException::class, 'CAPELL_MULTI_NODE=true');
+
+    expect($composer::$ran)->toBeFalse()
+        ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+});
+
+it('records a worker heartbeat as soon as the install job is picked up', function (): void {
+    MarketplaceWorkerHeartbeat::forget();
+
+    $attempt = marketplaceOperationAttempt();
+
+    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
+    {
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            return new MarketplaceComposerResultData(exitCode: 1, output: '', errorOutput: 'Composer failed hard');
+        }
+    });
+
+    new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+
+    expect(MarketplaceWorkerHeartbeat::isFresh())->toBeTrue();
 });
 
 it('marks composer failures without sending the old failure notification', function (): void {
