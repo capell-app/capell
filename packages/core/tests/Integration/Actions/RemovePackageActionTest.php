@@ -636,6 +636,7 @@ it('honours a caller budget and refuses to start when none remains', function ()
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldNotReceive('make');
+
     app()->instance(ProcessFactoryInterface::class, $factory);
 
     expect(fn (): array => RemovePackageAction::run('vendor/package', timeoutSeconds: 0))

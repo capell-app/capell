@@ -145,6 +145,7 @@ final class QueueMarketplaceUninstallAttemptAction
         foreach ($this->packageNames($composerName, $options) as $packageName) {
             AssertNoActiveMarketplaceOperationAction::run($packageName);
         }
+
         AssertMarketplaceUninstallAllowedAction::run($composerName, $options);
 
         $context['affected_package_names'] = $this->packageNames($composerName, $options);

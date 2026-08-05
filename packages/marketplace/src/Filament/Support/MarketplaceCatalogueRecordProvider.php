@@ -898,7 +898,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         $days = $trial['days'] ?? $trial['duration_days'] ?? null;
 
         return is_numeric($days) && (int) $days > 0
-            ? (string) trans_choice('capell-marketplace::marketplace.suites.trial_days', (int) $days, ['count' => (int) $days])
+            ? trans_choice('capell-marketplace::marketplace.suites.trial_days', (int) $days, ['count' => (int) $days])
             : null;
     }
 

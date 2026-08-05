@@ -45,6 +45,7 @@ final class BuildMarketplaceSuitePresentationAction
         $members = array_map(function (string $composerName) use ($records, $detail, &$allMemberPricesKnown, &$memberTotalCents): array {
             $record = $records->get($composerName);
             $record = is_array($record) ? $record : [];
+
             $priceCents = $record['price_cents'] ?? null;
             $currency = $record['currency'] ?? null;
             $hasComparablePrice = is_numeric($priceCents) && $currency === $detail->currency;

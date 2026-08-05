@@ -36,6 +36,7 @@ final class BuildMarketplacePurchasesPageDataAction
     {
         $commercial = resolve(MarketplaceInstanceResolver::class)->latest()?->connection_metadata['commercial'] ?? [];
         $commercial = is_array($commercial) ? $commercial : [];
+
         $membership = is_array($commercial['membership_comparison'] ?? null)
             ? $commercial['membership_comparison']
             : null;

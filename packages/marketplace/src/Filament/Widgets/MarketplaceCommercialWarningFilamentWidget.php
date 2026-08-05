@@ -11,6 +11,7 @@ use Capell\Marketplace\Data\MarketplaceCommercialWarningData;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Filament\Widgets\Widget;
+use Override;
 
 final class MarketplaceCommercialWarningFilamentWidget extends Widget implements CapellFilamentWidgetContract
 {
@@ -28,6 +29,7 @@ final class MarketplaceCommercialWarningFilamentWidget extends Widget implements
 
     protected static ?int $sort = 17;
 
+    #[Override]
     public static function canView(): bool
     {
         return MarketplacePage::canAccess();

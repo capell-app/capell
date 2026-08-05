@@ -77,6 +77,7 @@ final class AssertMarketplaceUninstallAllowedAction
             if (! $options->runLifecycle) {
                 continue;
             }
+
             $alreadyRemovedPackageNames = array_slice($packageNames, 0, $offset);
             $outsideDependents = CapellCore::getDependentInstalledPackages($packageName)
                 ->pluck('name')

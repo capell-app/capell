@@ -36,7 +36,11 @@ final class NotifyMarketplaceCommercialWarningsAction
 
         foreach (BuildMarketplaceCommercialWarningsAction::run($commercial) as $warning) {
             foreach ($recipients as $recipient) {
-                if (! $recipient instanceof Authenticatable || ! $recipient instanceof Model) {
+                if (! $recipient instanceof Authenticatable) {
+                    continue;
+                }
+
+                if (! $recipient instanceof Model) {
                     continue;
                 }
 
