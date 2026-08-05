@@ -7,12 +7,13 @@ use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
 use Capell\Marketplace\Support\MarketplaceComposerEnvironment;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
+use Illuminate\Support\Facades\Date;
 
 beforeEach(function (): void {
     config()->set('capell.release_root_mode', 'mutable');
     config()->set('capell.server_side_tooling', true);
     config()->set('capell.process.composer.no_cache', false);
-    config()->set('capell.process.composer.cache_dir', null);
+    config()->set('capell.process.composer.cache_dir');
     config()->set('capell.process.composer.memory_limit', '-1');
 });
 
@@ -68,8 +69,9 @@ it('fails clearly when the composer home directory cannot be created', function 
     $path = tempnam(sys_get_temp_dir(), 'capell_composer_home_file_');
 
     try {
-        expect(fn (): mixed => new MarketplaceComposerAuthWorkspace()->ensureDirectory($path))
-            ->toThrow(RuntimeException::class, 'Unable to create Composer home directory: ' . $path);
+        expect(function () use ($path): void {
+            new MarketplaceComposerAuthWorkspace()->ensureDirectory($path);
+        })->toThrow(RuntimeException::class, 'Unable to create Composer home directory: ' . $path);
     } finally {
         if (file_exists($path)) {
             unlink($path);
@@ -302,7 +304,7 @@ it('sweeps composer auth directories abandoned by installs that never finished',
     $inFlight = $workspace->create();
 
     file_put_contents($abandoned . '/auth.json', '{}');
-    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::staleAfterSeconds() - 60);
+    touch($abandoned, Date::now()->getTimestamp() - MarketplaceComposerAuthWorkspace::staleAfterSeconds() - 60);
 
     try {
         expect($workspace->stale())->toBe([$abandoned])
@@ -325,7 +327,7 @@ it('never treats a directory younger than the configured job timeout as stale', 
     $workspace->ensureDirectory($workspace->root());
 
     $longRunning = $workspace->create();
-    touch($longRunning, time() - 5400);
+    touch($longRunning, Date::now()->subMinutes(90)->getTimestamp());
 
     try {
         expect(MarketplaceComposerAuthWorkspace::staleAfterSeconds())->toBeGreaterThan(7200)
@@ -342,7 +344,7 @@ it('reports abandoned composer auth directories without failing the operations d
     $statusWithoutDebris = BuildMarketplaceOperationsDoctorReportAction::run()->status;
 
     $abandoned = $workspace->create();
-    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::staleAfterSeconds() - 60);
+    touch($abandoned, Date::now()->getTimestamp() - MarketplaceComposerAuthWorkspace::staleAfterSeconds() - 60);
 
     try {
         $report = BuildMarketplaceOperationsDoctorReportAction::run();

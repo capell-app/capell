@@ -6,44 +6,14 @@ use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\SnapshotComposerStateAction;
+use Capell\Marketplace\Tests\Support\InMemoryComposerFilesystem;
 use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
-function marketplaceRollbackFilesystem(array $contents): Filesystem
+/** @param array<string, string> $contents */
+function marketplaceRollbackFilesystem(array $contents): InMemoryComposerFilesystem
 {
-    return new class($contents) extends Filesystem
-    {
-        /** @param array<string, string> $contents */
-        public function __construct(public array $contents) {}
-
-        #[Override]
-        public function exists($path): bool
-        {
-            return array_key_exists((string) $path, $this->contents);
-        }
-
-        #[Override]
-        public function get($path, $lock = false): string
-        {
-            return $this->contents[(string) $path];
-        }
-
-        #[Override]
-        public function replace($path, $content, $mode = null): void
-        {
-            $this->contents[(string) $path] = (string) $content;
-        }
-
-        #[Override]
-        public function delete($paths): bool
-        {
-            foreach ((array) $paths as $path) {
-                unset($this->contents[(string) $path]);
-            }
-
-            return true;
-        }
-    };
+    return new InMemoryComposerFilesystem($contents);
 }
 
 it('snapshots the application composer state through the shared core class', function (): void {

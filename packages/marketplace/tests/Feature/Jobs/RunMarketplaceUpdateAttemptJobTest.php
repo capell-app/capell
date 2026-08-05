@@ -13,7 +13,6 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
-use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
 use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
@@ -22,6 +21,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -99,22 +99,10 @@ function fakeMigrationPipeline(array $migrationsApplied = [], int $databaseExitC
         ->andReturn(new MigrationRunResult(0, 'settings migrated'));
 }
 
-function succeedingComposerRunner(): MarketplaceComposerRunner
+function succeedingComposerRunner(): RecordingMarketplaceComposerRunner
 {
-    $runner = new class implements MarketplaceComposerRunner
-    {
-        /** @var list<array{name: string, constraint: string}> */
-        public static array $calls = [];
+    $runner = new RecordingMarketplaceComposerRunner('updated');
 
-        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
-        {
-            self::$calls[] = ['name' => $composerName, 'constraint' => $versionConstraint];
-
-            return new MarketplaceComposerResultData(exitCode: 0, output: 'updated', errorOutput: '');
-        }
-    };
-
-    $runner::$calls = [];
     app()->instance(MarketplaceComposerRunner::class, $runner);
 
     return $runner;
@@ -122,9 +110,9 @@ function succeedingComposerRunner(): MarketplaceComposerRunner
 
 function failHealthCheck(string $reason): void
 {
-    app()->instance(RunPostOperationHealthCheckAction::class, new class($reason)
+    app()->instance(RunPostOperationHealthCheckAction::class, new readonly class($reason)
     {
-        public function __construct(private readonly string $reason) {}
+        public function __construct(private string $reason) {}
 
         public function handle(int $budgetSeconds): MarketplaceHealthCheckResultData
         {
@@ -169,7 +157,7 @@ it('passes the new version constraint to composer and finishes the update', func
 
     $attempt->refresh();
 
-    expect($composer::$calls)->toBe([['name' => UPDATE_PACKAGE_NAME, 'constraint' => '^3.0.0']])
+    expect($composer->calls)->toBe([['name' => UPDATE_PACKAGE_NAME, 'constraint' => '^3.0.0']])
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
         ->and($attempt->operation)->toBe(MarketplaceOperationType::Update)
         ->and($attempt->failure_reason)->toBeNull()
@@ -190,7 +178,7 @@ it('never reuses an already downloaded package, because that is the version bein
         File::deleteDirectory($packagePath);
     }
 
-    expect($composer::$calls)->toHaveCount(1)
+    expect($composer->calls)->toHaveCount(1)
         ->and($attempt->refresh()->events()
             ->where('message', __('capell-marketplace::marketplace.operations.timeline_composer_skipped_downloaded'))
             ->exists())->toBeFalse();

@@ -6,10 +6,11 @@ use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Contracts\MarketplaceRuntimeRefresher;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Tests\Support\RecordingMarketplaceRuntimeRefresher;
 
 beforeEach(function (): void {
     config()->set('capell.multi_node', false);
-    config()->set('octane.server', null);
+    config()->set('octane.server');
 });
 
 it('stays quiet on a plain single-process host', function (): void {
@@ -39,6 +40,7 @@ it('refreshes this node and still asks for an octane restart on a single-node ho
 it('refuses to claim the other nodes were refreshed on a multi-node host', function (): void {
     config()->set('capell.multi_node', true);
     config()->set('octane.server', 'swoole');
+
     $refresher = fakeMarketplaceRuntimeRefresher();
     $attempt = marketplaceRuntimeStateAttempt();
 
@@ -80,19 +82,9 @@ it('keeps the install successful when the refresh itself fails', function (): vo
         ->toContain(__('capell-marketplace::marketplace.operations.timeline_runtime_refresh_required'));
 });
 
-function fakeMarketplaceRuntimeRefresher(): object
+function fakeMarketplaceRuntimeRefresher(): RecordingMarketplaceRuntimeRefresher
 {
-    $refresher = new class implements MarketplaceRuntimeRefresher
-    {
-        public int $refreshCount = 0;
-
-        public function refresh(): bool
-        {
-            $this->refreshCount++;
-
-            return true;
-        }
-    };
+    $refresher = new RecordingMarketplaceRuntimeRefresher;
 
     app()->instance(MarketplaceRuntimeRefresher::class, $refresher);
 

@@ -8,7 +8,6 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
@@ -32,6 +31,8 @@ use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
+use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
+use Capell\Marketplace\Tests\Support\StatusRecordingPostOperationHealthCheckAction;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\BroadcastNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -67,24 +68,14 @@ it('refuses to run against a node-local cache store where the composer lock cann
 
     $attempt = marketplaceOperationAttempt();
 
-    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
-    {
-        public static bool $ran = false;
+    $composer = new RecordingMarketplaceComposerRunner;
+    app()->instance(MarketplaceComposerRunner::class, $composer);
 
-        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
-        {
-            self::$ran = true;
+    expect(function () use ($attempt, $composer): void {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($composer);
+    })->toThrow(RuntimeException::class, 'CAPELL_MULTI_NODE=true');
 
-            return new MarketplaceComposerResultData(exitCode: 0, output: '', errorOutput: '');
-        }
-    });
-
-    $composer = resolve(MarketplaceComposerRunner::class);
-
-    expect(fn (): mixed => new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($composer))
-        ->toThrow(RuntimeException::class, 'CAPELL_MULTI_NODE=true');
-
-    expect($composer::$ran)->toBeFalse()
+    expect($composer->ran())->toBeFalse()
         ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued);
 });
 
@@ -663,7 +654,7 @@ it('restores the post-install state that --no-scripts suppresses', function (): 
     // Composer runs with --no-scripts, so the post-autoload-dump hook that
     // normally runs package:discover never fires. The job has to rebuild the
     // manifest itself or the extension's service provider never boots again.
-    $packageManifest = new class(app(Filesystem::class), base_path(), base_path('bootstrap/cache/packages.php')) extends PackageManifest
+    $packageManifest = new class(resolve(Filesystem::class), base_path(), base_path('bootstrap/cache/packages.php')) extends PackageManifest
     {
         public bool $rebuilt = false;
 
@@ -684,7 +675,7 @@ it('restores the post-install state that --no-scripts suppresses', function (): 
         /** @var list<array{event: string, timeout: int}> */
         public array $replayed = [];
 
-        public function replayRootScript(string $event, int $timeoutSeconds): ?MarketplaceComposerResultData
+        public function replayRootScript(string $event, int $timeoutSeconds): MarketplaceComposerResultData
         {
             $this->replayed[] = ['event' => $event, 'timeout' => $timeoutSeconds];
 
@@ -1099,26 +1090,8 @@ it('runs the health check before success is declared and never after it', functi
     $packagePath = registerHealthyLifecyclePackage('capell-app/marketplace-health-order', 'Health Order');
     refuseMarketplaceComposerRun();
 
-    $observedStatuses = [];
-
-    app()->instance(RunPostOperationHealthCheckAction::class, new class($observedStatuses)
-    {
-        /** @param array<int, string> $observedStatuses */
-        public function __construct(public array &$observedStatuses) {}
-
-        public function handle(int $budgetSeconds): MarketplaceHealthCheckResultData
-        {
-            $this->observedStatuses = MarketplaceInstallAttempt::query()
-                ->pluck('status')
-                ->map(fn (mixed $status): string => $status instanceof BackedEnum ? (string) $status->value : (string) $status)
-                ->all();
-
-            return new MarketplaceHealthCheckResultData(
-                bootProbe: MarketplaceHealthProbeOutcome::Passed,
-                httpProbe: MarketplaceHealthProbeOutcome::Skipped,
-            );
-        }
-    });
+    $healthCheck = new StatusRecordingPostOperationHealthCheckAction;
+    app()->instance(RunPostOperationHealthCheckAction::class, $healthCheck);
 
     $attempt = marketplaceOperationAttempt([
         'composer_name' => 'capell-app/marketplace-health-order',
@@ -1132,8 +1105,9 @@ it('runs the health check before success is declared and never after it', functi
         File::deleteDirectory($packagePath);
     }
 
-    expect(resolve(RunPostOperationHealthCheckAction::class)->observedStatuses)
+    expect($healthCheck->observedStatuses)
         ->toBe([MarketplaceInstallIntentStatus::Running->value])
+        ->and($healthCheck->observedBudgetSeconds)->toBeGreaterThan(0)
         ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
         ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_health_check_completed'))->exists())
         ->toBeTrue();
@@ -1411,10 +1385,9 @@ final class MarketplaceRollbackRecorder
 
     public function __construct(private readonly ?Throwable $rollbackFailure = null) {}
 
-    public function handle(ComposerStateSnapshot $snapshot, int $timeoutSeconds = 300): bool
+    public function handle(): bool
     {
         $this->calls++;
-
         if ($this->rollbackFailure instanceof Throwable) {
             throw $this->rollbackFailure;
         }
