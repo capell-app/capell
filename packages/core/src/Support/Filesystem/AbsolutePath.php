@@ -33,6 +33,11 @@ final class AbsolutePath
      * The filesystem root the path is anchored to — `/` for a unix path, `C:\`
      * or `C:/` for a Windows drive-letter path, `\\` for a UNC share — or null
      * when the path is relative.
+     *
+     * A single leading backslash is deliberately not a root. On unix it is an
+     * ordinary filename character, and on Windows `\packages` is relative to
+     * whichever drive happens to be current, so it does not identify a root
+     * either. Both hosts therefore report it as relative.
      */
     public static function rootPrefix(string $path): ?string
     {
@@ -44,11 +49,7 @@ final class AbsolutePath
             return '\\\\';
         }
 
-        if (str_starts_with($path, '/')) {
-            return '/';
-        }
-
-        return str_starts_with($path, DIRECTORY_SEPARATOR) ? DIRECTORY_SEPARATOR : null;
+        return str_starts_with($path, '/') ? '/' : null;
     }
 
     /**

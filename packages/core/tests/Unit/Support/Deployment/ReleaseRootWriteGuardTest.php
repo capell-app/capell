@@ -63,7 +63,14 @@ it('blocks explicitly immutable and atomic release layouts', function (string $m
 })->with(['immutable', 'atomic']);
 
 it('blocks a mutable mode root that traverses an atomic release symlink', function (): void {
-    $parent = sys_get_temp_dir() . '/capell-atomic-release-' . bin2hex(random_bytes(4));
+    // The temporary directory has to be canonicalised: on macOS it lives under
+    // /var, which is itself a symlink, so an uncanonicalised root would be
+    // refused at its first component and this test would never reach the
+    // release symlink it builds.
+    $temporaryRoot = realpath(sys_get_temp_dir());
+    throw_unless(is_string($temporaryRoot), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
+
+    $parent = $temporaryRoot . '/capell-atomic-release-' . bin2hex(random_bytes(4));
     $release = $parent . '/releases/20260723120000';
     $current = $parent . '/current';
     mkdir($release, 0755, true);
@@ -81,7 +88,7 @@ it('blocks a mutable mode root that traverses an atomic release symlink', functi
             );
         })->toThrow(
             RuntimeException::class,
-            'Writing through an atomic current-release symlink can modify an old release',
+            'traverses the symlink ' . $current . '.',
         );
     } finally {
         unlink($current);
@@ -254,8 +261,15 @@ it('refuses a windows release root whose path cannot be written by this process'
     expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootPathNotWritable);
 });
 
-it('inspects each component of a windows style root rather than one giant component', function (): void {
-    $parent = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'capell-component-walk-' . bin2hex(random_bytes(4));
+it('inspects every component of a release root rather than one giant component', function (): void {
+    // Canonicalised for the same reason as the atomic-release test above: an
+    // uncanonicalised temporary path is itself reached through a symlink on
+    // macOS, so the walk would stop long before the symlink built here and the
+    // test would assert nothing about component splitting.
+    $temporaryRoot = realpath(sys_get_temp_dir());
+    throw_unless(is_string($temporaryRoot), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
+
+    $parent = $temporaryRoot . DIRECTORY_SEPARATOR . 'capell-component-walk-' . bin2hex(random_bytes(4));
     $release = $parent . DIRECTORY_SEPARATOR . 'releases' . DIRECTORY_SEPARATOR . '20260805120000';
     $current = $parent . DIRECTORY_SEPARATOR . 'current';
     mkdir($release, 0755, true);
@@ -265,15 +279,17 @@ it('inspects each component of a windows style root rather than one giant compon
     config()->set('capell.server_side_tooling', true);
 
     try {
-        // The symlink is not the last component, so a walk that failed to split
-        // the root into components could not possibly find it.
-        $reason = new ReleaseRootWriteGuard()->refusalReason(
-            'Installing a Marketplace extension with Composer',
-            ['composer.json'],
-            $current . DIRECTORY_SEPARATOR . 'public',
-        );
+        $guard = new ReleaseRootWriteGuard;
+        $root = $current . DIRECTORY_SEPARATOR . 'public';
 
-        expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootTraversesSymlink);
+        // The symlink is neither the first nor the last component of the root,
+        // so a walk that collapsed the root into a single component could not
+        // find it — and naming it proves the walk stopped at that component
+        // rather than at some earlier one.
+        expect($guard->refusalReason('Installing a Marketplace extension with Composer', ['composer.json'], $root))
+            ->toBe(ReleaseRootWriteRefusal::ReleaseRootTraversesSymlink)
+            ->and($guard->check('Installing a Marketplace extension with Composer', ['composer.json'], $root))
+            ->toContain('traverses the symlink ' . $current . '.');
     } finally {
         unlink($current);
         rmdir($release);

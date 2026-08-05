@@ -37,6 +37,14 @@ it('reports the root prefix an absolute path is anchored to', function (string $
     'relative path' => ['packages/core', null],
 ]);
 
+it('treats a single leading backslash as relative on every host', function (): void {
+    // On unix a backslash is an ordinary filename character; on Windows
+    // `\packages` is relative to the current drive. Neither identifies a root,
+    // so the answer must not depend on the host running the suite.
+    expect(AbsolutePath::rootPrefix('\\packages'))->toBeNull()
+        ->and(AbsolutePath::is('\\packages'))->toBeFalse();
+});
+
 it('treats backslashes as separators only for windows rooted paths on a unix host', function (): void {
     expect(AbsolutePath::hasWindowsSeparators('C:\\inetpub\\capell'))->toBeTrue()
         ->and(AbsolutePath::hasWindowsSeparators('\\\\fileserver\\releases'))->toBeTrue()

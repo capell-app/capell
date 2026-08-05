@@ -81,7 +81,11 @@ final class ReleaseRootWriteGuard
         ?string $releaseRoot,
         bool $requiresServerSideTooling,
     ): ?array {
-        $root = rtrim($releaseRoot ?? base_path(), '\\/');
+        $configuredRoot = $releaseRoot ?? base_path();
+        // A backslash is only a trailing separator where it is a separator at
+        // all. Trimming it on a unix host would silently retarget a directory
+        // genuinely named `foo\` to `foo`.
+        $root = rtrim($configuredRoot, AbsolutePath::hasWindowsSeparators($configuredRoot) ? '\\/' : '/');
         $mode = config('capell.release_root_mode', self::MUTABLE_MODE);
 
         if ($requiresServerSideTooling && config('capell.server_side_tooling', false) !== true) {
