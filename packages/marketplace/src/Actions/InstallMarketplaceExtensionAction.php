@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -440,6 +441,12 @@ final class InstallMarketplaceExtensionAction
         MarketplaceInstallEligibilityData $eligibility,
         array $selectedInstallOptions,
     ): MarketplaceInstallAttempt {
+        $context = $this->installAttemptContext();
+
+        if ($acquisition->signedActivation !== [] && CapellCore::isPackageInstalled($acquisition->composerName)) {
+            $context['activation_only'] = true;
+        }
+
         return QueueMarketplaceInstallAttemptAction::run(
             listing: $listing,
             acquisition: $acquisition,
@@ -449,7 +456,7 @@ final class InstallMarketplaceExtensionAction
             actor: $this->installActor(),
             source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             requestedOptions: $selectedInstallOptions,
-            context: $this->installAttemptContext(),
+            context: $context,
             deploymentMetadata: [
                 'authorization' => $this->authorizationLedgerSummary($acquisition),
                 'image_url' => $listing->imageUrl,

@@ -73,6 +73,7 @@ final class ExtensionDetailData extends Data
         public readonly string $maturity = 'labs',
         public readonly string $maturityLabel = 'Labs',
         public readonly bool $includedWithCapellAll = false,
+        public readonly string $currency = 'USD',
     ) {}
 
     /**
@@ -134,6 +135,7 @@ final class ExtensionDetailData extends Data
             maturity: $catalogueReleaseMetadata->maturity,
             maturityLabel: $catalogueReleaseMetadata->maturityLabel,
             includedWithCapellAll: $catalogueReleaseMetadata->includedWithCapellAll,
+            currency: self::optionalString($payload['currency'] ?? $payload['price_currency'] ?? data_get($payload, 'commercial.currency')) ?? 'USD',
         );
     }
 

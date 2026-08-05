@@ -32,6 +32,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -875,7 +876,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             return (string) __('capell-marketplace::marketplace.install.free');
         }
 
-        return '$' . number_format($extension->priceCents / 100, 2);
+        return (string) Number::currency($extension->priceCents / 100, $extension->currency);
     }
 
     private function isFreeProductTier(ExtensionListingData $extension): bool

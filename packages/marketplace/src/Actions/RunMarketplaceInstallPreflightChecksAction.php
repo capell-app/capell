@@ -126,7 +126,10 @@ final class RunMarketplaceInstallPreflightChecksAction
             return $this->check('package_installed', $installed);
         }
 
-        return $this->check('package_not_installed', ! $installed || $this->allowsInstalledPackageRetry($attempt));
+        return $this->check(
+            'package_not_installed',
+            ! $installed || $this->allowsInstalledPackageRetry($attempt) || ($attempt->context['activation_only'] ?? false) === true,
+        );
     }
 
     private function packageAlreadyInstalled(string $composerName): bool

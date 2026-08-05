@@ -19,6 +19,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceActivationContext;
 use Capell\Marketplace\Support\MarketplaceComposerAuthContext;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
@@ -158,7 +159,10 @@ final class QueueMarketplaceInstallAttemptAction
             versionConstraint: $acquisition->versionConstraint,
             requestedOptions: $requestedOptions,
             eligibility: $eligibility->toArray(),
-            context: MarketplaceComposerAuthContext::encryptedInto($context, $acquisition->composerAuth),
+            context: MarketplaceActivationContext::encryptedInto(
+                MarketplaceComposerAuthContext::encryptedInto($context, $acquisition->composerAuth),
+                $acquisition->signedActivation,
+            ),
             deployment: $deploymentMetadata,
             telemetryStatus: $telemetryStatus,
             idempotencyKey: $idempotencyKey,
@@ -183,7 +187,8 @@ final class QueueMarketplaceInstallAttemptAction
             );
         }
 
-        if (PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
+        if (($attempt->context['activation_only'] ?? false) === true
+            || PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
             $deployment = $deploymentMetadata;
         } else {
             $claimedAttempt = ClaimMarketplaceInstallDeploymentPublicationAction::run($attempt);

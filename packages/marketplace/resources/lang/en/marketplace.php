@@ -3,6 +3,19 @@
 declare(strict_types=1);
 
 return [
+    'purchases' => [
+        'page_title' => 'Purchases and licences',
+        'heading' => 'Purchases and licences',
+        'description' => 'Review account purchases, installed paid extensions, renewals, and support.',
+        'account_heading' => 'Account purchases',
+        'installed_heading' => 'Installed paid extensions',
+        'status' => 'Status: :status',
+        'access_ends' => 'Access ends :date',
+        'empty' => 'No marketplace purchases were returned by the latest account heartbeat.',
+        'installed_empty' => 'No paid marketplace extensions are installed on this site.',
+        'renew' => 'Manage renewals',
+        'support' => 'Get support',
+    ],
     'release_status' => [
         'beta' => 'Beta',
     ],
@@ -416,6 +429,7 @@ return [
         'cancelled_after_lifecycle' => 'The uninstall was cancelled after the extension had already been torn down. Its data and registrations are gone; the package files are still on this site. Reinstall the extension to put it back.',
         'rollback_lifecycle_retained' => 'This uninstall of :package failed and Capell restored the package files. The extension\'s own uninstall already ran and was NOT undone — restoring composer.lock does not put back tables, settings or registrations an extension removed itself. This site now has the package on disk with the extension torn down. Reinstall the extension to bring it back, or re-run the uninstall to finish removing it. Original failure: :error',
         'timeline_composer_skipped_package_retained' => 'Composer was not run because the package files were kept.',
+        'timeline_composer_skipped_activation_only' => 'Composer was not run because this operation only refreshed the marketplace activation.',
         'timeline_package_removed' => 'Package removed from the Capell registry.',
         'timeline_rollback_lifecycle_retained' => 'The package files were restored, but the extension teardown that already ran was NOT undone.',
         'timeline_cancelled' => 'Operation cancelled before Composer started.',

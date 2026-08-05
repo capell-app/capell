@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Theme;
 use Capell\Marketplace\Actions\ApplyRequestedThemeActivationAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
+use Capell\Marketplace\Actions\PersistMarketplaceActivationAction;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
@@ -19,6 +20,8 @@ use Throwable;
 
 final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperationJob
 {
+    private bool $activationOnly = false;
+
     /**
      * Queue, lock, snapshot, budget and rollback all live in the base class.
      * What is left here is the part that is genuinely about installing: running
@@ -59,8 +62,31 @@ final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperation
     }
 
     #[Override]
+    protected function shouldSkipComposerStage(MarketplaceInstallAttempt $attempt): bool
+    {
+        $this->activationOnly = ($attempt->context['activation_only'] ?? false) === true;
+
+        return $this->activationOnly
+            || parent::shouldSkipComposerStage($attempt);
+    }
+
+    #[Override]
+    protected function composerSkippedTranslationKey(): string
+    {
+        return $this->activationOnly
+            ? 'timeline_composer_skipped_activation_only'
+            : 'timeline_composer_skipped_downloaded';
+    }
+
+    #[Override]
     protected function applyOperation(MarketplaceInstallAttempt $attempt): void
     {
+        if (($attempt->context['activation_only'] ?? false) === true) {
+            PersistMarketplaceActivationAction::run($attempt);
+
+            return;
+        }
+
         $this->reloadPackageRegistry();
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_registry_reloaded', MarketplaceInstallFailureStage::PackageDiscovery);
 
@@ -75,6 +101,7 @@ final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperation
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_lifecycle_started', MarketplaceInstallFailureStage::Lifecycle);
         InstallPackageAction::run($package, [], null, false);
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_lifecycle_completed', MarketplaceInstallFailureStage::Lifecycle);
+        PersistMarketplaceActivationAction::run($attempt);
     }
 
     /**

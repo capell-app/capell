@@ -30,6 +30,7 @@ use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -383,13 +384,14 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function priceLabel(): string
     {
-        $priceCents = $this->detail()->priceCents ?? 0;
+        $detail = $this->detail();
+        $priceCents = $detail?->priceCents ?? 0;
 
         if ($priceCents <= 0) {
             return (string) __('capell-marketplace::marketplace.install.free');
         }
 
-        return '$' . number_format($priceCents / 100, 2);
+        return (string) Number::currency($priceCents / 100, $detail?->currency ?? 'USD');
     }
 
     public function compatibilityLabel(): string

@@ -107,6 +107,11 @@ final class MarketplacePage extends Page implements HasActions
                 ->icon(MarketplacePackageOperationsPage::getNavigationIcon())
                 ->color('gray')
                 ->url(MarketplacePackageOperationsPage::getUrl()),
+            Action::make('purchases')
+                ->label(MarketplacePurchasesPage::getNavigationLabel())
+                ->icon(MarketplacePurchasesPage::getNavigationIcon())
+                ->color('gray')
+                ->url(MarketplacePurchasesPage::getUrl()),
             ConnectMarketplaceAccountAction::make($connection),
             RunMarketplaceHeartbeatAction::make($connection),
         ];

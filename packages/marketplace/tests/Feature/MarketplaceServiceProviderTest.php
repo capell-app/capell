@@ -19,6 +19,7 @@ use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
@@ -53,6 +54,7 @@ it('registers marketplace pages in the admin surface', function (): void {
         ->toContain(MarketplacePage::class)
         ->toContain(MarketplaceExtensionDetailPage::class)
         ->toContain(MarketplacePackageOperationsPage::class)
+        ->toContain(MarketplacePurchasesPage::class)
         ->toContain(ThemeExtensionPage::class)
         ->and(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main))
         ->toContain(MarketplacePackageOperationsAlertFilamentWidget::class);
