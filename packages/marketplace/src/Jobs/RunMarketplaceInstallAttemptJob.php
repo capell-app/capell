@@ -251,10 +251,19 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             return;
         }
 
+        $thrownMessage = trim((string) ($throwable?->getMessage() ?? ''));
         $neverClaimed = $this->wasNeverClaimedByAWorker($attempt);
         $reason = $neverClaimed
             ? (string) __('capell-marketplace::marketplace.operations.queue_worker_missing')
-            : ($throwable?->getMessage() ?: (string) __('capell-marketplace::marketplace.operations.queue_failed'));
+            : ($thrownMessage ?: (string) __('capell-marketplace::marketplace.operations.queue_failed'));
+
+        // Naming the missing worker replaces the reason but must never cost the
+        // operator the error that actually arrived, so it travels alongside.
+        $timelineContext = ['reason' => $reason];
+
+        if ($neverClaimed && $thrownMessage !== '') {
+            $timelineContext['error'] = $thrownMessage;
+        }
 
         $attempt = TransitionMarketplaceInstallAttemptAction::run(
             $attempt,
@@ -263,7 +272,8 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                 failureReason: $reason,
                 failureStage: MarketplaceInstallFailureStage::Queue,
                 failureType: $neverClaimed ? MarketplaceInstallFailureType::QueueWorkerMissing : null,
-                timelineContext: ['reason' => $reason],
+                errorExcerpt: $thrownMessage !== '' ? $thrownMessage : null,
+                timelineContext: $timelineContext,
             ),
         );
 
@@ -283,15 +293,19 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
      * ever claimed it, so no worker ever took it — which is the one failure this
      * system can otherwise only describe as "it just never happened".
      *
-     * The age matters as much as the status. A job that a worker did pick up and
-     * that then threw before claiming the attempt — the shared-cache guard, for
-     * one — also fails while the attempt reads Queued, and blaming a missing
-     * worker for that would be a lie the operator then acts on.
+     * The age alone cannot say that, because it measures how long the attempt
+     * waited, not whether anything was there to take it: a queue backlog longer
+     * than the stale window, or a job released for lock contention until its
+     * attempts ran out, both leave a long-queued attempt that a worker really
+     * did handle. Only the heartbeat is evidence of a worker, so the absence of
+     * a fresh one is what makes "no worker is running" true rather than merely
+     * plausible.
      */
     private function wasNeverClaimedByAWorker(MarketplaceInstallAttempt $attempt): bool
     {
         return $attempt->status === MarketplaceInstallIntentStatus::Queued
-            && FindStuckMarketplaceInstallOperationsAction::isQueuedStale($attempt);
+            && FindStuckMarketplaceInstallOperationsAction::isQueuedStale($attempt)
+            && ! MarketplaceWorkerHeartbeat::isFresh();
     }
 
     private function runWithLock(MarketplaceComposerRunner $composer): void

@@ -106,9 +106,9 @@ final class PropagateMarketplaceRuntimeStateAction
      * configured prefix, opcache_reset() exists, is callable, and raises an
      * E_WARNING — which Laravel's error handler turns into an ErrorException.
      * A restricted host must not be able to make a completed install look like
-     * a failed one, so the warning is silenced for the duration of the call and
-     * the reset simply does not happen. Every one of these outcomes is a
-     * refresh that did not occur, not an install that did not.
+     * a failed one, so the warning is suppressed and the reset simply does not
+     * happen. Every one of these outcomes is a refresh that did not occur, not
+     * an install that did not.
      */
     private function invalidateOpcache(): void
     {
@@ -116,19 +116,10 @@ final class PropagateMarketplaceRuntimeStateAction
             return;
         }
 
-        // The warning is stopped at the source rather than caught after the
-        // fact, because by the time Laravel's handler has run there is already
-        // an ErrorException in flight and static analysis cannot see that a
-        // plain call can throw at all — which is how this was missed once.
-        // Returning true tells PHP the diagnostic is handled, so nothing
-        // converts it and nothing propagates.
-        set_error_handler(static fn (): bool => true, E_WARNING | E_NOTICE);
-
-        try {
-            opcache_reset();
-        } finally {
-            restore_error_handler();
-        }
+        // @ zeroes error_reporting() for this expression, and Laravel's handler
+        // gates on it before constructing an ErrorException, so there is nothing
+        // to catch.
+        @opcache_reset();
     }
 
     private function requireManualRefresh(MarketplaceInstallAttempt $attempt, string $noticeKey): string

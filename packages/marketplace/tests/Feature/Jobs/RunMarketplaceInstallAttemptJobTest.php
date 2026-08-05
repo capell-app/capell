@@ -28,6 +28,7 @@ use Filament\Notifications\BroadcastNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
+use Illuminate\Queue\MaxAttemptsExceededException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
@@ -784,24 +785,36 @@ it('keeps a succeeded install succeeded when the runtime propagation throws', fu
     Notification::assertSentTo($admin, BroadcastNotification::class);
 });
 
-it('blames a missing queue worker when a failed job never claimed its queued attempt', function (): void {
+it('blames a missing queue worker when a stale queued attempt failed with no worker heartbeat', function (): void {
+    MarketplaceWorkerHeartbeat::forget();
+
     $attempt = marketplaceOperationAttempt([
         'queued_at' => now()->subSeconds(FindStuckMarketplaceInstallOperationsAction::queuedStaleAfterSeconds() + 60),
     ]);
 
     new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())
-        ->failed(new RuntimeException('Job has been attempted too many times.'));
+        ->failed(new MaxAttemptsExceededException('Job has been attempted too many times.'));
 
     $attempt->refresh();
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
         ->and($attempt->failure_type)->toBe(MarketplaceInstallFailureType::QueueWorkerMissing->value)
         ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Queue->value)
-        ->and($attempt->failure_reason)->toBe(__('capell-marketplace::marketplace.operations.queue_worker_missing'));
+        ->and($attempt->failure_reason)->toBe(__('capell-marketplace::marketplace.operations.queue_worker_missing'))
+        // Naming the missing worker must never cost the operator the error that
+        // actually arrived.
+        ->and($attempt->error_excerpt)->toContain('Job has been attempted too many times.');
 });
 
-it('does not blame the queue worker when a worker picked the job up and it threw straight away', function (): void {
-    $attempt = marketplaceOperationAttempt(['queued_at' => now()]);
+it('does not blame the queue worker when a heartbeat proves one is consuming the queue', function (): void {
+    // A queue backlog longer than the stale window: the job waited, a worker did
+    // pick it up, and it threw before claiming the attempt. Age measures queue
+    // wait, so only the heartbeat can tell those apart.
+    MarketplaceWorkerHeartbeat::record();
+
+    $attempt = marketplaceOperationAttempt([
+        'queued_at' => now()->subSeconds(FindStuckMarketplaceInstallOperationsAction::queuedStaleAfterSeconds() + 60),
+    ]);
 
     new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())
         ->failed(new RuntimeException('CAPELL_MULTI_NODE=true but the cache store is node local.'));
@@ -811,4 +824,23 @@ it('does not blame the queue worker when a worker picked the job up and it threw
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
         ->and($attempt->failure_type)->not->toBe(MarketplaceInstallFailureType::QueueWorkerMissing->value)
         ->and($attempt->failure_reason)->toBe('CAPELL_MULTI_NODE=true but the cache store is node local.');
+});
+
+it('does not blame the queue worker when lock contention exhausted the attempts of a released job', function (): void {
+    // release() → backoff → attempts exhausted. The attempt never left Queued and
+    // its age is well past the stale window, but a worker demonstrably ran.
+    MarketplaceWorkerHeartbeat::record();
+
+    $attempt = marketplaceOperationAttempt([
+        'queued_at' => now()->subSeconds(FindStuckMarketplaceInstallOperationsAction::queuedStaleAfterSeconds() + 600),
+    ]);
+
+    new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())
+        ->failed(new MaxAttemptsExceededException('Job has been attempted too many times.'));
+
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_type)->not->toBe(MarketplaceInstallFailureType::QueueWorkerMissing->value)
+        ->and($attempt->failure_reason)->toBe('Job has been attempted too many times.');
 });
