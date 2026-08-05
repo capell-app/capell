@@ -72,6 +72,46 @@ it('redirects to the request host when the default site domain is hostless', fun
         ->and($result->getRedirect()->getTargetUrl())->toBe('https://unknown.test/en/path?x=1&x=2');
 });
 
+it('does not repeat the default site prefix when the path already carries it', function (): void {
+    config()->set('capell-frontend.redirect_default_site', true);
+
+    SiteDomain::factory()->enabled()->state([
+        'default' => true,
+        'domain' => 'canonical.test',
+        'scheme' => 'https',
+        'path' => '/showcase',
+    ])->create();
+
+    $state = new FrontendState;
+    $work = new FrontendWork(Request::create('https://demo.test/showcase/page'), $state);
+
+    $step = resolve(SiteResolveStep::class);
+    $result = $step->handle($work, fn (FrontendWork $frontendWork): FrontendWork => $frontendWork);
+
+    expect($result->getRedirect())->not()->toBeNull()
+        ->and($result->getRedirect()->getTargetUrl())->toBe('https://canonical.test/showcase/page');
+});
+
+it('redirects a path that merely resembles the prefix', function (): void {
+    config()->set('capell-frontend.redirect_default_site', true);
+
+    SiteDomain::factory()->enabled()->state([
+        'default' => true,
+        'domain' => 'demo.test',
+        'scheme' => 'https',
+        'path' => '/en',
+    ])->create();
+
+    $state = new FrontendState;
+    $work = new FrontendWork(Request::create('https://demo.test/english/page'), $state);
+
+    $step = resolve(SiteResolveStep::class);
+    $result = $step->handle($work, fn (FrontendWork $frontendWork): FrontendWork => $frontendWork);
+
+    expect($result->getRedirect())->not()->toBeNull()
+        ->and($result->getRedirect()->getTargetUrl())->toBe('https://demo.test/en/english/page');
+});
+
 it('redirects root hostless default domains to the request host', function (): void {
     config()->set('capell-frontend.redirect_default_site', true);
 
