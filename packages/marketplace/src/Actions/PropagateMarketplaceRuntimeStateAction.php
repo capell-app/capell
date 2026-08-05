@@ -41,6 +41,15 @@ final class PropagateMarketplaceRuntimeStateAction
     {
         $this->invalidateOpcache();
 
+        // A declared topology, not a detected one. capell.multi_node is what the
+        // operator said about this installation, it defaults to false, and
+        // nothing here can prove otherwise from inside a single PHP process.
+        // An operator running several nodes who never set CAPELL_MULTI_NODE
+        // therefore gets the single-node treatment — auto-invoke and a
+        // single-node notice — which is why that notice says "this node" rather
+        // than claiming the installation as a whole is refreshed. The whole
+        // system reads the flag the same way; the wording is what has to stay
+        // honest about it.
         $multiNode = config('capell.multi_node', false) === true;
 
         if ($multiNode) {
@@ -92,11 +101,14 @@ final class PropagateMarketplaceRuntimeStateAction
      * autoloader maps and the package manifest as well as adding files, and the
      * files it added were never cached to begin with.
      *
-     * function_exists() is the guard that matters — OPcache may be absent from
-     * the build entirely, and shared hosting routinely puts opcache_reset in
-     * disable_functions, which is exactly where function_exists() reports false.
-     * When it is present but disabled it returns false rather than throwing, and
-     * none of those outcomes are install failures.
+     * function_exists() covers only the absent-or-disabled cases. It does not
+     * cover opcache.restrict_api: when the calling script sits outside the
+     * configured prefix, opcache_reset() exists, is callable, and raises an
+     * E_WARNING — which Laravel's error handler turns into an ErrorException.
+     * A restricted host must not be able to make a completed install look like
+     * a failed one, so the warning is silenced for the duration of the call and
+     * the reset simply does not happen. Every one of these outcomes is a
+     * refresh that did not occur, not an install that did not.
      */
     private function invalidateOpcache(): void
     {
@@ -104,7 +116,19 @@ final class PropagateMarketplaceRuntimeStateAction
             return;
         }
 
-        opcache_reset();
+        // The warning is stopped at the source rather than caught after the
+        // fact, because by the time Laravel's handler has run there is already
+        // an ErrorException in flight and static analysis cannot see that a
+        // plain call can throw at all — which is how this was missed once.
+        // Returning true tells PHP the diagnostic is handled, so nothing
+        // converts it and nothing propagates.
+        set_error_handler(static fn (): bool => true, E_WARNING | E_NOTICE);
+
+        try {
+            opcache_reset();
+        } finally {
+            restore_error_handler();
+        }
     }
 
     private function requireManualRefresh(MarketplaceInstallAttempt $attempt, string $noticeKey): string

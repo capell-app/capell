@@ -15,6 +15,7 @@ use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallOperationTelemetryAction;
+use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
@@ -28,6 +29,7 @@ use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
+use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
@@ -249,13 +251,18 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             return;
         }
 
-        $reason = $throwable?->getMessage() ?: (string) __('capell-marketplace::marketplace.operations.queue_failed');
+        $neverClaimed = $this->wasNeverClaimedByAWorker($attempt);
+        $reason = $neverClaimed
+            ? (string) __('capell-marketplace::marketplace.operations.queue_worker_missing')
+            : ($throwable?->getMessage() ?: (string) __('capell-marketplace::marketplace.operations.queue_failed'));
+
         $attempt = TransitionMarketplaceInstallAttemptAction::run(
             $attempt,
             new MarketplaceInstallAttemptTransitionData(
                 toStatus: MarketplaceInstallIntentStatus::Failed,
                 failureReason: $reason,
                 failureStage: MarketplaceInstallFailureStage::Queue,
+                failureType: $neverClaimed ? MarketplaceInstallFailureType::QueueWorkerMissing : null,
                 timelineContext: ['reason' => $reason],
             ),
         );
@@ -268,6 +275,23 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         $configured = config($key, $default);
 
         return is_numeric($configured) && (int) $configured > 0 ? (int) $configured : $default;
+    }
+
+    /**
+     * The attempt is still Queued at the point the job failed, and it has been
+     * queued for longer than an unclaimed operation is allowed to wait. Nothing
+     * ever claimed it, so no worker ever took it — which is the one failure this
+     * system can otherwise only describe as "it just never happened".
+     *
+     * The age matters as much as the status. A job that a worker did pick up and
+     * that then threw before claiming the attempt — the shared-cache guard, for
+     * one — also fails while the attempt reads Queued, and blaming a missing
+     * worker for that would be a lie the operator then acts on.
+     */
+    private function wasNeverClaimedByAWorker(MarketplaceInstallAttempt $attempt): bool
+    {
+        return $attempt->status === MarketplaceInstallIntentStatus::Queued
+            && FindStuckMarketplaceInstallOperationsAction::isQueuedStale($attempt);
     }
 
     private function runWithLock(MarketplaceComposerRunner $composer): void
@@ -346,26 +370,6 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_lifecycle_completed', MarketplaceInstallFailureStage::Lifecycle);
 
             $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, $result);
-
-            if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
-                return;
-            }
-
-            // Every other process serving this application is still running the
-            // code from before the install, so this happens before the operator
-            // is told the install is done — and what it could not reach travels
-            // with that notification.
-            $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
-
-            try {
-                NotifyMarketplaceInstallCompletedAction::run($attempt->refresh(), $runtimeNotice);
-                $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_notification_sent', MarketplaceInstallFailureStage::Notification);
-            } catch (Throwable $throwable) {
-                report($throwable);
-                $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_notification_failed', MarketplaceInstallFailureStage::Notification, [
-                    'reason' => $throwable->getMessage(),
-                ]);
-            }
         } catch (Throwable $throwable) {
             TransitionMarketplaceInstallAttemptAction::run(
                 $attempt,
@@ -380,6 +384,53 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                     timelineContext: ['reason' => $throwable->getMessage()],
                 ),
             );
+
+            return;
+        }
+
+        if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
+            return;
+        }
+
+        $this->announceSucceededAttempt($attempt);
+    }
+
+    /**
+     * Everything that happens *after* an attempt has already succeeded, and
+     * deliberately outside the try that can mark it failed.
+     *
+     * Succeeded is a terminal status: TransitionMarketplaceInstallAttemptAction
+     * rejects succeeded → failed with a RuntimeException, which would escape
+     * handle() and have the queue retry a completed install. So no side effect
+     * here may propagate. Each one is reported and recorded on the timeline
+     * instead, because a runtime refresh or a notification that failed is worth
+     * telling the operator about and never worth retracting a good install for.
+     */
+    private function announceSucceededAttempt(MarketplaceInstallAttempt $attempt): void
+    {
+        // Every other process serving this application is still running the
+        // code from before the install, so this happens before the operator
+        // is told the install is done — and what it could not reach travels
+        // with that notification.
+        $runtimeNotice = null;
+
+        try {
+            $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_runtime_propagation_failed', MarketplaceInstallFailureStage::Notification, [
+                'reason' => $throwable->getMessage(),
+            ]);
+        }
+
+        try {
+            NotifyMarketplaceInstallCompletedAction::run($attempt->refresh(), $runtimeNotice);
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_notification_sent', MarketplaceInstallFailureStage::Notification);
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_notification_failed', MarketplaceInstallFailureStage::Notification, [
+                'reason' => $throwable->getMessage(),
+            ]);
         }
     }
 

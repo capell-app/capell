@@ -9,7 +9,9 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
+use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
@@ -711,4 +713,102 @@ it('restores the post-install state that --no-scripts suppresses', function (): 
             RunMarketplaceInstallAttemptJob::jobTimeoutSeconds() - RunMarketplaceInstallAttemptJob::FINALISATION_RESERVE_SECONDS,
         )
         ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
+});
+
+it('keeps a succeeded install succeeded when the runtime propagation throws', function (): void {
+    Notification::fake();
+    LifecycleRecorderAction::reset();
+    $admin = test()->createUserWithRole('super_admin');
+    $packagePath = sys_get_temp_dir() . '/capell-marketplace-propagation-package-' . uniqid();
+
+    File::ensureDirectoryExists($packagePath);
+    File::put($packagePath . '/composer.json', json_encode([
+        'name' => 'capell-app/marketplace-propagation-package',
+        'autoload' => ['psr-4' => []],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+    CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'capell-app/marketplace-propagation-package',
+        surfaces: ['shared'],
+        overrides: [
+            'kind' => 'plugin',
+            'displayName' => 'Marketplace Propagation Package',
+            'actions' => [
+                'install' => LifecycleRecorderAction::class,
+            ],
+        ],
+    ), $packagePath));
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/marketplace-propagation-package',
+        'extension_slug' => 'marketplace-propagation-package',
+        'extension_name' => 'Marketplace Propagation Package',
+        'user_id' => (string) $admin->getKey(),
+    ]);
+
+    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
+    {
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            throw new RuntimeException('Composer should not run for a downloaded package.');
+        }
+    });
+
+    // A restricted opcache_reset() is the real instance of this: it raises an
+    // E_WARNING that Laravel turns into an ErrorException, after the attempt is
+    // already Succeeded. Nothing that happens after success may fail the install.
+    app()->instance(PropagateMarketplaceRuntimeStateAction::class, new class
+    {
+        public function handle(MarketplaceInstallAttempt $attempt): ?string
+        {
+            throw new RuntimeException('opcache_reset() is restricted to a prefix on this host.');
+        }
+    });
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+        app()->forgetInstance(PropagateMarketplaceRuntimeStateAction::class);
+    }
+
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($attempt->failure_reason)->toBeNull()
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_runtime_propagation_failed'))->exists())->toBeTrue()
+        // The operator is still told the install finished, which is the whole
+        // point of not letting a post-success side effect fail the attempt.
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_notification_sent'))->exists())->toBeTrue();
+
+    Notification::assertSentTo($admin, BroadcastNotification::class);
+});
+
+it('blames a missing queue worker when a failed job never claimed its queued attempt', function (): void {
+    $attempt = marketplaceOperationAttempt([
+        'queued_at' => now()->subSeconds(FindStuckMarketplaceInstallOperationsAction::queuedStaleAfterSeconds() + 60),
+    ]);
+
+    new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())
+        ->failed(new RuntimeException('Job has been attempted too many times.'));
+
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_type)->toBe(MarketplaceInstallFailureType::QueueWorkerMissing->value)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Queue->value)
+        ->and($attempt->failure_reason)->toBe(__('capell-marketplace::marketplace.operations.queue_worker_missing'));
+});
+
+it('does not blame the queue worker when a worker picked the job up and it threw straight away', function (): void {
+    $attempt = marketplaceOperationAttempt(['queued_at' => now()]);
+
+    new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())
+        ->failed(new RuntimeException('CAPELL_MULTI_NODE=true but the cache store is node local.'));
+
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_type)->not->toBe(MarketplaceInstallFailureType::QueueWorkerMissing->value)
+        ->and($attempt->failure_reason)->toBe('CAPELL_MULTI_NODE=true but the cache store is node local.');
 });
