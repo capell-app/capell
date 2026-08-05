@@ -33,6 +33,7 @@ use Capell\Admin\Contracts\Extenders\PageEditExtender;
 use Capell\Admin\Contracts\Extenders\PageExportExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
+use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Contracts\RegistryInspectorInterface;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
@@ -134,6 +135,7 @@ use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
+use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Support\Icons\FlagIconRenderer;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
@@ -320,6 +322,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ExtensionManagementSurfaceRegistry::class);
         $this->app->scoped(ExtensionOperationsRequestCache::class);
         $this->app->singleton(ExtensionsPageActionRegistry::class);
+        // Bound rather than resolved by class name so an installed Marketplace
+        // can replace it. Admin never names the replacement; the bridge does.
+        $this->app->bind(ExtensionRemovalCoordinator::class, InRequestExtensionRemovalCoordinator::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);

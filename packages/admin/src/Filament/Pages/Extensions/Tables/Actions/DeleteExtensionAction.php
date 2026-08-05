@@ -6,7 +6,9 @@ namespace Capell\Admin\Filament\Pages\Extensions\Tables\Actions;
 
 use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
 use Capell\Admin\Data\Extensions\ExtensionPackageUninstallResultData;
+use Capell\Admin\Data\Extensions\ExtensionRemovalRequestData;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
+use Capell\Admin\Support\Extensions\ExtensionRemovalRouter;
 use Capell\Core\Actions\DeleteExtensionDataAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Data\PackageData;
@@ -42,17 +44,37 @@ final class DeleteExtensionAction
                     return;
                 }
 
-                if (($record['installed'] ?? false) === true) {
-                    $availability = ExtensionRecord::resolveUninstallAvailability($record);
+                $installed = ($record['installed'] ?? false) === true;
+                $availability = ExtensionRecord::resolveUninstallAvailability($record);
 
-                    if (! $availability->canRun) {
-                        return;
-                    }
+                if ($installed && ! $availability->canRun) {
+                    return;
+                }
 
+                // Asked before anything is torn down, because the queued and
+                // manual answers replace this whole method rather than a step
+                // inside it.
+                if (! ExtensionRemovalRouter::shouldRemoveInRequest(
+                    new ExtensionRemovalRequestData(
+                        composerName: $package->name,
+                        packageNames: $installed ? $availability->uninstallPackageNames : [$package->name],
+                        deletePackage: true,
+                        deleteData: true,
+                        extensionSlug: (string) ($record['slug'] ?? ''),
+                        extensionName: ExtensionRecord::label($record),
+                        kind: (string) ($record['kind'] ?? 'plugin'),
+                    ),
+                    ExtensionRecord::label($record),
+                )) {
+                    return;
+                }
+
+                if ($installed) {
                     $uninstallResult = UninstallExtensionPackagesAction::run(
                         $availability->uninstallPackageNames,
                         deletePackage: false,
                         deleteData: true,
+                        requiresServerSideTooling: true,
                     );
 
                     if (! $uninstallResult->successful) {

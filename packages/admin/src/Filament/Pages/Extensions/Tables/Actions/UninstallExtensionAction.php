@@ -6,8 +6,10 @@ namespace Capell\Admin\Filament\Pages\Extensions\Tables\Actions;
 
 use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
 use Capell\Admin\Data\Extensions\ExtensionPackageUninstallResultData;
+use Capell\Admin\Data\Extensions\ExtensionRemovalRequestData;
 use Capell\Admin\Data\Extensions\ExtensionUninstallAvailabilityData;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
+use Capell\Admin\Support\Extensions\ExtensionRemovalRouter;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
@@ -63,11 +65,30 @@ final class UninstallExtensionAction
                 }
 
                 $deletePackage = self::shouldDeletePackage($data);
+                $deleteData = self::shouldDeleteData($data);
+
+                if (! ExtensionRemovalRouter::shouldRemoveInRequest(
+                    new ExtensionRemovalRequestData(
+                        composerName: (string) ($record['packageName'] ?? ''),
+                        packageNames: $availability->uninstallPackageNames,
+                        deletePackage: $deletePackage,
+                        deleteData: $deleteData,
+                        extensionSlug: (string) ($record['slug'] ?? ''),
+                        extensionName: ExtensionRecord::label($record),
+                        kind: (string) ($record['kind'] ?? 'plugin'),
+                    ),
+                    ExtensionRecord::label($record),
+                )) {
+                    return;
+                }
 
                 $result = UninstallExtensionPackagesAction::run(
                     $availability->uninstallPackageNames,
                     deletePackage: $deletePackage,
-                    deleteData: self::shouldDeleteData($data),
+                    deleteData: $deleteData,
+                    // A Composer write this HTTP request set in motion, gated
+                    // exactly as the delete path already was.
+                    requiresServerSideTooling: true,
                 );
 
                 if (! $result->successful) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
+use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Facades\CapellAdmin;
@@ -17,6 +18,7 @@ use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidge
 use Capell\Admin\Filament\Widgets\Extensions\InstalledExtensionsFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
+use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSchema;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSettings;
 use Capell\Admin\Tests\Fixtures\Extensions\FakeExtensionCatalogueMetadataProvider;
@@ -81,8 +83,25 @@ function extensionPackagePath(): string
     return __DIR__;
 }
 
+/**
+ * Pin the panel to its own in-request removal path.
+ *
+ * These tests describe what a Capell site with no Marketplace does. With the
+ * Marketplace present the same click is handed to a worker instead — that
+ * routing is covered by ExtensionRemovalRouterTest and the Marketplace
+ * coordinator's own tests — and leaving it to whichever packages happen to be
+ * registered would make these assertions depend on the test app's composition
+ * rather than on the panel.
+ */
+function useInRequestExtensionRemoval(): void
+{
+    app()->bind(ExtensionRemovalCoordinator::class, InRequestExtensionRemovalCoordinator::class);
+}
+
 function fakeExtensionsPageComposerAvailability(): void
 {
+    useInRequestExtensionRemoval();
+
     app()->instance(InstalledExtensionRepository::class, new class
     {
         public function isAvailable(string $composerName, ?string $path = null): bool
@@ -1210,6 +1229,12 @@ it('can uninstall one extension and remove its Composer package files when reque
     CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
     bindSuccessfulExtensionsPageComposerRemoveProcess('vendor/local-extension');
 
+    // Ticking "delete the package files" turns this uninstall into a
+    // web-triggered Composer write, so the host has to have opted into
+    // server-side tooling exactly as the delete action already required.
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
     Livewire::test(InstalledExtensionsFilamentWidget::class)
         ->assertSuccessful()
         ->mountTableAction('uninstallExtension', 'vendor/local-extension')
@@ -1224,6 +1249,38 @@ it('can uninstall one extension and remove its Composer package files when reque
 
     expect(CapellExtension::query()->where('composer_name', 'vendor/local-extension')->exists())->toBeFalse()
         ->and(CapellCore::isPackageInstalled('vendor/local-extension'))->toBeFalse();
+});
+
+it('refuses a web triggered uninstall that deletes the package when server side tooling is disabled', function (): void {
+    grantExtensionsPageManagementAccess();
+    fakeExtensionsPageComposerAvailability();
+
+    CapellCore::registerPackage(
+        name: 'vendor/local-extension',
+        path: extensionPackagePath(),
+        version: '1.2.3',
+    );
+    CapellCore::markPackageInstalled('vendor/local-extension');
+    CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', false);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->mountTableAction('uninstallExtension', 'vendor/local-extension')
+        ->setTableActionData([
+            'delete_extension_package' => true,
+        ])
+        ->callMountedTableAction()
+        ->assertNotified(__('capell-admin::message.extension_uninstall_failed', [
+            'extension' => 'Local Extension',
+        ]));
 });
 
 it('shows a focused failure notification when Composer package deletion fails', function (): void {
@@ -1640,7 +1697,7 @@ function extensionsPageComposerRemoveProcess(string $packageName, bool $successf
 
     $process
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(600)
         ->andReturnSelf();
 
     $process
