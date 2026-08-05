@@ -497,13 +497,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      */
     public function hasActiveMarketplaceInstalls(): bool
     {
-        foreach ($this->marketplaceInstallProgress() as $progress) {
-            if ($progress['active']) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->marketplaceInstallProgress(), fn (array $progress) => $progress['active']);
     }
 
     /**
@@ -768,11 +762,13 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return (string) __('capell-marketplace::marketplace.progress.stage_stopped');
         }
 
-        $stage = MarketplaceInstallFailureStage::tryFrom((string) $attempt->current_stage);
+        // An attempt whose recorded stage is unrecognised — an older row, or one
+        // written by a newer release — is still waiting as far as the operator
+        // can tell, so it reads as queued rather than as a broken label.
+        $stage = MarketplaceInstallFailureStage::tryFrom((string) $attempt->current_stage)
+            ?? MarketplaceInstallFailureStage::Queue;
 
-        return (string) __(
-            'capell-marketplace::marketplace.progress.stage_' . ($stage?->value ?? 'queue'),
-        );
+        return $stage->progressLabel();
     }
 
     private function marketplaceUpdateActor(): MarketplaceInstallActorData

@@ -375,7 +375,6 @@ return [
         'page_description' => 'Review Marketplace install attempts, preflight checks, Composer output, deployment handoff state, retries, and redacted diagnostics.',
         'page_title' => 'Package Operations',
         'preflight_failed' => 'Marketplace install preflight failed.',
-        'preflight_failed_check' => 'Preflight check failed: :check.',
         'progress' => 'Operation progress',
         'started_at' => 'Started',
         'requester' => 'Requester',

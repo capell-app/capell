@@ -15,4 +15,27 @@ enum MarketplaceInstallFailureStage: string
     case HealthCheck = 'health_check';
     case Notification = 'notification';
     case Queue = 'queue';
+
+    /**
+     * The operator-facing name for this stage.
+     *
+     * Spelled out one case at a time rather than composed from the case value,
+     * because a key built by concatenation can name a translation that does not
+     * exist, and an unresolvable key renders as raw key text in the operator's
+     * face. A match over the cases cannot.
+     */
+    public function progressLabel(): string
+    {
+        return (string) match ($this) {
+            self::Preflight => __('capell-marketplace::marketplace.progress.stage_preflight'),
+            self::DeploymentHandoff => __('capell-marketplace::marketplace.progress.stage_deployment_handoff'),
+            self::Composer => __('capell-marketplace::marketplace.progress.stage_composer'),
+            self::PackageDiscovery => __('capell-marketplace::marketplace.progress.stage_package_discovery'),
+            self::Lifecycle => __('capell-marketplace::marketplace.progress.stage_lifecycle'),
+            self::Migration => __('capell-marketplace::marketplace.progress.stage_migration'),
+            self::HealthCheck => __('capell-marketplace::marketplace.progress.stage_health_check'),
+            self::Notification => __('capell-marketplace::marketplace.progress.stage_notification'),
+            self::Queue => __('capell-marketplace::marketplace.progress.stage_queue'),
+        };
+    }
 }
