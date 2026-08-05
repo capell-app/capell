@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Support;
 
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
+use Illuminate\Support\Facades\Date;
 use JsonException;
 use RuntimeException;
 
@@ -76,7 +77,7 @@ final class MarketplaceComposerAuthWorkspace
      */
     public function stale(): array
     {
-        $cutoff = time() - self::staleAfterSeconds();
+        $cutoff = Date::now()->getTimestamp() - self::staleAfterSeconds();
         $candidates = glob($this->root() . '/' . self::DIRECTORY_PREFIX . '*', GLOB_ONLYDIR);
 
         if ($candidates === false) {
@@ -137,7 +138,11 @@ final class MarketplaceComposerAuthWorkspace
         }
 
         foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
+            if ($item === '.') {
+                continue;
+            }
+
+            if ($item === '..') {
                 continue;
             }
 

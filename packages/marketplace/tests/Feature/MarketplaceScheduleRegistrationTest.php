@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Artisan;
 
 /** @return list<string> */
 function scheduledMarketplaceCommands(): array
@@ -16,13 +17,7 @@ function scheduledMarketplaceCommands(): array
 
 function containsScheduledCommand(string $needle): bool
 {
-    foreach (scheduledMarketplaceCommands() as $command) {
-        if (str_contains($command, $needle)) {
-            return true;
-        }
-    }
-
-    return false;
+    return array_any(scheduledMarketplaceCommands(), fn (string $command): bool => str_contains($command, $needle));
 }
 
 it('schedules the marketplace heartbeat so update detection does not depend on someone logging in', function (): void {

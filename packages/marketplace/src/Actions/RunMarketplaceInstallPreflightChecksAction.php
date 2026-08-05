@@ -42,7 +42,7 @@ final class RunMarketplaceInstallPreflightChecksAction
 
         $checks = [
             ...array_values(array_map(
-                fn (MarketplaceReadinessCheckData $check): array => $this->readinessCheck($check),
+                $this->readinessCheck(...),
                 $readiness->checks,
             )),
             $this->check('php_cli', new RuntimeBinaryResolver()->phpOrNull() !== null),

@@ -115,7 +115,7 @@ it('calls a retry window at or below the job timeout unsafe, and one above it sa
 });
 
 it('treats a connection with no numeric retry_after as safe', function (): void {
-    config()->set('queue.connections.database.retry_after', null);
+    config()->set('queue.connections.database.retry_after');
 
     expect(MarketplaceQueueTimeoutChain::resolve()->retryAfterSeconds)->toBeNull()
         ->and(MarketplaceQueueTimeoutChain::resolve()->isSafe())->toBeTrue();

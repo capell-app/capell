@@ -84,7 +84,7 @@ it('authorizes a protected update through the upgrade authorization endpoint', f
         ->and($acquisition->signedActivation)->toBe(['signature' => 'abc'])
         ->and($acquisition->metadata)->toBe(['channel' => 'stable']);
 
-    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/extensions/upgrade-authorization')
+    Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), '/extensions/upgrade-authorization')
         && $request['current_version'] === '2.1.0'
         && $request['composer_name'] === 'capell-app/seo-suite');
 });

@@ -243,6 +243,7 @@ it('skips the probe rather than condemning the site when the budget cannot suppo
     withArtisanEntryPoint(function (): void {
         $factory = Mockery::mock(ProcessFactoryInterface::class);
         $factory->shouldNotReceive('make');
+
         app()->instance(ProcessFactoryInterface::class, $factory);
 
         Http::fake();

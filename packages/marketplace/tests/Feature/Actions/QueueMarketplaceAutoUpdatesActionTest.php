@@ -24,10 +24,10 @@ function autoUpdateExtension(string $composerName, ExtensionAutoUpdatePolicyEnum
 /** @param list<ExtensionUpdateReadinessData> $readiness */
 function fakeUpdateReadiness(array $readiness): void
 {
-    app()->instance(BuildExtensionUpdateReadinessAction::class, new class($readiness)
+    app()->instance(BuildExtensionUpdateReadinessAction::class, new readonly class($readiness)
     {
         /** @param list<ExtensionUpdateReadinessData> $readiness */
-        public function __construct(private readonly array $readiness) {}
+        public function __construct(private array $readiness) {}
 
         /** @return list<ExtensionUpdateReadinessData> */
         public function handle(): array

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Enums\Deployment\ReleaseRootWriteRefusal;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Process\ProcessExecutionSupport;
@@ -214,7 +215,7 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
             requiresServerSideTooling: true,
         );
 
-        if ($reason === null) {
+        if (! $reason instanceof ReleaseRootWriteRefusal) {
             return $this->passed('release_root_writable');
         }
 
@@ -291,7 +292,7 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
 
     private function deployPublisherRegistered(): bool
     {
-        return app(MarketplaceComposerChangePublisherRegistry::class)->first() !== null;
+        return resolve(MarketplaceComposerChangePublisherRegistry::class)->first() !== null;
     }
 
     /** @param array<string, scalar> $replacements */

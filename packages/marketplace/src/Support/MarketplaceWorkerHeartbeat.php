@@ -64,7 +64,7 @@ final class MarketplaceWorkerHeartbeat
     {
         $seenAt = self::seenAt();
 
-        if ($seenAt === null) {
+        if (! $seenAt instanceof CarbonInterface) {
             return false;
         }
 
