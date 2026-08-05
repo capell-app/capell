@@ -1278,6 +1278,7 @@ it('refuses a web triggered package deletion when server side tooling is disable
     // gates on the install side. Composer must not run at all.
     $refusingFactory = Mockery::mock(ProcessFactoryInterface::class);
     $refusingFactory->shouldNotReceive('make');
+
     app()->instance(ProcessFactoryInterface::class, $refusingFactory);
 
     Livewire::test(InstalledExtensionsFilamentWidget::class)
