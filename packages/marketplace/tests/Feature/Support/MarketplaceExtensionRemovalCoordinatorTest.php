@@ -55,11 +55,11 @@ it('queues the uninstall on a host that can automate it', function (): void {
     $attempt = MarketplaceInstallAttempt::query()->firstOrFail();
 
     expect($attempt->operation)->toBe(MarketplaceOperationType::Uninstall)
-        ->and($attempt->uninstall_options)->toBe([
+        ->and(capellJsonKeysSorted($attempt->uninstall_options))->toBe(capellJsonKeysSorted([
             'delete_package' => true,
             'delete_data' => false,
             'package_names' => [BRIDGED_UNINSTALL_PACKAGE],
-        ]);
+        ]));
 
     Queue::assertPushed(RunMarketplaceUninstallAttemptJob::class);
 });

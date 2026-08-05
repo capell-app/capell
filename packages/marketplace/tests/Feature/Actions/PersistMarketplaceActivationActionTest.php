@@ -55,7 +55,7 @@ it('persists the encrypted authorization and makes expired-runtime grace reachab
     $extension->refresh();
     $gate = ResolveExtensionRuntimeGateAction::run($extension);
 
-    expect($extension->marketplace_signed_activation)->toBe($signedActivation)
+    expect(capellJsonKeysSorted($extension->marketplace_signed_activation))->toBe(capellJsonKeysSorted($signedActivation))
         ->and($extension->marketplace_runtime_status)->toBe('expired')
         ->and($extension->marketplace_activation_checked_at)->not->toBeNull()
         ->and($gate->allowed)->toBeTrue()

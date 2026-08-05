@@ -65,7 +65,8 @@ it('retries an operation as the operation it was, not as an install', function (
     expect($retry->operation)->toBe($operation)
         // The options travel with the retry: a retry that dropped them would
         // silently perform a different uninstall from the one that failed.
-        ->and($retry->uninstall_options)->toBe(['delete_package' => true, 'delete_data' => true]);
+        ->and(capellJsonKeysSorted($retry->uninstall_options))
+        ->toBe(capellJsonKeysSorted(['delete_package' => true, 'delete_data' => true]));
 
     Queue::assertPushed($expectedJob);
 })->with([

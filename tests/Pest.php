@@ -48,6 +48,35 @@ function capellComposerArgv(): array
 }
 
 /**
+ * Compare a JSON-cast attribute without depending on its key order.
+ *
+ * MySQL's native JSON type does not store a document verbatim: it parses to a
+ * binary form that orders object keys by length and then lexicographically.
+ * SQLite stores JSON as text and hands the insertion order back. A `toBe` on a
+ * round-tripped JSON column therefore asserts a key order that only one of the
+ * two engines produces, and no application behaviour depends on.
+ *
+ * Keys are sorted recursively; list order is left alone, because a JSON array
+ * does preserve its order on every engine and is often a real contract.
+ *
+ * @param  array<array-key, mixed>  $value
+ * @return array<array-key, mixed>
+ */
+function capellJsonKeysSorted(array $value): array
+{
+    $sorted = array_map(
+        static fn (mixed $item): mixed => is_array($item) ? capellJsonKeysSorted($item) : $item,
+        $value,
+    );
+
+    if (! array_is_list($sorted)) {
+        ksort($sorted);
+    }
+
+    return $sorted;
+}
+
+/**
  * The Composer run timeout this host actually uses.
  *
  * Composer runs take their budget from `capell.process.composer.timeout_seconds`,

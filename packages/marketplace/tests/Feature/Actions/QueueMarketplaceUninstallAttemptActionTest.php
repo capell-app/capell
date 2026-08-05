@@ -54,7 +54,8 @@ it('records the operation as an uninstall and dispatches the uninstall job', fun
 
     expect($attempt->operation)->toBe(MarketplaceOperationType::Uninstall)
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
-        ->and($attempt->uninstall_options)->toBe(['delete_package' => true, 'delete_data' => true]);
+        ->and(capellJsonKeysSorted($attempt->uninstall_options))
+        ->toBe(capellJsonKeysSorted(['delete_package' => true, 'delete_data' => true]));
 
     Queue::assertPushed(RunMarketplaceUninstallAttemptJob::class);
 });
@@ -137,7 +138,7 @@ it('refuses an operation on any dependent covered by an active multi-package uni
         'queued_at' => now(),
     ]);
 
-    expect(fn () => AssertNoActiveMarketplaceOperationAction::run($dependent))
+    expect(fn (): mixed => AssertNoActiveMarketplaceOperationAction::run($dependent))
         ->toThrow(ValidationException::class, $dependent);
 });
 
