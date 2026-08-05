@@ -41,10 +41,10 @@ final class RunMarketplaceInstallPreflightChecksAction
         $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run();
 
         $checks = [
-            ...array_map(
+            ...array_values(array_map(
                 fn (MarketplaceReadinessCheckData $check): array => $this->readinessCheck($check),
                 $readiness->checks,
-            ),
+            )),
             $this->check('php_cli', new RuntimeBinaryResolver()->phpOrNull() !== null),
             $this->check('composer_binary', new RuntimeBinaryResolver()->composerOrNull() !== null),
             $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json'))),
