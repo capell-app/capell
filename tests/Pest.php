@@ -48,6 +48,21 @@ function capellComposerArgv(): array
 }
 
 /**
+ * The Composer run timeout this host actually uses.
+ *
+ * Composer runs take their budget from `capell.process.composer.timeout_seconds`,
+ * which an operator may tune. Pinning the literal default would pass here and
+ * fail on any host that had set CAPELL_COMPOSER_TIMEOUT_SECONDS, so ask for the
+ * configured value and keep the assertion about the budget being applied.
+ */
+function capellComposerTimeoutSeconds(): int
+{
+    $configured = config('capell.process.composer.timeout_seconds', 600);
+
+    return is_numeric($configured) && (int) $configured > 0 ? (int) $configured : 600;
+}
+
+/**
  * Declare the host a Marketplace test assumes.
  *
  * Environment readiness probes the machine the suite happens to run on — a test

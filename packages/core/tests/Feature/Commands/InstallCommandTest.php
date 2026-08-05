@@ -331,7 +331,7 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
         ->andReturnSelf();
     $process
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(capellComposerTimeoutSeconds())
         ->andReturnSelf();
     $process
         ->shouldReceive('run')
