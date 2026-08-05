@@ -20,6 +20,7 @@ use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceInstallOperationProgressAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
@@ -483,11 +484,47 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         };
     }
 
+    /**
+     * Put the application back into the state a scripted Composer run would have
+     * left it in.
+     *
+     * Capell cannot enumerate the application's post-autoload-dump hooks: the
+     * application is a different repository and may declare asset publishing,
+     * cache warming, or anything else alongside package:discover. So rather than
+     * reproducing a list of hooks, the application's own chain is replayed. The
+     * in-process manifest rebuild above still happens, because the subprocess
+     * only fixes the files on disk — this worker's already-booted container
+     * needs the fresh manifest too.
+     *
+     * A hook that fails must not fail an install whose package is already on
+     * disk and registered, so this reports rather than throws.
+     */
+    private function replayHostComposerScripts(): void
+    {
+        try {
+            $result = resolve(MarketplaceComposerScriptRunner::class)->replayRootScript(
+                MarketplaceComposerScriptRunner::POST_AUTOLOAD_DUMP,
+                self::composerTimeoutSeconds(),
+            );
+
+            if ($result instanceof MarketplaceComposerResultData && ! $result->successful()) {
+                report(new RuntimeException(sprintf(
+                    'Replaying the application post-autoload-dump scripts after a Marketplace install exited %d: %s',
+                    $result->exitCode,
+                    trim($result->errorOutput) ?: trim($result->output),
+                )));
+            }
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
     private function reloadPackageRegistry(): void
     {
         ComposerAutoloaderReloader::reload();
 
         $this->rediscoverLaravelPackages();
+        $this->replayHostComposerScripts();
 
         CapellCore::clearExtensionCache();
 

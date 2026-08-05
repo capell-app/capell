@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Support;
 
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use JsonException;
 use RuntimeException;
 
@@ -22,10 +23,16 @@ final class MarketplaceComposerAuthWorkspace
     public const string DIRECTORY_PREFIX = 'marketplace-auth-';
 
     /**
-     * Long enough that a legitimately slow install still owns its directory —
-     * Composer's own timeout is measured in minutes, not hours.
+     * A directory is created when its install starts and is never touched again,
+     * so its age is the age of the run that owns it. The queue kills that run at
+     * the job timeout, which makes the job timeout the only cutoff that cannot
+     * delete a live auth file — a literal would start deleting them the moment
+     * an operator raises the configurable Composer timeout past it.
      */
-    public const int STALE_AFTER_SECONDS = 3600;
+    public static function staleAfterSeconds(): int
+    {
+        return RunMarketplaceInstallAttemptJob::jobTimeoutSeconds();
+    }
 
     public function root(): string
     {
@@ -69,7 +76,7 @@ final class MarketplaceComposerAuthWorkspace
      */
     public function stale(): array
     {
-        $cutoff = time() - self::STALE_AFTER_SECONDS;
+        $cutoff = time() - self::staleAfterSeconds();
         $candidates = glob($this->root() . '/' . self::DIRECTORY_PREFIX . '*', GLOB_ONLYDIR);
 
         if ($candidates === false) {

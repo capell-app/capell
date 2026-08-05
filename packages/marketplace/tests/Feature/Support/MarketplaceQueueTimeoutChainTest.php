@@ -22,6 +22,19 @@ it('takes the job timeout from the job itself rather than a copied literal', fun
         ->toBe(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
 });
 
+it('keeps the composer timeout below the job timeout at every configured value', function (): void {
+    // The job has to survive Composer and still finalise the attempt afterwards.
+    // Both numbers are operator-configurable now, so the invariant needs pinning
+    // rather than assuming the defaults stay in their original relationship.
+    foreach ([null, 1, 600, 7200] as $configuredComposerTimeout) {
+        config()->set('capell.process.composer.timeout_seconds', $configuredComposerTimeout);
+
+        $chain = MarketplaceQueueTimeoutChain::resolve();
+
+        expect($chain->composerTimeoutSeconds)->toBeLessThan($chain->jobTimeoutSeconds);
+    }
+});
+
 it('calls a retry window at or below the job timeout unsafe, and one above it safe', function (): void {
     config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
     expect(MarketplaceQueueTimeoutChain::resolve()->isSafe())->toBeFalse();

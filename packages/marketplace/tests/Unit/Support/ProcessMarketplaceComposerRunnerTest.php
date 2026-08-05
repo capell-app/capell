@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
+use Capell\Marketplace\Support\MarketplaceComposerEnvironment;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 
 beforeEach(function (): void {
@@ -76,8 +77,7 @@ it('fails clearly when the composer home directory cannot be created', function 
 });
 
 it('gives composer an unlimited memory limit and a cache directory it owns', function (): void {
-    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
-    $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+    $environment = new MarketplaceComposerEnvironment()->variables('/tmp/capell-composer-home');
 
     expect($environment)->toMatchArray([
         'COMPOSER_MEMORY_LIMIT' => '-1',
@@ -88,8 +88,7 @@ it('gives composer an unlimited memory limit and a cache directory it owns', fun
 it('uses the configured composer cache directory when one is given', function (): void {
     config()->set('capell.process.composer.cache_dir', '/var/cache/capell-composer');
 
-    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
-    $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+    $environment = new MarketplaceComposerEnvironment()->variables('/tmp/capell-composer-home');
 
     expect($environment['COMPOSER_CACHE_DIR'])->toBe('/var/cache/capell-composer');
 });
@@ -103,8 +102,7 @@ it('passes the host proxy configuration through to composer', function (): void 
     }
 
     try {
-        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
-        $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+        $environment = new MarketplaceComposerEnvironment()->variables('/tmp/capell-composer-home');
 
         expect($environment)->toMatchArray([
             'HTTP_PROXY' => 'http://proxy.test:3128',
@@ -237,9 +235,7 @@ it('keeps the existing home directory available for git configuration', function
     putenv('HOME=/Users/example');
 
     try {
-        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
-
-        expect($method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home'))
+        expect(new MarketplaceComposerEnvironment()->variables('/tmp/capell-composer-home'))
             ->toBe(expectedMarketplaceComposerRunnerEnvironmentForTest('/tmp/capell-composer-home', '/Users/example'));
     } finally {
         putenv($previousHome === false ? 'HOME' : 'HOME=' . $previousHome);
@@ -251,9 +247,7 @@ it('falls back to composer home when no home directory is available', function (
     putenv('HOME');
 
     try {
-        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
-
-        expect($method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home'))
+        expect(new MarketplaceComposerEnvironment()->variables('/tmp/capell-composer-home'))
             ->toBe(expectedMarketplaceComposerRunnerEnvironmentForTest('/tmp/capell-composer-home', '/tmp/capell-composer-home'));
     } finally {
         putenv($previousHome === false ? 'HOME' : 'HOME=' . $previousHome);
@@ -279,9 +273,7 @@ it('removes ambient marketplace composer credentials from the child process envi
     }
 
     try {
-        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
-
-        $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+        $environment = new MarketplaceComposerEnvironment()->variables('/tmp/capell-composer-home');
 
         expect($environment)->toMatchArray([
             'COMPOSER_AUTH' => false,
@@ -309,7 +301,7 @@ it('sweeps composer auth directories abandoned by installs that never finished',
     $inFlight = $workspace->create();
 
     file_put_contents($abandoned . '/auth.json', '{}');
-    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::STALE_AFTER_SECONDS - 60);
+    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::staleAfterSeconds() - 60);
 
     try {
         expect($workspace->stale())->toBe([$abandoned])
@@ -323,20 +315,43 @@ it('sweeps composer auth directories abandoned by installs that never finished',
     }
 });
 
-it('reports abandoned composer auth directories in the operations doctor', function (): void {
+it('never treats a directory younger than the configured job timeout as stale', function (): void {
+    // The directory mtime is set when the install starts and never refreshed,
+    // so a cutoff shorter than the run would delete a live auth.json mid-download.
+    config()->set('capell.process.composer.timeout_seconds', 7200);
+
     $workspace = new MarketplaceComposerAuthWorkspace;
     $workspace->ensureDirectory($workspace->root());
 
-    $abandoned = $workspace->create();
-    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::STALE_AFTER_SECONDS - 60);
+    $longRunning = $workspace->create();
+    touch($longRunning, time() - 5400);
 
     try {
-        $check = BuildMarketplaceOperationsDoctorReportAction::run()
-            ->checks
-            ->firstWhere('id', 'marketplace.operations.composer-auth-files');
+        expect(MarketplaceComposerAuthWorkspace::staleAfterSeconds())->toBeGreaterThan(7200)
+            ->and($workspace->stale())->not->toContain($longRunning);
+    } finally {
+        $workspace->removeDirectory($longRunning);
+    }
+});
 
-        expect($check?->passed)->toBeFalse()
-            ->and($check?->evidence['count'])->toBe(1);
+it('reports abandoned composer auth directories without failing the operations doctor', function (): void {
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    $workspace->ensureDirectory($workspace->root());
+
+    $statusWithoutDebris = BuildMarketplaceOperationsDoctorReportAction::run()->status;
+
+    $abandoned = $workspace->create();
+    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::staleAfterSeconds() - 60);
+
+    try {
+        $report = BuildMarketplaceOperationsDoctorReportAction::run();
+        $check = $report->checks->firstWhere('id', 'marketplace.operations.composer-auth-files');
+
+        // The next install sweeps these, so the operator has nothing to do and
+        // the report must not red-light a health gate over them.
+        expect($check?->passed)->toBeTrue()
+            ->and($check?->evidence['count'])->toBe(1)
+            ->and($report->status)->toBe($statusWithoutDebris);
     } finally {
         $workspace->removeDirectory($abandoned);
     }

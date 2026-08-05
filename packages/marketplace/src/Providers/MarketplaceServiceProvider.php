@@ -13,12 +13,14 @@ use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
 use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
+use Capell\Marketplace\Support\ProcessMarketplaceComposerScriptRunner;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
@@ -74,6 +76,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
 
         if (config('capell-marketplace.enabled', true)) {
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);
+            $this->app->singletonIf(MarketplaceComposerScriptRunner::class, ProcessMarketplaceComposerScriptRunner::class);
             $this->app->scoped(MarketplaceInstanceResolver::class);
             $this->app->scoped(BuildMarketplaceInstallOperationsSummaryAction::class);
             $this->app->scoped(MarketplaceCatalogueRecordProvider::class);

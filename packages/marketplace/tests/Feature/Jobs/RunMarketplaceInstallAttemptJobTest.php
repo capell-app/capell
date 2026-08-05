@@ -12,6 +12,7 @@ use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
@@ -572,7 +573,7 @@ final class CancelMarketplaceInstallDuringLifecycleAction implements PackageLife
     }
 }
 
-it('rebuilds the laravel package manifest that --no-scripts stops composer from rebuilding', function (): void {
+it('restores the post-install state that --no-scripts suppresses', function (): void {
     Notification::fake();
     $admin = test()->createUserWithRole('super_admin');
     $packagePath = sys_get_temp_dir() . '/capell-marketplace-discovery-package-' . uniqid();
@@ -613,6 +614,25 @@ it('rebuilds the laravel package manifest that --no-scripts stops composer from 
     };
 
     app()->instance(PackageManifest::class, $packageManifest);
+
+    // Rebuilding the Laravel manifest only covers package:discover. Everything
+    // else the application declared for post-autoload-dump — asset publishing,
+    // cache warming, whatever it happens to be — is suppressed too, and Capell
+    // cannot enumerate it, so the application's own chain is replayed.
+    $scriptRunner = new class implements MarketplaceComposerScriptRunner
+    {
+        /** @var list<array{event: string, timeout: int}> */
+        public array $replayed = [];
+
+        public function replayRootScript(string $event, int $timeoutSeconds): ?MarketplaceComposerResultData
+        {
+            $this->replayed[] = ['event' => $event, 'timeout' => $timeoutSeconds];
+
+            return new MarketplaceComposerResultData(exitCode: 0, output: '', errorOutput: '');
+        }
+    };
+
+    app()->instance(MarketplaceComposerScriptRunner::class, $scriptRunner);
     app()->instance(MarketplaceComposerRunner::class, new readonly class($manifest) implements MarketplaceComposerRunner
     {
         public function __construct(private CapellManifestData $manifest) {}
@@ -632,5 +652,9 @@ it('rebuilds the laravel package manifest that --no-scripts stops composer from 
     }
 
     expect($packageManifest->rebuilt)->toBeTrue()
+        ->and($scriptRunner->replayed)->toBe([[
+            'event' => MarketplaceComposerScriptRunner::POST_AUTOLOAD_DUMP,
+            'timeout' => RunMarketplaceInstallAttemptJob::composerTimeoutSeconds(),
+        ]])
         ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
 });

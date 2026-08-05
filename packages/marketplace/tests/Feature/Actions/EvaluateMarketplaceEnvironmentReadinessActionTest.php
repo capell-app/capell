@@ -106,6 +106,26 @@ it('warns rather than fails when Composer cannot be resolved', function (): void
         ->and($readiness->check('composer_binary')?->status)->toBe(MarketplaceReadinessStatus::Warn);
 });
 
+it('warns when a configured binary is wrong even though resolution falls back past it', function (): void {
+    // On a Marketplace-only host this report is the operator's only sight of
+    // the mistake — the installer preflight they never run is the other one.
+    config()->set('capell.process.php_binary', '/nonexistent/capell/php');
+    config()->set('capell.process.composer_binary', '/nonexistent/capell/composer');
+    EvaluateMarketplaceEnvironmentReadinessAction::forget();
+
+    $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run(
+        releaseRoot: marketplaceReadinessReleaseRoot(),
+        phpBinaryResolvable: true,
+        composerBinaryResolvable: true,
+    );
+
+    expect($readiness->capability)->toBe(MarketplaceInstallCapability::Automated)
+        ->and($readiness->check('php_binary')?->status)->toBe(MarketplaceReadinessStatus::Warn)
+        ->and($readiness->check('php_binary')?->message)->toContain('/nonexistent/capell/php')
+        ->and($readiness->check('composer_binary')?->status)->toBe(MarketplaceReadinessStatus::Warn)
+        ->and($readiness->check('composer_binary')?->message)->toContain('/nonexistent/capell/composer');
+});
+
 it('reports the queue worker check honestly instead of a fabricated pass', function (): void {
     $queueWorker = EvaluateMarketplaceEnvironmentReadinessAction::run(
         releaseRoot: marketplaceReadinessReleaseRoot(),

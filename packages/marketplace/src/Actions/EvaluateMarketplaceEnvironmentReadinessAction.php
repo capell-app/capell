@@ -111,8 +111,16 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
 
         $checks = [
             $this->processExecutionCheck($processExecutionAvailable),
-            $this->binaryCheck('php_binary', $phpBinaryResolvable ?? $this->binaryResolver->phpOrNull() !== null),
-            $this->binaryCheck('composer_binary', $composerBinaryResolvable ?? $this->binaryResolver->composerOrNull() !== null),
+            $this->binaryCheck(
+                'php_binary',
+                $phpBinaryResolvable ?? $this->binaryResolver->phpOrNull() !== null,
+                $this->binaryResolver->misconfiguredPhpBinary(),
+            ),
+            $this->binaryCheck(
+                'composer_binary',
+                $composerBinaryResolvable ?? $this->binaryResolver->composerOrNull() !== null,
+                $this->binaryResolver->misconfiguredComposerBinary(),
+            ),
             $this->releaseRootCheck($releaseRoot),
             $this->queueWorkerCheck(),
             $this->sharedCacheCheck(),
@@ -166,10 +174,22 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
         return $this->failed('process_execution', byDesign: true);
     }
 
-    private function binaryCheck(string $key, bool $resolvable): MarketplaceReadinessCheckData
+    /**
+     * @param  array{binary: string, reason: string}|null  $misconfigured  An
+     *                                                                     explicitly configured binary this host cannot use. Resolution falls back
+     *                                                                     past it, so the host is still capable — but on a Marketplace-only host
+     *                                                                     this readiness report is the operator's only sight of it, and a silent
+     *                                                                     fallback means they never learn their configuration is wrong.
+     */
+    private function binaryCheck(string $key, bool $resolvable, ?array $misconfigured = null): MarketplaceReadinessCheckData
     {
         if ($resolvable) {
-            return $this->passed($key);
+            return $misconfigured === null
+                ? $this->passed($key)
+                : $this->warned($key, messageKey: $key . '_misconfigured', replacements: [
+                    'binary' => $misconfigured['binary'],
+                    'reason' => $misconfigured['reason'],
+                ]);
         }
 
         // Composer missing is not fatal: the operator may still have a Composer
@@ -231,7 +251,6 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
             'connection' => $chain->connectionName,
             'retry_after' => $chain->retryAfterSeconds ?? 0,
             'job_timeout' => $chain->jobTimeoutSeconds,
-            'composer_timeout' => $chain->composerTimeoutSeconds,
         ]);
     }
 

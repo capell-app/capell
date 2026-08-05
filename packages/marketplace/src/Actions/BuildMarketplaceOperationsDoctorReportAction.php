@@ -99,6 +99,14 @@ final class BuildMarketplaceOperationsDoctorReportAction
      * throwaway Composer home, and each one holds an auth file. The runner sweeps
      * them at the start of the next run, so this is a warning about accumulated
      * debris rather than something the operator must act on.
+     *
+     * It therefore stays `passed` and carries the count in its message: the
+     * report's status drives health gates and exit codes, and a condition that
+     * disappears on its own with no operator action must not red-light them.
+     * Severity-aware aggregation was the alternative, but it would also have
+     * downgraded `failedOperationsCheck`, whose remediation genuinely does ask
+     * the operator to review the failed operations. Narrowing this one check
+     * fixes the defect without weakening that signal.
      */
     private function authWorkspaceCheck(): DoctorCheckResultData
     {
@@ -106,7 +114,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
 
         return new DoctorCheckResultData(
             label: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_label'),
-            passed: $stale === [],
+            passed: true,
             message: $stale === []
                 ? (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_healthy')
                 : (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_unhealthy', [
@@ -119,7 +127,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
             severity: DoctorCheckSeverity::Warning,
             evidence: [
                 'count' => count($stale),
-                'stale_after_seconds' => MarketplaceComposerAuthWorkspace::STALE_AFTER_SECONDS,
+                'stale_after_seconds' => MarketplaceComposerAuthWorkspace::staleAfterSeconds(),
             ],
         );
     }
