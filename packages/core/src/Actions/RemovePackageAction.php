@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
@@ -26,6 +27,7 @@ class RemovePackageAction
     public function __construct(
         private readonly ProcessFactoryInterface $processFactory,
         private readonly Filesystem $files,
+        private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
     ) {}
 
     /**
@@ -33,6 +35,7 @@ class RemovePackageAction
      */
     public function handle(string $name, ?callable $finalize = null): array
     {
+        $this->assertReleaseRootWritable();
         $this->clearPackageManifestCacheFiles();
 
         $composerPath = base_path('composer.json');
@@ -40,7 +43,7 @@ class RemovePackageAction
         $originalComposer = $this->files->exists($composerPath) ? $this->files->get($composerPath) : null;
         $originalLock = $this->files->exists($lockPath) ? $this->files->get($lockPath) : null;
         $composer = new RuntimeBinaryResolver()->composer();
-        $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts'];
+        $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
         $composerSucceeded = false;
 
         try {
@@ -57,6 +60,10 @@ class RemovePackageAction
                     '--with-dependencies',
                     '--no-interaction',
                     '--no-scripts',
+                    // Parity with the Marketplace install runner: a non-interactive
+                    // run should not spend its timeout on output nobody reads.
+                    '--no-audit',
+                    '--no-progress',
                 ];
             }
 
@@ -99,6 +106,25 @@ class RemovePackageAction
 
             throw $throwable;
         }
+    }
+
+    /**
+     * A removal rewrites composer.json, composer.lock and vendor/, and deletes
+     * cached manifests under bootstrap/cache, so it is exactly as destructive to
+     * an immutable release root as an install is. The install path has always
+     * refused those hosts; without this the same host would silently permit the
+     * removal, and the asymmetry is the bug.
+     *
+     * requiresServerSideTooling stays false, matching the other core release-root
+     * writers. CAPELL_SERVER_SIDE_TOOLING gates the Marketplace's unattended
+     * installs, not a removal an operator or the installer triggers directly.
+     */
+    private function assertReleaseRootWritable(): void
+    {
+        $this->releaseRootWriteGuard->assertWritable(
+            operation: 'Removing a package with Composer',
+            relativePaths: ['composer.json', 'composer.lock', 'vendor', 'bootstrap/cache'],
+        );
     }
 
     private function safeComposerFailureMessage(): string

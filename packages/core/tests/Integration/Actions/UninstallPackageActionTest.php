@@ -407,7 +407,7 @@ function bindSuccessfulComposerRemoveProcess(string $packageName, ?Closure $befo
 
     $factory
         ->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'remove', $packageName, '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'remove', $packageName, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
 

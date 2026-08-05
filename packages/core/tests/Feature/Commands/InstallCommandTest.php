@@ -352,7 +352,7 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
         ->shouldReceive('make')
         ->once()
         ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts']),
+            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']),
             Mockery::type('string'),
         )
         ->andReturnUsing(function () use ($beforeMake, $process): SymfonyProcess {
