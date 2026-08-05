@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -38,10 +39,10 @@ class RemovePackageAction
         $this->assertReleaseRootWritable($requiresServerSideTooling);
         $this->clearPackageManifestCacheFiles();
 
-        $composerPath = base_path('composer.json');
-        $lockPath = base_path('composer.lock');
-        $originalComposer = $this->files->exists($composerPath) ? $this->files->get($composerPath) : null;
-        $originalLock = $this->files->exists($lockPath) ? $this->files->get($lockPath) : null;
+        $snapshot = ComposerStateSnapshot::capture($this->files);
+        $composerPath = $snapshot->composerPath;
+        $lockPath = $snapshot->lockPath;
+        $originalComposer = $snapshot->composerContents;
         $composer = new RuntimeBinaryResolver()->composer();
         $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
         $composerSucceeded = false;
@@ -90,13 +91,13 @@ class RemovePackageAction
 
             return $this->success($name, $standardOutput);
         } catch (Throwable $throwable) {
-            $this->restoreComposerFiles($composerPath, $lockPath, $originalComposer, $originalLock);
+            $snapshot->restoreFiles();
 
             if ($composerSucceeded) {
                 try {
-                    $this->recoverComposerInstallation($composerPath, $lockPath, $originalComposer, $originalLock);
+                    $snapshot->restoreInstalledPackages($this->processFactory);
                 } catch (Throwable) {
-                    $this->restoreComposerFiles($composerPath, $lockPath, $originalComposer, $originalLock);
+                    $snapshot->restoreFiles();
 
                     throw new RuntimeException('Composer files were restored after package removal failed, but the installed package graph could not be recovered. '
                     . 'Composer output was withheld because it may contain credentials. Installed dependencies may not match composer.lock. '
@@ -157,30 +158,6 @@ class RemovePackageAction
         }
     }
 
-    private function recoverComposerInstallation(
-        string $composerPath,
-        string $lockPath,
-        ?string $composerContents,
-        ?string $lockContents,
-    ): void {
-        $process = $this->processFactory->make(
-            [...new RuntimeBinaryResolver()->composer(), 'install', '--no-interaction', '--no-scripts'],
-            base_path(),
-        );
-        $process->setEnv(ComposerProcessEnvironment::forInstall($_SERVER));
-        $process->setTimeout(300);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            $this->restoreComposerFiles($composerPath, $lockPath, $composerContents, $lockContents);
-
-            throw new RuntimeException(
-                'Composer could not restore the package installation automatically. Composer output was withheld because it may contain credentials. '
-                . 'Run composer install from the application root in a trusted terminal before retrying.',
-            );
-        }
-    }
-
     /**
      * @return array{complete: bool, update_members: list<string>}
      */
@@ -238,23 +215,6 @@ class RemovePackageAction
         $require = is_array($composer['require'] ?? null) ? $composer['require'] : [];
 
         return array_filter($require, static fn (mixed $constraint, mixed $package): bool => is_string($package) && is_string($constraint), ARRAY_FILTER_USE_BOTH);
-    }
-
-    private function restoreComposerFiles(
-        string $composerPath,
-        string $lockPath,
-        ?string $composerContents,
-        ?string $lockContents,
-    ): void {
-        if ($composerContents !== null) {
-            $this->files->replace($composerPath, $composerContents);
-        }
-
-        if ($lockContents !== null) {
-            $this->files->replace($lockPath, $lockContents);
-        } elseif ($this->files->exists($lockPath)) {
-            $this->files->delete($lockPath);
-        }
     }
 
     /** @return array{package: string, status: string, message: string, output: string, cache_cleared: bool} */
