@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 $frontend = app('Capell\\Frontend\\Contracts\\FrontendContextReader');
 $theme = $frontend->theme();
 $page = $frontend->page();
