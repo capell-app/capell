@@ -52,11 +52,26 @@ final class MarketplaceWorkerHeartbeat
         }
     }
 
+    /**
+     * Directional on purpose. An absolute difference would read a timestamp from
+     * the future — a node whose clock runs ahead, or one that wrote the record
+     * and then had its clock corrected backwards — as freshly seen for as long
+     * as the skew lasts, which is the one case where "a worker ran recently" is
+     * least likely to be true. Only a heartbeat at or before now, within the
+     * window, counts.
+     */
     public static function isFresh(): bool
     {
         $seenAt = self::seenAt();
 
-        return $seenAt !== null && $seenAt->diffInSeconds(now(), absolute: true) <= self::staleAfterSeconds();
+        if ($seenAt === null) {
+            return false;
+        }
+
+        $now = now();
+
+        return ! $seenAt->greaterThan($now)
+            && $seenAt->greaterThanOrEqualTo($now->copy()->subSeconds(self::staleAfterSeconds()));
     }
 
     public static function staleAfterSeconds(): int

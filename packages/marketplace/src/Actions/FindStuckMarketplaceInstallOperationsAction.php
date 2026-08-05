@@ -6,6 +6,8 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -39,6 +41,26 @@ final class FindStuckMarketplaceInstallOperationsAction
             : self::DEFAULT_QUEUED_STALE_AFTER_SECONDS;
     }
 
+    /**
+     * The in-memory twin of unclaimedQueuedOperations()'s age test, for callers
+     * holding an attempt rather than building a query — the operations widget
+     * on each poll, and the job deciding whether nothing ever claimed it.
+     *
+     * It exists so the age rule and the queued_at/created_at fallback are
+     * written once. MarketplaceQueuedStalePredicateAgreementTest pins the two
+     * halves to the same answer.
+     */
+    public static function isQueuedStale(MarketplaceInstallAttempt $attempt, ?CarbonInterface $now = null): bool
+    {
+        $queuedAt = $attempt->queued_at ?? $attempt->created_at;
+
+        if (! $queuedAt instanceof CarbonInterface) {
+            return false;
+        }
+
+        return $queuedAt->lessThan(($now ?? now())->subSeconds(max(1, self::queuedStaleAfterSeconds())));
+    }
+
     /** @return Collection<int, MarketplaceInstallAttempt> */
     public function handle(int $staleAfterMinutes = 15, ?int $queuedStaleAfterSeconds = null): Collection
     {
@@ -46,16 +68,20 @@ final class FindStuckMarketplaceInstallOperationsAction
         $queuedStaleBefore = now()->subSeconds(max(1, $queuedStaleAfterSeconds ?? self::queuedStaleAfterSeconds()));
 
         return MarketplaceInstallAttempt::query()
-            ->where(function ($query) use ($staleBefore, $queuedStaleBefore): void {
+            ->where(function (Builder $query) use ($staleBefore, $queuedStaleBefore): void {
                 $query
-                    ->where(fn ($inFlight) => $this->silentInFlightOperations($inFlight, $staleBefore))
-                    ->orWhere(fn ($queued) => $this->unclaimedQueuedOperations($queued, $queuedStaleBefore));
+                    ->where(fn (Builder $inFlight): Builder => $this->silentInFlightOperations($inFlight, $staleBefore))
+                    ->orWhere(fn (Builder $queued): Builder => $this->unclaimedQueuedOperations($queued, $queuedStaleBefore));
             })
             ->oldest('started_at')
             ->get();
     }
 
-    private function silentInFlightOperations(mixed $query, mixed $staleBefore): mixed
+    /**
+     * @param  Builder<MarketplaceInstallAttempt>  $query
+     * @return Builder<MarketplaceInstallAttempt>
+     */
+    private function silentInFlightOperations(Builder $query, CarbonInterface $staleBefore): Builder
     {
         return $query
             ->whereIn('status', [
@@ -77,8 +103,11 @@ final class FindStuckMarketplaceInstallOperationsAction
      * queued_at is stamped when the job is dispatched, so an attempt that has
      * none was never dispatched at all — its creation time is then the only
      * age there is, and it is just as stuck.
+     *
+     * @param  Builder<MarketplaceInstallAttempt>  $query
+     * @return Builder<MarketplaceInstallAttempt>
      */
-    private function unclaimedQueuedOperations(mixed $query, mixed $queuedStaleBefore): mixed
+    private function unclaimedQueuedOperations(Builder $query, CarbonInterface $queuedStaleBefore): Builder
     {
         return $query
             ->where('status', MarketplaceInstallIntentStatus::Queued->value)

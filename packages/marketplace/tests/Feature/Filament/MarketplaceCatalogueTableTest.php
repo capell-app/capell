@@ -1564,7 +1564,14 @@ it('records free install attempts as pending before queued telemetry syncs', fun
 
     expect($attempt->telemetry_status)->toBe('pending');
 
-    Queue::assertPushed(SendMarketplaceInstallTelemetryJob::class);
+    // Dispatched, and dispatched where a Marketplace worker will actually see
+    // it: a host with a dedicated Marketplace queue runs only that queue, so an
+    // inherited application default would leave the telemetry unsent forever.
+    Queue::assertPushed(
+        SendMarketplaceInstallTelemetryJob::class,
+        fn (SendMarketplaceInstallTelemetryJob $job): bool => $job->connection === config('capell-marketplace.marketplace.operations_queue_connection')
+            && $job->queue === config('capell-marketplace.marketplace.operations_queue'),
+    );
     Http::assertNotSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/seo-suite/install-authorization');
 });
 

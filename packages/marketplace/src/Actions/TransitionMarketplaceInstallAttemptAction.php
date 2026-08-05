@@ -216,9 +216,10 @@ final class TransitionMarketplaceInstallAttemptAction
             message: $reason,
             deploymentStatus: $this->failureDeploymentStatus($attempt, $transition),
         );
-        $failureType = $transition->toStatus === MarketplaceInstallIntentStatus::TimedOut
-            ? MarketplaceInstallFailureType::Timeout
-            : $classification['failure_type'];
+        $failureType = $transition->failureType
+            ?? ($transition->toStatus === MarketplaceInstallIntentStatus::TimedOut
+                ? MarketplaceInstallFailureType::Timeout
+                : $classification['failure_type']);
 
         return [
             'failure_reason' => $this->redactedText($reason),

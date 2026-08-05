@@ -31,6 +31,17 @@ it('treats a heartbeat older than the configured window as stale', function (): 
         ->and(MarketplaceWorkerHeartbeat::isFresh())->toBeFalse();
 });
 
+it('refuses to read a heartbeat from the future as recently seen', function (): void {
+    config()->set('capell-marketplace.marketplace.worker_heartbeat_stale_after_seconds', 120);
+
+    // A node whose clock runs ahead, or one corrected backwards after writing.
+    // An absolute comparison would call this fresh for the length of the skew,
+    // which is precisely when "a worker ran recently" is least trustworthy.
+    Cache::put(MarketplaceWorkerHeartbeat::CACHE_KEY, now()->addSeconds(600)->toIso8601String());
+
+    expect(MarketplaceWorkerHeartbeat::isFresh())->toBeFalse();
+});
+
 it('records the heartbeat when the probe job runs on a worker', function (): void {
     new RecordMarketplaceWorkerHeartbeatJob()->handle();
 

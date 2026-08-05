@@ -264,14 +264,8 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
      */
     public function isAwaitingQueueWorker(MarketplaceInstallAttempt $attempt): bool
     {
-        if ($attempt->status !== MarketplaceInstallIntentStatus::Queued) {
-            return false;
-        }
-
-        $queuedAt = $attempt->queued_at ?? $attempt->created_at;
-
-        return $queuedAt !== null
-            && $queuedAt->diffInSeconds(now(), absolute: true) > FindStuckMarketplaceInstallOperationsAction::queuedStaleAfterSeconds();
+        return $attempt->status === MarketplaceInstallIntentStatus::Queued
+            && FindStuckMarketplaceInstallOperationsAction::isQueuedStale($attempt);
     }
 
     /**
