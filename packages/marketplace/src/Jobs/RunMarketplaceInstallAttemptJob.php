@@ -6,12 +6,14 @@ namespace Capell\Marketplace\Jobs;
 
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Theme;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Marketplace\Actions\ApplyRequestedThemeActivationAction;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
@@ -429,6 +431,10 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             try {
                 $result = $this->runComposer($composer, $attempt);
             } catch (Throwable $throwable) {
+                // A Composer run that died by throwing did not get to tell us
+                // whether it had already rewritten composer.json. Nothing here
+                // reverted it on our behalf, so the snapshot has to.
+                $this->restoreInterruptedComposerState($attempt, $snapshot, $throwable->getMessage());
                 $this->markComposerThrowable($attempt, $throwable);
 
                 return;
@@ -440,12 +446,32 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         }
 
         if ($attempt->status === MarketplaceInstallIntentStatus::CancelRequested) {
+            // A cancel taken after Composer started means the require may have
+            // been interrupted part-way, which is the one Composer outcome that
+            // does not clean up after itself.
+            $this->restoreInterruptedComposerState(
+                $attempt,
+                $snapshot,
+                (string) __('capell-marketplace::marketplace.operations.cancelled_after_composer'),
+            );
             $this->markCancelledAfterComposer($attempt, $result);
 
             return;
         }
 
         if (! $result->successful()) {
+            // A clean `composer require` failure reverts composer.json itself,
+            // and matchesDisk() makes the restore a no-op in exactly that case.
+            // A timeout does not: the process was killed, so composer.json can
+            // be left rewritten with vendor/ half-populated.
+            if ($result->timedOut) {
+                $this->restoreInterruptedComposerState(
+                    $attempt,
+                    $snapshot,
+                    (string) __('capell-marketplace::marketplace.operations.composer_timed_out'),
+                );
+            }
+
             $this->markComposerFailure($attempt, $result);
 
             return;
@@ -531,6 +557,26 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         // with that notification.
         $runtimeNotice = null;
 
+        // What the operator ticked on the review screen, honoured here because
+        // here is the first moment the theme actually exists on disk. Reported
+        // and never rethrown: the install itself succeeded, and a theme that
+        // could not be applied is worth telling the operator about but never
+        // worth retracting a good install for.
+        try {
+            $activatedTheme = ApplyRequestedThemeActivationAction::run($attempt);
+
+            if ($activatedTheme instanceof Theme) {
+                $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_theme_activated', MarketplaceInstallFailureStage::Notification, [
+                    'theme' => $activatedTheme->key,
+                ]);
+            }
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_theme_activation_failed', MarketplaceInstallFailureStage::Notification, [
+                'reason' => $throwable->getMessage(),
+            ]);
+        }
+
         try {
             $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
         } catch (Throwable $throwable) {
@@ -566,6 +612,24 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         $result = RunPostOperationHealthCheckAction::run($this->healthCheckBudgetSeconds());
 
         if ($result->passed()) {
+            // A skip is not a pass, and the timeline must not read like one. The
+            // install is allowed to complete — nothing looked at it and found a
+            // problem — but the operator can see that nothing looked.
+            if ($result->unverified()) {
+                $this->recordEvent(
+                    $attempt,
+                    MarketplaceInstallAttemptEventLevel::Warning,
+                    'timeline_health_check_skipped',
+                    MarketplaceInstallFailureStage::HealthCheck,
+                    [
+                        ...$result->timelineContext(),
+                        ...($result->skipReason === null ? [] : ['reason' => $result->skipReason]),
+                    ],
+                );
+
+                return;
+            }
+
             $this->recordEvent(
                 $attempt,
                 MarketplaceInstallAttemptEventLevel::Success,
@@ -668,6 +732,53 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                 'rolled_back' => true,
             ],
         ];
+    }
+
+    /**
+     * Put the Composer state back after a run that was interrupted rather than
+     * one that failed cleanly.
+     *
+     * `composer require` reverts composer.json itself when it decides it cannot
+     * satisfy a constraint, so the common failure needs nothing from us — and
+     * ComposerStateSnapshot::matchesDisk() recognises that and skips the rebuild
+     * entirely, which is what makes calling this on every interrupted path
+     * cheap. The paths that do need it are the ones where nothing got to clean
+     * up: a timeout, a cancellation taken mid-require, a runner that threw.
+     *
+     * This never throws and never changes the failure being reported. The
+     * operator is being told about the Composer failure; a rollback problem is
+     * recorded alongside it rather than in place of it.
+     */
+    private function restoreInterruptedComposerState(
+        MarketplaceInstallAttempt $attempt,
+        ComposerStateSnapshot $snapshot,
+        string $originalReason,
+    ): void {
+        try {
+            $restored = RestoreComposerStateAction::run($snapshot, $this->rollbackBudgetSeconds());
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_rollback_failed', MarketplaceInstallFailureStage::Composer, [
+                'reason' => $originalReason,
+                'rollback_error' => $throwable->getMessage(),
+                'rolled_back' => false,
+            ]);
+            $this->recordRollbackOutcome($attempt, false, $originalReason, $throwable->getMessage());
+
+            return;
+        }
+
+        // Nothing was written, so nothing was undone. Claiming a rollback here
+        // would be a claim about work that never happened.
+        if (! $restored) {
+            return;
+        }
+
+        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_rollback_completed', MarketplaceInstallFailureStage::Composer, [
+            'rolled_back' => true,
+        ]);
+        $this->recordRollbackOutcome($attempt, true, $originalReason, null);
     }
 
     /**

@@ -13,6 +13,9 @@ use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
+use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
+use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Capell\Tests\AbstractTestCase;
 use CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider;
@@ -99,5 +102,23 @@ abstract class MarketplaceTestCase extends AbstractTestCase
 
         CapellCore::forcePackageInstalled(AdminServiceProvider::$packageName);
         CapellCore::forcePackageInstalled(MarketplaceServiceProvider::$packageName);
+
+        // Any test that reaches a successful install would otherwise run the
+        // real post-operation health check, which spawns
+        // `php artisan capell:health-probe` as a genuine subprocess. That ties
+        // this whole suite to a working PHP binary and to how PHP_BINARY happens
+        // to resolve on the runner, for a question those tests are not asking.
+        // RunPostOperationHealthCheckActionTest rebinds the real action and is
+        // where the subprocess stays covered end to end.
+        $app->instance(RunPostOperationHealthCheckAction::class, new class
+        {
+            public function handle(int $budgetSeconds): MarketplaceHealthCheckResultData
+            {
+                return new MarketplaceHealthCheckResultData(
+                    bootProbe: MarketplaceHealthProbeOutcome::Passed,
+                    httpProbe: MarketplaceHealthProbeOutcome::Skipped,
+                );
+            }
+        });
     }
 }

@@ -39,6 +39,17 @@ final class InstallMarketplaceExtensionAction
     use AsFake;
     use AsObject;
 
+    /**
+     * Install options Capell asks about itself, rather than ones a marketplace
+     * listing declares. They survive the listing-declared filter because no
+     * listing will ever declare them.
+     *
+     * @var list<string>
+     */
+    public const array CAPELL_OWNED_INSTALL_OPTIONS = [
+        RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL,
+    ];
+
     private ?MarketplaceInstallPolicyEvidenceData $activePolicyEvidence = null;
 
     private ?MarketplaceInstallRequestData $activeRequest = null;
@@ -718,7 +729,19 @@ final class InstallMarketplaceExtensionAction
             ? $data['install_options']
             : [];
 
-        return collect($listing->installOptions)
+        // The filter below exists to stop a listing's payload deciding what
+        // Capell stores, so it keeps only keys the marketplace declared. That is
+        // right for the listing's own options — and wrong for the handful of
+        // options Capell itself owns and puts on the review screen, which no
+        // marketplace listing declares and which would therefore be dropped
+        // silently, leaving a checkbox that does nothing behind a label that
+        // says it does. Those are carried through explicitly.
+        $capellOwned = array_intersect_key(
+            $selected,
+            array_flip(self::CAPELL_OWNED_INSTALL_OPTIONS),
+        );
+
+        return [...collect($listing->installOptions)
             ->mapWithKeys(function (array $option) use ($selected): array {
                 $key = $option['key'] ?? null;
 
@@ -728,7 +751,7 @@ final class InstallMarketplaceExtensionAction
 
                 return [$key => $selected[$key]];
             })
-            ->all();
+            ->all(), ...$capellOwned];
     }
 
     /**

@@ -25,6 +25,7 @@ use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
+use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Cache;
@@ -1875,20 +1876,43 @@ it('offers to apply a theme after install, off by default, and never for a plugi
         ->assertSee(__('capell-marketplace::marketplace.selection.activate_theme_after_install_label'));
 });
 
-it('carries the activate-after-install choice into the theme install intent', function (): void {
-    // The checkbox has to reach the machinery that already tracks outstanding
-    // theme installs, or it is a control that does nothing.
-    $intent = RecordThemeInstallIntentAction::run(
-        extensionSlug: 'aurora-theme',
-        extensionName: 'Aurora',
-        composerName: 'capell-app/aurora-theme',
-        composerCommand: 'composer require capell-app/aurora-theme',
-        versionConstraint: '^1.0',
-        imageUrl: null,
-        description: null,
-        metadata: [RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => true],
-    );
+it('carries the activate-after-install choice from the review screen into the theme install intent', function (bool $activate): void {
+    // Driven through the real Livewire → install path on purpose. Calling
+    // RecordThemeInstallIntentAction directly would prove only that the action
+    // stores what it is handed, and would not notice the checkbox being dropped
+    // on the way there — which is exactly what it was doing.
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
 
-    expect($intent->metadata['acquisition'][RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL] ?? null)
-        ->toBeTrue();
-});
+    $themePayload = marketplaceBrowserExtensionPayload([
+        'slug' => 'aurora-theme',
+        'name' => 'Aurora',
+        'composer_name' => 'capell-app/aurora-theme',
+        'kind' => 'theme',
+        'latest_version' => '1.0.0',
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/aurora-theme' => Http::response(['data' => $themePayload]),
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response(['data' => [$themePayload]]),
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [$themePayload],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/aurora-theme')
+        ->call('showMarketplaceInstallReview')
+        ->set('activateMarketplaceThemesAfterInstall', $activate)
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->call('installReviewedMarketplaceExtensions');
+
+    $intent = MarketplaceInstallIntent::query()
+        ->where('composer_name', 'capell-app/aurora-theme')
+        ->sole();
+
+    expect(data_get($intent->metadata, 'acquisition.' . RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL))
+        ->toBe($activate);
+})->with([true, false]);

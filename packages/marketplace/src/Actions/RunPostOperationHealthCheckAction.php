@@ -40,6 +40,25 @@ final class RunPostOperationHealthCheckAction
     public const int DEFAULT_HTTP_TIMEOUT_SECONDS = 5;
 
     /**
+     * The least time in which a boot probe result means anything.
+     *
+     * A fresh `artisan` boot has to load the autoload map, discover providers,
+     * read config and open a database connection. On a warm developer machine
+     * that is one to three seconds; on the shared hosting Capell targets — cold
+     * filesystem caches, no opcache for a new process, an overloaded box — the
+     * same boot routinely takes several times longer. Fifteen seconds is chosen
+     * to sit above that slow-host case with room to spare, while still fitting
+     * comfortably inside the 45-second health-check reserve alongside the HTTP
+     * probe.
+     *
+     * Below it the probe is not run at all, because a ProcessTimedOutException
+     * from a two-second budget is evidence about the clock, not about the site,
+     * and condemning a working installation on that basis would invert the one
+     * property this check exists to guarantee.
+     */
+    public const int MINIMUM_BOOT_PROBE_SECONDS = 15;
+
+    /**
      * @param  int  $budgetSeconds  How long both probes together may take. The
      *                              caller owns this number: the health check spends the operation's
      *                              remaining job budget, it does not get one of its own.
@@ -47,7 +66,22 @@ final class RunPostOperationHealthCheckAction
     public function handle(int $budgetSeconds): MarketplaceHealthCheckResultData
     {
         $httpTimeoutSeconds = $this->httpTimeoutSeconds();
-        $bootProbeTimeoutSeconds = max(1, $budgetSeconds - $httpTimeoutSeconds);
+        $bootProbeTimeoutSeconds = $budgetSeconds - $httpTimeoutSeconds;
+
+        // Not enough time left for the probe to mean anything. Budget exhaustion
+        // is a known reason the probe could not run, and it is distinguishable
+        // from a probe that ran and found something — so it skips, loudly, and
+        // the operation is reported as completed-but-unverified rather than
+        // condemned and rolled back for being slow.
+        if ($bootProbeTimeoutSeconds < self::MINIMUM_BOOT_PROBE_SECONDS) {
+            return new MarketplaceHealthCheckResultData(
+                bootProbe: MarketplaceHealthProbeOutcome::Skipped,
+                httpProbe: MarketplaceHealthProbeOutcome::Skipped,
+                skipReason: (string) __('capell-marketplace::marketplace.operations.health_check_skipped_no_budget', [
+                    'seconds' => self::MINIMUM_BOOT_PROBE_SECONDS,
+                ]),
+            );
+        }
 
         // An application with no artisan entry point cannot be probed by a
         // subprocess at all. That is a property of how this installation is laid
@@ -61,6 +95,7 @@ final class RunPostOperationHealthCheckAction
                 bootProbe: MarketplaceHealthProbeOutcome::Skipped,
                 httpProbe: $httpOnlyOutcome,
                 failureReason: $httpOnlyFailureReason,
+                skipReason: (string) __('capell-marketplace::marketplace.operations.health_check_skipped_no_artisan'),
             );
         }
 

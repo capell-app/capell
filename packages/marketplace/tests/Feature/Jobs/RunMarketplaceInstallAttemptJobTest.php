@@ -6,13 +6,17 @@ use Capell\Core\Contracts\PackageLifecycleAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
+use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
@@ -37,6 +41,7 @@ use Illuminate\Queue\MaxAttemptsExceededException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
+use Symfony\Component\Process\Process;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
@@ -912,25 +917,9 @@ function refuseMarketplaceComposerRun(): void
 }
 
 /** Records whether a rollback was asked for, without shelling out to Composer. */
-function recordMarketplaceRollbacks(?Throwable $rollbackFailure = null): object
+function recordMarketplaceRollbacks(?Throwable $rollbackFailure = null): MarketplaceRollbackRecorder
 {
-    $recorder = new class($rollbackFailure)
-    {
-        public int $calls = 0;
-
-        public function __construct(private readonly ?Throwable $rollbackFailure) {}
-
-        public function handle(ComposerStateSnapshot $snapshot, int $timeoutSeconds = 300): bool
-        {
-            $this->calls++;
-
-            if ($this->rollbackFailure instanceof Throwable) {
-                throw $this->rollbackFailure;
-            }
-
-            return true;
-        }
-    };
+    $recorder = new MarketplaceRollbackRecorder($rollbackFailure);
 
     app()->instance(RestoreComposerStateAction::class, $recorder);
 
@@ -1204,3 +1193,232 @@ it('keeps sending a non-theme install to the settings surface it already has', f
             === (string) __('capell-marketplace::marketplace.install.installed_action'),
     );
 });
+
+/** Hand the job back the real health check, which MarketplaceTestCase stubs out. */
+function useRealMarketplaceHealthCheck(): void
+{
+    app()->instance(RunPostOperationHealthCheckAction::class, new RunPostOperationHealthCheckAction);
+}
+
+it('completes a slow install unverified instead of rolling it back', function (): void {
+    // The failure this guards against: a job that spent its budget leaves the
+    // health check nothing, the probe times out, and a perfectly good install is
+    // condemned and rolled back for being slow.
+    Notification::fake();
+    LifecycleRecorderAction::reset();
+    useRealMarketplaceHealthCheck();
+    $rollbacks = recordMarketplaceRollbacks();
+
+    // A job budget smaller than the finalisation reserve, so nothing is left for
+    // the health check by the time it is asked.
+    config()->set('capell.process.composer.timeout_seconds', 1);
+    config()->set('capell.process.composer.job_timeout_buffer_seconds', 1);
+
+    $probeFactory = Mockery::mock(ProcessFactoryInterface::class);
+    $probeFactory->shouldReceive('make')->never();
+    app()->instance(ProcessFactoryInterface::class, $probeFactory);
+
+    $packagePath = registerHealthyLifecyclePackage('capell-app/marketplace-health-nobudget', 'Health No Budget');
+    refuseMarketplaceComposerRun();
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/marketplace-health-nobudget',
+        'extension_slug' => 'marketplace-health-nobudget',
+        'extension_name' => 'Health No Budget',
+    ]);
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    $attempt->refresh();
+
+    expect($rollbacks->calls)->toBe(0)
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($attempt->failure_stage)->toBeNull()
+        // And the operator can see it was never confirmed, rather than reading a
+        // pass that nobody actually observed.
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_health_check_skipped'))->exists())
+        ->toBeTrue()
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_health_check_completed'))->exists())
+        ->toBeFalse();
+});
+
+it('still rolls back when a probe that had time to run reports the site as broken', function (): void {
+    Notification::fake();
+    LifecycleRecorderAction::reset();
+    useRealMarketplaceHealthCheck();
+    $rollbacks = recordMarketplaceRollbacks();
+
+    $artisanPath = base_path('artisan');
+    $artisanExisted = File::exists($artisanPath);
+
+    if (! $artisanExisted) {
+        File::put($artisanPath, "<?php\n");
+    }
+
+    $probe = Mockery::mock(Process::class);
+    $probe->shouldReceive('setTimeout')->andReturnSelf();
+    $probe->shouldReceive('run')->andReturn(0);
+    $probe->shouldReceive('getExitCode')->andReturn(255);
+    $probeFactory = Mockery::mock(ProcessFactoryInterface::class);
+    $probeFactory->shouldReceive('make')->andReturn($probe);
+    app()->instance(ProcessFactoryInterface::class, $probeFactory);
+
+    $packagePath = registerHealthyLifecyclePackage('capell-app/marketplace-health-real', 'Health Real');
+    refuseMarketplaceComposerRun();
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/marketplace-health-real',
+        'extension_slug' => 'marketplace-health-real',
+        'extension_name' => 'Health Real',
+    ]);
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+
+        if (! $artisanExisted) {
+            File::delete($artisanPath);
+        }
+    }
+
+    $attempt->refresh();
+
+    expect($rollbacks->calls)->toBe(1)
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::HealthCheck->value)
+        ->and($attempt->failure_type)->toBe(MarketplaceInstallFailureType::HealthCheckFailed->value);
+});
+
+it('restores the composer state when the composer run was cut short by a timeout', function (): void {
+    // A clean require failure reverts composer.json itself. A timeout does not:
+    // the process was killed, so composer.json can be left rewritten with
+    // vendor/ half-populated — the exact inconsistency the snapshot exists for.
+    Notification::fake();
+    $rollbacks = recordMarketplaceRollbacks();
+
+    $attempt = marketplaceOperationAttempt();
+
+    app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
+    {
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            return new MarketplaceComposerResultData(exitCode: 1, output: '', errorOutput: 'killed', timedOut: true);
+        }
+    });
+
+    new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+
+    $attempt->refresh();
+
+    expect($rollbacks->calls)->toBe(1)
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::TimedOut)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Composer->value)
+        ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeTrue()
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_rollback_completed'))->exists())
+        ->toBeTrue();
+});
+
+it('applies the theme after install when the operator asked for it on the review screen', function (): void {
+    Notification::fake();
+    LifecycleRecorderAction::reset();
+    $packagePath = registerHealthyLifecyclePackage('capell-app/aurora-theme', 'Aurora');
+    refuseMarketplaceComposerRun();
+
+    RecordThemeInstallIntentAction::run(
+        extensionSlug: 'aurora-theme',
+        extensionName: 'Aurora',
+        composerName: 'capell-app/aurora-theme',
+        composerCommand: 'composer require capell-app/aurora-theme',
+        versionConstraint: '^1.0',
+        imageUrl: null,
+        description: null,
+        metadata: [RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => true],
+    );
+
+    $site = Site::factory()->create();
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/aurora-theme',
+        'extension_slug' => 'aurora-theme',
+        'extension_name' => 'Aurora',
+        'kind' => 'theme',
+    ]);
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    $attempt->refresh();
+    $theme = Theme::query()->where('key', 'aurora')->first();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($theme)->not->toBeNull()
+        ->and($theme?->status)->toBeTrue()
+        ->and($site->refresh()->theme_id)->toBe($theme?->getKey())
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_theme_activated'))->exists())
+        ->toBeTrue();
+});
+
+it('leaves the sites alone when the operator did not ask for the theme to be applied', function (): void {
+    Notification::fake();
+    LifecycleRecorderAction::reset();
+    $packagePath = registerHealthyLifecyclePackage('capell-app/nebula-theme', 'Nebula');
+    refuseMarketplaceComposerRun();
+
+    RecordThemeInstallIntentAction::run(
+        extensionSlug: 'nebula-theme',
+        extensionName: 'Nebula',
+        composerName: 'capell-app/nebula-theme',
+        composerCommand: 'composer require capell-app/nebula-theme',
+        versionConstraint: '^1.0',
+        imageUrl: null,
+        description: null,
+        metadata: [RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => false],
+    );
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/nebula-theme',
+        'extension_slug' => 'nebula-theme',
+        'extension_name' => 'Nebula',
+        'kind' => 'theme',
+    ]);
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and(Theme::query()->where('key', 'nebula')->exists())->toBeFalse();
+});
+
+/**
+ * A stand-in for RestoreComposerStateAction that counts calls instead of running
+ * a real recovery `composer install`. Named rather than anonymous so the call
+ * count is a typed property the whole suite can read.
+ */
+final class MarketplaceRollbackRecorder
+{
+    public int $calls = 0;
+
+    public function __construct(private readonly ?Throwable $rollbackFailure = null) {}
+
+    public function handle(ComposerStateSnapshot $snapshot, int $timeoutSeconds = 300): bool
+    {
+        $this->calls++;
+
+        if ($this->rollbackFailure instanceof Throwable) {
+            throw $this->rollbackFailure;
+        }
+
+        return true;
+    }
+}
