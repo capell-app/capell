@@ -1239,6 +1239,12 @@ it('shows a focused failure notification when Composer package deletion fails', 
     CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
     bindFailingExtensionsPageComposerRemoveProcess('vendor/local-extension');
 
+    // The admin panel's deletion is a web-triggered Composer write, so the host
+    // has to have opted into server-side tooling before Composer runs at all.
+    // This test is about what happens when Composer itself fails.
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
     Livewire::test(InstalledExtensionsFilamentWidget::class)
         ->assertSuccessful()
         ->callTableAction('uninstallExtension', record: 'vendor/local-extension')
@@ -1250,6 +1256,41 @@ it('shows a focused failure notification when Composer package deletion fails', 
 
     expect(CapellExtension::query()->where('composer_name', 'vendor/local-extension')->exists())->toBeFalse()
         ->and(CapellCore::isPackageInstalled('vendor/local-extension'))->toBeFalse();
+});
+
+it('refuses a web triggered package deletion when server side tooling is disabled', function (): void {
+    grantExtensionsPageManagementAccess();
+    fakeExtensionsPageComposerAvailability();
+
+    CapellCore::registerPackage(
+        name: 'vendor/local-extension',
+        path: extensionPackagePath(),
+        version: '1.2.3',
+    );
+    CapellCore::markPackageInstalled('vendor/local-extension');
+    CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', false);
+
+    // Deleting the package from the admin panel is an unattended Composer write
+    // driven by an HTTP request, which is exactly what CAPELL_SERVER_SIDE_TOOLING
+    // gates on the install side. Composer must not run at all.
+    $refusingFactory = Mockery::mock(ProcessFactoryInterface::class);
+    $refusingFactory->shouldNotReceive('make');
+    app()->instance(ProcessFactoryInterface::class, $refusingFactory);
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->callTableAction('uninstallExtension', record: 'vendor/local-extension')
+        ->assertTableActionVisible('deleteExtension', record: 'vendor/local-extension')
+        ->callTableAction('deleteExtension', record: 'vendor/local-extension')
+        ->assertNotified(__('capell-admin::message.extension_uninstall_failed', [
+            'extension' => 'Local Extension',
+        ]))
+        ->assertNotNotified(__('capell-admin::message.extension_deleted', [
+            'extension' => 'Local Extension',
+        ]));
 });
 
 it('lists installed packages without a registered extension page in the installed widget', function (): void {

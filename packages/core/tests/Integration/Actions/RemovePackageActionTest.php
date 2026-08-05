@@ -83,6 +83,18 @@ it('removes a package', function (): void {
         );
 });
 
+it('removes a package from the command line while server side tooling is disabled', function (): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', false);
+
+    // CAPELL_SERVER_SIDE_TOOLING gates unattended, web-triggered Composer runs.
+    // An operator running capell:install or the uninstall command is attended,
+    // so requiring the flag there would force every operator to set it.
+    $result = RemovePackageAction::run('vendor/package');
+
+    expect($result['status'])->toBe('removed');
+});
+
 it('builds a symfony process from the factory', function (): void {
     $factory = new SymfonyProcessFactory;
 

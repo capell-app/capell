@@ -44,6 +44,18 @@ it('names the bootstrap cache the removal writes to when it refuses', function (
         ->toThrow(RuntimeException::class, 'Removing a package with Composer is blocked');
 });
 
+it('refuses a web triggered removal when server side tooling is disabled', function (): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', false);
+
+    // An unattended, web-triggered Composer write is exactly what
+    // CAPELL_SERVER_SIDE_TOOLING gates on the install side. Without the flag a
+    // host that refuses a web-triggered install would still permit a
+    // web-triggered removal.
+    expect(fn (): array => RemovePackageAction::run('vendor/package', requiresServerSideTooling: true))
+        ->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
+});
+
 it('names the operation the requirement performs when it refuses', function (): void {
     config()->set('capell.release_root_mode', 'immutable');
 

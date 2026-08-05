@@ -17,7 +17,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name, ?callable $finalize = null)
+ * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false)
  */
 class RemovePackageAction
 {
@@ -33,9 +33,9 @@ class RemovePackageAction
     /**
      * @return array{package: string, status: string, message: string, output: string, cache_cleared: bool}
      */
-    public function handle(string $name, ?callable $finalize = null): array
+    public function handle(string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false): array
     {
-        $this->assertReleaseRootWritable();
+        $this->assertReleaseRootWritable($requiresServerSideTooling);
         $this->clearPackageManifestCacheFiles();
 
         $composerPath = base_path('composer.json');
@@ -115,15 +115,19 @@ class RemovePackageAction
      * refused those hosts; without this the same host would silently permit the
      * removal, and the asymmetry is the bug.
      *
-     * requiresServerSideTooling stays false, matching the other core release-root
-     * writers. CAPELL_SERVER_SIDE_TOOLING gates the Marketplace's unattended
-     * installs, not a removal an operator or the installer triggers directly.
+     * CAPELL_SERVER_SIDE_TOOLING is a property of the call site rather than of
+     * the removal, so the caller decides. It gates unattended Composer writes
+     * driven by an HTTP request — the admin panel's package deletion — and must
+     * stay false for `capell:install` and the uninstall command, which an
+     * operator triggers directly and which would otherwise force every operator
+     * to set the variable.
      */
-    private function assertReleaseRootWritable(): void
+    private function assertReleaseRootWritable(bool $requiresServerSideTooling): void
     {
         $this->releaseRootWriteGuard->assertWritable(
             operation: 'Removing a package with Composer',
             relativePaths: ['composer.json', 'composer.lock', 'vendor', 'bootstrap/cache'],
+            requiresServerSideTooling: $requiresServerSideTooling,
         );
     }
 

@@ -65,7 +65,10 @@ final class DeleteExtensionAction
                 }
 
                 try {
-                    RemovePackageAction::run($package->name);
+                    // Unattended Composer write driven by an HTTP request, so it
+                    // is gated by CAPELL_SERVER_SIDE_TOOLING exactly as a
+                    // web-triggered install is.
+                    RemovePackageAction::run($package->name, requiresServerSideTooling: true);
                 } catch (Throwable $throwable) {
                     self::sendUninstallFailedNotification(
                         ExtensionPackageUninstallResultData::failed(
