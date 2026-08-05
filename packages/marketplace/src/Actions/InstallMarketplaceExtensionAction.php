@@ -723,9 +723,7 @@ final class InstallMarketplaceExtensionAction
             return (string) __('capell-marketplace::marketplace.install.blocked.not_connected.body');
         }
 
-        return $message !== ''
-            ? $message
-            : (string) __('capell-marketplace::marketplace.install.failed');
+        return (string) __('capell-marketplace::marketplace.errors.operator_action_failed');
     }
 
     private function createInstallAttempt(MarketplaceInstallAttemptData $data): void

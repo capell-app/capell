@@ -1737,15 +1737,14 @@ function reviewMarketplaceBrowserWithOneSelection(): Testable
         ->assertSet('marketplaceStep', 'review');
 }
 
-it('says nothing about readiness on a host that can install automatically', function (): void {
+it('summarises install readiness on a host that can install automatically', function (): void {
     grantMarketplaceBrowserManagementAccess();
     fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
 
-    // Every warning shown on a healthy host is a warning the user learns to
-    // ignore on an unhealthy one.
     reviewMarketplaceBrowserWithOneSelection()
         ->assertDontSeeHtml('data-capell-marketplace-readiness-banner')
-        ->assertDontSeeHtml('data-capell-marketplace-readiness-summary')
+        ->assertSeeHtml('data-capell-marketplace-readiness-summary')
+        ->assertSee(__('capell-marketplace::marketplace.install.default_confirmation'))
         ->assertSee(__('capell-marketplace::marketplace.selection.confirm_download_install_label'));
 });
 

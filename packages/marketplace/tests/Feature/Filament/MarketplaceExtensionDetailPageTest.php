@@ -204,7 +204,8 @@ it('shows marketplace detail outages without treating them as not found', functi
     Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
         ->assertSuccessful()
         ->assertSee(__('capell-marketplace::marketplace.detail.unavailable_heading'))
-        ->assertSee('Marketplace maintenance window.');
+        ->assertSee(__('capell-marketplace::marketplace.errors.operator_action_failed'))
+        ->assertDontSee('Marketplace maintenance window.');
 });
 
 it('uses the marketplace page permission for detail page access', function (): void {

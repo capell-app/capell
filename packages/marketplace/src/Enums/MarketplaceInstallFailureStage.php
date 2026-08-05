@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Enums;
 
-enum MarketplaceInstallFailureStage: string
+use Filament\Support\Contracts\HasLabel;
+
+enum MarketplaceInstallFailureStage: string implements HasLabel
 {
     case Preflight = 'preflight';
     case DeploymentHandoff = 'deployment_handoff';
@@ -15,6 +17,11 @@ enum MarketplaceInstallFailureStage: string
     case HealthCheck = 'health_check';
     case Notification = 'notification';
     case Queue = 'queue';
+
+    public function getLabel(): string
+    {
+        return (string) __('capell-marketplace::marketplace.failure_stages.' . $this->value);
+    }
 
     /**
      * The operator-facing name for this stage.

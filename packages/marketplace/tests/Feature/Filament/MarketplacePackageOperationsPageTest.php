@@ -121,10 +121,26 @@ it('exposes redacted diagnostics and can mark operations resolved', function ():
         ->assertSet('diagnosticBundle', fn (?string $bundle): bool => is_string($bundle)
             && str_contains($bundle, 'composer_auth')
             && ! str_contains($bundle, 'lic_secret'))
+        ->assertDispatched('marketplace-copy-diagnostics')
         ->call('markResolved', $attempt->getKey())
         ->assertSet('activeTab', 'resolved');
 
     expect($attempt->refresh()->resolved_at)->not->toBeNull();
+});
+
+it('registers marketplace navigation and resolves translated operation labels', function (): void {
+    expect(MarketplacePage::shouldRegisterNavigation())->toBeTrue();
+
+    foreach ([
+        ...MarketplaceInstallIntentStatus::cases(),
+        ...MarketplaceInstallFailureType::cases(),
+        ...MarketplaceInstallFailureStage::cases(),
+        ...MarketplaceInstallAttemptEventLevel::cases(),
+    ] as $enum) {
+        expect($enum->getLabel())
+            ->not->toBe($enum->value)
+            ->not->toStartWith('capell-marketplace::');
+    }
 });
 
 it('shows auto-resolved successful attempts on the succeeded tab', function (): void {

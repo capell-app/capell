@@ -25,6 +25,7 @@ use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -250,7 +251,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 ->warning()
                 ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
                 ->body(collect($validationException->errors())->flatten()->first()
-                    ?? $validationException->getMessage())
+                    ?? (string) __('capell-marketplace::marketplace.selection.unavailable_body'))
                 ->send();
 
             return;
@@ -409,12 +410,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                     return;
                 }
 
-                Notification::make()
-                    ->danger()
-                    ->title((string) __('capell-marketplace::marketplace.install_flow.failed_title'))
-                    ->body($throwable->getMessage())
-                    ->persistent()
-                    ->send();
+                MarketplaceErrorPresenter::notification(
+                    (string) __('capell-marketplace::marketplace.install_flow.failed_title'),
+                    $throwable,
+                )->send();
 
                 return;
             }

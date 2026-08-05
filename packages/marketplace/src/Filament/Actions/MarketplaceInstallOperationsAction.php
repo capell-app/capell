@@ -20,7 +20,7 @@ final class MarketplaceInstallOperationsAction
             ->color('gray')
             ->badge(fn (): ?string => self::operationsCount() > 0 ? number_format(self::operationsCount()) : null)
             ->badgeColor(fn (): string => self::attentionCount() > 0 ? 'danger' : 'info')
-            ->visible(fn (): bool => ExtensionsPage::canAccess() && self::operationsCount() > 0)
+            ->visible(fn (): bool => ExtensionsPage::canAccess())
             ->authorize(fn (): bool => ExtensionsPage::canAccess())
             ->url(fn (): string => MarketplacePackageOperationsPage::getUrl([
                 'tab' => self::attentionCount() > 0 ? 'failed' : 'active',

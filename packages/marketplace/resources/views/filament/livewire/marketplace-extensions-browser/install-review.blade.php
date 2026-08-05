@@ -8,8 +8,7 @@
 
     // A healthy host has nothing to warn about here, and a summary that always
     // speaks turns into noise directly above the confirmation.
-    $showReadinessSummary = $readiness->capability !== MarketplaceInstallCapability::Automated
-        || $readiness->failedChecks() !== [];
+    $showReadinessSummary = true;
 @endphp
 
 <div
@@ -254,20 +253,24 @@
                             <dt class="font-medium">
                                 {{ __('capell-marketplace::marketplace.selection.impact_maturity') }}
                             </dt>
-                            <dd>{{ ucfirst($impact['maturity']) }}</dd>
+                            <dd>
+                                {{ __('capell-marketplace::marketplace.selection.impact_values.maturity.' . $impact['maturity']) }}
+                            </dd>
                         </div>
                         <div>
                             <dt class="font-medium">
                                 {{ __('capell-marketplace::marketplace.selection.impact_entitlement') }}
                             </dt>
-                            <dd>{{ ucfirst($impact['entitlement']) }}</dd>
+                            <dd>
+                                {{ __('capell-marketplace::marketplace.selection.impact_values.entitlement.' . $impact['entitlement']) }}
+                            </dd>
                         </div>
                         <div>
                             <dt class="font-medium">
                                 {{ __('capell-marketplace::marketplace.selection.impact_package_change') }}
                             </dt>
                             <dd>
-                                {{ ucfirst($impact['operation']) }} {{ $impact['target_version'] }}
+                                {{ __('capell-marketplace::marketplace.selection.impact_values.operation.' . $impact['operation']) }} {{ $impact['target_version'] }}
                             </dd>
                         </div>
                     </dl>
@@ -457,6 +460,10 @@
 
             <p class="text-gray-600 dark:text-gray-400">
                 {{ $readiness->capability->getLabel() }} — {{ __('capell-marketplace::marketplace.readiness.banner.' . $readiness->capability->value) }}
+            </p>
+
+            <p class="text-gray-600 dark:text-gray-400">
+                {{ __('capell-marketplace::marketplace.install.default_confirmation') }}
             </p>
 
             @foreach ([...$readiness->failedChecks(), ...$readiness->warnedChecks()] as $readinessCheck)

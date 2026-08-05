@@ -341,6 +341,11 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
 
         CancelMarketplaceInstallAttemptAction::run($attempt);
         $this->selectedOperationId = $operationId;
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.operations.cancel_requested'))
+            ->send();
     }
 
     public function markResolved(int $operationId): void
@@ -358,6 +363,11 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
         ResolveMarketplaceInstallOperationAction::run($attempt);
         $this->activeTab = self::TAB_RESOLVED;
         $this->selectedOperationId = $operationId;
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.operations.resolved'))
+            ->send();
     }
 
     public function copyDiagnostics(int $operationId): void
@@ -373,6 +383,12 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
         }
 
         $this->diagnosticBundle = BuildMarketplaceInstallDiagnosticBundleAction::run($attempt);
+        $this->dispatch('marketplace-copy-diagnostics', diagnostics: $this->diagnosticBundle);
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.operations.diagnostics_copied'))
+            ->send();
     }
 
     public function marketplaceUrl(): string
@@ -477,7 +493,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     {
         return collect(MarketplaceInstallIntentStatus::cases())
             ->mapWithKeys(fn (MarketplaceInstallIntentStatus $status): array => [
-                $status->value => str($status->value)->replace('_', ' ')->title()->toString(),
+                $status->value => $status->getLabel(),
             ])
             ->all();
     }
@@ -487,7 +503,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     {
         return collect(MarketplaceInstallFailureType::cases())
             ->mapWithKeys(fn (MarketplaceInstallFailureType $failureType): array => [
-                $failureType->value => str($failureType->value)->replace('_', ' ')->title()->toString(),
+                $failureType->value => $failureType->getLabel(),
             ])
             ->all();
     }

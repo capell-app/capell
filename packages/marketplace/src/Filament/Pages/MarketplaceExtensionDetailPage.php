@@ -25,6 +25,7 @@ use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceUpdateChangelogPresenter;
 use Capell\Marketplace\Filament\Widgets\ExtensionHealthAlertsFilamentWidget;
@@ -104,13 +105,13 @@ final class MarketplaceExtensionDetailPage extends Page
         } catch (InvalidArgumentException) {
             throw new NotFoundHttpException;
         } catch (RuntimeException $runtimeException) {
-            $this->detailLoadError = $runtimeException->getMessage();
+            $this->detailLoadError = (string) __('capell-marketplace::marketplace.errors.operator_action_failed');
 
-            Notification::make()
-                ->title(__('capell-marketplace::marketplace.detail.unavailable_heading'))
-                ->body($this->detailLoadError)
-                ->danger()
-                ->send();
+            MarketplaceErrorPresenter::notification(
+                (string) __('capell-marketplace::marketplace.detail.unavailable_heading'),
+                $runtimeException,
+                ['extension_slug' => $this->extensionSlug],
+            )->send();
 
             return;
         }
@@ -317,7 +318,7 @@ final class MarketplaceExtensionDetailPage extends Page
                 ->warning()
                 ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
                 ->body(collect($validationException->errors())->flatten()->first()
-                    ?? $validationException->getMessage())
+                    ?? (string) __('capell-marketplace::marketplace.selection.unavailable_body'))
                 ->send();
 
             return;
@@ -413,11 +414,11 @@ final class MarketplaceExtensionDetailPage extends Page
                 tip: $feedbackTip,
             ));
         } catch (RuntimeException $runtimeException) {
-            Notification::make()
-                ->title(__('capell-marketplace::marketplace.feedback.failed'))
-                ->body($runtimeException->getMessage())
-                ->danger()
-                ->send();
+            MarketplaceErrorPresenter::notification(
+                (string) __('capell-marketplace::marketplace.feedback.failed'),
+                $runtimeException,
+                ['extension_slug' => $this->extensionSlug],
+            )->send();
 
             return;
         }

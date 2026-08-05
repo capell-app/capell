@@ -16,6 +16,7 @@ use Capell\Marketplace\Actions\MarketplaceInstallFlowSessionTransitionAction;
 use Capell\Marketplace\Actions\ResumeMarketplaceInstallFlowAction;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
@@ -144,11 +145,11 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
                 ->body((string) __('capell-marketplace::marketplace.operations.flow_resumed_body'))
                 ->send();
         } catch (Throwable $throwable) {
-            Notification::make()
-                ->danger()
-                ->title((string) __('capell-marketplace::marketplace.operations.flow_resume_failed'))
-                ->body($throwable->getMessage())
-                ->send();
+            MarketplaceErrorPresenter::notification(
+                (string) __('capell-marketplace::marketplace.operations.flow_resume_failed'),
+                $throwable,
+                ['flow_session_id' => $sessionId],
+            )->send();
         }
 
         unset($this->operations, $this->flowSessions);

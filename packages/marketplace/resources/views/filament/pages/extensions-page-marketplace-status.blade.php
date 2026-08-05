@@ -112,6 +112,21 @@
                     </x-filament::button>
                 </div>
             @endif
+
+            @if ($marketplaceConnectionState === 'needs_configuration' && \Capell\Admin\Filament\Pages\SettingsPage::canAccess())
+                <div class="pt-1">
+                    <x-filament::button
+                        tag="a"
+                        color="danger"
+                        icon="heroicon-o-cog-6-tooth"
+                        size="sm"
+                        href="{{ \Capell\Admin\Filament\Pages\SettingsPage::getUrl() }}"
+                        data-capell-marketplace-settings-link
+                    >
+                        {{ __('capell-marketplace::marketplace.marketplace.configure_settings') }}
+                    </x-filament::button>
+                </div>
+            @endif
         </div>
     </div>
 </section>

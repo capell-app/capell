@@ -31,7 +31,7 @@ final class MarketplacePage extends Page implements HasActions
 
     protected static ?string $slug = 'extensions/marketplace';
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static bool $shouldRegisterNavigation = true;
 
     protected string $view = 'capell-marketplace::filament.pages.marketplace';
 

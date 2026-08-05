@@ -268,7 +268,7 @@ final class MarketplaceCatalogueTable
                         ->warning()
                         ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
                         ->body(collect($validationException->errors())->flatten()->first()
-                            ?? $validationException->getMessage())
+                            ?? (string) __('capell-marketplace::marketplace.selection.unavailable_body'))
                         ->send();
 
                     return;

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Enums;
 
-enum MarketplaceInstallFailureType: string
+use Filament\Support\Contracts\HasLabel;
+
+enum MarketplaceInstallFailureType: string implements HasLabel
 {
     case PhpBinary = 'php_binary';
     case ComposerAuth = 'composer_auth';
@@ -40,4 +42,9 @@ enum MarketplaceInstallFailureType: string
     case CancelledAfterLifecycle = 'cancelled_after_lifecycle';
     case QueueWorkerMissing = 'queue_worker_missing';
     case Unknown = 'unknown';
+
+    public function getLabel(): string
+    {
+        return (string) __('capell-marketplace::marketplace.failure_types.' . $this->value);
+    }
 }
