@@ -31,7 +31,7 @@ final class MarketplacePage extends Page implements HasActions
 
     protected static ?string $slug = 'extensions/marketplace';
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static bool $shouldRegisterNavigation = true;
 
     protected string $view = 'capell-marketplace::filament.pages.marketplace';
 
@@ -83,7 +83,7 @@ final class MarketplacePage extends Page implements HasActions
     public function getBreadcrumbs(): array
     {
         return [
-            ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
+            ExtensionsPage::getUrl() => (string) __('capell-marketplace::marketplace.operations.extensions'),
             self::getNavigationLabel(),
         ];
     }
@@ -98,7 +98,7 @@ final class MarketplacePage extends Page implements HasActions
 
         return [
             Action::make('extensions')
-                ->label(ExtensionsPage::getNavigationLabel())
+                ->label((string) __('capell-marketplace::marketplace.operations.extensions'))
                 ->icon(ExtensionsPage::getNavigationIcon())
                 ->color('gray')
                 ->url(ExtensionsPage::getUrl()),
@@ -107,6 +107,11 @@ final class MarketplacePage extends Page implements HasActions
                 ->icon(MarketplacePackageOperationsPage::getNavigationIcon())
                 ->color('gray')
                 ->url(MarketplacePackageOperationsPage::getUrl()),
+            Action::make('purchases')
+                ->label(MarketplacePurchasesPage::getNavigationLabel())
+                ->icon(MarketplacePurchasesPage::getNavigationIcon())
+                ->color('gray')
+                ->url(MarketplacePurchasesPage::getUrl()),
             ConnectMarketplaceAccountAction::make($connection),
             RunMarketplaceHeartbeatAction::make($connection),
         ];

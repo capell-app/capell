@@ -41,6 +41,13 @@ Source: `packages/core/config/capell.php`
 | `CAPELL_MULTI_NODE`                          | `false`                                   | Declare a multi-node deployment so Doctor requires a shared cache store                                                                     |
 | `CAPELL_RELEASE_ROOT_MODE`                   | `mutable`                                 | `mutable` permits guarded release-root writes; `immutable` and `atomic` require Composer and migration publication during the release build |
 | `CAPELL_SERVER_SIDE_TOOLING`                 | `false`                                   | Declare that this server installs extensions and builds assets itself, so Doctor requires Composer, Node, and `proc_open`                   |
+| `CAPELL_PHP_BINARY`                          | _(null)_                                  | CLI PHP binary used for every Capell subprocess; falls back to `CAPELL_SETUP_PHP_BINARY`, then `PHP_BINARY`, then the executable search path |
+| `CAPELL_COMPOSER_BINARY`                     | _(null)_                                  | Composer binary, `composer.phar`, or wrapper script used for every Capell subprocess; falls back to `CAPELL_SETUP_COMPOSER_BINARY`, then the executable search path |
+| `CAPELL_COMPOSER_TIMEOUT_SECONDS`            | `600`                                     | How long one Composer run may take; the Marketplace install job timeout is this plus the buffer below, and the queue `retry_after` must exceed that total |
+| `CAPELL_COMPOSER_JOB_TIMEOUT_BUFFER_SECONDS` | `120`                                     | Extra time the Marketplace install job keeps after Composer returns, for finalizing the attempt and recording telemetry                     |
+| `CAPELL_COMPOSER_NO_CACHE`                   | `false`                                   | Run Composer with `--no-cache`, re-downloading every dependency on every install; leave off unless a shared cache cannot be trusted          |
+| `CAPELL_COMPOSER_CACHE_DIR`                  | `storage/framework/composer/cache`        | Where Composer keeps its download cache for Capell-run installs                                                                             |
+| `CAPELL_COMPOSER_MEMORY_LIMIT`               | `-1`                                      | Value passed to Composer as `COMPOSER_MEMORY_LIMIT`                                                                                         |
 | `CAPELL_ASSETS_DISK`                         | `local`                                   | Filesystem disk checked by Capell Doctor for writable asset storage                                                                         |
 | `CAPELL_SITEMAP_MAX_URLS_PER_FILE`           | `50000`                                   | Maximum URLs per generated sitemap file                                                                                                     |
 | `CAPELL_SITEMAP_XML_PATH`                    | `/sitemap-xml`                            | Public path used for sitemap index entries                                                                                                  |
@@ -233,7 +240,17 @@ Source: `packages/marketplace/config/capell-marketplace.php`
 | `CAPELL_MARKETPLACE_WEBHOOK_SECRET`                        | _(null)_                                                   | Shared secret for Marketplace webhook verification    |
 | `CAPELL_MARKETPLACE_TROUBLESHOOTING_URL`                   | `https://docs.capell.app/extensions/marketplace-heartbeat` | Help URL shown in Marketplace diagnostics             |
 | `CAPELL_MARKETPLACE_QUEUE_CONNECTION`                      | `database`                                                 | Queue connection Marketplace install jobs are sent to |
+| `CAPELL_MARKETPLACE_HTTP_PROXY`                            | _(null)_                                                   | Proxy URL applied to every outbound marketplace call  |
+| `CAPELL_MARKETPLACE_HTTP_VERIFY`                           | _(null)_                                                   | Path to a CA bundle, or `false`, for every outbound marketplace call |
 | `CAPELL_MARKETPLACE_QUEUE`                                 | `capell-marketplace`                                       | Named queue Marketplace install jobs are sent to      |
+| `CAPELL_MARKETPLACE_QUEUED_STALE_AFTER_SECONDS`            | `120`                                                      | How long an install may sit queued before Capell reports that nothing is consuming the queue |
+| `CAPELL_MARKETPLACE_WORKER_HEARTBEAT_STALE_AFTER_SECONDS`  | `300`                                                      | How long a recorded worker heartbeat still counts as evidence a worker is running |
+| `CAPELL_MARKETPLACE_HEALTH_HTTP_PROBE`                     | `true`                                                     | Whether the post-install health check also requests the site's own homepage |
+| `CAPELL_MARKETPLACE_HEALTH_HTTP_TIMEOUT_SECONDS`           | `5`                                                        | Timeout for that homepage request                     |
+| `CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED`                   | `true`                                                     | Whether the Marketplace heartbeat runs on a schedule rather than only when a user triggers it |
+| `CAPELL_MARKETPLACE_HEARTBEAT_AT`                          | `02:40`                                                    | Daily time the scheduled Marketplace heartbeat runs   |
+| `CAPELL_MARKETPLACE_AUTO_UPDATE_SCHEDULED`                 | `false`                                                    | Whether unattended updates run for extensions whose per-extension policy allows them |
+| `CAPELL_MARKETPLACE_AUTO_UPDATE_AT`                        | `03:20`                                                    | Daily time unattended updates run, after the heartbeat they decide against |
 
 Marketplace installs do not use `QUEUE_CONNECTION`. They are pinned to
 `CAPELL_MARKETPLACE_QUEUE_CONNECTION` (default `database`) and the named queue
@@ -247,6 +264,17 @@ php artisan queue:work database --queue=capell-marketplace --timeout=900
 
 If you set this connection to `sync`, the Composer install runs inside the web request
 and will be killed by `max_execution_time`. Keep it on a real queue connection.
+
+After every package change, Capell runs a health check before it calls the operation a
+success, and rolls `composer.json`, `composer.lock` and `vendor/` back to how they were
+if that check refuses the site. The primary probe boots a fresh PHP process — it needs
+no web server and no publicly reachable hostname, and it checks bootstrap and autoload
+state rather than that something answers on a port. `CAPELL_MARKETPLACE_HEALTH_HTTP_PROBE`
+controls only the secondary request to your own homepage; turning it off loses a
+confirmation but can never turn a failure into a pass, because a probe that cannot
+connect already skips rather than failing. A site that is not reachable from inside
+itself — behind a load balancer, or in a container — is a normal deployment, not a
+broken one.
 
 Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace APIs. If Marketplace reports that `api/registration-sessions` cannot be found, the app is probably using an old unversioned API URL.
 

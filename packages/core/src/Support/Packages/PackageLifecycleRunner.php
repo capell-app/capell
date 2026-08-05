@@ -9,9 +9,9 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Support\Facades\Artisan;
 use RuntimeException;
-use Symfony\Component\Process\ExecutableFinder;
 
 final class PackageLifecycleRunner
 {
@@ -171,7 +171,7 @@ final class PackageLifecycleRunner
      */
     private function freshProcessCommand(string $command, array $arguments): array
     {
-        $processCommand = [$this->phpCliBinary(), base_path('artisan'), $command, '--no-interaction'];
+        $processCommand = [...new RuntimeBinaryResolver()->php(), base_path('artisan'), $command, '--no-interaction'];
 
         foreach ($arguments as $option => $value) {
             if ($value === null) {
@@ -196,28 +196,5 @@ final class PackageLifecycleRunner
         }
 
         return $processCommand;
-    }
-
-    private function phpCliBinary(): string
-    {
-        $finder = new ExecutableFinder;
-        $configuredBinary = config('capell-installer.php_binary');
-        $candidates = array_values(array_unique(array_filter([
-            is_string($configuredBinary) ? $configuredBinary : null,
-            'php',
-            PHP_BINARY,
-        ])));
-
-        foreach ($candidates as $candidate) {
-            $resolvedBinary = str_contains($candidate, DIRECTORY_SEPARATOR)
-                ? (is_file($candidate) && is_executable($candidate) ? $candidate : null)
-                : $finder->find($candidate);
-
-            if ($resolvedBinary !== null && ! str_contains(basename($resolvedBinary), 'php-fpm')) {
-                return $resolvedBinary;
-            }
-        }
-
-        throw new RuntimeException('Unable to locate a CLI PHP binary for the package lifecycle command.');
     }
 }

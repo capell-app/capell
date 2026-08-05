@@ -6,15 +6,27 @@ namespace Capell\Marketplace\Filament\Livewire;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
+use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
+use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
+use Capell\Marketplace\Enums\ExtensionKind;
+use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallState;
+use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
+use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
@@ -25,6 +37,8 @@ use Filament\Support\Contracts\TranslatableContentDriver;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Throwable;
 
@@ -37,6 +51,15 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     private const string STEP_BROWSE = 'browse';
 
     private const string STEP_REVIEW = 'review';
+
+    /**
+     * Confirming an install used to navigate the operator away from the modal to
+     * the operations page. That is a page load, a lost catalogue position, and a
+     * context switch imposed at the exact moment the thing they asked for starts
+     * working. The modal now shows the operation running, and the operations page
+     * stays one click away for anyone who wants the full timeline.
+     */
+    private const string STEP_PROGRESS = 'progress';
 
     public ?string $lockedKind = null;
 
@@ -55,11 +78,24 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     public bool $betaMarketplaceExtensionsAcknowledged = false;
 
+    public ?string $marketplaceLicenseKey = null;
+
+    /**
+     * Default OFF, and it says so on the label. Applying a theme replaces what
+     * every visitor sees; opting into that is a decision, not a default.
+     */
+    public bool $activateMarketplaceThemesAfterInstall = false;
+
+    /** @var array<int, int> */
+    public array $activeMarketplaceInstallAttemptIds = [];
+
     /** @var array<string, mixed> */
     public array $selectedMarketplaceInstallOptions = [];
 
     /** @var array<string, mixed>|null */
     private ?array $resolvedMarketplaceSelectionReview = null;
+
+    private ?MarketplaceEnvironmentReadinessData $marketplaceEnvironmentReadiness = null;
 
     public function mount(?string $lockedKind = null, bool $includeLocalExtensionState = true, ?string $initialSearch = null): void
     {
@@ -174,6 +210,113 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         $this->showMarketplaceInstallReview();
     }
 
+    /**
+     * Whether the Update button belongs on this record's card.
+     *
+     * Delegates to the presenter rather than re-reading has_update_available
+     * here, so the card, the table and the detail page cannot disagree about
+     * whether an update is on offer.
+     *
+     * @param  array<string, mixed>  $record
+     */
+    public function marketplaceRecordCanUpdate(array $record): bool
+    {
+        return resolve(MarketplaceInstallActionPresenter::class)->canUpdate($record);
+    }
+
+    /**
+     * One-click update straight from a card.
+     *
+     * Queued rather than run: the operator stays where they are, and the
+     * operation gets the same lock, health check and rollback protection every
+     * other Composer operation on this release gets.
+     */
+    public function updateMarketplaceRecordFromCard(string $composerName): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $composerName = trim($composerName);
+
+        if ($composerName === '') {
+            return;
+        }
+
+        try {
+            $attempt = UpdateMarketplaceExtensionAction::run(
+                composerName: $composerName,
+                actor: $this->marketplaceUpdateActor(),
+            );
+        } catch (ValidationException $validationException) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
+                ->body(collect($validationException->errors())->flatten()->first()
+                    ?? (string) __('capell-marketplace::marketplace.selection.unavailable_body'))
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.updates.queued_title'))
+            ->body((string) __('capell-marketplace::marketplace.updates.queued_body', [
+                'name' => $attempt->extension_name,
+            ]))
+            ->send();
+
+        $this->activeMarketplaceInstallAttemptIds = [(int) $attempt->getKey()];
+        $this->marketplaceStep = self::STEP_PROGRESS;
+    }
+
+    /**
+     * Update everything the operator has selected.
+     *
+     * One attempt per extension, serialised by the global Composer lock the jobs
+     * already contend for. A single summary at the end, because an operator who
+     * selected eight extensions does not want eight toasts.
+     */
+    public function updateSelectedMarketplaceRecords(): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $composerNames = $this->normalizedSelectedMarketplaceComposerNames();
+
+        if ($composerNames === []) {
+            return;
+        }
+
+        $result = QueueMarketplaceBulkUpdateAction::run(
+            composerNames: $composerNames,
+            actor: $this->marketplaceUpdateActor(),
+        );
+
+        if (! $result->queuedAnything()) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-marketplace::marketplace.updates.bulk_none_title'))
+                ->body($result->skipped === []
+                    ? (string) __('capell-marketplace::marketplace.updates.bulk_none_body')
+                    : $result->summaryBody())
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.updates.bulk_queued_title'))
+            ->body($result->summaryBody())
+            ->persistent()
+            ->send();
+
+        $this->selectedMarketplaceComposerNames = [];
+        $this->resolvedMarketplaceSelectionReview = null;
+        $this->activeMarketplaceInstallAttemptIds = array_values($result->queuedAttemptIds);
+        $this->marketplaceStep = self::STEP_PROGRESS;
+    }
+
     public function showMarketplaceInstallReview(): void
     {
         $this->authorizeMarketplaceAccess();
@@ -191,6 +334,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         }
 
         $this->marketplaceStep = self::STEP_REVIEW;
+        $this->activeMarketplaceInstallAttemptIds = [];
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
         $this->betaMarketplaceExtensionsAcknowledged = false;
         $this->selectedMarketplaceInstallOptions = [
@@ -212,7 +356,11 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $selection = $this->marketplaceSelectionReview();
 
-        if (! $selection['can_install']
+        // A host that cannot run an automated install must not be able to reach
+        // a preflight failure through the confirm path; it gets the manual
+        // instructions instead.
+        if (! $this->marketplaceEnvironmentReadiness()->canInstallAutomatically()
+            || ! $selection['can_install']
             || ! $this->installReviewedMarketplaceExtensionsConfirmed
             || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged)) {
             Notification::make()
@@ -222,6 +370,14 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 ->send();
 
             return;
+        }
+
+        if ($this->marketplaceSelectionRequiresLicenceKey($selection)) {
+            $this->validate([
+                'marketplaceLicenseKey' => ['required', 'string', 'max:512'],
+            ], [], [
+                'marketplaceLicenseKey' => (string) __('capell-marketplace::marketplace.install.license_key_label'),
+            ]);
         }
 
         if ($this->marketplaceSelectionNeedsHostedFlow($selection)) {
@@ -254,12 +410,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                     return;
                 }
 
-                Notification::make()
-                    ->danger()
-                    ->title((string) __('capell-marketplace::marketplace.install_flow.failed_title'))
-                    ->body($throwable->getMessage())
-                    ->persistent()
-                    ->send();
+                MarketplaceErrorPresenter::notification(
+                    (string) __('capell-marketplace::marketplace.install_flow.failed_title'),
+                    $throwable,
+                )->send();
 
                 return;
             }
@@ -268,16 +422,28 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         $installComposerNames = $selection['install_composer_names'];
 
         foreach ($selection['install_records'] as $record) {
-            $redirectUrl = resolve(MarketplaceCatalogueTable::class)->installExtension(
-                arguments: $record,
-                data: [
-                    'install_options' => [
-                        ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
-                        'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
+            try {
+                $redirectUrl = resolve(MarketplaceCatalogueTable::class)->installExtension(
+                    arguments: $record,
+                    data: [
+                        'license_key' => $this->marketplaceLicenseKey,
+                        '_validation_errors' => true,
+                        'install_options' => [
+                            ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
+                            ...$this->themeActivationInstallOption($record),
+                            'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
+                        ],
                     ],
-                ],
-                redirectAccountActions: true,
-            );
+                    redirectAccountActions: true,
+                );
+            } catch (ValidationException $validationException) {
+                $message = collect($validationException->errors())->flatten()->first();
+                $this->addError('marketplaceLicenseKey', is_string($message)
+                    ? $message
+                    : (string) __('capell-marketplace::marketplace.install.license_key_invalid'));
+
+                return;
+            }
 
             if (is_string($redirectUrl) && $redirectUrl !== '') {
                 $this->redirect($redirectUrl);
@@ -288,10 +454,111 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $this->selectedMarketplaceComposerNames = [];
         $this->selectedMarketplaceInstallOptions = [];
+        $this->marketplaceLicenseKey = null;
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
         $this->resolvedMarketplaceSelectionReview = null;
+        $this->activeMarketplaceInstallAttemptIds = $this->activeMarketplaceInstallAttemptIdsFor($installComposerNames);
+        $this->marketplaceStep = self::STEP_PROGRESS;
+    }
+
+    /**
+     * The live state of the operations this modal started.
+     *
+     * Read straight from the attempts rather than mirrored into component state:
+     * the job writes current_stage, progress_current and heartbeat_at as it goes,
+     * and a second copy of that in a Livewire property is a copy that can be
+     * stale at exactly the moment the operator is watching it.
+     *
+     * @return array<int, array{
+     *     id: int,
+     *     name: string,
+     *     composer_name: string,
+     *     status: string,
+     *     stage: ?string,
+     *     stage_label: string,
+     *     progress_current: int,
+     *     progress_total: int,
+     *     active: bool,
+     *     succeeded: bool,
+     *     failure_reason: ?string
+     * }>
+     */
+    public function marketplaceInstallProgress(): array
+    {
+        $this->authorizeMarketplaceAccess();
+
+        if ($this->activeMarketplaceInstallAttemptIds === []) {
+            return [];
+        }
+
+        return MarketplaceInstallAttempt::query()
+            ->whereKey($this->activeMarketplaceInstallAttemptIds)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (MarketplaceInstallAttempt $attempt): array => [
+                'id' => (int) $attempt->getKey(),
+                'name' => $attempt->extension_name,
+                'composer_name' => $attempt->composer_name,
+                'status' => $attempt->status->value,
+                'stage' => $attempt->current_stage,
+                'stage_label' => $this->marketplaceInstallStageLabel($attempt),
+                'progress_current' => max(0, $attempt->progress_current ?? 0),
+                'progress_total' => max(1, $attempt->progress_total ?? 5),
+                'active' => $attempt->status->isActiveInstallOperation(),
+                'succeeded' => $attempt->status === MarketplaceInstallIntentStatus::Succeeded,
+                'failure_reason' => $attempt->failure_reason,
+            ])
+            ->all();
+    }
+
+    /**
+     * Whether anything this modal started is still running, which is what the
+     * view polls on. Polling stops the moment nothing is active — a modal that
+     * keeps hitting the server after every operation finished is a background
+     * cost nobody asked for.
+     */
+    public function hasActiveMarketplaceInstalls(): bool
+    {
+        return array_any($this->marketplaceInstallProgress(), fn (array $progress) => $progress['active']);
+    }
+
+    /**
+     * The escape hatch to the full timeline. The redirect the confirm step used
+     * to perform automatically is still here — it is now something the operator
+     * chooses rather than something done to them.
+     */
+    public function viewMarketplaceInstallOperations(): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $this->redirect(MarketplacePackageOperationsPage::getUrl(array_filter([
+            'tab' => 'active',
+            'operation' => $this->activeMarketplaceInstallAttemptIds[0] ?? null,
+        ])));
+    }
+
+    public function backToMarketplaceBrowseFromProgress(): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $this->activeMarketplaceInstallAttemptIds = [];
         $this->marketplaceStep = self::STEP_BROWSE;
-        $this->redirectToMarketplaceInstallOperations($installComposerNames);
+    }
+
+    /**
+     * Whether the review screen should offer to apply a theme once it is
+     * installed. Only asked when a theme is actually being installed — an
+     * operator installing a plugin has no business being shown a theme question.
+     */
+    public function marketplaceSelectionContainsTheme(): bool
+    {
+        foreach ($this->marketplaceSelectionReview()['install_records'] as $record) {
+            if (($record['kind'] ?? null) === ExtensionKind::Theme->value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -366,6 +633,37 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
             forceAvailableOnly: true,
         );
+    }
+
+    /**
+     * The host's install capability, so the catalogue can say what this site can
+     * do before anyone selects an extension rather than after they confirm one.
+     */
+    public function marketplaceEnvironmentReadiness(): MarketplaceEnvironmentReadinessData
+    {
+        return $this->marketplaceEnvironmentReadiness ??= EvaluateMarketplaceEnvironmentReadinessAction::run();
+    }
+
+    /**
+     * Where an operator goes to read the commands they must run themselves.
+     *
+     * A host that cannot install for the user still has a fully browsable
+     * catalogue, so the manual instructions on the extension detail page become
+     * the primary call to action rather than a hidden disclosure.
+     */
+    public function manualInstallInstructionsUrl(string $slug): ?string
+    {
+        if ($slug === '') {
+            return null;
+        }
+
+        try {
+            return MarketplaceExtensionDetailPage::getUrl(['slug' => $slug]);
+        } catch (Throwable) {
+            // A panel that has not registered the detail page still gets the
+            // explanation, just without a link to follow.
+            return null;
+        }
     }
 
     public function render(): mixed
@@ -443,15 +741,31 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         );
     }
 
+    /**
+     * @param  array{install_records: array<int, array<string, mixed>>}  $selection
+     */
+    public function marketplaceSelectionRequiresLicenceKey(array $selection): bool
+    {
+        return collect($selection['install_records'])
+            ->contains(fn (array $record): bool => $this->marketplaceRecordRequiresLicenceKey($record));
+    }
+
     private function authorizeMarketplaceAccess(): void
     {
         abort_unless(MarketplacePage::canAccess(), 403);
     }
 
-    /** @param array<int, string> $composerNames */
-    private function redirectToMarketplaceInstallOperations(array $composerNames): void
+    /**
+     * @param  array<int, string>  $composerNames
+     * @return array<int, int>
+     */
+    private function activeMarketplaceInstallAttemptIdsFor(array $composerNames): array
     {
-        $attempt = MarketplaceInstallAttempt::query()
+        if ($composerNames === []) {
+            return [];
+        }
+
+        return MarketplaceInstallAttempt::query()
             ->whereIn('composer_name', $composerNames)
             ->whereIn('status', [
                 MarketplaceInstallIntentStatus::Queued->value,
@@ -459,12 +773,55 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 MarketplaceInstallIntentStatus::CancelRequested->value,
             ])
             ->latest()
-            ->first();
+            ->get()
+            // One row per package: a retried install leaves older attempts for
+            // the same package behind, and showing the operator two pills for
+            // one thing they installed once is a lie about what is happening.
+            ->unique('composer_name')
+            ->map(fn (MarketplaceInstallAttempt $attempt): int => (int) $attempt->getKey())
+            ->values()
+            ->all();
+    }
 
-        $this->redirect(MarketplacePackageOperationsPage::getUrl(array_filter([
-            'tab' => 'active',
-            'operation' => $attempt instanceof MarketplaceInstallAttempt ? $attempt->getKey() : null,
-        ])));
+    private function marketplaceInstallStageLabel(MarketplaceInstallAttempt $attempt): string
+    {
+        if ($attempt->status === MarketplaceInstallIntentStatus::Succeeded) {
+            return (string) __('capell-marketplace::marketplace.progress.stage_completed');
+        }
+
+        if (! $attempt->status->isActiveInstallOperation()) {
+            return (string) __('capell-marketplace::marketplace.progress.stage_stopped');
+        }
+
+        // An attempt whose recorded stage is unrecognised — an older row, or one
+        // written by a newer release — is still waiting as far as the operator
+        // can tell, so it reads as queued rather than as a broken label.
+        $stage = MarketplaceInstallFailureStage::tryFrom((string) $attempt->current_stage)
+            ?? MarketplaceInstallFailureStage::Queue;
+
+        return $stage->progressLabel();
+    }
+
+    private function marketplaceUpdateActor(): MarketplaceInstallActorData
+    {
+        $user = auth()->user();
+
+        return $user instanceof Authenticatable
+            ? MarketplaceInstallActorData::fromAuthenticatable($user)
+            : MarketplaceInstallActorData::system('marketplace-extensions-browser');
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @return array<string, bool>
+     */
+    private function themeActivationInstallOption(array $record): array
+    {
+        if (($record['kind'] ?? null) !== ExtensionKind::Theme->value) {
+            return [];
+        }
+
+        return [RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => $this->activateMarketplaceThemesAfterInstall];
     }
 
     /** @return array<string, mixed> */
@@ -571,10 +928,25 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 continue;
             }
 
+            if ($this->marketplaceRecordRequiresLicenceKey($record) && filled($this->marketplaceLicenseKey)) {
+                continue;
+            }
+
             return true;
         }
 
         return false;
+    }
+
+    /** @param array<string, mixed> $record */
+    private function marketplaceRecordRequiresLicenceKey(array $record): bool
+    {
+        return in_array(MarketplaceInstallState::ActivationRequired->value, [
+            $record['marketplace_install_state'] ?? null,
+            $record['install_state'] ?? null,
+            $record['server_install_state'] ?? null,
+            data_get($record, 'install_eligibility_policy.state'),
+        ], true);
     }
 
     /**

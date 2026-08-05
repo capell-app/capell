@@ -19,6 +19,7 @@ use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
+use Capell\Core\Console\Commands\HealthProbeCommand;
 use Capell\Core\Console\Commands\ImportSiteSpecCommand;
 use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Console\Commands\InstallExtensionCommand;
@@ -256,6 +257,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
+            HealthProbeCommand::class,
             ImportSiteSpecCommand::class,
             InstallExtensionCommand::class,
             UninstallExtensionCommand::class,

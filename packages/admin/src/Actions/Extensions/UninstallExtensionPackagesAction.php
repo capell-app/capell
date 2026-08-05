@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 /**
- * @method static ExtensionPackageUninstallResultData run(list<string> $packageNames, bool $deletePackage, bool $deleteData)
+ * @method static ExtensionPackageUninstallResultData run(list<string> $packageNames, bool $deletePackage, bool $deleteData, bool $requiresServerSideTooling = false)
  */
 final class UninstallExtensionPackagesAction
 {
@@ -21,9 +21,16 @@ final class UninstallExtensionPackagesAction
 
     /**
      * @param  list<string>  $packageNames
+     * @param  bool  $requiresServerSideTooling  Whether the Composer removal a
+     *                                           `deletePackage` uninstall triggers is an unattended write driven by
+     *                                           an HTTP request. The panel passes true; a console caller does not.
      */
-    public function handle(array $packageNames, bool $deletePackage, bool $deleteData): ExtensionPackageUninstallResultData
-    {
+    public function handle(
+        array $packageNames,
+        bool $deletePackage,
+        bool $deleteData,
+        bool $requiresServerSideTooling = false,
+    ): ExtensionPackageUninstallResultData {
         $uninstalledPackageNames = [];
 
         foreach ($packageNames as $packageName) {
@@ -36,6 +43,7 @@ final class UninstallExtensionPackagesAction
                     CapellCore::getPackage($packageName),
                     delete: $deletePackage,
                     deleteData: $deleteData,
+                    requiresServerSideTooling: $requiresServerSideTooling,
                 );
             } catch (Throwable $throwable) {
                 return ExtensionPackageUninstallResultData::failed(

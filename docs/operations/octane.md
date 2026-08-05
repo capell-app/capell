@@ -87,6 +87,15 @@ request-varying input in the memo key or use a resettable service.
   PHP-FPM.
 - Run `php artisan capell:runtime-refresh` as part of your deploy, then restart Octane.
   Refreshing caches without restarting leaves workers holding the previous boot state.
+- Marketplace package operations invalidate opcode state after Composer and record a
+  runtime-refresh event in Package Operations. On a single node with Octane configured,
+  Capell invokes `capell:runtime-refresh`, but the operator must still restart Octane so
+  every worker boots the new providers and autoloader. On a declared multi-node host,
+  Capell does not pretend a refresh on one node reached the others: run the command and
+  restart Octane on every node.
+- `CAPELL_MULTI_NODE` is a topology declaration, not auto-detection. Set it accurately on
+  every node. The default `false` can only justify single-node wording; it is not evidence
+  that the deployment has one node.
 - When diagnosing a "wrong content for the wrong user" report, restart Octane first. If
   the problem disappears and then returns after some requests, it is state bleed, and
   the two rules above are where to look.

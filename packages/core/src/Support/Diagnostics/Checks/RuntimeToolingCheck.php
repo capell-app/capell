@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Diagnostics\Checks;
 
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Symfony\Component\Process\ExecutableFinder;
 
 /**
@@ -39,7 +40,7 @@ final class RuntimeToolingCheck extends AbstractDoctorCheck
         $serverSideTooling = config('capell.server_side_tooling', false) === true;
         $evidence = ['server_side_tooling' => $serverSideTooling];
 
-        $processExecution = $this->processExecutionAvailable();
+        $processExecution = ProcessExecutionSupport::isAvailable();
         $evidence['proc_open'] = $processExecution;
 
         if (! $processExecution) {
@@ -89,25 +90,5 @@ final class RuntimeToolingCheck extends AbstractDoctorCheck
             'composer' => 'installing and removing extensions',
             'npm' => 'rebuilding frontend assets from the admin',
         ];
-    }
-
-    private function processExecutionAvailable(): bool
-    {
-        if (! function_exists('proc_open')) {
-            return false;
-        }
-
-        $disabled = (string) ini_get('disable_functions');
-
-        if ($disabled === '') {
-            return true;
-        }
-
-        $disabledFunctions = array_map(
-            static fn (string $function): string => strtolower(trim($function)),
-            explode(',', $disabled),
-        );
-
-        return ! in_array('proc_open', $disabledFunctions, true);
     }
 }

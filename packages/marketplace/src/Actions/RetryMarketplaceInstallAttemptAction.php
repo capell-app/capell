@@ -55,7 +55,10 @@ final class RetryMarketplaceInstallAttemptAction
                 );
             }
 
-            return DispatchMarketplaceInstallAttemptAction::run(
+            // Routed by the attempt's own operation. A retry repeats what was
+            // asked for; it does not get to decide that a failed uninstall was
+            // really an install.
+            return DispatchMarketplaceOperationAttemptAction::run(
                 attempt: $retry,
                 queueConnection: (string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'),
                 queue: (string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'),
@@ -132,6 +135,12 @@ final class RetryMarketplaceInstallAttemptAction
                 kind: $source->kind,
                 status: MarketplaceInstallIntentStatus::Queued,
                 betaAcknowledged: (bool) $source->beta_acknowledged,
+                // Both carried, because a retry that dropped either would
+                // silently become a different operation: an install of the
+                // package the operator was removing, or an uninstall that keeps
+                // files they asked to delete.
+                operation: $source->operation,
+                uninstallOptions: $source->uninstall_options ?? [],
                 policyEvidence: $this->policyEvidence($source),
                 composerCommand: $source->composer_command,
                 versionConstraint: $source->version_constraint,

@@ -8,6 +8,7 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Support\Facades\Artisan;
@@ -238,7 +239,7 @@ class InstallDeveloperToolingAction
         $candidates = self::$agentBridgeRepositoryPath !== null ? [self::$agentBridgeRepositoryPath] : [];
 
         foreach ($candidates as $candidate) {
-            $resolvedPath = str_starts_with($candidate, '/')
+            $resolvedPath = AbsolutePath::is($candidate)
                 ? $candidate
                 : base_path($candidate);
 

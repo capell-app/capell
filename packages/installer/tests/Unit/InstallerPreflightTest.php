@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
@@ -601,4 +602,25 @@ it('reports cleaned composer dry-run failures', function (): void {
         File::deleteDirectory($temporaryDirectory);
         config(['capell-installer.composer_binary' => 'composer']);
     }
+});
+
+it('reports process support through the shared probe rather than a bare function_exists', function (): void {
+    // A shared host can define proc_open and still refuse it via
+    // disable_functions. The installer must not disagree with the readiness
+    // evaluation about the same host, so it asks the shared probe.
+    $report = resolve(InstallerPreflight::class)->run();
+
+    expect(installerPreflightCheck($report, 'process-support')['status'])->toBe(
+        ProcessExecutionSupport::isAvailable() ? 'pass' : 'fail',
+    );
+});
+
+it('has no remaining bare proc_open probe that would miss disable_functions', function (): void {
+    $source = file_get_contents(
+        dirname(__DIR__, 2) . '/src/Support/Preflight/InstallerPreflight.php',
+    );
+
+    expect($source)->toBeString()
+        ->and($source)->not->toContain("function_exists('proc_open')")
+        ->and($source)->toContain('ProcessExecutionSupport::isAvailable()');
 });

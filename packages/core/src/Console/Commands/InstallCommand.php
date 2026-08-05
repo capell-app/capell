@@ -28,6 +28,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Install\Cli\FilamentAdminInstallPreflight;
 use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
@@ -493,7 +494,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $handoffJson = $this->option('handoff-json');
 
         if (is_string($handoffJson) && trim($handoffJson) !== '') {
-            $handoffPath = str_starts_with($handoffJson, DIRECTORY_SEPARATOR)
+            $handoffPath = AbsolutePath::is($handoffJson)
                 ? $handoffJson
                 : base_path($handoffJson);
 

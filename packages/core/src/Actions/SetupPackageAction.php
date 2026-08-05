@@ -8,10 +8,10 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Exception;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
@@ -60,8 +60,7 @@ class SetupPackageAction
         array $arguments,
         ?ProgressReporter $reporter,
     ): void {
-        $phpBinary = self::resolvePhpCliBinary();
-        $command = [$phpBinary, 'artisan', $setupCommand, '--no-interaction'];
+        $command = [...new RuntimeBinaryResolver()->php(), 'artisan', $setupCommand, '--no-interaction'];
 
         foreach ($arguments as $option => $value) {
             if ($value === null) {
@@ -151,46 +150,6 @@ class SetupPackageAction
         }
 
         $reporter->report($line);
-    }
-
-    private static function resolvePhpCliBinary(): string
-    {
-        $finder = new ExecutableFinder;
-        $configuredBinary = config('capell-installer.php_binary');
-        $candidates = [];
-
-        if (is_string($configuredBinary) && $configuredBinary !== '') {
-            $candidates[] = $configuredBinary;
-        }
-
-        $candidates[] = 'php';
-        $candidates[] = PHP_BINARY;
-
-        foreach (array_unique($candidates) as $candidate) {
-            $resolvedBinary = self::resolveExecutable($candidate, $finder);
-
-            if ($resolvedBinary !== null && ! self::looksLikePhpFpm($resolvedBinary)) {
-                return $resolvedBinary;
-            }
-        }
-
-        throw new Exception('Unable to locate a CLI PHP binary. Set CAPELL_INSTALLER_PHP_BINARY to the php executable, not php-fpm.');
-    }
-
-    private static function resolveExecutable(string $candidate, ExecutableFinder $finder): ?string
-    {
-        if (str_contains($candidate, DIRECTORY_SEPARATOR)) {
-            return is_file($candidate) && is_executable($candidate) ? $candidate : null;
-        }
-
-        return $finder->find($candidate);
-    }
-
-    private static function looksLikePhpFpm(string $binary): bool
-    {
-        $filename = basename($binary);
-
-        return str_contains($filename, 'php-fpm') || str_contains($filename, 'phpfpm');
     }
 
     /**

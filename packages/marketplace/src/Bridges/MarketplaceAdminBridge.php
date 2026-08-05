@@ -19,9 +19,12 @@ use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
+use Capell\Marketplace\Support\MarketplaceExtensionRemovalCoordinator;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Filament\Actions\Action;
 use Override;
@@ -39,7 +42,12 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
         $registrar->page(MarketplacePage::class);
         $registrar->page(MarketplaceExtensionDetailPage::class);
         $registrar->page(MarketplacePackageOperationsPage::class);
+        $registrar->page(MarketplacePurchasesPage::class);
         $registrar->page(ThemeExtensionPage::class);
+        $registrar->filamentDashboardWidget(
+            MarketplaceCommercialWarningFilamentWidget::class,
+            DashboardEnum::Main,
+        );
         $registrar->filamentDashboardWidget(
             MarketplacePackageOperationsAlertFilamentWidget::class,
             DashboardEnum::Main,
@@ -49,6 +57,10 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
         $registrar->extensionCatalogueMetadataProvider(MarketplaceCatalogueRecordProvider::class);
         $registrar->resourceHeaderActionExtender(ThemeMarketplaceHeaderActionExtender::class);
         $registrar->pendingThemeInstallProvider(PendingMarketplaceThemeInstallProvider::class);
+        // Replaces the panel's in-request removal with the queued pipeline.
+        // Registered here rather than bound by admin, because admin must not
+        // know this class exists.
+        $registrar->extensionRemovalCoordinator(MarketplaceExtensionRemovalCoordinator::class);
 
         $registrar->extensionsPageHeaderAction(
             fn (): Action => OpenMarketplaceAction::make(resolve(MarketplaceConnectionFormModel::class)),

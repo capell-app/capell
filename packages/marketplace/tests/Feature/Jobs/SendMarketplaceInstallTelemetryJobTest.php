@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Jobs\ResumeMarketplaceInstallFlowJob;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -16,6 +18,19 @@ it('coalesces telemetry dispatches for the same install attempt', function (): v
         ->and($job->uniqueId())->toBe('42')
         ->and($job->tries)->toBe(5)
         ->and($job->backoff())->toBe([60, 300, 900, 1800]);
+});
+
+it('lands marketplace jobs on the marketplace queue rather than the application default', function (): void {
+    config()->set('capell-marketplace.marketplace.operations_queue_connection', 'redis');
+    config()->set('capell-marketplace.marketplace.operations_queue', 'capell-operations');
+
+    $telemetry = new SendMarketplaceInstallTelemetryJob(42);
+    $resume = new ResumeMarketplaceInstallFlowJob(7, MarketplaceInstallActorData::system());
+
+    expect($telemetry->connection)->toBe('redis')
+        ->and($telemetry->queue)->toBe('capell-operations')
+        ->and($resume->connection)->toBe('redis')
+        ->and($resume->queue)->toBe('capell-operations');
 });
 
 it('keeps free install telemetry pending when marketplace is unavailable', function (): void {

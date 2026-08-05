@@ -89,83 +89,13 @@
                     </div>
 
                     @if (is_array($commercial))
-                        <div
-                            class="mt-3 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm md:grid-cols-2 dark:border-white/10 dark:bg-white/5"
+                        <a
+                            class="text-primary-600 dark:text-primary-400 mt-3 inline-flex text-sm font-medium hover:underline"
+                            href="{{ \Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage::getUrl() }}"
+                            data-capell-marketplace-purchases-link
                         >
-                            <div class="space-y-2">
-                                <h3 class="font-semibold">
-                                    {{ __('capell-marketplace::marketplace.marketplace.commercial.current_heading') }}
-                                </h3>
-                                @forelse (data_get($commercial, 'purchases', []) as $purchase)
-                                    <div>
-                                        <p class="font-medium">{{ data_get($purchase, 'name') }}</p>
-                                        <p class="text-xs text-gray-600 dark:text-gray-300">
-                                            {{ __('capell-marketplace::marketplace.marketplace.commercial.status', ['status' => ucfirst((string) data_get($purchase, 'status'))]) }} · {{ data_get($purchase, 'protected_updates') ? __('capell-marketplace::marketplace.marketplace.commercial.updates_included') : __('capell-marketplace::marketplace.marketplace.commercial.updates_expired') }}
-                                        </p>
-                                        @if (data_get($purchase, 'access_ends_at'))
-                                            <p class="text-xs text-gray-600 dark:text-gray-300">
-                                                {{ __('capell-marketplace::marketplace.marketplace.commercial.access_ends', ['date' => date_create_immutable((string) data_get($purchase, 'access_ends_at'))->format('M j, Y')]) }}
-                                            </p>
-                                        @endif
-                                    </div>
-                                @empty
-                                    <p class="text-gray-600 dark:text-gray-300">
-                                        {{ __('capell-marketplace::marketplace.marketplace.commercial.no_purchases') }}
-                                    </p>
-                                @endforelse
-
-                                <p class="text-xs text-gray-600 dark:text-gray-300">
-                                    {{ data_get($commercial, 'expired_explanation') }}
-                                </p>
-                            </div>
-
-                            <div class="space-y-2">
-                                <h3 class="font-semibold">
-                                    {{ data_get($commercial, 'membership_comparison.name', __('capell-marketplace::marketplace.marketplace.commercial.membership_heading')) }}
-                                </h3>
-                                <p>
-                                    {{
-                                        __('capell-marketplace::marketplace.marketplace.commercial.membership_price', [
-                                            'price' => number_format(((int) data_get($commercial, 'membership_comparison.price_cents', 0)) / 100, 2),
-                                            'renewal' => number_format(((int) data_get($commercial, 'membership_comparison.renewal_price_cents', 0)) / 100, 2),
-                                            'currency' => data_get($commercial, 'membership_comparison.currency', 'GBP'),
-                                        ])
-                                    }}
-                                </p>
-                                <p class="text-xs text-gray-600 dark:text-gray-300">
-                                    {{
-                                        __('capell-marketplace::marketplace.marketplace.commercial.membership_includes', [
-                                            'products' => data_get($commercial, 'membership_comparison.included_product_count', 0),
-                                            'users' => data_get($commercial, 'membership_comparison.named_user_limit', 0),
-                                            'new' => data_get($commercial, 'new_membership_product_count', 0),
-                                        ])
-                                    }}
-                                </p>
-                                <p class="text-xs text-gray-600 dark:text-gray-300">
-                                    {{ __('capell-marketplace::marketplace.marketplace.commercial.priority_support', ['price' => number_format(((int) data_get($commercial, 'priority_support_price_cents', 0)) / 100, 2)]) }}
-                                </p>
-                                <div
-                                    class="flex flex-wrap gap-3 text-xs font-medium"
-                                >
-                                    <a
-                                        class="text-primary-600 dark:text-primary-400 hover:underline"
-                                        href="{{ data_get($commercial, 'renewal_url') }}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        {{ __('capell-marketplace::marketplace.marketplace.commercial.renew') }}
-                                    </a>
-                                    <a
-                                        class="text-primary-600 dark:text-primary-400 hover:underline"
-                                        href="{{ data_get($commercial, 'support_url') }}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        {{ __('capell-marketplace::marketplace.marketplace.commercial.support') }}
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
+                            {{ __('capell-marketplace::marketplace.purchases.page_title') }}
+                        </a>
                     @endif
                 @endif
             </div>
@@ -179,6 +109,21 @@
                         wire:click="mountAction('connectMarketplaceAccount')"
                     >
                         {{ __('capell-marketplace::marketplace.marketplace.connect_account_button') }}
+                    </x-filament::button>
+                </div>
+            @endif
+
+            @if ($marketplaceConnectionState === 'needs_configuration' && \Capell\Admin\Filament\Pages\SettingsPage::canAccess())
+                <div class="pt-1">
+                    <x-filament::button
+                        tag="a"
+                        color="danger"
+                        icon="heroicon-o-cog-6-tooth"
+                        size="sm"
+                        href="{{ \Capell\Admin\Filament\Pages\SettingsPage::getUrl() }}"
+                        data-capell-marketplace-settings-link
+                    >
+                        {{ __('capell-marketplace::marketplace.marketplace.configure_settings') }}
                     </x-filament::button>
                 </div>
             @endif

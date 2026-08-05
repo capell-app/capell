@@ -51,9 +51,19 @@ final class MarketplaceInstallEligibilityData extends Data
         if (is_string($payload)) {
             $state = self::stateFromString($payload);
 
+            // The capability flags follow the state, exactly as they do for an
+            // array payload. Leaving them at their false defaults made a short
+            // string form of the same decision mean something different from
+            // the long form: `'allowed'` said Authorized and then answered "no"
+            // to can-install and can-update.
+            $authorized = $state === MarketplaceInstallState::Authorized;
+
             return new self(
                 state: $state,
                 blockReason: self::blockReasonFromPayload($payload, $state),
+                canInstall: $authorized,
+                canUpdate: $authorized,
+                canRunExisting: $authorized,
                 metadata: ['raw' => $payload],
             );
         }
@@ -65,10 +75,16 @@ final class MarketplaceInstallEligibilityData extends Data
         }
 
         $state = self::stateFromPayload($payload);
-        $allowed = self::booleanValue($payload['allowed'] ?? $payload['can_install'] ?? null);
-        $canInstall = self::booleanValue($payload['can_install'] ?? $payload['allowed'] ?? null);
-        $canUpdate = self::booleanValue($payload['can_update'] ?? null);
-        $canRunExisting = self::booleanValue($payload['can_run_existing'] ?? null);
+        // The camelCase spellings are this object's own toArray() output, not a
+        // remote convention. Records are serialised and re-read on every
+        // catalogue pass, and without them the round trip silently dropped
+        // canInstall and canUpdate to false — so a free extension resolved
+        // locally as updatable came back out of its own array as not updatable,
+        // and the Update button could never appear.
+        $allowed = self::booleanValue($payload['allowed'] ?? $payload['can_install'] ?? $payload['canInstall'] ?? null);
+        $canInstall = self::booleanValue($payload['can_install'] ?? $payload['canInstall'] ?? $payload['allowed'] ?? null);
+        $canUpdate = self::booleanValue($payload['can_update'] ?? $payload['canUpdate'] ?? null);
+        $canRunExisting = self::booleanValue($payload['can_run_existing'] ?? $payload['canRunExisting'] ?? null);
         $blockReason = self::normalizeBlockReason(self::stringValue(
             $payload['block_reason']
                 ?? $payload['blocked_reason']

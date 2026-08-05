@@ -8,6 +8,7 @@ use Capell\Core\Actions\Scaffolding\ScaffoldPackageAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Scaffolding\PackageScaffoldInputData;
 use Capell\Core\Enums\PackageScaffoldProfile;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as CommandAlias;
@@ -199,7 +200,7 @@ final class MakeExtensionCommand extends Command
             return null;
         }
 
-        if (! str_starts_with($basePath, DIRECTORY_SEPARATOR)) {
+        if (! AbsolutePath::is($basePath)) {
             $basePath = getcwd() . DIRECTORY_SEPARATOR . $basePath;
         }
 

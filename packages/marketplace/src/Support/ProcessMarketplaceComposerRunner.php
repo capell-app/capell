@@ -5,28 +5,28 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Support;
 
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
-use Capell\Core\Support\Json\JsonCodec;
-use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
-use JsonException;
-use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
 final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticatedComposerRunner
 {
     public function __construct(
         private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
+        private readonly RuntimeBinaryResolver $binaryResolver = new RuntimeBinaryResolver,
+        private readonly MarketplaceComposerAuthWorkspace $authWorkspace = new MarketplaceComposerAuthWorkspace,
+        private readonly MarketplaceComposerEnvironment $environment = new MarketplaceComposerEnvironment,
     ) {}
 
     public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
     {
         $this->assertReleaseRootWritable();
+        $this->authWorkspace->sweep();
 
         $composerHome = storage_path('framework/composer');
-        $this->ensureDirectory($composerHome);
+        $this->authWorkspace->ensureDirectory($composerHome);
 
         return $this->runComposer($composerName, $versionConstraint, $timeoutSeconds, $composerHome);
     }
@@ -41,17 +41,15 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         array $composerAuth,
     ): MarketplaceComposerResultData {
         $this->assertReleaseRootWritable();
+        $this->authWorkspace->sweep();
 
-        $composerHome = storage_path('framework/composer/marketplace-auth-' . bin2hex(random_bytes(8)));
-        $this->ensureDirectory($composerHome);
-        $this->writeComposerAuth($composerHome, $composerAuth);
+        $composerHome = $this->authWorkspace->create();
+        $this->authWorkspace->writeAuthFile($composerHome, $composerAuth);
 
         try {
-            return $this->redactComposerAuth(
-                $this->runComposer($composerName, $versionConstraint, $timeoutSeconds, $composerHome),
-            );
+            return $this->runComposer($composerName, $versionConstraint, $timeoutSeconds, $composerHome)->redacted();
         } finally {
-            $this->removeDirectory($composerHome);
+            $this->authWorkspace->removeDirectory($composerHome);
         }
     }
 
@@ -70,11 +68,12 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         int $timeoutSeconds,
         string $composerHome,
     ): MarketplaceComposerResultData {
+        $this->authWorkspace->ensureDirectory($this->environment->cacheDirectory());
+
         $process = new Process([
-            $this->phpCliBinary(),
-            $this->composerBinary(),
+            ...$this->binaryResolver->composer(),
             ...$this->composerRequireArguments($composerName, $versionConstraint),
-        ], base_path(), $this->processEnvironment($composerHome));
+        ], base_path(), $this->environment->variables($composerHome));
 
         $process->setTimeout($timeoutSeconds);
 
@@ -97,115 +96,25 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
     }
 
     /**
-     * @param  array<string, mixed>  $composerAuth
+     * --no-scripts keeps the application's Composer hooks from firing against a
+     * half-written autoload map. Every one of them is suppressed, not only
+     * Laravel's package:discover, so the install job replays the application's
+     * whole post-autoload-dump chain once the require has finished — see
+     * MarketplaceComposerScriptRunner. --no-audit and --no-progress keep
+     * a non-interactive run from spending its timeout on output nobody reads.
      *
-     * @throws JsonException
-     */
-    private function writeComposerAuth(string $composerHome, array $composerAuth): void
-    {
-        $path = $composerHome . '/auth.json';
-        $written = @file_put_contents(
-            $path,
-            JsonCodec::encode($composerAuth, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
-        );
-
-        throw_if($written === false, RuntimeException::class, 'Unable to write Composer authentication file.');
-
-        @chmod($path, 0600);
-    }
-
-    private function phpCliBinary(): string
-    {
-        $php = (new ExecutableFinder)->find('php');
-
-        throw_if(! is_string($php) || $php === '', RuntimeException::class, 'PHP CLI binary could not be found.');
-
-        return $php;
-    }
-
-    private function composerBinary(): string
-    {
-        $composer = (new ExecutableFinder)->find('composer');
-
-        throw_if(! is_string($composer) || $composer === '', RuntimeException::class, 'Composer binary could not be found.');
-
-        return $composer;
-    }
-
-    private function ensureDirectory(string $path): void
-    {
-        if (is_dir($path)) {
-            return;
-        }
-
-        $created = @mkdir($path, 0755, true);
-
-        throw_unless(
-            $created || is_dir($path),
-            RuntimeException::class,
-            'Unable to create Composer home directory: ' . $path,
-        );
-    }
-
-    private function removeDirectory(string $path): void
-    {
-        if (! is_dir($path)) {
-            return;
-        }
-
-        $items = scandir($path);
-
-        if ($items === false) {
-            return;
-        }
-
-        foreach ($items as $item) {
-            if ($item === '.') {
-                continue;
-            }
-
-            if ($item === '..') {
-                continue;
-            }
-
-            $itemPath = $path . DIRECTORY_SEPARATOR . $item;
-
-            if (is_dir($itemPath)) {
-                $this->removeDirectory($itemPath);
-
-                continue;
-            }
-
-            @unlink($itemPath);
-        }
-
-        @rmdir($path);
-    }
-
-    private function redactComposerAuth(MarketplaceComposerResultData $result): MarketplaceComposerResultData
-    {
-        $redacted = RedactMarketplaceDiagnosticContextAction::run([
-            'output' => $result->output,
-            'error_output' => $result->errorOutput,
-        ]);
-
-        return new MarketplaceComposerResultData(
-            exitCode: $result->exitCode,
-            output: is_string($redacted['output'] ?? null) ? $redacted['output'] : '[redacted]',
-            errorOutput: is_string($redacted['error_output'] ?? null) ? $redacted['error_output'] : '[redacted]',
-            timedOut: $result->timedOut,
-        );
-    }
-
-    /**
      * @return array<int, string>
      */
     private function composerRequireArguments(string $composerName, string $versionConstraint): array
     {
         return [
-            '--no-cache',
+            // A global option, so it has to precede the command.
+            ...($this->cacheDisabled() ? ['--no-cache'] : []),
             'require',
             '--no-interaction',
+            '--no-scripts',
+            '--no-audit',
+            '--no-progress',
             '--prefer-dist',
             '--with-all-dependencies',
             sprintf('%s:%s', $composerName, $versionConstraint),
@@ -213,24 +122,12 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
     }
 
     /**
-     * @return array<string, string|false>
+     * Off by default. Forcing --no-cache re-downloads every dependency on every
+     * install, which is slow everywhere and actively hostile on a metered or
+     * rate-limited host.
      */
-    private function processEnvironment(string $composerHome): array
+    private function cacheDisabled(): bool
     {
-        $home = getenv('HOME');
-
-        return [
-            'COMPOSER_HOME' => $composerHome,
-            'COMPOSER_AUTH' => false,
-            'COMPOSER_TOKEN' => false,
-            'GIT_ASKPASS' => false,
-            'GIT_TERMINAL_PROMPT' => '0',
-            'GITHUB_TOKEN' => false,
-            'GITHUB_AUTH_TOKEN' => false,
-            'GITLAB_TOKEN' => false,
-            'HOME' => is_string($home) && $home !== '' ? $home : $composerHome,
-            'PACKAGIST_TOKEN' => false,
-            'SSH_AUTH_SOCK' => false,
-        ];
+        return (bool) config('capell.process.composer.no_cache', false);
     }
 }

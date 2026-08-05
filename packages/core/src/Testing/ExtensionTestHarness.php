@@ -8,6 +8,7 @@ use AssertionError;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
@@ -54,7 +55,7 @@ final class ExtensionTestHarness
 
         if ($basePath === null || $basePath === '') {
             $basePath = getcwd() . '/packages';
-        } elseif (! str_starts_with($basePath, DIRECTORY_SEPARATOR)) {
+        } elseif (! AbsolutePath::is($basePath)) {
             $basePath = getcwd() . DIRECTORY_SEPARATOR . $basePath;
         }
 

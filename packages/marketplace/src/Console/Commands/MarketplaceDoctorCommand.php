@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Console\Commands;
 
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Illuminate\Console\Command;
 
 final class MarketplaceDoctorCommand extends Command
@@ -29,6 +30,18 @@ final class MarketplaceDoctorCommand extends Command
 
         foreach ($report->checks as $check) {
             $this->line(sprintf('[%s] %s: %s', $check->passed ? 'OK' : 'FAIL', $check->label, $check->message));
+
+            if ($check->remediation !== null) {
+                $this->line('       ' . $check->remediation);
+            }
+        }
+
+        // Only worth saying when there is something to look up. A passing report
+        // should end without homework.
+        if ($report->status !== 'passed') {
+            $this->line((string) __('capell-marketplace::marketplace.operations.doctor_docs_hint', [
+                'path' => EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH,
+            ]));
         }
 
         return $report->status === 'passed' ? self::SUCCESS : self::FAILURE;

@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Diagnostics;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
@@ -64,7 +65,7 @@ final class BuildThemeDoctorReportAction
     private function themePath(string $theme, ?string $path): string
     {
         if (is_string($path) && $path !== '') {
-            return str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
+            return AbsolutePath::is($path) ? $path : base_path($path);
         }
 
         return base_path('packages/' . $theme);

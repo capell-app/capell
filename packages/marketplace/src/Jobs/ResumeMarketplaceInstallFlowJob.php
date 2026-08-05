@@ -23,10 +23,19 @@ final class ResumeMarketplaceInstallFlowJob implements ShouldQueue
 
     public int $timeout = 900;
 
+    /**
+     * Pinned to the Marketplace connection and queue rather than the
+     * application default. A host with a dedicated Marketplace worker runs only
+     * that queue, so an inherited default lands this job on a queue nothing is
+     * consuming and the returning install flow silently never resumes.
+     */
     public function __construct(
         public readonly int $sessionId,
         public readonly MarketplaceInstallActorData $actor,
-    ) {}
+    ) {
+        $this->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'));
+        $this->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
+    }
 
     public function handle(): void
     {

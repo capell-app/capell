@@ -85,6 +85,8 @@ use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
+use Capell\Marketplace\Support\ProcessMarketplaceComposerScriptRunner;
 use InvalidArgumentException;
 
 /**
@@ -185,6 +187,8 @@ final class SingletonLifetimeInventory
 
             // Installer/Marketplace boot process state.
             PatchRegistry::class => self::boot('Installer patches are registered during provider boot.'),
+            ProcessMarketplaceComposerRunner::class => self::stateless('The runner retains only readonly collaborators; its one mutable field is the suffix list inside Symfony ExecutableFinder, which Capell never sets.'),
+            ProcessMarketplaceComposerScriptRunner::class => self::stateless('The script runner retains only readonly collaborators; its one mutable field is the suffix list inside Symfony ExecutableFinder, which Capell never sets.'),
 
             // Core wrappers around boot registries or stateless collaborators.
             EventSourcedRegistry::class => self::boot('Event-sourced model definitions are package boot registrations.'),

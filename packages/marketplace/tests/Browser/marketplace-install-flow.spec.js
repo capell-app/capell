@@ -207,6 +207,25 @@ async function selectMarketplaceExtension(page) {
     await expect(review).toBeVisible({ timeout: 15000 })
     await review.click()
 
+    await expect(
+        dialog.locator('[data-capell-marketplace-readiness-summary]'),
+    ).toBeVisible({ timeout: 15000 })
+
+    const manualInstall = dialog.locator(
+        '[data-capell-marketplace-manual-install-cta]',
+    )
+    requireMarketplacePrecondition(
+        !(await manualInstall.isVisible().catch(() => false)),
+        'The smoke host only supports manual installation; hosted install approval cannot continue.',
+    )
+
+    const licenceForm = dialog.locator('[data-capell-marketplace-licence-form]')
+    if (await licenceForm.isVisible().catch(() => false)) {
+        await expect(
+            licenceForm.locator('[data-capell-marketplace-licence-key]'),
+        ).toBeVisible()
+    }
+
     const finalInstall = dialog
         .getByRole('button', {
             name: /install \d+ package|download|continue|start|confirm/i,
@@ -215,6 +234,13 @@ async function selectMarketplaceExtension(page) {
 
     await expect(finalInstall).toBeVisible({ timeout: 15000 })
     await finalInstall.click()
+
+    const progressCard = dialog
+        .locator('[data-capell-marketplace-progress-card]')
+        .first()
+    await progressCard
+        .waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => null)
 }
 
 async function continueCapellaFlow(page) {

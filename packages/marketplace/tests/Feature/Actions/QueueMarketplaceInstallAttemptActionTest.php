@@ -196,7 +196,7 @@ it('does not invoke the deployment publisher when cancellation commits before pu
     Event::listen(
         'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
         function (MarketplaceInstallAttemptEvent $event): void {
-            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+            if (($event->context['check'] ?? null) !== 'queue_ready') {
                 return;
             }
 

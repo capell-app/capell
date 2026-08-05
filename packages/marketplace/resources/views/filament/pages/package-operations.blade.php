@@ -5,6 +5,8 @@
 
     <div
         class="space-y-6"
+        x-on:marketplace-copy-diagnostics.window="navigator.clipboard.writeText($event.detail.diagnostics)"
+        data-capell-marketplace-package-operations
         @if ($selectedOperation?->status->isActiveInstallOperation()) wire:poll.2s @endif
     >
         <div
@@ -187,7 +189,11 @@
                             {{ __('capell-marketplace::marketplace.operations.failure_classification') }}
                         </dt>
                         <dd class="mt-1 text-gray-950 dark:text-white">
-                            {{ $selectedOperation->failure_stage ?: '-' }}{{ $selectedOperation->failure_type ? ' / ' . $selectedOperation->failure_type : '' }}
+                            @php
+                                $failureStage = $selectedOperation->failure_stage !== null ? \Capell\Marketplace\Enums\MarketplaceInstallFailureStage::tryFrom($selectedOperation->failure_stage) : null;
+                                $failureType = $selectedOperation->failure_type !== null ? \Capell\Marketplace\Enums\MarketplaceInstallFailureType::tryFrom($selectedOperation->failure_type) : null;
+                            @endphp
+                            {{ $failureStage?->getLabel() ?? '-' }}{{ $failureType ? ' / ' . $failureType->getLabel() : '' }}
                         </dd>
                     </div>
                     <div>
@@ -237,13 +243,13 @@
                                     <span
                                         class="text-xs text-gray-500 dark:text-gray-400"
                                     >
-                                        {{ $event->occurred_at?->toDateTimeString() }}
+                                        {{ $event->occurred_at?->translatedFormat('M j, Y H:i') }}
                                     </span>
                                 </div>
                                 <div
                                     class="mt-1 text-xs text-gray-500 dark:text-gray-400"
                                 >
-                                    {{ $event->level->value }}{{ $event->stage ? ' / ' . $event->stage->value : '' }}
+                                    {{ $event->level->getLabel() }}{{ $event->stage ? ' / ' . $event->stage->getLabel() : '' }}
                                 </div>
                                 @if ($event->output_excerpt)
                                     <pre

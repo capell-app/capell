@@ -59,6 +59,16 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 - For prompt-free agent runs, include required prompt options: `--url=<url>`, `--package-mode=all` or `--packages=...`, `--theme=foundation`, `--name=...`, `--email=...`, `--password=...`, `--clear-cache`, and `--install-welcome-route`.
 - Full details and option mapping live in `references/commands.md`.
 
+## Marketplace Operations
+
+- Browse and review extensions before changing Composer state. The review is authoritative for dependencies, maturity, entitlement, and host readiness.
+- Install one package with `php artisan capell:extension-install vendor/package` after Composer has made it available. Use the queued install when the host reports `Automated`; follow the deployment or manual instructions for other capability tiers.
+- Run one-click or bulk updates from the admin. Updates use the same preflight, queue, health-check, and Package Operations timeline as installs.
+- Uninstall through the admin flow so the extension-owned lifecycle runs before package removal. Data deletion is a separate explicit choice. Check dependants first.
+- Diagnose the host with `php artisan capell:doctor`. Do not bypass process-execution, release-writeability, shared-cache, or timeout-chain failures.
+- Marketplace jobs use their configured named queue. Keep the displayed `queue:work --queue=...` command supervised and confirm Package Operations advances beyond `queued`.
+- Use Package Operations to cancel, retry, resolve, or copy redacted diagnostics. A retry creates a linked attempt and preserves the earlier evidence.
+
 ## References
 
 - `references/architecture.md`: schema, models, routing, morph map, bootstrap order.

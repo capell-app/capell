@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Core\Models\SiteDomain;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
@@ -58,7 +59,7 @@ it('shows marketplace header actions without the connection alert on the install
         ->assertSuccessful()
         ->assertActionDoesNotExist('browseMarketplace')
         ->assertActionVisible('openMarketplace')
-        ->assertActionHidden('marketplaceInstallOperations')
+        ->assertActionVisible('marketplaceInstallOperations')
         ->assertActionExists('connectMarketplaceAccount')
         ->assertSee(__('capell-marketplace::marketplace.marketplace.connect_account_button'))
         ->assertSee(__('capell-marketplace::marketplace.marketplace.extensions_marketplace'))
@@ -67,7 +68,7 @@ it('shows marketplace header actions without the connection alert on the install
         ->assertDontSee(__('capell-marketplace::marketplace.marketplace.verify_button'));
 });
 
-it('shows the marketplace install operations header action only when operations exist', function (): void {
+it('keeps the marketplace install operations header action visible when operations exist', function (): void {
     grantInstalledExtensionsPageManagementAccessForMarketplaceTest();
 
     marketplaceExtensionsPageAttempt(['status' => MarketplaceInstallIntentStatus::Queued]);
@@ -109,6 +110,20 @@ it('renders the marketplace selection footer above card overlays', function (): 
     expect(view('capell-marketplace::filament.actions.open-marketplace-footer')->render())
         ->toContain('id="capell-marketplace-browser-modal-footer"')
         ->toContain('relative z-50 w-full');
+});
+
+it('links marketplace configuration failures to settings', function (): void {
+    grantInstalledExtensionsPageManagementAccessForMarketplaceTest();
+    Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
+    test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
+    config(['capell-marketplace.marketplace.base_url' => null]);
+
+    expect(view('capell-marketplace::filament.pages.extensions-page-marketplace-status', [
+        'marketplaceConnection' => resolve(MarketplaceConnectionFormModel::class),
+        'marketplaceConnectionActionsVisible' => true,
+    ])->render())
+        ->toContain('data-capell-marketplace-settings-link')
+        ->toContain(SettingsPage::getUrl());
 });
 
 it('shows the installed extensions marketplace action after account connection is fully ready', function (): void {
@@ -422,13 +437,11 @@ it('renders safe commercial status when connection details are explicitly availa
     ])->render();
 
     expect($content)
-        ->toContain('Capell Membership')
-        ->toContain('GBP 199.00')
-        ->toContain('GBP 159.20')
-        ->toContain('38 products')
-        ->toContain('£49.00')
-        ->toContain('https://capell.test/customer/packages')
-        ->toContain('https://capell.test/support/request')
+        ->toContain(__('capell-marketplace::marketplace.purchases.page_title'))
+        ->toContain('data-capell-marketplace-purchases-link')
+        ->not->toContain('GBP 199.00')
+        ->not->toContain('£49.00')
+        ->not->toContain('https://capell.test/support/request')
         ->not->toContain('secret-value')
         ->not->toContain('acct_123');
 });
