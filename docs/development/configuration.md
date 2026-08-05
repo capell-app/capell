@@ -243,6 +243,10 @@ Source: `packages/marketplace/config/capell-marketplace.php`
 | `CAPELL_MARKETPLACE_HTTP_PROXY`                            | _(null)_                                                   | Proxy URL applied to every outbound marketplace call  |
 | `CAPELL_MARKETPLACE_HTTP_VERIFY`                           | _(null)_                                                   | Path to a CA bundle, or `false`, for every outbound marketplace call |
 | `CAPELL_MARKETPLACE_QUEUE`                                 | `capell-marketplace`                                       | Named queue Marketplace install jobs are sent to      |
+| `CAPELL_MARKETPLACE_QUEUED_STALE_AFTER_SECONDS`            | `120`                                                      | How long an install may sit queued before Capell reports that nothing is consuming the queue |
+| `CAPELL_MARKETPLACE_WORKER_HEARTBEAT_STALE_AFTER_SECONDS`  | `300`                                                      | How long a recorded worker heartbeat still counts as evidence a worker is running |
+| `CAPELL_MARKETPLACE_HEALTH_HTTP_PROBE`                     | `true`                                                     | Whether the post-install health check also requests the site's own homepage |
+| `CAPELL_MARKETPLACE_HEALTH_HTTP_TIMEOUT_SECONDS`           | `5`                                                        | Timeout for that homepage request                     |
 
 Marketplace installs do not use `QUEUE_CONNECTION`. They are pinned to
 `CAPELL_MARKETPLACE_QUEUE_CONNECTION` (default `database`) and the named queue
@@ -256,6 +260,17 @@ php artisan queue:work database --queue=capell-marketplace --timeout=900
 
 If you set this connection to `sync`, the Composer install runs inside the web request
 and will be killed by `max_execution_time`. Keep it on a real queue connection.
+
+After every package change, Capell runs a health check before it calls the operation a
+success, and rolls `composer.json`, `composer.lock` and `vendor/` back to how they were
+if that check refuses the site. The primary probe boots a fresh PHP process — it needs
+no web server and no publicly reachable hostname, and it checks bootstrap and autoload
+state rather than that something answers on a port. `CAPELL_MARKETPLACE_HEALTH_HTTP_PROBE`
+controls only the secondary request to your own homepage; turning it off loses a
+confirmation but can never turn a failure into a pass, because a probe that cannot
+connect already skips rather than failing. A site that is not reachable from inside
+itself — behind a load balancer, or in a container — is a normal deployment, not a
+broken one.
 
 Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace APIs. If Marketplace reports that `api/registration-sessions` cannot be found, the app is probably using an old unversioned API URL.
 
