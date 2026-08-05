@@ -8,6 +8,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
@@ -993,7 +994,12 @@ it('rolls the composer state back when the extension lifecycle fails', function 
         // back, not merely that something failed.
         ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeTrue()
         ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_rollback_completed'))->exists())
-        ->toBeTrue();
+        ->toBeTrue()
+        // The snapshot and the rollback budget are the two arguments the
+        // recovery actually depends on, and PHP would let the job pass neither
+        // without a murmur, so they are asserted rather than assumed.
+        ->and($rollbacks->snapshots[0])->toBeInstanceOf(ComposerStateSnapshot::class)
+        ->and($rollbacks->timeoutSeconds[0])->toBeGreaterThan(0);
 });
 
 it('rolls the composer state back when the post-install health check refuses the site', function (): void {
@@ -1375,19 +1381,36 @@ it('leaves the sites alone when the operator did not ask for the theme to be app
 });
 
 /**
- * A stand-in for RestoreComposerStateAction that counts calls instead of running
- * a real recovery `composer install`. Named rather than anonymous so the call
- * count is a typed property the whole suite can read.
+ * A stand-in for RestoreComposerStateAction that records what it was asked to
+ * restore instead of running a real recovery `composer install`. Named rather
+ * than anonymous so the recordings are typed properties the whole suite can read.
+ *
+ * The parameters are kept, and recorded, deliberately. PHP tolerates extra
+ * arguments to a handle() that declares none, so dropping them would silently
+ * sever the only place where the snapshot and the rollback budget reaching
+ * RestoreComposerStateAction can be observed — and a job that passed the wrong
+ * budget, or no snapshot, would keep every one of these tests green.
  */
 final class MarketplaceRollbackRecorder
 {
     public int $calls = 0;
 
+    /** @var list<ComposerStateSnapshot> */
+    public array $snapshots = [];
+
+    /** @var list<int> */
+    public array $timeoutSeconds = [];
+
     public function __construct(private readonly ?Throwable $rollbackFailure = null) {}
 
-    public function handle(): bool
-    {
+    public function handle(
+        ComposerStateSnapshot $snapshot,
+        int $timeoutSeconds = ComposerStateSnapshot::DEFAULT_TIMEOUT_SECONDS,
+    ): bool {
         $this->calls++;
+        $this->snapshots[] = $snapshot;
+        $this->timeoutSeconds[] = $timeoutSeconds;
+
         if ($this->rollbackFailure instanceof Throwable) {
             throw $this->rollbackFailure;
         }

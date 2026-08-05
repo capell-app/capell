@@ -125,17 +125,6 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
     }
 
     /**
-     * Keep the worker heartbeat current on a quiet installation.
-     *
-     * Marketplace jobs record a heartbeat as they run, but an installation that
-     * has not installed anything for a week has no jobs to record one — and an
-     * operator who then starts an install deserves to know whether a worker is
-     * there before they wait on it, not after.
-     *
-     * Pointless on a synchronous connection, where the probe would run inside
-     * the scheduler and prove only that the scheduler is alive.
-     */
-    /**
      * Keep this site's view of the catalogue, its updates and its security
      * advisories current without anyone logging in.
      *
@@ -182,6 +171,17 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         });
     }
 
+    /**
+     * Keep the worker heartbeat current on a quiet installation.
+     *
+     * Marketplace jobs record a heartbeat as they run, but an installation that
+     * has not installed anything for a week has no jobs to record one — and an
+     * operator who then starts an install deserves to know whether a worker is
+     * there before they wait on it, not after.
+     *
+     * Pointless on a synchronous connection, where the probe would run inside
+     * the scheduler and prove only that the scheduler is alive.
+     */
     private function scheduleWorkerHeartbeatProbe(): void
     {
         if (MarketplaceQueueWorkerCommand::isSynchronous()) {

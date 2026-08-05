@@ -133,7 +133,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
     protected ?int $startedAtNanoseconds = null;
 
     public function __construct(
-        protected readonly int $installAttemptId,
+        private readonly int $installAttemptId,
     ) {
         $this->timeout = static::jobTimeoutSeconds();
     }
