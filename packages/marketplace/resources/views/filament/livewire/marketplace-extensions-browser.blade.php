@@ -118,7 +118,11 @@
                 'readiness' => $this->marketplaceEnvironmentReadiness(),
             ])
 
-            @if ($marketplaceStep === 'review')
+            @if ($marketplaceStep === 'progress')
+                @include('capell-marketplace::filament.livewire.marketplace-extensions-browser.install-progress', [
+                    'progressRecords' => $this->marketplaceInstallProgress(),
+                ])
+            @elseif ($marketplaceStep === 'review')
                 @include('capell-marketplace::filament.livewire.marketplace-extensions-browser.install-review', [
                     'selection' => $selection,
                     'readiness' => $this->marketplaceEnvironmentReadiness(),

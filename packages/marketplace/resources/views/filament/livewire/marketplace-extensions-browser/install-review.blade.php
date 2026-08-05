@@ -359,6 +359,28 @@
         </div>
     @endif
 
+    {{-- Only asked when a theme is actually being installed, and off by default:
+         applying a theme changes what every visitor sees. --}}
+    @if ($this->marketplaceSelectionContainsTheme())
+        <label
+            data-capell-marketplace-activate-theme-option
+            class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm dark:border-white/10 dark:bg-gray-900"
+        >
+            <x-filament::input.checkbox
+                wire:model.live="activateMarketplaceThemesAfterInstall"
+            />
+
+            <span class="space-y-1">
+                <span class="block font-semibold text-gray-950 dark:text-white">
+                    {{ __('capell-marketplace::marketplace.selection.activate_theme_after_install_label') }}
+                </span>
+                <span class="block text-gray-600 dark:text-gray-400">
+                    {{ __('capell-marketplace::marketplace.selection.activate_theme_after_install_help') }}
+                </span>
+            </span>
+        </label>
+    @endif
+
     @if ($selection['contains_beta'])
         <label
             class="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"

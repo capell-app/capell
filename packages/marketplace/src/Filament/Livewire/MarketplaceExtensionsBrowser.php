@@ -7,11 +7,14 @@ namespace Capell\Marketplace\Filament\Livewire;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
+use Capell\Marketplace\Enums\ExtensionKind;
+use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
@@ -41,6 +44,15 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     private const string STEP_REVIEW = 'review';
 
+    /**
+     * Confirming an install used to navigate the operator away from the modal to
+     * the operations page. That is a page load, a lost catalogue position, and a
+     * context switch imposed at the exact moment the thing they asked for starts
+     * working. The modal now shows the operation running, and the operations page
+     * stays one click away for anyone who wants the full timeline.
+     */
+    private const string STEP_PROGRESS = 'progress';
+
     public ?string $lockedKind = null;
 
     public ?string $initialSearch = null;
@@ -57,6 +69,15 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     public bool $installReviewedMarketplaceExtensionsConfirmed = false;
 
     public bool $betaMarketplaceExtensionsAcknowledged = false;
+
+    /**
+     * Default OFF, and it says so on the label. Applying a theme replaces what
+     * every visitor sees; opting into that is a decision, not a default.
+     */
+    public bool $activateMarketplaceThemesAfterInstall = false;
+
+    /** @var array<int, int> */
+    public array $activeMarketplaceInstallAttemptIds = [];
 
     /** @var array<string, mixed> */
     public array $selectedMarketplaceInstallOptions = [];
@@ -196,6 +217,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         }
 
         $this->marketplaceStep = self::STEP_REVIEW;
+        $this->activeMarketplaceInstallAttemptIds = [];
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
         $this->betaMarketplaceExtensionsAcknowledged = false;
         $this->selectedMarketplaceInstallOptions = [
@@ -282,6 +304,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 data: [
                     'install_options' => [
                         ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
+                        ...$this->themeActivationInstallOption($record),
                         'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
                     ],
                 ],
@@ -299,8 +322,114 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         $this->selectedMarketplaceInstallOptions = [];
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
         $this->resolvedMarketplaceSelectionReview = null;
+        $this->activeMarketplaceInstallAttemptIds = $this->activeMarketplaceInstallAttemptIdsFor($installComposerNames);
+        $this->marketplaceStep = self::STEP_PROGRESS;
+    }
+
+    /**
+     * The live state of the operations this modal started.
+     *
+     * Read straight from the attempts rather than mirrored into component state:
+     * the job writes current_stage, progress_current and heartbeat_at as it goes,
+     * and a second copy of that in a Livewire property is a copy that can be
+     * stale at exactly the moment the operator is watching it.
+     *
+     * @return array<int, array{
+     *     id: int,
+     *     name: string,
+     *     composer_name: string,
+     *     status: string,
+     *     stage: ?string,
+     *     stage_label: string,
+     *     progress_current: int,
+     *     progress_total: int,
+     *     active: bool,
+     *     succeeded: bool,
+     *     failure_reason: ?string
+     * }>
+     */
+    public function marketplaceInstallProgress(): array
+    {
+        $this->authorizeMarketplaceAccess();
+
+        if ($this->activeMarketplaceInstallAttemptIds === []) {
+            return [];
+        }
+
+        return MarketplaceInstallAttempt::query()
+            ->whereKey($this->activeMarketplaceInstallAttemptIds)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (MarketplaceInstallAttempt $attempt): array => [
+                'id' => (int) $attempt->getKey(),
+                'name' => $attempt->extension_name,
+                'composer_name' => $attempt->composer_name,
+                'status' => $attempt->status->value,
+                'stage' => $attempt->current_stage,
+                'stage_label' => $this->marketplaceInstallStageLabel($attempt),
+                'progress_current' => max(0, $attempt->progress_current ?? 0),
+                'progress_total' => max(1, $attempt->progress_total ?? 5),
+                'active' => $attempt->status->isActiveInstallOperation(),
+                'succeeded' => $attempt->status === MarketplaceInstallIntentStatus::Succeeded,
+                'failure_reason' => $attempt->failure_reason,
+            ])
+            ->all();
+    }
+
+    /**
+     * Whether anything this modal started is still running, which is what the
+     * view polls on. Polling stops the moment nothing is active — a modal that
+     * keeps hitting the server after every operation finished is a background
+     * cost nobody asked for.
+     */
+    public function hasActiveMarketplaceInstalls(): bool
+    {
+        foreach ($this->marketplaceInstallProgress() as $progress) {
+            if ($progress['active']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The escape hatch to the full timeline. The redirect the confirm step used
+     * to perform automatically is still here — it is now something the operator
+     * chooses rather than something done to them.
+     */
+    public function viewMarketplaceInstallOperations(): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $this->redirect(MarketplacePackageOperationsPage::getUrl(array_filter([
+            'tab' => 'active',
+            'operation' => $this->activeMarketplaceInstallAttemptIds[0] ?? null,
+        ])));
+    }
+
+    public function backToMarketplaceBrowseFromProgress(): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $this->activeMarketplaceInstallAttemptIds = [];
         $this->marketplaceStep = self::STEP_BROWSE;
-        $this->redirectToMarketplaceInstallOperations($installComposerNames);
+    }
+
+    /**
+     * Whether the review screen should offer to apply a theme once it is
+     * installed. Only asked when a theme is actually being installed — an
+     * operator installing a plugin has no business being shown a theme question.
+     */
+    public function marketplaceSelectionContainsTheme(): bool
+    {
+        foreach ($this->marketplaceSelectionReview()['install_records'] as $record) {
+            if (($record['kind'] ?? null) === ExtensionKind::Theme->value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -488,10 +617,17 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         abort_unless(MarketplacePage::canAccess(), 403);
     }
 
-    /** @param array<int, string> $composerNames */
-    private function redirectToMarketplaceInstallOperations(array $composerNames): void
+    /**
+     * @param  array<int, string>  $composerNames
+     * @return array<int, int>
+     */
+    private function activeMarketplaceInstallAttemptIdsFor(array $composerNames): array
     {
-        $attempt = MarketplaceInstallAttempt::query()
+        if ($composerNames === []) {
+            return [];
+        }
+
+        return MarketplaceInstallAttempt::query()
             ->whereIn('composer_name', $composerNames)
             ->whereIn('status', [
                 MarketplaceInstallIntentStatus::Queued->value,
@@ -499,12 +635,44 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 MarketplaceInstallIntentStatus::CancelRequested->value,
             ])
             ->latest()
-            ->first();
+            ->get()
+            // One row per package: a retried install leaves older attempts for
+            // the same package behind, and showing the operator two pills for
+            // one thing they installed once is a lie about what is happening.
+            ->unique('composer_name')
+            ->map(fn (MarketplaceInstallAttempt $attempt): int => (int) $attempt->getKey())
+            ->values()
+            ->all();
+    }
 
-        $this->redirect(MarketplacePackageOperationsPage::getUrl(array_filter([
-            'tab' => 'active',
-            'operation' => $attempt instanceof MarketplaceInstallAttempt ? $attempt->getKey() : null,
-        ])));
+    private function marketplaceInstallStageLabel(MarketplaceInstallAttempt $attempt): string
+    {
+        if ($attempt->status === MarketplaceInstallIntentStatus::Succeeded) {
+            return (string) __('capell-marketplace::marketplace.progress.stage_completed');
+        }
+
+        if (! $attempt->status->isActiveInstallOperation()) {
+            return (string) __('capell-marketplace::marketplace.progress.stage_stopped');
+        }
+
+        $stage = MarketplaceInstallFailureStage::tryFrom((string) $attempt->current_stage);
+
+        return (string) __(
+            'capell-marketplace::marketplace.progress.stage_' . ($stage?->value ?? 'queue'),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @return array<string, bool>
+     */
+    private function themeActivationInstallOption(array $record): array
+    {
+        if (($record['kind'] ?? null) !== ExtensionKind::Theme->value) {
+            return [];
+        }
+
+        return [RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => $this->activateMarketplaceThemesAfterInstall];
     }
 
     /** @return array<string, mixed> */

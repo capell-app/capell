@@ -195,7 +195,16 @@ final class InstallMarketplaceExtensionAction
                 versionConstraint: $acquisition->versionConstraint,
                 imageUrl: $listing->imageUrl,
                 description: $listing->description,
-                metadata: $this->authorizationLedgerSummary($acquisition),
+                metadata: [
+                    ...$this->authorizationLedgerSummary($acquisition),
+                    // What the operator asked for on the review screen, kept
+                    // with the intent rather than only on the attempt: the
+                    // attempt is a record of one run, the intent is what is
+                    // still outstanding for this theme.
+                    RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => (bool) (
+                        $selectedInstallOptions[RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL] ?? false
+                    ),
+                ],
             );
         }
 
