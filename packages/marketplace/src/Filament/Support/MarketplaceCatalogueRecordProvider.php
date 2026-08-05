@@ -740,6 +740,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         $compatibilityDetails = resolve(VersionCompatibilityChecker::class)->compatibilityDetails($extension);
         $purchaseUrl = $this->trustedUrlPolicy->trusted($extension->purchaseUrl);
         $isCompatible = ! in_array('incompatible', $compatibilityDetails, true);
+        $hasUpdateAvailable = $includeLocalExtensionState
+            && $this->hasUpdateAvailable($installedVersion, $extension->latestVersion);
         $activeInstallOperation = $includeLocalExtensionState
             ? $this->activeInstallOperation($extension->composerName)
             : null;
@@ -786,7 +788,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'ratings_count_label' => $this->ratingsCountLabel($extension->ratingsCount),
             'is_installed' => $isInstalled,
             'installed_version' => $installedVersion,
-            'has_update_available' => $includeLocalExtensionState && $this->hasUpdateAvailable($installedVersion, $extension->latestVersion),
+            'has_update_available' => $hasUpdateAvailable,
             'documentation_url' => $this->trustedUrlPolicy->trusted($extension->documentationUrl),
             'purchase_url' => $purchaseUrl,
             'requires_confirmation' => $extension->requiresConfirmation,
@@ -818,6 +820,12 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'primary_action' => $extension->primaryAction,
             'marketplace_install_state' => $this->installActionPresenter->state([
                 'is_installed' => $isInstalled,
+                // Without this the presenter can never see an update from here:
+                // it short-circuits an installed record to Installed unless the
+                // key is present, so the persisted state collapsed and every
+                // consumer of marketplace_install_state was blind to
+                // UpdateAvailable.
+                'has_update_available' => $hasUpdateAvailable,
                 'is_compatible' => $isCompatible,
                 'is_paid' => $extension->isPaid,
                 'marketplace_install_state' => $extension->installState,

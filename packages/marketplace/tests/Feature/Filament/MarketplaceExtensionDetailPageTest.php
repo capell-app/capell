@@ -2,13 +2,17 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
+use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(CreatesAdminUser::class);
 
@@ -253,4 +257,57 @@ it('keeps the install instructions a disclosure on a host that installs automati
         ->assertSuccessful()
         ->assertDontSeeHtml('data-capell-marketplace-manual-install-cta')
         ->assertSee(__('capell-marketplace::marketplace.detail.manual_install_checkbox_label'));
+});
+
+it('offers no update while the extension already has an operation in flight', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse(),
+    ]);
+
+    // A bare version comparison would offer the update here. The card and the
+    // table both refuse it, and a detail page that disagreed with them would be
+    // making an offer the product then declines downstream.
+    expect(Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->instance()
+        ->canUpdate())->toBeTrue();
+
+    MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/seo-suite',
+        'extension_slug' => 'seo-suite',
+        'extension_name' => 'Advanced SEO Suite',
+        'kind' => 'plugin',
+        'status' => MarketplaceInstallIntentStatus::Running,
+    ]);
+
+    expect(Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->instance()
+        ->canUpdate())->toBeFalse();
+});
+
+it('refuses an update call from a user who may not reach the marketplace', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+
+    // Called on the instance rather than through a mounted page: the guard being
+    // tested is on the method, and the point is that the method is reachable
+    // without the render that canAccess() protects.
+    $page = new MarketplaceExtensionDetailPage;
+    $page->extensionSlug = 'seo-suite';
+
+    expect(MarketplaceExtensionDetailPage::canAccess())->toBeFalse()
+        ->and(function () use ($page): void {
+            $page->updateExtension();
+        })->toThrow(HttpException::class);
 });

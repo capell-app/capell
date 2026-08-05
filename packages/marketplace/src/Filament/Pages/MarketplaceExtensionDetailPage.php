@@ -10,14 +10,17 @@ use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Actions\AssertNoActiveMarketplaceOperationAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\SubmitExtensionFeedbackAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
 use Capell\Marketplace\Data\ExtensionFeedbackData;
+use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceUpdateChangelogPresenter;
 use Capell\Marketplace\Filament\Widgets\ExtensionHealthAlertsFilamentWidget;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -163,26 +166,43 @@ final class MarketplaceExtensionDetailPage extends Page
     /**
      * The version this site is running, or null when the extension is not
      * installed here at all.
+     *
+     * Resolved through the package registry first, the way the catalogue
+     * provider does, and only then through Composer's own metadata. Asking
+     * Composer alone answers null for a package the registry knows about, which
+     * would leave this page believing an installed extension is not installed —
+     * a third answer to a question the card and the table already agree on.
      */
     public function installedVersion(): ?string
     {
         $composerName = $this->detail()?->composerName;
 
-        return is_string($composerName) && $composerName !== ''
-            ? CapellCore::getInstalledPrettyVersion($composerName)
-            : null;
-    }
-
-    public function canUpdate(): bool
-    {
-        $installedVersion = $this->installedVersion();
-        $latestVersion = $this->detail()?->latestVersion;
-
-        if ($installedVersion === null || $latestVersion === null || $latestVersion === '') {
-            return false;
+        if (! is_string($composerName) || $composerName === '') {
+            return null;
         }
 
-        return version_compare(ltrim($latestVersion, 'vV'), ltrim($installedVersion, 'vV'), '>');
+        foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
+            if (CapellCore::hasPackage($candidateComposerName)) {
+                return CapellCore::getPackage($candidateComposerName)->version
+                    ?? CapellCore::getInstalledPrettyVersion($candidateComposerName);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the Update button belongs on this page.
+     *
+     * Delegates to the presenter for the same reason the card does: a bare
+     * version comparison here would offer an update for records the presenter
+     * has already ruled out as blocked, incompatible or mid-operation, and an
+     * offer the product then refuses downstream is worse than no offer at all.
+     */
+    public function canUpdate(): bool
+    {
+        return resolve(MarketplaceInstallActionPresenter::class)
+            ->canUpdate($this->updateEligibilityRecord());
     }
 
     /**
@@ -205,6 +225,12 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function updateExtension(): void
     {
+        // Page-level canAccess() gates the render; this gates the call. A
+        // Livewire method is reachable on its own, so the mutating entry point
+        // authorizes itself the way the card's does rather than trusting that
+        // whoever reached it came through a page they were allowed to see.
+        abort_unless(self::canAccess(), 403);
+
         $composerName = $this->detail()?->composerName;
 
         if (! is_string($composerName) || $composerName === '') {
@@ -445,6 +471,45 @@ final class MarketplaceExtensionDetailPage extends Page
         }
 
         return ExtensionHealthAlertsFilamentWidget::criticalAlertsForExtension($detail->slug, $detail->composerName);
+    }
+
+    /**
+     * The detail payload expressed in the shape every other surface hands the
+     * presenter, so all three read the same keys rather than three notions of
+     * "updatable".
+     *
+     * @return array<string, mixed>
+     */
+    private function updateEligibilityRecord(): array
+    {
+        $detail = $this->detail();
+
+        if (! $detail instanceof ExtensionDetailData) {
+            return [];
+        }
+
+        $installedVersion = $this->installedVersion();
+
+        return [
+            'composer_name' => $detail->composerName,
+            'is_installed' => $installedVersion !== null,
+            'has_update_available' => $this->newerVersionIsPublished($installedVersion, $detail->latestVersion),
+            'install_in_progress' => $detail->composerName !== ''
+                && AssertNoActiveMarketplaceOperationAction::isActive($detail->composerName),
+            'is_paid' => $detail->isPaid,
+            'purchase_url' => $detail->purchaseUrl,
+            'install_eligibility_policy' => $detail->installEligibilityPolicy?->toArray()
+                ?? $detail->installEligibility,
+        ];
+    }
+
+    private function newerVersionIsPublished(?string $installedVersion, ?string $latestVersion): bool
+    {
+        if ($installedVersion === null || $latestVersion === null || $latestVersion === '') {
+            return false;
+        }
+
+        return version_compare(ltrim($latestVersion, 'vV'), ltrim($installedVersion, 'vV'), '>');
     }
 
     /**

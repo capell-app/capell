@@ -919,6 +919,40 @@ it('throttles duplicate marketplace catalogue warm failure warnings', function (
     WarmMarketplaceCatalogueCacheAction::run();
 });
 
+it('persists update_available on the catalogue record, not just inside the presenter', function (): void {
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [
+                marketplaceCatalogueExtensionPayload([
+                    'slug' => 'seo-suite',
+                    'name' => 'SEO Suite',
+                    'composer_name' => 'capell-app/seo-suite',
+                    'latest_version' => '2.1.0',
+                ]),
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $records = (resolve(MarketplaceCatalogueRecordProvider::class))->records(
+        filters: [
+            'installed_status' => ['value' => 'installed'],
+        ],
+    );
+
+    // Asserted through the provider rather than the presenter: the presenter
+    // was already right, and the provider was handing it a record with
+    // has_update_available stripped out, so marketplace_install_state collapsed
+    // to `installed` and every consumer of the persisted value was blind to it.
+    expect($records[0]['has_update_available'])->toBeTrue()
+        ->and($records[0]['marketplace_install_state'])->toBe(MarketplaceInstallState::UpdateAvailable->value)
+        ->and(resolve(MarketplaceCatalogueTable::class)->marketplaceInstallState($records[0]))
+        ->toBe(MarketplaceInstallState::UpdateAvailable);
+});
+
 it('marks installed marketplace records with update and compatibility state', function (): void {
     CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
