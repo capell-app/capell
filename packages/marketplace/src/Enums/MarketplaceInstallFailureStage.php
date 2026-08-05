@@ -11,6 +11,7 @@ enum MarketplaceInstallFailureStage: string
     case Composer = 'composer';
     case PackageDiscovery = 'package_discovery';
     case Lifecycle = 'lifecycle';
+    case HealthCheck = 'health_check';
     case Notification = 'notification';
     case Queue = 'queue';
 }

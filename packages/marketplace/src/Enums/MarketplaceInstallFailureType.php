@@ -13,6 +13,8 @@ enum MarketplaceInstallFailureType: string
     case Timeout = 'timeout';
     case PackageNotDiscovered = 'package_not_discovered';
     case LifecycleException = 'lifecycle_exception';
+    case HealthCheckFailed = 'health_check_failed';
+    case RollbackFailed = 'rollback_failed';
     case DeploymentFailed = 'deployment_failed';
     case DeploymentUnavailable = 'deployment_unavailable';
     case CancelledAfterComposer = 'cancelled_after_composer';

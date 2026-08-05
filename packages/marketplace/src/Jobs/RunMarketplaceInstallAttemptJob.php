@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Jobs;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
+use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
@@ -20,6 +21,10 @@ use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
+use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
+use Capell\Marketplace\Actions\RestoreComposerStateAction;
+use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
+use Capell\Marketplace\Actions\SnapshotComposerStateAction;
 use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceInstallOperationProgressAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
@@ -31,6 +36,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Exceptions\MarketplaceHealthCheckFailedException;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
 use Carbon\CarbonInterface;
@@ -73,6 +79,22 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
      * the stuck operation the doctor reports.
      */
     public const int FINALISATION_RESERVE_SECONDS = 30;
+
+    /**
+     * The slice of the job budget the post-operation health check spends.
+     *
+     * It is carved out of the same budget as everything else rather than added
+     * to it, for the same reason the script replay is: $timeout is what the
+     * queue kills the worker at and what retry_after is sized against. A probe
+     * with a budget of its own would put the real worst case above the declared
+     * one, and a worker killed during the probe leaves an install that has been
+     * applied but never confirmed.
+     *
+     * A fresh `artisan` boot is seconds on a healthy host, so this is generous
+     * rather than tight — and being generous costs nothing, because the reserve
+     * is only spent when the probe actually runs.
+     */
+    public const int HEALTH_CHECK_RESERVE_SECONDS = 45;
 
     public int $timeout;
 
@@ -148,11 +170,49 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
      */
     public function scriptReplayBudgetSeconds(): int
     {
+        return $this->remainingBudgetSeconds(
+            self::FINALISATION_RESERVE_SECONDS + self::HEALTH_CHECK_RESERVE_SECONDS,
+        );
+    }
+
+    /**
+     * What the health check may spend: its reserve, or whatever is left if the
+     * Composer run and the script replay already ate into it.
+     *
+     * Capped at the reserve rather than handed the whole remainder, because the
+     * probe running long is not a reason to leave nothing for the rollback that
+     * a failing probe is about to trigger.
+     */
+    public function healthCheckBudgetSeconds(): int
+    {
+        return min(
+            self::HEALTH_CHECK_RESERVE_SECONDS,
+            $this->remainingBudgetSeconds(self::FINALISATION_RESERVE_SECONDS),
+        );
+    }
+
+    /**
+     * What a rollback may spend: everything left except the finalisation
+     * reserve, because by the time a rollback runs there is no script replay,
+     * no health check and no notification still to pay for.
+     *
+     * This can be small, and on a Composer run that consumed its whole timeout
+     * it can be nothing. That is a real limit and not one this job can design
+     * away — which is precisely why a rollback that does not complete is
+     * reported to the operator as needing manual recovery rather than retried.
+     */
+    public function rollbackBudgetSeconds(): int
+    {
+        return $this->remainingBudgetSeconds(self::FINALISATION_RESERVE_SECONDS);
+    }
+
+    private function remainingBudgetSeconds(int $reserveSeconds): int
+    {
         $elapsedSeconds = $this->startedAtNanoseconds === null
             ? 0
             : (int) floor((hrtime(true) - $this->startedAtNanoseconds) / 1_000_000_000);
 
-        return max(0, self::jobTimeoutSeconds() - $elapsedSeconds - self::FINALISATION_RESERVE_SECONDS);
+        return max(0, self::jobTimeoutSeconds() - $elapsedSeconds - $reserveSeconds);
     }
 
     /** @return array<int, int> */
@@ -326,6 +386,13 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             return;
         }
 
+        // Before anything is allowed to touch composer.json, composer.lock or
+        // vendor/ — which includes the lifecycle actions further down, not just
+        // Composer itself. A snapshot taken any later would be a snapshot of a
+        // half-changed application.
+        $snapshot = SnapshotComposerStateAction::run();
+        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_snapshot_captured', MarketplaceInstallFailureStage::Composer);
+
         if (PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
             $result = new MarketplaceComposerResultData(
                 exitCode: 0,
@@ -383,19 +450,38 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             InstallPackageAction::run($package, [], null, false);
             $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_lifecycle_completed', MarketplaceInstallFailureStage::Lifecycle);
 
+            // Inside the try, and before success is declared. This is the last
+            // moment at which a bad install can still be undone: once the
+            // attempt reaches Succeeded, ALLOWED_TRANSITIONS has no way out of
+            // it, and a throw would turn a completed install into an
+            // illegal-transition crash that the queue then retries.
+            $this->runHealthCheck($attempt);
+
             $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, $result);
         } catch (Throwable $throwable) {
+            $failureStage = $this->failureStageFor($throwable);
+            $rollback = $this->rollBackComposerState($attempt, $snapshot, $throwable, $failureStage);
+
+            // A rollback that did not complete outranks whatever caused it: the
+            // operator's next action is no longer "read the error", it is "put
+            // this application back by hand". The original cause is never lost —
+            // it travels in the reason, the timeline and the attempt context.
+            $failureType = match (true) {
+                ! $rollback['rolled_back'] => MarketplaceInstallFailureType::RollbackFailed,
+                $failureStage === MarketplaceInstallFailureStage::HealthCheck => MarketplaceInstallFailureType::HealthCheckFailed,
+                default => null,
+            };
+
             TransitionMarketplaceInstallAttemptAction::run(
                 $attempt,
                 new MarketplaceInstallAttemptTransitionData(
                     toStatus: MarketplaceInstallIntentStatus::Failed,
-                    failureReason: $throwable->getMessage(),
-                    failureStage: str_contains(strtolower($throwable->getMessage()), 'not discovered')
-                        ? MarketplaceInstallFailureStage::PackageDiscovery
-                        : MarketplaceInstallFailureStage::Lifecycle,
+                    failureReason: $rollback['failure_reason'],
+                    failureStage: $failureStage,
+                    failureType: $failureType,
                     outputExcerpt: $result->output,
                     errorExcerpt: $result->errorOutput,
-                    timelineContext: ['reason' => $throwable->getMessage()],
+                    timelineContext: $rollback['timeline_context'],
                 ),
             );
 
@@ -446,6 +532,154 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
                 'reason' => $throwable->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Ask a fresh process whether the site still boots, before anyone is told
+     * the install worked.
+     *
+     * Throws on failure so it lands in the same catch as a lifecycle failure and
+     * takes the same rollback path. That is the whole design: a site the health
+     * check cannot confirm is treated exactly like an install that threw.
+     */
+    private function runHealthCheck(MarketplaceInstallAttempt $attempt): void
+    {
+        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_health_check_started', MarketplaceInstallFailureStage::HealthCheck);
+
+        $result = RunPostOperationHealthCheckAction::run($this->healthCheckBudgetSeconds());
+
+        if ($result->passed()) {
+            $this->recordEvent(
+                $attempt,
+                MarketplaceInstallAttemptEventLevel::Success,
+                'timeline_health_check_completed',
+                MarketplaceInstallFailureStage::HealthCheck,
+                $result->timelineContext(),
+            );
+
+            return;
+        }
+
+        $reason = $result->failureReason ?? (string) __('capell-marketplace::marketplace.operations.health_check_failed');
+
+        // Recorded separately from the failure the transition will write: this
+        // one carries which probe said what, which is the part an operator needs
+        // to tell "the site is broken" from "the probe could not run".
+        $this->recordEvent(
+            $attempt,
+            MarketplaceInstallAttemptEventLevel::Error,
+            'timeline_health_check_probe_failed',
+            MarketplaceInstallFailureStage::HealthCheck,
+            [...$result->timelineContext(), 'reason' => $reason],
+            $result->bootProbeOutput !== '' ? $result->bootProbeOutput : null,
+        );
+
+        throw new MarketplaceHealthCheckFailedException($reason);
+    }
+
+    private function failureStageFor(Throwable $throwable): MarketplaceInstallFailureStage
+    {
+        if ($throwable instanceof MarketplaceHealthCheckFailedException) {
+            return MarketplaceInstallFailureStage::HealthCheck;
+        }
+
+        return str_contains(strtolower($throwable->getMessage()), 'not discovered')
+            ? MarketplaceInstallFailureStage::PackageDiscovery
+            : MarketplaceInstallFailureStage::Lifecycle;
+    }
+
+    /**
+     * Put composer.json, composer.lock and vendor/ back where they were, and be
+     * honest about whether it worked.
+     *
+     * The rollback failing is the worst outcome this system has, and the way it
+     * usually gets worse is by replacing the original error with its own. Both
+     * are therefore recorded — in the reason, on the timeline, and on the
+     * attempt context — and the operator is told plainly that manual recovery is
+     * needed.
+     *
+     * @return array{rolled_back: bool, failure_reason: string, timeline_context: array<string, mixed>}
+     */
+    private function rollBackComposerState(
+        MarketplaceInstallAttempt $attempt,
+        ComposerStateSnapshot $snapshot,
+        Throwable $throwable,
+        MarketplaceInstallFailureStage $stage,
+    ): array {
+        $originalReason = $throwable->getMessage();
+
+        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_rollback_started', $stage, [
+            'reason' => $originalReason,
+        ]);
+
+        try {
+            RestoreComposerStateAction::run($snapshot, $this->rollbackBudgetSeconds());
+        } catch (Throwable $rollbackThrowable) {
+            report($rollbackThrowable);
+
+            $reason = (string) __('capell-marketplace::marketplace.operations.rollback_failed', [
+                'error' => $originalReason,
+                'rollback_error' => $rollbackThrowable->getMessage(),
+            ]);
+            $context = [
+                'reason' => $reason,
+                'error' => $originalReason,
+                'rollback_error' => $rollbackThrowable->getMessage(),
+                'rolled_back' => false,
+            ];
+
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_rollback_failed', $stage, $context);
+            $this->recordRollbackOutcome($attempt, false, $originalReason, $rollbackThrowable->getMessage());
+
+            return [
+                'rolled_back' => false,
+                'failure_reason' => $reason,
+                'timeline_context' => $context,
+            ];
+        }
+
+        $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_rollback_completed', $stage, [
+            'rolled_back' => true,
+        ]);
+        $this->recordRollbackOutcome($attempt, true, $originalReason, null);
+
+        return [
+            'rolled_back' => true,
+            'failure_reason' => $originalReason,
+            'timeline_context' => [
+                'reason' => $originalReason,
+                'rolled_back' => true,
+            ],
+        ];
+    }
+
+    /**
+     * The durable record of what the rollback did, kept on the attempt rather
+     * than only on the timeline: failure_context is rebuilt from the failure
+     * columns when telemetry is finalised, so anything written there would be
+     * discarded, and a retry decision made a day later still needs to know
+     * whether this host was left consistent.
+     */
+    private function recordRollbackOutcome(
+        MarketplaceInstallAttempt $attempt,
+        bool $rolledBack,
+        string $originalError,
+        ?string $rollbackError,
+    ): void {
+        $redacted = RedactMarketplaceDiagnosticContextAction::run(array_filter([
+            'error' => $originalError,
+            'rollback_error' => $rollbackError,
+        ], static fn (mixed $value): bool => $value !== null));
+
+        $attempt->forceFill([
+            'context' => [
+                ...($attempt->context ?? []),
+                'rollback' => [
+                    'rolled_back' => $rolledBack,
+                    ...$redacted,
+                ],
+            ],
+        ])->save();
     }
 
     private function runComposer(MarketplaceComposerRunner $composer, MarketplaceInstallAttempt $attempt): MarketplaceComposerResultData
@@ -611,8 +845,9 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             MarketplaceInstallFailureStage::Composer => 1,
             MarketplaceInstallFailureStage::PackageDiscovery => 2,
             MarketplaceInstallFailureStage::Lifecycle => 3,
+            MarketplaceInstallFailureStage::HealthCheck => 4,
             MarketplaceInstallFailureStage::Notification,
-            MarketplaceInstallFailureStage::DeploymentHandoff => 4,
+            MarketplaceInstallFailureStage::DeploymentHandoff => 5,
         };
     }
 

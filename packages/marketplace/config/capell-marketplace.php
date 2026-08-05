@@ -50,6 +50,18 @@ return [
          * readiness report stops claiming a worker is there.
          */
         'worker_heartbeat_stale_after_seconds' => env('CAPELL_MARKETPLACE_WORKER_HEARTBEAT_STALE_AFTER_SECONDS', 300),
+        /*
+         * The post-operation health check. The fresh-process boot probe is not
+         * optional — it is the evidence the rollback decision is made on. Only
+         * the secondary HTTP smoke probe is configurable, for hosts that would
+         * rather not have a queue worker make a request to the public site at
+         * all. Turning it off loses a confirmation; it never turns a failure
+         * into a pass, because a probe that cannot connect already auto-skips.
+         */
+        'health_check' => [
+            'http_probe' => env('CAPELL_MARKETPLACE_HEALTH_HTTP_PROBE', true),
+            'http_timeout_seconds' => env('CAPELL_MARKETPLACE_HEALTH_HTTP_TIMEOUT_SECONDS', 5),
+        ],
         'catalogue_page_limit' => env('CAPELL_MARKETPLACE_CATALOGUE_PAGE_LIMIT', 3),
         'webhook_url' => env('CAPELL_MARKETPLACE_WEBHOOK_URL'),
         'webhook_secret' => env('CAPELL_MARKETPLACE_WEBHOOK_SECRET'),
