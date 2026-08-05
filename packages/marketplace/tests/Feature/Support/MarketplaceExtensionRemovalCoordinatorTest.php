@@ -9,6 +9,7 @@ use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Jobs\RunMarketplaceUninstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -21,16 +22,17 @@ beforeEach(function (): void {
     EvaluateMarketplaceEnvironmentReadinessAction::forget();
 });
 
-function bridgedRemovalRequest(bool $deletePackage = true, bool $deleteData = false): ExtensionRemovalRequestData
+function bridgedRemovalRequest(bool $deletePackage = true, bool $deleteData = false, bool $runLifecycle = true, array $packageNames = [BRIDGED_UNINSTALL_PACKAGE]): ExtensionRemovalRequestData
 {
     return new ExtensionRemovalRequestData(
         composerName: BRIDGED_UNINSTALL_PACKAGE,
-        packageNames: [BRIDGED_UNINSTALL_PACKAGE],
+        packageNames: $packageNames,
         deletePackage: $deletePackage,
         deleteData: $deleteData,
         extensionSlug: 'bridged-uninstall-package',
         extensionName: 'Bridged Uninstall Package',
         kind: 'plugin',
+        runLifecycle: $runLifecycle,
     );
 }
 
@@ -53,9 +55,47 @@ it('queues the uninstall on a host that can automate it', function (): void {
     $attempt = MarketplaceInstallAttempt::query()->firstOrFail();
 
     expect($attempt->operation)->toBe(MarketplaceOperationType::Uninstall)
-        ->and($attempt->uninstall_options)->toBe(['delete_package' => true, 'delete_data' => false]);
+        ->and($attempt->uninstall_options)->toBe([
+            'delete_package' => true,
+            'delete_data' => false,
+            'package_names' => [BRIDGED_UNINSTALL_PACKAGE],
+        ]);
 
     Queue::assertPushed(RunMarketplaceUninstallAttemptJob::class);
+});
+
+it('queues confirmed dependents in their safe uninstall order', function (): void {
+    Queue::fake();
+    registerBridgedPackage();
+    $dependent = 'capell-app/bridged-uninstall-dependent';
+    CapellCore::registerPackage($dependent, PackageTypeEnum::Plugin, version: '1.0.0');
+    CapellCore::getPackage($dependent)->requirements = [BRIDGED_UNINSTALL_PACKAGE];
+    CapellCore::markPackageInstalled($dependent);
+
+    $outcome = new MarketplaceExtensionRemovalCoordinator()->queue(bridgedRemovalRequest(
+        packageNames: [$dependent, BRIDGED_UNINSTALL_PACKAGE],
+    ));
+    $options = MarketplaceUninstallOptionsData::fromPayload(
+        MarketplaceInstallAttempt::query()->firstOrFail()->uninstall_options,
+    );
+
+    expect($outcome->accepted)->toBeTrue()
+        ->and($options->packageNames)
+        ->toBe([$dependent, BRIDGED_UNINSTALL_PACKAGE]);
+});
+
+it('queues package-file deletion after the lifecycle is already uninstalled', function (): void {
+    Queue::fake();
+    CapellCore::registerPackage(BRIDGED_UNINSTALL_PACKAGE, PackageTypeEnum::Plugin, version: '1.0.0');
+
+    $outcome = new MarketplaceExtensionRemovalCoordinator()->queue(bridgedRemovalRequest(runLifecycle: false));
+    $options = MarketplaceUninstallOptionsData::fromPayload(
+        MarketplaceInstallAttempt::query()->firstOrFail()->uninstall_options,
+    );
+
+    expect($outcome->accepted)->toBeTrue()
+        ->and($options->runLifecycle)
+        ->toBeFalse();
 });
 
 it('discloses manual instructions instead of queueing on a host that cannot automate', function (): void {

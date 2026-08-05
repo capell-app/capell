@@ -511,6 +511,7 @@ return [
         'manual_instructions' => 'This site installs and removes extensions while building the next release, so Capell cannot remove :package for you. Run these two commands where you build the release, then deploy it: "php artisan capell:extension-uninstall :package" to let the extension tear itself down, then "composer remove :package" to drop the package.',
         'manual_instructions_heading' => 'Remove :name while building the next release',
         'not_installed' => ':package is not installed on this site.',
+        'invalid_package_order' => 'The confirmed extensions are not in a safe uninstall order. Refresh the page and try again.',
         'not_queued' => 'This uninstall could not be queued',
         'queued' => 'Uninstalling :name',
         'queued_body' => 'Capell is uninstalling this extension in the background. You can close this and follow it in Package Operations.',

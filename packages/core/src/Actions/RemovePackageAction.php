@@ -18,7 +18,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false)
+ * @method static array{package: string, status: string, message: string, output: string, cache_cleared: bool} run(string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false, ?int $timeoutSeconds = null)
  */
 class RemovePackageAction
 {
@@ -34,8 +34,14 @@ class RemovePackageAction
     /**
      * @return array{package: string, status: string, message: string, output: string, cache_cleared: bool}
      */
-    public function handle(string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false): array
-    {
+    public function handle(
+        string $name,
+        ?callable $finalize = null,
+        bool $requiresServerSideTooling = false,
+        ?int $timeoutSeconds = null,
+    ): array {
+        throw_if($timeoutSeconds !== null && $timeoutSeconds < 1, RuntimeException::class, 'No job time remains for the Composer package removal.');
+
         $this->assertReleaseRootWritable($requiresServerSideTooling);
         $this->clearPackageManifestCacheFiles();
 
@@ -71,7 +77,7 @@ class RemovePackageAction
             $process = $this->processFactory->make($command, base_path());
 
             $process->setEnv(ComposerProcessEnvironment::forInstall($_SERVER));
-            $process->setTimeout($this->composerTimeoutSeconds());
+            $process->setTimeout($timeoutSeconds ?? $this->composerTimeoutSeconds());
             $process->run();
 
             $this->clearPackageManifestCacheFiles();

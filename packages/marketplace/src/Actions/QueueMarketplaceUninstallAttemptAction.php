@@ -19,6 +19,7 @@ use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -68,10 +69,24 @@ final class QueueMarketplaceUninstallAttemptAction
         // decided to create but not yet written. The lock is named after the
         // package rather than the operation, because it is the package that can
         // only have one thing happening to it.
-        $lock = Cache::lock('capell-marketplace:queue-install:' . hash('sha256', $composerName), 10);
+        $packageNames = $this->packageNames($composerName, $options);
+        $lockPackageNames = $packageNames;
+        sort($lockPackageNames);
+        /** @var list<Lock> $locks */
+        $locks = [];
 
-        if (! $lock->get()) {
-            AssertNoActiveMarketplaceOperationAction::fail($composerName);
+        foreach ($lockPackageNames as $packageName) {
+            $lock = Cache::lock('capell-marketplace:queue-install:' . hash('sha256', $packageName), 10);
+
+            if (! $lock->get()) {
+                foreach (array_reverse($locks) as $acquiredLock) {
+                    $acquiredLock->release();
+                }
+
+                AssertNoActiveMarketplaceOperationAction::fail($packageName);
+            }
+
+            $locks[] = $lock;
         }
 
         try {
@@ -88,7 +103,9 @@ final class QueueMarketplaceUninstallAttemptAction
                 idempotencyKey: $idempotencyKey,
             );
         } finally {
-            $lock->release();
+            foreach (array_reverse($locks) as $lock) {
+                $lock->release();
+            }
         }
     }
 
@@ -125,8 +142,12 @@ final class QueueMarketplaceUninstallAttemptAction
             ]);
         }
 
-        AssertNoActiveMarketplaceOperationAction::run($composerName);
+        foreach ($this->packageNames($composerName, $options) as $packageName) {
+            AssertNoActiveMarketplaceOperationAction::run($packageName);
+        }
         AssertMarketplaceUninstallAllowedAction::run($composerName, $options);
+
+        $context['affected_package_names'] = $this->packageNames($composerName, $options);
 
         $attempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
             extensionSlug: $extensionSlug,
@@ -205,5 +226,11 @@ final class QueueMarketplaceUninstallAttemptAction
         return MarketplaceInstallAttempt::query()
             ->where('idempotency_key', hash('sha256', $idempotencyKey))
             ->first();
+    }
+
+    /** @return list<string> */
+    private function packageNames(string $composerName, MarketplaceUninstallOptionsData $options): array
+    {
+        return $options->packageNames !== [] ? $options->packageNames : [$composerName];
     }
 }

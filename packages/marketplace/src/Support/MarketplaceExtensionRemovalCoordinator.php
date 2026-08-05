@@ -83,12 +83,14 @@ final class MarketplaceExtensionRemovalCoordinator implements ExtensionRemovalCo
                 options: new MarketplaceUninstallOptionsData(
                     deletePackage: $request->deletePackage,
                     deleteData: $request->deleteData,
+                    packageNames: $request->packageNames,
+                    runLifecycle: $request->runLifecycle,
                 ),
                 actor: $user instanceof Authenticatable
                     ? MarketplaceInstallActorData::fromAuthenticatable($user)
                     : MarketplaceInstallActorData::system('capell-admin-panel'),
                 source: MarketplaceInstallSource::LocalUi,
-                context: ['dependent_packages' => $request->packageNames],
+                context: ['dependent_packages' => array_slice($request->packageNames, 0, -1)],
                 user: $user,
             );
         } catch (ValidationException $validationException) {

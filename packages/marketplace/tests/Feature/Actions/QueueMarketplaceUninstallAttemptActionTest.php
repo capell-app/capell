@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Actions\AssertNoActiveMarketplaceOperationAction;
 use Capell\Marketplace\Actions\QueueMarketplaceUninstallAttemptAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
@@ -27,6 +28,7 @@ function queueUninstallAttempt(
     bool $deletePackage = false,
     bool $deleteData = false,
     ?string $idempotencyKey = null,
+    array $packageNames = [],
 ): MarketplaceInstallAttempt {
     return QueueMarketplaceUninstallAttemptAction::run(
         composerName: QUEUED_UNINSTALL_PACKAGE,
@@ -36,6 +38,7 @@ function queueUninstallAttempt(
         options: new MarketplaceUninstallOptionsData(
             deletePackage: $deletePackage,
             deleteData: $deleteData,
+            packageNames: $packageNames,
         ),
         actor: MarketplaceInstallActorData::system('uninstall-test'),
         source: MarketplaceInstallSource::LocalUi,
@@ -118,6 +121,24 @@ it('refuses an uninstall of a package that is not installed', function (): void 
         ->toThrow(ValidationException::class);
 
     Queue::assertNothingPushed();
+});
+
+it('refuses an operation on any dependent covered by an active multi-package uninstall', function (): void {
+    $dependent = 'capell-app/queued-uninstall-dependent';
+
+    MarketplaceInstallAttempt::query()->create([
+        'composer_name' => QUEUED_UNINSTALL_PACKAGE,
+        'extension_slug' => 'queued-uninstall-package',
+        'extension_name' => 'Queued Uninstall Package',
+        'kind' => 'plugin',
+        'status' => MarketplaceInstallIntentStatus::Queued,
+        'operation' => MarketplaceOperationType::Uninstall,
+        'context' => ['affected_package_names' => [$dependent, QUEUED_UNINSTALL_PACKAGE]],
+        'queued_at' => now(),
+    ]);
+
+    expect(fn () => AssertNoActiveMarketplaceOperationAction::run($dependent))
+        ->toThrow(ValidationException::class, $dependent);
 });
 
 it('refuses an uninstall while another installed extension depends on the package', function (): void {

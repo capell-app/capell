@@ -34,7 +34,7 @@ function registerRemovablePackage(): void
     CapellCore::markPackageInstalled(UNINSTALL_PACKAGE_NAME);
 }
 
-function uninstallAttempt(bool $deletePackage = false, bool $deleteData = false, array $overrides = []): MarketplaceInstallAttempt
+function uninstallAttempt(bool $deletePackage = false, bool $deleteData = false, array $overrides = [], array $packageNames = []): MarketplaceInstallAttempt
 {
     return MarketplaceInstallAttempt::query()->create([
         'composer_name' => UNINSTALL_PACKAGE_NAME,
@@ -46,11 +46,26 @@ function uninstallAttempt(bool $deletePackage = false, bool $deleteData = false,
         'uninstall_options' => new MarketplaceUninstallOptionsData(
             deletePackage: $deletePackage,
             deleteData: $deleteData,
+            packageNames: $packageNames,
         )->toArray(),
         'composer_command' => 'composer remove ' . UNINSTALL_PACKAGE_NAME,
         'queued_at' => now(),
         ...$overrides,
     ]);
+}
+
+function composerOnlyUninstallAttempt(array $packageNames): MarketplaceInstallAttempt
+{
+    return uninstallAttempt(
+        deletePackage: true,
+        overrides: [
+            'uninstall_options' => new MarketplaceUninstallOptionsData(
+                deletePackage: true,
+                packageNames: $packageNames,
+                runLifecycle: false,
+            )->toArray(),
+        ],
+    );
 }
 
 function runUninstallJob(MarketplaceInstallAttempt $attempt): void
@@ -79,8 +94,8 @@ function fakeSuccessfulPackageRemoval(array &$recordedRemovals): void
 {
     RemovePackageAction::mock()
         ->shouldReceive('handle')
-        ->andReturnUsing(function (string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false) use (&$recordedRemovals): array {
-            unset($finalize);
+        ->andReturnUsing(function (string $name, ?callable $finalize = null, bool $requiresServerSideTooling = false, ?int $timeoutSeconds = null) use (&$recordedRemovals): array {
+            unset($finalize, $timeoutSeconds);
             $recordedRemovals[] = $name . '|' . ($requiresServerSideTooling ? 'gated' : 'ungated');
 
             return [
@@ -181,6 +196,52 @@ it('removes the package with Composer when delete package was chosen', function 
         ->and($removals)->toBe([UNINSTALL_PACKAGE_NAME . '|gated'])
         ->and(uninstallTimelineHas($attempt, 'timeline_package_removed'))->toBeTrue()
         ->and(uninstallTimelineHas($attempt, 'timeline_composer_skipped_package_retained'))->toBeFalse();
+});
+
+it('removes confirmed dependents before the requested package', function (): void {
+    Notification::fake();
+    test()->createUserWithRole('super_admin');
+    registerRemovablePackage();
+    $dependent = 'capell-app/marketplace-uninstall-dependent';
+    CapellCore::registerPackage($dependent, PackageTypeEnum::Plugin, version: '1.0.0');
+    CapellCore::getPackage($dependent)->requirements = [UNINSTALL_PACKAGE_NAME];
+    CapellCore::markPackageInstalled($dependent);
+    idleComposerRunner();
+    $removals = [];
+    fakeSuccessfulPackageRemoval($removals);
+    $attempt = uninstallAttempt(
+        deletePackage: true,
+        packageNames: [$dependent, UNINSTALL_PACKAGE_NAME],
+    );
+
+    runUninstallJob($attempt);
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and(CapellCore::isPackageInstalled($dependent))->toBeFalse()
+        ->and(CapellCore::isPackageInstalled(UNINSTALL_PACKAGE_NAME))->toBeFalse()
+        ->and($removals)->toBe([
+            $dependent . '|gated',
+            UNINSTALL_PACKAGE_NAME . '|gated',
+        ]);
+});
+
+it('deletes retained package files after the extension lifecycle was already uninstalled', function (): void {
+    Notification::fake();
+    test()->createUserWithRole('super_admin');
+    CapellCore::registerPackage(UNINSTALL_PACKAGE_NAME, PackageTypeEnum::Plugin, version: '1.0.0');
+    idleComposerRunner();
+    $removals = [];
+    fakeSuccessfulPackageRemoval($removals);
+    UninstallPackageAction::mock()->shouldNotReceive('handle');
+    $attempt = composerOnlyUninstallAttempt([UNINSTALL_PACKAGE_NAME]);
+
+    runUninstallJob($attempt);
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($removals)->toBe([UNINSTALL_PACKAGE_NAME . '|gated'])
+        ->and(uninstallTimelineHas($attempt, 'timeline_lifecycle_started'))->toBeFalse();
 });
 
 it('gates the queued Composer removal on server-side tooling exactly as the in-request path did', function (): void {

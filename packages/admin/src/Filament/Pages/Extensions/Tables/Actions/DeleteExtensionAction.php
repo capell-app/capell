@@ -63,6 +63,7 @@ final class DeleteExtensionAction
                         extensionSlug: (string) ($record['slug'] ?? ''),
                         extensionName: ExtensionRecord::label($record),
                         kind: (string) ($record['kind'] ?? 'plugin'),
+                        runLifecycle: $installed,
                     ),
                     ExtensionRecord::label($record),
                 )) {

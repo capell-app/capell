@@ -91,23 +91,29 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
     {
         $options = $this->options($attempt);
 
+        if (! $options->runLifecycle) {
+            return;
+        }
+
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_lifecycle_started', MarketplaceInstallFailureStage::Lifecycle, [
             'composer_name' => $attempt->composer_name,
             'delete_package' => $options->deletePackage,
             'delete_data' => $options->deleteData,
         ]);
 
-        if (! CapellCore::hasPackage($attempt->composer_name)) {
-            throw new RuntimeException(sprintf('Package [%s] is not known to Capell, so it cannot be uninstalled.', $attempt->composer_name));
+        foreach ($this->packageNames($attempt) as $packageName) {
+            if (! CapellCore::hasPackage($packageName)) {
+                throw new RuntimeException(sprintf('Package [%s] is not known to Capell, so it cannot be uninstalled.', $packageName));
+            }
+
+            UninstallPackageAction::run(
+                CapellCore::getPackage($packageName),
+                delete: false,
+                deleteData: $options->deleteData,
+            );
+
+            $this->lifecycleApplied = true;
         }
-
-        UninstallPackageAction::run(
-            CapellCore::getPackage($attempt->composer_name),
-            delete: false,
-            deleteData: $options->deleteData,
-        );
-
-        $this->lifecycleApplied = true;
 
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_lifecycle_completed', MarketplaceInstallFailureStage::Lifecycle);
     }
@@ -142,14 +148,20 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
     {
         unset($composer);
 
-        $result = RemovePackageAction::run(
-            $attempt->composer_name,
-            requiresServerSideTooling: true,
-        );
+        $outputs = [];
+
+        foreach ($this->packageNames($attempt) as $packageName) {
+            $result = RemovePackageAction::run(
+                $packageName,
+                requiresServerSideTooling: true,
+                timeoutSeconds: $this->scriptReplayBudgetSeconds(),
+            );
+            $outputs[] = $result['output'];
+        }
 
         return new MarketplaceComposerResultData(
             exitCode: 0,
-            output: $result['output'],
+            output: implode(PHP_EOL, $outputs),
             errorOutput: '',
         );
     }
@@ -302,5 +314,13 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
     private function options(MarketplaceInstallAttempt $attempt): MarketplaceUninstallOptionsData
     {
         return MarketplaceUninstallOptionsData::fromPayload($attempt->uninstall_options);
+    }
+
+    /** @return list<string> */
+    private function packageNames(MarketplaceInstallAttempt $attempt): array
+    {
+        $packageNames = $this->options($attempt)->packageNames;
+
+        return $packageNames !== [] ? $packageNames : [$attempt->composer_name];
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
-use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Packages\ActiveThemeUninstallGuard;
@@ -60,31 +59,44 @@ final class AssertMarketplaceUninstallAllowedAction
      */
     public function refusalReason(string $composerName, MarketplaceUninstallOptionsData $options): ?string
     {
-        if (! CapellCore::hasPackage($composerName)) {
-            return (string) __('capell-marketplace::marketplace.uninstalls.not_installed', [
-                'package' => $composerName,
-            ]);
+        $packageNames = $options->packageNames !== [] ? $options->packageNames : [$composerName];
+
+        if (end($packageNames) !== $composerName) {
+            return (string) __('capell-marketplace::marketplace.uninstalls.invalid_package_order');
         }
 
-        $package = CapellCore::getPackage($composerName);
+        foreach ($packageNames as $offset => $packageName) {
+            if (! CapellCore::hasPackage($packageName) || ($options->runLifecycle && ! CapellCore::isPackageInstalled($packageName))) {
+                return (string) __('capell-marketplace::marketplace.uninstalls.not_installed', [
+                    'package' => $packageName,
+                ]);
+            }
 
-        return $this->dependentRefusal($package)
-            ?? $this->activeThemeUninstallGuard->refusalReason($package)
-            ?? $this->releaseRootRefusal($options);
-    }
+            $package = CapellCore::getPackage($packageName);
 
-    private function dependentRefusal(PackageData $package): ?string
-    {
-        if (CapellCore::canUninstallPackage($package->name)) {
-            return null;
-        }
-
-        return (string) __('capell-marketplace::marketplace.uninstalls.blocked_by_dependents', [
-            'package' => $package->name,
-            'dependents' => CapellCore::getDependentInstalledPackages($package->name)
+            if (! $options->runLifecycle) {
+                continue;
+            }
+            $alreadyRemovedPackageNames = array_slice($packageNames, 0, $offset);
+            $outsideDependents = CapellCore::getDependentInstalledPackages($packageName)
                 ->pluck('name')
-                ->implode(', '),
-        ]);
+                ->reject(static fn (string $dependent): bool => in_array($dependent, $alreadyRemovedPackageNames, true));
+
+            if ($outsideDependents->isNotEmpty()) {
+                return (string) __('capell-marketplace::marketplace.uninstalls.blocked_by_dependents', [
+                    'package' => $package->name,
+                    'dependents' => $outsideDependents->implode(', '),
+                ]);
+            }
+
+            $activeThemeRefusal = $this->activeThemeUninstallGuard->refusalReason($package);
+
+            if ($activeThemeRefusal !== null) {
+                return $activeThemeRefusal;
+            }
+        }
+
+        return $this->releaseRootRefusal($options);
     }
 
     /**

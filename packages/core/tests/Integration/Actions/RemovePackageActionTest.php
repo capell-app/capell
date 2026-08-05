@@ -619,6 +619,29 @@ it('gives the removal the configured Composer timeout rather than a literal of i
     'zero falls back to the default' => [0, 600],
 ]);
 
+it('honours a caller budget and refuses to start when none remains', function (): void {
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setEnv')->andReturnSelf();
+    $process->shouldReceive('setTimeout')->with(17)->once()->andReturnSelf();
+    $process->shouldReceive('run')->once()->andReturn(0);
+    $process->shouldReceive('getErrorOutput')->andReturn('');
+    $process->shouldReceive('getOutput')->andReturn('Package vendor/package removed');
+    $process->shouldReceive('isSuccessful')->andReturnTrue();
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    RemovePackageAction::run('vendor/package', timeoutSeconds: 17);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    expect(fn (): array => RemovePackageAction::run('vendor/package', timeoutSeconds: 0))
+        ->toThrow(RuntimeException::class, 'No job time remains');
+});
+
 it('refuses a removal that declares itself an unattended web-triggered Composer write while server-side tooling is off', function (): void {
     config()->set('capell.server_side_tooling', false);
 

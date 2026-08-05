@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -44,7 +45,10 @@ final class AssertNoActiveMarketplaceOperationAction
     public static function isActive(string $composerName): bool
     {
         return MarketplaceInstallAttempt::query()
-            ->where('composer_name', $composerName)
+            ->where(static function (Builder $query) use ($composerName): void {
+                $query->where('composer_name', $composerName)
+                    ->orWhereJsonContains('context->affected_package_names', $composerName);
+            })
             ->whereIn('status', array_map(
                 static fn (MarketplaceInstallIntentStatus $status): string => $status->value,
                 [

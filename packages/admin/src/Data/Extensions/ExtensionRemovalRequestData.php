@@ -27,5 +27,6 @@ final class ExtensionRemovalRequestData extends Data
         public readonly string $extensionSlug = '',
         public readonly string $extensionName = '',
         public readonly string $kind = 'plugin',
+        public readonly bool $runLifecycle = true,
     ) {}
 }
