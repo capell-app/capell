@@ -67,7 +67,7 @@ final class MarketplacePurchasesPage extends Page
     public function getBreadcrumbs(): array
     {
         return [
-            ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
+            ExtensionsPage::getUrl() => (string) __('capell-marketplace::marketplace.operations.extensions'),
             MarketplacePage::getUrl() => MarketplacePage::getNavigationLabel(),
             self::getNavigationLabel(),
         ];

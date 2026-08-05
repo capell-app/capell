@@ -83,7 +83,7 @@ final class MarketplacePage extends Page implements HasActions
     public function getBreadcrumbs(): array
     {
         return [
-            ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
+            ExtensionsPage::getUrl() => (string) __('capell-marketplace::marketplace.operations.extensions'),
             self::getNavigationLabel(),
         ];
     }
@@ -98,7 +98,7 @@ final class MarketplacePage extends Page implements HasActions
 
         return [
             Action::make('extensions')
-                ->label(ExtensionsPage::getNavigationLabel())
+                ->label((string) __('capell-marketplace::marketplace.operations.extensions'))
                 ->icon(ExtensionsPage::getNavigationIcon())
                 ->color('gray')
                 ->url(ExtensionsPage::getUrl()),

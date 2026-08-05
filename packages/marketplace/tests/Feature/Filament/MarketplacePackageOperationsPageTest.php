@@ -85,7 +85,7 @@ it('uses extension breadcrumbs and header actions with filament table search for
     $headerActions = collect((fn (): array => $this->getHeaderActions())->call($page));
 
     expect($page->getBreadcrumbs())->toBe([
-        ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
+        ExtensionsPage::getUrl() => __('capell-marketplace::marketplace.operations.extensions'),
         MarketplacePage::getUrl() => MarketplacePage::getNavigationLabel(),
         MarketplacePackageOperationsPage::getNavigationLabel(),
     ])
@@ -93,7 +93,7 @@ it('uses extension breadcrumbs and header actions with filament table search for
         ->toHaveCount(2)
         ->each->toBeInstanceOf(Action::class)
         ->and($headerActions->map(fn (Action $action): string => filamentText($action->getLabel()))->all())->toBe([
-            ExtensionsPage::getNavigationLabel(),
+            __('capell-marketplace::marketplace.operations.extensions'),
             MarketplacePage::getNavigationLabel(),
         ]);
 

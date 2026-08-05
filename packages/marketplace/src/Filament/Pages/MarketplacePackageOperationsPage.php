@@ -112,7 +112,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     public function getBreadcrumbs(): array
     {
         return [
-            ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
+            ExtensionsPage::getUrl() => (string) __('capell-marketplace::marketplace.operations.extensions'),
             MarketplacePage::getUrl() => MarketplacePage::getNavigationLabel(),
             self::getNavigationLabel(),
         ];
@@ -446,7 +446,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     {
         return [
             Action::make('extensions')
-                ->label(ExtensionsPage::getNavigationLabel())
+                ->label((string) __('capell-marketplace::marketplace.operations.extensions'))
                 ->icon(ExtensionsPage::getNavigationIcon())
                 ->color('gray')
                 ->url(ExtensionsPage::getUrl()),
