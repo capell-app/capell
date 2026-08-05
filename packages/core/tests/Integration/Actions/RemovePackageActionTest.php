@@ -21,7 +21,7 @@ beforeEach(function (): void {
 
     $mockProcess
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(600)
         ->andReturnSelf();
 
     $mockProcess
@@ -129,7 +129,7 @@ it('promotes bundle members while preserving direct constraints', function (): v
 
     $process = Mockery::mock(Process::class);
     $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(300)->andReturnSelf();
+    $process->shouldReceive('setTimeout')->with(600)->andReturnSelf();
     $process->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
         $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
         unset($composer['require']['capell-app/widget-showcase']);
@@ -190,7 +190,7 @@ it('restores composer files when bundle deletion fails', function (): void {
 it('uses allow-listed diagnostics when composer removal fails', function (string $composerOutput, array $secrets): void {
     $process = Mockery::mock(Process::class);
     $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(300)->andReturnSelf();
+    $process->shouldReceive('setTimeout')->with(600)->andReturnSelf();
     $process->shouldReceive('run')->once()->andReturn(1);
     $process->shouldReceive('getErrorOutput')->andReturn($composerOutput);
     $process->shouldReceive('getOutput')->andReturn('');
@@ -511,7 +511,7 @@ it('wraps recovery process creation setup and timeout failures safely', function
 
     $removal = Mockery::mock(Process::class);
     $removal->shouldReceive('setEnv')->andReturnSelf();
-    $removal->shouldReceive('setTimeout')->with(300)->andReturnSelf();
+    $removal->shouldReceive('setTimeout')->with(600)->andReturnSelf();
     $removal->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
         $filesystem->contents[$composerPath] = '{"require":[]}';
         $filesystem->contents[$lockPath] = '{"packages":[]}';
@@ -594,6 +594,42 @@ it('wraps recovery process creation setup and timeout failures safely', function
         ->and($filesystem->contents[$composerPath])->toBe($originalComposer)
         ->and($filesystem->contents[$lockPath])->toBe($originalLock);
 })->with(['creation', 'setup', 'timeout']);
+
+it('gives the removal the configured Composer timeout rather than a literal of its own', function (int $configured, int $expected): void {
+    config()->set('capell.process.composer.timeout_seconds', $configured);
+
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setEnv')->andReturnSelf();
+    $process->shouldReceive('setTimeout')->with($expected)->once()->andReturnSelf();
+    $process->shouldReceive('run')->once()->andReturn(0);
+    $process->shouldReceive('getErrorOutput')->andReturn('');
+    $process->shouldReceive('getOutput')->andReturn('Package vendor/timed-package removed');
+    $process->shouldReceive('isSuccessful')->andReturnTrue();
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->with([...capellComposerArgv(), 'remove', 'vendor/timed-package', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
+        ->once()
+        ->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    RemovePackageAction::run('vendor/timed-package');
+})->with([
+    'configured value is honoured' => [900, 900],
+    'zero falls back to the default' => [0, 600],
+]);
+
+it('refuses a removal that declares itself an unattended web-triggered Composer write while server-side tooling is off', function (): void {
+    config()->set('capell.server_side_tooling', false);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    expect(fn (): array => RemovePackageAction::run('vendor/package', requiresServerSideTooling: true))
+        ->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
+});
 
 final class BundleComposerFilesystem extends Filesystem
 {

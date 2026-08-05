@@ -24,7 +24,7 @@ function bindRemoveSetupPackageProcessFactory(): void
         ->andReturnSelf();
     $process
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(600)
         ->andReturnSelf();
     $process
         ->shouldReceive('run')

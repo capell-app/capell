@@ -71,7 +71,7 @@ class RemovePackageAction
             $process = $this->processFactory->make($command, base_path());
 
             $process->setEnv(ComposerProcessEnvironment::forInstall($_SERVER));
-            $process->setTimeout(300);
+            $process->setTimeout($this->composerTimeoutSeconds());
             $process->run();
 
             $this->clearPackageManifestCacheFiles();
@@ -130,6 +130,25 @@ class RemovePackageAction
             relativePaths: ['composer.json', 'composer.lock', 'vendor', 'bootstrap/cache'],
             requiresServerSideTooling: $requiresServerSideTooling,
         );
+    }
+
+    /**
+     * The same budget every other Composer run on this host gets.
+     *
+     * Read from `capell.process.composer.timeout_seconds` rather than carrying a
+     * literal of its own: a removal is the same kind of work as an install, on
+     * the same network, against the same vendor directory, and the queued
+     * uninstall runs it inside a job whose whole timeout chain is derived from
+     * this key. A second, smaller number here would have made the removal the
+     * one Composer operation that timed out on a host the operator had already
+     * tuned — and it would have done so 300 seconds into an uninstall that had
+     * already run the extension's lifecycle.
+     */
+    private function composerTimeoutSeconds(): int
+    {
+        $configured = config('capell.process.composer.timeout_seconds', 600);
+
+        return is_numeric($configured) && (int) $configured > 0 ? (int) $configured : 600;
     }
 
     private function safeComposerFailureMessage(): string
@@ -237,12 +256,37 @@ class RemovePackageAction
      *
      * The two manifests that would name the removed package's providers —
      * Laravel's packages.php and services.php — are deleted here, which is the
-     * part that would otherwise fatal the next request. bootstrap/cache/config.php
-     * is deliberately left alone: `clearCompiled()` would have removed it, but a
-     * removed package leaves only stale values behind rather than references to
-     * classes that no longer exist, and dropping a host's cached config as a side
-     * effect of a package removal is a larger behaviour change than the risk
-     * warrants. Republishing or clearing it stays the operator's deploy step.
+     * part that would otherwise fatal the next request.
+     *
+     * The rest was left open by Task 2 and is settled as follows.
+     *
+     * The replay itself belongs to the caller, not here. Capell cannot
+     * enumerate an application's post-autoload-dump chain — the application is
+     * a different repository — and replaying it means running the host's own
+     * scripts in a subprocess with a time budget, which this action has no
+     * business owning: `capell:install` and `capell:extension-uninstall` are run
+     * by an operator whose terminal is about to run Composer properly anyway,
+     * and the admin panel's in-request path has no budget to spend. The one
+     * caller that both needs it and can afford it is the queued uninstall, and
+     * RunMarketplaceUninstallAttemptJob does it there, on the same shared
+     * implementation an install uses. So the gap is closed where it matters and
+     * not paid for where it does not.
+     *
+     * bootstrap/cache/config.php is deliberately still left alone. A removed
+     * package leaves stale values behind rather than references to classes that
+     * no longer exist, so it does not fatal; dropping a host's cached config as
+     * a side effect of a package removal is a larger behaviour change than the
+     * risk warrants, and the queued path's health check boots a fresh process
+     * against exactly that cached config before declaring success — so a host
+     * where it genuinely mattered fails loudly and rolls back rather than
+     * silently carrying stale values. Republishing or clearing it stays the
+     * operator's deploy step.
+     *
+     * Assets a removed plugin published into public/ are also left. They are
+     * inert files, deleting them cannot be done safely — nothing records which
+     * of them the package actually put there, and a wrong guess deletes an
+     * operator's own file — and the same deploy step that rebuilds the config
+     * cache is where a host that cares about them cleans up.
      */
     private function clearPackageManifestCacheFiles(): void
     {

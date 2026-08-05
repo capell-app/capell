@@ -330,6 +330,34 @@ it('fails if dependents exist', function (): void {
         ->toThrow(Exception::class, 'cannot be uninstalled because the following installed plugin(s) depend on it: dependent/package.');
 });
 
+it('leaves the removal ungated for an operator-triggered uninstall', function (): void {
+    CapellCore::registerPackage('vendor/operator-removed-package', PackageTypeEnum::Plugin, version: '^1.0');
+    CapellCore::markPackageInstalled('vendor/operator-removed-package');
+    config()->set('capell.server_side_tooling', false);
+    bindSuccessfulComposerRemoveProcess('vendor/operator-removed-package');
+
+    UninstallPackageAction::run(CapellCore::getPackage('vendor/operator-removed-package'), delete: true);
+
+    expect(CapellCore::isPackageInstalled('vendor/operator-removed-package'))->toBeFalse();
+});
+
+it('forwards the server-side-tooling gate to the Composer removal when the caller declares one', function (): void {
+    CapellCore::registerPackage('vendor/web-removed-package', PackageTypeEnum::Plugin, version: '^1.0');
+    CapellCore::markPackageInstalled('vendor/web-removed-package');
+    config()->set('capell.server_side_tooling', false);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    expect(fn (): null => UninstallPackageAction::run(
+        CapellCore::getPackage('vendor/web-removed-package'),
+        delete: true,
+        requiresServerSideTooling: true,
+    ))->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
+});
+
 function makeUninstallComposerPackageFixture(string $composerName): string
 {
     $packagePath = sys_get_temp_dir() . '/capell-uninstall-composer-package-' . bin2hex(random_bytes(8));
@@ -380,7 +408,7 @@ function bindSuccessfulComposerRemoveProcess(string $packageName, ?Closure $befo
 
     $process
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(600)
         ->andReturnSelf();
 
     $process
