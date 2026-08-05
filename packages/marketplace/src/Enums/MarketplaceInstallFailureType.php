@@ -15,6 +15,15 @@ enum MarketplaceInstallFailureType: string
     case LifecycleException = 'lifecycle_exception';
     case HealthCheckFailed = 'health_check_failed';
     case RollbackFailed = 'rollback_failed';
+    /**
+     * The code was restored but the database was not, because it cannot be.
+     *
+     * Distinct from RollbackFailed: the Composer rollback did complete. What
+     * did not, and never could, is the schema — restoring composer.lock does
+     * not un-run a migration.
+     */
+    case SchemaAheadOfCode = 'schema_ahead_of_code';
+    case MigrationFailed = 'migration_failed';
     case DeploymentFailed = 'deployment_failed';
     case DeploymentUnavailable = 'deployment_unavailable';
     case CancelledAfterComposer = 'cancelled_after_composer';

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Models;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,8 @@ use Override;
  * @property string $extension_name
  * @property string $kind
  * @property MarketplaceInstallIntentStatus $status
+ * @property MarketplaceOperationType $operation
+ * @property array<string, mixed>|null $uninstall_options
  * @property string|null $composer_command
  * @property string|null $version_constraint
  * @property array<string, mixed>|null $requested_options
@@ -72,6 +75,8 @@ final class MarketplaceInstallAttempt extends Model
         'extension_name',
         'kind',
         'status',
+        'operation',
+        'uninstall_options',
         'composer_command',
         'version_constraint',
         'requested_options',
@@ -139,6 +144,8 @@ final class MarketplaceInstallAttempt extends Model
     {
         return [
             'status' => MarketplaceInstallIntentStatus::class,
+            'operation' => MarketplaceOperationType::class,
+            'uninstall_options' => 'array',
             'requested_options' => 'array',
             'eligibility' => 'array',
             'context' => 'array',

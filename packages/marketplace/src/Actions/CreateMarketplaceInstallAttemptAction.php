@@ -44,6 +44,8 @@ final class CreateMarketplaceInstallAttemptAction
                 'extension_name' => $data->extensionName,
                 'kind' => $data->kind,
                 'status' => $data->status,
+                'operation' => $data->operation,
+                'uninstall_options' => $data->uninstallOptions !== [] ? $data->uninstallOptions : null,
                 'composer_command' => $data->composerCommand,
                 'version_constraint' => $data->versionConstraint,
                 'requested_options' => $data->requestedOptions !== [] ? $data->requestedOptions : null,

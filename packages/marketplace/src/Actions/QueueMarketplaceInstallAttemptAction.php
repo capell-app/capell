@@ -6,7 +6,6 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Core\Actions\AssertQueueConnectionReadyAction;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
-use Capell\Core\Support\Json\JsonCodec;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -20,11 +19,10 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceComposerAuthContext;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\ValidationException;
-use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -63,7 +61,7 @@ final class QueueMarketplaceInstallAttemptAction
         $lock = Cache::lock('capell-marketplace:queue-install:' . hash('sha256', $acquisition->composerName), 10);
 
         if (! $lock->get()) {
-            $this->throwDuplicateActiveInstall($acquisition->composerName);
+            AssertNoActiveMarketplaceOperationAction::fail($acquisition->composerName);
         }
 
         try {
@@ -144,7 +142,7 @@ final class QueueMarketplaceInstallAttemptAction
             ]);
         }
 
-        $this->guardDuplicateActiveInstall($acquisition->composerName);
+        AssertNoActiveMarketplaceOperationAction::run($acquisition->composerName);
 
         $attempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
             extensionSlug: $listing->slug,
@@ -160,7 +158,7 @@ final class QueueMarketplaceInstallAttemptAction
             versionConstraint: $acquisition->versionConstraint,
             requestedOptions: $requestedOptions,
             eligibility: $eligibility->toArray(),
-            context: $this->contextWithComposerAuth($context, $acquisition->composerAuth),
+            context: MarketplaceComposerAuthContext::encryptedInto($context, $acquisition->composerAuth),
             deployment: $deploymentMetadata,
             telemetryStatus: $telemetryStatus,
             idempotencyKey: $idempotencyKey,
@@ -260,55 +258,6 @@ final class QueueMarketplaceInstallAttemptAction
             failureReason: $reason,
             telemetryStatus: $telemetryStatus,
         ), $user);
-    }
-
-    /**
-     * @param  array<string, mixed>  $context
-     * @param  array<string, mixed>|null  $composerAuth
-     * @return array<string, mixed>
-     *
-     * @throws JsonException
-     */
-    private function contextWithComposerAuth(array $context, ?array $composerAuth): array
-    {
-        if ($composerAuth === null || $composerAuth === []) {
-            return $context;
-        }
-
-        return [
-            ...$context,
-            'composer_auth_encrypted' => Crypt::encryptString(JsonCodec::encode($composerAuth)),
-        ];
-    }
-
-    private function guardDuplicateActiveInstall(string $composerName): void
-    {
-        $active = MarketplaceInstallAttempt::query()
-            ->where('composer_name', $composerName)
-            ->whereIn('status', array_map(
-                static fn (MarketplaceInstallIntentStatus $status): string => $status->value,
-                [
-                    MarketplaceInstallIntentStatus::Queued,
-                    MarketplaceInstallIntentStatus::Running,
-                    MarketplaceInstallIntentStatus::CancelRequested,
-                ],
-            ))
-            ->exists();
-
-        if (! $active) {
-            return;
-        }
-
-        $this->throwDuplicateActiveInstall($composerName);
-    }
-
-    private function throwDuplicateActiveInstall(string $composerName): never
-    {
-        throw ValidationException::withMessages([
-            'composer_name' => __('capell-marketplace::marketplace.operations.duplicate_active', [
-                'package' => $composerName,
-            ]),
-        ]);
     }
 
     private function findIdempotentAttempt(?string $idempotencyKey): ?MarketplaceInstallAttempt

@@ -67,4 +67,26 @@ return [
         'webhook_secret' => env('CAPELL_MARKETPLACE_WEBHOOK_SECRET'),
         'troubleshooting_url' => env('CAPELL_MARKETPLACE_TROUBLESHOOTING_URL', 'https://docs.capell.app/extensions/marketplace-heartbeat'),
     ],
+    /*
+     * The scheduled heartbeat. Until this existed the heartbeat was
+     * user-triggered only, so a site nobody logs into had update detection and
+     * security advisories as old as the last visit. Daily rather than hourly:
+     * the answer changes when a publisher releases, not when this site asks.
+     */
+    'heartbeat' => [
+        'scheduled' => env('CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED', true),
+        'at' => env('CAPELL_MARKETPLACE_HEARTBEAT_AT', '02:40'),
+    ],
+    /*
+     * Unattended updates for extensions whose per-extension policy allows them.
+     * Off by default: taking code a site did not ask for is a decision, and the
+     * default has to be the one that surprises nobody.
+     *
+     * Scheduled after the heartbeat rather than at the same time, because the
+     * command decides against whatever the last heartbeat stored.
+     */
+    'auto_update' => [
+        'scheduled' => env('CAPELL_MARKETPLACE_AUTO_UPDATE_SCHEDULED', false),
+        'at' => env('CAPELL_MARKETPLACE_AUTO_UPDATE_AT', '03:20'),
+    ],
 ];

@@ -190,6 +190,60 @@
                 $manualInstallCommands = $this->manualInstallCommands();
             @endphp
 
+            @if ($this->canUpdate())
+                {{-- The confirmation carries the release notes, because
+                     consenting to an unseen change is not consent. --}}
+                <div
+                    data-capell-marketplace-update-available="{{ $this->detail()->composerName }}"
+                    class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
+                >
+                    <p class="font-semibold text-amber-950 dark:text-amber-100">
+                        {{ __('capell-marketplace::marketplace.updates.confirm_heading', ['name' => $this->detail()->name]) }}
+                    </p>
+
+                    <p class="text-amber-800 dark:text-amber-200">
+                        {{ __('capell-marketplace::marketplace.updates.confirm_body', ['version' => $this->detail()->latestVersion]) }}
+                    </p>
+
+                    <div data-capell-marketplace-update-changelog>
+                        <p class="font-semibold text-amber-950 dark:text-amber-100">
+                            {{ __('capell-marketplace::marketplace.updates.changelog_heading') }}
+                        </p>
+
+                        @forelse ($this->updateChangelog() as $release)
+                            <div
+                                data-capell-marketplace-update-changelog-entry="{{ $release['version'] }}"
+                                data-capell-marketplace-update-release-kind="{{ $release['kind'] }}"
+                                class="mt-2"
+                            >
+                                <p class="font-medium text-amber-950 dark:text-amber-100">
+                                    {{ __('capell-marketplace::marketplace.updates.changelog_version', ['version' => $release['version']]) }}
+                                </p>
+
+                                @if ($release['notes'] !== '')
+                                    <p class="text-amber-800 dark:text-amber-200">{{ $release['notes'] }}</p>
+                                @endif
+                            </div>
+                        @empty
+                            <p data-capell-marketplace-update-changelog-empty class="mt-2 text-amber-800 dark:text-amber-200">
+                                {{ __('capell-marketplace::marketplace.updates.changelog_empty') }}
+                            </p>
+                        @endforelse
+                    </div>
+
+                    <button
+                        type="button"
+                        wire:click="updateExtension"
+                        wire:loading.attr="disabled"
+                        wire:target="updateExtension"
+                        data-capell-marketplace-update-submit="{{ $this->detail()->composerName }}"
+                        class="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-60"
+                    >
+                        {{ __('capell-marketplace::marketplace.updates.confirm_submit') }}
+                    </button>
+                </div>
+            @endif
+
             @if ($this->requiresManualInstallInstructions())
                 {{-- This host cannot install for the operator, so the commands
                      they must run are the primary action rather than an

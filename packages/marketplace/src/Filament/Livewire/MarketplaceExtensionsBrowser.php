@@ -7,10 +7,13 @@ namespace Capell\Marketplace\Filament\Livewire;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
 use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\ExtensionKind;
@@ -21,6 +24,7 @@ use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
+use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
@@ -31,6 +35,8 @@ use Filament\Support\Contracts\TranslatableContentDriver;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Throwable;
 
@@ -198,6 +204,113 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         }
 
         $this->showMarketplaceInstallReview();
+    }
+
+    /**
+     * Whether the Update button belongs on this record's card.
+     *
+     * Delegates to the presenter rather than re-reading has_update_available
+     * here, so the card, the table and the detail page cannot disagree about
+     * whether an update is on offer.
+     *
+     * @param  array<string, mixed>  $record
+     */
+    public function marketplaceRecordCanUpdate(array $record): bool
+    {
+        return resolve(MarketplaceInstallActionPresenter::class)->canUpdate($record);
+    }
+
+    /**
+     * One-click update straight from a card.
+     *
+     * Queued rather than run: the operator stays where they are, and the
+     * operation gets the same lock, health check and rollback protection every
+     * other Composer operation on this release gets.
+     */
+    public function updateMarketplaceRecordFromCard(string $composerName): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $composerName = trim($composerName);
+
+        if ($composerName === '') {
+            return;
+        }
+
+        try {
+            $attempt = UpdateMarketplaceExtensionAction::run(
+                composerName: $composerName,
+                actor: $this->marketplaceUpdateActor(),
+            );
+        } catch (ValidationException $validationException) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
+                ->body(collect($validationException->errors())->flatten()->first()
+                    ?? $validationException->getMessage())
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.updates.queued_title'))
+            ->body((string) __('capell-marketplace::marketplace.updates.queued_body', [
+                'name' => $attempt->extension_name,
+            ]))
+            ->send();
+
+        $this->activeMarketplaceInstallAttemptIds = [(int) $attempt->getKey()];
+        $this->marketplaceStep = self::STEP_PROGRESS;
+    }
+
+    /**
+     * Update everything the operator has selected.
+     *
+     * One attempt per extension, serialised by the global Composer lock the jobs
+     * already contend for. A single summary at the end, because an operator who
+     * selected eight extensions does not want eight toasts.
+     */
+    public function updateSelectedMarketplaceRecords(): void
+    {
+        $this->authorizeMarketplaceAccess();
+
+        $composerNames = $this->normalizedSelectedMarketplaceComposerNames();
+
+        if ($composerNames === []) {
+            return;
+        }
+
+        $result = QueueMarketplaceBulkUpdateAction::run(
+            composerNames: $composerNames,
+            actor: $this->marketplaceUpdateActor(),
+        );
+
+        if (! $result->queuedAnything()) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-marketplace::marketplace.updates.bulk_none_title'))
+                ->body($result->skipped === []
+                    ? (string) __('capell-marketplace::marketplace.updates.bulk_none_body')
+                    : $result->summaryBody())
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.updates.bulk_queued_title'))
+            ->body($result->summaryBody())
+            ->persistent()
+            ->send();
+
+        $this->selectedMarketplaceComposerNames = [];
+        $this->resolvedMarketplaceSelectionReview = null;
+        $this->activeMarketplaceInstallAttemptIds = array_values($result->queuedAttemptIds);
+        $this->marketplaceStep = self::STEP_PROGRESS;
     }
 
     public function showMarketplaceInstallReview(): void
@@ -660,6 +773,15 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         return (string) __(
             'capell-marketplace::marketplace.progress.stage_' . ($stage?->value ?? 'queue'),
         );
+    }
+
+    private function marketplaceUpdateActor(): MarketplaceInstallActorData
+    {
+        $user = auth()->user();
+
+        return $user instanceof Authenticatable
+            ? MarketplaceInstallActorData::fromAuthenticatable($user)
+            : MarketplaceInstallActorData::system('marketplace-extensions-browser');
     }
 
     /**

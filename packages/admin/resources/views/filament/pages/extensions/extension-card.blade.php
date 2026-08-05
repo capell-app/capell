@@ -109,6 +109,14 @@
         $hiddenTags = [];
     }
 
+    // Asked of the Livewire component rather than derived here, so the card, the
+    // table and the detail page cannot disagree about whether an update is on
+    // offer for the same record.
+    $canUpdateMarketplaceRecord = $isMarketplaceRecord
+        && is_object($livewire)
+        && method_exists($livewire, 'marketplaceRecordCanUpdate')
+        && $livewire->marketplaceRecordCanUpdate($record);
+
     $catalogueRole = in_array($catalogueRole, ['core', 'extension'], true) ? $catalogueRole : 'extension';
     $maturity = in_array($maturity, ['stable', 'beta', 'labs'], true) ? $maturity : 'labs';
     $maturityLabel = __('capell-admin::marketplace.release_status.' . $maturity);
@@ -608,6 +616,19 @@
                         >
                             {{ __('capell-admin::marketplace.selection.selected') }}
                         </span>
+                    </button>
+                @endif
+
+                @if ($canUpdateMarketplaceRecord)
+                    <button
+                        type="button"
+                        wire:click="updateMarketplaceRecordFromCard({{ Js::from($composerName) }})"
+                        wire:loading.attr="disabled"
+                        wire:target="updateMarketplaceRecordFromCard"
+                        data-capell-marketplace-update="{{ $composerName }}"
+                        class="relative z-20 inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-400 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:outline-none disabled:opacity-60 dark:focus:ring-offset-gray-900"
+                    >
+                        {{ __('capell-marketplace::marketplace.updates.button') }}
                     </button>
                 @endif
 

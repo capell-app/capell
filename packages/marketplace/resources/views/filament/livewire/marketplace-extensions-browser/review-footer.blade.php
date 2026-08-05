@@ -1,4 +1,18 @@
 <template x-teleport="#capell-marketplace-browser-modal-footer">
+    {{-- Bulk update: one attempt per selected extension, serialised by the same
+         global Composer lock a single install already contends for. --}}
+    <button
+        type="button"
+        wire:click="updateSelectedMarketplaceRecords"
+        wire:loading.attr="disabled"
+        wire:target="updateSelectedMarketplaceRecords"
+        data-capell-marketplace-bulk-update
+        x-bind:disabled="selectedCount() === 0"
+        class="mr-2 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 enabled:bg-amber-500 enabled:text-white enabled:hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/10 dark:disabled:text-gray-500"
+    >
+        {{ __('capell-marketplace::marketplace.updates.bulk_button') }}
+    </button>
+
     <button
         type="button"
         x-on:click="reviewMarketplaceSelection()"

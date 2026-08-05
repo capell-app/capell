@@ -9,20 +9,26 @@ use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
+use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\SubmitExtensionFeedbackAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
 use Capell\Marketplace\Data\ExtensionFeedbackData;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
+use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Filament\Support\MarketplaceUpdateChangelogPresenter;
 use Capell\Marketplace\Filament\Widgets\ExtensionHealthAlertsFilamentWidget;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceWebUrl;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Override;
 use RuntimeException;
@@ -152,6 +158,86 @@ final class MarketplaceExtensionDetailPage extends Page
     public function canInstall(): bool
     {
         return (bool) $this->detail()?->licence?->canInstall;
+    }
+
+    /**
+     * The version this site is running, or null when the extension is not
+     * installed here at all.
+     */
+    public function installedVersion(): ?string
+    {
+        $composerName = $this->detail()?->composerName;
+
+        return is_string($composerName) && $composerName !== ''
+            ? CapellCore::getInstalledPrettyVersion($composerName)
+            : null;
+    }
+
+    public function canUpdate(): bool
+    {
+        $installedVersion = $this->installedVersion();
+        $latestVersion = $this->detail()?->latestVersion;
+
+        if ($installedVersion === null || $latestVersion === null || $latestVersion === '') {
+            return false;
+        }
+
+        return version_compare(ltrim($latestVersion, 'vV'), ltrim($installedVersion, 'vV'), '>');
+    }
+
+    /**
+     * What the operator is consenting to, shown in the confirmation rather than
+     * only a version number. Consent to an unseen change is not consent.
+     *
+     * @return list<array{version: string, kind: string, notes: string}>
+     */
+    public function updateChangelog(): array
+    {
+        $detail = $this->detail();
+
+        if (! $detail instanceof ExtensionDetailData) {
+            return [];
+        }
+
+        return resolve(MarketplaceUpdateChangelogPresenter::class)
+            ->entriesSince($detail, $this->installedVersion());
+    }
+
+    public function updateExtension(): void
+    {
+        $composerName = $this->detail()?->composerName;
+
+        if (! is_string($composerName) || $composerName === '') {
+            return;
+        }
+
+        $user = auth()->user();
+
+        try {
+            $attempt = UpdateMarketplaceExtensionAction::run(
+                composerName: $composerName,
+                actor: $user instanceof Authenticatable
+                    ? MarketplaceInstallActorData::fromAuthenticatable($user)
+                    : MarketplaceInstallActorData::system('marketplace-extension-detail'),
+            );
+        } catch (ValidationException $validationException) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
+                ->body(collect($validationException->errors())->flatten()->first()
+                    ?? $validationException->getMessage())
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.updates.queued_title'))
+            ->body((string) __('capell-marketplace::marketplace.updates.queued_body', [
+                'name' => $attempt->extension_name,
+            ]))
+            ->send();
     }
 
     public function installDecisionLabel(): string
