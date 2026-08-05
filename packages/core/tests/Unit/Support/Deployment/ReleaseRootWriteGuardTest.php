@@ -171,3 +171,130 @@ it('classifies a release root that is not an absolute path as misconfigured', fu
     expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootNotAbsolute)
         ->and($reason?->isByDesign())->toBeFalse();
 });
+
+it('stops treating a windows release root as a relative path', function (string $windowsRoot): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    $reason = new ReleaseRootWriteGuard()->refusalReason(
+        'Installing a Marketplace extension with Composer',
+        ['composer.json'],
+        $windowsRoot,
+    );
+
+    expect($reason)->not->toBe(ReleaseRootWriteRefusal::ReleaseRootNotAbsolute);
+})->with([
+    'drive letter with backslashes' => 'C:\\inetpub\\capell',
+    'drive letter with forward slashes' => 'C:/inetpub/capell',
+    'unc share' => '\\\\fileserver\\releases\\capell',
+]);
+
+it('accepts a windows style release root that exists and is writable', function (): void {
+    $temporaryRoot = realpath(sys_get_temp_dir());
+    throw_unless(is_string($temporaryRoot), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
+
+    $root = $temporaryRoot . DIRECTORY_SEPARATOR . 'capell-windows-release-' . bin2hex(random_bytes(4));
+    mkdir($root . DIRECTORY_SEPARATOR . 'database', 0755, true);
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    try {
+        // A drive-letter root cannot exist on the test host, so the closest
+        // observable proof that the drive-letter rule no longer blocks a real
+        // directory is that an existing root still passes unchanged.
+        expect(new ReleaseRootWriteGuard()->refusalReason(
+            'Publishing pending Capell migrations',
+            ['database/migrations'],
+            $root,
+        ))->toBeNull();
+    } finally {
+        rmdir($root . DIRECTORY_SEPARATOR . 'database');
+        rmdir($root);
+    }
+});
+
+it('keeps refusing a windows release root that the deployment declared immutable', function (string $mode): void {
+    config()->set('capell.release_root_mode', $mode);
+    config()->set('capell.server_side_tooling', true);
+
+    $reason = new ReleaseRootWriteGuard()->refusalReason(
+        'Installing a Marketplace extension with Composer',
+        ['composer.json'],
+        'C:\\inetpub\\capell',
+    );
+
+    expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootNotMutable);
+})->with(['immutable', 'atomic']);
+
+it('keeps refusing a windows release root when server side tooling is disabled', function (): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', false);
+
+    $reason = new ReleaseRootWriteGuard()->refusalReason(
+        'Installing a Marketplace extension with Composer',
+        ['composer.json'],
+        'C:\\inetpub\\capell',
+        requiresServerSideTooling: true,
+    );
+
+    expect($reason)->toBe(ReleaseRootWriteRefusal::ServerSideToolingDisabled);
+});
+
+it('refuses a windows release root whose path cannot be written by this process', function (): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    $reason = new ReleaseRootWriteGuard()->refusalReason(
+        'Installing a Marketplace extension with Composer',
+        ['composer.json'],
+        'C:\\inetpub\\capell',
+    );
+
+    expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootPathNotWritable);
+});
+
+it('inspects each component of a windows style root rather than one giant component', function (): void {
+    $parent = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'capell-component-walk-' . bin2hex(random_bytes(4));
+    $release = $parent . DIRECTORY_SEPARATOR . 'releases' . DIRECTORY_SEPARATOR . '20260805120000';
+    $current = $parent . DIRECTORY_SEPARATOR . 'current';
+    mkdir($release, 0755, true);
+    symlink($release, $current);
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    try {
+        // The symlink is not the last component, so a walk that failed to split
+        // the root into components could not possibly find it.
+        $reason = new ReleaseRootWriteGuard()->refusalReason(
+            'Installing a Marketplace extension with Composer',
+            ['composer.json'],
+            $current . DIRECTORY_SEPARATOR . 'public',
+        );
+
+        expect($reason)->toBe(ReleaseRootWriteRefusal::ReleaseRootTraversesSymlink);
+    } finally {
+        unlink($current);
+        rmdir($release);
+        rmdir($parent . DIRECTORY_SEPARATOR . 'releases');
+        rmdir($parent);
+    }
+});
+
+it('rejects relative write paths that traverse upwards with windows separators', function (string $relativePath): void {
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    expect(function () use ($relativePath): void {
+        new ReleaseRootWriteGuard()->assertWritable(
+            operation: 'Unsafe write',
+            relativePaths: [$relativePath],
+            releaseRoot: base_path(),
+        );
+    })->toThrow(InvalidArgumentException::class, 'without parent traversal');
+})->with([
+    'backslash traversal' => 'bootstrap\\..\\..\\outside',
+    'windows absolute drive path' => 'C:\\Windows\\System32',
+    'unc absolute path' => '\\\\fileserver\\share',
+]);

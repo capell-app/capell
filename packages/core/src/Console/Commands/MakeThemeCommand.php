@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\Scaffolding\ScaffoldThemePackageAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as CommandAlias;
@@ -165,7 +166,7 @@ final class MakeThemeCommand extends Command
             return null;
         }
 
-        if (! str_starts_with($basePath, DIRECTORY_SEPARATOR)) {
+        if (! AbsolutePath::is($basePath)) {
             $basePath = getcwd() . DIRECTORY_SEPARATOR . $basePath;
         }
 

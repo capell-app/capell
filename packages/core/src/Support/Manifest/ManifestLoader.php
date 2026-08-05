@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Manifest;
 
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Composer\Autoload\ClassLoader;
@@ -377,7 +378,7 @@ final class ManifestLoader
                     return null;
                 }
 
-                $resolvedPath = str_starts_with($path, DIRECTORY_SEPARATOR)
+                $resolvedPath = AbsolutePath::is($path)
                     ? $path
                     : $manifestDirectory . DIRECTORY_SEPARATOR . $path;
 

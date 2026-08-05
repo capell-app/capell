@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Deployment;
 
 use Capell\Core\Enums\Deployment\ReleaseRootWriteRefusal;
+use Capell\Core\Support\Filesystem\AbsolutePath;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -80,7 +81,7 @@ final class ReleaseRootWriteGuard
         ?string $releaseRoot,
         bool $requiresServerSideTooling,
     ): ?array {
-        $root = rtrim($releaseRoot ?? base_path(), DIRECTORY_SEPARATOR);
+        $root = rtrim($releaseRoot ?? base_path(), '\\/');
         $mode = config('capell.release_root_mode', self::MUTABLE_MODE);
 
         if ($requiresServerSideTooling && config('capell.server_side_tooling', false) !== true) {
@@ -102,7 +103,9 @@ final class ReleaseRootWriteGuard
             ));
         }
 
-        if ($root === '' || ! str_starts_with($root, DIRECTORY_SEPARATOR)) {
+        $rootPrefix = AbsolutePath::rootPrefix($root);
+
+        if ($root === '' || $rootPrefix === null) {
             return $this->refusal(ReleaseRootWriteRefusal::ReleaseRootNotAbsolute, sprintf(
                 '%s is blocked because the application release root is not an absolute path: %s.',
                 $operation,
@@ -110,7 +113,7 @@ final class ReleaseRootWriteGuard
             ));
         }
 
-        $symlink = $this->firstSymlinkComponent($root);
+        $symlink = $this->firstSymlinkComponent($root, $rootPrefix);
 
         if ($symlink !== null) {
             return $this->refusal(ReleaseRootWriteRefusal::ReleaseRootTraversesSymlink, sprintf(
@@ -151,16 +154,24 @@ final class ReleaseRootWriteGuard
         return ['reason' => $reason, 'message' => $message];
     }
 
-    private function firstSymlinkComponent(string $path): ?string
+    /**
+     * Walk the release root one component at a time, so an atomic current-release
+     * symlink is found wherever it sits rather than only at the end of the path.
+     *
+     * The components are rejoined with the separator the root itself is anchored
+     * to: composing `C:\inetpub` with DIRECTORY_SEPARATOR on a unix host would
+     * produce a path that never matches anything, and the walk would silently
+     * inspect nothing.
+     */
+    private function firstSymlinkComponent(string $path, string $rootPrefix): ?string
     {
-        $current = DIRECTORY_SEPARATOR;
+        $separator = str_contains($rootPrefix, '\\') ? '\\' : '/';
+        $current = $rootPrefix;
 
-        foreach (explode(DIRECTORY_SEPARATOR, ltrim($path, DIRECTORY_SEPARATOR)) as $component) {
-            if ($component === '') {
-                continue;
-            }
-
-            $current = rtrim($current, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $component;
+        foreach ($this->pathComponents(substr($path, strlen($rootPrefix)), AbsolutePath::hasWindowsSeparators($path)) as $component) {
+            $current = str_ends_with($current, $separator)
+                ? $current . $component
+                : $current . $separator . $component;
 
             if (is_link($current)) {
                 return $current;
@@ -170,18 +181,38 @@ final class ReleaseRootWriteGuard
         return null;
     }
 
+    /**
+     * Relative write paths are split on both separators on every host. A caller
+     * passes literals, so nothing legitimate contains a backslash, and reading
+     * one as a separator can only reject more paths than before — never fewer.
+     */
     private function assertRelativePath(string $relativePath): void
     {
         if (
             $relativePath === ''
-            || str_starts_with($relativePath, DIRECTORY_SEPARATOR)
-            || in_array('..', explode(DIRECTORY_SEPARATOR, $relativePath), true)
+            || AbsolutePath::is($relativePath)
+            || str_starts_with($relativePath, '\\')
+            || in_array('..', $this->pathComponents($relativePath, true), true)
         ) {
             throw new InvalidArgumentException(sprintf(
                 'Release-root write paths must be non-empty relative paths without parent traversal: %s.',
                 $relativePath === '' ? '[empty]' : $relativePath,
             ));
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function pathComponents(string $path, bool $windowsSeparators): array
+    {
+        $normalized = $windowsSeparators ? str_replace('\\', '/', $path) : $path;
+        $separator = $windowsSeparators ? '/' : DIRECTORY_SEPARATOR;
+
+        return array_values(array_filter(
+            explode($separator, $normalized),
+            static fn (string $component): bool => $component !== '',
+        ));
     }
 
     private function nearestExistingPath(string $path, string $root): ?string
