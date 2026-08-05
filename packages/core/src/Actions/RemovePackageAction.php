@@ -241,6 +241,19 @@ class RemovePackageAction
         ];
     }
 
+    /**
+     * Composer runs with --no-scripts here too, so nothing replays the
+     * application's post-autoload-dump chain after a removal.
+     *
+     * The two manifests that would name the removed package's providers —
+     * Laravel's packages.php and services.php — are deleted here, which is the
+     * part that would otherwise fatal the next request. bootstrap/cache/config.php
+     * is deliberately left alone: `clearCompiled()` would have removed it, but a
+     * removed package leaves only stale values behind rather than references to
+     * classes that no longer exist, and dropping a host's cached config as a side
+     * effect of a package removal is a larger behaviour change than the risk
+     * warrants. Republishing or clearing it stays the operator's deploy step.
+     */
     private function clearPackageManifestCacheFiles(): void
     {
         $paths = [
