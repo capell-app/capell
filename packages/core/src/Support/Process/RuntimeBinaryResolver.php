@@ -122,21 +122,23 @@ final class RuntimeBinaryResolver
      */
     public function misconfiguredPhpBinary(): ?array
     {
-        foreach ($this->configuredCandidates(self::PHP_CONFIG_KEY, self::PHP_ENVIRONMENT_KEY, self::LEGACY_PHP_CONFIG_KEY) as $candidate) {
-            $binary = $this->resolveExecutable($candidate);
+        // Only the highest-priority configured value can be the one in use, so
+        // it is the only one worth complaining about.
+        $candidate = $this->configuredCandidates(self::PHP_CONFIG_KEY, self::PHP_ENVIRONMENT_KEY, self::LEGACY_PHP_CONFIG_KEY)[0] ?? null;
 
-            if ($binary === null) {
-                return ['binary' => $candidate, 'reason' => self::REASON_UNRESOLVABLE];
-            }
-
-            if ($this->looksLikePhpFpm($binary)) {
-                return ['binary' => $candidate, 'reason' => self::REASON_NOT_CLI];
-            }
-
+        if ($candidate === null) {
             return null;
         }
 
-        return null;
+        $binary = $this->resolveExecutable($candidate);
+
+        if ($binary === null) {
+            return ['binary' => $candidate, 'reason' => self::REASON_UNRESOLVABLE];
+        }
+
+        return $this->looksLikePhpFpm($binary)
+            ? ['binary' => $candidate, 'reason' => self::REASON_NOT_CLI]
+            : null;
     }
 
     /**
@@ -144,13 +146,15 @@ final class RuntimeBinaryResolver
      */
     public function misconfiguredComposerBinary(): ?array
     {
-        foreach ($this->configuredCandidates(self::COMPOSER_CONFIG_KEY, self::COMPOSER_ENVIRONMENT_KEY, self::LEGACY_COMPOSER_CONFIG_KEY) as $candidate) {
-            return $this->resolveComposerCandidate($candidate) === null
-                ? ['binary' => $candidate, 'reason' => self::REASON_UNRESOLVABLE]
-                : null;
+        $candidate = $this->configuredCandidates(self::COMPOSER_CONFIG_KEY, self::COMPOSER_ENVIRONMENT_KEY, self::LEGACY_COMPOSER_CONFIG_KEY)[0] ?? null;
+
+        if ($candidate === null) {
+            return null;
         }
 
-        return null;
+        return $this->resolveComposerCandidate($candidate) === null
+            ? ['binary' => $candidate, 'reason' => self::REASON_UNRESOLVABLE]
+            : null;
     }
 
     /**

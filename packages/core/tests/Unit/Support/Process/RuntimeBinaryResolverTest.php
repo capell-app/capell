@@ -117,8 +117,16 @@ it('never resolves php-fpm as the cli php binary', function (): void {
     config()->set('capell.process.php_binary', $phpFpm);
 
     // php-fpm cannot run a script, so the resolver must keep looking rather than
-    // hand a caller a binary that fails at the first subprocess.
-    expect(new RuntimeBinaryResolver()->php())->not->toBe([$phpFpm]);
+    // hand a caller a binary that fails at the first subprocess. With nothing
+    // else configured, the next tier that answers is PHP_BINARY — the process
+    // running this test, which is a CLI binary by definition.
+    $resolver = new RuntimeBinaryResolver;
+
+    expect($resolver->php())->toBe([PHP_BINARY])
+        ->and($resolver->misconfiguredPhpBinary())->toBe([
+            'binary' => $phpFpm,
+            'reason' => RuntimeBinaryResolver::REASON_NOT_CLI,
+        ]);
 });
 
 it('invokes a composer phar through the resolved php binary', function (): void {
@@ -183,10 +191,31 @@ it('reports no misconfiguration when the legacy installer keys resolve', functio
         ->and($resolver->misconfiguredComposerBinary())->toBeNull();
 });
 
-it('ignores a configured path that does not exist', function (): void {
+it('falls back past a configured path that does not exist, and says so', function (): void {
+    $pathDirectory = sys_get_temp_dir() . '/capell-runtime-binary-path-' . bin2hex(random_bytes(6));
+    mkdir($pathDirectory, 0755, true);
+    $onPath = $pathDirectory . '/composer';
+    file_put_contents($onPath, "#!/bin/sh\nexit 0\n");
+    chmod($onPath, 0755);
+
+    $previousPath = getenv('PATH');
+    putenv('PATH=' . $pathDirectory);
+
     config()->set('capell.process.composer_binary', '/nonexistent/capell/composer');
 
-    $resolved = new RuntimeBinaryResolver()->composerOrNull();
+    try {
+        $resolver = new RuntimeBinaryResolver;
 
-    expect($resolved)->not->toBe(['/nonexistent/capell/composer']);
+        // Falling back is deliberate — an install that can complete should
+        // complete — but the operator still has to learn their path is wrong.
+        expect($resolver->composerOrNull())->toBe([$onPath])
+            ->and($resolver->misconfiguredComposerBinary())->toBe([
+                'binary' => '/nonexistent/capell/composer',
+                'reason' => RuntimeBinaryResolver::REASON_UNRESOLVABLE,
+            ]);
+    } finally {
+        putenv($previousPath === false ? 'PATH' : 'PATH=' . $previousPath);
+        @unlink($onPath);
+        @rmdir($pathDirectory);
+    }
 });
