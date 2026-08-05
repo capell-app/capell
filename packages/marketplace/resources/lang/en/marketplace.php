@@ -404,7 +404,13 @@ return [
         'health_check_http_failed' => 'The site answered its own homepage with HTTP :status after the package change.',
         'health_check_skipped_no_artisan' => 'This application has no artisan entry point, so a fresh process could not be asked whether the site still boots.',
         'health_check_skipped_no_budget' => 'The operation used up the job time budget, leaving less than :seconds seconds for the health check, so the site was not verified after the package change.',
-        'rollback_schema_retained' => 'This update of :package failed and Capell restored the previous version of the code. The database migrations it had already run were NOT undone and cannot be — restoring composer.lock does not un-run a migration, so this site is now running older code against a newer schema. Check the site, then either fix the cause and re-run the update, or restore the database from a backup taken before this update. Original failure: :error',
+        // Deliberately does not say "the migrations :package ran". Publishing and
+        // migrating are global: the batch this update triggered applies every
+        // pending migration on the site, whichever package shipped it. The
+        // ledger records what actually ran, so the message reports those names
+        // rather than attributing them to the extension being updated.
+        'rollback_schema_retained' => 'This update of :package failed and Capell restored the previous version of the code. The database migrations that ran during it were NOT undone and cannot be — restoring composer.lock does not un-run a migration, so this site is now running older code against a newer schema. Migrations applied: :migrations. Note that an update publishes and runs every pending migration on this site, so this list may include migrations belonging to other packages, and those packages are now ahead of the code as well. Check the site, then either fix the cause and re-run the update, or restore the database from a backup taken before this update. Original failure: :error',
+        'rollback_schema_unverified' => 'This update of :package failed and Capell restored the previous version of the code. Capell could NOT verify whether any database migration ran before the failure, so it cannot tell you the schema is unchanged — restoring composer.lock does not un-run a migration. Check the migrations table and the site before deciding whether to re-run the update or restore the database from a backup taken before this update. Original failure: :error',
         'rollback_failed' => 'The package change failed and could NOT be rolled back automatically, so this application may be left inconsistent. Recover it manually by running "composer install --no-interaction --no-scripts" from the application root in a trusted terminal, then check the site. Original failure: :error Rollback failure: :rollback_error',
         'timeline_cancelled' => 'Operation cancelled before Composer started.',
         'timeline_cancelled_after_composer' => 'Operation cancelled after Composer completed.',
@@ -425,7 +431,8 @@ return [
         'timeline_lifecycle_completed' => 'Extension lifecycle completed.',
         'timeline_migrations_started' => 'Running database and settings migrations.',
         'timeline_migrations_completed' => 'Database and settings migrations completed.',
-        'timeline_rollback_schema_retained' => 'The previous version was restored, but the migrations this update ran were NOT undone.',
+        'timeline_rollback_schema_retained' => 'The previous version was restored, but the migrations that ran during this update were NOT undone.',
+        'timeline_rollback_schema_unverified' => 'The previous version was restored, but Capell could not verify whether any migration ran.',
         'timeline_lifecycle_failed' => 'Extension lifecycle failed.',
         'timeline_lifecycle_started' => 'Extension lifecycle started.',
         'timeline_notification_failed' => 'Notification could not be sent.',
@@ -642,6 +649,8 @@ return [
         'bulk_skipped' => 'Skipped :package: :reason',
         'bulk_none_title' => 'Nothing to update',
         'bulk_none_body' => 'None of the selected extensions has an update this site is entitled to install.',
+        'auto_skipped_pre_release' => 'The newest version (:version) is a pre-release. Automatic updates only install final releases; update this extension by hand if you want the pre-release.',
+        'auto_skipped_pending_migrations' => 'Other packages (:packages) have database migrations this site has not run yet. An update publishes and runs every pending migration, not just this extension\'s, so an unattended update here would also change the schema for those packages — and if this update then failed its health check, they would be left running older code against a newer schema. Run capell:upgrade (or update this extension by hand) to clear the pending migrations first.',
     ],
     'install_states' => [
         'free_available' => 'Free',

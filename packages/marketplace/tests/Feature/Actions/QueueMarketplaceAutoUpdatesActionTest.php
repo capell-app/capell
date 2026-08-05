@@ -10,6 +10,8 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Actions\QueueMarketplaceAutoUpdatesAction;
 use Capell\Marketplace\Actions\RecordUpdateAdvisorySnapshotAction;
+use Capell\Marketplace\Actions\ResolveMarketplaceSecurityAdvisoriesAction;
+use Capell\Marketplace\Actions\ResolvePackagesWithPendingMigrationsAction;
 
 function autoUpdateExtension(string $composerName, ExtensionAutoUpdatePolicyEnum $policy): CapellExtension
 {
@@ -33,6 +35,22 @@ function fakeUpdateReadiness(array $readiness): void
         public function handle(): array
         {
             return $this->readiness;
+        }
+    });
+}
+
+/** @param list<string> $composerNames */
+function fakePendingMigrationsFor(array $composerNames): void
+{
+    app()->instance(ResolvePackagesWithPendingMigrationsAction::class, new readonly class($composerNames)
+    {
+        /** @param list<string> $composerNames */
+        public function __construct(private array $composerNames) {}
+
+        /** @return list<string> */
+        public function handle(): array
+        {
+            return $this->composerNames;
         }
     });
 }
@@ -164,6 +182,97 @@ it('queues nothing at all when every extension is left on the default policy', f
 
     expect($result->requestedCount)->toBe(0)
         ->and($result->queuedAnything())->toBeFalse();
+});
+
+it('will not queue an unattended update from an advisory with no type at all', function (): void {
+    autoUpdateExtension('capell-app/untyped-notice', ExtensionAutoUpdatePolicyEnum::Security);
+
+    // The advisory channel demonstrably carries update and bug notices too, and
+    // the payload has no schema guarantee. If a missing type counted as
+    // security, the policy chosen by the operator who wants the LEAST automatic
+    // change would silently become "take every release the marketplace
+    // mentioned" — majors included, overnight.
+    RecordUpdateAdvisorySnapshotAction::run('heartbeat', [
+        'advisories' => [
+            ['composer_name' => 'capell-app/untyped-notice'],
+        ],
+    ]);
+
+    fakeUpdateReadiness([
+        new ExtensionUpdateReadinessData('capell-app/untyped-notice', 'major_review', '1.0.0', '2.0.0'),
+    ]);
+
+    expect(resolve(QueueMarketplaceAutoUpdatesAction::class)->eligibleComposerNames())->toBe([]);
+});
+
+it('still surfaces an advisory with no type, because warning a human is free', function (): void {
+    RecordUpdateAdvisorySnapshotAction::run('heartbeat', [
+        'advisories' => [
+            ['composer_name' => 'capell-app/untyped-notice'],
+        ],
+    ]);
+
+    $advisories = resolve(ResolveMarketplaceSecurityAdvisoriesAction::class);
+
+    expect($advisories->surfaceable())->toBe(['capell-app/untyped-notice'])
+        ->and($advisories->handle())->toBe([]);
+});
+
+it('refuses to install a pre-release unattended, even when it classifies as a patch', function (): void {
+    autoUpdateExtension('capell-app/beta-channel', ExtensionAutoUpdatePolicyEnum::Patch);
+
+    fakeUpdateReadiness([
+        new ExtensionUpdateReadinessData('capell-app/beta-channel', 'patch_ready', '1.2.3', '1.2.4-beta.1'),
+    ]);
+
+    $eligibility = resolve(QueueMarketplaceAutoUpdatesAction::class)->eligibility();
+
+    expect($eligibility['eligible'])->toBe([])
+        ->and($eligibility['skipped'])->toHaveKey('capell-app/beta-channel')
+        ->and($eligibility['skipped']['capell-app/beta-channel'])->toContain('1.2.4-beta.1');
+});
+
+it('still takes the final release on the same policy', function (): void {
+    autoUpdateExtension('capell-app/stable-channel', ExtensionAutoUpdatePolicyEnum::Patch);
+
+    fakeUpdateReadiness([
+        new ExtensionUpdateReadinessData('capell-app/stable-channel', 'patch_ready', '1.2.3', '1.2.4'),
+    ]);
+
+    expect(resolve(QueueMarketplaceAutoUpdatesAction::class)->eligibleComposerNames())
+        ->toBe(['capell-app/stable-channel']);
+});
+
+it('declines an unattended update while another package has migrations waiting', function (): void {
+    autoUpdateExtension('capell-app/candidate', ExtensionAutoUpdatePolicyEnum::Patch);
+
+    fakeUpdateReadiness([
+        new ExtensionUpdateReadinessData('capell-app/candidate', 'patch_ready', '1.0.0', '1.0.1'),
+    ]);
+
+    fakePendingMigrationsFor(['capell-app/unrelated-neighbour']);
+
+    $eligibility = resolve(QueueMarketplaceAutoUpdatesAction::class)->eligibility();
+
+    // The update would publish and run every pending migration on the site, so
+    // a health-check failure would roll the candidate's code back and leave the
+    // neighbour ahead of its own — with no failure record against it at all.
+    expect($eligibility['eligible'])->toBe([])
+        ->and($eligibility['skipped']['capell-app/candidate'] ?? '')
+        ->toContain('capell-app/unrelated-neighbour');
+});
+
+it('lets a package with only its own migrations waiting update itself', function (): void {
+    autoUpdateExtension('capell-app/candidate', ExtensionAutoUpdatePolicyEnum::Patch);
+
+    fakeUpdateReadiness([
+        new ExtensionUpdateReadinessData('capell-app/candidate', 'patch_ready', '1.0.0', '1.0.1'),
+    ]);
+
+    fakePendingMigrationsFor(['capell-app/candidate']);
+
+    expect(resolve(QueueMarketplaceAutoUpdatesAction::class)->eligibleComposerNames())
+        ->toBe(['capell-app/candidate']);
 });
 
 it('defaults a newly recorded extension to never updating itself', function (): void {

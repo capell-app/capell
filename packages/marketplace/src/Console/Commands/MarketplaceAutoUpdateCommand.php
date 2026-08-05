@@ -52,6 +52,10 @@ final class MarketplaceAutoUpdateCommand extends Command
                 $this->line('  ' . $composerName);
             }
 
+            foreach ($result->skipped as $composerName => $reason) {
+                $this->components->warn(sprintf('%s: %s', $composerName, $reason));
+            }
+
             return self::SUCCESS;
         }
 

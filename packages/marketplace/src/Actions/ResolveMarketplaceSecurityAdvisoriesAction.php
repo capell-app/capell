@@ -27,8 +27,43 @@ final class ResolveMarketplaceSecurityAdvisoriesAction
     use AsFake;
     use AsObject;
 
-    /** @return list<string> Composer names, de-duplicated. */
+    /**
+     * Packages the marketplace has flagged, for **queueing an unattended
+     * update**. An explicit `security` type is required.
+     *
+     * The permissive reading below is wrong in this direction. The `security`
+     * policy is chosen by the operator who wants the least automatic change, and
+     * `ExtensionAutoUpdatePolicyEnum::Security` lets a security release be a
+     * major. So a server that omitted `type` — on a channel that demonstrably
+     * also carries `update` and `bug` notices, over a payload with no schema
+     * guarantee — would silently turn "only security fixes" into "every release
+     * the marketplace mentioned, majors included", overnight, with nobody
+     * watching.
+     *
+     * @return list<string> Composer names, de-duplicated.
+     */
     public function handle(): array
+    {
+        return $this->composerNames(requireExplicitSecurityType: true);
+    }
+
+    /**
+     * Packages the marketplace has flagged, for **telling a human**.
+     *
+     * Here the permissive reading is right: an untyped entry that the
+     * marketplace went to the trouble of sending is worth surfacing, and the
+     * cost of a warning that turns out not to be a security advisory is that
+     * somebody reads one line and moves on. Nothing is installed by this.
+     *
+     * @return list<string> Composer names, de-duplicated.
+     */
+    public function surfaceable(): array
+    {
+        return $this->composerNames(requireExplicitSecurityType: false);
+    }
+
+    /** @return list<string> */
+    private function composerNames(bool $requireExplicitSecurityType): array
     {
         $snapshot = UpdateAdvisorySnapshot::latestSnapshot();
 
@@ -43,7 +78,7 @@ final class ResolveMarketplaceSecurityAdvisoriesAction
                 continue;
             }
 
-            if (! $this->isSecurityAdvisory($advisory)) {
+            if (! $this->isSecurityAdvisory($advisory, $requireExplicitSecurityType)) {
                 continue;
             }
 
@@ -58,16 +93,12 @@ final class ResolveMarketplaceSecurityAdvisoriesAction
     }
 
     /** @param array<string, mixed> $advisory */
-    private function isSecurityAdvisory(array $advisory): bool
+    private function isSecurityAdvisory(array $advisory, bool $requireExplicitSecurityType): bool
     {
-        // An entry that lives in the advisories list and says nothing about its
-        // type is treated as a security advisory. That is the safe direction:
-        // the alternative is silently ignoring a warning the marketplace went to
-        // the trouble of sending.
         $type = $advisory['type'] ?? $advisory['notice_type'] ?? $advisory['kind'] ?? null;
 
         if (! is_string($type) || $type === '') {
-            return true;
+            return ! $requireExplicitSecurityType;
         }
 
         return UpdateNoticeType::tryFrom($type) === UpdateNoticeType::Security;

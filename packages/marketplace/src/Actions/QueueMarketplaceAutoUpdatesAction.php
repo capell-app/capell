@@ -21,7 +21,17 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * Three sources have to agree before a package is touched without anyone
  * asking: the operator's own per-extension policy, the release-readiness
  * classification the admin package already computes, and — for the security
- * policy — an advisory the marketplace actually sent.
+ * policy — an advisory the marketplace actually sent with an explicit
+ * `security` type.
+ *
+ * Two further refusals apply only here, because they are about nobody watching
+ * rather than about entitlement. A pre-release is never installed unattended
+ * however small the numeric step is, and an update is declined while any *other*
+ * package has schema migrations waiting — the migration pipeline is global, so
+ * that update would move the neighbour's schema too, and a health-check failure
+ * would then roll this package's code back while leaving the neighbour ahead of
+ * its own with no failure recorded against it. An operator who runs the update
+ * themselves keeps the current behaviour: they asked, and they are watching.
  *
  * This is only defensible because every queued update is health-checked and
  * rollback-protected. Nothing here should ever grow a path that queues an
@@ -34,30 +44,51 @@ final class QueueMarketplaceAutoUpdatesAction
 
     public function handle(bool $dryRun = false): MarketplaceBulkUpdateResultData
     {
-        $eligible = $this->eligibleComposerNames();
+        ['eligible' => $eligible, 'skipped' => $skipped] = $this->eligibility();
 
         if ($dryRun || $eligible === []) {
-            return new MarketplaceBulkUpdateResultData(requestedCount: count($eligible));
+            return new MarketplaceBulkUpdateResultData(
+                requestedCount: count($eligible),
+                skipped: $skipped,
+            );
         }
 
-        return QueueMarketplaceBulkUpdateAction::run(
+        $result = QueueMarketplaceBulkUpdateAction::run(
             composerNames: $eligible,
             actor: MarketplaceInstallActorData::system('marketplace-auto-update'),
             source: MarketplaceInstallSource::Scheduler,
+        );
+
+        return new MarketplaceBulkUpdateResultData(
+            requestedCount: $result->requestedCount,
+            queuedAttemptIds: $result->queuedAttemptIds,
+            skipped: [...$skipped, ...$result->skipped],
         );
     }
 
     /** @return list<string> */
     public function eligibleComposerNames(): array
     {
+        return $this->eligibility()['eligible'];
+    }
+
+    /**
+     * Who may update tonight, and why everybody else may not.
+     *
+     * @return array{eligible: list<string>, skipped: array<string, string>}
+     */
+    public function eligibility(): array
+    {
         $policies = $this->policiesByComposerName();
 
         if ($policies === []) {
-            return [];
+            return ['eligible' => [], 'skipped' => []];
         }
 
         $securityAdvisories = array_fill_keys(ResolveMarketplaceSecurityAdvisoriesAction::run(), true);
+        $pendingMigrations = ResolvePackagesWithPendingMigrationsAction::run();
         $eligible = [];
+        $skipped = [];
 
         foreach (BuildExtensionUpdateReadinessAction::run() as $readiness) {
             $policy = $policies[$readiness->packageName] ?? null;
@@ -70,6 +101,28 @@ final class QueueMarketplaceAutoUpdatesAction
                 continue;
             }
 
+            // A pre-release classifies as whatever numeric step it is — 1.2.3 to
+            // 1.2.4-beta.1 is a patch — and that is right for classification and
+            // wrong for consent. Nobody who set `patch` meant "install betas
+            // overnight".
+            if ($this->isPreRelease($readiness->latestVersion)) {
+                $skipped[$readiness->packageName] = (string) __('capell-marketplace::marketplace.updates.auto_skipped_pre_release', [
+                    'version' => (string) $readiness->latestVersion,
+                ]);
+
+                continue;
+            }
+
+            $unrelatedPending = array_values(array_diff($pendingMigrations, [$readiness->packageName]));
+
+            if ($unrelatedPending !== []) {
+                $skipped[$readiness->packageName] = (string) __('capell-marketplace::marketplace.updates.auto_skipped_pending_migrations', [
+                    'packages' => implode(', ', $unrelatedPending),
+                ]);
+
+                continue;
+            }
+
             $releaseKind = ExtensionReleaseKindEnum::between($readiness->currentVersion, $readiness->latestVersion);
 
             if ($policy->allows($releaseKind, isset($securityAdvisories[$readiness->packageName]))) {
@@ -77,7 +130,19 @@ final class QueueMarketplaceAutoUpdatesAction
             }
         }
 
-        return $eligible;
+        return ['eligible' => $eligible, 'skipped' => $skipped];
+    }
+
+    /**
+     * Whether a version string carries pre-release metadata (`-beta.1`, `-rc2`).
+     */
+    private function isPreRelease(?string $version): bool
+    {
+        if ($version === null) {
+            return false;
+        }
+
+        return str_contains(ltrim(trim($version), 'vV'), '-');
     }
 
     /**

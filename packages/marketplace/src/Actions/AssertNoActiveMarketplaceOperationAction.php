@@ -33,9 +33,17 @@ final class AssertNoActiveMarketplaceOperationAction
         ]);
     }
 
-    public function handle(string $composerName): void
+    /**
+     * Whether this package already has an operation in flight.
+     *
+     * Public so that a surface deciding whether to *offer* an operation asks the
+     * same question this action answers when it refuses one — an offer the
+     * product will reject downstream is still an offer that should not have been
+     * made.
+     */
+    public static function isActive(string $composerName): bool
     {
-        $active = MarketplaceInstallAttempt::query()
+        return MarketplaceInstallAttempt::query()
             ->where('composer_name', $composerName)
             ->whereIn('status', array_map(
                 static fn (MarketplaceInstallIntentStatus $status): string => $status->value,
@@ -46,8 +54,11 @@ final class AssertNoActiveMarketplaceOperationAction
                 ],
             ))
             ->exists();
+    }
 
-        if (! $active) {
+    public function handle(string $composerName): void
+    {
+        if (! self::isActive($composerName)) {
             return;
         }
 

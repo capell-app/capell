@@ -154,23 +154,37 @@ final class RunMarketplaceUpdateAttemptJob extends AbstractMarketplaceOperationJ
             ? $rollback['timeline_context']['error']
             : $rollback['failure_reason'];
 
-        $reason = (string) __('capell-marketplace::marketplace.operations.rollback_schema_retained', [
-            'package' => $attempt->composer_name,
-            'error' => $originalReason,
-        ]);
+        // Two different claims, because they are two different facts. "These
+        // migrations ran and cannot be undone" is only sayable when the ledger
+        // could be read; when it could not — a database outage is exactly the
+        // failure that produces this path — the honest sentence is that we do
+        // not know, not a specific claim about migrations that may not exist.
+        $schemaVerified = $this->appliedMigrations !== [];
+
+        $reason = $schemaVerified
+            ? (string) __('capell-marketplace::marketplace.operations.rollback_schema_retained', [
+                'package' => $attempt->composer_name,
+                'migrations' => implode(', ', $this->appliedMigrations),
+                'error' => $originalReason,
+            ])
+            : (string) __('capell-marketplace::marketplace.operations.rollback_schema_unverified', [
+                'package' => $attempt->composer_name,
+                'error' => $originalReason,
+            ]);
 
         $context = [
             ...$rollback['timeline_context'],
             'reason' => $reason,
             'error' => $originalReason,
             'schema_retained' => true,
+            'schema_verified' => $schemaVerified,
             'applied_migrations' => $this->appliedMigrations,
         ];
 
         $this->recordEvent(
             $attempt,
             MarketplaceInstallAttemptEventLevel::Error,
-            'timeline_rollback_schema_retained',
+            $schemaVerified ? 'timeline_rollback_schema_retained' : 'timeline_rollback_schema_unverified',
             $stage,
             $context,
         );
@@ -215,6 +229,15 @@ final class RunMarketplaceUpdateAttemptJob extends AbstractMarketplaceOperationJ
 
     /**
      * Publish and run whatever the new version of the package ships.
+     *
+     * These three core actions are global by construction — they take no package
+     * and Laravel's migrator has no notion of which package a published
+     * migration file came from — so this batch applies every pending migration
+     * on the site, not only this extension's. That is the existing
+     * `capell:upgrade` behaviour and is expected when an operator asked for the
+     * update. It is not expected at 03:20, which is why
+     * `QueueMarketplaceAutoUpdatesAction` declines to queue an unattended update
+     * while another package has migrations waiting.
      *
      * This is the step that makes an update different from an install in the
      * one way that matters, so what it actually applied is recorded as it goes
