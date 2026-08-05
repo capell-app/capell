@@ -444,6 +444,18 @@ final class ResolveFrontendResourcePlanAction
     }
 
     /**
+     * The manifest filename the Vite helper is configured to serve. Tests swap
+     * it via Vite::useManifestFilename(); the helper exposes no public getter,
+     * so read the protected property through a bound closure.
+     */
+    private function viteManifestFilename(): string
+    {
+        $filename = (fn (): mixed => $this->manifestFilename ?? null)->call($this->vite);
+
+        return is_string($filename) && $filename !== '' ? $filename : 'manifest.json';
+    }
+
+    /**
      * @return array{array<int, ResolvedFrontendResourceData>, array<int, FrontendResourceHintData>}
      */
     private function expand(FrontendResourceData $resource): array
@@ -473,7 +485,15 @@ final class ResolveFrontendResourcePlanAction
             return [[$client, $entry], []];
         }
 
-        $manifestPath = public_path(trim($source->buildDirectory, '/') . '/manifest.json');
+        $buildDirectory = trim($source->buildDirectory, '/');
+        $manifestPath = public_path($buildDirectory . '/' . $this->viteManifestFilename());
+
+        // A swapped manifest filename (Vite::useManifestFilename(), used by
+        // tests) only applies to build directories that actually contain that
+        // file; other build directories keep serving their real manifest.
+        if (! is_file($manifestPath)) {
+            $manifestPath = public_path($buildDirectory . '/manifest.json');
+        }
 
         if (! is_file($manifestPath)) {
             throw new FrontendResourcePlanException(sprintf('Vite manifest not found for frontend resource [%s] at [%s].', $resource->handle, $manifestPath));
