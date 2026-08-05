@@ -451,7 +451,6 @@ return [
         'description' => 'Capell is downloading and installing what you selected. You can close this and it will keep going.',
         'back_to_browse' => 'Back to the marketplace',
         'view_operations' => 'View operations',
-        'failed' => 'This operation stopped before it finished.',
         'stage_queue' => 'Waiting for a worker',
         'stage_preflight' => 'Checking this site',
         'stage_composer' => 'Downloading packages',
