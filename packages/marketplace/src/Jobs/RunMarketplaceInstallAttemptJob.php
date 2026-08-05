@@ -150,6 +150,25 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     }
 
     /**
+     * What the script replay has to leave behind for the stages after it.
+     *
+     * Named rather than summed at the call site so the timeout-chain tests can
+     * pin the rule instead of a literal, and so adding a stage to the tail is a
+     * change in one place.
+     *
+     * The replay is the stage that yields when a new one needs time, and the
+     * ordering is by consequence, not by convenience. A truncated replay
+     * surfaces as a reported hook, which replayHostComposerScripts() already
+     * treats as non-fatal. A health check that never got to run means an
+     * unverified install is announced as good and nothing is left to trigger a
+     * rollback — the failure this whole task exists to prevent.
+     */
+    public static function scriptReplayReserveSeconds(): int
+    {
+        return self::FINALISATION_RESERVE_SECONDS + self::HEALTH_CHECK_RESERVE_SECONDS;
+    }
+
+    /**
      * How long the replay of the application's post-autoload-dump scripts may
      * run: whatever is left of this job's own timeout once Composer has had its
      * turn, minus the finalisation reserve.
@@ -170,9 +189,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
      */
     public function scriptReplayBudgetSeconds(): int
     {
-        return $this->remainingBudgetSeconds(
-            self::FINALISATION_RESERVE_SECONDS + self::HEALTH_CHECK_RESERVE_SECONDS,
-        );
+        return $this->remainingBudgetSeconds(self::scriptReplayReserveSeconds());
     }
 
     /**
@@ -204,15 +221,6 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     public function rollbackBudgetSeconds(): int
     {
         return $this->remainingBudgetSeconds(self::FINALISATION_RESERVE_SECONDS);
-    }
-
-    private function remainingBudgetSeconds(int $reserveSeconds): int
-    {
-        $elapsedSeconds = $this->startedAtNanoseconds === null
-            ? 0
-            : (int) floor((hrtime(true) - $this->startedAtNanoseconds) / 1_000_000_000);
-
-        return max(0, self::jobTimeoutSeconds() - $elapsedSeconds - $reserveSeconds);
     }
 
     /** @return array<int, int> */
@@ -345,6 +353,15 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         $configured = config($key, $default);
 
         return is_numeric($configured) && (int) $configured > 0 ? (int) $configured : $default;
+    }
+
+    private function remainingBudgetSeconds(int $reserveSeconds): int
+    {
+        $elapsedSeconds = $this->startedAtNanoseconds === null
+            ? 0
+            : (int) floor((hrtime(true) - $this->startedAtNanoseconds) / 1_000_000_000);
+
+        return max(0, self::jobTimeoutSeconds() - $elapsedSeconds - $reserveSeconds);
     }
 
     /**

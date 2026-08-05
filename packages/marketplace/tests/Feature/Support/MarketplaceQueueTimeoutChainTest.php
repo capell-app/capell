@@ -57,8 +57,53 @@ it('shrinks the script replay budget by the time the run has already spent', fun
     // reported: being SIGKILLed mid-replay leaves an install already applied
     // and an attempt never finalised.
     expect($halfSpentJob->scriptReplayBudgetSeconds())
-        ->toBe(720 - 300 - RunMarketplaceInstallAttemptJob::FINALISATION_RESERVE_SECONDS)
+        ->toBe(720 - 300 - RunMarketplaceInstallAttemptJob::scriptReplayReserveSeconds())
         ->and($exhaustedJob->scriptReplayBudgetSeconds())->toBe(0);
+});
+
+it('pays for the post-install health check out of the job budget rather than growing it', function (): void {
+    // The health check is the newest claimant on the tail of the job, and the
+    // one rule that must survive it is that no stage gets a budget of its own.
+    // Growing the job timeout instead would raise the retry_after every host
+    // needs, which flows straight through the timeout chain into readiness —
+    // installations that changed nothing would start reporting an unsafe queue.
+    config()->set('capell.process.composer.timeout_seconds', 600);
+    config()->set('capell.process.composer.job_timeout_buffer_seconds', 120);
+
+    $job = new RunMarketplaceInstallAttemptJob(1);
+
+    expect(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds())->toBe(720)
+        ->and(MarketplaceQueueTimeoutChain::resolve()->jobTimeoutSeconds)->toBe(720);
+
+    // Every stage after Composer, added together, still fits in one job window.
+    $tailSeconds = $job->scriptReplayBudgetSeconds()
+        + $job->healthCheckBudgetSeconds()
+        + RunMarketplaceInstallAttemptJob::FINALISATION_RESERVE_SECONDS;
+
+    expect($tailSeconds)->toBeLessThanOrEqual(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds())
+        // The replay is what yields the health check's slice.
+        ->and($job->scriptReplayBudgetSeconds())
+        ->toBe($job->rollbackBudgetSeconds() - RunMarketplaceInstallAttemptJob::HEALTH_CHECK_RESERVE_SECONDS);
+});
+
+it('caps the health check so a slow probe cannot starve the rollback it triggers', function (): void {
+    config()->set('capell.process.composer.timeout_seconds', 600);
+    config()->set('capell.process.composer.job_timeout_buffer_seconds', 120);
+
+    $freshJob = new RunMarketplaceInstallAttemptJob(1);
+
+    $nearlySpentJob = new RunMarketplaceInstallAttemptJob(1);
+    new ReflectionProperty($nearlySpentJob, 'startedAtNanoseconds')
+        ->setValue($nearlySpentJob, hrtime(true) - 700 * 1_000_000_000);
+
+    expect($freshJob->healthCheckBudgetSeconds())
+        ->toBe(RunMarketplaceInstallAttemptJob::HEALTH_CHECK_RESERVE_SECONDS)
+        // Once the run has spent nearly the whole window the probe gets what is
+        // actually left, never the reserve it would like.
+        ->and($nearlySpentJob->healthCheckBudgetSeconds())
+        ->toBeLessThan(RunMarketplaceInstallAttemptJob::HEALTH_CHECK_RESERVE_SECONDS)
+        ->and($nearlySpentJob->healthCheckBudgetSeconds())->toBe(0)
+        ->and($nearlySpentJob->rollbackBudgetSeconds())->toBe(0);
 });
 
 it('calls a retry window at or below the job timeout unsafe, and one above it safe', function (): void {
