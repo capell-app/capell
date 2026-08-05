@@ -652,9 +652,16 @@ it('restores the post-install state that --no-scripts suppresses', function (): 
     }
 
     expect($packageManifest->rebuilt)->toBeTrue()
-        ->and($scriptRunner->replayed)->toBe([[
-            'event' => MarketplaceComposerScriptRunner::POST_AUTOLOAD_DUMP,
-            'timeout' => RunMarketplaceInstallAttemptJob::composerTimeoutSeconds(),
-        ]])
+        ->and($scriptRunner->replayed)->toHaveCount(1)
+        ->and($scriptRunner->replayed[0]['event'])->toBe(MarketplaceComposerScriptRunner::POST_AUTOLOAD_DUMP)
+        // The replay takes what is left of the job's own timeout. A budget of
+        // its own — the composer timeout again — would have let the worker be
+        // killed after the install was already applied.
+        ->and($scriptRunner->replayed[0]['timeout'])
+        ->toBeGreaterThan(RunMarketplaceInstallAttemptJob::composerTimeoutSeconds())
+        ->and($scriptRunner->replayed[0]['timeout'])
+        ->toBeLessThanOrEqual(
+            RunMarketplaceInstallAttemptJob::jobTimeoutSeconds() - RunMarketplaceInstallAttemptJob::FINALISATION_RESERVE_SECONDS,
+        )
         ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
 });

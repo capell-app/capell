@@ -53,14 +53,18 @@ final class ProcessMarketplaceComposerScriptRunner implements MarketplaceCompose
                 output: $process->getOutput(),
                 errorOutput: $process->getErrorOutput(),
                 timedOut: true,
-            );
+            )->redacted();
         }
 
+        // The application owns these hooks and Capell cannot see what they
+        // print. A hook that dumps its environment on failure would otherwise
+        // reach the error reporter verbatim, so this path redacts exactly as
+        // the authenticated require path does.
         return new MarketplaceComposerResultData(
             exitCode: $process->getExitCode() ?? 1,
             output: $process->getOutput(),
             errorOutput: $process->getErrorOutput(),
-        );
+        )->redacted();
     }
 
     /**

@@ -44,8 +44,16 @@ final class BuildMarketplaceOperationsDoctorReportAction
             $checks->push($this->queueRetryAfterCheck());
         }
 
+        // Severity is what decides the report status, not `passed` alone: a
+        // check exists to describe a condition honestly, and only a Critical
+        // one may red-light the health gates and the command's exit code. A
+        // check that must fail the report therefore has to declare itself
+        // Critical rather than borrow the effect from an aggregate that
+        // ignores severity.
         return new DoctorReportData(
-            status: $checks->every(static fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
+            status: $checks->contains(static fn (DoctorCheckResultData $check): bool => $check->isCriticalFailure())
+                ? 'failed'
+                : 'passed',
             checks: $checks,
         );
     }
@@ -100,13 +108,9 @@ final class BuildMarketplaceOperationsDoctorReportAction
      * them at the start of the next run, so this is a warning about accumulated
      * debris rather than something the operator must act on.
      *
-     * It therefore stays `passed` and carries the count in its message: the
-     * report's status drives health gates and exit codes, and a condition that
-     * disappears on its own with no operator action must not red-light them.
-     * Severity-aware aggregation was the alternative, but it would also have
-     * downgraded `failedOperationsCheck`, whose remediation genuinely does ask
-     * the operator to review the failed operations. Narrowing this one check
-     * fixes the defect without weakening that signal.
+     * Debris present is a genuine `false`, and it says so. It does not take the
+     * report's status with it because it is Warning-severity and the aggregate
+     * reads severity.
      */
     private function authWorkspaceCheck(): DoctorCheckResultData
     {
@@ -114,7 +118,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
 
         return new DoctorCheckResultData(
             label: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_label'),
-            passed: true,
+            passed: $stale === [],
             message: $stale === []
                 ? (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_healthy')
                 : (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_unhealthy', [
@@ -180,6 +184,12 @@ final class BuildMarketplaceOperationsDoctorReportAction
         );
     }
 
+    /**
+     * Critical, not Warning: unresolved failed and timed-out operations are the
+     * one thing here whose remediation genuinely asks the operator to go and do
+     * something, and nothing clears them on its own. Under severity-aware
+     * aggregation, Warning would have silently stopped failing the report.
+     */
     private function failedOperationsCheck(): DoctorCheckResultData
     {
         $failed = MarketplaceInstallAttempt::query()
@@ -200,7 +210,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
                 ? null
                 : (string) __('capell-marketplace::marketplace.operations.doctor_review_operations'),
             id: 'marketplace.operations.failed',
-            severity: DoctorCheckSeverity::Warning,
+            severity: DoctorCheckSeverity::Critical,
             evidence: [
                 'count' => $failed->count(),
                 'operations' => $failed->map(static fn (MarketplaceInstallAttempt $attempt): array => [

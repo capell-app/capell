@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
 use Capell\Marketplace\Support\MarketplaceComposerEnvironment;
@@ -347,9 +348,12 @@ it('reports abandoned composer auth directories without failing the operations d
         $report = BuildMarketplaceOperationsDoctorReportAction::run();
         $check = $report->checks->firstWhere('id', 'marketplace.operations.composer-auth-files');
 
-        // The next install sweeps these, so the operator has nothing to do and
-        // the report must not red-light a health gate over them.
-        expect($check?->passed)->toBeTrue()
+        // Debris present is a real failure of this check and it says so. The
+        // next install sweeps it and the operator has nothing to do, so the
+        // check is Warning-severity and the report status does not move.
+        expect($check?->passed)->toBeFalse()
+            ->and($check?->severity)->toBe(DoctorCheckSeverity::Warning)
+            ->and($check?->isCriticalFailure())->toBeFalse()
             ->and($check?->evidence['count'])->toBe(1)
             ->and($report->status)->toBe($statusWithoutDebris);
     } finally {

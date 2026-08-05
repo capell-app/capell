@@ -6,7 +6,6 @@ namespace Capell\Marketplace\Support;
 
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
-use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -48,9 +47,7 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         $this->authWorkspace->writeAuthFile($composerHome, $composerAuth);
 
         try {
-            return $this->redactComposerAuth(
-                $this->runComposer($composerName, $versionConstraint, $timeoutSeconds, $composerHome),
-            );
+            return $this->runComposer($composerName, $versionConstraint, $timeoutSeconds, $composerHome)->redacted();
         } finally {
             $this->authWorkspace->removeDirectory($composerHome);
         }
@@ -95,21 +92,6 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
             exitCode: $process->getExitCode() ?? 1,
             output: $process->getOutput(),
             errorOutput: $process->getErrorOutput(),
-        );
-    }
-
-    private function redactComposerAuth(MarketplaceComposerResultData $result): MarketplaceComposerResultData
-    {
-        $redacted = RedactMarketplaceDiagnosticContextAction::run([
-            'output' => $result->output,
-            'error_output' => $result->errorOutput,
-        ]);
-
-        return new MarketplaceComposerResultData(
-            exitCode: $result->exitCode,
-            output: is_string($redacted['output'] ?? null) ? $redacted['output'] : '[redacted]',
-            errorOutput: is_string($redacted['error_output'] ?? null) ? $redacted['error_output'] : '[redacted]',
-            timedOut: $result->timedOut,
         );
     }
 

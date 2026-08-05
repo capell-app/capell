@@ -22,17 +22,43 @@ it('takes the job timeout from the job itself rather than a copied literal', fun
         ->toBe(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
 });
 
-it('keeps the composer timeout below the job timeout at every configured value', function (): void {
-    // The job has to survive Composer and still finalise the attempt afterwards.
-    // Both numbers are operator-configurable now, so the invariant needs pinning
-    // rather than assuming the defaults stay in their original relationship.
+it('fits every stage of an install inside one job timeout, not one per composer run', function (): void {
+    // The job runs Composer, then replays the application's post-autoload-dump
+    // scripts, then finalises the attempt — and the queue kills the worker at
+    // $timeout regardless. So no stage may claim a budget of its own: the
+    // replay takes what is left, and the reserve is what finalisation keeps.
+    // A worker killed after Composer succeeded leaves an install that has been
+    // applied and an attempt the backoff chain will re-queue.
     foreach ([null, 1, 600, 7200] as $configuredComposerTimeout) {
         config()->set('capell.process.composer.timeout_seconds', $configuredComposerTimeout);
 
         $chain = MarketplaceQueueTimeoutChain::resolve();
+        $job = new RunMarketplaceInstallAttemptJob(1);
 
-        expect($chain->composerTimeoutSeconds)->toBeLessThan($chain->jobTimeoutSeconds);
+        expect($chain->composerTimeoutSeconds)->toBeLessThan($chain->jobTimeoutSeconds)
+            ->and($job->scriptReplayBudgetSeconds() + RunMarketplaceInstallAttemptJob::FINALISATION_RESERVE_SECONDS)
+            ->toBeLessThanOrEqual($chain->jobTimeoutSeconds);
     }
+});
+
+it('shrinks the script replay budget by the time the run has already spent', function (): void {
+    config()->set('capell.process.composer.timeout_seconds', 600);
+    config()->set('capell.process.composer.job_timeout_buffer_seconds', 120);
+
+    $halfSpentJob = new RunMarketplaceInstallAttemptJob(1);
+    new ReflectionProperty($halfSpentJob, 'startedAtNanoseconds')
+        ->setValue($halfSpentJob, hrtime(true) - 300 * 1_000_000_000);
+
+    $exhaustedJob = new RunMarketplaceInstallAttemptJob(1);
+    new ReflectionProperty($exhaustedJob, 'startedAtNanoseconds')
+        ->setValue($exhaustedJob, hrtime(true) - RunMarketplaceInstallAttemptJob::jobTimeoutSeconds() * 1_000_000_000);
+
+    // A replay that cannot finish inside the job's own window is skipped and
+    // reported: being SIGKILLed mid-replay leaves an install already applied
+    // and an attempt never finalised.
+    expect($halfSpentJob->scriptReplayBudgetSeconds())
+        ->toBe(720 - 300 - RunMarketplaceInstallAttemptJob::FINALISATION_RESERVE_SECONDS)
+        ->and($exhaustedJob->scriptReplayBudgetSeconds())->toBe(0);
 });
 
 it('calls a retry window at or below the job timeout unsafe, and one above it safe', function (): void {

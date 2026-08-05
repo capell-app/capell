@@ -59,6 +59,15 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
      */
     public const int DEFAULT_JOB_TIMEOUT_BUFFER_SECONDS = 120;
 
+    /**
+     * The tail of the job that has to survive whatever ran before it: finalising
+     * the attempt, recording telemetry, releasing the composer-install lock. It
+     * is carved out of the job budget rather than added to it, because a job
+     * killed between a successful Composer run and its finalisation is exactly
+     * the stuck operation the doctor reports.
+     */
+    public const int FINALISATION_RESERVE_SECONDS = 30;
+
     public int $timeout;
 
     /**
@@ -77,6 +86,13 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     public int $maxExceptions = 3;
 
     public int $uniqueFor = 3600;
+
+    /**
+     * When this run of the job started, in hrtime nanoseconds. Set in handle()
+     * rather than the constructor: the job is serialised onto the queue, so
+     * construction time says nothing about when a worker picked it up.
+     */
+    private ?int $startedAtNanoseconds = null;
 
     public function __construct(
         private readonly int $installAttemptId,
@@ -105,6 +121,34 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         );
     }
 
+    /**
+     * How long the replay of the application's post-autoload-dump scripts may
+     * run: whatever is left of this job's own timeout once Composer has had its
+     * turn, minus the finalisation reserve.
+     *
+     * It deliberately does not get a budget of its own. $timeout is what the
+     * queue kills the worker at and what retry_after is sized against, so a
+     * second independent Composer-sized timeout here could put the real worst
+     * case at roughly double the declared one — and a worker killed during the
+     * replay leaves an install that has already been applied, which the backoff
+     * chain would then re-queue.
+     *
+     * Truncating a genuinely slow replay is the accepted cost. Its failure mode
+     * is a reported hook, which is what replayHostComposerScripts() already
+     * treats as non-fatal; being SIGKILLed is not recoverable at all.
+     *
+     * Public so the timeout-chain tests can pin the whole-job budget rather than
+     * one composer consumer.
+     */
+    public function scriptReplayBudgetSeconds(): int
+    {
+        $elapsedSeconds = $this->startedAtNanoseconds === null
+            ? 0
+            : (int) floor((hrtime(true) - $this->startedAtNanoseconds) / 1_000_000_000);
+
+        return max(0, self::jobTimeoutSeconds() - $elapsedSeconds - self::FINALISATION_RESERVE_SECONDS);
+    }
+
     /** @return array<int, int> */
     public function backoff(): array
     {
@@ -119,6 +163,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     public function handle(MarketplaceComposerRunner $composer): void
     {
         $startedAt = hrtime(true);
+        $this->startedAtNanoseconds = $startedAt;
         $peakMemoryBefore = memory_get_peak_usage(true);
         $connection = DB::connection();
         $wasLoggingQueries = $connection->logging();
@@ -497,17 +542,33 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
      * needs the fresh manifest too.
      *
      * A hook that fails must not fail an install whose package is already on
-     * disk and registered, so this reports rather than throws.
+     * disk and registered, so this reports rather than throws. The same applies
+     * when Composer left no time for the replay at all: skipping it and letting
+     * the attempt finalise beats being killed mid-replay with the package
+     * already installed and the attempt still marked running.
      */
     private function replayHostComposerScripts(): void
     {
+        $budgetSeconds = $this->scriptReplayBudgetSeconds();
+
+        if ($budgetSeconds <= 0) {
+            report(new RuntimeException(
+                'Skipped replaying the application post-autoload-dump scripts after a Marketplace install: '
+                . 'the Composer run consumed the whole job timeout. Raise capell.process.composer.job_timeout_buffer_seconds.',
+            ));
+
+            return;
+        }
+
         try {
             $result = resolve(MarketplaceComposerScriptRunner::class)->replayRootScript(
                 MarketplaceComposerScriptRunner::POST_AUTOLOAD_DUMP,
-                self::composerTimeoutSeconds(),
+                $budgetSeconds,
             );
 
             if ($result instanceof MarketplaceComposerResultData && ! $result->successful()) {
+                // The runner has already redacted this; a replayed hook prints
+                // whatever the application told it to.
                 report(new RuntimeException(sprintf(
                     'Replaying the application post-autoload-dump scripts after a Marketplace install exited %d: %s',
                     $result->exitCode,
