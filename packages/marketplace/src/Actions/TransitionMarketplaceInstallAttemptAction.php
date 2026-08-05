@@ -10,6 +10,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -250,9 +251,15 @@ final class TransitionMarketplaceInstallAttemptAction
 
         return [
             'failure_reason' => $this->redactedText($transition->failureReason),
-            'failure_type' => ($transition->failureStage === MarketplaceInstallFailureStage::Composer
+            // A caller that knows which irreversible thing had already happened
+            // says so; the stage-derived reading is the fallback for callers
+            // that do not. Stated by the caller rather than inferred from the
+            // stage alone, because the same stage means different things to
+            // different operations — a cancelled uninstall has torn the
+            // extension down where a cancelled install has just set it up.
+            'failure_type' => ($transition->failureType ?? ($transition->failureStage === MarketplaceInstallFailureStage::Composer
                 ? MarketplaceInstallFailureType::CancelledAfterComposer
-                : MarketplaceInstallFailureType::Unknown)->value,
+                : MarketplaceInstallFailureType::Unknown))->value,
             'failure_stage' => ($transition->failureStage ?? MarketplaceInstallFailureStage::Composer)->value,
             'cancel_requested_at' => $attempt->cancel_requested_at ?? $recordedAt,
             'cancelled_at' => $recordedAt,
@@ -291,7 +298,10 @@ final class TransitionMarketplaceInstallAttemptAction
             default => 'timeline_failed',
         };
 
-        return (string) __('capell-marketplace::marketplace.operations.' . $key);
+        // Keyed off the attempt's operation, not off the status alone: the same
+        // transition means three different things depending on what is being
+        // done, and the timeline is the operator's only record of which.
+        return MarketplaceOperationVocabulary::translate($attempt->operation, $key);
     }
 
     private function failureTimelineKey(

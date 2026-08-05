@@ -35,6 +35,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Exceptions\MarketplaceHealthCheckFailedException;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
 use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
@@ -405,6 +406,68 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         return false;
     }
 
+    /**
+     * Everything this operation has to do *before* Composer runs.
+     *
+     * Empty for an install and an update, where Composer bringing the code onto
+     * disk is the first thing that can happen. Not empty for an uninstall,
+     * where the extension has to be given the chance to tear itself down while
+     * its own code is still loadable — running `composer remove` first would
+     * delete the very lifecycle hook that is supposed to run.
+     *
+     * Runs after the snapshot and inside a try that can still fail the attempt,
+     * so throwing from here is the supported way to abort.
+     */
+    protected function prepareOperation(MarketplaceInstallAttempt $attempt): void
+    {
+        unset($attempt);
+    }
+
+    /**
+     * Whether prepareOperation() does anything a cancel would want to stop
+     * after.
+     *
+     * Stated rather than inferred from prepareOperation() being overridden,
+     * because the question a cancel asks is not "did anything run" but "is what
+     * ran irreversible enough that continuing into Composer would make it
+     * worse".
+     */
+    protected function preparesBeforeComposer(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Whether this operation needs no Composer run at all.
+     *
+     * True for an install whose package is already downloaded, and for an
+     * uninstall the operator asked to keep the package files for. Both are
+     * successes rather than shortcuts, so the timeline says which one happened
+     * — hence the companion key rather than a single shared sentence.
+     */
+    protected function shouldSkipComposerStage(MarketplaceInstallAttempt $attempt): bool
+    {
+        return $this->mayReuseDownloadedPackage()
+            && PackageIsAvailableForLifecycleAction::run($attempt->composer_name);
+    }
+
+    protected function composerSkippedTranslationKey(): string
+    {
+        return 'timeline_composer_skipped_downloaded';
+    }
+
+    /**
+     * The stage a failed preparation is attributed to.
+     *
+     * Composer has not run at this point, so the base class's throwable reading
+     * — which is about what a post-Composer failure means — would name the
+     * wrong stage and send the operator to the wrong part of the timeline.
+     */
+    protected function prepareFailureStage(): MarketplaceInstallFailureStage
+    {
+        return MarketplaceInstallFailureStage::Lifecycle;
+    }
+
     protected function failureStageFor(Throwable $throwable): MarketplaceInstallFailureStage
     {
         if ($throwable instanceof MarketplaceHealthCheckFailedException) {
@@ -478,7 +541,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         RecordMarketplaceInstallAttemptEventAction::run(
             attempt: $attempt,
             level: $level,
-            message: __('capell-marketplace::marketplace.operations.' . $translationKey),
+            message: MarketplaceOperationVocabulary::translate($attempt->operation, $translationKey),
             stage: $stage,
             context: $context,
             outputExcerpt: $outputExcerpt,
@@ -516,6 +579,40 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                 CapellCore::getInstalledPrettyVersion($manifest->name),
             );
         }
+    }
+
+    /**
+     * The Composer run itself.
+     *
+     * Overridable because "the Composer stage" is not always `composer require`
+     * — an uninstall removes a package instead — while everything wrapped
+     * around it here (the snapshot, the interruption restore, the timeout
+     * reading, the cancel check) is identical either way.
+     */
+    protected function runComposer(MarketplaceComposerRunner $composer, MarketplaceInstallAttempt $attempt): MarketplaceComposerResultData
+    {
+        $composerAuth = $this->composerAuth($attempt);
+
+        if ($composerAuth !== null) {
+            throw_unless(
+                $composer instanceof MarketplaceAuthenticatedComposerRunner,
+                RuntimeException::class,
+                'Marketplace Composer authentication is available but the configured composer runner does not support authentication.',
+            );
+
+            return $composer->requireWithComposerAuth(
+                composerName: $attempt->composer_name,
+                versionConstraint: $attempt->version_constraint ?: '*',
+                timeoutSeconds: static::composerTimeoutSeconds(),
+                composerAuth: $composerAuth,
+            );
+        }
+
+        return $composer->require(
+            composerName: $attempt->composer_name,
+            versionConstraint: $attempt->version_constraint ?: '*',
+            timeoutSeconds: static::composerTimeoutSeconds(),
+        );
     }
 
     private static function positiveConfiguredSeconds(string $key, int $default): int
@@ -580,14 +677,38 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         $snapshot = SnapshotComposerStateAction::run();
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Info, 'timeline_snapshot_captured', MarketplaceInstallFailureStage::Composer);
 
-        if ($this->mayReuseDownloadedPackage() && PackageIsAvailableForLifecycleAction::run($attempt->composer_name)) {
+        try {
+            $this->prepareOperation($attempt);
+        } catch (Throwable $throwable) {
+            $this->failPreparedOperation($attempt, $snapshot, $throwable);
+
+            return;
+        }
+
+        $attempt->refresh();
+
+        // Between the preparation and the Composer run, and only for an
+        // operation that has a preparation worth stopping after. An uninstall's
+        // lifecycle has already torn the extension down by this point, so it
+        // must not then start rewriting composer.json on behalf of an operator
+        // who has changed their mind. An install has done nothing yet, and
+        // stopping it here rather than at the existing post-Composer check
+        // would report a lifecycle that never ran.
+        if ($this->preparesBeforeComposer() && $attempt->status === MarketplaceInstallIntentStatus::CancelRequested) {
+            $this->markCancelledBeforeComposer($attempt);
+
+            return;
+        }
+
+        if ($this->shouldSkipComposerStage($attempt)) {
+            $skipKey = $this->composerSkippedTranslationKey();
             $result = new MarketplaceComposerResultData(
                 exitCode: 0,
-                output: (string) __('capell-marketplace::marketplace.operations.timeline_composer_skipped_downloaded'),
+                output: MarketplaceOperationVocabulary::translate($attempt->operation, $skipKey),
                 errorOutput: '',
             );
 
-            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_composer_skipped_downloaded', MarketplaceInstallFailureStage::Composer, [
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, $skipKey, MarketplaceInstallFailureStage::Composer, [
                 'composer_name' => $attempt->composer_name,
             ], $result->output);
         } else {
@@ -889,32 +1010,6 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         ])->save();
     }
 
-    private function runComposer(MarketplaceComposerRunner $composer, MarketplaceInstallAttempt $attempt): MarketplaceComposerResultData
-    {
-        $composerAuth = $this->composerAuth($attempt);
-
-        if ($composerAuth !== null) {
-            throw_unless(
-                $composer instanceof MarketplaceAuthenticatedComposerRunner,
-                RuntimeException::class,
-                'Marketplace Composer authentication is available but the configured composer runner does not support authentication.',
-            );
-
-            return $composer->requireWithComposerAuth(
-                composerName: $attempt->composer_name,
-                versionConstraint: $attempt->version_constraint ?: '*',
-                timeoutSeconds: static::composerTimeoutSeconds(),
-                composerAuth: $composerAuth,
-            );
-        }
-
-        return $composer->require(
-            composerName: $attempt->composer_name,
-            versionConstraint: $attempt->version_constraint ?: '*',
-            timeoutSeconds: static::composerTimeoutSeconds(),
-        );
-    }
-
     /**
      * @return array<string, mixed>|null
      */
@@ -968,6 +1063,71 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                 failureReason: $throwable->getMessage(),
                 failureStage: MarketplaceInstallFailureStage::Composer,
                 timelineContext: ['reason' => $throwable->getMessage()],
+            ),
+        );
+    }
+
+    /**
+     * A preparation that threw, reported with the same honesty a post-Composer
+     * failure gets.
+     *
+     * The Composer restore still runs, and is expected to be a no-op —
+     * ComposerStateSnapshot::matchesDisk() sees nothing changed and skips the
+     * rebuild. That is deliberate rather than wasteful: a preparation is free to
+     * touch composer.json (a bundle promotion does), and paying an is-it-changed
+     * check on every failure is cheaper than discovering the one path where it
+     * did.
+     *
+     * decorateRollbackOutcome() gets the last word, so an operation whose
+     * preparation cannot be undone can correct the sentence rather than let the
+     * operator read "rolled back" and believe nothing happened.
+     */
+    private function failPreparedOperation(
+        MarketplaceInstallAttempt $attempt,
+        ComposerStateSnapshot $snapshot,
+        Throwable $throwable,
+    ): void {
+        $failureStage = $this->prepareFailureStage();
+        $rollback = $this->decorateRollbackOutcome(
+            $attempt,
+            $this->rollBackComposerState($attempt, $snapshot, $throwable, $failureStage),
+            $failureStage,
+        );
+
+        TransitionMarketplaceInstallAttemptAction::run(
+            $attempt,
+            new MarketplaceInstallAttemptTransitionData(
+                toStatus: MarketplaceInstallIntentStatus::Failed,
+                failureReason: $rollback['failure_reason'],
+                failureStage: $failureStage,
+                failureType: $this->resolveFailureType($rollback, $failureStage),
+                errorExcerpt: $throwable->getMessage(),
+                timelineContext: $rollback['timeline_context'],
+            ),
+        );
+    }
+
+    /**
+     * A cancel taken while the preparation was running.
+     *
+     * Composer never started, so there is nothing on disk to put back — but for
+     * an operation whose preparation is the irreversible half, "cancelled" on
+     * its own would read as "nothing happened". The stage carries which half
+     * did run, and the failure type is derived from it.
+     */
+    private function markCancelledBeforeComposer(MarketplaceInstallAttempt $attempt): void
+    {
+        $stage = $this->prepareFailureStage();
+        $reason = MarketplaceOperationVocabulary::translate($attempt->operation, 'cancelled_after_lifecycle');
+
+        TransitionMarketplaceInstallAttemptAction::run(
+            $attempt,
+            new MarketplaceInstallAttemptTransitionData(
+                toStatus: MarketplaceInstallIntentStatus::Cancelled,
+                failureReason: $reason,
+                failureStage: $stage,
+                failureType: MarketplaceInstallFailureType::CancelledAfterLifecycle,
+                timelineContext: ['reason' => $reason],
             ),
         );
     }

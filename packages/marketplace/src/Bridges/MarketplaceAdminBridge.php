@@ -22,6 +22,7 @@ use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
+use Capell\Marketplace\Support\MarketplaceExtensionRemovalCoordinator;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Filament\Actions\Action;
 use Override;
@@ -49,6 +50,10 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
         $registrar->extensionCatalogueMetadataProvider(MarketplaceCatalogueRecordProvider::class);
         $registrar->resourceHeaderActionExtender(ThemeMarketplaceHeaderActionExtender::class);
         $registrar->pendingThemeInstallProvider(PendingMarketplaceThemeInstallProvider::class);
+        // Replaces the panel's in-request removal with the queued pipeline.
+        // Registered here rather than bound by admin, because admin must not
+        // know this class exists.
+        $registrar->extensionRemovalCoordinator(MarketplaceExtensionRemovalCoordinator::class);
 
         $registrar->extensionsPageHeaderAction(
             fn (): Action => OpenMarketplaceAction::make(resolve(MarketplaceConnectionFormModel::class)),

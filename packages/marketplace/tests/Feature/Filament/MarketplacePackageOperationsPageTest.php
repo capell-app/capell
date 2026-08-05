@@ -8,6 +8,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -179,6 +180,35 @@ it('does not mutate package operations for extension viewers without manage perm
     expect($failedAttempt->refresh()->resolved_at)->toBeNull()
         ->and(MarketplaceInstallAttempt::query()->where('retry_of_id', $failedAttempt->getKey())->exists())->toBeFalse()
         ->and($queuedAttempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+});
+
+it('lists every operation type together and can filter down to one of them', function (): void {
+    $install = marketplacePackageOperationsPageAttempt([
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'operation' => MarketplaceOperationType::Install,
+    ]);
+    $update = marketplacePackageOperationsPageAttempt([
+        'composer_name' => 'capell-app/redirects',
+        'extension_slug' => 'redirects',
+        'extension_name' => 'Redirects',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'operation' => MarketplaceOperationType::Update,
+    ]);
+    $uninstall = marketplacePackageOperationsPageAttempt([
+        'composer_name' => 'capell-app/forms',
+        'extension_slug' => 'forms',
+        'extension_name' => 'Forms',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'operation' => MarketplaceOperationType::Uninstall,
+        'uninstall_options' => ['delete_package' => true, 'delete_data' => false],
+    ]);
+
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->set('activeTab', 'succeeded')
+        ->assertCanSeeTableRecords([$install, $update, $uninstall])
+        ->filterTable('operation', MarketplaceOperationType::Uninstall->value)
+        ->assertCanSeeTableRecords([$uninstall])
+        ->assertCanNotSeeTableRecords([$install, $update]);
 });
 
 function marketplacePackageOperationsPageAttempt(array $overrides = []): MarketplaceInstallAttempt

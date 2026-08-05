@@ -27,6 +27,17 @@ enum MarketplaceInstallFailureType: string
     case DeploymentFailed = 'deployment_failed';
     case DeploymentUnavailable = 'deployment_unavailable';
     case CancelledAfterComposer = 'cancelled_after_composer';
+    /**
+     * An uninstall was cancelled after the extension's own uninstall lifecycle
+     * had already run.
+     *
+     * The mirror image of CancelledAfterComposer, and for the same reason: the
+     * cancel was honoured, but something irreversible had already happened. The
+     * extension has torn its own data and registrations down; the package is
+     * still on disk. Restoring composer.json cannot un-run a lifecycle hook, so
+     * the recovery is a reinstall rather than a retry.
+     */
+    case CancelledAfterLifecycle = 'cancelled_after_lifecycle';
     case QueueWorkerMissing = 'queue_worker_missing';
     case Unknown = 'unknown';
 }

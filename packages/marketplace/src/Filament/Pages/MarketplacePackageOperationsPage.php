@@ -13,6 +13,7 @@ use Capell\Marketplace\Actions\ResolveMarketplaceInstallOperationAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -206,6 +207,10 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
                     ->searchable(['extension_name', 'composer_name'])
                     ->sortable()
                     ->wrap(),
+                TextColumn::make('operation')
+                    ->label(__('capell-marketplace::marketplace.operations.operation'))
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('status')
                     ->label(__('capell-marketplace::marketplace.operations.status'))
                     ->badge()
@@ -238,6 +243,9 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
                     ->sortable(),
             ])
             ->filters([
+                SelectFilter::make('operation')
+                    ->label(__('capell-marketplace::marketplace.operations.operation'))
+                    ->options(MarketplaceOperationType::class),
                 SelectFilter::make('status')
                     ->label(__('capell-marketplace::marketplace.operations.status'))
                     ->options($this->statusOptions()),

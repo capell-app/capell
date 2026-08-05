@@ -11,6 +11,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Composer\InstalledVersions;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -49,7 +50,7 @@ final class RunMarketplaceInstallPreflightChecksAction
             $this->check('composer_binary', new RuntimeBinaryResolver()->composerOrNull() !== null),
             $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json'))),
             $this->check('composer_lock', ! is_file(base_path('composer.lock')) || is_writable(base_path('composer.lock'))),
-            $this->check('package_not_installed', ! $this->packageAlreadyInstalled($attempt->composer_name) || $this->allowsInstalledPackageRetry($attempt)),
+            $this->packagePresenceCheck($attempt),
             $this->check('no_duplicate_active_install', ! $this->hasDuplicateActiveInstall($attempt)),
             $this->check('queue_ready', config('queue.default') !== null),
             // The queue retry_after rule is not repeated here: readiness owns it
@@ -100,6 +101,32 @@ final class RunMarketplaceInstallPreflightChecksAction
                 : (string) __('capell-marketplace::marketplace.readiness.preflight.' . $name . '_remediation'),
             'docs_anchor' => $passed ? null : str_replace('_', '-', $name),
         ];
+    }
+
+    /**
+     * Whether the package is in the state this operation needs it to be in.
+     *
+     * An uninstall is the one operation whose precondition is the opposite of
+     * an install's. Refusing it for being "already installed" would refuse it
+     * for meeting its own precondition — there is nothing to tear down
+     * otherwise — so it is asked the inverted question instead.
+     *
+     * An update is deliberately left on the install reading. It goes through
+     * `composer require` exactly as an install does, and the installed-package
+     * rule there is about the *Composer* state a require would collide with,
+     * not about whether Capell has the extension registered.
+     *
+     * @return array{name: string, passed: bool, message: string, remediation: string|null, docs_anchor: string|null}
+     */
+    private function packagePresenceCheck(MarketplaceInstallAttempt $attempt): array
+    {
+        $installed = $this->packageAlreadyInstalled($attempt->composer_name);
+
+        if ($attempt->operation === MarketplaceOperationType::Uninstall) {
+            return $this->check('package_installed', $installed);
+        }
+
+        return $this->check('package_not_installed', ! $installed || $this->allowsInstalledPackageRetry($attempt));
     }
 
     private function packageAlreadyInstalled(string $composerName): bool
