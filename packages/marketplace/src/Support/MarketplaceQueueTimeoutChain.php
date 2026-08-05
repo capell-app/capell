@@ -32,8 +32,8 @@ final readonly class MarketplaceQueueTimeoutChain
         return new self(
             connectionName: $connectionName,
             retryAfterSeconds: is_numeric($retryAfter) ? (int) $retryAfter : null,
-            jobTimeoutSeconds: RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS,
-            composerTimeoutSeconds: RunMarketplaceInstallAttemptJob::COMPOSER_TIMEOUT_SECONDS,
+            jobTimeoutSeconds: RunMarketplaceInstallAttemptJob::jobTimeoutSeconds(),
+            composerTimeoutSeconds: RunMarketplaceInstallAttemptJob::composerTimeoutSeconds(),
         );
     }
 

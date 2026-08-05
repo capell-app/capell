@@ -12,6 +12,15 @@ return [
         'web_url' => env('CAPELL_MARKETPLACE_WEB_URL', 'https://capell.app'),
         'timeout_seconds' => 10,
         'telemetry_timeout_seconds' => 3,
+        /*
+         * How this host reaches the network. Applied to every outbound
+         * marketplace call: a proxy URL, and either a path to a CA bundle or a
+         * boolean for hosts whose TLS is terminated by an appliance.
+         */
+        'http' => [
+            'proxy' => env('CAPELL_MARKETPLACE_HTTP_PROXY'),
+            'verify' => env('CAPELL_MARKETPLACE_HTTP_VERIFY'),
+        ],
         // Outbound retry policy applied only to idempotent marketplace catalogue and
         // extension reads. Signed writes (connection and install-flow code exchanges,
         // install and upgrade authorizations, feedback, telemetry, heartbeat) are

@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Process\ProcessExecutionSupport;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
-use Symfony\Component\Process\ExecutableFinder;
 
 /**
  * The one place that answers whether this host can run an automated Marketplace
@@ -57,6 +57,7 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
     public function __construct(
         private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
         private readonly MultiNodeTopologyGuard $multiNodeTopologyGuard = new MultiNodeTopologyGuard,
+        private readonly RuntimeBinaryResolver $binaryResolver = new RuntimeBinaryResolver,
     ) {}
 
     /**
@@ -110,8 +111,8 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
 
         $checks = [
             $this->processExecutionCheck($processExecutionAvailable),
-            $this->binaryCheck('php_binary', $phpBinaryResolvable ?? $this->binaryResolvable('php')),
-            $this->binaryCheck('composer_binary', $composerBinaryResolvable ?? $this->binaryResolvable('composer')),
+            $this->binaryCheck('php_binary', $phpBinaryResolvable ?? $this->binaryResolver->phpOrNull() !== null),
+            $this->binaryCheck('composer_binary', $composerBinaryResolvable ?? $this->binaryResolver->composerOrNull() !== null),
             $this->releaseRootCheck($releaseRoot),
             $this->queueWorkerCheck(),
             $this->sharedCacheCheck(),
@@ -247,11 +248,6 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
     private function deployPublisherRegistered(): bool
     {
         return app(MarketplaceComposerChangePublisherRegistry::class)->first() !== null;
-    }
-
-    private function binaryResolvable(string $binary): bool
-    {
-        return is_string(new ExecutableFinder()->find($binary));
     }
 
     /** @param array<string, scalar> $replacements */

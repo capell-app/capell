@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
+use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 
 beforeEach(function (): void {
     config()->set('capell.release_root_mode', 'mutable');
     config()->set('capell.server_side_tooling', true);
+    config()->set('capell.process.composer.no_cache', false);
+    config()->set('capell.process.composer.cache_dir', null);
+    config()->set('capell.process.composer.memory_limit', '-1');
 });
 
 /**
@@ -15,7 +20,9 @@ beforeEach(function (): void {
 function expectedMarketplaceComposerRunnerEnvironmentForTest(string $composerHome, string $home): array
 {
     return [
+        'COMPOSER_CACHE_DIR' => storage_path('framework/composer/cache'),
         'COMPOSER_HOME' => $composerHome,
+        'COMPOSER_MEMORY_LIMIT' => '-1',
         'COMPOSER_AUTH' => false,
         'COMPOSER_TOKEN' => false,
         'GIT_ASKPASS' => false,
@@ -29,53 +36,84 @@ function expectedMarketplaceComposerRunnerEnvironmentForTest(string $composerHom
     ];
 }
 
-it('resolves php from the CLI path instead of relying on the current SAPI binary', function (): void {
-    $binDirectory = sys_get_temp_dir() . '/capell-marketplace-runner-' . bin2hex(random_bytes(4));
-
-    mkdir($binDirectory, 0755, true);
-
-    $phpPath = $binDirectory . '/php';
-    file_put_contents($phpPath, "#!/bin/sh\nexit 0\n");
-    chmod($phpPath, 0755);
-
-    $previousPath = getenv('PATH');
-    putenv('PATH=' . $binDirectory . PATH_SEPARATOR . ($previousPath ?: ''));
-
-    try {
-        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'phpCliBinary');
-
-        expect($method->invoke(new ProcessMarketplaceComposerRunner))->toBe($phpPath);
-    } finally {
-        putenv($previousPath === false ? 'PATH' : 'PATH=' . $previousPath);
-        @unlink($phpPath);
-        @rmdir($binDirectory);
-    }
-});
-
-it('disables composer cache for marketplace installs', function (): void {
+it('keeps the composer cache by default so an install does not re-download the world', function (): void {
     $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'composerRequireArguments');
 
     expect($method->invoke(new ProcessMarketplaceComposerRunner, 'vendor/example', '^1.2'))->toBe([
-        '--no-cache',
         'require',
         '--no-interaction',
+        '--no-scripts',
+        '--no-audit',
+        '--no-progress',
         '--prefer-dist',
         '--with-all-dependencies',
         'vendor/example:^1.2',
     ]);
 });
 
+it('disables the composer cache only when the host asks for it', function (): void {
+    config()->set('capell.process.composer.no_cache', true);
+
+    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'composerRequireArguments');
+    $arguments = $method->invoke(new ProcessMarketplaceComposerRunner, 'vendor/example', '^1.2');
+
+    // --no-cache is a global option, so Composer only accepts it before the command.
+    expect($arguments[0])->toBe('--no-cache')
+        ->and($arguments[1])->toBe('require');
+});
+
 it('fails clearly when the composer home directory cannot be created', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'capell_composer_home_file_');
 
     try {
-        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'ensureDirectory');
-
-        expect(fn (): mixed => $method->invoke(new ProcessMarketplaceComposerRunner, $path))
+        expect(fn (): mixed => new MarketplaceComposerAuthWorkspace()->ensureDirectory($path))
             ->toThrow(RuntimeException::class, 'Unable to create Composer home directory: ' . $path);
     } finally {
         if (file_exists($path)) {
             unlink($path);
+        }
+    }
+});
+
+it('gives composer an unlimited memory limit and a cache directory it owns', function (): void {
+    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
+    $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+
+    expect($environment)->toMatchArray([
+        'COMPOSER_MEMORY_LIMIT' => '-1',
+        'COMPOSER_CACHE_DIR' => storage_path('framework/composer/cache'),
+    ]);
+});
+
+it('uses the configured composer cache directory when one is given', function (): void {
+    config()->set('capell.process.composer.cache_dir', '/var/cache/capell-composer');
+
+    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
+    $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+
+    expect($environment['COMPOSER_CACHE_DIR'])->toBe('/var/cache/capell-composer');
+});
+
+it('passes the host proxy configuration through to composer', function (): void {
+    $previousProxies = [];
+
+    foreach (['HTTP_PROXY' => 'http://proxy.test:3128', 'HTTPS_PROXY' => 'http://proxy.test:3129', 'NO_PROXY' => 'localhost'] as $key => $value) {
+        $previousProxies[$key] = getenv($key);
+        putenv($key . '=' . $value);
+    }
+
+    try {
+        $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'processEnvironment');
+        $environment = $method->invoke(new ProcessMarketplaceComposerRunner, '/tmp/capell-composer-home');
+
+        expect($environment)->toMatchArray([
+            'HTTP_PROXY' => 'http://proxy.test:3128',
+            'HTTPS_PROXY' => 'http://proxy.test:3129',
+            'NO_PROXY' => 'localhost',
+        ]);
+    } finally {
+        foreach ($previousProxies as $key => $value) {
+            putenv($value === false ? $key : $key . '=' . $value);
         }
     }
 });
@@ -138,7 +176,8 @@ SH);
     expect($result->exitCode)->toBe(7)
         ->and($result->output)->toContain('COMPOSER_HOME=' . storage_path('framework/composer'))
         ->and($result->output)->toContain('HOME=' . storage_path('framework/composer'))
-        ->and($result->output)->toContain('--no-cache')
+        ->and($result->output)->not->toContain('--no-cache')
+        ->and($result->output)->toContain('--no-scripts')
         ->and($result->output)->toContain('vendor/example:^1.2')
         ->and($result->errorOutput)->toContain('composer stderr')
         ->and(is_dir(storage_path('framework/composer')))->toBeTrue();
@@ -259,5 +298,46 @@ it('removes ambient marketplace composer credentials from the child process envi
         foreach ($previousEnvironment as $key => $value) {
             putenv($value === false ? $key : $key . '=' . $value);
         }
+    }
+});
+
+it('sweeps composer auth directories abandoned by installs that never finished', function (): void {
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    $workspace->ensureDirectory($workspace->root());
+
+    $abandoned = $workspace->create();
+    $inFlight = $workspace->create();
+
+    file_put_contents($abandoned . '/auth.json', '{}');
+    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::STALE_AFTER_SECONDS - 60);
+
+    try {
+        expect($workspace->stale())->toBe([$abandoned])
+            ->and($workspace->sweep())->toBe(1)
+            ->and(is_dir($abandoned))->toBeFalse()
+            // An install still running owns its directory, so age is what
+            // separates debris from a workspace in use.
+            ->and(is_dir($inFlight))->toBeTrue();
+    } finally {
+        $workspace->removeDirectory($inFlight);
+    }
+});
+
+it('reports abandoned composer auth directories in the operations doctor', function (): void {
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    $workspace->ensureDirectory($workspace->root());
+
+    $abandoned = $workspace->create();
+    touch($abandoned, time() - MarketplaceComposerAuthWorkspace::STALE_AFTER_SECONDS - 60);
+
+    try {
+        $check = BuildMarketplaceOperationsDoctorReportAction::run()
+            ->checks
+            ->firstWhere('id', 'marketplace.operations.composer-auth-files');
+
+        expect($check?->passed)->toBeFalse()
+            ->and($check?->evidence['count'])->toBe(1);
+    } finally {
+        $workspace->removeDirectory($abandoned);
     }
 });

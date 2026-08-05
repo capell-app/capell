@@ -31,6 +31,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Foundation\PackageManifest;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
@@ -47,15 +48,17 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     use Queueable;
     use SerializesModels;
 
+    public const int DEFAULT_COMPOSER_TIMEOUT_SECONDS = 600;
+
     /**
-     * Public so environment readiness can check the composer/job/retry_after
-     * chain against the real numbers instead of a second copy of them.
+     * How much longer the job may live than the Composer run inside it. The job
+     * still has an attempt to finalise and telemetry to record after Composer
+     * returns, and a job that is killed between those two is exactly the stuck
+     * operation the doctor reports.
      */
-    public const int COMPOSER_TIMEOUT_SECONDS = 600;
+    public const int DEFAULT_JOB_TIMEOUT_BUFFER_SECONDS = 120;
 
-    public const int JOB_TIMEOUT_SECONDS = 720;
-
-    public int $timeout = self::JOB_TIMEOUT_SECONDS;
+    public int $timeout;
 
     /**
      * Unlimited attempts, bounded by retryUntil(). This is deliberate: a job that
@@ -76,7 +79,30 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
 
     public function __construct(
         private readonly int $installAttemptId,
-    ) {}
+    ) {
+        $this->timeout = self::jobTimeoutSeconds();
+    }
+
+    /**
+     * Public so environment readiness, the install preflight, and the doctor can
+     * check the composer/job/retry_after chain against the real numbers instead
+     * of a second copy of them.
+     */
+    public static function composerTimeoutSeconds(): int
+    {
+        return self::positiveConfiguredSeconds(
+            'capell.process.composer.timeout_seconds',
+            self::DEFAULT_COMPOSER_TIMEOUT_SECONDS,
+        );
+    }
+
+    public static function jobTimeoutSeconds(): int
+    {
+        return self::composerTimeoutSeconds() + self::positiveConfiguredSeconds(
+            'capell.process.composer.job_timeout_buffer_seconds',
+            self::DEFAULT_JOB_TIMEOUT_BUFFER_SECONDS,
+        );
+    }
 
     /** @return array<int, int> */
     public function backoff(): array
@@ -103,7 +129,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             $queryCountBefore = 0;
         }
 
-        $lock = Cache::lock('capell-marketplace:composer-install', self::COMPOSER_TIMEOUT_SECONDS + 120);
+        $lock = Cache::lock('capell-marketplace:composer-install', self::jobTimeoutSeconds());
 
         try {
             if (! $lock->get()) {
@@ -173,6 +199,13 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         );
 
         FinalizeMarketplaceInstallOperationTelemetryAction::run($attempt);
+    }
+
+    private static function positiveConfiguredSeconds(string $key, int $default): int
+    {
+        $configured = config($key, $default);
+
+        return is_numeric($configured) && (int) $configured > 0 ? (int) $configured : $default;
     }
 
     private function runWithLock(MarketplaceComposerRunner $composer): void
@@ -296,7 +329,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
             return $composer->requireWithComposerAuth(
                 composerName: $attempt->composer_name,
                 versionConstraint: $attempt->version_constraint ?: '*',
-                timeoutSeconds: self::COMPOSER_TIMEOUT_SECONDS,
+                timeoutSeconds: self::composerTimeoutSeconds(),
                 composerAuth: $composerAuth,
             );
         }
@@ -304,7 +337,7 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         return $composer->require(
             composerName: $attempt->composer_name,
             versionConstraint: $attempt->version_constraint ?: '*',
-            timeoutSeconds: self::COMPOSER_TIMEOUT_SECONDS,
+            timeoutSeconds: self::composerTimeoutSeconds(),
         );
     }
 
@@ -414,6 +447,29 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
         );
     }
 
+    /**
+     * Rebuild Laravel's package manifest for the newly installed package.
+     *
+     * Composer runs with --no-scripts, which is what keeps a third-party
+     * package's own scripts from executing as the web user — and which also
+     * suppresses the post-autoload-dump hook that normally runs
+     * `artisan package:discover`. Without this, the extension's service provider
+     * is absent from bootstrap/cache/packages.php and never boots on the next
+     * request. Doing it in-process is both cheaper and more reliable than
+     * shelling out a second time.
+     */
+    private function rediscoverLaravelPackages(): void
+    {
+        try {
+            resolve(PackageManifest::class)->build();
+        } catch (Throwable $throwable) {
+            // Capell's own registry, rebuilt below, is what this install is
+            // judged on. A manifest that could not be written is worth reporting
+            // but must not fail an otherwise complete install.
+            report($throwable);
+        }
+    }
+
     private function stageProgress(MarketplaceInstallFailureStage $stage): int
     {
         return match ($stage) {
@@ -430,6 +486,8 @@ final class RunMarketplaceInstallAttemptJob implements ShouldBeUnique, ShouldQue
     private function reloadPackageRegistry(): void
     {
         ComposerAutoloaderReloader::reload();
+
+        $this->rediscoverLaravelPackages();
 
         CapellCore::clearExtensionCache();
 

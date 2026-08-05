@@ -19,14 +19,14 @@ afterEach(function (): void {
 
 it('takes the job timeout from the job itself rather than a copied literal', function (): void {
     expect(MarketplaceQueueTimeoutChain::resolve()->jobTimeoutSeconds)
-        ->toBe(RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS);
+        ->toBe(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
 });
 
 it('calls a retry window at or below the job timeout unsafe, and one above it safe', function (): void {
-    config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS);
+    config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
     expect(MarketplaceQueueTimeoutChain::resolve()->isSafe())->toBeFalse();
 
-    config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS + 1);
+    config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::jobTimeoutSeconds() + 1);
     expect(MarketplaceQueueTimeoutChain::resolve()->isSafe())->toBeTrue();
 });
 
@@ -50,5 +50,36 @@ it('gives readiness and the operations doctor the same verdict for one host', fu
     expect($timeoutChain?->status)->toBe(MarketplaceReadinessStatus::Fail)
         ->and($doctorCheck?->passed)->toBeFalse()
         ->and($doctorCheck?->evidence['job_timeout_seconds'])
-        ->toBe(RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS);
+        ->toBe(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
+});
+
+it('derives the job timeout from the configured composer timeout', function (): void {
+    config()->set('capell.process.composer.timeout_seconds', 900);
+    config()->set('capell.process.composer.job_timeout_buffer_seconds', 120);
+
+    $chain = MarketplaceQueueTimeoutChain::resolve();
+
+    expect($chain->composerTimeoutSeconds)->toBe(900)
+        ->and($chain->jobTimeoutSeconds)->toBe(1020)
+        ->and(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds())->toBe(1020);
+});
+
+it('keeps readiness in step with a raised composer timeout', function (): void {
+    // A retry window that was safe against the default 720s job timeout is not
+    // safe once the operator gives Composer fifteen minutes.
+    config()->set('queue.connections.database.retry_after', 800);
+    config()->set('capell.process.composer.timeout_seconds', 600);
+
+    expect(MarketplaceQueueTimeoutChain::resolve()->isSafe())->toBeTrue();
+
+    config()->set('capell.process.composer.timeout_seconds', 900);
+
+    expect(MarketplaceQueueTimeoutChain::resolve()->isSafe())->toBeFalse();
+});
+
+it('ignores a nonsensical configured composer timeout', function (): void {
+    config()->set('capell.process.composer.timeout_seconds', 0);
+
+    expect(RunMarketplaceInstallAttemptJob::composerTimeoutSeconds())
+        ->toBe(RunMarketplaceInstallAttemptJob::DEFAULT_COMPOSER_TIMEOUT_SECONDS);
 });

@@ -10,6 +10,7 @@ use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
 use Capell\Marketplace\Support\MarketplaceQueueTimeoutChain;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -35,7 +36,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
     public function handle(int $staleAfterMinutes = 15): DoctorReportData
     {
         $schemaCheck = $this->schemaCheck();
-        $checks = collect([$this->environmentReadinessCheck(), $schemaCheck]);
+        $checks = collect([$this->environmentReadinessCheck(), $schemaCheck, $this->authWorkspaceCheck()]);
 
         if ($schemaCheck->passed) {
             $checks->push($this->stuckOperationsCheck($staleAfterMinutes));
@@ -89,6 +90,36 @@ final class BuildMarketplaceOperationsDoctorReportAction
                     $warned,
                 ),
                 'docs_path' => EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH,
+            ],
+        );
+    }
+
+    /**
+     * An install killed mid-Composer never reaches the cleanup that removes its
+     * throwaway Composer home, and each one holds an auth file. The runner sweeps
+     * them at the start of the next run, so this is a warning about accumulated
+     * debris rather than something the operator must act on.
+     */
+    private function authWorkspaceCheck(): DoctorCheckResultData
+    {
+        $stale = new MarketplaceComposerAuthWorkspace()->stale();
+
+        return new DoctorCheckResultData(
+            label: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_label'),
+            passed: $stale === [],
+            message: $stale === []
+                ? (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_healthy')
+                : (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_unhealthy', [
+                    'count' => count($stale),
+                ]),
+            remediation: $stale === []
+                ? null
+                : (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_remediation'),
+            id: 'marketplace.operations.composer-auth-files',
+            severity: DoctorCheckSeverity::Warning,
+            evidence: [
+                'count' => count($stale),
+                'stale_after_seconds' => MarketplaceComposerAuthWorkspace::STALE_AFTER_SECONDS,
             ],
         );
     }

@@ -22,6 +22,8 @@ use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\BroadcastNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
@@ -569,3 +571,66 @@ final class CancelMarketplaceInstallDuringLifecycleAction implements PackageLife
         $reporter?->report('cancellation requested during lifecycle');
     }
 }
+
+it('rebuilds the laravel package manifest that --no-scripts stops composer from rebuilding', function (): void {
+    Notification::fake();
+    $admin = test()->createUserWithRole('super_admin');
+    $packagePath = sys_get_temp_dir() . '/capell-marketplace-discovery-package-' . uniqid();
+
+    File::ensureDirectoryExists($packagePath);
+    File::put($packagePath . '/composer.json', json_encode([
+        'name' => 'capell-app/marketplace-discovery-package',
+        'autoload' => ['psr-4' => []],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'capell-app/marketplace-discovery-package',
+        surfaces: ['shared'],
+        overrides: [
+            'kind' => 'plugin',
+            'displayName' => 'Marketplace Discovery Package',
+        ],
+    ), $packagePath);
+    File::put($packagePath . '/capell.json', json_encode($manifest->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+    $attempt = marketplaceOperationAttempt([
+        'composer_name' => 'capell-app/marketplace-discovery-package',
+        'extension_slug' => 'marketplace-discovery-package',
+        'extension_name' => 'Marketplace Discovery Package',
+        'user_id' => (string) $admin->getKey(),
+    ]);
+
+    // Composer runs with --no-scripts, so the post-autoload-dump hook that
+    // normally runs package:discover never fires. The job has to rebuild the
+    // manifest itself or the extension's service provider never boots again.
+    $packageManifest = new class(app(Filesystem::class), base_path(), base_path('bootstrap/cache/packages.php')) extends PackageManifest
+    {
+        public bool $rebuilt = false;
+
+        public function build(): void
+        {
+            $this->rebuilt = true;
+        }
+    };
+
+    app()->instance(PackageManifest::class, $packageManifest);
+    app()->instance(MarketplaceComposerRunner::class, new readonly class($manifest) implements MarketplaceComposerRunner
+    {
+        public function __construct(private CapellManifestData $manifest) {}
+
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            CapellCore::registerManifestPackage($this->manifest);
+
+            return new MarketplaceComposerResultData(exitCode: 0, output: 'Package installed.', errorOutput: '');
+        }
+    });
+
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    expect($packageManifest->rebuilt)->toBeTrue()
+        ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
+});

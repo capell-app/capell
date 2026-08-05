@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
@@ -14,7 +15,6 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Composer\InstalledVersions;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Symfony\Component\Process\ExecutableFinder;
 
 /**
  * Per-attempt install preflight, prefixed with the host-level readiness checks.
@@ -45,8 +45,8 @@ final class RunMarketplaceInstallPreflightChecksAction
                 fn (MarketplaceReadinessCheckData $check): array => $this->readinessCheck($check),
                 $readiness->checks,
             ),
-            $this->check('php_cli', is_string(new ExecutableFinder()->find('php'))),
-            $this->check('composer_binary', is_string(new ExecutableFinder()->find('composer'))),
+            $this->check('php_cli', new RuntimeBinaryResolver()->phpOrNull() !== null),
+            $this->check('composer_binary', new RuntimeBinaryResolver()->composerOrNull() !== null),
             $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json'))),
             $this->check('composer_lock', ! is_file(base_path('composer.lock')) || is_writable(base_path('composer.lock'))),
             $this->check('package_not_installed', ! $this->packageAlreadyInstalled($attempt->composer_name) || $this->allowsInstalledPackageRetry($attempt)),

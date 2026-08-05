@@ -85,7 +85,7 @@ it('blocks a multi-node host whose cache store is node local', function (): void
 });
 
 it('blocks a host whose queue would re-dispatch a still-running install job', function (): void {
-    config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::JOB_TIMEOUT_SECONDS - 60);
+    config()->set('queue.connections.database.retry_after', RunMarketplaceInstallAttemptJob::jobTimeoutSeconds() - 60);
 
     $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run(
         releaseRoot: marketplaceReadinessReleaseRoot(),
