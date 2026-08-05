@@ -9,10 +9,11 @@ it('keeps shared frontend layout free of foundation chrome fallbacks', function 
         ->and($layout)->not->toContain("'capell::footer'");
 });
 
-it('keeps namespace imports out of the anonymous layout component preamble', function (): void {
+it('keeps file-level declarations out of the anonymous layout component preamble', function (): void {
     $layout = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/index.blade.php');
 
-    expect($layout)->not->toMatch('/^use [^;]+;/m');
+    expect($layout)->not->toMatch('/^use [^;]+;/m')
+        ->and($layout)->not->toContain('declare(strict_types=1)');
 });
 
 it('exposes the shared main content render hook', function (): void {
