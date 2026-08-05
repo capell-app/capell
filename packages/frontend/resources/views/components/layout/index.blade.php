@@ -1,28 +1,25 @@
 <?php
 
 declare(strict_types=1);
-use Capell\Core\Contracts\Pageable;
-use Capell\Core\Enums\ContentStructure;
-use Capell\Core\Models\Site;
-use Capell\Frontend\Facades\Frontend;
 
-$theme = Frontend::theme();
-$page = Frontend::page();
-$layout = Frontend::layout();
-$site = Frontend::site();
+$frontend = app('Capell\\Frontend\\Contracts\\FrontendContextReader');
+$theme = $frontend->theme();
+$page = $frontend->page();
+$layout = $frontend->layout();
+$site = $frontend->site();
 $isSystemPageLayout = data_get($layout->admin ?? [], 'system_page_layout') === true;
-$siteHomeUrl = $site instanceof Site && $site->relationLoaded('defaultDomain')
+$siteHomeUrl = is_a($site, 'Capell\\Core\\Models\\Site') && $site->relationLoaded('defaultDomain')
     ? ($site->defaultDomain?->url ?? '/')
-    : ($site instanceof Site && $site->relationLoaded('siteDomain') ? ($site->siteDomain?->url ?? '/') : '/');
-$siteLogoBladeView = $site instanceof Site ? $site->getMeta('logo_blade_view', 'brand.capell-logo') : 'brand.capell-logo';
+    : (is_a($site, 'Capell\\Core\\Models\\Site') && $site->relationLoaded('siteDomain') ? ($site->siteDomain?->url ?? '/') : '/');
+$siteLogoBladeView = is_a($site, 'Capell\\Core\\Models\\Site') ? $site->getMeta('logo_blade_view', 'brand.capell-logo') : 'brand.capell-logo';
 $siteLogoBladeView = is_string($siteLogoBladeView) && view()->exists($siteLogoBladeView)
     ? $siteLogoBladeView
     : null;
-$siteLogo = $site instanceof Site && $site->relationLoaded('logo') ? $site->logo : null;
-$siteTranslation = $site instanceof Site && $site->relationLoaded('translation') ? $site->translation : null;
-$pageTranslation = $page instanceof Pageable && $page->relationLoaded('translation') ? $page->translation : null;
-$pageType = $page instanceof Pageable && $page->relationLoaded('blueprint') ? $page->blueprint : null;
-$htmlContentStructure = ContentStructure::Html;
+$siteLogo = is_a($site, 'Capell\\Core\\Models\\Site') && $site->relationLoaded('logo') ? $site->logo : null;
+$siteTranslation = is_a($site, 'Capell\\Core\\Models\\Site') && $site->relationLoaded('translation') ? $site->translation : null;
+$pageTranslation = is_a($page, 'Capell\\Core\\Contracts\\Pageable') && $page->relationLoaded('translation') ? $page->translation : null;
+$pageType = is_a($page, 'Capell\\Core\\Contracts\\Pageable') && $page->relationLoaded('blueprint') ? $page->blueprint : null;
+$htmlContentStructure = constant('Capell\\Core\\Enums\\ContentStructure::Html');
 
 ?>
 
