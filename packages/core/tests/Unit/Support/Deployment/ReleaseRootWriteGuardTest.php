@@ -143,8 +143,8 @@ it('returns the same message the assertion throws, for the same host', function 
 
     try {
         $guard->assertWritable('Installing a Marketplace extension with Composer', ['composer.json'], base_path());
-    } catch (RuntimeException $exception) {
-        $thrown = $exception->getMessage();
+    } catch (RuntimeException $runtimeException) {
+        $thrown = $runtimeException->getMessage();
     }
 
     expect($reported)->toBe($thrown)

@@ -6,10 +6,10 @@ use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Symfony\Component\Process\ExecutableFinder;
 
 beforeEach(function (): void {
-    config()->set('capell.process.php_binary', null);
-    config()->set('capell.process.composer_binary', null);
-    config()->set('capell-installer.php_binary', null);
-    config()->set('capell-installer.composer_binary', null);
+    config()->set('capell.process.php_binary');
+    config()->set('capell.process.composer_binary');
+    config()->set('capell-installer.php_binary');
+    config()->set('capell-installer.composer_binary');
     putenv(RuntimeBinaryResolver::PHP_ENVIRONMENT_KEY);
     putenv(RuntimeBinaryResolver::COMPOSER_ENVIRONMENT_KEY);
 });
