@@ -6,6 +6,9 @@ use Capell\Core\Actions\AfterInstallPackageAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
+use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Illuminate\Support\Facades\Artisan;
 
 it('runs after-install command and forwards output to reporter', function (): void {
@@ -61,6 +64,9 @@ it('runs after-install command without reporter', function (): void {
 })->group('core', 'unit');
 
 it('throws when after-install command is missing', function (): void {
+    app()->instance(ProcessFactoryInterface::class, new SymfonyProcessFactory);
+    config()->set(RuntimeBinaryResolver::PHP_CONFIG_KEY, PHP_BINARY);
+
     $package = new PackageData(
         name: 'capell-app/frontend',
         type: PackageTypeEnum::Plugin,
