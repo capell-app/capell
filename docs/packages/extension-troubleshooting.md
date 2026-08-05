@@ -119,7 +119,6 @@ For the four drift reasons and their repair paths, see [Composer drift in Debugg
 | Install guide patch is missing                      | Patch was not registered in `PatchRegistry` or `probe()` says it is not applicable | Search `registerPatches()` and inspect the patch `reason()`                                       | Register the patch, keep `probe()` idempotent, and cover the host-file state with a patch test.    |
 | Catalogue loads but install is blocked              | Site is not connected or install authorization is denied by Capell App             | Open Marketplace diagnostics and heartbeat state                                                  | Connect a Capell account, resolve diagnostics, then request authorization again.                   |
 | `api/registration-sessions` route is missing        | Marketplace API URL uses the old unversioned path                                  | `php artisan config:show capell-marketplace.marketplace.base_url`                                 | Use `https://capell.app/api/v1`, then run `php artisan config:clear`.                              |
-| Domain verification fails                           | Exact host mismatch, expired challenge, or public `.well-known` path blocked       | Fetch the challenge URL from outside the server                                                   | Verify the exact production host, remove auth/CDN blocks, and restart verification.                |
 | Account linking callback fails                      | Stale approval URL, expired session, invalid state, or missing `APP_URL` host      | Latest `marketplace_account_connection_sessions.last_error`                                       | Set `APP_URL`, clear config, and start a fresh account connection from the same browser session.   |
 | Heartbeat fails after account linking               | No public webhook URL, no instance, or Marketplace API unreachable                 | The `RunMarketplaceHeartbeatAction::run()` failure message and latest `marketplace_instances` row | Set `CAPELL_MARKETPLACE_WEBHOOK_URL` when needed, confirm network access, and run heartbeat again. |
 
@@ -130,6 +129,6 @@ Add or update a focused test when the issue crossed one of these boundaries:
 - package discovery, manifest validation, or install/setup behavior;
 - admin resources, settings, widgets, extenders, permissions, or navigation;
 - public rendering, route fallback, render hooks, cache output, or Tailwind assets;
-- marketplace authorization, account linking, diagnostics, or domain verification.
+- marketplace authorization, account linking, diagnostics, or package operations.
 
 For public output, test anonymous and non-admin responses directly. Cached/static HTML must match the same safe output and must not contain authoring markers, model IDs, field paths, selectors, signed admin URLs, or package internals.

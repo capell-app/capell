@@ -7,7 +7,7 @@ Screenshots should show real product states that help someone debug or understan
 | Area             | States to capture                                                                                                                      | Current paths                                                 |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | Installer        | Fresh form, preflight failure, install guide, progress running, success/removal                                                        | `packages/installer/docs/images/screenshots/*`                |
-| Marketplace      | Unconnected, connected, domain verification failed, catalogue browsing, detail overview, docs/access, mobile detail, update advisories | `packages/marketplace/docs/images/screenshots/*`              |
+| Marketplace      | Unconnected, connected, catalogue browsing, readiness review, manual-only install, licence entry, live progress, purchases, package operations | `packages/marketplace/docs/images/screenshots/*`              |
 | Admin extensions | Extensions page empty/installed, package settings page, permission denied                                                              | Add under `packages/admin/docs/images/screenshots/*`.         |
 | Frontend safety  | Normal anonymous page, cached page, authoring beacon disabled/enabled for admin                                                        | Add under frontend docs when frontend-authoring is installed. |
 
@@ -18,7 +18,9 @@ Use names that describe the state, not the implementation:
 ```text
 marketplace-unconnected.png
 marketplace-connected.png
-marketplace-domain-verification-failed.png
+marketplace-readiness-manual-only.png
+marketplace-licence-entry.png
+marketplace-install-progress.png
 installer-preflight-failed.png
 installer-success-remove-package.png
 ```

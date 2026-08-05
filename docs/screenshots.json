@@ -86,7 +86,7 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-marketplace-extension-screenshots]",
+            "waitFor": "[data-capell-marketplace-extension-screenshots]",
             "docsPage": "docs/packages/README.md",
             "output": "docs/images/generated/package-surfaces/marketplace-extension-detail-overview.png",
             "colorSchemes": [
@@ -107,7 +107,7 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-marketplace-extension-docs]",
+            "waitFor": "[data-capell-marketplace-extension-docs]",
             "docsPage": "docs/operations/debugging-marketplace.md",
             "output": "docs/images/generated/package-surfaces/marketplace-extension-detail-docs-and-access.png",
             "colorSchemes": [
@@ -935,7 +935,10 @@
             "docsPage": "docs/packages/README.md",
             "output": "docs/images/generated/admin/marketplace-list.png",
             "required": false,
-            "notes": "Shows the Marketplace catalogue surface available when Marketplace is installed."
+            "notes": "Shows the Marketplace catalogue surface available when Marketplace is installed.",
+            "covers": [
+                "packages/marketplace/src/Filament/Support/MarketplaceCatalogueTable.php"
+            ]
         },
         {
             "id": "package-operations",
@@ -943,14 +946,17 @@
             "package": "documentation",
             "surface": "admin",
             "targetType": "admin-surface",
-            "target": "PackageOperationsPage",
+            "target": "MarketplacePackageOperationsPage",
             "scenario": "admin-index",
             "url": "/extensions/package-operations",
-            "waitFor": "body",
+            "waitFor": "[data-capell-marketplace-package-operations]",
             "docsPage": "docs/operations/debugging-marketplace.md",
             "output": "docs/images/generated/admin/package-operations.png",
             "required": false,
-            "notes": "Shows queued and completed package lifecycle operations."
+            "notes": "Shows queued and completed package lifecycle operations and the operator-facing failure details affordance.",
+            "covers": [
+                "packages/marketplace/src/Filament/Support/MarketplaceErrorPresenter.php"
+            ]
         },
         {
             "id": "upgrade-page",
