@@ -4,6 +4,7 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 
 | I need to...                                | Read                                              |
 | ------------------------------------------- | ------------------------------------------------- |
+| Put a new install on a public domain        | [Going live](going-live.md)                       |
 | Check whether the site is ready for traffic | [Site Health](site-health.md)                     |
 | Back up or restore data                     | [Backups and restore](backups.md)                 |
 | Block public traffic during an incident     | [Lockdown](lockdown.md)                           |
