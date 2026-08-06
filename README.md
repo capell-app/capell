@@ -1,6 +1,6 @@
 # Capell CMS
 
-![Fine-line engraved blueprint on deep navy showing Capell's foundation feeding two branching structures, with the Capell wordmark on the left](docs/images/capell-readme-hero.jpg)
+![Dark grid-lined banner with the Capell wordmark and "Starts where custom builds end." beside a 3D model of a Laravel-marked Core foundation forking into a separate Filament Admin panel and a Frontend browser window fed by Blade, Livewire, Inertia, and Vue tiles](docs/images/capell-readme-hero.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
@@ -8,9 +8,15 @@
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 
-**Every change can be undone.**
+**This isn’t another CMS.**
 
-Capell is an open-source CMS for Laravel, built on Filament. It starts where custom builds end: page patterns, previews, revision history, rollback and safe upgrades are already built and ready to extend.
+## The parts every custom CMS build ends up needing, already built.
+
+Capell is an open-source CMS for Laravel, built on Filament.
+
+Capell starts where most custom CMS builds end. Reusable page patterns, previews, revision history, rollback, roll-forward and safe upgrades are already built and ready to extend.
+
+Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.
 
 Install it into an existing Laravel application with two commands:
 
@@ -20,6 +26,8 @@ php artisan capell:install
 ```
 
 [Open the live demo](https://capell.app/demo) · [See all features](https://capell.app/features) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Build a page](docs/getting-started/building-pages.md) · [Read the fit guide](docs/getting-started/why-capell.md) · [Read the docs](https://docs.capell.app)
+
+**Capell Foundation: £0** · Stable 1.x release · Laravel 12.41.1+ in the 12.x line or Laravel 13.x, Filament 5 · Core / Admin / Frontend
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
@@ -70,7 +78,7 @@ Package authors should start with the [extension-point chooser](docs/packages/ex
 
 ## Built as a standard Laravel package
 
-There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
+There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
 
 The public foundation is five packages:
 
