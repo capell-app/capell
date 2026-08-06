@@ -10,6 +10,17 @@ use Capell\Core\Models\Page;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Creator\BlueprintCreator;
 
+// The registry is a container singleton frozen at boot, so tests that need an
+// unfrozen one swap a fresh instance in. Restoration must happen even when the
+// test fails part-way, or the swapped registry leaks into later tests.
+beforeEach(function (): void {
+    $this->originalSubjectRegistry = resolve(BlueprintSubjectRegistry::class);
+});
+
+afterEach(function (): void {
+    app()->instance(BlueprintSubjectRegistry::class, $this->originalSubjectRegistry);
+});
+
 it('creates core page types with editor-facing descriptions', function (): void {
     resolve(BlueprintCreator::class)->createPageTypes();
 
@@ -45,7 +56,6 @@ it('creates core site theme and navigation types with editor-facing descriptions
 });
 
 it('creates a generic default blueprint for a subject without a schema seeder', function (): void {
-    $originalRegistry = resolve(BlueprintSubjectRegistry::class);
     $registry = new BlueprintSubjectRegistry;
     $registry->register(new BlueprintSubjectDescriptorData(
         key: 'vendor.editorial.collection',
@@ -55,18 +65,14 @@ it('creates a generic default blueprint for a subject without a schema seeder', 
     ));
     app()->instance(BlueprintSubjectRegistry::class, $registry);
 
-    try {
-        (new BlueprintCreator($registry))->create('vendor.editorial.collection');
+    new BlueprintCreator($registry)->create('vendor.editorial.collection');
 
-        $blueprint = Blueprint::query()
-            ->where('type', 'vendor.editorial.collection')
-            ->where('key', 'default')
-            ->first();
+    $blueprint = Blueprint::query()
+        ->where('type', 'vendor.editorial.collection')
+        ->where('key', 'default')
+        ->first();
 
-        expect($blueprint)->not->toBeNull()
-            ->and($blueprint?->name)->toBe('Default')
-            ->and($blueprint?->default)->toBeTrue();
-    } finally {
-        app()->instance(BlueprintSubjectRegistry::class, $originalRegistry);
-    }
+    expect($blueprint)->not->toBeNull()
+        ->and($blueprint?->name)->toBe('Default')
+        ->and($blueprint?->default)->toBeTrue();
 });

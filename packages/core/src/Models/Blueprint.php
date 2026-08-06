@@ -14,6 +14,7 @@ use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\CacheTime;
 use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Exceptions\UnknownBlueprintSubjectException;
 use Capell\Core\Models\Casts\BlueprintSubjectDataCast;
 use Capell\Core\Models\Concerns\HasDefault;
 use Capell\Core\Models\Concerns\HasMetaData;
@@ -139,6 +140,17 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
     use SoftDeletes;
 
     /**
+     * Navigation structures are stored as blueprints but are not a subject.
+     *
+     * A subject is a model that *carries* a blueprint (a Page has one, a Site
+     * has one). A navigation record has no such owner — the blueprint row is the
+     * record. It therefore never appears in
+     * {@see BlueprintSubjectRegistry}, and the type cast
+     * routes it around subject resolution rather than failing to resolve it.
+     */
+    public const NAVIGATION_TYPE = 'navigation';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -205,6 +217,21 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
         // subjects participate without requiring a core enum change.
         return ! collect(resolve(BlueprintSubjectRegistry::class)->keys())
             ->every(static fn (string $subject): bool => array_key_exists($subject, $blueprints));
+    }
+
+    /**
+     * Blueprint types that are structural records rather than model subjects.
+     *
+     * @return list<string>
+     */
+    public static function reservedInternalTypes(): array
+    {
+        return [self::NAVIGATION_TYPE];
+    }
+
+    public static function isReservedInternalType(string $type): bool
+    {
+        return in_array($type, self::reservedInternalTypes(), true);
     }
 
     public function isSystem(): bool
@@ -336,7 +363,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     protected function scopeNavigationType(Builder $query): void
     {
-        $query->where('type', 'navigation');
+        $query->where('type', self::NAVIGATION_TYPE);
     }
 
     /**
@@ -352,7 +379,15 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
     }
 
     /**
+     * Filter to one blueprint subject.
+     *
+     * The key is resolved through {@see BlueprintSubjectRegistry} rather than
+     * used raw, so a typo or an uninstalled package fails loudly here instead of
+     * silently returning an empty result set that reads as "no blueprints yet".
+     *
      * @param  Builder<Blueprint>  $query
+     *
+     * @throws UnknownBlueprintSubjectException when no package registered the subject.
      */
     protected function scopeType(Builder $query, BlueprintSubjectEnum|string $type): void
     {

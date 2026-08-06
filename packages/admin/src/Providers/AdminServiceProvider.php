@@ -822,7 +822,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 interceptorClass: $interceptorClass,
                 key: [
                     'key' => $pageType,
-                    'type' => BlueprintSubjectEnum::Page->value,
+                    'type' => BlueprintSubjectEnum::Page->getKey(),
                 ],
             );
         }

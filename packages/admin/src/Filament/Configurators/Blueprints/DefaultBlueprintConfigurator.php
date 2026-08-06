@@ -17,6 +17,7 @@ use Capell\Admin\Filament\Components\Forms\NameKeyGroup;
 use Capell\Admin\Filament\Components\Forms\StatusToggle;
 use Capell\Admin\Filament\Concerns\HasConfigurator;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\Blueprints\BlueprintSubjectOptions;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
@@ -122,12 +123,7 @@ class DefaultBlueprintConfigurator implements ConfiguratorInterface
                             $set('admin.configurator', null);
                             $set('admin.type_configurator', $this->defaultBlueprintConfiguratorFor($state));
                         })
-                        ->options(
-                            fn (): array => CapellCore::getPageTypes()
-                                ->mapWithKeys(fn (PageTypeData $type): array => [$type->name => $type->getLabel()])
-                                ->sort()
-                                ->all(),
-                        ),
+                        ->options(fn (): array => BlueprintSubjectOptions::all()),
 
                     $this->getGroupField()
                         ->visible(fn (Get $get): bool => ! $this->isBasicCreationMode($get)),

@@ -58,13 +58,10 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
-use Capell\Core\Data\BlueprintSubjectDescriptorData;
-use Capell\Core\Data\PageTypeData;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\AssetEnum;
-use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\ComponentTypeEnum;
 use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
@@ -103,6 +100,7 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
+use Capell\Core\Support\Blueprints\CoreBlueprintSubjects;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
@@ -714,25 +712,14 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerTypes(): self
     {
-        $subjects = resolve(BlueprintSubjectRegistry::class);
+        // Core's own subjects go through the package surface registrar, the same
+        // entry point a third-party package uses. Registering them directly would
+        // let core drift away from the contract it publishes — the registrar is
+        // what keeps subject registration and page-type registration in step.
+        $surface = resolve(PackageSurfaceRegistrar::class);
 
-        foreach (BlueprintSubjectEnum::cases() as $type) {
-            $subject = BlueprintSubjectDescriptorData::fromEnum($type);
-            $subjects->register($subject);
-
-            // Labels must be registered as plain strings (not closures) because
-            // PageTypeData is stored in CapellCoreManager and may be serialised
-            // by Livewire. Closures dehydrate as `{}` and crash Livewire with
-            // "Property type not supported". When you need a BlueprintSubjectEnum value
-            // inside a Livewire component, use BlueprintSubjectDescriptorData::fromEnum()
-            // which resolves labels eagerly before crossing the Livewire boundary.
-            CapellCore::registerPageType(
-                new PageTypeData(
-                    name: $subject->key,
-                    model: $subject->modelClass,
-                    label: $subject->label,
-                ),
-            );
+        foreach (CoreBlueprintSubjects::descriptors() as $subject) {
+            $surface->blueprintSubject($subject);
         }
 
         return $this;

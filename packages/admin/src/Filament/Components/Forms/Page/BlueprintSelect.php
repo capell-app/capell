@@ -11,24 +11,27 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Override;
 
 class BlueprintSelect extends BaseBlueprintSelect
 {
     protected null|string|Closure $pageGroup = null;
 
-    protected null|BlueprintSubjectEnum|string $type = BlueprintSubjectEnum::Page;
-
     protected null|bool|Closure $withSystemTypes = null;
 
+    #[Override]
     protected function setUp(?string $label = null): void
     {
         parent::setUp($label);
+
+        $this->subject(BlueprintSubjectEnum::Page->getKey());
 
         $this->modifySelectOptionsQueryUsing(
             /**
@@ -53,7 +56,7 @@ class BlueprintSelect extends BaseBlueprintSelect
                     $groups[] = $group;
                 }
 
-                if ($this->hasSystemPages()) {
+                if ($this->hasSystemPages() && $this->subjectAllowsSystemGroup()) {
                     $groups[] = BlueprintGroupEnum::System->value;
                 }
 
@@ -106,5 +109,25 @@ class BlueprintSelect extends BaseBlueprintSelect
         }
 
         return $this->withSystemTypes ?? true;
+    }
+
+    /**
+     * Whether the configured subject declares the system blueprint group.
+     *
+     * The descriptor decides: a subject that never has system blueprints must
+     * not have the group widened into its option query. An unregistered subject
+     * (uninstalled package) declares nothing, so the group is left out.
+     */
+    protected function subjectAllowsSystemGroup(): bool
+    {
+        $subjectKey = $this->getBlueprint();
+
+        if ($subjectKey === null) {
+            return false;
+        }
+
+        return resolve(BlueprintSubjectRegistry::class)
+            ->descriptorOrNull($subjectKey)
+            ?->allowsGroup(BlueprintGroupEnum::System) ?? false;
     }
 }

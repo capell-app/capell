@@ -105,11 +105,11 @@
         {
             "id": "core.contract.blueprint-subject",
             "kind": "contract",
-            "identifier": "Capell\\Core\\Data\\BlueprintSubjectDescriptorData",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionBlueprintSubject",
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Package-owned blueprint subject descriptor boundary.",
+            "summary": "Package-owned blueprint subject contribution boundary.",
             "contractTestId": null
         },
         {
@@ -210,6 +210,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Metric scope read authorization boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.outbound-event",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionOutboundEvent",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned outbound event contribution boundary.",
             "contractTestId": null
         },
         {
