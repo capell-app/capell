@@ -56,6 +56,10 @@ Source: `packages/core/config/capell.php`
 | `BLAZE_DEBUG`                                | `false`                                   | Enables Blaze debug behaviour                                                                                                               |
 | `CAPELL_BLAZE_THROW`                         | `false`                                   | Throws during Blaze candidate auditing                                                                                                      |
 | `CAPELL_DISABLE_CACHE`                       | `false`                                   | Disables Capell's general cache layer; set to `true` only for explicit uncached operation                                                   |
+| `CAPELL_ANALYTICS_COLLECTION_ENABLED`        | `true`                                    | Collects public page-view activity; when `false`, the beacon script is not injected and the collection endpoint discards hits               |
+| `CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED` | `false`                                   | Permits recording normalized, filtered on-site search terms; opt-in, and inert until a package calls the recording Action                   |
+| `CAPELL_ANALYTICS_ACTIVITY_RETENTION_DAYS`   | `1`                                       | Age, clamped to 1–7, after which raw activity rows are pruned by the daily `capell:activity:prune` schedule                                  |
+| `CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE`     | `30`                                      | Per-IP limit on the activity collection endpoint; requests over the limit are dropped silently with a `204`                                 |
 | `CAPELL_DISABLE_CACHE_SAVE_KEYS`             | `[]`                                      | Cache keys or patterns that should not be saved                                                                                             |
 | `CAPELL_RELATIONSHIP_DIAGNOSTICS`            | `false`                                   | Enables extra relationship diagnostics for page URL/site-domain checks                                                                      |
 | `CAPELL_WORKSPACES_PRUNE_SCHEDULE`           | `false`                                   | Enables the publishing workspace prune schedule                                                                                             |
@@ -98,6 +102,12 @@ Source: `packages/core/config/capell.php`
 | `CAPELL_DEVELOPER_TOOLS_DATABASE_WRITES`     | `local_only`                              | Controls developer tooling database writes                                                                                                  |
 | `CAPELL_DEVELOPER_TOOLS_READONLY_PREVIEW`    | `true`                                    | Keeps developer tooling previews read-only                                                                                                  |
 | `CAPELL_DEVELOPER_TOOLS_EDITOR_URL_TEMPLATE` | _(null)_                                  | Editor URL template for opening local files                                                                                                 |
+
+The three activity-collection env vars above are read only when the Capell Admin package is absent. With Admin present — the normal case — Admin's own **Settings → Dashboard** values (`analytics_collection_enabled`, `analytics_search_collection_enabled`, `analytics_activity_retention_days`) take over instead, and the env vars are silently ignored. If the settings table is unreadable, Admin falls back to its own field defaults, not to these env vars. Configure activity collection through Admin in a normal install; the env vars exist for Admin-less or headless deployments. `CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE` has no Admin equivalent and is always read from config.
+
+Search-term recording is opt-in and currently has no built-in caller: enabling `CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED` (or the Admin equivalent) does nothing on its own until a package records searches through `RecordSearchActivityAction`. When it does, the term is lowercased, whitespace-collapsed, and dropped if empty, over 160 characters, or the *entire* term matches an email, URL, or phone-number pattern — a query only containing an address, such as a bare email, is filtered; the same address inside a longer sentence is not.
+
+Raw activity rows are pruned daily by `capell:activity:prune`, scheduled at 00:35 UTC. `CAPELL_ANALYTICS_ACTIVITY_RETENTION_DAYS` (or its Admin equivalent) is clamped to 1–7 regardless of what is configured.
 
 `CAPELL_DISABLE_CACHE_SAVE_KEYS` accepts exact keys, wildcard patterns, or regex patterns:
 
@@ -332,6 +342,7 @@ finds none — which does not mean they are dead. Do not remove them.
 | `capell.sitemap.xml_path`, `.disk`, `.directory`                                     | `capell-app/site-discovery`                                                              |
 | `capell-admin.layout_builder.allowed_editor_modes`                                   | `capell-app/layout-builder` (`LayoutBuilderConfiguration`)                               |
 | `capell-frontend.breakpoints.lg`                                                     | `capell-app/theme-foundation` views                                                      |
+| `capell.analytics.daily_rollup_retention_days` (`CAPELL_ANALYTICS_DAILY_ROLLUP_RETENTION_DAYS`) | No consumer in this repository today; daily metric rollups are not pruned by age here |
 
 Release windows in particular are enforced by the Publishing Studio package. Without it
 installed, setting those keys restricts nothing.
