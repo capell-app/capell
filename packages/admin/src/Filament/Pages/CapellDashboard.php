@@ -82,9 +82,7 @@ class CapellDashboard extends Dashboard
     #[Override]
     public function getWidgetsContentComponent(): Grid
     {
-        return Grid::make($this->getColumns())
-            ->schema(fn (): array => $this->getWidgetsSchemaComponents($this->getWidgets()))
-            ->columnSpanFull();
+        return parent::getWidgetsContentComponent();
     }
 
     /**

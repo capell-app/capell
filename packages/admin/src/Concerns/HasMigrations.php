@@ -24,6 +24,7 @@ trait HasMigrations
             '2026_05_28_000001_01_add_header_navigation_tree_admin_setting',
             '2026_06_01_000001_01_add_configurator_path_hint_admin_setting',
             '2026_06_05_000001_01_add_report_visibility_admin_setting',
+            '2026_08_06_000001_01_add_activity_dashboard_admin_settings',
         ];
     }
 }

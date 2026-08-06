@@ -3,6 +3,16 @@
 declare(strict_types=1);
 
 return [
+    'analytics_collection_enabled' => 'Collect privacy-first analytics',
+    'analytics_collection_enabled_helper' => 'Use anonymous five-minute activity buckets. No visitor identifiers are stored.',
+    'analytics_search_collection_enabled' => 'Collect search terms',
+    'analytics_search_collection_enabled_helper' => 'Opt in to normalized, sensitive-value-filtered search insights.',
+    'analytics_activity_retention_days' => 'Activity retention',
+    'analytics_activity_retention_days_helper' => 'Keep aggregated activity for between one and seven days.',
+    'analytics_refresh_interval_seconds' => 'Dashboard refresh interval',
+    'analytics_refresh_interval_seconds_helper' => 'Refresh the shared dashboard snapshot at this interval.',
+    'analytics_top_n_limit' => 'Analytics ranking limit',
+    'analytics_top_n_limit_helper' => 'Maximum number of pages or terms shown in ranked panels.',
     'accessible' => 'Accessible',
     'additional_languages' => 'Additional languages',
     'admin_icon' => 'Admin icon',

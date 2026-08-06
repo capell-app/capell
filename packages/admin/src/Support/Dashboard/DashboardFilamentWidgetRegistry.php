@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Dashboard;
 
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Filament\Widgets\Widget;
@@ -13,11 +14,30 @@ use Throwable;
 /** @extends AbstractKeyedRegistry<class-string<Widget>> */
 class DashboardFilamentWidgetRegistry extends AbstractKeyedRegistry
 {
+    /** @var array<string, DashboardRegionEnum> */
+    private array $regions = [];
+
     /** @param class-string<Widget> $widgetClass */
     public function register(string $widgetClass, DashboardEnum ...$dashboards): void
     {
         foreach ($dashboards as $dashboard) {
-            $this->setItem($dashboard->value . ':' . $widgetClass, $widgetClass);
+            $key = $dashboard->value . ':' . $widgetClass;
+            $this->setItem($key, $widgetClass);
+            $this->regions[$key] ??= DashboardRegionEnum::Additional;
+        }
+    }
+
+    /**
+     * Register a widget with an explicit composed-dashboard region.
+     *
+     * @param  class-string<Widget>  $widgetClass
+     */
+    public function registerPanel(DashboardRegionEnum $region, string $widgetClass, DashboardEnum ...$dashboards): void
+    {
+        $this->register($widgetClass, ...$dashboards);
+
+        foreach ($dashboards as $dashboard) {
+            $this->regions[$dashboard->value . ':' . $widgetClass] = $region;
         }
     }
 
@@ -35,6 +55,20 @@ class DashboardFilamentWidgetRegistry extends AbstractKeyedRegistry
         usort($widgets, $this->compare(...));
 
         return $widgets;
+    }
+
+    /** @return list<class-string<Widget>> */
+    public function forDashboardRegion(DashboardEnum $dashboard, DashboardRegionEnum $region): array
+    {
+        return array_values(array_filter(
+            $this->forDashboard($dashboard),
+            fn (string $widgetClass): bool => ($this->regions[$dashboard->value . ':' . $widgetClass] ?? DashboardRegionEnum::Additional) === $region,
+        ));
+    }
+
+    public function regionFor(DashboardEnum $dashboard, string $widgetClass): DashboardRegionEnum
+    {
+        return $this->regions[$dashboard->value . ':' . $widgetClass] ?? DashboardRegionEnum::Additional;
     }
 
     /** @param class-string<Widget> $first @param class-string<Widget> $second */

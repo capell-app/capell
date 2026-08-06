@@ -8,6 +8,7 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
@@ -75,6 +76,7 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
     $widgets = CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main);
 
     expect($widgets)->toBe([
+        AnalyticsOverviewFilamentWidget::class,
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
         ListPagesFilamentWidget::class,
@@ -104,7 +106,8 @@ it('keeps auth and filament widgets above dashboard Filament widgets ordered by 
 
     $widgets = CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main);
 
-    expect(array_slice($widgets, 0, 3))->toBe([
+    expect(array_slice($widgets, 0, 4))->toBe([
+        AnalyticsOverviewFilamentWidget::class,
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
         ListPagesFilamentWidget::class,
@@ -148,7 +151,8 @@ it('filters globally registered widgets through admin settings and callbacks', f
 it('falls back to filament sort values after pinned dashboard Filament widgets without admin order', function (): void {
     $widgets = CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main);
 
-    expect(array_slice($widgets, 0, 2))->toBe([
+    expect(array_slice($widgets, 0, 3))->toBe([
+        AnalyticsOverviewFilamentWidget::class,
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
     ])
@@ -157,6 +161,7 @@ it('falls back to filament sort values after pinned dashboard Filament widgets w
             CapellInfoFilamentWidget::class,
         ])))
         ->toBe([
+            AnalyticsOverviewFilamentWidget::class,
             ListPagesFilamentWidget::class,
             RecentActivityFilamentWidget::class,
             MarketplaceCommercialWarningFilamentWidget::class,
@@ -226,7 +231,12 @@ it('uses a responsive dashboard layout for content-heavy widgets', function (): 
             'default' => 'full',
         ])
         ->and($dashboard->getWidgetsContentComponent()->getColumnSpan())->toBe([
-            'default' => 'full',
+            'default' => 1,
+            'sm' => null,
+            'md' => null,
+            'lg' => null,
+            'xl' => null,
+            '2xl' => null,
         ]);
 });
 

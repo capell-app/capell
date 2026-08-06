@@ -34,6 +34,7 @@ use Capell\Core\Console\Commands\MakeThemeCommand;
 use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Console\Commands\PackageClearCacheCommand;
 use Capell\Core\Console\Commands\PackageLintCommand;
+use Capell\Core\Console\Commands\PruneActivityBucketsCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
@@ -45,6 +46,7 @@ use Capell\Core\Console\Commands\RuntimeRefreshCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
+use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
@@ -72,6 +74,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Macros\BlueprintMacros;
+use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -91,6 +94,7 @@ use Capell\Core\Models\UpgradeLogEntry;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Activity\DefaultActivitySettingsReader;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
@@ -274,6 +278,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             UpgradeCommand::class,
             RollbackCommand::class,
             RollupMetricEventsCommand::class,
+            PruneActivityBucketsCommand::class,
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
             ThemeDoctorCommand::class,
@@ -296,6 +301,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerOctaneStateReset()
             ->registerModels()
             ->registerProtectedTables()
+            ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerBackupPruneSchedule()
             ->registerLinkableContentProviders()
@@ -554,6 +560,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerModels(): self
     {
         CapellCore::registerModels([
+            ActivityBucket::class,
             AssetAttachment::class,
             Language::class,
             Layout::class,
@@ -582,6 +589,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerProtectedTables(): self
     {
         CapellCore::registerProtectedTable(
+            static fn (): string => (new ActivityBucket)->getTable(),
+        );
+        CapellCore::registerProtectedTable(
             static fn (): string => (new MetricCollectionRun)->getTable(),
         );
         CapellCore::registerProtectedTable(
@@ -594,6 +604,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    private function registerActivitySettings(): self
+    {
+        $this->app->singletonIf(ActivitySettingsReader::class, DefaultActivitySettingsReader::class);
+
+        return $this;
+    }
+
     private function registerMetricSchedule(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
@@ -602,6 +619,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->timezone('UTC')
                 ->withoutOverlapping()
                 ->onOneServer();
+
+            $schedule->command('capell:activity:prune')
+                ->dailyAt('00:35')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
         });
 
         return $this;

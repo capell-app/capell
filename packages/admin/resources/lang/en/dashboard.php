@@ -3,6 +3,18 @@
 declare(strict_types=1);
 
 return [
+    'region_pulse' => 'Site pulse',
+    'region_trends' => 'Trend workspace',
+    'region_insights' => 'Insights',
+    'region_activity' => 'Recent activity',
+    'region_additional' => 'Additional dashboard panels',
+    'analytics_views' => 'Observed views',
+    'analytics_recent_views' => 'Views in the last 24 hours',
+    'analytics_active_pages' => 'Active pages',
+    'analytics_searches' => 'Observed searches',
+    'analytics_observed_description' => 'Aggregated public activity',
+    'analytics_recent_activity' => 'Recent activity',
+    'analytics_collecting' => 'Collecting activity data…',
     'activity_actor' => 'Who',
     'activity_change' => 'Change',
     'activity_system' => 'System',
