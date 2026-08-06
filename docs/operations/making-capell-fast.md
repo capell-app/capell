@@ -35,6 +35,13 @@ location / {
 }
 ```
 
+Both locations above declare `add_header`, which means they no longer inherit any
+`add_header` set at `server` or `http` scope. These are exactly the responses that never
+reach Laravel, so they have no middleware headers to fall back on either. Repeat the full
+security-header set inside each of these locations alongside `Cache-Control`, or the
+cached pages ship without it — see
+[Security headers](going-live.md#security-headers).
+
 This is only the final lookup. Before it, bypass the static path for anything that can
 vary by visitor or request: methods other than `GET` or `HEAD`, query strings that are
 not explicitly cache-safe, Laravel session cookies, authorization headers, signed or
@@ -52,6 +59,12 @@ Choose shorter values when content must propagate faster. Never add a public pol
 authenticated, personalised, preview, or authoring responses.
 
 ## Put Cloudflare in front
+
+Two things must already be true, or the site breaks the moment traffic is proxied: the
+zone's SSL/TLS mode must be **Full (strict)** rather than Flexible, and the application
+must trust the proxy. [Going live](going-live.md#behind-cloudflare) covers both. Neither
+is a performance concern — a site that gets them wrong serves redirect loops and
+`http://` asset URLs regardless of how the cache rules are written.
 
 1. Proxy the site's DNS record through Cloudflare.
 2. Create a Cache Rule for the site's anonymous public `GET` and `HEAD` routes.

@@ -18,6 +18,8 @@ By default, generated artifacts are written under `storage/framework/capell-stat
 
 This package no longer assumes a public page-cache directory. Do not configure Apache or Nginx to serve one unless another installed package explicitly owns and documents that directory.
 
+The optional `capell-app/html-cache` package is such a package: it owns `public/page-cache` and documents the rules that serve it. If you have installed it, add those rules from [Serving the static HTML cache](../../../docs/operations/web-server.md#serving-the-static-html-cache). If you have not, there is no page-cache directory to serve and the instruction above stands.
+
 ---
 
 ## Web Server
@@ -32,13 +34,18 @@ server {
 
     index index.php;
 
+    # Media uploads pass through this limit before PHP sees them.
+    client_max_body_size 32m;
+
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
     location ~ \.php$ {
+        try_files $uri =404;
         fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param HTTPS $https if_not_empty;
         include fastcgi_params;
     }
 
@@ -47,6 +54,21 @@ server {
     }
 }
 ```
+
+This block listens on port 80 for brevity. Production sites terminate TLS; see
+[Terminate TLS](../../../docs/operations/going-live.md#terminate-tls) for the 443 block,
+the port-80 redirect, and certificate renewal.
+
+Two lines above are easy to leave out and expensive to get wrong:
+
+- `try_files $uri =404;` inside the PHP location. Without it, a host with
+  `cgi.fix_pathinfo=1` can be persuaded to hand a request such as
+  `/media/photo.jpg/x.php` to PHP-FPM, executing an uploaded file. Capell accepts media
+  uploads, so treat this line as required rather than defensive.
+- `client_max_body_size`. nginx defaults to `1m` and rejects anything larger with a `413`
+  before PHP runs, so editors see an upload fail with no application error. Set it at
+  least as high as PHP's `upload_max_filesize` and `post_max_size`, and keep all three in
+  step.
 
 Enable text compression for public HTML and text assets in the same server or proxy layer. Lighthouse's `uses-text-compression` audit expects compressed responses for HTML, CSS, JavaScript, SVG, JSON, and XML:
 

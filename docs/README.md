@@ -9,7 +9,7 @@ Use this page to find the shortest route to your next task.
 | Evaluate or install Capell    | [Why Capell](getting-started/why-capell.md)                             | [Compare Capell with WordPress and Craft](getting-started/comparing-capell.md), then choose an [install path](getting-started/install-matrix.md) |
 | Build and edit a site         | [Your first session](getting-started/first-session.md)                  | [Create your first page](getting-started/create-your-first-page.md), then [choose a page-building path](getting-started/building-pages.md)       |
 | Build an extension            | [Build an extension end to end](packages/build-extension-end-to-end.md) | [Host, package, or app code](development/package-boundaries.md), then the [extension point chooser](packages/extension-point-chooser.md)         |
-| Operate a production site     | [Operations](operations/index.md)                                       | [Back up the site](operations/backups.md), then follow the [upgrade runbook](operations/upgrading.md)                                            |
+| Operate a production site     | [Going live](operations/going-live.md)                                  | [Operations](operations/index.md), then [back up the site](operations/backups.md) and follow the [upgrade runbook](operations/upgrading.md)      |
 | Maintain the Capell host repo | [Development](development/index.md)                                     | [Local development](development/local-development.md), then [CI and test shards](development/ci.md)                                              |
 
 ## Visual Tour

@@ -4,6 +4,11 @@ Capell runs on a standard Laravel web server configuration. This page covers the
 that are _not_ standard: serving the static HTML cache, and what changes when you run
 more than one node.
 
+For the standard parts — DNS, TLS, the base server block, trusted proxies, and process
+supervision — see [Going live](going-live.md). The base server block itself lives in
+[frontend server configuration](../../packages/frontend/docs/server-config.md); the rules
+below are added to it and only apply when `capell-app/html-cache` is installed.
+
 ## Three different things called "cache"
 
 Confusing these is the most common source of "why is my page stale" tickets, so it is
@@ -115,6 +120,7 @@ Before scaling out, account for these operating constraints:
 
 ## Further reading
 
+- [Going live](going-live.md)
 - [Running Capell on Laravel Octane](octane.md)
 - [Page cache architecture](../architecture/page-cache.md)
 - [Install guide](../getting-started/install.md)

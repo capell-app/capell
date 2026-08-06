@@ -13,11 +13,12 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 
 ## Install
 
-| I need to...               | Read                                |
-| -------------------------- | ----------------------------------- |
-| Try a disposable app       | [Quickstart](quickstart.md)         |
-| Choose an install path     | [Install matrix](install-matrix.md) |
-| Install into a Laravel app | [Install guide](install.md)         |
+| I need to...                | Read                                      |
+| --------------------------- | ----------------------------------------- |
+| Try a disposable app        | [Quickstart](quickstart.md)               |
+| Choose an install path      | [Install matrix](install-matrix.md)       |
+| Install into a Laravel app  | [Install guide](install.md)               |
+| Put the install on a domain | [Going live](../operations/going-live.md) |
 
 ## Author
 
