@@ -321,6 +321,22 @@ it('caches values, null sentinels, disabled saves, and cache increments through 
     expect($disabledRuns)->toBe(2);
 });
 
+it('folds the configured app host into the normalized cache key so hosts sharing a backend cannot collide', function (): void {
+    $manager = resolve(CapellCacheManager::class);
+    $normalizeCacheKey = new ReflectionMethod($manager, 'normalizeCacheKey');
+
+    config(['app.url' => 'https://tenant-a.example.test']);
+    $keyForHostA = $normalizeCacheKey->invoke($manager, 'shared-key');
+
+    config(['app.url' => 'https://tenant-b.example.test']);
+    $keyForHostB = $normalizeCacheKey->invoke($manager, 'shared-key');
+
+    expect($keyForHostA)->not->toBe($keyForHostB);
+
+    config(['app.url' => 'https://tenant-a.example.test']);
+    expect($normalizeCacheKey->invoke($manager, 'shared-key'))->toBe($keyForHostA);
+});
+
 it('respects ttl callbacks and namespace bumps on cache stores without tag support', function (): void {
     $cachePath = storage_path('framework/testing/cache-store-' . uniqid());
     File::ensureDirectoryExists($cachePath);
