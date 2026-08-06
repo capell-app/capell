@@ -47,7 +47,8 @@
             "capture": {
                 "fullPage": true
             },
-            "notes": "Requires the screenshot environment to provide a marketplace detail fixture for seo-suite with screenshots, documentation, licence, surfaces, dependencies, contribution summary, and feedback entitlement."
+            "notes": "Requires the screenshot environment to provide a marketplace detail fixture for seo-suite with screenshots, documentation, licence, surfaces, dependencies, contribution summary, and feedback entitlement.",
+            "sameCaptureAs": "docs-marketplace-extension-detail-overview"
         },
         {
             "id": "marketplace-extension-detail-mobile",
@@ -84,7 +85,8 @@
             "capture": {
                 "fullPage": true
             },
-            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls."
+            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls.",
+            "sameCaptureAs": "docs-marketplace-extension-detail-docs-and-access"
         }
     ]
 }

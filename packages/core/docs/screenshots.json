@@ -15,7 +15,8 @@
             "docsPage": "packages/core/docs/page-management.md",
             "output": "packages/core/docs/images/screenshots/core-page-structure.png",
             "required": true,
-            "notes": "Used in Page Management to show the page tree and editing entry point."
+            "notes": "Used in Page Management to show the page tree and editing entry point.",
+            "sameCaptureAs": "admin-pages-list"
         },
         {
             "id": "core-settings-backed-configuration",
