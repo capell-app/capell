@@ -6,13 +6,16 @@ namespace Capell\Admin\Support\Pages;
 
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\Pages\PageTableStatusData;
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class DefaultPageTableStatusResolver implements PageTableStatusResolver
 {
@@ -32,7 +35,12 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
         return $query;
     }
 
-    public function resolve(Page $page): PageTableStatusData
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>&Publishable  $page
+     */
+    public function resolve(Model&Pageable&Publishable $page): PageTableStatusData
     {
         return match ($page->publishVisibilityState()) {
             PublishVisibilityStateEnum::deleted => new PageTableStatusData(
@@ -41,7 +49,7 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
                 tooltip: (string) __('capell-admin::table.page_status_deleted_tooltip'),
                 color: 'danger',
                 icon: Heroicon::OutlinedXCircle,
-                date: $this->carbonImmutable($page->deleted_at),
+                date: $this->carbonImmutable($page->getAttribute('deleted_at')),
             ),
             PublishVisibilityStateEnum::expired => $this->expiredStatus($page),
             PublishVisibilityStateEnum::draft => new PageTableStatusData(
@@ -62,10 +70,15 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
         };
     }
 
-    private function expiredStatus(Page $page): PageTableStatusData
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>&Publishable  $page
+     */
+    private function expiredStatus(Model&Pageable&Publishable $page): PageTableStatusData
     {
         /** @var CarbonImmutable $visibleUntil expired state guarantees a past visible_until */
-        $visibleUntil = $this->carbonImmutable($page->visible_until);
+        $visibleUntil = $this->carbonImmutable($page->getAttribute('visible_until'));
 
         return new PageTableStatusData(
             label: (string) __('capell-admin::table.page_status_expired'),
@@ -79,10 +92,15 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
         );
     }
 
-    private function scheduledStatus(Page $page): PageTableStatusData
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>&Publishable  $page
+     */
+    private function scheduledStatus(Model&Pageable&Publishable $page): PageTableStatusData
     {
         /** @var CarbonImmutable $visibleFrom scheduled state guarantees a future visible_from */
-        $visibleFrom = $this->carbonImmutable($page->visible_from);
+        $visibleFrom = $this->carbonImmutable($page->getAttribute('visible_from'));
 
         return new PageTableStatusData(
             label: (string) __('capell-admin::table.page_status_scheduled'),

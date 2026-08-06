@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
+use Capell\Admin\Tests\Unit\Support\Pages\Fixtures\NonPageablePageForResolverTest;
 use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 
@@ -85,4 +86,19 @@ it('resolves deleted pages', function (): void {
     expect($status->label)->toBe((string) __('capell-admin::table.page_status_deleted'))
         ->and($status->shortLabel)->toBe((string) __('capell-admin::table.page_status_deleted_short'))
         ->and($status->color)->toBe('danger');
+});
+
+it('resolves a custom page-type model that implements Pageable without extending Page', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-23 09:00:00'));
+
+    $page = Page::factory()->createOne([
+        'visible_from' => CarbonImmutable::parse('2026-05-20 09:00:00'),
+        'visible_until' => null,
+    ]);
+    $customPageTypeRecord = NonPageablePageForResolverTest::query()->where('id', $page->id)->firstOrFail();
+
+    $status = resolve(DefaultPageTableStatusResolver::class)->resolve($customPageTypeRecord);
+
+    expect($status->label)->toBe((string) __('capell-admin::table.page_status_published'))
+        ->and($status->color)->toBe('success');
 });

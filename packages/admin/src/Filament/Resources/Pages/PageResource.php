@@ -34,11 +34,13 @@ use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetNameFromTranslationsAction;
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -401,7 +403,12 @@ class PageResource extends Resource implements ValidatesDelete
         return $query;
     }
 
-    private static function globalSearchPublishState(Page $page): RecordStateData
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>&Publishable  $page
+     */
+    private static function globalSearchPublishState(Model&Pageable&Publishable $page): RecordStateData
     {
         $status = resolve(PageTableStatusResolver::class)->resolve($page);
 
