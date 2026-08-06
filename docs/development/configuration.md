@@ -32,7 +32,7 @@ Installer and Marketplace config are loaded from their packages. Publish or over
 Source: `packages/core/config/capell.php`
 
 | Variable                                     | Default                                   | Used for                                                                                                                                                            |
-| -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CAPELL_VERSION`                             | _(null)_                                  | Optional Capell version override for Marketplace health reports                                                                                                     |
 | `CAPELL_CACHE_PATH`                          | `bootstrap/cache/capell`                  | Directory used for Capell component cache files                                                                                                                     |
 | `CAPELL_CACHE_TTL`                           | `60`                                      | Default TTL in seconds for Capell's general cache helpers                                                                                                           |
@@ -105,7 +105,7 @@ Source: `packages/core/config/capell.php`
 
 The three activity-collection env vars above are read only when the Capell Admin package is absent. With Admin present — the normal case — Admin's own **Settings → Dashboard** values (`analytics_collection_enabled`, `analytics_search_collection_enabled`, `analytics_activity_retention_days`) take over instead, and the env vars are silently ignored. If the settings table is unreadable, Admin falls back to its own field defaults, not to these env vars. Configure activity collection through Admin in a normal install; the env vars exist for Admin-less or headless deployments. `CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE` has no Admin equivalent and is always read from config.
 
-Search-term recording is opt-in and currently has no built-in caller: enabling `CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED` (or the Admin equivalent) does nothing on its own until a package records searches through `RecordSearchActivityAction`. When it does, the term is lowercased, whitespace-collapsed, and dropped if empty, over 160 characters, or the _entire_ term matches an email, URL, or phone-number pattern — a query only containing an address, such as a bare email, is filtered; the same address inside a longer sentence is not.
+Search-term recording is opt-in and currently has no built-in caller: enabling `CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED` (or the Admin equivalent) does nothing on its own until a package records searches through `RecordSearchActivityAction`. When it does, the term is lowercased, whitespace-collapsed, and dropped if empty, over 160 characters, or the *entire* term matches an email, URL, or phone-number pattern — a query only containing an address, such as a bare email, is filtered; the same address inside a longer sentence is not.
 
 Raw activity rows are pruned daily by `capell:activity:prune`, scheduled at 00:35 UTC. `CAPELL_ANALYTICS_ACTIVITY_RETENTION_DAYS` (or its Admin equivalent) is clamped to 1–7 regardless of what is configured.
 
@@ -235,7 +235,7 @@ CAPELL_SETUP_ADMIN_PASSWORD=password123
 Source: `packages/marketplace/config/capell-marketplace.php`
 
 | Variable                                                   | Default                                                    | Used for                                                                                     |
-| ---------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
 | `CAPELL_MARKETPLACE_ENABLED`                               | `true`                                                     | Enables Marketplace integration                                                              |
 | `CAPELL_INSTANCE_ID`                                       | _(null)_                                                   | Existing Marketplace instance ID                                                             |
 | `CAPELL_MARKETPLACE_URL`                                   | `https://capell.app/api/v1`                                | Marketplace API base URL                                                                     |
@@ -337,7 +337,7 @@ nothing until that package is installed, and searching this repository for a con
 finds none — which does not mean they are dead. Do not remove them.
 
 | Config key                                                                                      | Read by                                                                                  |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | `capell.publishing-studio.release_windows.*`, `.notifications.*`, `.review_policy.*`            | `capell-app/publishing-studio` (`ReleaseWindowGuard`) and `capell-app/automation-studio` |
 | `capell.sitemap.xml_path`, `.disk`, `.directory`                                                | `capell-app/site-discovery`                                                              |
 | `capell-admin.layout_builder.allowed_editor_modes`                                              | `capell-app/layout-builder` (`LayoutBuilderConfiguration`)                               |
