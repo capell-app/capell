@@ -88,3 +88,31 @@ it('uses conservative empty defaults without commercial heartbeat data', functio
         'currency' => null,
     ]);
 });
+
+it('does not let malformed purchase dates break the page data contract', function (): void {
+    MarketplaceInstance::query()->create([
+        'instance_id' => '018f47a2-62da-7ca4-b732-bd3c715db1c0',
+        'signing_secret_encrypted' => 'test-signing-secret',
+        'connection_metadata' => [
+            'commercial' => [
+                'purchases' => [
+                    [
+                        'name' => 'Broken Date Suite',
+                        'status' => 'active',
+                        'access_ends_at' => 'not-a-date',
+                    ],
+                ],
+            ],
+        ],
+        'last_heartbeat_at' => now(),
+    ]);
+    resolve(MarketplaceInstanceResolver::class)->forget();
+
+    expect(BuildMarketplacePurchasesPageDataAction::run()['purchases'])->toBe([
+        [
+            'name' => 'Broken Date Suite',
+            'status' => 'active',
+            'access_ends_at' => null,
+        ],
+    ]);
+});
