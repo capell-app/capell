@@ -481,6 +481,8 @@ php artisan cache:clear
 
 **You should see:** The second request after cache warmup works normally.
 
+<a id="site-domain-missing"></a>
+
 ### `UrlMissingSiteDomainException: Site domain not found for page ID ...`
 
 **When it happens:** `/admin` or a Livewire admin update fails while rendering a page table, dashboard Filament widget, relation manager, or URL column. The stack usually ends in `PageUrl::getFullUrlAttribute()` after a table column calls `$pageUrl->full_url`.

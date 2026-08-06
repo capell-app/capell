@@ -288,6 +288,8 @@ Capell also detects symlink components in a root declared `mutable` and blocks t
 
 ## Production verification
 
+Putting the installation on a public domain — DNS records, TLS, trusted proxies behind a CDN, and the queue worker and scheduler as supervised processes — is covered in [Going live](../operations/going-live.md). Work through that page first; the checks below assume it is done.
+
 Before sending traffic to the installation:
 
 ```bash
