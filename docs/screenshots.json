@@ -13,14 +13,13 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-form",
-            "url": "/media",
-            "waitFor": "form",
+            "url": "/screenshot-fixtures/record-states/media-editor",
+            "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))",
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/generated/package-surfaces/admin-media-edit-focal-point.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
+            "sameCaptureAs": "admin-media-edit-focal-point",
             "notes": "Top-level docs copy of the package-owned media focal point screenshot."
         },
         {
@@ -31,14 +30,29 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-form",
-            "url": "/media",
-            "waitFor": "form",
+            "url": "/screenshot-fixtures/record-states/media-editor",
+            "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Metadata'))",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Metadata')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
+                }
+            ],
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/generated/package-surfaces/admin-media-edit-localized-metadata.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
+            "sameCaptureAs": "admin-media-edit-localized-metadata",
             "notes": "Top-level docs copy of the package-owned localized media metadata screenshot."
         },
         {
@@ -53,9 +67,7 @@
             "waitFor": "table",
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/generated/package-surfaces/admin-media-ai-doctor-image.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Top-level docs copy of the package-owned Media AI action screenshot."
         },
@@ -71,9 +83,7 @@
             "waitFor": "body",
             "docsPage": "docs/getting-started/install.md",
             "output": "docs/images/generated/package-surfaces/install-guide-page.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Top-level docs copy of the package-owned installer guide screenshot."
         },
@@ -86,12 +96,10 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-marketplace-extension-screenshots]",
+            "waitFor": "body:has([data-marketplace-extension-screenshots]):has([data-marketplace-extension-docs])",
             "docsPage": "docs/packages/README.md",
             "output": "docs/images/generated/package-surfaces/marketplace-extension-detail-overview.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "capture": {
                 "fullPage": true
@@ -107,17 +115,16 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-marketplace-extension-docs]",
+            "waitFor": "body:has([data-marketplace-extension-screenshots]):has([data-marketplace-extension-docs])",
             "docsPage": "docs/operations/debugging-marketplace.md",
             "output": "docs/images/generated/package-surfaces/marketplace-extension-detail-docs-and-access.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "capture": {
                 "fullPage": true
             },
-            "notes": "Top-level docs copy of the package-owned Marketplace docs/access screenshot."
+            "notes": "Top-level docs copy of the package-owned Marketplace docs/access screenshot.",
+            "sameCaptureAs": "docs-marketplace-extension-detail-overview"
         },
         {
             "id": "admin-sites-list",
@@ -128,9 +135,7 @@
             "target": "SiteResource",
             "docsPage": "docs/admin/admin-domain.md",
             "output": "docs/images/generated/admin/admin-sites-list.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows the Sites resource used for domains, language scope, and site-level configuration."
         },
@@ -146,9 +151,7 @@
             "waitFor": "form",
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/admin-site-edit-form.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows the site-level edit surface for branding, domains, language, and contact details."
         },
@@ -161,9 +164,7 @@
             "target": "ExtensionsPage",
             "docsPage": "docs/packages/README.md",
             "output": "docs/images/generated/admin/admin-extensions-page.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows installed package state, package controls, and Marketplace connection context."
         },
@@ -176,9 +177,7 @@
             "target": "PageResource/EditPage",
             "docsPage": "docs/admin/interface.md",
             "output": "docs/images/generated/admin/admin-page-edit-form.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows a real page edit form with tabs, content fields, page actions, and publishing controls.",
             "covers": [
@@ -194,10 +193,9 @@
             "target": "MediaResource/EditMedia",
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/generated/admin/admin-media-edit-form.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
+            "sameCaptureAs": "admin-media-edit-focal-point",
             "notes": "Shows the media edit form where focal point, metadata, and replacement workflows are managed."
         },
         {
@@ -209,9 +207,7 @@
             "target": "ActivityResource/ViewActivity",
             "docsPage": "docs/admin/interface.md",
             "output": "docs/images/generated/admin/admin-activity-log-details.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows nested activity changes expanded into readable before-and-after details."
         },
@@ -224,9 +220,7 @@
             "target": "SitemapPage",
             "docsPage": "docs/admin/interface.md",
             "output": "docs/images/generated/admin/sitemap-page.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows the admin sitemap view used to inspect public page structure."
         },
@@ -242,9 +236,7 @@
             "waitFor": "body",
             "docsPage": "docs/admin/recovery.md",
             "output": "docs/images/generated/admin/recovery-imports.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows the recovery/import shell when the migration assistant surface is available.",
             "covers": [
@@ -264,9 +256,7 @@
             "waitFor": "table",
             "docsPage": "docs/admin/users-and-roles.md",
             "output": "docs/images/generated/admin/admin-users-list.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows the Users resource for role and account administration.",
             "covers": [
@@ -285,9 +275,7 @@
             "waitFor": "body",
             "docsPage": "docs/frontend/guide.md",
             "output": "docs/images/generated/package-surfaces/frontend-published-page.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": false,
             "notes": "Shows the rendered public page produced by Capell frontend resolution and the active theme."
         },
@@ -304,6 +292,7 @@
             "docsPage": "docs/admin/interface.md",
             "output": "docs/images/admin-settings.png",
             "required": true,
+            "sameCaptureAs": "core-settings-backed-configuration",
             "notes": "Shows the settings surface used by admin setup, security, roles, and configuration documentation."
         },
         {
@@ -319,6 +308,7 @@
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/admin-media-library.png",
             "required": true,
+            "sameCaptureAs": "docs-media-ai-doctor-image",
             "notes": "Shows the media library used in admin and media-management documentation."
         },
         {
@@ -391,6 +381,18 @@
             "scenario": "admin-index",
             "url": "/themes",
             "waitFor": "body",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[aria-label='Customize']"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-modal-window[style=''] .fi-modal-heading:has-text('Edit Default')"
+                }
+            ],
             "docsPage": "docs/admin/theme-library.md",
             "output": "docs/images/generated/admin/theme-customize-preview-apply.png",
             "required": true,
@@ -409,6 +411,7 @@
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/first-page-pages-list.png",
             "required": true,
+            "sameCaptureAs": "admin-pages-list",
             "notes": "Shows the Pages entry point before creating a new page."
         },
         {
@@ -436,6 +439,18 @@
             "scenario": "admin-index",
             "url": "/pages",
             "waitFor": "table",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button:has-text('New page')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-modal-window[style=''] .fi-modal-heading:has-text('Choose a page type')"
+                }
+            ],
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/first-page-new-page-action.png",
             "required": true,
@@ -583,9 +598,7 @@
             "waitFor": ".fi-fo-builder",
             "docsPage": "docs/getting-started/building-pages.md",
             "output": "docs/images/generated/page-building-blocks-editor.png",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "notes": "The screenshot runner creates or refreshes a page with ContentStructure::Blocks as its per-page override, then redirects to Capell's real PageResource EditPage. This is the typed, reorderable page-body builder, not a Layout Builder widget surface.",
             "useCase": "An editor can see the page-level Blocks authoring path and its real add, configure, clone, and reorder controls before choosing it over HTML content."
@@ -681,6 +694,7 @@
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/first-page-edit-settings-tab.png",
             "required": true,
+            "sameCaptureAs": "admin-page-edit-form",
             "notes": "Shows edit-time settings and package-provided page fields."
         },
         {
@@ -734,6 +748,18 @@
             "scenario": "admin-form",
             "url": "/blueprints",
             "waitFor": "form",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button:has-text('Create blueprint')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-modal-window[style=''] .fi-modal-heading:has-text('Create Blueprint')"
+                }
+            ],
             "docsPage": "docs/getting-started/types.md",
             "output": "docs/images/generated/admin/types-definition.png",
             "required": false,
@@ -749,6 +775,22 @@
             "scenario": "admin-form",
             "url": "/blueprints",
             "waitFor": "form",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": ".fi-ta-row:has(.fi-ta-text-description:has-text('A flexible page for ordinary content')) button[aria-label='Edit']"
+                },
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Frontend')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-modal-window button[role='tab']:has-text('Frontend')"
+                }
+            ],
             "docsPage": "docs/getting-started/types.md",
             "output": "docs/images/generated/admin/types-page-frontend-settings.png",
             "required": false,
@@ -764,6 +806,22 @@
             "scenario": "admin-form",
             "url": "/blueprints",
             "waitFor": "form",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": ".fi-ta-row:has(.fi-ta-text-description:has-text('A flexible page for ordinary content')) button[aria-label='Edit']"
+                },
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Admin')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-modal-window button[role='tab']:has-text('Admin')"
+                }
+            ],
             "docsPage": "docs/getting-started/types.md",
             "output": "docs/images/generated/admin/types-page-admin-settings.png",
             "required": false,
