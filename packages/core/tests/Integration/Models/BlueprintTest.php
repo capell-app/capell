@@ -107,6 +107,11 @@ it('can scope theme type', function (): void {
     expect($result)->toHaveCount(1);
 });
 
+it('rejects unregistered blueprint subject scopes', function (): void {
+    expect(fn (): mixed => Blueprint::query()->type('vendor.missing.subject')->get())
+        ->toThrow(InvalidArgumentException::class, 'is not registered');
+});
+
 it('can scope sorted', function (): void {
     Blueprint::factory()->createOne(['order' => 2]);
     Blueprint::factory()->createOne(['order' => 1]);

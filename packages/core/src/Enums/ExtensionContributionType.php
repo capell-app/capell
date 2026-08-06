@@ -31,4 +31,6 @@ enum ExtensionContributionType: string
     case ContentGraph = 'content-graph';
     case HealthCheck = 'health-check';
     case WorkflowAttention = 'workflow-attention';
+    case OutboundEvent = 'outbound-event';
+    case BlueprintSubject = 'blueprint-subject';
 }

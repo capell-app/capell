@@ -8,6 +8,7 @@ use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Data\MarketingStudioActionData;
 use Capell\Admin\Data\UserMenu\UserMenuItemData;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Support\CapellAdminManager;
 use Closure;
 use Filament\Actions\Action;
@@ -20,7 +21,9 @@ use Illuminate\Support\Facades\Facade;
  * @mixin CapellAdminManager
  *
  * @method static void registerDashboardFilamentWidget(string $widgetClass, DashboardEnum ...$dashboards)
+ * @method static void registerDashboardPanel(DashboardRegionEnum $region, string $widgetClass, DashboardEnum ...$dashboards)
  * @method static list<class-string<Widget>> getDashboardFilamentWidgets(DashboardEnum $dashboard)
+ * @method static list<class-string<Widget>> getDashboardFilamentWidgetsByRegion(DashboardEnum $dashboard, DashboardRegionEnum $region)
  * @method static void registerMarketingStudioAction(MarketingStudioActionData $action)
  * @method static array<string, list<MarketingStudioActionData>> getMarketingStudioActions()
  * @method static void registerUserMenuItem(string $key, string|Closure $label, string|Heroicon|null $icon = null, string|Closure|null $url = null, int|string|Closure|null $badge = null, string|Closure|null $badgeColor = null, bool|Closure $visible = true, int $sort = 100, ?string $group = null)

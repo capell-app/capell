@@ -9,10 +9,12 @@ it('resolves all BlueprintSubjectEnum cases to BlueprintSubjectDescriptorData wi
     foreach (BlueprintSubjectEnum::cases() as $typeEnum) {
         $descriptor = BlueprintSubjectDescriptorData::fromEnum($typeEnum);
 
-        expect($descriptor->value)->toBe($typeEnum->value)
+        expect($descriptor->key)->toBe($typeEnum->value)
             ->and($descriptor->label)->toBeString()->not->toBeEmpty()
-            ->and($descriptor->key)->toBeString()->not->toBeEmpty()
-            ->and($descriptor->model)->toBeString()->not->toBeEmpty();
+            ->and($descriptor->modelClass)->toBeString()->not->toBeEmpty()
+            ->and($descriptor->ownerPackage)->toBe('capell-app/core')
+            ->and($descriptor->groups)->toBe([])
+            ->and($descriptor->defaultSchemaSeeder)->toBeString()->not->toBeEmpty();
     }
 });
 
@@ -27,12 +29,15 @@ it('round-trips BlueprintSubjectEnum through BlueprintSubjectDescriptorData', fu
 it('produces Livewire-safe plain-string properties (no closures)', function (): void {
     $descriptor = BlueprintSubjectDescriptorData::fromEnum(BlueprintSubjectEnum::Page);
 
-    // All properties must be scalar — Livewire serialises to JSON and
-    // closures/objects dehydrate as `{}`, causing "Property type not supported".
+    // Properties must remain Livewire-safe scalars or arrays — closures/objects
+    // dehydrate as `{}`, causing "Property type not supported".
     $properties = $descriptor->toArray();
-    foreach ($properties as $propertyValue) {
-        expect($propertyValue)->toBeString();
-    }
+    expect($properties['key'])->toBeString()
+        ->and($properties['label'])->toBeString()
+        ->and($properties['modelClass'])->toBeString()
+        ->and($properties['ownerPackage'])->toBeString()
+        ->and($properties['groups'])->toBeArray()
+        ->and($properties['defaultSchemaSeeder'])->toBeString();
 });
 
 it('serialises to JSON without information loss', function (): void {
@@ -41,10 +46,12 @@ it('serialises to JSON without information loss', function (): void {
     $json = json_encode($descriptor->toArray());
     expect($json)->toBeString();
 
-    /** @var array<string, string> $decoded */
+    /** @var array<string, mixed> $decoded */
     $decoded = json_decode((string) $json, associative: true);
-    expect($decoded['value'])->toBe('site')
-        ->and($decoded['label'])->toBeString()->not->toBeEmpty();
+    expect($decoded['key'])->toBe('site')
+        ->and($decoded['label'])->toBeString()->not->toBeEmpty()
+        ->and($decoded['modelClass'])->toBeString()->not->toBeEmpty()
+        ->and($decoded['ownerPackage'])->toBe('capell-app/core');
 });
 
 it('exposes stable values matching BlueprintSubjectEnum', function (): void {
@@ -52,7 +59,7 @@ it('exposes stable values matching BlueprintSubjectEnum', function (): void {
     $siteDescriptor = BlueprintSubjectDescriptorData::fromEnum(BlueprintSubjectEnum::Site);
     $themeDescriptor = BlueprintSubjectDescriptorData::fromEnum(BlueprintSubjectEnum::Theme);
 
-    expect($pageDescriptor->value)->toBe('page')
-        ->and($siteDescriptor->value)->toBe('site')
-        ->and($themeDescriptor->value)->toBe('theme');
+    expect($pageDescriptor->key)->toBe('page')
+        ->and($siteDescriptor->key)->toBe('site')
+        ->and($themeDescriptor->key)->toBe('theme');
 });

@@ -23,6 +23,7 @@ use Capell\Admin\Contracts\Backup\PageExporter;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Cache\StaticSiteGenerationDispatcher;
 use Capell\Admin\Contracts\Dashboard\ContentHealthDataProvider;
+use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Contracts\Dashboard\MyWorkQueueDataProvider;
 use Capell\Admin\Contracts\Dashboard\RecentlyPublishedDataProvider;
 use Capell\Admin\Contracts\Dashboard\SiteStatsDataProvider;
@@ -44,6 +45,7 @@ use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\AdminAssetEnum;
 use Capell\Admin\Enums\AdminNotificationGroupEnum;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
@@ -65,6 +67,10 @@ use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Filament\Settings\ThemeStudioSettingsSchema;
 use Capell\Admin\Filament\Widgets\CardsFilamentWidget;
 use Capell\Admin\Filament\Widgets\ContentFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
@@ -108,6 +114,7 @@ use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Policies\UserPolicy;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
+use Capell\Admin\Support\Activity\AdminActivitySettingsReader;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
@@ -123,6 +130,7 @@ use Capell\Admin\Support\Cache\UnavailableStaticSiteGenerationDispatcher;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
+use Capell\Admin\Support\Dashboard\DefaultDashboardAnalyticsDataProvider;
 use Capell\Admin\Support\Dashboard\DefaultSiteStatsDataProvider;
 use Capell\Admin\Support\Dashboard\NullContentHealthDataProvider;
 use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
@@ -163,6 +171,7 @@ use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
@@ -274,6 +283,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         );
         $this->app->singletonIf(FlagIconRendererContract::class, FlagIconRenderer::class);
         $this->app->singletonIf(PageTableStatusResolver::class, DefaultPageTableStatusResolver::class);
+        $this->app->bind(ActivitySettingsReader::class, AdminActivitySettingsReader::class);
 
         // These concrete services are owned by Admin; unlike substitutable contracts above,
         // their identity must remain the one shared by the manager, facade, and container.
@@ -307,6 +317,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->tag([ExtensionHealthSiteHealthWidget::class], SiteHealthWidget::TAG);
 
         $this->app->singletonIf(ContentHealthDataProvider::class, NullContentHealthDataProvider::class);
+        $this->app->singletonIf(DashboardAnalyticsDataProvider::class, DefaultDashboardAnalyticsDataProvider::class);
         $this->app->singletonIf(RecentlyPublishedDataProvider::class, NullRecentlyPublishedDataProvider::class);
         $this->app->singletonIf(MyWorkQueueDataProvider::class, NullMyWorkQueueDataProvider::class);
         $this->app->singletonIf(SiteStatsDataProvider::class, DefaultSiteStatsDataProvider::class);
@@ -648,6 +659,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         $widgets = [
             DashboardEnum::Main->value => [
+                AnalyticsOverviewFilamentWidget::class,
+                AnalyticsTrendFilamentWidget::class,
+                AnalyticsInsightsFilamentWidget::class,
+                AnalyticsRecentActivityFilamentWidget::class,
                 CapellAccountFilamentWidget::class,
                 CapellInfoFilamentWidget::class,
                 ListPagesFilamentWidget::class,
@@ -678,6 +693,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 CapellAdmin::registerDashboardFilamentWidget($widgetClass, DashboardEnum::from($dashboard));
             }
         }
+
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, AnalyticsOverviewFilamentWidget::class, DashboardEnum::Main);
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, AnalyticsTrendFilamentWidget::class, DashboardEnum::Main);
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Insights, AnalyticsInsightsFilamentWidget::class, DashboardEnum::Main);
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Activity, AnalyticsRecentActivityFilamentWidget::class, DashboardEnum::Main);
 
         return $this;
     }
@@ -802,7 +822,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 interceptorClass: $interceptorClass,
                 key: [
                     'key' => $pageType,
-                    'type' => BlueprintSubjectEnum::Page,
+                    'type' => BlueprintSubjectEnum::Page->value,
                 ],
             );
         }

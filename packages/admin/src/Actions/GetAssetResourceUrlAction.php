@@ -6,7 +6,6 @@ namespace Capell\Admin\Actions;
 
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
-use Capell\Core\Enums\BlueprintSubjectEnum;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -21,7 +20,7 @@ class GetAssetResourceUrlAction
 
     public function handle(string $type, int|Model $record): ?string
     {
-        if ($type === BlueprintSubjectEnum::Page->value) {
+        if ($type === 'page') {
             return GetEditPageResourceUrlAction::run($record);
         }
 

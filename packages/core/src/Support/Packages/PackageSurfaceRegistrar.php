@@ -7,9 +7,13 @@ namespace Capell\Core\Support\Packages;
 use BackedEnum;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchema;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -36,11 +40,32 @@ final class PackageSurfaceRegistrar
         private readonly CapellCoreManager $core,
         private readonly SettingsSchemaRegistry $settings,
         private readonly MetricCollectorRegistry $metricCollectors,
+        private readonly OutboundEventRegistry $outboundEvents,
+        private readonly BlueprintSubjectRegistry $blueprintSubjects,
     ) {}
 
     public function pageType(PageTypeData $type): self
     {
         $this->core->registerPageType($type);
+
+        return $this;
+    }
+
+    public function outboundEvent(OutboundEventDefinitionData $definition): self
+    {
+        $this->outboundEvents->register($definition);
+
+        return $this;
+    }
+
+    public function blueprintSubject(BlueprintSubjectDescriptorData $subject): self
+    {
+        $this->blueprintSubjects->register($subject);
+        $this->core->registerPageType(new PageTypeData(
+            name: $subject->key,
+            model: $subject->modelClass,
+            label: $subject->label,
+        ));
 
         return $this;
     }

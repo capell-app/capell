@@ -60,7 +60,7 @@ Use a narrow package name and PSR-4 namespace:
 
 Composer autoloading makes package classes available. `capell.json` tells Capell how the package is discovered, installed, and activated.
 
-Keep `extra.laravel.providers` to the package bootstrap provider only. Runtime-specific providers belong in the `capell.json` provider map.
+Keep `extra.laravel.providers` to the package bootstrap provider only, and never repeat that class in a `capell.json` bucket. Composer discovery boots a provider unconditionally while the manifest buckets are gated on the extension being enabled, so a class named in both loads even when the package is disabled. Additional, gated providers — the metadata, install, admin, and frontend providers in the example below — belong in the manifest map and nowhere else.
 
 ## Capell Manifest
 
@@ -91,7 +91,7 @@ Keep `extra.laravel.providers` to the package bootstrap provider only. Runtime-s
     "providers": {
         "metadata": ["Capell\\Example\\Providers\\MetadataServiceProvider"],
         "install": ["Capell\\Example\\Providers\\InstallServiceProvider"],
-        "runtime": ["Capell\\Example\\Providers\\ExampleServiceProvider"],
+        "runtime": ["Capell\\Example\\Providers\\RuntimeServiceProvider"],
         "admin": ["Capell\\Example\\Providers\\AdminServiceProvider"],
         "frontend": ["Capell\\Example\\Providers\\FrontendServiceProvider"]
     },
@@ -101,6 +101,12 @@ Keep `extra.laravel.providers` to the package bootstrap provider only. Runtime-s
         "migrations": true,
         "settings": false,
         "requiredTables": []
+    },
+    "actions": {
+        "install": "Capell\\Example\\Actions\\InstallExampleAction",
+        "setup": null,
+        "uninstall": null,
+        "afterInstall": null
     },
     "commands": {
         "install": "capell:example-install",
@@ -144,7 +150,7 @@ Keep `extra.laravel.providers` to the package bootstrap provider only. Runtime-s
 
 Use `dependencies.requires` for packages that must be installed before this package can work. Keep it honest: a package that registers an admin page, an Extensions page action, a Filament resource, or admin translations must require `capell-app/admin`. Use `dependencies.supports` for support packages that should be pulled into an install only when their own requirements are already selected or installed. Support packages that should not appear as standalone product choices should set `"visibility": "support"`; the installer can still add them through `dependencies.supports`.
 
-The command map is lifecycle metadata. Capell reads install, after-install, setup, upgrade, demo, and faker command keys where those workflows apply. Package doctor and health checks are discovered from `capell:doctor` integration and the top-level `healthChecks` manifest list, not from command-map doctor or health entries.
+The command map is lifecycle metadata. Capell reads install, after-install, setup, upgrade, demo, and faker command keys where those workflows apply. It also reads `commands.doctor`: `capell:doctor` runs each installed package's declared doctor command as part of its report. Package *health checks* are separate, and come from the top-level `healthChecks` manifest list rather than the command map.
 
 Composer presence makes a package available. `capell_extensions.status = enabled` makes it active. Optional packages must not register runtime providers unless enabled.
 
@@ -155,12 +161,18 @@ Provider keys:
 - `metadata`: may load for discovered packages and must not change runtime behaviour.
 - `install`: may load for console/installer workflows before the package is enabled.
 - `runtime`: loaded only when the package is enabled.
-- `admin`: loaded only when the package is enabled and the admin or console runtime is active.
-- `frontend`: loaded only when the package is enabled and frontend rendering is active.
+- `admin`: loaded only when the package is enabled. Use it to group admin providers.
+- `frontend`: loaded only when the package is enabled. Use it to group frontend providers.
 
-Use `surfaces` to declare the runtimes a package participates in, then use `providers` to route concrete service provider classes for those runtimes. This avoids booting admin code on frontend requests and keeps install-only wiring out of normal HTTP requests.
+`runtime`, `admin`, `frontend`, and `auth` are resolved together behind a single enabled check — the bucket names document intent and keep registration organised, but they do **not** filter by request context. An `admin` provider still loads on frontend requests once the package is enabled, so guard admin-only work inside the provider rather than relying on the bucket.
+
+Use `surfaces` to declare the runtimes a package participates in, then use `providers` to route concrete service provider classes for those runtimes. This keeps install-only wiring out of normal HTTP requests and documents which provider owns which responsibility. It does not gate by request context — see the note above — so guard admin-only work inside the provider rather than relying on the bucket name.
 
 Use `product.group` and `product.tier` to keep the installer, Marketplace, and docs aligned with the package grouping. See [Package product groups](product-groups.md).
+
+The manifest above shows both lifecycle blocks so you can recognise them, but a new package should declare **only `actions`**. `actions` holds class-strings implementing `PackageLifecycleAction`; `commands` holds legacy artisan command names and is refused by web-triggered installs, so a `commands`-only package cannot be installed from the admin Marketplace. The Foundation packages still ship `commands` because they predate the Action contract. See [Lifecycle: actions and commands](build-extension-end-to-end.md#lifecycle-actions-and-commands).
+
+Declare the Capell API range your package supports with `capellApiVersion` — see [Extension API versioning](extension-api-versioning.md).
 
 For the full install/audit flow, see [Extension lifecycle](extension-lifecycle.md).
 

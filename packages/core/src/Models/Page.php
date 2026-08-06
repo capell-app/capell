@@ -445,7 +445,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     public function shouldLogVisit(): bool
     {
-        return (bool) ($this->blueprint?->meta['disable_visit_logs'] ?? true);
+        return ! (bool) ($this->blueprint?->meta['disable_visit_logs'] ?? false);
     }
 
     /**

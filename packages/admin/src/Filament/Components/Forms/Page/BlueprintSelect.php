@@ -35,7 +35,7 @@ class BlueprintSelect extends BaseBlueprintSelect
              * @param  Builder<Blueprint>  $query
              */
             function (Builder $query, EditRecord|CreateRecord|ListRecords|HasPageResource $livewire): Builder {
-                $group = BlueprintSubjectEnum::Page->value;
+                $group = 'page';
 
                 if ($this->pageGroup !== null) {
                     $group = $this->evaluate($this->pageGroup);

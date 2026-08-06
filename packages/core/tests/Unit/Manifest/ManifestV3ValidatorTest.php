@@ -596,6 +596,8 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
         'content-graph',
         'health-check',
         'workflow-attention',
+        'outbound-event',
+        'blueprint-subject',
     ]);
 
     $validator = new ManifestValidator;
