@@ -26,7 +26,8 @@
             "notes": "Resolved by the deployment screenshot runner after installer demo state is prepared.",
             "covers": [
                 "packages/installer/src/Filament/Pages/InstallGuidePage.php"
-            ]
+            ],
+            "sameCaptureAs": "docs-install-guide-page"
         }
     ]
 }

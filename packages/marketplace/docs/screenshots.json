@@ -16,6 +16,7 @@
             "url": "/extensions",
             "waitFor": "table",
             "required": true,
+            "sameCaptureAs": "admin-extensions-page",
             "notes": "Resolved by the deployment screenshot runner after marketplace example data is prepared. Marketplace contributes the connection alert but not catalogue controls to the installed Extensions page."
         },
         {
@@ -29,6 +30,7 @@
             "url": "/extensions",
             "waitFor": "table",
             "required": true,
+            "sameCaptureAs": "marketplace-extensions-page",
             "notes": "Resolved by the deployment screenshot runner after advisory snapshots are seeded. Marketplace contributes alerts but not catalogue controls to the installed Extensions page."
         },
         {
@@ -40,14 +42,15 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-capell-marketplace-extension-screenshots]",
+            "waitFor": "body:has([data-marketplace-extension-screenshots]):has([data-marketplace-extension-docs])",
             "docsPage": "packages/marketplace/README.md",
             "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-overview.png",
             "required": true,
             "capture": {
                 "fullPage": true
             },
-            "notes": "Requires the screenshot environment to provide a marketplace detail fixture for seo-suite with screenshots, documentation, licence, surfaces, dependencies, contribution summary, and feedback entitlement."
+            "notes": "Requires the screenshot environment to provide a marketplace detail fixture for seo-suite with screenshots, documentation, licence, surfaces, dependencies, contribution summary, and feedback entitlement.",
+            "sameCaptureAs": "docs-marketplace-extension-detail-overview"
         },
         {
             "id": "marketplace-extension-detail-mobile",
@@ -58,7 +61,7 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-capell-marketplace-extension-screenshots]",
+            "waitFor": "[data-marketplace-extension-screenshots]",
             "viewport": "mobile",
             "docsPage": "packages/marketplace/README.md",
             "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-mobile.png",
@@ -77,14 +80,15 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "[data-capell-marketplace-extension-docs]",
+            "waitFor": "body:has([data-marketplace-extension-screenshots]):has([data-marketplace-extension-docs])",
             "docsPage": "packages/marketplace/README.md",
             "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-docs-and-access.png",
             "required": true,
             "capture": {
                 "fullPage": true
             },
-            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls."
+            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls.",
+            "sameCaptureAs": "marketplace-extension-detail-overview"
         }
     ]
 }
