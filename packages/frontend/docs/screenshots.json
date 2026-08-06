@@ -18,7 +18,8 @@
             "docsPage": "packages/frontend/docs/overview.md",
             "output": "packages/frontend/docs/images/screenshots/frontend-published-page.png",
             "required": true,
-            "notes": "Resolved by the deployment screenshot runner after demo content is prepared."
+            "notes": "Resolved by the deployment screenshot runner after demo content is prepared.",
+            "sameCaptureAs": "frontend-published-page"
         },
         {
             "id": "frontend-settings",
@@ -30,7 +31,8 @@
             "docsPage": "packages/frontend/docs/overview.md",
             "output": "packages/frontend/docs/images/screenshots/frontend-settings.png",
             "required": true,
-            "notes": "Shows the settings surface that influences frontend rendering."
+            "notes": "Shows the settings surface that influences frontend rendering.",
+            "sameCaptureAs": "core-settings-backed-configuration"
         }
     ]
 }
