@@ -2,14 +2,21 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Activity\PruneActivityBucketsAction;
 use Capell\Core\Actions\Activity\RecordActivityBucketAction;
 use Capell\Core\Actions\Activity\RecordSearchActivityAction;
+use Capell\Core\Actions\Metrics\RollupDailyMetricsAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ActivityBucket;
+use Capell\Core\Models\MetricCollectionRun;
+use Capell\Core\Models\MetricDailyRollup;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Activity\DefaultActivitySettingsReader;
+use Capell\Core\Support\Metrics\ActivityBucketsDailyMetricsCollector;
+use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 
@@ -56,4 +63,37 @@ it('registers and protects activity storage', function (): void {
     ]))->toBeTrue()
         ->and(CapellCore::getMigrations())->toContain('2026_08_06_000002_create_activity_buckets_table')
         ->and(CapellCore::getProtectedTables())->toContain('activity_buckets');
+});
+
+it('rolls activity buckets into daily metric points before retention pruning', function (): void {
+    $site = Site::factory()->createOne();
+    $day = CarbonImmutable::now('UTC')->subDays(2)->toDateString();
+    $occurredAt = CarbonImmutable::parse($day . ' 12:04:00 UTC');
+    resolve(RecordActivityBucketAction::class)->execute($site, 'en', ActivityBucketSubjectEnum::PageView, '42', $occurredAt);
+    resolve(RecordActivityBucketAction::class)->execute($site, 'en', ActivityBucketSubjectEnum::SearchTerm, 'pricing', $occurredAt);
+
+    resolve(MetricCollectorRegistry::class)->register(ActivityBucketsDailyMetricsCollector::class);
+    $scope = MetricScopeData::siteLanguage($site->uuid, 'en', 'UTC');
+
+    expect(resolve(RollupDailyMetricsAction::class)->execute($day, [$scope]))->toBe(2)
+        ->and(MetricDailyRollup::query()->whereDate('day', $day)->count())->toBe(2)
+        ->and(MetricCollectionRun::query()->whereDate('day', $day)->where('status', 'completed')->exists())->toBeTrue();
+
+    expect(resolve(PruneActivityBucketsAction::class)->execute(days: 1))->toBe(2)
+        ->and(ActivityBucket::query()->count())->toBe(0);
+});
+
+it('does not prune expired buckets when their daily rollup failed', function (): void {
+    $site = Site::factory()->createOne();
+    resolve(RecordActivityBucketAction::class)->execute(
+        $site,
+        'en',
+        ActivityBucketSubjectEnum::PageView,
+        '42',
+        CarbonImmutable::now('UTC')->subDays(2),
+    );
+
+    expect(fn (): int => resolve(PruneActivityBucketsAction::class)->execute(days: 1))
+        ->toThrow(RuntimeException::class)
+        ->and(ActivityBucket::query()->count())->toBe(1);
 });

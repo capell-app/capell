@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Pages;
 use BackedEnum;
 use Capell\Admin\Enums\DashboardDateRangeEnum;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
@@ -19,6 +20,7 @@ use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
@@ -82,7 +84,42 @@ class CapellDashboard extends Dashboard
     #[Override]
     public function getWidgetsContentComponent(): Grid
     {
-        return parent::getWidgetsContentComponent();
+        $widgets = $this->getWidgets();
+        $widgetClasses = array_values(array_filter(
+            $widgets,
+            static fn (string|WidgetConfiguration $widget): bool => is_string($widget),
+        ));
+        $dashboard = $this->dashboardEnum();
+        $regions = [];
+        $registeredClasses = [];
+
+        foreach (DashboardRegionEnum::cases() as $region) {
+            $regionWidgets = array_values(array_intersect(
+                CapellAdmin::getDashboardFilamentWidgetsByRegion($dashboard, $region),
+                $widgetClasses,
+            ));
+
+            if ($regionWidgets === [] && $region === DashboardRegionEnum::Additional) {
+                continue;
+            }
+
+            $registeredClasses = [...$registeredClasses, ...$regionWidgets];
+            $regions[] = Section::make($region->getLabel())
+                ->columnSpanFull()
+                ->schema($this->getWidgetsSchemaComponents($regionWidgets));
+        }
+
+        $unregisteredWidgets = array_values(array_diff($widgetClasses, $registeredClasses));
+
+        if ($unregisteredWidgets !== []) {
+            $regions[] = Section::make(DashboardRegionEnum::Additional->getLabel())
+                ->columnSpanFull()
+                ->schema($this->getWidgetsSchemaComponents($unregisteredWidgets));
+        }
+
+        return Grid::make($this->getColumns())
+            ->schema($regions)
+            ->columnSpanFull();
     }
 
     /**
@@ -109,6 +146,15 @@ class CapellDashboard extends Dashboard
         return array_values(array_filter([
             $this->upgradeAction(),
         ]));
+    }
+
+    private function dashboardEnum(): DashboardEnum
+    {
+        return CapellCore::getPackage(AdminServiceProvider::$packageName)->isInstalled()
+            && resolve(RuntimeSchemaState::class)->hasTable((new Site)->getTable())
+            && Site::query()->exists()
+            ? DashboardEnum::Main
+            : DashboardEnum::NotInstalled;
     }
 
     /**

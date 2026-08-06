@@ -36,11 +36,13 @@ use Capell\Core\Console\Commands\PackageClearCacheCommand;
 use Capell\Core\Console\Commands\PackageLintCommand;
 use Capell\Core\Console\Commands\PruneActivityBucketsCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
+use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
+use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
@@ -281,7 +283,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             UpgradeCommand::class,
             RollbackCommand::class,
             RollupMetricEventsCommand::class,
+            RollupActivityMetricsCommand::class,
             PruneActivityBucketsCommand::class,
+            PruneMetricDailyRollupsCommand::class,
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
             ThemeDoctorCommand::class,
@@ -631,8 +635,20 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->withoutOverlapping()
                 ->onOneServer();
 
+            $schedule->command('capell:activity:rollup')
+                ->dailyAt('00:25')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
             $schedule->command('capell:activity:prune')
-                ->dailyAt('00:35')
+                ->dailyAt('00:40')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            $schedule->command('capell:metrics:prune')
+                ->dailyAt('00:50')
                 ->timezone('UTC')
                 ->withoutOverlapping()
                 ->onOneServer();

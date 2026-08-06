@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Creator;
 
 use Capell\Core\Contracts\ModelInterceptors\BlueprintInterceptorInterface;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
@@ -43,12 +44,7 @@ final class BlueprintCreator
             return;
         }
 
-        match ($subject->key) {
-            BlueprintSubjectEnum::Page->value => $this->defaultPageType(),
-            BlueprintSubjectEnum::Theme->value => $this->createThemeType(),
-            BlueprintSubjectEnum::Site->value => $this->createSiteType(),
-            default => throw new Exception('Invalid page type key: ' . $key),
-        };
+        $this->createGenericType($subject);
     }
 
     public function createPageType(string $name): Blueprint
@@ -246,6 +242,23 @@ final class BlueprintCreator
         return CapellCore::createOrUpdateModel(
             $this->typeModel,
             ['key' => PageTypeEnum::System->value, 'type' => BlueprintSubjectEnum::Page],
+            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+            BlueprintInterceptorInterface::class,
+        );
+    }
+
+    private function createGenericType(BlueprintSubjectDescriptorData $subject): Blueprint
+    {
+        $defaults = [
+            'default' => true,
+            'type' => $subject->key,
+            'name' => __('capell::generic.default'),
+            'key' => 'default',
+        ];
+
+        return CapellCore::createOrUpdateModel(
+            $this->typeModel,
+            ['key' => 'default', 'type' => $subject->key],
             fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
             BlueprintInterceptorInterface::class,
         );

@@ -67,7 +67,10 @@ use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Filament\Settings\ThemeStudioSettingsSchema;
 use Capell\Admin\Filament\Widgets\CardsFilamentWidget;
 use Capell\Admin\Filament\Widgets\ContentFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
@@ -657,6 +660,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $widgets = [
             DashboardEnum::Main->value => [
                 AnalyticsOverviewFilamentWidget::class,
+                AnalyticsTrendFilamentWidget::class,
+                AnalyticsInsightsFilamentWidget::class,
+                AnalyticsRecentActivityFilamentWidget::class,
                 CapellAccountFilamentWidget::class,
                 CapellInfoFilamentWidget::class,
                 ListPagesFilamentWidget::class,
@@ -689,6 +695,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, AnalyticsOverviewFilamentWidget::class, DashboardEnum::Main);
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, AnalyticsTrendFilamentWidget::class, DashboardEnum::Main);
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Insights, AnalyticsInsightsFilamentWidget::class, DashboardEnum::Main);
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Activity, AnalyticsRecentActivityFilamentWidget::class, DashboardEnum::Main);
 
         return $this;
     }

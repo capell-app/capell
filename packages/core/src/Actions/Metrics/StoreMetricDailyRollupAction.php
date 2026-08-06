@@ -11,6 +11,7 @@ use Capell\Core\Enums\Metrics\MetricCollectionRunStatus;
 use Capell\Core\Enums\Metrics\MetricPointState;
 use Capell\Core\Models\MetricCollectionRun;
 use Capell\Core\Models\MetricDailyRollup;
+use Capell\Core\Models\Site;
 use InvalidArgumentException;
 
 final class StoreMetricDailyRollupAction
@@ -40,6 +41,10 @@ final class StoreMetricDailyRollupAction
         $storedValue = $value instanceof MetricValueData
             ? $value->integer ?? $value->decimal ?? $value->minorUnits
             : (null);
+
+        $siteId ??= $scope->siteUuid === null
+            ? null
+            : Site::query()->where('uuid', $scope->siteUuid)->value('id');
 
         return MetricDailyRollup::query()->create([
             'metric_collection_run_id' => $run->getKey(),

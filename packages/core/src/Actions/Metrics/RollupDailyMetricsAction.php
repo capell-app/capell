@@ -28,19 +28,29 @@ final class RollupDailyMetricsAction
 
     /**
      * @param  list<MetricScopeData>  $scopes
+     * @param  list<string>|null  $collectorKeys
      */
-    public function execute(string $day, array $scopes): int
+    public function execute(string $day, array $scopes, ?array $collectorKeys = null): int
     {
         $this->assertDay($day);
         $written = 0;
 
         foreach ($this->collectors->collectors() as $collector) {
             $definitions = $this->collectors->definitionsFor($collector);
-            $collectorScopes = $this->scopesForDefinitions($definitions, $scopes);
-            $definitionHash = $this->definitionSetHash($definitions);
             $firstDefinition = reset($definitions);
 
             throw_if($firstDefinition === false, InvalidArgumentException::class, 'Registered metric collectors require definitions.');
+
+            if ($collectorKeys !== null && ! in_array(
+                $firstDefinition->identity->ownerPackage . ':' . $firstDefinition->identity->collectorKey,
+                $collectorKeys,
+                true,
+            )) {
+                continue;
+            }
+
+            $collectorScopes = $this->scopesForDefinitions($definitions, $scopes);
+            $definitionHash = $this->definitionSetHash($definitions);
 
             try {
                 $result = $collector->collect($day, $collectorScopes);

@@ -11,6 +11,7 @@ use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Support\Http\CrawlerDetector;
 use Capell\Frontend\Support\Loader\SiteLoader;
 use Illuminate\Http\JsonResponse;
@@ -58,10 +59,14 @@ final class ActivityBeaconController
                 return response()->json([], 204);
             }
 
-            $site = $this->resolveSite($request, $path);
+            $siteDomain = $this->resolveSiteDomain($request, $path);
+            $site = $siteDomain->site;
             $pageUrl = PageUrl::query()
                 ->where('site_id', $site->getKey())
+                ->where('language_id', $siteDomain->language_id ?? $site->language_id)
                 ->where('url', rtrim($path, '/') ?: '/')
+                ->whereNull('type')
+                ->enabled()
                 ->with(['language', 'pageable'])
                 ->first();
 
@@ -75,7 +80,7 @@ final class ActivityBeaconController
 
             $language = $pageUrl->language?->code;
 
-            if (! is_string($language) || $language === '') {
+            if ($language === null || $language === '') {
                 return response()->json([], 204);
             }
 
@@ -91,18 +96,16 @@ final class ActivityBeaconController
         }
     }
 
-    private function resolveSite(Request $request, string $path = '/'): Site
+    private function resolveSiteDomain(Request $request, string $path = '/'): SiteDomain
     {
         $url = $request->getSchemeAndHttpHost() . (str_starts_with($path, '/') ? $path : '/' . $path);
         $resolved = LoadSiteDomainFromUrlAction::run($url, sites: SiteLoader::getSites());
-        $siteDomain = is_array($resolved) ? ($resolved[0] ?? null) : null;
-        $site = $siteDomain?->site;
-
-        if (! $site instanceof Site) {
+        $siteDomain = is_array($resolved) ? $resolved[0] : null;
+        if (! $siteDomain instanceof SiteDomain || ! $siteDomain->site instanceof Site) {
             throw new RuntimeException('Activity site could not be resolved.');
         }
 
-        return $site;
+        return $siteDomain;
     }
 
     private function honoursPrivacySignal(Request $request): bool

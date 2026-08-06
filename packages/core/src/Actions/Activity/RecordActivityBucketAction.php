@@ -8,12 +8,12 @@ use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\Site;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\DatabaseManager;
 use InvalidArgumentException;
 
 final class RecordActivityBucketAction
 {
-    public function __construct(private readonly ConnectionInterface $database) {}
+    public function __construct(private readonly DatabaseManager $database) {}
 
     public function execute(
         Site $site,
@@ -29,12 +29,14 @@ final class RecordActivityBucketAction
         throw_if($subjectKey === '' || mb_strlen($subjectKey) > 191, InvalidArgumentException::class, 'Activity subject must be between 1 and 191 characters.');
 
         $occurredAt ??= CarbonImmutable::now('UTC');
-        $bucketStartedAt = $occurredAt
-            ->utc()
+        // Floor after converting to UTC so the persisted identity is timezone-independent.
+        $utcOccurredAt = $occurredAt->utc();
+        $bucketStartedAt = $utcOccurredAt
             ->startOfMinute()
-            ->subMinutes($occurredAt->minute % 5);
+            ->subMinutes($utcOccurredAt->minute % 5);
 
-        $table = $this->database->getQueryGrammar()->wrapTable((new ActivityBucket)->getTable());
+        $connection = $this->database->connection();
+        $table = $connection->getQueryGrammar()->wrapTable((new ActivityBucket)->getTable());
         $columns = collect([
             'site_id',
             'language',
@@ -42,36 +44,44 @@ final class RecordActivityBucketAction
             'subject_key',
             'bucket_started_at',
             'count',
-        ])->map(fn (string $column): string => $this->database->getQueryGrammar()->wrap($column))->implode(', ');
-        $values = [$site->getKey(), $language, $subjectType->value, $subjectKey, $bucketStartedAt->toDateTimeString(), 1];
+            'created_at',
+            'updated_at',
+        ])->map(fn (string $column): string => $connection->getQueryGrammar()->wrap($column))->implode(', ');
+        $timestamp = CarbonImmutable::now('UTC')->toDateTimeString();
+        $values = [$site->getKey(), $language, $subjectType->value, $subjectKey, $bucketStartedAt->toDateTimeString(), 1, $timestamp, $timestamp];
 
         $placeholders = implode(', ', array_fill(0, count($values), '?'));
         $identity = collect(['site_id', 'language', 'subject_type', 'subject_key', 'bucket_started_at'])
-            ->map(fn (string $column): string => $this->database->getQueryGrammar()->wrap($column))
+            ->map(fn (string $column): string => $connection->getQueryGrammar()->wrap($column))
             ->implode(', ');
-        $countColumn = $this->database->getQueryGrammar()->wrap('count');
-        $driver = $this->database->getDriverName();
+        $countColumn = $connection->getQueryGrammar()->wrap('count');
+        $updatedAtColumn = $connection->getQueryGrammar()->wrap('updated_at');
+        $driver = $connection->getDriverName();
 
         $sql = match ($driver) {
             'mysql', 'mariadb' => sprintf(
-                'insert into %s (%s) values (%s) on duplicate key update %s = %s + 1',
+                'insert into %s (%s) values (%s) on duplicate key update %s = %s + 1, %s = values(%s)',
                 $table,
                 $columns,
                 $placeholders,
                 $countColumn,
                 $countColumn,
+                $updatedAtColumn,
+                $updatedAtColumn,
             ),
             default => sprintf(
-                'insert into %s (%s) values (%s) on conflict (%s) do update set %s = %s + 1',
+                'insert into %s (%s) values (%s) on conflict (%s) do update set %s = %s + 1, %s = excluded.%s',
                 $table,
                 $columns,
                 $placeholders,
                 $identity,
                 $countColumn,
                 $countColumn,
+                $updatedAtColumn,
+                $updatedAtColumn,
             ),
         };
 
-        $this->database->statement($sql, $values);
+        $connection->statement($sql, $values);
     }
 }

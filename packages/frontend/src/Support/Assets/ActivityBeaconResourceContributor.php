@@ -14,7 +14,6 @@ use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Http\CrawlerDetector;
 use Illuminate\Contracts\Routing\UrlGenerator;
-use Illuminate\Http\Request;
 
 final class ActivityBeaconResourceContributor implements FrontendResourceContributor
 {
@@ -22,20 +21,21 @@ final class ActivityBeaconResourceContributor implements FrontendResourceContrib
         private readonly ActivitySettingsReader $settings,
         private readonly FrontendContextReader $frontendContext,
         private readonly CrawlerDetector $crawlers,
-        private readonly Request $request,
         private readonly UrlGenerator $url,
     ) {}
 
     public function resources(FrontendResourceContextData $context): array
     {
+        $request = request();
+
         if (app()->runningInConsole()
             || ! $this->settings->collectionEnabled()
             || $this->frontendContext->isError()
             || ! $context->page instanceof Page
             || ! $context->page->shouldLogVisit()
-            || $this->crawlers->isCrawler($this->request->userAgent())
-            || $this->request->query('signature') !== null
-            || $this->request->query('__theme_preview') !== null
+            || $this->crawlers->isCrawler($request->userAgent())
+            || $request->query('signature') !== null
+            || $request->query('__theme_preview') !== null
         ) {
             return [];
         }

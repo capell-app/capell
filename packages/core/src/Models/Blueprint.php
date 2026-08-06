@@ -356,7 +356,9 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     protected function scopeType(Builder $query, BlueprintSubjectEnum|string $type): void
     {
-        $query->where('type', $type instanceof BlueprintSubjectEnum ? $type->getKey() : $type);
+        $subject = resolve(BlueprintSubjectRegistry::class)->descriptor($type);
+
+        $query->where('type', $subject->key);
     }
 
     /** @return Attribute<ContentStructure|null, never> */
