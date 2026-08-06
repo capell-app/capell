@@ -16,9 +16,7 @@
             "output": "packages/admin/docs/images/screenshots/admin-dashboard.png",
             "required": true,
             "notes": "Used in the Admin overview to orient editors around the Filament dashboard.",
-            "covers": [
-                "packages/admin/src/Filament/Pages/CapellDashboard.php"
-            ]
+            "covers": ["packages/admin/src/Filament/Pages/CapellDashboard.php"]
         },
         {
             "id": "site-health-page",
@@ -273,7 +271,7 @@
             "output": "packages/admin/docs/images/screenshots/admin-media-ai-doctor-image.png",
             "required": false,
             "notes": "Optional until the manifest grows action-dialog steps; points at the media surface used by Media AIOrchestrator.",
-            "sameCaptureAs": "docs-media-ai-doctor-image"
+            "sameCaptureAs": "admin-media-library"
         }
     ]
 }
