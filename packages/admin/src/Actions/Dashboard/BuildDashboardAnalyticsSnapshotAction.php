@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
 
 final class BuildDashboardAnalyticsSnapshotAction
 {
-    public function execute(Authenticatable $actor, string $period, ?int $siteId = null, ?string $language = null): DashboardAnalyticsSnapshotData
+    public function handle(Authenticatable $actor, string $period, ?int $siteId = null, ?string $language = null): DashboardAnalyticsSnapshotData
     {
         $end = CarbonImmutable::now('UTC');
         $days = $this->periodDays($period);

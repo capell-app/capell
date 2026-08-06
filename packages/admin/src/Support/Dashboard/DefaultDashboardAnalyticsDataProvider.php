@@ -16,7 +16,7 @@ final class DefaultDashboardAnalyticsDataProvider implements DashboardAnalyticsD
     public function build(Authenticatable $actor, string $period, ?int $siteId = null, ?string $language = null): DashboardAnalyticsSnapshotData
     {
         try {
-            return resolve(BuildDashboardAnalyticsSnapshotAction::class)->execute($actor, $period, $siteId, $language);
+            return resolve(BuildDashboardAnalyticsSnapshotAction::class)->handle($actor, $period, $siteId, $language);
         } catch (Throwable $throwable) {
             Log::warning('Capell dashboard analytics snapshot failed.', [
                 'exception' => $throwable::class,

@@ -35,8 +35,8 @@ it('limits a site-scoped dashboard snapshot to assigned sites', function (): voi
     $actor = ScopedAdminUser::make(collect([$assignedSite->getKey()]));
     $action = resolve(BuildDashboardAnalyticsSnapshotAction::class);
 
-    expect($action->execute($actor, 'today')->totalViews)->toBe(3)
-        ->and($action->execute($actor, 'today', $otherSite->getKey())->totalViews)->toBe(0);
+    expect($action->handle($actor, 'today')->totalViews)->toBe(3)
+        ->and($action->handle($actor, 'today', $otherSite->getKey())->totalViews)->toBe(0);
 });
 
 it('allows a global administrator to see the all-sites dashboard snapshot', function (): void {
@@ -57,7 +57,7 @@ it('allows a global administrator to see the all-sites dashboard snapshot', func
 
     $actor = test()->createUserWithRole('super_admin');
 
-    expect(resolve(BuildDashboardAnalyticsSnapshotAction::class)->execute($actor, 'today')->totalViews)->toBe(4);
+    expect(resolve(BuildDashboardAnalyticsSnapshotAction::class)->handle($actor, 'today')->totalViews)->toBe(4);
 });
 
 it('uses the selected period and exposes opted-in search insights', function (): void {
@@ -92,7 +92,7 @@ it('uses the selected period and exposes opted-in search insights', function ():
     $settings->save();
 
     $snapshot = resolve(BuildDashboardAnalyticsSnapshotAction::class)
-        ->execute(test()->createUserWithRole('super_admin'), 'this_week', $site->getKey());
+        ->handle(test()->createUserWithRole('super_admin'), 'this_week', $site->getKey());
 
     expect($snapshot->totalViews)->toBe(7)
         ->and($snapshot->recentViews)->toBe(2)
