@@ -133,6 +133,7 @@ A successful install ends in this order:
 Capell Install Health Summary
 All checks passed.
 ✓ Installation complete!
+Capell Install Handoff
 ```
 
 Required lifecycle, asset, permission, and health failures stop the command with a non-zero exit code. The installer prints a separate `Fix:` line for actionable failures and does not print the final success message.

@@ -61,8 +61,8 @@ final class ScaffoldThemePackageAction
             ],
             'require-dev' => [
                 'orchestra/testbench' => '^11.0',
-                'pestphp/pest' => '^4.1',
-                'pestphp/pest-plugin-laravel' => '^4.0',
+                'pestphp/pest' => '^5.0',
+                'pestphp/pest-plugin-laravel' => '^5.0',
             ],
             'scripts' => [
                 'test' => 'pest',
