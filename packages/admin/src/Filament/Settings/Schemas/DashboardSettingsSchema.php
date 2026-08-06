@@ -94,6 +94,13 @@ final class DashboardSettingsSchema implements HasSchema
                         ->minValue(5)
                         ->maxValue(3600)
                         ->suffix(__('capell-admin::form.seconds')),
+                    TextInput::make('analytics_default_period_days')
+                        ->label(__('capell-admin::form.analytics_default_period_days'))
+                        ->helperText(__('capell-admin::form.analytics_default_period_days_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(365)
+                        ->suffix(__('capell-admin::form.days')),
                     TextInput::make('analytics_top_n_limit')
                         ->label(__('capell-admin::form.analytics_top_n_limit'))
                         ->helperText(__('capell-admin::form.analytics_top_n_limit_helper'))

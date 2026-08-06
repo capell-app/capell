@@ -8,7 +8,6 @@ use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Concerns\HasAnalyticsDashboardPeriod;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -39,7 +38,12 @@ final class AnalyticsOverviewFilamentWidget extends StatsOverviewWidget implemen
             return [];
         }
 
-        $data = resolve(AdminDashboardDataRequestCache::class)->analyticsSnapshot($actor, $this->getAnalyticsDashboardPeriod());
+        $data = resolve(AdminDashboardDataRequestCache::class)->analyticsSnapshot(
+            $actor,
+            $this->getAnalyticsDashboardPeriod(),
+            $this->getDashboardSiteId(),
+            $this->getDashboardLanguage(),
+        );
 
         return [
             Stat::make(__('capell-admin::dashboard.analytics_views'), (string) $data->totalViews)
@@ -52,12 +56,5 @@ final class AnalyticsOverviewFilamentWidget extends StatsOverviewWidget implemen
             Stat::make(__('capell-admin::dashboard.analytics_searches'), (string) $data->searches)
                 ->color('gray'),
         ];
-    }
-
-    protected function getPollingInterval(): ?string
-    {
-        $seconds = max(0, min(3600, AdminSettings::instance()->analytics_refresh_interval_seconds));
-
-        return $seconds > 0 ? $seconds . 's' : null;
     }
 }

@@ -12,6 +12,7 @@ final class DashboardAnalyticsSnapshotData extends Data
     /**
      * @param  list<array{bucket: string, views: int, searches: int}>  $trend
      * @param  list<array{url: string, count: int}>  $topPages
+     * @param  list<array{url: string, count: int, change: int}>  $trendingPages
      * @param  list<array{term: string, count: int}>  $topSearchTerms
      * @param  list<array{label: string, count: int, at: string}>  $recentActivity
      */
@@ -22,6 +23,7 @@ final class DashboardAnalyticsSnapshotData extends Data
         public readonly int $activePages,
         public readonly array $trend = [],
         public readonly array $topPages = [],
+        public readonly array $trendingPages = [],
         public readonly array $topSearchTerms = [],
         public readonly array $recentActivity = [],
         public readonly ?CarbonImmutable $freshThrough = null,

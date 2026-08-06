@@ -97,5 +97,30 @@ it('uses the selected period and exposes opted-in search insights', function ():
     expect($snapshot->totalViews)->toBe(7)
         ->and($snapshot->recentViews)->toBe(2)
         ->and($snapshot->searches)->toBe(3)
-        ->and($snapshot->topSearchTerms)->toBe([['term' => 'pricing', 'count' => 3]]);
+        ->and($snapshot->topSearchTerms)->toBe([['term' => 'pricing', 'count' => 3]])
+        ->and(array_column($snapshot->trend, 'views'))->toContain(2)
+        ->and(array_column($snapshot->trend, 'searches'))->toContain(3);
+});
+
+it('applies the language filter to both summary and trend data', function (): void {
+    $site = Site::factory()->createOne();
+    $bucketTime = CarbonImmutable::now('UTC')->subMinutes(5);
+
+    foreach ([['en', 4], ['fr', 9]] as [$language, $count]) {
+        ActivityBucket::query()->create([
+            'site_id' => $site->getKey(),
+            'language' => $language,
+            'subject_type' => ActivityBucketSubjectEnum::PageView,
+            'subject_key' => '1',
+            'bucket_started_at' => $bucketTime,
+            'count' => $count,
+        ]);
+    }
+
+    $snapshot = resolve(BuildDashboardAnalyticsSnapshotAction::class)
+        ->handle(test()->createUserWithRole('super_admin'), 'today', $site->getKey(), 'fr');
+
+    expect($snapshot->totalViews)->toBe(9)
+        ->and(array_column($snapshot->trend, 'views'))->toContain(9)
+        ->and(array_column($snapshot->trend, 'searches'))->toContain(0);
 });

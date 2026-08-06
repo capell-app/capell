@@ -42,6 +42,11 @@ final class AnalyticsInsightsFilamentWidget extends Widget implements CapellFila
         }
 
         return resolve(AdminDashboardDataRequestCache::class)
-            ->analyticsSnapshot($actor, $this->getAnalyticsDashboardPeriod());
+            ->analyticsSnapshot(
+                $actor,
+                $this->getAnalyticsDashboardPeriod(),
+                $this->getDashboardSiteId(),
+                $this->getDashboardLanguage(),
+            );
     }
 }

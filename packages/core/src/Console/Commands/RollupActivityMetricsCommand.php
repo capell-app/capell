@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\Metrics\RollupDailyMetricsAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Data\Metrics\MetricScopeData;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Metrics\ActivityBucketsDailyMetricsCollector;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
@@ -57,15 +58,24 @@ final class RollupActivityMetricsCommand extends Command
     /** @return list<MetricScopeData> */
     private function scopes(): array
     {
-        return array_values(Site::query()
+        $sites = Site::query()
             ->enabled()
-            ->with('language')
-            ->get()
-            ->map(static fn (Site $site): MetricScopeData => MetricScopeData::siteLanguage(
-                $site->uuid,
-                $site->language->code,
-                'UTC',
-            ))
-            ->all());
+            ->with(['language', 'siteDomains.language'])
+            ->get();
+
+        /** @var list<MetricScopeData> $scopes */
+        $scopes = [];
+
+        foreach ($sites as $site) {
+            foreach ($site->getAllLanguages() as $language) {
+                if (! $language instanceof Language) {
+                    continue;
+                }
+
+                $scopes[] = MetricScopeData::siteLanguage($site->uuid, $language->code, 'UTC');
+            }
+        }
+
+        return $scopes;
     }
 }

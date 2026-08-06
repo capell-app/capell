@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
+use Capell\Admin\Data\Dashboard\DashboardFilterStateData;
 use Capell\Admin\Enums\DashboardDateRangeEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Components\Forms\SiteSelect;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
@@ -42,10 +46,26 @@ class CapellDashboard extends Dashboard
     public function filtersForm(Schema $schema): Schema
     {
         return $schema->components([
+            SiteSelect::make('site_id')
+                ->label(__('capell-admin::form.site'))
+                ->default(null)
+                ->placeholder(__('capell-admin::dashboard.filter_all_sites'))
+                ->selectablePlaceholder(),
+            Select::make('language')
+                ->label(__('capell-admin::form.language'))
+                ->options(fn (): array => Language::query()
+                    ->enabled()
+                    ->orderByDesc('default')
+                    ->orderBy('name')
+                    ->pluck('name', 'code')
+                    ->all())
+                ->default(null)
+                ->placeholder(__('capell-admin::dashboard.filter_all_languages'))
+                ->selectablePlaceholder(),
             ToggleButtons::make('date_range')
                 ->options(DashboardDateRangeEnum::options())
                 ->columnSpanFull()
-                ->default('this_week')
+                ->default(fn (): string => self::defaultDashboardPeriod())
                 ->extraAttributes([
                     'style' => 'grid-auto-columns: max-content; max-width: 100%; white-space: nowrap; width: max-content;',
                 ])
@@ -58,8 +78,16 @@ class CapellDashboard extends Dashboard
     public function updatedFilters(): void
     {
         $this->filtersFormUpdatedFilters();
-        $period = (string) data_get($this->filters, 'date_range', 'last_30_days');
-        $this->dispatch('dashboardFilterChanged', period: $period);
+        $filters = is_array($this->filters) ? $this->filters : [];
+        $state = DashboardFilterStateData::fromFilters($filters);
+
+        $this->dispatch(
+            'dashboardFilterChanged',
+            period: $state->period->value,
+            siteId: $state->siteId,
+            language: $state->language,
+            refresh: $state->refresh,
+        );
     }
 
     /**
@@ -146,6 +174,17 @@ class CapellDashboard extends Dashboard
         return array_values(array_filter([
             $this->upgradeAction(),
         ]));
+    }
+
+    private static function defaultDashboardPeriod(): string
+    {
+        return match (max(1, min(365, AdminSettings::instance()->analytics_default_period_days))) {
+            1 => DashboardDateRangeEnum::Today->value,
+            7 => DashboardDateRangeEnum::ThisWeek->value,
+            30 => DashboardDateRangeEnum::Last30Days->value,
+            365 => DashboardDateRangeEnum::ThisYear->value,
+            default => DashboardDateRangeEnum::Last30Days->value,
+        };
     }
 
     private function dashboardEnum(): DashboardEnum

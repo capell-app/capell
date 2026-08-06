@@ -24,6 +24,26 @@
                         @endforeach
                     </ol>
                 </div>
+                @if ($this->data()->trendingPages !== [])
+                    <div>
+                        <h3 class="text-sm font-medium">
+                            {{ __('capell-admin::dashboard.analytics_trending_pages') }}
+                        </h3>
+                        <ol class="mt-3 space-y-2 text-sm">
+                            @foreach ($this->data()->trendingPages as $page)
+                                <li class="flex justify-between gap-4">
+                                    <span
+                                        class="truncate"
+                                        >{{ $page['url'] }}</span
+                                    >
+                                    <span class="font-medium text-success-600"
+                                        >+{{ number_format($page['change']) }}</span
+                                    >
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                @endif
                 @if ($this->data()->topSearchTerms !== [])
                     <div>
                         <h3 class="text-sm font-medium">

@@ -58,22 +58,9 @@ final class BuildDashboardAnalyticsSnapshotAction
             'url' => (string) ($pageUrls[(int) data_get($row, 'subject_key')] ?? '/'),
             'count' => (int) data_get($row, 'total_count'),
         ])->all());
+        $trendingPages = $this->trendingPages($rawPageViews, $actor, $start, $days, $siteId, $language);
 
-        $trend = $this->trend($rawPageViews, $actor, $start, $todayStart, $days, $siteId, $language);
-        $recentRows = (clone $rawPageViews)
-            ->orderByDesc('bucket_started_at')
-            ->limit(20)
-            ->toBase()
-            ->get(['bucket_started_at', 'subject_key', 'count']);
-        $recentUrls = PageUrl::query()
-            ->whereIn('id', $recentRows->pluck('subject_key')->map(static fn (mixed $id): int => (int) $id))
-            ->pluck('url', 'id');
-        $recentActivity = array_values($recentRows->map(static fn (object $row): array => [
-            'label' => (string) ($recentUrls[(int) data_get($row, 'subject_key')] ?? '/'),
-            'count' => (int) data_get($row, 'count'),
-            'at' => (string) data_get($row, 'bucket_started_at'),
-        ])->all());
-
+        $rawSearches = null;
         $searches = 0;
         $topSearchTerms = [];
 
@@ -103,6 +90,21 @@ final class BuildDashboardAnalyticsSnapshotAction
                 ->all());
         }
 
+        $trend = $this->trend($rawPageViews, $rawSearches, $actor, $start, $todayStart, $days, $siteId, $language);
+        $recentRows = (clone $rawPageViews)
+            ->orderByDesc('bucket_started_at')
+            ->limit(20)
+            ->toBase()
+            ->get(['bucket_started_at', 'subject_key', 'count']);
+        $recentUrls = PageUrl::query()
+            ->whereIn('id', $recentRows->pluck('subject_key')->map(static fn (mixed $id): int => (int) $id))
+            ->pluck('url', 'id');
+        $recentActivity = array_values($recentRows->map(static fn (object $row): array => [
+            'label' => (string) ($recentUrls[(int) data_get($row, 'subject_key')] ?? '/'),
+            'count' => (int) data_get($row, 'count'),
+            'at' => (string) data_get($row, 'bucket_started_at'),
+        ])->all());
+
         $freshThrough = (clone $rawPageViews)->max('bucket_started_at');
 
         return new DashboardAnalyticsSnapshotData(
@@ -112,6 +114,7 @@ final class BuildDashboardAnalyticsSnapshotAction
             activePages: $activePages,
             trend: $trend,
             topPages: $topPages,
+            trendingPages: $trendingPages,
             topSearchTerms: $topSearchTerms,
             recentActivity: $recentActivity,
             freshThrough: $freshThrough instanceof DateTimeInterface
@@ -123,15 +126,18 @@ final class BuildDashboardAnalyticsSnapshotAction
 
     /**
      * @param  Builder<ActivityBucket>  $rawQuery
+     * @param  Builder<ActivityBucket>|null  $rawSearches
      * @return list<array{bucket: string, views: int, searches: int}>
      */
-    private function trend(Builder $rawQuery, Authenticatable $actor, CarbonImmutable $start, CarbonImmutable $todayStart, int $days, ?int $siteId, ?string $language): array
+    private function trend(Builder $rawQuery, ?Builder $rawSearches, Authenticatable $actor, CarbonImmutable $start, CarbonImmutable $todayStart, int $days, ?int $siteId, ?string $language): array
     {
-        $expression = match (DB::connection()->getDriverName()) {
-            'mysql', 'mariadb' => 'DATE(bucket_started_at)',
-            'pgsql' => 'CAST(bucket_started_at AS DATE)',
-            default => 'date(bucket_started_at)',
-        };
+        $expression = $days === 1
+            ? 'bucket_started_at'
+            : match (DB::connection()->getDriverName()) {
+                'mysql', 'mariadb' => 'DATE(bucket_started_at)',
+                'pgsql' => 'CAST(bucket_started_at AS DATE)',
+                default => 'date(bucket_started_at)',
+            };
         $raw = (clone $rawQuery)
             ->selectRaw($expression . ' AS bucket')
             ->selectRaw('SUM(count) AS total_count')
@@ -146,6 +152,22 @@ final class BuildDashboardAnalyticsSnapshotAction
             $byDay[$day] = ['bucket' => $day, 'views' => (int) data_get($row, 'total_count'), 'searches' => 0];
         }
 
+        if ($rawSearches instanceof Builder) {
+            $rawSearchRows = (clone $rawSearches)
+                ->selectRaw($expression . ' AS bucket')
+                ->selectRaw('SUM(count) AS total_count')
+                ->groupByRaw($expression)
+                ->orderBy('bucket')
+                ->toBase()
+                ->get();
+
+            foreach ($rawSearchRows as $row) {
+                $day = (string) data_get($row, 'bucket');
+                $byDay[$day] ??= ['bucket' => $day, 'views' => 0, 'searches' => 0];
+                $byDay[$day]['searches'] = (int) data_get($row, 'total_count');
+            }
+        }
+
         if ($days > 1) {
             $rollups = $this->rollupQuery($actor, ActivityBucketsDailyMetricsCollector::PAGE_VIEWS_METRIC, $start, $todayStart, $siteId, $language)
                 ->select('day')
@@ -157,13 +179,84 @@ final class BuildDashboardAnalyticsSnapshotAction
 
             foreach ($rollups as $row) {
                 $day = (string) data_get($row, 'day');
-                $byDay[$day] = ['bucket' => $day, 'views' => (int) data_get($row, 'total_count'), 'searches' => 0];
+                $byDay[$day] ??= ['bucket' => $day, 'views' => 0, 'searches' => 0];
+                $byDay[$day]['views'] = (int) data_get($row, 'total_count');
+            }
+
+            if ($rawSearches instanceof Builder) {
+                $searchRollups = $this->rollupQuery($actor, ActivityBucketsDailyMetricsCollector::SEARCHES_METRIC, $start, $todayStart, $siteId, $language)
+                    ->select('day')
+                    ->selectRaw('SUM(value) AS total_count')
+                    ->groupBy('day')
+                    ->orderBy('day')
+                    ->toBase()
+                    ->get();
+
+                foreach ($searchRollups as $row) {
+                    $day = (string) data_get($row, 'day');
+                    $byDay[$day] ??= ['bucket' => $day, 'views' => 0, 'searches' => 0];
+                    $byDay[$day]['searches'] = (int) data_get($row, 'total_count');
+                }
             }
         }
 
         ksort($byDay);
 
         return array_values($byDay);
+    }
+
+    /**
+     * Compare the selected period with its immediately preceding equivalent period.
+     * This intentionally returns an empty list when the short-lived bucket window
+     * no longer contains the comparison period.
+     *
+     * @param  Builder<ActivityBucket>  $currentQuery
+     * @return list<array{url: string, count: int, change: int}>
+     */
+    private function trendingPages(Builder $currentQuery, Authenticatable $actor, CarbonImmutable $start, int $days, ?int $siteId, ?string $language): array
+    {
+        $previousStart = $start->subDays($days);
+        $previousQuery = $this->authorizedActivityQuery($actor, $siteId)
+            ->whereBetween('bucket_started_at', [$previousStart, $start])
+            ->where('subject_type', ActivityBucketSubjectEnum::PageView->value)
+            ->when($language !== null, fn (Builder $query): Builder => $query->where('language', $language));
+        $current = (clone $currentQuery)
+            ->select('subject_key')
+            ->selectRaw('SUM(count) AS total_count')
+            ->groupBy('subject_key')
+            ->pluck('total_count', 'subject_key');
+        $previous = $previousQuery
+            ->select('subject_key')
+            ->selectRaw('SUM(count) AS total_count')
+            ->groupBy('subject_key')
+            ->pluck('total_count', 'subject_key');
+
+        if ($previous->isEmpty()) {
+            return [];
+        }
+
+        $keys = $current->keys()->merge($previous->keys())->unique()->values();
+        $pageUrls = PageUrl::query()->whereIn('id', $keys->map(static fn (mixed $id): int => (int) $id))->pluck('url', 'id');
+
+        return array_values($keys
+            ->map(static function (mixed $key) use ($current, $previous, $pageUrls): ?array {
+                $currentCount = (int) ($current[(string) $key] ?? $current[(int) $key] ?? 0);
+                $previousCount = (int) ($previous[(string) $key] ?? $previous[(int) $key] ?? 0);
+                $change = $currentCount - $previousCount;
+
+                return $currentCount < 2 || $change <= 0
+                    ? null
+                    : [
+                        'url' => (string) ($pageUrls[(int) $key] ?? '/'),
+                        'count' => $currentCount,
+                        'change' => $change,
+                    ];
+            })
+            ->filter()
+            ->sortByDesc('change')
+            ->take($this->topLimit())
+            ->values()
+            ->all());
     }
 
     private function rollupSum(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $todayStart, ?int $siteId, ?string $language): int

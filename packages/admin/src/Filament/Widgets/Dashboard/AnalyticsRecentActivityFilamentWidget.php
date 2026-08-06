@@ -39,6 +39,11 @@ final class AnalyticsRecentActivityFilamentWidget extends Widget implements Cape
         }
 
         return resolve(AdminDashboardDataRequestCache::class)
-            ->analyticsSnapshot($actor, $this->getAnalyticsDashboardPeriod());
+            ->analyticsSnapshot(
+                $actor,
+                $this->getAnalyticsDashboardPeriod(),
+                $this->getDashboardSiteId(),
+                $this->getDashboardLanguage(),
+            );
     }
 }

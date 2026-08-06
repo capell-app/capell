@@ -11,6 +11,8 @@ return [
     'analytics_activity_retention_days_helper' => 'Keep aggregated activity for between one and seven days.',
     'analytics_refresh_interval_seconds' => 'Dashboard refresh interval',
     'analytics_refresh_interval_seconds_helper' => 'Refresh the shared dashboard snapshot at this interval.',
+    'analytics_default_period_days' => 'Default dashboard period',
+    'analytics_default_period_days_helper' => 'Choose the initial dashboard period in days. Supported presets are 1, 7, 30, and 365.',
     'analytics_top_n_limit' => 'Analytics ranking limit',
     'analytics_top_n_limit_helper' => 'Maximum number of pages or terms shown in ranked panels.',
     'accessible' => 'Accessible',
