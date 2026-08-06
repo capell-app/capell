@@ -11,9 +11,11 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -126,6 +128,22 @@ it('exposes redacted diagnostics and can mark operations resolved', function ():
         ->assertSet('activeTab', 'resolved');
 
     expect($attempt->refresh()->resolved_at)->not->toBeNull();
+});
+
+it('does not log raw operator exception details', function (): void {
+    Log::spy();
+
+    MarketplaceErrorPresenter::notification(
+        'Marketplace failed',
+        new RuntimeException('Bearer provider-secret'),
+        ['extension_slug' => 'seo-suite'],
+    );
+
+    Log::shouldHaveReceived('warning')
+        ->once()
+        ->with('capell-marketplace: operator action failed', Mockery::on(fn (array $context): bool => $context['extension_slug'] === 'seo-suite'
+                && $context['exception_class'] === RuntimeException::class
+                && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), 'provider-secret')));
 });
 
 it('registers marketplace navigation and resolves translated operation labels', function (): void {
