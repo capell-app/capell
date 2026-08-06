@@ -24,6 +24,7 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
@@ -91,6 +92,14 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, ...$dashboards);
+        }
+    }
+
+    /** @param class-string $widgetClass */
+    public function dashboardPanel(DashboardRegionEnum $region, string $widgetClass, DashboardEnum ...$dashboards): void
+    {
+        if (is_subclass_of($widgetClass, Widget::class)) {
+            CapellAdmin::registerDashboardPanel($region, $widgetClass, ...$dashboards);
         }
     }
 

@@ -8,8 +8,8 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
-use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Process\Process;
 
 it('runs after-install command and forwards output to reporter', function (): void {
     Artisan::command('capell:test-after-command', function (): int {
@@ -64,7 +64,29 @@ it('runs after-install command without reporter', function (): void {
 })->group('core', 'unit');
 
 it('throws when after-install command is missing', function (): void {
-    app()->instance(ProcessFactoryInterface::class, new SymfonyProcessFactory);
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $process->shouldReceive('run')
+        ->once()
+        ->with(Mockery::type('callable'))
+        ->andReturnUsing(function (callable $callback): int {
+            $callback(Process::ERR, 'Command "capell:missing-command" is not defined.');
+
+            return 1;
+        });
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->once()
+        ->withArgs(fn (array $command, string $workingDirectory): bool => $command === [
+            PHP_BINARY,
+            base_path('artisan'),
+            'capell:missing-command',
+            '--no-interaction',
+        ] && $workingDirectory === base_path())
+        ->andReturn($process);
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
     config()->set(RuntimeBinaryResolver::PHP_CONFIG_KEY, PHP_BINARY);
 
     $package = new PackageData(
@@ -74,4 +96,4 @@ it('throws when after-install command is missing', function (): void {
     );
 
     AfterInstallPackageAction::run($package);
-})->throws(Exception::class)->group('core', 'unit');
+})->throws(RuntimeException::class, "After Install command 'capell:missing-command' does not exist.")->group('core', 'unit');

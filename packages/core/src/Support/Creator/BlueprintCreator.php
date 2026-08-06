@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Creator;
 
 use Capell\Core\Contracts\ModelInterceptors\BlueprintInterceptorInterface;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Exception;
 
 final class BlueprintCreator
@@ -19,19 +21,30 @@ final class BlueprintCreator
      */
     private readonly string $typeModel;
 
-    public function __construct()
-    {
+    public function __construct(
+        private readonly BlueprintSubjectRegistry $subjects,
+    ) {
         $this->typeModel = Blueprint::class;
     }
 
     public function create(string $key): void
     {
-        match ($key) {
-            BlueprintSubjectEnum::Page->value => $this->defaultPageType(),
-            BlueprintSubjectEnum::Theme->value => $this->createThemeType(),
-            BlueprintSubjectEnum::Site->value => $this->createSiteType(),
-            default => throw new Exception('Invalid page type key: ' . $key),
-        };
+        $subject = $this->subjects->descriptor($key);
+
+        if ($subject->defaultSchemaSeeder !== null) {
+            $seeder = [$subject->defaultSchemaSeeder, 'run'];
+
+            throw_unless(is_callable($seeder), Exception::class, sprintf(
+                'Blueprint subject seeder [%s] cannot be executed.',
+                $subject->defaultSchemaSeeder,
+            ));
+
+            $seeder();
+
+            return;
+        }
+
+        $this->createGenericType($subject);
     }
 
     public function createPageType(string $name): Blueprint
@@ -229,6 +242,23 @@ final class BlueprintCreator
         return CapellCore::createOrUpdateModel(
             $this->typeModel,
             ['key' => PageTypeEnum::System->value, 'type' => BlueprintSubjectEnum::Page],
+            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+            BlueprintInterceptorInterface::class,
+        );
+    }
+
+    private function createGenericType(BlueprintSubjectDescriptorData $subject): Blueprint
+    {
+        $defaults = [
+            'default' => true,
+            'type' => $subject->key,
+            'name' => __('capell::generic.default'),
+            'key' => 'default',
+        ];
+
+        return CapellCore::createOrUpdateModel(
+            $this->typeModel,
+            ['key' => 'default', 'type' => $subject->key],
             fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
             BlueprintInterceptorInterface::class,
         );

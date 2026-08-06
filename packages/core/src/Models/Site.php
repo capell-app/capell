@@ -48,6 +48,7 @@ use Staudenmeir\EloquentJsonRelations\Relations\BelongsToJson;
 /**
  * @property int $id
  * @property string $name
+ * @property string $uuid
  * @property int $blueprint_id
  * @property int $theme_id
  * @property int $language_id
@@ -192,6 +193,16 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
         return cache()
             ->driver('array')
             ->rememberForever(CacheEnum::TotalSites->value, fn (): int => self::query()->count());
+    }
+
+    /**
+     * Keep site identity distinct when the cloner saves a replica.
+     */
+    public function onCloning(mixed $source = null, mixed $child = null, mixed $attributes = null): void
+    {
+        if (is_object($attributes) && isset($attributes->uuid) && is_string($attributes->uuid)) {
+            $this->uuid = $attributes->uuid;
+        }
     }
 
     public function getSiteDomainUrl(Language $language): string

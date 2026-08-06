@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'unavailable_subject' => 'Unavailable subject (:key)',
     '2xl' => '2 Extra Large',
     '3xl' => '3 Extra Large',
     'above_heading' => 'Above Heading',

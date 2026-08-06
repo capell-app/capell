@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Page;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Creator\BlueprintCreator;
 
 it('creates core page types with editor-facing descriptions', function (): void {
@@ -39,4 +42,31 @@ it('creates core site theme and navigation types with editor-facing descriptions
         ->and($themeAdmin['notes'] ?? null)->toBe('The baseline visual theme record used when a site has no specialist theme.')
         ->and($navigationType->name)->toBe('Navigation')
         ->and($navigationAdmin['notes'] ?? null)->toBe('A reusable navigation structure for menus, links, and site wayfinding.');
+});
+
+it('creates a generic default blueprint for a subject without a schema seeder', function (): void {
+    $originalRegistry = resolve(BlueprintSubjectRegistry::class);
+    $registry = new BlueprintSubjectRegistry;
+    $registry->register(new BlueprintSubjectDescriptorData(
+        key: 'vendor.editorial.collection',
+        label: 'Collection',
+        modelClass: Page::class,
+        ownerPackage: 'vendor/editorial',
+    ));
+    app()->instance(BlueprintSubjectRegistry::class, $registry);
+
+    try {
+        (new BlueprintCreator($registry))->create('vendor.editorial.collection');
+
+        $blueprint = Blueprint::query()
+            ->where('type', 'vendor.editorial.collection')
+            ->where('key', 'default')
+            ->first();
+
+        expect($blueprint)->not->toBeNull()
+            ->and($blueprint?->name)->toBe('Default')
+            ->and($blueprint?->default)->toBeTrue();
+    } finally {
+        app()->instance(BlueprintSubjectRegistry::class, $originalRegistry);
+    }
 });

@@ -34,17 +34,21 @@ use Capell\Core\Console\Commands\MakeThemeCommand;
 use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Console\Commands\PackageClearCacheCommand;
 use Capell\Core\Console\Commands\PackageLintCommand;
+use Capell\Core\Console\Commands\PruneActivityBucketsCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
+use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
+use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
+use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
@@ -54,6 +58,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Data\RenderableDefinitionData;
@@ -72,6 +77,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Macros\BlueprintMacros;
+use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -91,11 +97,13 @@ use Capell\Core\Models\UpgradeLogEntry;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Activity\DefaultActivitySettingsReader;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
@@ -138,6 +146,7 @@ use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
@@ -274,6 +283,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             UpgradeCommand::class,
             RollbackCommand::class,
             RollupMetricEventsCommand::class,
+            RollupActivityMetricsCommand::class,
+            PruneActivityBucketsCommand::class,
+            PruneMetricDailyRollupsCommand::class,
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
             ThemeDoctorCommand::class,
@@ -296,6 +308,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerOctaneStateReset()
             ->registerModels()
             ->registerProtectedTables()
+            ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerBackupPruneSchedule()
             ->registerLinkableContentProviders()
@@ -447,7 +460,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
             $app->make(MetricCollectorRegistry::class),
+            $app->make(OutboundEventRegistry::class),
+            $app->make(BlueprintSubjectRegistry::class),
         ));
+        $this->app->singleton(OutboundEventRegistry::class);
+        $this->app->singleton(BlueprintSubjectRegistry::class);
+        $this->app->booted(function (): void {
+            $this->app->make(OutboundEventRegistry::class)->freeze();
+            $this->app->make(BlueprintSubjectRegistry::class)->freeze();
+        });
         $this->app->singleton(SubscriberRegistry::class);
         $this->app->alias(SubscriberRegistry::class, SubscriberManager::class);
         $this->app->singleton(RenderableRegistry::class);
@@ -554,6 +575,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerModels(): self
     {
         CapellCore::registerModels([
+            ActivityBucket::class,
             AssetAttachment::class,
             Language::class,
             Layout::class,
@@ -582,6 +604,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerProtectedTables(): self
     {
         CapellCore::registerProtectedTable(
+            static fn (): string => (new ActivityBucket)->getTable(),
+        );
+        CapellCore::registerProtectedTable(
             static fn (): string => (new MetricCollectionRun)->getTable(),
         );
         CapellCore::registerProtectedTable(
@@ -594,6 +619,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    private function registerActivitySettings(): self
+    {
+        $this->app->singletonIf(ActivitySettingsReader::class, DefaultActivitySettingsReader::class);
+
+        return $this;
+    }
+
     private function registerMetricSchedule(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
@@ -602,6 +634,25 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->timezone('UTC')
                 ->withoutOverlapping()
                 ->onOneServer();
+
+            $schedule->command('capell:activity:rollup')
+                ->dailyAt('00:25')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            $schedule->command('capell:activity:prune')
+                ->dailyAt('00:40')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            $schedule->command('capell:metrics:prune')
+                ->dailyAt('00:50')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
         });
 
         return $this;
@@ -663,8 +714,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerTypes(): self
     {
+        $subjects = resolve(BlueprintSubjectRegistry::class);
+
         foreach (BlueprintSubjectEnum::cases() as $type) {
-            $model = $type->getModel();
+            $subject = BlueprintSubjectDescriptorData::fromEnum($type);
+            $subjects->register($subject);
 
             // Labels must be registered as plain strings (not closures) because
             // PageTypeData is stored in CapellCoreManager and may be serialised
@@ -674,9 +728,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             // which resolves labels eagerly before crossing the Livewire boundary.
             CapellCore::registerPageType(
                 new PageTypeData(
-                    name: $type->value,
-                    model: $model,
-                    label: $type->getLabel(),
+                    name: $subject->key,
+                    model: $subject->modelClass,
+                    label: $subject->label,
                 ),
             );
         }

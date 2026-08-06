@@ -16,6 +16,7 @@ Use this section if you build or maintain a Capell package.
 | Add anonymous-safe frontend output         | [Frontend extensions](frontend-extensions.md)                      |
 | Look up exact contracts, tags, and tests   | [Extension point API reference](extension-point-api-reference.md)  |
 | Browse every extension surface in one list | [Extension surface catalogue](extension-surface-catalog.md)        |
+| Know which Capell versions a package supports | [Extension API versioning](extension-api-versioning.md)         |
 | Test a package                             | [Testing packages](testing-packages.md)                            |
 | Debug missing package output               | [Extension troubleshooting](extension-troubleshooting.md)          |
 
@@ -62,7 +63,9 @@ php artisan capell:make-extension vendor/example --profile=minimal --path=packag
 php artisan capell:make-extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
-Use `minimal` for a lean installable package with Composer metadata, `capell.json`, one runtime provider, translations, README, and manifest/safety tests. Use `full` when you want live examples for provider buckets, package-owned commands, settings, safe frontend render hooks, Actions, Data, and public-output tests.
+Use `minimal` for a lean installable package: Composer metadata, `capell.json`, one runtime provider, translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test. Use `full` when you want live examples of the metadata/install/admin provider buckets, a package-owned command, a settings class, a Layout Builder content widget with typed Data objects, and package-owned widget assets; it adds a provider-discovery test.
+
+Neither profile scaffolds public-output safety tests, render hooks, or Actions — write those yourself. The generated `TestCase` also registers only your own provider, so add `CapellServiceProvider` before testing anything that touches Capell; see [Standalone package harness](testing-packages.md#standalone-package-harness).
 
 ## Install A Package In An App
 
@@ -152,7 +155,11 @@ Deciding between an [`AdminBridge`](../admin/admin-bridges.md) and a direct cont
 Use an `AdminBridge` when a package contributes more than one admin concern:
 
 ```php
-final class PackageAdminBridge implements AdminBridge
+use Capell\Admin\Data\Bridges\AdminBridgeContextData;
+use Capell\Admin\Support\Bridges\AbstractAdminBridge;
+use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
+
+final class PackageAdminBridge extends AbstractAdminBridge
 {
     public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
     {
@@ -163,6 +170,8 @@ final class PackageAdminBridge implements AdminBridge
     }
 }
 ```
+
+Extend `AbstractAdminBridge`. The `AdminBridge` interface also declares `isEnabled(AdminBridgeContextData $context): bool`, so implementing the interface directly without it is a fatal error; the abstract class provides a default that returns `true`.
 
 Small packages can contribute directly with `CapellAdmin::contributeToAdminSurface(...)`, but bridges are easier to audit.
 
@@ -175,7 +184,7 @@ Useful admin surfaces:
 | Dashboard Filament widgets                 | `CapellAdmin::registerDashboardFilamentWidget(...)`.                   |
 | Header tools                               | `AdminToolItem::TAG`.                                                  |
 | User menu items                            | `CapellAdmin::registerUserMenuItem(...)`.                              |
-| Admin widgets                              | `CapellAdmin::registerWidget(...)`.                                    |
+| Admin widgets                              | `CapellAdmin::registerDashboardFilamentWidget(...)`.                   |
 
 ## Frontend Contributions
 
@@ -184,7 +193,7 @@ Frontend package code must preserve public HTML safety. Anonymous output must no
 | Need                    | Use                                                                                                   |
 | ----------------------- | ----------------------------------------------------------------------------------------------------- |
 | Small HTML injection    | [`RenderHookRegistry::register(...)`](../../packages/frontend/docs/extending-render-hooks.md).        |
-| Public widget           | `LayoutWidgetRegistry::register(...)` with `LayoutWidgetTarget::FrontendBlade` or `FrontendLivewire`. |
+| Public widget           | `LayoutWidgetRegistry::register(...)` with `LayoutWidgetTarget::FrontendBlade` or `FrontendLivewire`, when the Layout Builder package is installed. |
 | Package CSS/JS          | `TailwindAssetsRegistry::registerSource(...)` and `registerImport(...)`.                              |
 | Page cache invalidation | `CacheInvalidationRegistry::registerDependency(...)`.                                                 |
 | Static-site export hook | `StaticSiteExtensionRegistry::register(...)` when the static export package is installed.             |

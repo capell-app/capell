@@ -24,6 +24,7 @@ use Capell\Core\Models\Contracts\Defaultable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\BlueprintObserver;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -200,10 +201,10 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
             return true;
         }
 
-        // Only check core BlueprintSubjectEnum cases — add-on packages may register extra
-        // blueprints that legitimately use different DB type column values.
-        return ! collect(BlueprintSubjectEnum::cases())
-            ->every(fn (BlueprintSubjectEnum $enumCase): bool => array_key_exists($enumCase->value, $blueprints));
+        // Every registered subject must have a default blueprint; package-owned
+        // subjects participate without requiring a core enum change.
+        return ! collect(resolve(BlueprintSubjectRegistry::class)->keys())
+            ->every(static fn (string $subject): bool => array_key_exists($subject, $blueprints));
     }
 
     public function isSystem(): bool
@@ -311,7 +312,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     protected function scopePageType(Builder $query): void
     {
-        $query->type(BlueprintSubjectEnum::Page);
+        $query->type(BlueprintSubjectEnum::Page->value);
     }
 
     /**
@@ -319,7 +320,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     protected function scopeSiteType(Builder $query): void
     {
-        $query->type(BlueprintSubjectEnum::Site);
+        $query->type(BlueprintSubjectEnum::Site->value);
     }
 
     /**
@@ -327,7 +328,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     protected function scopeThemeType(Builder $query): void
     {
-        $query->type(BlueprintSubjectEnum::Theme);
+        $query->type(BlueprintSubjectEnum::Theme->value);
     }
 
     /**
@@ -355,7 +356,9 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     protected function scopeType(Builder $query, BlueprintSubjectEnum|string $type): void
     {
-        $query->where('type', $type);
+        $subject = resolve(BlueprintSubjectRegistry::class)->descriptor($type);
+
+        $query->where('type', $subject->key);
     }
 
     /** @return Attribute<ContentStructure|null, never> */

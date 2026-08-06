@@ -182,7 +182,9 @@
                             "content-graph",
                             "health-check",
                             "content-graph",
-                            "workflow-attention"
+                            "workflow-attention",
+                            "outbound-event",
+                            "blueprint-subject"
                         ]
                     },
                     "class": {
@@ -200,7 +202,31 @@
             "type": "object"
         },
         "commands": {
-            "type": "object"
+            "type": "object",
+            "description": "Legacy artisan command names for package lifecycle phases. CLI-only: web-triggered installs reject legacy commands. New packages should declare `actions` instead."
+        },
+        "actions": {
+            "type": "object",
+            "description": "Package lifecycle Action class-strings implementing Capell\\Core\\Contracts\\PackageLifecycleAction. Preferred over `commands`, and required for web-triggered installs.",
+            "properties": {
+                "install": {
+                    "type": "string"
+                },
+                "uninstall": {
+                    "type": "string"
+                },
+                "setup": {
+                    "type": "string"
+                },
+                "afterInstall": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "contributionTraceability": {
+            "type": "object",
+            "description": "Traceability metadata linking declared contributions to their shipped runtime surfaces."
         },
         "settings": {
             "$ref": "#/$defs/stringList"

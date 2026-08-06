@@ -16,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -42,7 +43,7 @@ class SiteReplicatedAction
             $fillableInput['default'] = 0;
         }
 
-        $replica = $sourceSite->duplicate();
+        $replica = $sourceSite->duplicate(['uuid' => Str::uuid()->toString()]);
         throw_if($replica === null, RuntimeException::class, 'Site could not be duplicated.');
 
         $replica->fill($fillableInput);

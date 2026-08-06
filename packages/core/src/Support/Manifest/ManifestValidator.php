@@ -10,9 +10,11 @@ use Capell\Core\Contracts\Extensions\ContributesWorkflowAttention;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\RegistersExtensionAdminResource;
 use Capell\Core\Contracts\Extensions\RegistersExtensionAsset;
+use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionContentWidget;
 use Capell\Core\Contracts\Extensions\RegistersExtensionFilamentWidget;
 use Capell\Core\Contracts\Extensions\RegistersExtensionFrontendComponent;
+use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\Extensions\RegistersExtensionPageType;
 use Capell\Core\Contracts\Extensions\RegistersExtensionPermission;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRenderHook;
@@ -409,6 +411,8 @@ final class ManifestValidator
             ExtensionContributionType::HealthCheck => ChecksExtensionHealth::class,
             ExtensionContributionType::ContentGraph => ContentGraphExtractor::class,
             ExtensionContributionType::WorkflowAttention => ContributesWorkflowAttention::class,
+            ExtensionContributionType::OutboundEvent => RegistersExtensionOutboundEvent::class,
+            ExtensionContributionType::BlueprintSubject => RegistersExtensionBlueprintSubject::class,
             default => ExtensionContribution::class,
         };
     }

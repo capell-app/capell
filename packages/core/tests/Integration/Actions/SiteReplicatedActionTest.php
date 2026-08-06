@@ -10,7 +10,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Illuminate\Support\Facades\Event;
 
-it('replicates the site with a new id', function (): void {
+it('replicates the site with a new id and uuid', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->state(['name' => 'Original'])->create();
 
@@ -18,6 +18,8 @@ it('replicates the site with a new id', function (): void {
 
     expect($clone)->toBeInstanceOf(Site::class)
         ->and($clone->id)->not()->toBe($site->id)
+        ->and($clone->uuid)->not->toBe($site->uuid)
+        ->and($clone->uuid)->not->toBeNull()
         ->and($clone->name)->toContain('Original');
 });
 
