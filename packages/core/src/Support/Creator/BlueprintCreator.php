@@ -10,6 +10,7 @@ use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Exception;
 
 final class BlueprintCreator
@@ -19,14 +20,30 @@ final class BlueprintCreator
      */
     private readonly string $typeModel;
 
-    public function __construct()
-    {
+    public function __construct(
+        private readonly BlueprintSubjectRegistry $subjects,
+    ) {
         $this->typeModel = Blueprint::class;
     }
 
     public function create(string $key): void
     {
-        match ($key) {
+        $subject = $this->subjects->descriptor($key);
+
+        if ($subject->defaultSchemaSeeder !== null) {
+            $seeder = [$subject->defaultSchemaSeeder, 'run'];
+
+            throw_unless(is_callable($seeder), Exception::class, sprintf(
+                'Blueprint subject seeder [%s] cannot be executed.',
+                $subject->defaultSchemaSeeder,
+            ));
+
+            $seeder();
+
+            return;
+        }
+
+        match ($subject->key) {
             BlueprintSubjectEnum::Page->value => $this->defaultPageType(),
             BlueprintSubjectEnum::Theme->value => $this->createThemeType(),
             BlueprintSubjectEnum::Site->value => $this->createSiteType(),

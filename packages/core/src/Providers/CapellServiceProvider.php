@@ -56,6 +56,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Data\RenderableDefinitionData;
@@ -100,6 +101,7 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
 use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
@@ -142,6 +144,7 @@ use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
@@ -453,7 +456,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(CapellCoreManager::class),
             $app->make(SettingsSchemaRegistry::class),
             $app->make(MetricCollectorRegistry::class),
+            $app->make(OutboundEventRegistry::class),
+            $app->make(BlueprintSubjectRegistry::class),
         ));
+        $this->app->singleton(OutboundEventRegistry::class);
+        $this->app->singleton(BlueprintSubjectRegistry::class);
+        $this->app->booted(function (): void {
+            $this->app->make(OutboundEventRegistry::class)->freeze();
+            $this->app->make(BlueprintSubjectRegistry::class)->freeze();
+        });
         $this->app->singleton(SubscriberRegistry::class);
         $this->app->alias(SubscriberRegistry::class, SubscriberManager::class);
         $this->app->singleton(RenderableRegistry::class);
@@ -687,8 +698,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerTypes(): self
     {
+        $subjects = resolve(BlueprintSubjectRegistry::class);
+
         foreach (BlueprintSubjectEnum::cases() as $type) {
-            $model = $type->getModel();
+            $subject = BlueprintSubjectDescriptorData::fromEnum($type);
+            $subjects->register($subject);
 
             // Labels must be registered as plain strings (not closures) because
             // PageTypeData is stored in CapellCoreManager and may be serialised
@@ -698,9 +712,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             // which resolves labels eagerly before crossing the Livewire boundary.
             CapellCore::registerPageType(
                 new PageTypeData(
-                    name: $type->value,
-                    model: $model,
-                    label: $type->getLabel(),
+                    name: $subject->key,
+                    model: $subject->modelClass,
+                    label: $subject->label,
                 ),
             );
         }

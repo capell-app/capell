@@ -53,6 +53,16 @@
             "contractTestId": "core.project-build-manifest-signing"
         },
         {
+            "id": "core.action.publish-outbound-event",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublishOutboundEventAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Single typed outbound event publication path.",
+            "contractTestId": null
+        },
+        {
             "id": "core.action.validate-project-build-bundle",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
@@ -90,6 +100,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Configured administrator role name.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.blueprint-subject",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Data\\BlueprintSubjectDescriptorData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned blueprint subject descriptor boundary.",
             "contractTestId": null
         },
         {
@@ -223,6 +243,16 @@
             "contractTestId": "core.site-spec-applier"
         },
         {
+            "id": "core.dto.blueprint-subject-descriptor",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\BlueprintSubjectDescriptorData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed blueprint subject metadata.",
+            "contractTestId": null
+        },
+        {
             "id": "core.dto.database-index-definition",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Database\\DatabaseIndexDefinition",
@@ -350,6 +380,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Lossless metric numeric value.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.outbound-event-definition",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\OutboundEventDefinitionData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed outbound event definition.",
             "contractTestId": null
         },
         {
@@ -633,6 +673,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.event.outbound-event-published",
+            "kind": "event",
+            "identifier": "Capell\\Core\\Events\\OutboundEventPublished",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Announced outbound event with typed payload.",
+            "contractTestId": null
+        },
+        {
             "id": "core.event.package-installed",
             "kind": "event",
             "identifier": "Capell\\Core\\Events\\PackageInstalled",
@@ -683,6 +733,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.registry.blueprint-subject",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\BlueprintSubjectRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Runtime blueprint subject registry.",
+            "contractTestId": null
+        },
+        {
             "id": "core.registry.database-platform",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\Database\\DatabasePlatformRegistry",
@@ -690,6 +750,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Single runtime database platform resolution seam.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.registry.outbound-event",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\OutboundEventRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Boot-time outbound event definition registry.",
             "contractTestId": null
         },
         {

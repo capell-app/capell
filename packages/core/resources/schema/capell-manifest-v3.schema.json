@@ -182,7 +182,9 @@
                             "content-graph",
                             "health-check",
                             "content-graph",
-                            "workflow-attention"
+                            "workflow-attention",
+                            "outbound-event",
+                            "blueprint-subject"
                         ]
                     },
                     "class": {

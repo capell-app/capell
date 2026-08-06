@@ -14,6 +14,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Blueprintable;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Closure;
 use Exception;
 use Filament\Actions\Action;
@@ -88,10 +89,18 @@ class BlueprintSelect extends SelectWithBelongsToRelation
     public function getBlueprint(): ?string
     {
         if ($this->type instanceof BlueprintSubjectEnum) {
-            return $this->type->value;
+            return resolve(BlueprintSubjectRegistry::class)->descriptor($this->type)->key;
         }
 
-        return is_string($this->type) ? $this->type : null;
+        if (! is_string($this->type)) {
+            return null;
+        }
+
+        $registry = resolve(BlueprintSubjectRegistry::class);
+
+        return $registry->has($this->type)
+            ? $registry->descriptor($this->type)->key
+            : $this->type;
     }
 
     public function withCreateForm(): static

@@ -5,11 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Enums;
 
 use Capell\Core\Enums\Concerns\HasEnumOptions;
-use Capell\Core\Models\Page;
-use Capell\Core\Models\Site;
-use Capell\Core\Models\Theme;
 use Filament\Support\Contracts\HasLabel;
-use Illuminate\Database\Eloquent\Model;
 
 enum BlueprintSubjectEnum: string implements HasLabel
 {
@@ -22,28 +18,12 @@ enum BlueprintSubjectEnum: string implements HasLabel
     case Theme = 'theme';
 
     /**
-     * Human plural key used in admin labeling.
+     * Stable subject key used by the registry.
      */
     public function getKey(): string
     {
         return match ($this) {
-            self::Page => 'Pages',
-            self::Site => 'Sites',
-            self::Theme => 'Themes',
-        };
-    }
-
-    /**
-     * Corresponding model enum.
-     *
-     * @return class-string<Model>
-     */
-    public function getModel(): string
-    {
-        return match ($this) {
-            self::Page => Page::class,
-            self::Site => Site::class,
-            self::Theme => Theme::class,
+            self::Page, self::Site, self::Theme => $this->value,
         };
     }
 

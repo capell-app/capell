@@ -13,8 +13,8 @@ use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Blueprints\BlueprintResource;
 use Capell\Admin\Filament\Resources\Blueprints\Widgets\BlueprintsAlertsWidget;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Contracts\Support\Htmlable;
@@ -48,8 +48,11 @@ class ManageBlueprints extends ManageRecords implements ValidatesDelete
         $model = Blueprint::class;
 
         $blueprints = $model::getTypes();
+        $subjects = resolve(BlueprintSubjectRegistry::class)->all();
         foreach ($blueprints as $type => $count) {
-            $label = BlueprintSubjectEnum::tryFrom($type)?->getLabel() ?? str($type)->headline()->toString();
+            $label = isset($subjects[$type])
+                ? $subjects[$type]->label
+                : __('capell-admin::generic.unavailable_subject', ['key' => $type]);
             $tabs[$type] = Tab::make($label)
                 ->badge($count)
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('type', $type));
