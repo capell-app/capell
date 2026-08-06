@@ -131,7 +131,11 @@ it('exposes redacted diagnostics and can mark operations resolved', function ():
 });
 
 it('does not log raw operator exception details', function (): void {
-    Log::spy();
+    Log::shouldReceive('warning')
+        ->once()
+        ->with('capell-marketplace: operator action failed', Mockery::on(fn (array $context): bool => $context['extension_slug'] === 'seo-suite'
+                && $context['exception_class'] === RuntimeException::class
+                && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), 'provider-secret')));
 
     MarketplaceErrorPresenter::notification(
         'Marketplace failed',
@@ -139,11 +143,6 @@ it('does not log raw operator exception details', function (): void {
         ['extension_slug' => 'seo-suite'],
     );
 
-    Log::shouldHaveReceived('warning')
-        ->once()
-        ->with('capell-marketplace: operator action failed', Mockery::on(fn (array $context): bool => $context['extension_slug'] === 'seo-suite'
-                && $context['exception_class'] === RuntimeException::class
-                && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), 'provider-secret')));
 });
 
 it('registers marketplace navigation and resolves translated operation labels', function (): void {
