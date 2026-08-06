@@ -247,10 +247,10 @@ Source: `packages/marketplace/config/capell-marketplace.php`
 | `CAPELL_MARKETPLACE_WORKER_HEARTBEAT_STALE_AFTER_SECONDS`  | `300`                                                      | How long a recorded worker heartbeat still counts as evidence a worker is running |
 | `CAPELL_MARKETPLACE_HEALTH_HTTP_PROBE`                     | `true`                                                     | Whether the post-install health check also requests the site's own homepage |
 | `CAPELL_MARKETPLACE_HEALTH_HTTP_TIMEOUT_SECONDS`           | `5`                                                        | Timeout for that homepage request                     |
-| `CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED`                   | `true`                                                     | Whether the Marketplace heartbeat runs on a schedule rather than only when a user triggers it |
-| `CAPELL_MARKETPLACE_HEARTBEAT_AT`                          | `02:40`                                                    | Daily time the scheduled Marketplace heartbeat runs   |
-| `CAPELL_MARKETPLACE_AUTO_UPDATE_SCHEDULED`                 | `false`                                                    | Whether unattended updates run for extensions whose per-extension policy allows them |
-| `CAPELL_MARKETPLACE_AUTO_UPDATE_AT`                        | `03:20`                                                    | Daily time unattended updates run, after the heartbeat they decide against |
+| `CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED`                   | `true`                                                     | Whether the scheduled Marketplace heartbeat runs         |
+| `CAPELL_MARKETPLACE_HEARTBEAT_AT`                          | `02:40`                                                    | Local scheduler time for the Marketplace heartbeat      |
+| `CAPELL_MARKETPLACE_AUTO_UPDATE_SCHEDULED`                 | `false`                                                    | Whether unattended Marketplace updates are scheduled    |
+| `CAPELL_MARKETPLACE_AUTO_UPDATE_AT`                        | `03:20`                                                    | Local scheduler time for unattended Marketplace updates |
 
 Marketplace installs do not use `QUEUE_CONNECTION`. They are pinned to
 `CAPELL_MARKETPLACE_QUEUE_CONNECTION` (default `database`) and the named queue

@@ -18,7 +18,7 @@ final class MarketplaceErrorPresenter
     {
         Log::warning('capell-marketplace: operator action failed', [
             ...$context,
-            'exception' => $throwable,
+            'exception_class' => $throwable::class,
         ]);
 
         return Notification::make()

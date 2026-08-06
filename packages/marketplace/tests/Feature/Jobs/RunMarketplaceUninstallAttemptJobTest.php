@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
+use Capell\Core\Contracts\Extensions\DeletesExtensionData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
@@ -54,13 +56,14 @@ function uninstallAttempt(bool $deletePackage = false, bool $deleteData = false,
     ]);
 }
 
-function composerOnlyUninstallAttempt(array $packageNames): MarketplaceInstallAttempt
+function composerOnlyUninstallAttempt(array $packageNames, bool $deleteData = false): MarketplaceInstallAttempt
 {
     return uninstallAttempt(
         deletePackage: true,
         overrides: [
             'uninstall_options' => new MarketplaceUninstallOptionsData(
                 deletePackage: true,
+                deleteData: $deleteData,
                 packageNames: $packageNames,
                 runLifecycle: false,
             )->toArray(),
@@ -244,6 +247,23 @@ it('deletes retained package files after the extension lifecycle was already uni
         ->and(uninstallTimelineHas($attempt, 'timeline_lifecycle_started'))->toBeFalse();
 });
 
+it('deletes extension-owned data when the lifecycle was already uninstalled', function (): void {
+    Notification::fake();
+    JobUninstallDataDeleter::$deletedPackages = [];
+    CapellCore::registerPackage(UNINSTALL_PACKAGE_NAME, PackageTypeEnum::Plugin, JobUninstallDataDeleter::class, version: '1.0.0');
+    idleComposerRunner();
+    $removals = [];
+    fakeSuccessfulPackageRemoval($removals);
+
+    $attempt = composerOnlyUninstallAttempt([UNINSTALL_PACKAGE_NAME], deleteData: true);
+
+    runUninstallJob($attempt);
+
+    expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and(JobUninstallDataDeleter::$deletedPackages)->toBe([UNINSTALL_PACKAGE_NAME])
+        ->and($removals)->toBe([UNINSTALL_PACKAGE_NAME . '|gated']);
+});
+
 it('gates the queued Composer removal on server-side tooling exactly as the in-request path did', function (): void {
     Notification::fake();
     test()->createUserWithRole('super_admin');
@@ -408,3 +428,19 @@ it('reports uninstall progress against its own stage sequence', function (): voi
     expect($attempt->progress_total)->toBe(5)
         ->and($attempt->progress_current)->toBe(5);
 });
+
+final class JobUninstallDataDeleter implements DeletesExtensionData
+{
+    /** @var list<string> */
+    public static array $deletedPackages = [];
+
+    public static function compatibleCapellApiVersion(): string
+    {
+        return '1.0';
+    }
+
+    public function deleteExtensionData(PackageData $package): void
+    {
+        self::$deletedPackages[] = $package->name;
+    }
+}

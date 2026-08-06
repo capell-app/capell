@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Actions\Marketplace\ResolveExtensionLicenceDecisionAction;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Number;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -66,9 +67,21 @@ final class BuildMarketplacePurchasesPageDataAction
     {
         $purchases = $commercial['purchases'] ?? [];
 
-        return is_array($purchases)
-            ? array_values(array_filter($purchases, is_array(...)))
-            : [];
+        if (! is_array($purchases)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(function (mixed $purchase): ?array {
+            if (! is_array($purchase)) {
+                return null;
+            }
+
+            if (array_key_exists('access_ends_at', $purchase)) {
+                $purchase['access_ends_at'] = $this->safeDate($purchase['access_ends_at']);
+            }
+
+            return $purchase;
+        }, $purchases)));
     }
 
     /** @return list<array<string, mixed>> */
@@ -136,5 +149,18 @@ final class BuildMarketplacePurchasesPageDataAction
         }
 
         return (string) Number::currency((int) $cents / 100, $currency);
+    }
+
+    private function safeDate(mixed $value): ?string
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($value)->toAtomString();
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
