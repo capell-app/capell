@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Jobs;
 
+use Capell\Core\Actions\DeleteExtensionDataAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Facades\CapellCore;
@@ -183,10 +184,22 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
     #[Override]
     protected function applyOperation(MarketplaceInstallAttempt $attempt): void
     {
+        $options = $this->options($attempt);
+
+        if (! $options->runLifecycle && $options->deleteData) {
+            foreach ($this->packageNames($attempt) as $packageName) {
+                if (! CapellCore::hasPackage($packageName)) {
+                    throw new RuntimeException(sprintf('Package [%s] is not known to Capell, so its data cannot be deleted.', $packageName));
+                }
+
+                DeleteExtensionDataAction::run(CapellCore::getPackage($packageName));
+            }
+        }
+
         $this->reloadPackageRegistry();
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_registry_reloaded', MarketplaceInstallFailureStage::PackageDiscovery);
 
-        if (! $this->options($attempt)->deletePackage) {
+        if (! $options->deletePackage) {
             return;
         }
 
