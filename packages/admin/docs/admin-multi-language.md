@@ -113,12 +113,12 @@ Every non-default tab carries a badge. The default language never carries one.
 
 `CheckTranslationCompletenessAction` compares each tracked field against the default-language row and returns the proportion that are filled, or `null` when there is nothing comparable to measure.
 
-| Badge                   | Colour                                       | Condition                                                                      |
-| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Complete**            | success                                      | 100%, default language not edited since, and not byte-identical to the default  |
-| **Copied from default** | gray                                         | 100% and every tracked field matches the default language exactly               |
-| `nn%`                   | info ≥75, warning ≥50, danger below           | Some tracked fields are still blank                                             |
-| **May be outdated**     | warning (danger below 50% when incomplete)   | The default-language row's `updated_at` is newer than this row's                |
+| Badge                   | Colour                                     | Condition                                                                      |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------------------------------------ |
+| **Complete**            | success                                    | 100%, default language not edited since, and not byte-identical to the default |
+| **Copied from default** | gray                                       | 100% and every tracked field matches the default language exactly              |
+| `nn%`                   | info ≥75, warning ≥50, danger below        | Some tracked fields are still blank                                            |
+| **May be outdated**     | warning (danger below 50% when incomplete) | The default-language row's `updated_at` is newer than this row's               |
 
 Each badge carries a tooltip explaining what it does and does not mean.
 
