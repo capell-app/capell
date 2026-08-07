@@ -294,10 +294,10 @@ it('deletes activity log entries from the table for permitted users', function (
 
 it('labels the activity trail as an activity log', function (): void {
     $navigationTranslations = require __DIR__ . '/../../../../../../resources/lang/en/navigation.php';
-    $activityTranslations = require __DIR__ . '/../../../../../../resources/lang/en/activity.php';
+    $modelLabelTranslations = require __DIR__ . '/../../../../../../resources/lang/en/model_labels.php';
 
     expect($navigationTranslations['activity_trail'])->toBe('Activity Log')
-        ->and($activityTranslations['activities'])->toBe('Activity Log');
+        ->and($modelLabelTranslations['activities'])->toBe('activity log');
 });
 
 it('badges workspace activity in navigation', function (): void {

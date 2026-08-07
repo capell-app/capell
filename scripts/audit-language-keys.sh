@@ -270,6 +270,9 @@ function usedTranslations(string $basePath, array $rootPaths, array $definitions
   | @choice\s*\(
 )\s*(?<quote>['"])(?<key>capell-[a-z0-9-]+::[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)\k<quote>~x
 REGEX;
+    // The lookahead must reject only a complete quoted key (closing quote directly
+    // after the key), so prefix-concatenation calls like __('capell-x::group.a.' . $value)
+    // still reach the family detection below instead of being invisible to both passes.
     $dynamicPattern = <<<'REGEX'
 ~(?:
     (?<![A-Za-z0-9_])__\s*\(
@@ -278,7 +281,7 @@ REGEX;
   | Lang::(?:get|choice|has)\s*\(
   | @lang\s*\(
   | @choice\s*\(
-)\s*(?!['"]capell-[a-z0-9-]+::)~x
+)\s*(?!(['"])capell-[a-z0-9-]+::[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\1)~x
 REGEX;
 
     foreach ($rootPaths as $rootPath) {
