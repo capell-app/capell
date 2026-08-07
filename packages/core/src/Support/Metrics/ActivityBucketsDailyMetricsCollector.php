@@ -92,9 +92,7 @@ final class ActivityBucketsDailyMetricsCollector implements CollectsDailyMetrics
                     ->sum('count');
                 $definition = $definitions->get($metricKey);
 
-                if (! $definition instanceof MetricDefinitionData) {
-                    throw new RuntimeException('Activity metric definition is missing.');
-                }
+                throw_unless($definition instanceof MetricDefinitionData, RuntimeException::class, 'Activity metric definition is missing.');
 
                 $samples[] = new MetricSampleData(
                     identity: $definition->identity,
@@ -158,9 +156,7 @@ final class ActivityBucketsDailyMetricsCollector implements CollectsDailyMetrics
             ->where('uuid', $scope->siteUuid)
             ->value('id');
 
-        if (! is_int($siteId)) {
-            throw new RuntimeException('Activity metric site scope could not be resolved.');
-        }
+        throw_unless(is_int($siteId), RuntimeException::class, 'Activity metric site scope could not be resolved.');
 
         return $siteId;
     }

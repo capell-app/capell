@@ -92,7 +92,7 @@ final class BuildDashboardAnalyticsSnapshotAction
 
         $trend = $this->trend($rawPageViews, $rawSearches, $actor, $start, $todayStart, $days, $siteId, $language);
         $recentRows = (clone $rawPageViews)
-            ->orderByDesc('bucket_started_at')
+            ->latest('bucket_started_at')
             ->limit(20)
             ->toBase()
             ->get(['bucket_started_at', 'subject_key', 'count']);
@@ -120,7 +120,7 @@ final class BuildDashboardAnalyticsSnapshotAction
             freshThrough: $freshThrough instanceof DateTimeInterface
                 ? CarbonImmutable::instance($freshThrough)
                 : (is_string($freshThrough) ? CarbonImmutable::parse($freshThrough, 'UTC') : null),
-            collecting: (bool) AdminSettings::instance()->analytics_collection_enabled,
+            collecting: AdminSettings::instance()->analytics_collection_enabled,
         );
     }
 

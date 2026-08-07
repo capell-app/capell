@@ -101,16 +101,18 @@ final class ActivityBeaconController
         $url = $request->getSchemeAndHttpHost() . (str_starts_with($path, '/') ? $path : '/' . $path);
         $resolved = LoadSiteDomainFromUrlAction::run($url, sites: SiteLoader::getSites());
         $siteDomain = is_array($resolved) ? $resolved[0] : null;
-        if (! $siteDomain instanceof SiteDomain || ! $siteDomain->site instanceof Site) {
-            throw new RuntimeException('Activity site could not be resolved.');
-        }
+        throw_if(! $siteDomain instanceof SiteDomain || ! $siteDomain->site instanceof Site, RuntimeException::class, 'Activity site could not be resolved.');
 
         return $siteDomain;
     }
 
     private function honoursPrivacySignal(Request $request): bool
     {
-        return $request->header('DNT') === '1' || $request->header('Sec-GPC') === '1';
+        if ($request->header('DNT') === '1') {
+            return true;
+        }
+
+        return $request->header('Sec-GPC') === '1';
     }
 
     private function rateLimited(Request $request): bool
