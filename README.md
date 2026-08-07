@@ -159,15 +159,15 @@ Read these before production:
 
 ## Requirements
 
-| Tool     | Supported versions                                                  |
-| -------- | ------------------------------------------------------------------- |
-| PHP      | 8.4+                                                                |
-| Laravel  | 13.x                                                                |
-| Filament | 5.6.8+ (`~5.6.8`)                                                   |
-| Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
-| Node.js  | 20+                                                                 |
-| Composer | 2.7+                                                                |
-| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP)       |
+| Tool     | Supported versions                                            |
+| -------- | ------------------------------------------------------------- |
+| PHP      | 8.4+                                                          |
+| Laravel  | 13.x                                                          |
+| Filament | 5.6.8+ (`~5.6.8`)                                             |
+| Database | MySQL 8+, MariaDB 10.5+, PostgreSQL, or SQLite                |
+| Node.js  | 20+                                                           |
+| Composer | 2.7+                                                          |
+| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP) |
 
 Required PHP extensions and writable paths are listed in the [Install guide](docs/getting-started/install.md). The shipped product line is 1.x; use the latest compatible tag rather than a branch name in customer applications.
 
