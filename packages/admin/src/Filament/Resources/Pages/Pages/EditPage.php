@@ -241,7 +241,12 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         $fullUrl = $pageUrl instanceof PageUrl ? PageUrlPresenter::fullUrl($pageUrl) : null;
         $summary = view('capell-admin::components.record-state-summary', [
             'states' => $this->recordStates(),
-            'relationships' => BuildPageRelationshipCountsAction::run($this->record)->counts(),
+            // Children/hierarchy counts are Page-specific (nested-set behaviour
+            // outside the Pageable contract), unlike publish status and URL
+            // availability above, which resolve for any Pageable model.
+            'relationships' => $this->record instanceof Page
+                ? BuildPageRelationshipCountsAction::run($this->record)->counts()
+                : [],
         ])->render();
 
         return new HtmlString(sprintf(

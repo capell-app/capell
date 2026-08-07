@@ -7,9 +7,10 @@ namespace Capell\Admin\Filament\Components\Tables\Columns\Page;
 use BackedEnum;
 use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Data\RecordStateData;
-use Capell\Core\Models\Page;
+use Capell\Core\Contracts\Pageable;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 
 final class PageAvailabilityColumn extends TextColumn
 {
@@ -25,13 +26,18 @@ final class PageAvailabilityColumn extends TextColumn
             ->alignCenter()
             ->width(0)
             ->toggleable()
-            ->getStateUsing(fn (Page $record): ?string => $this->stateLabel($record))
-            ->tooltip(fn (Page $record): ?string => $this->resolveState($record)?->description)
-            ->color(fn (Page $record): string => $this->stateColor($record))
-            ->icon(fn (Page $record): BackedEnum|string|Htmlable|null => $this->resolveState($record)?->icon);
+            ->getStateUsing(fn (Model&Pageable $record): ?string => $this->stateLabel($record))
+            ->tooltip(fn (Model&Pageable $record): ?string => $this->resolveState($record)?->description)
+            ->color(fn (Model&Pageable $record): string => $this->stateColor($record))
+            ->icon(fn (Model&Pageable $record): BackedEnum|string|Htmlable|null => $this->resolveState($record)?->icon);
     }
 
-    private function resolveState(Page $page): ?RecordStateData
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>  $page
+     */
+    private function resolveState(Model&Pageable $page): ?RecordStateData
     {
         $key = $page->getKey() ?? spl_object_id($page);
 
@@ -42,14 +48,24 @@ final class PageAvailabilityColumn extends TextColumn
         return $this->states[$key];
     }
 
-    private function stateLabel(Page $page): ?string
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>  $page
+     */
+    private function stateLabel(Model&Pageable $page): ?string
     {
         $state = $this->resolveState($page);
 
         return $state instanceof RecordStateData ? $state->shortLabel ?? $state->label : (null);
     }
 
-    private function stateColor(Page $page): string
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>  $page
+     */
+    private function stateColor(Model&Pageable $page): string
     {
         $state = $this->resolveState($page);
 
