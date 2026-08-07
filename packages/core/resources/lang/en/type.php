@@ -12,4 +12,5 @@ return [
     'navigation_description' => 'A reusable navigation structure for menus, links, and site wayfinding.',
     'navigation_name' => 'Navigation',
     'system_page_description' => 'A protected page blueprint for internal, generated, or non-editorial output.',
+    'unavailable_subject' => 'Unavailable subject (:key)',
 ];

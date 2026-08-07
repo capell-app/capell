@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Exceptions\UnknownBlueprintSubjectException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRoleRestriction;
@@ -109,7 +110,7 @@ it('can scope theme type', function (): void {
 
 it('rejects unregistered blueprint subject scopes', function (): void {
     expect(fn (): mixed => Blueprint::query()->type('vendor.missing.subject')->get())
-        ->toThrow(InvalidArgumentException::class, 'is not registered');
+        ->toThrow(UnknownBlueprintSubjectException::class, 'is not registered');
 });
 
 it('can scope sorted', function (): void {

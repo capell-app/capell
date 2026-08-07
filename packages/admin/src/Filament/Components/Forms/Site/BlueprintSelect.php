@@ -6,8 +6,15 @@ namespace Capell\Admin\Filament\Components\Forms\Site;
 
 use Capell\Admin\Filament\Components\Forms\BlueprintSelect as BaseBlueprintSelect;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Override;
 
 class BlueprintSelect extends BaseBlueprintSelect
 {
-    protected null|BlueprintSubjectEnum|string $type = BlueprintSubjectEnum::Site;
+    #[Override]
+    protected function setUp(?string $label = null): void
+    {
+        parent::setUp($label);
+
+        $this->subject(BlueprintSubjectEnum::Site->getKey());
+    }
 }

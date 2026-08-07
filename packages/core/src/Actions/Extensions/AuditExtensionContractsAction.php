@@ -9,8 +9,10 @@ use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\OutboundEventRegistry;
 use Composer\InstalledVersions;
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
@@ -635,6 +637,43 @@ final class AuditExtensionContractsAction
                 }
             }
 
+            // Severity here is deliberately `warning`, never `error`: the audit can be
+            // pointed at packages that are not installed in the current application, so
+            // an absent runtime registration is not provably a defect. Do not upgrade.
+            if ($contribution->type === ExtensionContributionType::OutboundEvent) {
+                $outboundEventRegistry = resolve(OutboundEventRegistry::class);
+
+                foreach ($this->contributionMetadataStrings($contribution, 'event', 'events') as $eventName) {
+                    if (! $outboundEventRegistry->has($eventName)) {
+                        $results[] = $this->result(
+                            package: $manifest->name,
+                            manifestPath: $manifestPath,
+                            severity: 'warning',
+                            message: 'Outbound event contribution is not registered at runtime.',
+                            context: ['event' => $eventName],
+                        );
+                    }
+                }
+            }
+
+            // Same reasoning as outbound events above: a package that is declared but not
+            // installed here cannot register its subjects, so this stays a warning.
+            if ($contribution->type === ExtensionContributionType::BlueprintSubject) {
+                $blueprintSubjectRegistry = resolve(BlueprintSubjectRegistry::class);
+
+                foreach ($this->contributionMetadataStrings($contribution, 'key', 'keys') as $subjectKey) {
+                    if (! $blueprintSubjectRegistry->has($subjectKey)) {
+                        $results[] = $this->result(
+                            package: $manifest->name,
+                            manifestPath: $manifestPath,
+                            severity: 'warning',
+                            message: 'Blueprint subject contribution is not registered at runtime.',
+                            context: ['key' => $subjectKey],
+                        );
+                    }
+                }
+            }
+
             if ($contribution->type === ExtensionContributionType::HealthCheck) {
                 // A health-check contribution may either be the check class itself or a
                 // wrapper that declares the concrete check class via the checkClass metadata.
@@ -728,6 +767,39 @@ final class AuditExtensionContractsAction
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Resolve plain string values a contribution declares via metadata (e.g. outbound
+     * event names or blueprint subject keys). Each key may hold a single string or a
+     * list of strings; unlike {@see self::contributionTargetClasses()} there is no
+     * fallback to the contribution class, because these are not class names.
+     *
+     * @return list<string>
+     */
+    private function contributionMetadataStrings(ExtensionContributionData $contribution, string ...$metadataKeys): array
+    {
+        $values = [];
+
+        foreach ($metadataKeys as $metadataKey) {
+            $declared = $contribution->metadata[$metadataKey] ?? null;
+
+            if (is_string($declared) && $declared !== '') {
+                $values[] = $declared;
+
+                continue;
+            }
+
+            if (is_array($declared)) {
+                foreach ($declared as $value) {
+                    if (is_string($value) && $value !== '') {
+                        $values[] = $value;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($values));
     }
 
     /**

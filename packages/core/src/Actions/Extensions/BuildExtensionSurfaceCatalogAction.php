@@ -16,6 +16,8 @@ use Capell\Core\Contracts\Database\DatabaseQueryDialect;
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
+use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\Metrics\CollectsDailyMetrics;
@@ -123,7 +125,8 @@ final class BuildExtensionSurfaceCatalogAction
     {
         return [
             $this->entry('core.contract.extension-contribution', 'contract', ExtensionContribution::class, ExtensionSurfaceStability::Stable, 'Core contribution boundary.', 'core.extension-contribution'),
-            $this->entry('core.contract.blueprint-subject', 'contract', BlueprintSubjectDescriptorData::class, ExtensionSurfaceStability::Experimental, 'Package-owned blueprint subject descriptor boundary.'),
+            $this->entry('core.contract.blueprint-subject', 'contract', RegistersExtensionBlueprintSubject::class, ExtensionSurfaceStability::Experimental, 'Package-owned blueprint subject contribution boundary.'),
+            $this->entry('core.contract.outbound-event', 'contract', RegistersExtensionOutboundEvent::class, ExtensionSurfaceStability::Experimental, 'Package-owned outbound event contribution boundary.'),
             $this->entry('core.dto.blueprint-subject-descriptor', 'dto', BlueprintSubjectDescriptorData::class, ExtensionSurfaceStability::Experimental, 'Typed blueprint subject metadata.'),
             $this->entry('core.registry.blueprint-subject', 'registry', BlueprintSubjectRegistry::class, ExtensionSurfaceStability::Experimental, 'Runtime blueprint subject registry.'),
             $this->entry('core.dto.outbound-event-definition', 'dto', OutboundEventDefinitionData::class, ExtensionSurfaceStability::Experimental, 'Typed outbound event definition.'),

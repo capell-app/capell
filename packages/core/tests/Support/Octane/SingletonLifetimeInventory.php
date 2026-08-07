@@ -35,6 +35,7 @@ use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\Concerns\ExtensibleModel;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
@@ -47,6 +48,7 @@ use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
@@ -139,6 +141,8 @@ final class SingletonLifetimeInventory
             SiteAccessPolicyRegistry::class => self::boot('Site access policy providers are package boot registrations.'),
             MetricEventRegistry::class => self::boot('Metric event definitions are package boot registrations.'),
             MetricCollectorRegistry::class => self::boot('Metric collectors are package boot registrations.'),
+            OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
+            BlueprintSubjectRegistry::class => self::boot('Blueprint subjects are package boot registrations, frozen on booted.'),
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.

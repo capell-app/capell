@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "auditScript": "scripts/audit-language-keys.sh",
     "root": "packages",
-    "unusedCount": 1330,
+    "unusedCount": 1331,
     "missingCount": 25,
     "unused": [
         "capell-admin::activity.changed_fields",
@@ -1156,6 +1156,7 @@
         "capell-core::type.navigation_description",
         "capell-core::type.navigation_name",
         "capell-core::type.system_page_description",
+        "capell-core::type.unavailable_subject",
         "capell-frontend::form.enable_lazy_loading",
         "capell-frontend::form.minify_assets",
         "capell-frontend::generic.breadcrumbs",

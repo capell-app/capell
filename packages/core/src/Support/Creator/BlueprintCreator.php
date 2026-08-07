@@ -111,9 +111,9 @@ final class BlueprintCreator
     public function createNavigationType(): Blueprint
     {
         $defaults = [
-            'type' => 'navigation',
+            'type' => Blueprint::NAVIGATION_TYPE,
             'name' => __('capell::type.navigation_name'),
-            'key' => 'navigation',
+            'key' => Blueprint::NAVIGATION_TYPE,
             'admin' => [
                 'notes' => __('capell::type.navigation_description'),
             ],
@@ -121,7 +121,7 @@ final class BlueprintCreator
 
         return CapellCore::createOrUpdateModel(
             $this->typeModel,
-            ['key' => 'navigation', 'type' => 'navigation'],
+            ['key' => Blueprint::NAVIGATION_TYPE, 'type' => Blueprint::NAVIGATION_TYPE],
             fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
             BlueprintInterceptorInterface::class,
         );
