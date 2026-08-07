@@ -251,6 +251,7 @@ it('consumes dashboard panel regions in the composed widget shell', function ():
 
     $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
+
     $sections = array_values(array_filter(
         $components,
         static fn (mixed $component): bool => $component instanceof Section,

@@ -65,7 +65,7 @@ class CapellDashboard extends Dashboard
             ToggleButtons::make('date_range')
                 ->options(DashboardDateRangeEnum::options())
                 ->columnSpanFull()
-                ->default(fn (): string => self::defaultDashboardPeriod())
+                ->default(fn (): string => $this->defaultDashboardPeriod())
                 ->extraAttributes([
                     'style' => 'grid-auto-columns: max-content; max-width: 100%; white-space: nowrap; width: max-content;',
                 ])
@@ -115,7 +115,7 @@ class CapellDashboard extends Dashboard
         $widgets = $this->getWidgets();
         $widgetClasses = array_values(array_filter(
             $widgets,
-            static fn (string|WidgetConfiguration $widget): bool => is_string($widget),
+            is_string(...),
         ));
         $dashboard = $this->dashboardEnum();
         $regions = [];
@@ -176,7 +176,7 @@ class CapellDashboard extends Dashboard
         ]));
     }
 
-    private static function defaultDashboardPeriod(): string
+    private function defaultDashboardPeriod(): string
     {
         return match (max(1, min(365, AdminSettings::instance()->analytics_default_period_days))) {
             1 => DashboardDateRangeEnum::Today->value,

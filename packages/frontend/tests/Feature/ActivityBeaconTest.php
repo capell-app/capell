@@ -15,14 +15,15 @@ use Capell\Frontend\Support\Http\CrawlerDetector;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\RateLimiter;
 use RuntimeException;
 
 function makeActivityBeaconControllerForTest(bool $enabled = true): ActivityBeaconController
 {
-    $settings = new class($enabled) implements ActivitySettingsReader
+    $settings = new readonly class($enabled) implements ActivitySettingsReader
     {
-        public function __construct(private readonly bool $enabled) {}
+        public function __construct(private bool $enabled) {}
 
         public function collectionEnabled(): bool
         {
@@ -44,7 +45,7 @@ function makeActivityBeaconControllerForTest(bool $enabled = true): ActivityBeac
 }
 
 it('keeps the activity beacon sessionless and rejects non-page subjects silently', function (): void {
-    $route = collect(app('router')->getRoutes()->getRoutes())
+    $route = collect(resolve(Router::class)->getRoutes()->getRoutes())
         ->first(fn (Route $route): bool => $route->getName() === 'capell-frontend.activity');
 
     expect($route)->toBeInstanceOf(Route::class);
@@ -52,25 +53,25 @@ it('keeps the activity beacon sessionless and rejects non-page subjects silently
 
     expect($route->gatherMiddleware())->not->toContain('web')
         ->and(resolve(ReservedFrontendPathRegistry::class)->isReserved('_capell/activity'))->toBeTrue()
-        ->and(makeActivityBeaconControllerForTest()(Request::create('/_capell/activity', 'POST', ['type' => 'search_term']))->getStatusCode())->toBe(204);
+        ->and(makeActivityBeaconControllerForTest()(Request::create('/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, ['type' => 'search_term']))->getStatusCode())->toBe(204);
 });
 
 it('ignores crawler and unknown page beacons without storage writes', function (): void {
     expect(makeActivityBeaconControllerForTest()(Request::create(
         '/_capell/activity',
-        'POST',
+        Symfony\Component\HttpFoundation\Request::METHOD_POST,
         ['type' => 'page_view', 'path' => '/unknown'],
         server: ['HTTP_USER_AGENT' => 'Googlebot/2.1'],
     ))->getStatusCode())->toBe(204)
         ->and(makeActivityBeaconControllerForTest()(Request::create(
             '/_capell/activity',
-            'POST',
+            Symfony\Component\HttpFoundation\Request::METHOD_POST,
             ['type' => 'page_view', 'path' => '/unknown'],
         ))->getStatusCode())->toBe(204);
 });
 
 it('honors browser privacy signals before resolving or recording a page', function (string $header): void {
-    $request = Request::create('/_capell/activity', 'POST', [
+    $request = Request::create('/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, [
         'type' => 'page_view',
         'path' => '/about',
     ], server: [$header => '1']);
@@ -80,7 +81,7 @@ it('honors browser privacy signals before resolving or recording a page', functi
 
 it('rate limits beacon attempts without exposing the raw address in the key', function (): void {
     config(['capell.analytics.rate_limit_per_minute' => 1]);
-    $request = Request::create('/_capell/activity', 'POST', [
+    $request = Request::create('/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, [
         'type' => 'page_view',
         'path' => '/unknown',
     ], server: ['REMOTE_ADDR' => '203.0.113.10']);
@@ -102,7 +103,7 @@ it('honors a page blueprint that disables visit logging', function (): void {
     $page->blueprint->update(['meta' => ['disable_visit_logs' => true]]);
     PageUrl::factory()->page($page)->language($language)->site($site)->state(['url' => '/about'])->create();
 
-    $request = Request::create('http://localhost/_capell/activity', 'POST', [
+    $request = Request::create('http://localhost/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, [
         'type' => 'page_view',
         'path' => '/about',
     ]);
