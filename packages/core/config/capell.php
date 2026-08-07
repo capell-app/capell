@@ -31,6 +31,43 @@ return [
      */
     'server_side_tooling' => (bool) env('CAPELL_SERVER_SIDE_TOOLING', false),
 
+    /*
+     * How this installation shells out. The binaries are resolved by
+     * Capell\Core\Support\Process\RuntimeBinaryResolver, which falls back to the
+     * legacy capell-installer.php_binary / composer_binary keys, then PHP_BINARY,
+     * then the executable search path. Set these when Composer is a
+     * composer.phar or a wrapper script, or when the web user has no usable PATH.
+     */
+    'process' => [
+        'php_binary' => env('CAPELL_PHP_BINARY'),
+        'composer_binary' => env('CAPELL_COMPOSER_BINARY'),
+
+        'composer' => [
+            /*
+             * How long a single Composer run may take. The Marketplace install
+             * job derives its own timeout from this value plus the buffer below,
+             * and the queue connection's retry_after must exceed that total.
+             */
+            'timeout_seconds' => (int) env('CAPELL_COMPOSER_TIMEOUT_SECONDS', 600),
+            'job_timeout_buffer_seconds' => (int) env('CAPELL_COMPOSER_JOB_TIMEOUT_BUFFER_SECONDS', 120),
+
+            /*
+             * Off by default: forcing --no-cache re-downloads every dependency on
+             * every install, which is slow and hostile on metered or rate-limited
+             * hosts. Turn it on only when a shared cache cannot be trusted.
+             */
+            'no_cache' => (bool) env('CAPELL_COMPOSER_NO_CACHE', false),
+
+            /*
+             * Left null, the cache lives under storage/, which is the one
+             * directory a Capell install always owns.
+             */
+            'cache_dir' => env('CAPELL_COMPOSER_CACHE_DIR'),
+
+            'memory_limit' => env('CAPELL_COMPOSER_MEMORY_LIMIT', '-1'),
+        ],
+    ],
+
     'assets' => [
         'disk' => env('CAPELL_ASSETS_DISK', 'local'),
     ],
@@ -95,6 +132,14 @@ return [
 
     // Set explicitly when debugging cache behaviour or rendering uncached previews.
     'disable_cache' => env('CAPELL_DISABLE_CACHE', false),
+
+    'analytics' => [
+        'collection_enabled' => env('CAPELL_ANALYTICS_COLLECTION_ENABLED', true),
+        'search_collection_enabled' => env('CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED', false),
+        'activity_retention_days' => (int) env('CAPELL_ANALYTICS_ACTIVITY_RETENTION_DAYS', 1),
+        'daily_rollup_retention_days' => (int) env('CAPELL_ANALYTICS_DAILY_ROLLUP_RETENTION_DAYS', 365),
+        'rate_limit_per_minute' => (int) env('CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE', 30),
+    ],
 
     'debug' => [
         'relationship_diagnostics' => env('CAPELL_RELATIONSHIP_DIAGNOSTICS', false),

@@ -108,7 +108,7 @@ it('keeps users top-level with roles nested underneath', function (): void {
         ->and(RoleResource::getActiveNavigationIcon())->toBe(Heroicon::Key);
 });
 
-it('separates customer settings from operational system pages', function (): void {
+it('places settings with operational system pages', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     Permission::create(['name' => 'View:SiteHealthPage', 'guard_name' => 'web']);
 
@@ -119,18 +119,19 @@ it('separates customer settings from operational system pages', function (): voi
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    $settingsNavigationGroup = collect(Filament::getNavigation())
-        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_settings'));
+    $systemNavigationGroup = collect(Filament::getNavigation())
+        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_system'));
 
-    expect($settingsNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
-    assert($settingsNavigationGroup instanceof NavigationGroup);
+    expect($systemNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
+    assert($systemNavigationGroup instanceof NavigationGroup);
 
-    $settingsNavigationLabels = collect($settingsNavigationGroup->getItems())
+    $systemNavigationLabels = collect($systemNavigationGroup->getItems())
         ->filter(fn (mixed $navigationItem): bool => $navigationItem instanceof NavigationItem)
         ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
         ->all();
 
-    expect($settingsNavigationLabels)
+    expect($systemNavigationLabels)
         ->toContain(SettingsPage::getNavigationLabel())
-        ->not->toContain(SiteHealthPage::getNavigationLabel());
+        ->and(SiteHealthPage::getNavigationGroup())
+        ->toBe((string) __('capell-admin::navigation.group_system'));
 });

@@ -1,7 +1,5 @@
 # Credits
 
-![Capell Credits screenshot](../images/capell-readme-banner.jpg)
-
 Capell is built on a careful mix of open-source frameworks, packages, and developer tools. This is not a full dependency manifest; Composer and npm already do that job better. This page highlights the projects that have shaped Capell's architecture, admin experience, frontend runtime, and release workflow.
 
 ## Major Foundations

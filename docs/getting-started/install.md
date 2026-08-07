@@ -27,11 +27,12 @@ Before changing an existing application, back up its database and media and conf
 - Browser requests can time out during Composer or package setup on managed hosting. Reopen the installer to resume the interrupted step, or use `php artisan capell:install` from the terminal.
 - A non-`sync` queue needs a persistent queue worker. Laravel's scheduler is separate and needs `php artisan schedule:run` every minute in production.
 - Keep `storage/` and `bootstrap/cache/` writable by the web and worker users, and know where the host records PHP and web-server errors.
-- Process execution (`proc_open`) must be available for installing extensions, running package setup, and creating database backups. Many shared hosts disable it. The browser installer detects this and degrades; the admin extension installer does not.
+- Process execution (`proc_open`) is required for local automated Composer and package lifecycle work. Marketplace readiness reports this before confirmation and changes the call to action to deployment/manual instructions when the limitation is deliberate. Do not bypass the check or increase browser timeouts; enable the process API, use a deployment publisher, or apply the recorded commands during deployment. Database backup commands have their own binary checks.
 - Database backups shell out to `mysqldump` or `pg_dump`. Slim containers usually ship neither — install them, point `backup.binaries.*` at them, or use SQLite, which needs no external binary.
 - Installing extensions from the admin UI runs Composer against the application root, so it cannot work on a read-only or immutable deployment. Install extensions during your build instead.
 - Rebuilding frontend assets from the admin UI needs Node and npm on the server. If your image has neither, build assets in CI and deploy the output.
 - Marketplace installs use their own queue. A plain `php artisan queue:work` will not process them — see [configuration](../development/configuration.md#marketplace-config).
+- Host-specific Marketplace capability tiers and every readiness remediation are documented in [Marketplace hosting](../operations/marketplace-hosting.md).
 - Running more than one application node adds requirements of its own, including a shared cache store. Read [web server configuration](../operations/web-server.md#multiple-nodes) first.
 
 Run `php artisan capell:doctor` after installing to confirm the environment.
@@ -132,6 +133,7 @@ A successful install ends in this order:
 Capell Install Health Summary
 All checks passed.
 ✓ Installation complete!
+Capell Install Handoff
 ```
 
 Required lifecycle, asset, permission, and health failures stop the command with a non-zero exit code. The installer prints a separate `Fix:` line for actionable failures and does not print the final success message.
@@ -285,6 +287,8 @@ Set `CAPELL_RELEASE_ROOT_MODE` to match the deployed layout:
 Capell also detects symlink components in a root declared `mutable` and blocks the write. Do not work around this protection by making versioned release directories writable.
 
 ## Production verification
+
+Putting the installation on a public domain — DNS records, TLS, trusted proxies behind a CDN, and the queue worker and scheduler as supervised processes — is covered in [Going live](../operations/going-live.md). Work through that page first; the checks below assume it is done.
 
 Before sending traffic to the installation:
 

@@ -33,10 +33,13 @@
         "settings": false,
         "requiredTables": []
     },
-    "commands": {
+    "actions": {
         "install": null,
         "setup": null,
-        "demo": null,
+        "uninstall": null,
+        "afterInstall": null
+    },
+    "commands": {
         "doctor": null
     },
     "settings": [],

@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -29,7 +31,13 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
     $metadata = new SettingsGroupMetadata(group: 'seo', label: 'SEO');
     $settings->shouldReceive('registerMetadata')->once()->with($metadata);
 
-    $registrar = new PackageSurfaceRegistrar($core, $settings, $metricCollectors);
+    $registrar = new PackageSurfaceRegistrar(
+        $core,
+        $settings,
+        $metricCollectors,
+        new OutboundEventRegistry,
+        new BlueprintSubjectRegistry,
+    );
 
     expect($registrar->pageType($pageType))->toBe($registrar)
         ->and($registrar->component('page', 'hero', 'hero-component'))->toBe($registrar)

@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums;
 
-use Capell\Core\Enums\Concerns\HasEnumOptions;
-use Capell\Core\Models\Page;
-use Capell\Core\Models\Site;
-use Capell\Core\Models\Theme;
-use Filament\Support\Contracts\HasLabel;
-use Illuminate\Database\Eloquent\Model;
+use Capell\Core\Support\Blueprints\CoreBlueprintSubjects;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 
-enum BlueprintSubjectEnum: string implements HasLabel
+/**
+ * Key namespace for the blueprint subjects core contributes.
+ *
+ * This enum exists so core call sites can name Page, Site and Theme without
+ * repeating string literals. It deliberately carries no label or model mapping:
+ * the subject set is open, and
+ * {@see BlueprintSubjectRegistry} is the only place that
+ * resolves a key to its label, model and seeder. Adding a `match` back here
+ * would re-close the set that CAP-0100.2 opened.
+ *
+ * @see CoreBlueprintSubjects The descriptors behind these keys.
+ */
+enum BlueprintSubjectEnum: string
 {
-    use HasEnumOptions;
-
     case Page = 'page';
 
     case Site = 'site';
@@ -22,37 +28,10 @@ enum BlueprintSubjectEnum: string implements HasLabel
     case Theme = 'theme';
 
     /**
-     * Human plural key used in admin labeling.
+     * Stable subject key used by the registry.
      */
     public function getKey(): string
     {
-        return match ($this) {
-            self::Page => 'Pages',
-            self::Site => 'Sites',
-            self::Theme => 'Themes',
-        };
-    }
-
-    /**
-     * Corresponding model enum.
-     *
-     * @return class-string<Model>
-     */
-    public function getModel(): string
-    {
-        return match ($this) {
-            self::Page => Page::class,
-            self::Site => Site::class,
-            self::Theme => Theme::class,
-        };
-    }
-
-    public function getLabel(): string
-    {
-        return match ($this) {
-            self::Page => 'Page',
-            self::Site => 'Site',
-            self::Theme => 'Theme',
-        };
+        return $this->value;
     }
 }

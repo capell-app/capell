@@ -11,9 +11,9 @@ use Capell\Admin\Filament\Resources\Blueprints\Schemas\BlueprintForm;
 use Capell\Admin\Filament\Support\HelperText;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Blueprintable;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Closure;
 use Exception;
 use Filament\Actions\Action;
@@ -36,7 +36,13 @@ class BlueprintSelect extends SelectWithBelongsToRelation
 {
     use HasCustomSelectOption;
 
-    protected null|BlueprintSubjectEnum|string $type = null;
+    /**
+     * Registry key of the subject whose blueprints this select offers.
+     *
+     * Set through {@see self::subject()}; the Page, Site and Theme subclasses do
+     * nothing but supply their own key.
+     */
+    protected ?string $subjectKey = null;
 
     protected ?Closure $modifySelectOptionsQueryUsing = null;
 
@@ -85,13 +91,37 @@ class BlueprintSelect extends SelectWithBelongsToRelation
         return $this;
     }
 
+    /**
+     * Point this select at a blueprint subject by its registry key.
+     */
+    public function subject(string $key): static
+    {
+        $this->subjectKey = $key;
+
+        return $this;
+    }
+
+    /**
+     * The subject key this select filters blueprints by.
+     *
+     * Resolution is orphan-tolerant on purpose: a form must still render when
+     * the package owning the subject has been uninstalled, so an unregistered
+     * key falls through to itself rather than throwing mid-render.
+     */
     public function getBlueprint(): ?string
     {
-        if ($this->type instanceof BlueprintSubjectEnum) {
-            return $this->type->value;
+        if ($this->subjectKey === null) {
+            return null;
         }
 
-        return is_string($this->type) ? $this->type : null;
+        $descriptor = resolve(BlueprintSubjectRegistry::class)->descriptorOrNull($this->subjectKey);
+
+        // Written as an explicit ternary rather than `?->key ?? ...`: PHPStan's
+        // nullsafe-property-fetch rule misreads that shape as an always-non-null
+        // access on this exact array-lookup-derived type (confirmed nullable via
+        // \PHPStan\dumpType()) even though the method-call equivalent analyses
+        // correctly. This form is behaviourally identical and analyses clean.
+        return $descriptor !== null ? $descriptor->key : $this->subjectKey;
     }
 
     public function withCreateForm(): static

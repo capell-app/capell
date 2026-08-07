@@ -11,12 +11,40 @@ use Spatie\LaravelData\Data;
 
 final class PageTypeData extends Data implements HasLabel
 {
+    /**
+     * @param  class-string<Model>|null  $model  The model this type resolves to, or null
+     *                                           when the type cannot be resolved — see
+     *                                           {@see self::unavailableSubject()}. Every
+     *                                           type registered through
+     *                                           `registerPageType()` has a model; only
+     *                                           casts of orphaned rows produce null.
+     */
     public function __construct(
         public string $name,
-        /** @var class-string<Model> */
-        public string $model,
+        public ?string $model,
         public null|string|Closure $label = null,
     ) {}
+
+    /**
+     * A blueprint row whose subject no installed package registers.
+     *
+     * Uninstalling a package leaves its blueprint rows behind on purpose, so
+     * listing surfaces must be able to render them well enough for an operator
+     * to reinstall the package or delete the rows.
+     */
+    public static function unavailableSubject(string $key): self
+    {
+        return new self(
+            name: $key,
+            model: null,
+            label: __('capell::type.unavailable_subject', ['key' => $key]),
+        );
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->model !== null;
+    }
 
     public function getLabel(): string
     {

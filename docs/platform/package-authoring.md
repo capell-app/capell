@@ -2,6 +2,10 @@
 
 Capell treats package authoring as a platform surface, not a side effect of Laravel auto-discovery. A package should declare what it owns in `capell.json`, route runtime work through provider buckets, and keep public output safe for anonymous users and cached HTML.
 
+A finished package appears to site owners on the admin Extensions page, with its declared metadata, health, and lifecycle controls:
+
+![Capell admin Extensions page listing installed packages with health and lifecycle controls](../images/generated/admin/admin-extensions-page.png)
+
 For the complete third-party path from scaffold through a rendering proof and
 Marketplace submission, read [Extension and theme development](../../packages/core/docs/extension-development.md).
 
@@ -22,9 +26,9 @@ Interactive mode asks for the package name, scaffold profile, target directory, 
 `minimal` creates the smallest useful package:
 
 - Composer metadata and PSR-4 autoloading.
-- Manifest v3 with all provider buckets present and only the runtime bucket populated.
+- Manifest v3 with all provider buckets present.
 - A runtime provider extending `AbstractPackageServiceProvider`.
-- Translations, README, and a manifest/public-cache safety test.
+- Translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test.
 
 `full` creates live, harmless examples:
 
@@ -34,6 +38,8 @@ Interactive mode asks for the package name, scaffold profile, target directory, 
 - A working Layout Builder content widget with typed input and render Data objects.
 - Package-owned widget CSS and JavaScript assets.
 - Tests for manifest validity and provider bucket shape.
+
+Neither profile generates public-output safety tests, render hooks, or Actions, and the generated `TestCase` registers only your own provider — add `CapellServiceProvider` before testing anything that touches Capell. See [Standalone package harness](../packages/testing-packages.md#standalone-package-harness).
 
 ## Safety Rules
 

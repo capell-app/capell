@@ -162,6 +162,28 @@ it('parses the catalogue release contract for listing and detail payloads', func
         ->and($detail->includedWithCapellAll)->toBeTrue();
 });
 
+it('preserves server-supplied bundle and trial terms for listing and detail rendering', function (): void {
+    $payload = [
+        'slug' => 'growth-suite',
+        'name' => 'Growth Suite',
+        'composer_name' => 'capell-app/growth-suite',
+        'product' => ['bundle' => 'growth'],
+        'trial' => [
+            'label' => 'Try Growth Suite',
+            'duration_days' => 14,
+            'description' => 'Full suite access during the trial.',
+        ],
+    ];
+
+    $listing = ExtensionListingData::fromApiResponse($payload);
+    $detail = ExtensionDetailData::fromApiResponse($payload);
+
+    expect($listing->productBundle)->toBe('growth')
+        ->and($listing->trial)->toBe($payload['trial'])
+        ->and($detail->productBundle)->toBe('growth')
+        ->and($detail->trial)->toBe($payload['trial']);
+});
+
 it('fails closed for missing or unknown catalogue release metadata without reading the version', function (array $releaseMetadata): void {
     $payload = [
         'slug' => 'community-suite',

@@ -13,7 +13,7 @@ use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Blueprints\BlueprintResource;
 use Capell\Admin\Filament\Resources\Blueprints\Widgets\BlueprintsAlertsWidget;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Admin\Support\Blueprints\BlueprintSubjectOptions;
 use Capell\Core\Models\Blueprint;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -48,9 +48,14 @@ class ManageBlueprints extends ManageRecords implements ValidatesDelete
         $model = Blueprint::class;
 
         $blueprints = $model::getTypes();
+
         foreach ($blueprints as $type => $count) {
-            $label = BlueprintSubjectEnum::tryFrom($type)?->getLabel() ?? str($type)->headline()->toString();
-            $tabs[$type] = Tab::make($label)
+            // Rows whose subject is no longer registered survive an uninstall on
+            // purpose, so they get an unavailable-subject tab rather than being
+            // hidden. The owning package cannot be named for them: `blueprints`
+            // stores only the type string and the descriptor that carried
+            // `ownerPackage` left with the package.
+            $tabs[$type] = Tab::make(BlueprintSubjectOptions::label($type))
                 ->badge($count)
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('type', $type));
         }

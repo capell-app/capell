@@ -113,6 +113,8 @@ class RunMarketplaceHeartbeatAction
                     ],
                 );
 
+                NotifyMarketplaceCommercialWarningsAction::run($heartbeatResult->commercial ?? []);
+
                 RecordUpdateAdvisorySnapshotAction::run(
                     source: 'heartbeat',
                     payload: $heartbeatResult->toArray(),

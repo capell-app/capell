@@ -43,8 +43,14 @@ final class WidgetShowcaseComposerConsumer
 
     public static function create(): self
     {
+        // Canonical, because the consumer stands in for a release root and
+        // ReleaseRootWriteGuard refuses one reached through a symlink. On macOS
+        // sys_get_temp_dir() sits under /var, which is a link to /private/var.
+        $temporaryDirectory = realpath(sys_get_temp_dir());
+        throw_unless(is_string($temporaryDirectory), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
+
         $fixture = new self(
-            sys_get_temp_dir() . '/capell-widget-showcase-consumer-' . bin2hex(random_bytes(8)),
+            $temporaryDirectory . '/capell-widget-showcase-consumer-' . bin2hex(random_bytes(8)),
             new Filesystem,
         );
 

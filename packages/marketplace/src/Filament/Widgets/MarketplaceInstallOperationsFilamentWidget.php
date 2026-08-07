@@ -8,14 +8,18 @@ use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\ListMarketplaceInstallFlowSessionsAction;
 use Capell\Marketplace\Actions\ListMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\MarketplaceInstallFlowSessionTransitionAction;
 use Capell\Marketplace\Actions\ResumeMarketplaceInstallFlowAction;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
+use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
 use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Collection;
@@ -141,11 +145,11 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
                 ->body((string) __('capell-marketplace::marketplace.operations.flow_resumed_body'))
                 ->send();
         } catch (Throwable $throwable) {
-            Notification::make()
-                ->danger()
-                ->title((string) __('capell-marketplace::marketplace.operations.flow_resume_failed'))
-                ->body($throwable->getMessage())
-                ->send();
+            MarketplaceErrorPresenter::notification(
+                (string) __('capell-marketplace::marketplace.operations.flow_resume_failed'),
+                $throwable,
+                ['flow_session_id' => $sessionId],
+            )->send();
         }
 
         unset($this->operations, $this->flowSessions);
@@ -252,6 +256,31 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
         }
 
         return (string) __('capell-marketplace::marketplace.operations.flow_last_safe_actions.none');
+    }
+
+    /**
+     * A queued operation that no worker has claimed produces no error of its
+     * own — it just waits. Age is the only evidence, and it is recomputed on
+     * every poll so the callout appears the moment the threshold passes.
+     */
+    public function isAwaitingQueueWorker(MarketplaceInstallAttempt $attempt): bool
+    {
+        return $attempt->status === MarketplaceInstallIntentStatus::Queued
+            && FindStuckMarketplaceInstallOperationsAction::isQueuedStale($attempt);
+    }
+
+    /**
+     * The command with this installation's own connection and queue already in
+     * it, so the operator copies a fix instead of deriving one.
+     */
+    public function queueWorkerCommand(): string
+    {
+        return MarketplaceQueueWorkerCommand::forInstallation();
+    }
+
+    public function queueWorkerDocsPath(): string
+    {
+        return EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH . '#queue-worker';
     }
 
     public function canManagePackageOperations(): bool

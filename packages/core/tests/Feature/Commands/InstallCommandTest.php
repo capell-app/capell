@@ -331,7 +331,7 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
         ->andReturnSelf();
     $process
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(capellComposerTimeoutSeconds())
         ->andReturnSelf();
     $process
         ->shouldReceive('run')
@@ -352,7 +352,7 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
         ->shouldReceive('make')
         ->once()
         ->with(
-            Mockery::on(fn (array|string $command): bool => $command === ['composer', 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts']),
+            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']),
             Mockery::type('string'),
         )
         ->andReturnUsing(function () use ($beforeMake, $process): SymfonyProcess {

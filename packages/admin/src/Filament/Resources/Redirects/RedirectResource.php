@@ -88,13 +88,13 @@ class RedirectResource extends Resource
     #[Override]
     public static function getPluralModelLabel(): string
     {
-        return __('capell-admin::navigation.redirects');
+        return __('capell-admin::model_labels.redirects');
     }
 
     #[Override]
     public static function getModelLabel(): string
     {
-        return __('capell-admin::generic.redirect');
+        return __('capell-admin::model_labels.redirect');
     }
 
     #[Override]

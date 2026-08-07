@@ -24,7 +24,7 @@ function bindRemoveSetupPackageProcessFactory(): void
         ->andReturnSelf();
     $process
         ->shouldReceive('setTimeout')
-        ->with(300)
+        ->with(600)
         ->andReturnSelf();
     $process
         ->shouldReceive('run')
@@ -45,7 +45,7 @@ function bindRemoveSetupPackageProcessFactory(): void
         ->shouldReceive('make')
         ->once()
         ->with(
-            Mockery::on(fn (array|string $command): bool => $command === ['composer', 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts']),
+            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']),
             Mockery::type('string'),
         )
         ->andReturn($process);

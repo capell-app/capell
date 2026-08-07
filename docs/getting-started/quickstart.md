@@ -55,15 +55,16 @@ php artisan capell:install --demo --url=http://localhost:8000
 
 For a normal evaluation, accept the full foundation selection and the default theme. The installer asks for:
 
-| Prompt            | Local evaluation answer                            |
-| ----------------- | -------------------------------------------------- |
-| Package selection | All foundation packages                            |
-| Theme             | Default                                            |
-| Site URL          | `http://localhost:8000`                            |
-| Site name         | Any recognisable local name                        |
-| Administrator     | Create one with an email and strong local password |
-| Clear caches      | Yes                                                |
-| Welcome route     | Yes for a fresh demo application                   |
+| Prompt                             | Local evaluation answer                            |
+| ---------------------------------- | -------------------------------------------------- |
+| Package selection                  | All foundation packages                            |
+| Theme                              | Default                                            |
+| Site URL                           | `http://localhost:8000`                            |
+| Administrator                      | Create one with an email and strong local password |
+| Which caches would you like to clear? | Accept the preselected defaults                 |
+| Welcome route                      | Yes for a fresh demo application                   |
+
+The cache prompt is a multiselect of individual cache keys, not a yes/no question. Passing `--clear-cache` selects all of them and skips the prompt.
 
 The final output is part of the install contract. A healthy run ends in this order:
 

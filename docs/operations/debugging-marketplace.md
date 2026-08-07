@@ -2,7 +2,7 @@
 
 ![Capell package operations page](../images/generated/admin/package-operations.png)
 
-Use this when [Marketplace](../../packages/marketplace/docs/overview.md) account linking, public domain verification, catalogue browsing, install authorization, heartbeat, diagnostics, or update notices fail.
+Use this when [Marketplace](../../packages/marketplace/docs/overview.md) account linking, catalogue browsing, install authorization, heartbeat, diagnostics, or update notices fail.
 
 ![Marketplace extension detail overview](../images/generated/package-surfaces/marketplace-extension-detail-overview.png)
 
@@ -13,7 +13,6 @@ sequenceDiagram
     participant Admin
     participant CMS as Capell CMS
     participant App as Capell App
-    participant Public as Public Host
 
     Admin->>CMS: Connect account
     CMS->>App: Create account connection session
@@ -22,15 +21,8 @@ sequenceDiagram
     App->>CMS: Authenticated callback with code/state
     CMS->>App: Exchange code
     App-->>CMS: Instance ID and signing secret
-    Admin->>CMS: Verify public domain
-    CMS->>Public: Write challenge file
-    CMS->>App: Request verification
-    App->>Public: Fetch .well-known challenge
-    App-->>CMS: Verified instance/domain
     CMS->>App: Heartbeat and install authorization requests
 ```
-
-Account linking is the normal setup path. Public domain verification is a stronger production signal and requires a real public hostname.
 
 Premium grouped installs add a second hosted flow: CMS creates a local `marketplace_install_flow_sessions` row, Capell App handles login/checkout/entitlement work, then CMS exchanges the return code and queues local Package Operations only after final install authorization succeeds.
 
@@ -122,6 +114,61 @@ Direct `purchase_url` links are fallback-only for grouped installs. If the hoste
 
 The Package Operations modal includes hosted flow recovery rows. `Resume` re-runs the local final authorization and Composer queueing step for returned or recoverable failed sessions. `Expire` marks the flow session expired only; it does not cancel or edit existing Composer attempts.
 
+## Package Operation Recovery
+
+Start with the affected row in **Package Operations**. Copy its redacted diagnostics and record the operation, status, failure stage/type, Composer command, deployment reference, and last successful timeline event before changing anything.
+
+### No Marketplace worker
+
+Marketplace jobs use a named queue. Run the exact command reported by readiness; the default is:
+
+```bash
+php artisan queue:work --queue=capell-marketplace
+```
+
+Keep the worker supervised. Confirm its heartbeat appears and that the queue connection's `retry_after` is greater than the Marketplace job timeout. See [Marketplace hosting](marketplace-hosting.md#queue-worker).
+
+### `proc_open` or Composer is unavailable
+
+Do not extend the browser timeout or bypass readiness. Enable process execution and configure PHP/Composer for the worker, register a deployment publisher, or run the operation manually from the application root:
+
+```bash
+composer require vendor/package
+php artisan package:discover
+php artisan capell:extension-install vendor/package
+php artisan capell:runtime-refresh
+php artisan optimize:clear
+```
+
+For removal, use `composer remove vendor/package` after the extension's uninstall lifecycle has completed. On an immutable release, apply these Composer changes during the build and deploy a new artifact.
+
+### Cancelled after Composer or lifecycle
+
+`cancelled_after_composer` means the package files changed before cancellation was observed. For an install, inspect `composer show`, package discovery, and extension lifecycle state before retrying. For an uninstall, Composer may already have removed the package. `cancelled_after_lifecycle` means extension teardown already ran but package files remain; reinstall the extension to restore its registrations before deciding whether to uninstall again.
+
+### Half-installed package
+
+Compare all three sources of truth: Composer (`composer show vendor/package`), the Capell extension registry, and the operation timeline. If Composer succeeded but discovery/lifecycle did not, run:
+
+```bash
+php artisan package:discover
+php artisan capell:extension-install vendor/package
+php artisan capell:runtime-refresh
+php artisan optimize:clear
+```
+
+Then run `php artisan capell:doctor` and retry only if the package state is coherent. Do not repeatedly queue Composer against an unknown partial state.
+
+### Rollback and health checks
+
+Failed operations restore Composer files where the failure boundary permits, reload package discovery, and run a fresh-process boot check plus the configured HTTP probe. A rollback does **not** undo a database migration that already ran. A `schema_ahead_of_code` result requires package-specific database recovery or a compatible code release; never assume restoring `composer.lock` restored the schema.
+
+If the rollback or health check fails, keep the site in maintenance/incident handling, inspect the recorded excerpts and application logs, and deploy a known compatible release before marking the operation resolved.
+
+### Stale Composer authentication files
+
+Marketplace uses temporary Composer authentication directories and sweeps abandoned ones before later installs. Doctor reports stale files. If no install will run soon, confirm no package operation is active, then remove only the reported abandoned Marketplace auth directories. Never delete the application's normal Composer credentials.
+
 For repeatable local lifecycle checks, use the Marketplace QA command:
 
 ```bash
@@ -139,41 +186,16 @@ npm run test:marketplace-install-flow
 
 Useful environment overrides: `CAPELL_MARKETPLACE_SMOKE_CMS_URL`, `CAPELL_MARKETPLACE_SMOKE_APP_URL`, `CAPELL_MARKETPLACE_SMOKE_ADMIN_EMAIL`, `CAPELL_MARKETPLACE_SMOKE_ADMIN_PASSWORD`, `CAPELL_MARKETPLACE_SMOKE_APP_EMAIL`, `CAPELL_MARKETPLACE_SMOKE_APP_PASSWORD`, and `CAPELL_MARKETPLACE_SMOKE_EXTENSION`.
 
-## Public Domain Verification
-
-```sql
-select domain, challenge_id, challenge_path, status, expires_at, last_error
-from marketplace_registration_sessions
-order by id desc
-limit 5;
-```
-
-Fetch the exact public challenge URL:
-
-```bash
-curl -i https://your-domain/.well-known/capell/marketplace/chal_EXAMPLE
-```
-
-Expected result: `200 OK`, `Content-Type: text/plain`, and the stored challenge token body.
-
-Common blockers:
-
-- `www.example.com` was entered but `example.com` is being fetched, or the reverse.
-- The challenge route is behind auth, maintenance mode, or a CDN rule.
-- Static file handling bypasses Laravel/public files incorrectly.
-- The session expired.
-- The domain is local-only, such as `.test`, `.localhost`, `localhost`, `127.*`, or an IP address.
-
 ## Catalogue And Install Authorization
 
 ```sql
-select instance_id, connection_mode, account_email, verified_domains, last_heartbeat_at
+select instance_id, connection_mode, account_email, last_heartbeat_at
 from marketplace_instances
 order by last_heartbeat_at desc
 limit 5;
 ```
 
-Browsing the catalogue only proves the catalogue endpoint works. Installing also needs a connected instance, entitlement/licence state, domain policy, and local platform compatibility.
+Browsing the catalogue only proves the catalogue endpoint works. Installing also needs a connected instance, entitlement/licence state, and local platform compatibility.
 
 Check local package versions:
 
@@ -222,22 +244,6 @@ it('fails account connection when app url has no host', function (): void {
 })->throws(RuntimeException::class, 'APP_URL must include a valid host');
 ```
 
-### Challenge Route
-
-```php
-it('serves only matching pending challenge domains', function (): void {
-    MarketplaceRegistrationSession::factory()->create([
-        'domain' => 'example.com',
-        'challenge_id' => 'chal_TEST',
-        'challenge_token' => 'secret-token',
-    ]);
-
-    $this->get('https://example.com/.well-known/capell/marketplace/chal_TEST')
-        ->assertOk()
-        ->assertSee('secret-token');
-});
-```
-
 ### Heartbeat
 
 ```php
@@ -252,5 +258,6 @@ it('does not phone home without a connected instance', function (): void {
 ## Next
 
 - [Marketplace package overview](../../packages/marketplace/docs/overview.md)
+- [Marketplace hosting](marketplace-hosting.md)
 - [Operations troubleshooting](troubleshooting.md)
 - [Extension troubleshooting](../packages/extension-troubleshooting.md)

@@ -66,6 +66,7 @@ use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
+use Capell\Frontend\Support\Assets\ActivityBeaconResourceContributor;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
 use Capell\Frontend\Support\Assets\CoreFrontendRuntimeContributor;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
@@ -157,6 +158,7 @@ use Capell\Frontend\Support\Themes\FrontendThemePreviewRenderer;
 use Capell\Frontend\Support\Themes\ThemeTokenHeadCloseHook;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
+use Capell\Frontend\View\Components\Layout as FrontendLayout;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Schedule;
@@ -368,6 +370,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         parent::registeringPackage();
 
+        Blade::component(FrontendLayout::class, 'capell::layout');
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
     }
@@ -432,7 +435,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
         $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
         $this->app->scoped(ThemeMetaAssetContributor::class);
-        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
+        $this->app->tag([ActivityBeaconResourceContributor::class, CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
     }
 
     private function registerCacheInvalidationBindings(): void

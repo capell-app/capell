@@ -2,12 +2,20 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
+use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
+use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
+use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
@@ -255,4 +263,94 @@ it('runs lifecycle qa through the install attempt pipeline and reports composer 
     expect(MarketplaceInstallAttempt::query()
         ->where('composer_name', 'capell-app/second-free-tool')
         ->exists())->toBeFalse();
+});
+
+it('runs a complete install uninstall and data deletion lifecycle through the qa command', function (): void {
+    LifecycleRecorderAction::reset();
+    $packageName = 'capell-app/marketplace-lifecycle-qa-fixture';
+    $packagePath = sys_get_temp_dir() . '/capell-marketplace-lifecycle-qa-' . uniqid();
+
+    File::ensureDirectoryExists($packagePath);
+    File::put($packagePath . '/composer.json', json_encode([
+        'name' => $packageName,
+        'autoload' => ['psr-4' => []],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: $packageName,
+        surfaces: ['shared'],
+        overrides: [
+            'kind' => 'plugin',
+            'displayName' => 'Marketplace Lifecycle QA Fixture',
+            'actions' => [
+                'install' => LifecycleRecorderAction::class,
+                'uninstall' => LifecycleRecorderAction::class,
+            ],
+        ],
+    ), $packagePath);
+    File::put($packagePath . '/capell.json', json_encode(
+        $manifest->toArray(),
+        JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+    ));
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [[
+                'slug' => 'marketplace-lifecycle-qa-fixture',
+                'name' => 'Marketplace Lifecycle QA Fixture',
+                'composer_name' => $packageName,
+                'kind' => 'plugin',
+                'price_cents' => 0,
+                'is_paid' => false,
+                'latest_version' => '1.0.0',
+            ]],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    app()->instance(MarketplaceComposerRunner::class, new readonly class($manifest) implements MarketplaceComposerRunner
+    {
+        public function __construct(private CapellManifestData $manifest) {}
+
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            CapellCore::registerManifestPackage($this->manifest);
+
+            return new MarketplaceComposerResultData(0, 'Package installed.', '');
+        }
+    });
+
+    app()->instance(RunPostOperationHealthCheckAction::class, new class
+    {
+        public function handle(int $budgetSeconds): MarketplaceHealthCheckResultData
+        {
+            unset($budgetSeconds);
+
+            return new MarketplaceHealthCheckResultData(
+                MarketplaceHealthProbeOutcome::Passed,
+                MarketplaceHealthProbeOutcome::Passed,
+            );
+        }
+    });
+
+    try {
+        $exitCode = Artisan::call('marketplace:qa:extensions-lifecycle', [
+            '--json' => true,
+            '--only' => $packageName,
+        ]);
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    $attempts = MarketplaceInstallAttempt::query()->orderBy('id')->get();
+
+    expect($exitCode)->toBe(0)
+        ->and($attempts)->toHaveCount(2)
+        ->and($attempts->pluck('operation')->all())->toBe([
+            MarketplaceOperationType::Install,
+            MarketplaceOperationType::Uninstall,
+        ])
+        ->and($attempts->every(fn (MarketplaceInstallAttempt $attempt): bool => $attempt->status === MarketplaceInstallIntentStatus::Succeeded))->toBeTrue()
+        ->and(LifecycleRecorderAction::$calls)->toHaveCount(2)
+        ->and(CapellCore::getPackage($packageName)?->isInstalled())->toBeFalse();
 });

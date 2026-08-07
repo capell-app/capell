@@ -39,6 +39,8 @@ return [
     'preview_changes' => 'Will change',
     'preview_unchanged' => 'Unchanged',
     'preview_blocked' => 'Blocked',
+    'outcome_changed' => 'The publication change was saved.',
+    'outcome_already-correct' => 'Already in that state, so nothing changed.',
     'outcome_unauthorized' => 'You do not have permission to update this record.',
     'outcome_invalid-transition' => 'The requested publication change is not valid for this record.',
     'outcome_failed' => 'The publication change could not be saved.',

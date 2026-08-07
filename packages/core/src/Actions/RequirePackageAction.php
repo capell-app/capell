@@ -6,7 +6,9 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -21,6 +23,10 @@ class RequirePackageAction
      * @var callable|null
      */
     private static $processFactory;
+
+    public function __construct(
+        private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
+    ) {}
 
     /**
      * Set a custom process factory (for testing).
@@ -53,11 +59,12 @@ class RequirePackageAction
         }
 
         $this->guardVersionConstraint($name);
+        $this->assertReleaseRootWritable();
 
         $env = $this->prepareComposerAuthEnv($token, $provider, $domain);
 
         $processFactory = self::$processFactory ?? fn (array $args, string $cwd, ?array $env): Process => new Process($args, $cwd, $env);
-        $process = $processFactory(['composer', 'require', $name], base_path(), $env);
+        $process = $processFactory([...new RuntimeBinaryResolver()->composer(), 'require', $name], base_path(), $env);
         $process->setTimeout(300);
         $process->disableOutput();
 
@@ -138,6 +145,24 @@ class RequirePackageAction
             $pkg,
             $env === '' ? 'production' : $env,
         ));
+    }
+
+    /**
+     * RepairComposerDrift reaches this action at runtime, so it writes
+     * composer.json, composer.lock and vendor/ into whatever release root the
+     * host is running from — the same write the Marketplace install path already
+     * refuses on an immutable or atomically symlinked release.
+     *
+     * requiresServerSideTooling stays false for the same reason it does on the
+     * removal: that flag gates the Marketplace's unattended installs, not a
+     * repair an operator triggers directly.
+     */
+    private function assertReleaseRootWritable(): void
+    {
+        $this->releaseRootWriteGuard->assertWritable(
+            operation: 'Installing a package with Composer',
+            relativePaths: ['composer.json', 'composer.lock', 'vendor'],
+        );
     }
 
     /**

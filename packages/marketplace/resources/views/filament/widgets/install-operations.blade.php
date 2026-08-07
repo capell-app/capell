@@ -331,6 +331,26 @@
                                     </div>
                                 </dl>
 
+                                @if ($this->isAwaitingQueueWorker($operation))
+                                    <div
+                                        data-capell-marketplace-queued-stale="{{ $operation->getKey() }}"
+                                        role="status"
+                                        class="space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30"
+                                    >
+                                        <p>{{ __('capell-marketplace::marketplace.operations.queued_stale_body') }}</p>
+
+                                        <pre
+                                            data-capell-marketplace-queue-worker-command
+                                            class="overflow-x-auto rounded-md bg-gray-950 p-2 text-xs text-gray-100"
+                                            >{{ $this->queueWorkerCommand() }}</pre
+                                        >
+
+                                        <p data-capell-marketplace-queue-worker-docs>
+                                            {{ __('capell-marketplace::marketplace.operations.queued_stale_docs', ['path' => $this->queueWorkerDocsPath()]) }}
+                                        </p>
+                                    </div>
+                                @endif
+
                                 @if ($operation->failure_reason)
                                     <p class="bg-danger-50 text-danger-700 dark:bg-danger-500/10 dark:text-danger-300 rounded-lg px-3 py-2 text-sm">
                                         {{ $operation->failure_reason }}

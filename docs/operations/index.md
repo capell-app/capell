@@ -4,12 +4,14 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 
 | I need to...                                | Read                                              |
 | ------------------------------------------- | ------------------------------------------------- |
+| Put a new install on a public domain        | [Going live](going-live.md)                       |
 | Check whether the site is ready for traffic | [Site Health](site-health.md)                     |
 | Back up or restore data                     | [Backups and restore](backups.md)                 |
 | Block public traffic during an incident     | [Lockdown](lockdown.md)                           |
 | Upgrade packages and plan rollback          | [Upgrades](upgrading.md)                          |
 | Diagnose an installed site                  | [Troubleshooting](troubleshooting.md)             |
 | Debug Marketplace connection or installs    | [Debugging Marketplace](debugging-marketplace.md) |
+| Prepare a host for Marketplace operations   | [Marketplace hosting](marketplace-hosting.md)      |
 | Plan a reversible migration away            | [Export and exit plan](export-and-exit.md)        |
 | Configure nginx/Apache or scale to >1 node  | [Web server configuration](web-server.md)         |
 | Make public and dynamic requests faster     | [Making Capell fast](making-capell-fast.md)       |
@@ -94,7 +96,7 @@ Use the [export and exit plan](export-and-exit.md) to inventory portable data, c
 
 ## Marketplace
 
-Marketplace account linking is the normal setup path. Public domain verification is only needed when Marketplace policy requires a stronger production trust signal.
+Marketplace account linking establishes the site identity used for protected installs and update access.
 
 Useful checks:
 
@@ -110,9 +112,7 @@ The default Marketplace API URL is:
 CAPELL_MARKETPLACE_URL=https://capell.app/api/v1
 ```
 
-If verification fails, check the exact domain, public challenge URL, redirects/auth middleware/CDN rules, and the latest Marketplace registration row. Local hosts such as `.test`, `.localhost`, and `127.0.0.1` can be account-linked but cannot be publicly verified unless exposed through a real public hostname.
-
-Use the [Marketplace package overview](../../packages/marketplace/docs/overview.md) for account connection, verification, heartbeat, cache, and install-authorization details. Use [Troubleshooting](troubleshooting.md) for copy-paste checks.
+Use the [Marketplace package overview](../../packages/marketplace/docs/overview.md) for account connection, heartbeat, cache, and install-authorization details. Use [Marketplace hosting](marketplace-hosting.md) for capability tiers and remediation, and [Troubleshooting](troubleshooting.md) for copy-paste checks.
 
 For deeper Marketplace incidents, use [Debugging Marketplace](debugging-marketplace.md).
 

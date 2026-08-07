@@ -8,6 +8,16 @@ on:
     tags:
       - '*'
 
+env:
+  # Testbench builds the skeleton environment from its own .env.example whenever
+  # the workbench directory holds no environment file, and that file ships
+  # CACHE_STORE=database. `testbench optimize` then has laravel-data write its
+  # cached structures into a `cache` table the in-memory sqlite connection has
+  # never migrated. Test All pins the same three drivers for the same reason.
+  CACHE_STORE: array
+  QUEUE_CONNECTION: sync
+  SESSION_DRIVER: array
+
 jobs:
   generate-coverage:
     name: Generate coverage

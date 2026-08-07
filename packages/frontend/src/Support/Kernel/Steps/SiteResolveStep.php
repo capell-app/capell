@@ -70,7 +70,12 @@ final class SiteResolveStep
                     }
 
                     $target = $scheme . '://' . $host;
-                    if ($prefix !== '') {
+
+                    // Only prepend the prefix when the request is not already inside it.
+                    // A request such as /showcase/missing-page under a default domain with
+                    // path /showcase would otherwise be sent to /showcase/showcase/missing-page,
+                    // which re-enters this step and redirects forever.
+                    if ($prefix !== '' && ! $this->pathIsWithin($path, $prefix)) {
                         $target .= $prefix;
                     }
 
@@ -106,5 +111,15 @@ final class SiteResolveStep
         }
 
         return $next($work);
+    }
+
+    /**
+     * Whether the request path already sits inside the given prefix.
+     *
+     * Matching is segment-aware so that a prefix of /en does not swallow /english.
+     */
+    private function pathIsWithin(string $path, string $prefix): bool
+    {
+        return $path === $prefix || str_starts_with($path, $prefix . '/');
     }
 }

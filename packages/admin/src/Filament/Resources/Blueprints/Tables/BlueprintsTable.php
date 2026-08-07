@@ -53,6 +53,12 @@ class BlueprintsTable implements TableConfigurator
                         continue;
                     }
 
+                    // An unavailable subject has no model to count rows against;
+                    // its blueprints still list, just without a usage count.
+                    if ($type->model === null) {
+                        continue;
+                    }
+
                     /** @var Model $model */
                     $model = resolve($type->model);
                     $table = $model->getTable();

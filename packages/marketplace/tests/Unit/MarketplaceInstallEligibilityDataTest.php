@@ -53,3 +53,23 @@ it('interprets purchase activation incompatible and missing policy states', func
     'incompatible' => ['incompatible', MarketplaceInstallState::Incompatible, null],
     'missing policy' => [null, MarketplaceInstallState::Blocked, 'missing_policy'],
 ]);
+
+it('survives its own round trip through toArray', function (): void {
+    // The catalogue serialises this object into every record and reads it back
+    // out on the next pass. toArray() emits camelCase, so a fromPayload() that
+    // only understood snake_case silently turned canInstall and canUpdate into
+    // false — and the Update button could never appear for a free extension.
+    $eligibility = new MarketplaceInstallEligibilityData(
+        state: MarketplaceInstallState::FreeAvailable,
+        canInstall: true,
+        canUpdate: true,
+        canRunExisting: true,
+    );
+
+    $roundTripped = MarketplaceInstallEligibilityData::fromPayload($eligibility->toArray());
+
+    expect($roundTripped->state)->toBe(MarketplaceInstallState::FreeAvailable)
+        ->and($roundTripped->canInstall)->toBeTrue()
+        ->and($roundTripped->canUpdate)->toBeTrue()
+        ->and($roundTripped->canRunExisting)->toBeTrue();
+});

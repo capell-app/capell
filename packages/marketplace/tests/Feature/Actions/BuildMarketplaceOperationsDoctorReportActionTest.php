@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 
@@ -43,6 +46,31 @@ it('reports stuck and unresolved failed operations without exposing package diag
         ->and($payload)->not->toContain('private token value');
 });
 
+it('lets only a critical failure decide the report status', function (): void {
+    config()->set('queue.connections.database.retry_after', 900);
+
+    MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/failed-package',
+        'extension_slug' => 'failed-package',
+        'extension_name' => 'Failed Package',
+        'kind' => 'tool',
+        'status' => MarketplaceInstallIntentStatus::Failed,
+        'failure_type' => 'unknown',
+        'failure_stage' => 'composer',
+        'completed_at' => now(),
+    ]);
+
+    $report = BuildMarketplaceOperationsDoctorReportAction::run(staleAfterMinutes: 15);
+    $failedCheck = $report->checks->firstWhere('id', 'marketplace.operations.failed');
+
+    // Unresolved failed operations need an operator, so the check declares
+    // itself critical instead of relying on an aggregate that ignores severity.
+    expect($failedCheck?->severity)->toBe(DoctorCheckSeverity::Critical)
+        ->and($failedCheck?->isCriticalFailure())->toBeTrue()
+        ->and($failedCheck?->remediation)->not->toBeNull()
+        ->and($report->status)->toBe('failed');
+});
+
 it('fails when queue retry_after can make a long operation run twice', function (): void {
     config()->set('queue.connections.database.retry_after', 90);
 
@@ -55,4 +83,25 @@ it('fails when queue retry_after can make a long operation run twice', function 
             'retry_after_seconds' => 90,
             'job_timeout_seconds' => 720,
         ]);
+});
+
+it('reports the host install capability without failing a manual-only host', function (): void {
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::ManualOnly);
+
+    $check = BuildMarketplaceOperationsDoctorReportAction::run()
+        ->checks
+        ->firstWhere('id', 'marketplace.operations.environment-readiness');
+
+    expect($check?->passed)->toBeTrue()
+        ->and($check?->evidence['capability'])->toBe(MarketplaceInstallCapability::ManualOnly->value)
+        ->and($check?->evidence['docs_path'])->toBe(EvaluateMarketplaceEnvironmentReadinessAction::DOCS_PATH);
+});
+
+it('fails the report when the host is blocked', function (): void {
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Blocked);
+
+    $report = BuildMarketplaceOperationsDoctorReportAction::run();
+
+    expect($report->status)->toBe('failed')
+        ->and($report->checks->firstWhere('id', 'marketplace.operations.environment-readiness')?->passed)->toBeFalse();
 });

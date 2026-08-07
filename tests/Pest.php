@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Admin\Tests\AdminTestCase;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Core\Tests\CoreTestCase;
 use Capell\Frontend\Tests\FrontendTestCase;
 use Capell\Installer\Tests\InstallerTestCase;
+use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
+use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
+use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Tests\MarketplaceTestCase;
 use Capell\Tests\PackagesTestCase;
 use Illuminate\Contracts\Support\Htmlable;
@@ -26,6 +32,99 @@ pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/test
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests', '../Packages/frontend/tests');
 pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests', '../Packages/installer/tests');
 pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests', '../Packages/marketplace/tests');
+
+/**
+ * The Composer invocation this host actually uses.
+ *
+ * Composer commands are argv arrays built from RuntimeBinaryResolver, so a test
+ * that pins the literal string "composer" pins the resolver's answer on one
+ * machine. Asking the resolver keeps the assertion about the command shape.
+ *
+ * @return list<string>
+ */
+function capellComposerArgv(): array
+{
+    return new RuntimeBinaryResolver()->composer();
+}
+
+/**
+ * Compare a JSON-cast attribute without depending on its key order.
+ *
+ * MySQL's native JSON type does not store a document verbatim: it parses to a
+ * binary form that orders object keys by length and then lexicographically.
+ * SQLite stores JSON as text and hands the insertion order back. A `toBe` on a
+ * round-tripped JSON column therefore asserts a key order that only one of the
+ * two engines produces, and no application behaviour depends on.
+ *
+ * Keys are sorted recursively; list order is left alone, because a JSON array
+ * does preserve its order on every engine and is often a real contract.
+ *
+ * @param  array<array-key, mixed>  $value
+ * @return array<array-key, mixed>
+ */
+function capellJsonKeysSorted(array $value): array
+{
+    $sorted = array_map(
+        static fn (mixed $item): mixed => is_array($item) ? capellJsonKeysSorted($item) : $item,
+        $value,
+    );
+
+    if (! array_is_list($sorted)) {
+        ksort($sorted);
+    }
+
+    return $sorted;
+}
+
+/**
+ * The Composer run timeout this host actually uses.
+ *
+ * Composer runs take their budget from `capell.process.composer.timeout_seconds`,
+ * which an operator may tune. Pinning the literal default would pass here and
+ * fail on any host that had set CAPELL_COMPOSER_TIMEOUT_SECONDS, so ask for the
+ * configured value and keep the assertion about the budget being applied.
+ */
+function capellComposerTimeoutSeconds(): int
+{
+    $configured = config('capell.process.composer.timeout_seconds', 600);
+
+    return is_numeric($configured) && (int) $configured > 0 ? (int) $configured : 600;
+}
+
+/**
+ * Declare the host a Marketplace test assumes.
+ *
+ * Environment readiness probes the machine the suite happens to run on — a test
+ * runner's release root can sit behind a symlink, and server-side tooling is off
+ * by default — so a test about per-attempt behaviour has to state the host it
+ * assumes rather than inherit the runner's.
+ */
+function fakeMarketplaceEnvironmentReadiness(
+    MarketplaceInstallCapability $capability = MarketplaceInstallCapability::Automated,
+    MarketplaceReadinessStatus $processExecutionStatus = MarketplaceReadinessStatus::Pass,
+): MarketplaceEnvironmentReadinessData {
+    $readiness = new MarketplaceEnvironmentReadinessData(
+        capability: $capability,
+        checks: [
+            new MarketplaceReadinessCheckData(
+                key: 'process_execution',
+                status: $processExecutionStatus,
+                message: 'Process execution readiness for this test host.',
+                remediation: $processExecutionStatus === MarketplaceReadinessStatus::Pass
+                    ? null
+                    : 'Remove proc_open from disable_functions in php.ini.',
+                docsAnchor: $processExecutionStatus === MarketplaceReadinessStatus::Pass
+                    ? null
+                    : 'process-execution',
+                byDesign: $processExecutionStatus === MarketplaceReadinessStatus::Fail,
+            ),
+        ],
+    );
+
+    bindFakeAction(EvaluateMarketplaceEnvironmentReadinessAction::class, $readiness);
+
+    return $readiness;
+}
 
 /**
  * Bind a fake for a final action class into the Laravel container.

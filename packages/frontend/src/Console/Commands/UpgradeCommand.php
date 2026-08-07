@@ -37,7 +37,7 @@ class UpgradeCommand extends Command
             return self::FAILURE;
         }
 
-        $schemaMigrationExitCode = $this->call('migrate');
+        $schemaMigrationExitCode = $this->call('migrate', ['--force' => true]);
 
         if ($schemaMigrationExitCode !== self::SUCCESS) {
             $this->error(__('capell-frontend::messages.frontend_schema_migrations_failed'));

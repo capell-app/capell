@@ -32,6 +32,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -740,6 +741,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         $compatibilityDetails = resolve(VersionCompatibilityChecker::class)->compatibilityDetails($extension);
         $purchaseUrl = $this->trustedUrlPolicy->trusted($extension->purchaseUrl);
         $isCompatible = ! in_array('incompatible', $compatibilityDetails, true);
+        $hasUpdateAvailable = $includeLocalExtensionState
+            && $this->hasUpdateAvailable($installedVersion, $extension->latestVersion);
         $activeInstallOperation = $includeLocalExtensionState
             ? $this->activeInstallOperation($extension->composerName)
             : null;
@@ -759,6 +762,9 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'product_group' => $extension->productGroup,
             'product_tier' => $extension->productTier,
             'product_bundle' => $extension->productBundle,
+            'bundle_label' => $extension->productBundle !== null
+                ? (string) __('capell-marketplace::marketplace.suites.bundle_badge', ['bundle' => str($extension->productBundle)->headline()])
+                : null,
             'catalogue_role' => $extension->catalogueRole,
             'maturity' => $extension->maturity,
             'maturity_label' => $extension->maturityLabel,
@@ -769,7 +775,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'image_url' => $this->marketplaceImageUrl($extension->imageUrl),
             'image_urls' => $this->marketplaceImageUrls($extension->imageUrls),
             'price_cents' => $extension->priceCents,
+            'currency' => $extension->currency,
             'price_label' => $this->priceLabel($extension),
+            'trial' => $extension->trial,
+            'trial_label' => $this->trialLabel($extension->trial),
             'is_paid' => $extension->isPaid,
             'is_featured' => $extension->isFeatured,
             'featured_rank' => $extension->featuredRank,
@@ -786,7 +795,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'ratings_count_label' => $this->ratingsCountLabel($extension->ratingsCount),
             'is_installed' => $isInstalled,
             'installed_version' => $installedVersion,
-            'has_update_available' => $includeLocalExtensionState && $this->hasUpdateAvailable($installedVersion, $extension->latestVersion),
+            'has_update_available' => $hasUpdateAvailable,
             'documentation_url' => $this->trustedUrlPolicy->trusted($extension->documentationUrl),
             'purchase_url' => $purchaseUrl,
             'requires_confirmation' => $extension->requiresConfirmation,
@@ -810,6 +819,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'is_compatible' => $isCompatible,
             'compatibility_warnings' => $this->compatibilityWarnings($compatibilityDetails),
             'activation_required' => $extension->activationRequired,
+            'server_install_state' => $extension->installState,
             'install_authorized' => $extension->installAuthorized,
             'install_eligibility_policy' => $eligibility->toArray(),
             'install_in_progress' => $activeInstallOperation instanceof MarketplaceInstallAttempt,
@@ -818,6 +828,12 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'primary_action' => $extension->primaryAction,
             'marketplace_install_state' => $this->installActionPresenter->state([
                 'is_installed' => $isInstalled,
+                // Without this the presenter can never see an update from here:
+                // it short-circuits an installed record to Installed unless the
+                // key is present, so the persisted state collapsed and every
+                // consumer of marketplace_install_state was blind to
+                // UpdateAvailable.
+                'has_update_available' => $hasUpdateAvailable,
                 'is_compatible' => $isCompatible,
                 'is_paid' => $extension->isPaid,
                 'marketplace_install_state' => $extension->installState,
@@ -867,7 +883,23 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             return (string) __('capell-marketplace::marketplace.install.free');
         }
 
-        return '$' . number_format($extension->priceCents / 100, 2);
+        return (string) Number::currency($extension->priceCents / 100, $extension->currency);
+    }
+
+    /** @param array<string, mixed> $trial */
+    private function trialLabel(array $trial): ?string
+    {
+        $label = $trial['label'] ?? null;
+
+        if (is_string($label) && $label !== '') {
+            return $label;
+        }
+
+        $days = $trial['days'] ?? $trial['duration_days'] ?? null;
+
+        return is_numeric($days) && (int) $days > 0
+            ? trans_choice('capell-marketplace::marketplace.suites.trial_days', (int) $days, ['count' => (int) $days])
+            : null;
     }
 
     private function isFreeProductTier(ExtensionListingData $extension): bool

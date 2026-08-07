@@ -38,6 +38,8 @@ Treat red checks as release blockers. Treat amber checks as deployment risks tha
 
 **Server checks** cover the Laravel and filesystem basics Site Health can inspect locally: `APP_URL`, `APP_KEY`, `APP_ENV`, `APP_DEBUG`, cache store, session driver, queue connection, scheduler visibility, database-backed cache and queue tables, failed-jobs table, trusted proxy config, writable `storage`, and writable `bootstrap/cache`.
 
+A failing trusted proxy check on a site behind a CDN or load balancer means Laravel is reading the proxy's address and scheme instead of the visitor's, which breaks generated HTTPS URLs and collapses every visitor into one IP for rate limiting. Fix it in `bootstrap/app.php` — see [Behind a proxy or CDN](going-live.md#behind-a-proxy-or-cdn).
+
 ## Screenshot coverage
 
 The Site Health page is included in the admin screenshot manifest as `site-health-page`. Regenerate admin screenshots after UI changes so the operations docs show the current cache table and health sections:

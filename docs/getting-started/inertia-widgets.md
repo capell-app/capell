@@ -1,7 +1,5 @@
 # Inertia Widgets
 
-![Capell Inertia Widgets screenshot](../images/capell-readme-banner.jpg)
-
 Inertia widgets use the same Capell widget registry as Blade and Livewire widgets. The difference is the target: an Inertia widget registers a server component name that the active Vue or React adapter can resolve.
 
 ## Register An Inertia Widget

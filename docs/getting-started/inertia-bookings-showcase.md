@@ -1,7 +1,5 @@
 # Inertia Bookings Showcase
 
-![Capell Inertia Bookings Showcase screenshot](../images/capell-readme-banner.jpg)
-
 `capell-app/theme-inertia-bookings` is the first full Inertia theme slice. It shows how a premium booking-business theme can render Capell marketing pages through Inertia and link into the real Bookings appointment request flow.
 
 The theme is for service businesses, clinics, consultants, classes, and appointment-led sites. It does not add theme-owned booking models, migrations, or admin resources.

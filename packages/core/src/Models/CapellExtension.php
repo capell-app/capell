@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Enums\ExtensionAutoUpdatePolicyEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Carbon\CarbonImmutable;
@@ -31,6 +32,7 @@ use Override;
  * @property array<string, mixed>|null $marketplace_signed_activation
  * @property ?CarbonImmutable $marketplace_activation_checked_at
  * @property ?string $marketplace_runtime_reason
+ * @property ExtensionAutoUpdatePolicyEnum $auto_update_policy
  */
 class CapellExtension extends Model
 {
@@ -58,6 +60,7 @@ class CapellExtension extends Model
         'marketplace_signed_activation',
         'marketplace_activation_checked_at',
         'marketplace_runtime_reason',
+        'auto_update_policy',
     ];
 
     #[Override]
@@ -80,6 +83,7 @@ class CapellExtension extends Model
     {
         return [
             'status' => ExtensionStatusEnum::class,
+            'auto_update_policy' => ExtensionAutoUpdatePolicyEnum::class,
             'enabled_at' => 'immutable_datetime',
             'disabled_at' => 'immutable_datetime',
             'failed_at' => 'immutable_datetime',

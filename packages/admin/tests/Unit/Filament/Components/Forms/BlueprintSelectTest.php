@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\BlueprintSelect as BaseBlueprintSelect;
+use Capell\Admin\Filament\Components\Forms\Page\BlueprintSelect as PageBlueprintSelect;
 use Capell\Admin\Filament\Components\Forms\Site\BlueprintSelect as SiteBlueprintSelect;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Fixtures\Livewire;
@@ -36,6 +37,26 @@ it('resolves the default blueprint for the current subject through admin form st
     expect($component->getBlueprint())->toBe(BlueprintSubjectEnum::Site->value)
         ->and($component->getDefaultState())->toBe($selectedBlueprint->getKey())
         ->and(StringTypedBlueprintSelectForTest::make('custom_blueprint')->getBlueprint())->toBe('custom');
+});
+
+it('points the shared select at any subject key, degrading when it is unregistered', function (): void {
+    $component = BaseBlueprintSelect::make('blueprint_id');
+
+    expect($component->getBlueprint())->toBeNull()
+        ->and($component->subject(BlueprintSubjectEnum::Theme->getKey())->getBlueprint())
+        ->toBe(BlueprintSubjectEnum::Theme->value)
+        ->and($component->subject('structured-content.collection')->getBlueprint())
+        ->toBe('structured-content.collection');
+});
+
+it('adds the system blueprint group only when the subject descriptor allows it', function (): void {
+    $pageSelect = PageBlueprintSelect::make('blueprint_id');
+    $siteScopedSelect = PageBlueprintSelect::make('blueprint_id')->subject(BlueprintSubjectEnum::Site->getKey());
+    $orphanedSelect = PageBlueprintSelect::make('blueprint_id')->subject('structured-content.collection');
+
+    expect(subjectAllowsSystemGroup($pageSelect))->toBeTrue()
+        ->and(subjectAllowsSystemGroup($siteScopedSelect))->toBeFalse()
+        ->and(subjectAllowsSystemGroup($orphanedSelect))->toBeFalse();
 });
 
 it('loads relationship options for enabled blueprints in the selected subject', function (): void {
@@ -192,6 +213,13 @@ function configuredBlueprintSelectAction(BaseBlueprintSelect $component, string 
     throw_unless($configuredAction instanceof Action, RuntimeException::class, 'Expected configured blueprint action.');
 
     return $configuredAction;
+}
+
+function subjectAllowsSystemGroup(PageBlueprintSelect $component): bool
+{
+    $reflectionMethod = new ReflectionMethod($component, 'subjectAllowsSystemGroup');
+
+    return (bool) $reflectionMethod->invoke($component);
 }
 
 /**

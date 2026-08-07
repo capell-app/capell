@@ -176,6 +176,42 @@ it('records authorization failures in the marketplace install ledger', function 
         ->and($attempt->failure_reason)->toBe('Marketplace authorization failed.');
 });
 
+it('returns a translated licence validation error to modal callers without exposing server text', function (): void {
+    installMarketplaceExtensionActionConnectedInstance();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/activation-suite' => Http::response([
+            'data' => installMarketplaceExtensionActionPayload([
+                'slug' => 'activation-suite',
+                'name' => 'Activation Suite',
+                'composer_name' => 'capell-app/activation-suite',
+                'is_paid' => true,
+                'price_cents' => 9900,
+                'install_eligibility' => [
+                    'state' => 'activation_required',
+                ],
+            ]),
+        ]),
+        'https://marketplace.test/api/extensions/activation-suite/install-authorization' => Http::response([
+            'message' => 'Remote licence service detail that must stay private.',
+        ], 422),
+    ]);
+
+    try {
+        InstallMarketplaceExtensionAction::run(installMarketplaceActionRequest('activation-suite', [
+            'license_key' => 'invalid-key',
+            '_validation_errors' => true,
+        ]));
+        $this->fail('Expected licence validation to fail.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['license_key'] ?? [])->toBe([
+            __('capell-marketplace::marketplace.install.license_key_invalid'),
+        ]);
+    }
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+});
+
 it('records authorization-blocked attempts and returns account connection redirects', function (): void {
     config(['capell-marketplace.marketplace.web_url' => 'https://capell.test']);
     installMarketplaceExtensionActionConnectedInstance();
@@ -254,7 +290,7 @@ it('stops orchestration side effects when queueing returns a cancelled theme att
     Event::listen(
         'eloquent.created: ' . MarketplaceInstallAttemptEvent::class,
         function (MarketplaceInstallAttemptEvent $event): void {
-            if (($event->context['check'] ?? null) !== 'queue_retry_after') {
+            if (($event->context['check'] ?? null) !== 'queue_ready') {
                 return;
             }
 

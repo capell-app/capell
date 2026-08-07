@@ -22,7 +22,7 @@ it('runs frontend upgrade command successfully', function (): void {
             'vendor:publish', ['--tag' => 'capell-migrations'],
         ])
         ->and($calls)->toContain([
-            'migrate', [],
+            'migrate', ['--force' => true],
         ])
         ->and($calls)->toContain([
             'migrate', ['--path' => 'database/settings', '--force' => true],
@@ -84,7 +84,7 @@ it('fails before settings publication when core schema migrations fail', functio
     )->handle())->toBe(Command::FAILURE)
         ->and($calls)->toBe([
             ['vendor:publish', ['--tag' => 'capell-migrations']],
-            ['migrate', []],
+            ['migrate', ['--force' => true]],
         ])
         ->and($filesystem->calls)->toBe([]);
 });
@@ -114,7 +114,7 @@ function makeFrontendUpgradeCommand(
                 return $this->migrationPublishExitCode;
             }
 
-            if ($command === 'migrate' && $arguments === []) {
+            if ($command === 'migrate' && $arguments === ['--force' => true]) {
                 return $this->schemaMigrationExitCode;
             }
 

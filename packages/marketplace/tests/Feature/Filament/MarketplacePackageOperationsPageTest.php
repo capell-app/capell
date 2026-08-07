@@ -8,11 +8,14 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -84,7 +87,7 @@ it('uses extension breadcrumbs and header actions with filament table search for
     $headerActions = collect((fn (): array => $this->getHeaderActions())->call($page));
 
     expect($page->getBreadcrumbs())->toBe([
-        ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
+        ExtensionsPage::getUrl() => __('capell-marketplace::marketplace.operations.extensions'),
         MarketplacePage::getUrl() => MarketplacePage::getNavigationLabel(),
         MarketplacePackageOperationsPage::getNavigationLabel(),
     ])
@@ -92,7 +95,7 @@ it('uses extension breadcrumbs and header actions with filament table search for
         ->toHaveCount(2)
         ->each->toBeInstanceOf(Action::class)
         ->and($headerActions->map(fn (Action $action): string => filamentText($action->getLabel()))->all())->toBe([
-            ExtensionsPage::getNavigationLabel(),
+            __('capell-marketplace::marketplace.operations.extensions'),
             MarketplacePage::getNavigationLabel(),
         ]);
 
@@ -120,10 +123,41 @@ it('exposes redacted diagnostics and can mark operations resolved', function ():
         ->assertSet('diagnosticBundle', fn (?string $bundle): bool => is_string($bundle)
             && str_contains($bundle, 'composer_auth')
             && ! str_contains($bundle, 'lic_secret'))
+        ->assertDispatched('marketplace-copy-diagnostics')
         ->call('markResolved', $attempt->getKey())
         ->assertSet('activeTab', 'resolved');
 
     expect($attempt->refresh()->resolved_at)->not->toBeNull();
+});
+
+it('does not log raw operator exception details', function (): void {
+    Log::shouldReceive('warning')
+        ->once()
+        ->with('capell-marketplace: operator action failed', Mockery::on(fn (array $context): bool => $context['extension_slug'] === 'seo-suite'
+                && $context['exception_class'] === RuntimeException::class
+                && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), 'provider-secret')));
+
+    MarketplaceErrorPresenter::notification(
+        'Marketplace failed',
+        new RuntimeException('Bearer provider-secret'),
+        ['extension_slug' => 'seo-suite'],
+    );
+
+});
+
+it('registers marketplace navigation and resolves translated operation labels', function (): void {
+    expect(MarketplacePage::shouldRegisterNavigation())->toBeTrue();
+
+    foreach ([
+        ...MarketplaceInstallIntentStatus::cases(),
+        ...MarketplaceInstallFailureType::cases(),
+        ...MarketplaceInstallFailureStage::cases(),
+        ...MarketplaceInstallAttemptEventLevel::cases(),
+    ] as $enum) {
+        expect($enum->getLabel())
+            ->not->toBe($enum->value)
+            ->not->toStartWith('capell-marketplace::');
+    }
 });
 
 it('shows auto-resolved successful attempts on the succeeded tab', function (): void {
@@ -179,6 +213,35 @@ it('does not mutate package operations for extension viewers without manage perm
     expect($failedAttempt->refresh()->resolved_at)->toBeNull()
         ->and(MarketplaceInstallAttempt::query()->where('retry_of_id', $failedAttempt->getKey())->exists())->toBeFalse()
         ->and($queuedAttempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+});
+
+it('lists every operation type together and can filter down to one of them', function (): void {
+    $install = marketplacePackageOperationsPageAttempt([
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'operation' => MarketplaceOperationType::Install,
+    ]);
+    $update = marketplacePackageOperationsPageAttempt([
+        'composer_name' => 'capell-app/redirects',
+        'extension_slug' => 'redirects',
+        'extension_name' => 'Redirects',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'operation' => MarketplaceOperationType::Update,
+    ]);
+    $uninstall = marketplacePackageOperationsPageAttempt([
+        'composer_name' => 'capell-app/forms',
+        'extension_slug' => 'forms',
+        'extension_name' => 'Forms',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'operation' => MarketplaceOperationType::Uninstall,
+        'uninstall_options' => ['delete_package' => true, 'delete_data' => false],
+    ]);
+
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->set('activeTab', 'succeeded')
+        ->assertCanSeeTableRecords([$install, $update, $uninstall])
+        ->filterTable('operation', MarketplaceOperationType::Uninstall->value)
+        ->assertCanSeeTableRecords([$uninstall])
+        ->assertCanNotSeeTableRecords([$install, $update]);
 });
 
 function marketplacePackageOperationsPageAttempt(array $overrides = []): MarketplaceInstallAttempt
