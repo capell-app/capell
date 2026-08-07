@@ -104,7 +104,7 @@ For resource or schema changes, include the matching focused test file first. Fo
 | Surface  | Supported versions               |
 | -------- | -------------------------------- |
 | PHP      | `^8.4`                           |
-| Laravel  | `^12.41.1` or `^13.0`            |
+| Laravel  | `^13.0`                          |
 | Filament | `~5.6.8`                         |
 | Core     | The same release as this package |
 

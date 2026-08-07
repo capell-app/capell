@@ -158,7 +158,7 @@ Read these before production:
 | Tool     | Supported versions                                                  |
 | -------- | ------------------------------------------------------------------- |
 | PHP      | 8.4+                                                                |
-| Laravel  | 12.41.1+ in the 12.x line or Laravel 13.x                           |
+| Laravel  | 13.x                                                                |
 | Filament | 5.6.8+ (`~5.6.8`)                                                   |
 | Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
 | Node.js  | 20+                                                                 |
