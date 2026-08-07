@@ -15,6 +15,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Site>
@@ -30,6 +31,7 @@ class SiteFactory extends Factory
     public function definition(): array
     {
         return [
+            'uuid' => fn (): string => Str::uuid()->toString(),
             'name' => $this->faker->unique()->company(),
             'theme_id' => Theme::factory(),
             'language_id' => Language::factory(),
