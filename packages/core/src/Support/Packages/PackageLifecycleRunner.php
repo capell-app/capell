@@ -107,6 +107,14 @@ final class PackageLifecycleRunner
         array $arguments,
         ?ProgressReporter $reporter,
     ): void {
+        if ($this->commandMissingFromFreshProcess($command)) {
+            throw new RuntimeException(sprintf(
+                "%s command '%s' does not exist.",
+                str($phase)->replace('-', ' ')->headline(),
+                $command,
+            ));
+        }
+
         $processCommand = $this->freshProcessCommand($command, $arguments);
         $environment = ArtisanProcessEnvironment::prepare();
         $process = $environment === null
@@ -141,14 +149,6 @@ final class PackageLifecycleRunner
             $reporter->report(trim($lineBuffer));
         }
 
-        if (str_contains($output, sprintf('Command "%s" is not defined.', $command))) {
-            throw new RuntimeException(sprintf(
-                "%s command '%s' does not exist.",
-                str($phase)->replace('-', ' ')->headline(),
-                $command,
-            ));
-        }
-
         if ($process->isSuccessful()) {
             return;
         }
@@ -163,6 +163,43 @@ final class PackageLifecycleRunner
             $process->getExitCode() ?? 1,
             $output !== '' ? ' ' . $output : '',
         ));
+    }
+
+    /**
+     * `php artisan list --raw --no-interaction` prints one machine-readable
+     * line per registered command (`name  description`), and exits 0. Probing
+     * with it before running the real command replaces scraping the human
+     * "Command is not defined" error text, which Laravel 13 no longer emits
+     * reliably (the CLI now prints a "Did you mean" block and still exits 0).
+     *
+     * A failed probe means the child process could not boot at all, which is
+     * a different failure than a missing command; that case is left for the
+     * real command run to surface via its own "failed in a fresh process"
+     * exception.
+     */
+    private function commandMissingFromFreshProcess(string $command): bool
+    {
+        $probeCommand = [...new RuntimeBinaryResolver()->php(), base_path('artisan'), 'list', '--raw', '--no-interaction'];
+        $environment = ArtisanProcessEnvironment::prepare();
+        $probeProcess = $environment === null
+            ? $this->processFactory->make($probeCommand, base_path())
+            : $this->processFactory->make($probeCommand, base_path(), $environment);
+        $probeProcess->setTimeout(null);
+        $probeProcess->run();
+
+        if (! $probeProcess->isSuccessful()) {
+            return false;
+        }
+
+        foreach (explode("\n", $probeProcess->getOutput()) as $line) {
+            $name = strtok(trim($line), " \t");
+
+            if ($name === $command) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
