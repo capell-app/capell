@@ -17,7 +17,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\RateLimiter;
-use RuntimeException;
 
 function makeActivityBeaconControllerForTest(bool $enabled = true): ActivityBeaconController
 {
