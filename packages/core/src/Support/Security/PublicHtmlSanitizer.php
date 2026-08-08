@@ -20,64 +20,70 @@ final class PublicHtmlSanitizer
     ];
 
     /**
-     * @var array<int, string>
+     * Keyed by tag name for O(1) isset() lookups on the per-node hot path.
+     *
+     * @var array<string, true>
      */
     private const array ALLOWED_TAGS = [
-        'a',
-        'blockquote',
-        'br',
-        'code',
-        'dd',
-        'div',
-        'dl',
-        'dt',
-        'em',
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'hr',
-        'img',
-        'li',
-        'ol',
-        'p',
-        'pre',
-        'section',
-        'span',
-        'strong',
-        'table',
-        'tbody',
-        'td',
-        'th',
-        'thead',
-        'tr',
-        'ul',
+        'a' => true,
+        'blockquote' => true,
+        'br' => true,
+        'code' => true,
+        'dd' => true,
+        'div' => true,
+        'dl' => true,
+        'dt' => true,
+        'em' => true,
+        'h1' => true,
+        'h2' => true,
+        'h3' => true,
+        'h4' => true,
+        'h5' => true,
+        'h6' => true,
+        'hr' => true,
+        'img' => true,
+        'li' => true,
+        'ol' => true,
+        'p' => true,
+        'pre' => true,
+        'section' => true,
+        'span' => true,
+        'strong' => true,
+        'table' => true,
+        'tbody' => true,
+        'td' => true,
+        'th' => true,
+        'thead' => true,
+        'tr' => true,
+        'ul' => true,
     ];
 
     /**
-     * @var array<int, string>
-     */
-    /**
-     * @var array<int, string>
+     * Keyed by tag name for O(1) isset() lookups on the per-node hot path.
+     *
+     * @var array<string, true>
      */
     private const array DISCARD_WITH_CONTENT = [
-        'applet',
-        'audio',
-        'canvas',
-        'embed',
-        'form',
-        'iframe',
-        'math',
-        'noscript',
-        'object',
-        'script',
-        'style',
-        'svg',
-        'template',
-        'video',
+        'applet' => true,
+        'audio' => true,
+        'canvas' => true,
+        'embed' => true,
+        'form' => true,
+        'iframe' => true,
+        'math' => true,
+        'noscript' => true,
+        'object' => true,
+        'script' => true,
+        'style' => true,
+        'svg' => true,
+        'template' => true,
+        'video' => true,
     ];
+
+    /**
+     * @var array<string, true>|null
+     */
+    private ?array $blockedPublicKeySet = null;
 
     public function __construct(
         private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
@@ -158,13 +164,13 @@ final class PublicHtmlSanitizer
 
             $tagName = strtolower($child->tagName);
 
-            if (in_array($tagName, self::DISCARD_WITH_CONTENT, true)) {
+            if (isset(self::DISCARD_WITH_CONTENT[$tagName])) {
                 $parent->removeChild($child);
 
                 continue;
             }
 
-            if (! in_array($tagName, self::ALLOWED_TAGS, true)) {
+            if (! isset(self::ALLOWED_TAGS[$tagName])) {
                 // Sanitize before unwrapping: hoisted children are inserted into the
                 // already-captured sibling snapshot and would never be revisited.
                 $this->sanitizeChildren($child);
@@ -203,7 +209,7 @@ final class PublicHtmlSanitizer
 
     private function sanitizeAnchor(DOMElement $element): void
     {
-        $href = $element->getAttribute('href');
+        $href = trim(html_entity_decode($element->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
         if (! $this->isSafeAnchorUrl($href)) {
             $element->removeAttribute('href');
@@ -211,7 +217,7 @@ final class PublicHtmlSanitizer
             return;
         }
 
-        if (preg_match('#^https?://#i', trim(html_entity_decode($href, ENT_QUOTES | ENT_HTML5, 'UTF-8'))) === 1) {
+        if (preg_match('#^https?://#i', $href) === 1) {
             $element->setAttribute('rel', 'nofollow noopener noreferrer');
             $element->setAttribute('target', '_blank');
         }
@@ -235,10 +241,11 @@ final class PublicHtmlSanitizer
         }
     }
 
+    /**
+     * Expects an already entity-decoded, trimmed URL.
+     */
     private function isSafeAnchorUrl(string $url): bool
     {
-        $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-
         return $url !== ''
             && (
                 str_starts_with($url, '#')
@@ -265,23 +272,35 @@ final class PublicHtmlSanitizer
 
     private function redactCredentialFragments(string $value): string
     {
-        $redacted = (string) preg_replace(
-            '/\bBearer\s+[A-Za-z0-9._~+\/=-]{8,}\b/',
-            'Bearer [redacted]',
-            $value,
-        );
+        // Cheap substring guards: most public strings carry none of these
+        // fragments, and str_contains is far cheaper than the regex pass.
+        $redacted = $value;
 
-        $redacted = (string) preg_replace(
-            '/\b([a-z][a-z0-9+.-]*:\/\/)([^:\s\/@]+):([^@\s\/]+)@/i',
-            '$1$2:[redacted]@',
-            $redacted,
-        );
+        if (str_contains($redacted, 'Bearer')) {
+            $redacted = (string) preg_replace(
+                '/\bBearer\s+[A-Za-z0-9._~+\/=-]{8,}\b/',
+                'Bearer [redacted]',
+                $redacted,
+            );
+        }
 
-        return (string) preg_replace(
-            '/([?&](?:expires|signature|token|access_token|refresh_token)=)[^&\s<>"\']+/i',
-            '$1[redacted]',
-            $redacted,
-        );
+        if (str_contains($redacted, '@') && str_contains($redacted, '://')) {
+            $redacted = (string) preg_replace(
+                '/\b([a-z][a-z0-9+.-]*:\/\/)([^:\s\/@]+):([^@\s\/]+)@/i',
+                '$1$2:[redacted]@',
+                $redacted,
+            );
+        }
+
+        if (str_contains($redacted, '=')) {
+            return (string) preg_replace(
+                '/([?&](?:expires|signature|token|access_token|refresh_token)=)[^&\s<>"\']+/i',
+                '$1[redacted]',
+                $redacted,
+            );
+        }
+
+        return $redacted;
     }
 
     private function isBlockedPublicKey(mixed $key): bool
@@ -296,7 +315,15 @@ final class PublicHtmlSanitizer
             return true;
         }
 
-        return in_array(trim($normalizedKey, '_'), $this->leakPolicy->blockedPublicKeys(), true);
+        return isset($this->blockedPublicKeySet()[trim($normalizedKey, '_')]);
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function blockedPublicKeySet(): array
+    {
+        return $this->blockedPublicKeySet ??= array_fill_keys($this->leakPolicy->blockedPublicKeys(), true);
     }
 
     private function containsBlockedPublicValue(string $value): bool
