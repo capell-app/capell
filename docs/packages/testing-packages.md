@@ -21,7 +21,7 @@ composer require --dev \
   pestphp/pest-plugin-laravel:^5.0
 ```
 
-Match the Capell line you target: Capell 1.x runs PHP 8.4+, Laravel 13, Filament `~5.6.8`, PHPUnit 13, and Pest 5. Pest 4 and Pest 5 are not interchangeable here.
+Match the Capell line you target: Capell 1.x runs PHP 8.4+, Laravel 13, Filament `^5.7.6`, PHPUnit 13, and Pest 5. Pest 4 and Pest 5 are not interchangeable here.
 
 ### 2. `phpunit.xml.dist`
 
@@ -154,10 +154,10 @@ That works in tests and in a real application, and keeps the manifest entry as t
 
 Add the providers for the surfaces your package actually uses:
 
-| Your package | Also register |
-| ------------ | ------------- |
-| Registers render hooks or renders public HTML | `Capell\Frontend\Providers\FrontendServiceProvider` |
-| Registers admin pages, resources, or widgets | The Filament set (`FilamentServiceProvider`, `FormsServiceProvider`, `SchemasServiceProvider`, `SupportServiceProvider`, `TablesServiceProvider`, `WidgetsServiceProvider`, `ActionsServiceProvider`, `NotificationsServiceProvider`), plus `Livewire\LivewireServiceProvider` and a Filament panel provider |
+| Your package                                  | Also register                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Registers render hooks or renders public HTML | `Capell\Frontend\Providers\FrontendServiceProvider`                                                                                                                                                                                                                                                          |
+| Registers admin pages, resources, or widgets  | The Filament set (`FilamentServiceProvider`, `FormsServiceProvider`, `SchemasServiceProvider`, `SupportServiceProvider`, `TablesServiceProvider`, `WidgetsServiceProvider`, `ActionsServiceProvider`, `NotificationsServiceProvider`), plus `Livewire\LivewireServiceProvider` and a Filament panel provider |
 
 `RenderHookRegistry` is bound by the frontend provider, so a package that calls `app(RenderHookRegistry::class)` during boot fails without it.
 

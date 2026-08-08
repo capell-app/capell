@@ -103,7 +103,7 @@ vendor/bin/pest tests/Arch tests/Unit/Manifest
 | -------------------------- | -------------------------------------------------------------- |
 | PHP                        | `^8.4` with `ext-intl`                                         |
 | Laravel                    | `^13.0`                                                        |
-| Filament support           | `~5.6.8`                                                       |
+| Filament support           | `^5.7.6`                                                       |
 | Symfony filesystem/process | `^7.2` or `^8.0`                                               |
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |

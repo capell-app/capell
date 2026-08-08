@@ -109,7 +109,7 @@ function docsRequirementsFixture(): string
         'require' => [
             'php' => '^8.4',
             'laravel/framework' => '^13.0',
-            'filament/filament' => '~5.6.8',
+            'filament/filament' => '^5.7.6',
         ],
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 
@@ -120,7 +120,7 @@ function docsRequirementsFixture(): string
         '| -------- | ------------------ |',
         '| PHP      | 8.4+               |',
         '| Laravel  | 13.x               |',
-        '| Filament | 5.6.8+ (`~5.6.8`)  |',
+        '| Filament | 5.7.6+ (`^5.7.6`)  |',
         '',
     ]);
 
@@ -130,7 +130,7 @@ function docsRequirementsFixture(): string
 
     $packageManifests = [
         'core' => ['php' => '^8.4', 'illuminate/support' => '^13.0', 'symfony/process' => '^7.2|^8.0', 'symfony/html-sanitizer' => '^7.0|^8.0'],
-        'admin' => ['php' => '^8.4', 'laravel/framework' => '^13.0', 'filament/filament' => '~5.6.8'],
+        'admin' => ['php' => '^8.4', 'laravel/framework' => '^13.0', 'filament/filament' => '^5.7.6'],
         'frontend' => ['php' => '^8.4', 'laravel/framework' => '^13.0', 'livewire/livewire' => '^3.0|^4.0'],
         'installer' => ['php' => '^8.4'],
         'marketplace' => ['php' => '^8.4', 'laravel/framework' => '^13.0'],
@@ -140,14 +140,14 @@ function docsRequirementsFixture(): string
         'core' => [
             '| PHP                        | `^8.4` with `ext-intl` |',
             '| Laravel                    | `^13.0`                |',
-            '| Filament support           | `~5.6.8`               |',
+            '| Filament support           | `^5.7.6`               |',
             '| Symfony filesystem/process | `^7.2` or `^8.0`       |',
             '| Symfony HTML sanitizer     | `^7.0` or `^8.0`       |',
         ],
         'admin' => [
             '| PHP      | `^8.4`  |',
             '| Laravel  | `^13.0` |',
-            '| Filament | `~5.6.8` |',
+            '| Filament | `^5.7.6` |',
         ],
         'frontend' => [
             '| PHP      | `^8.4`           |',
