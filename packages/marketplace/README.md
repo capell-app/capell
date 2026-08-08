@@ -118,7 +118,7 @@ vendor/bin/pest tests/Feature/Http/MarketplaceAccountConnectionCallbackControlle
 | Surface | Supported versions               |
 | ------- | -------------------------------- |
 | PHP     | `^8.4`                           |
-| Laravel | `^12.41.1` or `^13.0`            |
+| Laravel | `^13.0`                          |
 | Core    | The same release as this package |
 | Admin   | The same release as this package |
 

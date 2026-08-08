@@ -38,10 +38,15 @@ final class PublicOutputLeakPolicy
 
     private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_PREFIXES = [
         'data-capell-widget-', 'data-capell-interaction-', 'data-capell-theme-',
-        'data-capell-insights-',
+        'data-capell-insights-', 'data-capell-language-',
     ];
 
-    private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTES = ['data-capell-interaction'];
+    private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTES = [
+        'data-capell-interaction',
+        'data-capell-cookie',
+        'data-capell-origin-cookie',
+        'data-capell-page-language',
+    ];
 
     private const array BLOCKED_PUBLIC_VALUE_PATTERNS = [
         '/\bdata-(?:capell-authoring|capell-editor|field-path|model-id|page-id)\b/i',

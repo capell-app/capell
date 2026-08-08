@@ -102,7 +102,7 @@ vendor/bin/pest tests/Arch tests/Unit/Manifest
 | Surface                    | Supported versions                                             |
 | -------------------------- | -------------------------------------------------------------- |
 | PHP                        | `^8.4` with `ext-intl`                                         |
-| Laravel                    | `^12.41.1` or `^13.0`                                          |
+| Laravel                    | `^13.0`                                                        |
 | Filament support           | `~5.6.8`                                                       |
 | Symfony filesystem/process | `^7.2` or `^8.0`                                               |
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
