@@ -63,4 +63,11 @@
     @if ($pageSlot && ! $mainContentHookData->slotRendered)
         {{ $pageSlot }}
     @endif
+
+    {!! app(RenderHookRegistry::class)->renderAll(
+        RenderHookLocation::AfterContent,
+        $mainContentHookData,
+        scenario: 'frontend-main-layout',
+        target: 'capell::layout.main',
+    ) !!}
 </main>

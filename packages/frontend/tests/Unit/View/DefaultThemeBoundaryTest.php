@@ -25,6 +25,7 @@ it('exposes the shared main content render hook', function (): void {
 
     expect($locations)->toContain("case MainContent = 'mainContent'")
         ->and($main)->toContain('RenderHookLocation::MainContent')
+        ->and($main)->toContain('RenderHookLocation::AfterContent')
         ->and($main)->toContain("scenario: 'frontend-main-layout'")
         ->and($main)->toContain("target: 'capell::layout.main'")
         ->and($main)->toContain('{{ $pageSlot }}');
