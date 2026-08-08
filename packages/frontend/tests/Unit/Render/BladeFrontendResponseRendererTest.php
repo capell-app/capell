@@ -56,14 +56,39 @@ it('uses the capell layout path for pages with layout builder containers', funct
     $page->setRelation('translation', $translation);
     $page->setRelation('blueprint', Blueprint::factory()->make());
 
+    $mainContentData = null;
+
     resolve(RenderHookRegistry::class)->registerCallable(
         RenderHookLocation::MainContent,
-        function (RenderHookContext $context): string {
+        function (RenderHookContext $context) use (&$mainContentData): string {
             expect($context->item)->toBeInstanceOf(MainContentRenderHookData::class);
+
+            if (! $context->item instanceof MainContentRenderHookData) {
+                throw new RuntimeException('Expected the main content hook data.');
+            }
+
+            $mainContentData = $context->item;
 
             return '<section>Layout builder hook output</section>';
         },
         scenario: 'frontend-main-layout',
+        target: 'capell::layout.main',
+    );
+    resolve(RenderHookRegistry::class)->registerCallable(
+        RenderHookLocation::AfterContent,
+        function (RenderHookContext $context) use (&$mainContentData): string {
+            expect($context->location)->toBe(RenderHookLocation::AfterContent->value)
+                ->and($context->item)->toBe($mainContentData);
+
+            return '<aside data-after-content-hook>After content hook output</aside>';
+        },
+        scenario: 'frontend-main-layout',
+        target: 'capell::layout.main',
+    );
+    resolve(RenderHookRegistry::class)->registerCallable(
+        RenderHookLocation::AfterContent,
+        static fn (): string => '<aside>wrong-scope-after-content</aside>',
+        scenario: 'another-frontend-scenario',
         target: 'capell::layout.main',
     );
 
@@ -84,28 +109,51 @@ it('uses the capell layout path for pages with layout builder containers', funct
 
     bindBladeRendererContext($page, $site, $language, $layout, $theme);
 
-    View::addNamespace('capell-renderer-test', resource_path('views/capell-renderer-test'));
-    File::ensureDirectoryExists(resource_path('views/capell-renderer-test'));
-    File::put(resource_path('views/capell-renderer-test/layout.blade.php'), '<html><body>{!! $slot !!}</body></html>');
+    $viewPath = sys_get_temp_dir() . '/capell-renderer-test-' . bin2hex(random_bytes(6));
+    View::addNamespace('capell-renderer-test', $viewPath);
+    File::ensureDirectoryExists($viewPath);
+    File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
 
     try {
-        $response = (new BladeFrontendResponseRenderer)->render(new FrontendRenderContextData(
+        $renderContext = new FrontendRenderContextData(
             page: $page,
             site: $site,
             language: $language,
             layout: $layout,
             theme: $theme,
-        ));
+        );
+        $response = (new BladeFrontendResponseRenderer)->render($renderContext);
+
+        throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
+
+        $content = (string) $response->getContent();
+        $mainPosition = strpos($content, 'Layout builder hook output');
+        $afterPosition = strpos($content, 'After content hook output');
+
+        throw_unless(
+            is_int($mainPosition) && is_int($afterPosition),
+            RuntimeException::class,
+            'Expected both main and after-content hooks to render.',
+        );
+
+        expect($afterPosition)->toBeGreaterThan($mainPosition)
+            ->and($content)
+            ->not->toContain('wrong-scope-after-content')
+            ->not->toContain('default-theme-shell')
+            ->not->toContain('Theme Studio fallback should not render');
+
+        resolve(RenderHookRegistry::class)->registerCallable(
+            RenderHookLocation::AfterContent,
+            static fn (): string => '<div data-model-id="42">Unsafe hook output</div>',
+            scenario: 'frontend-main-layout',
+            target: 'capell::layout.main',
+        );
+
+        expect(fn () => (new BladeFrontendResponseRenderer)->render($renderContext))
+            ->toThrow(RuntimeException::class, 'Public HTML contains an authoring marker.');
     } finally {
-        File::deleteDirectory(resource_path('views/capell-renderer-test'));
+        File::deleteDirectory($viewPath);
     }
-
-    throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
-
-    expect($response->getContent())
-        ->toContain('Layout builder hook output')
-        ->not->toContain('default-theme-shell')
-        ->not->toContain('Theme Studio fallback should not render');
 });
 
 it('renders custom master and layout files from layout metadata', function (): void {
