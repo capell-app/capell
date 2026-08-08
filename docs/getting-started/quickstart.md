@@ -14,7 +14,7 @@ Allow about ten minutes for the first Composer install.
 | ----------- | ----------------------------------------------------------------------- |
 | PHP         | 8.4+                                                                    |
 | Laravel     | 13.x                                                                    |
-| Filament    | Installed by the selected Capell Admin package; supported line `~5.6.8` |
+| Filament    | Installed by the selected Capell Admin package; supported line `^5.7.6` |
 | Node.js     | 20+                                                                     |
 | Composer    | 2.7+                                                                    |
 | Database    | MySQL 8+, MariaDB 10.5+, PostgreSQL, or SQLite                          |
