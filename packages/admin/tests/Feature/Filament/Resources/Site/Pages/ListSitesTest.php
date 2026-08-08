@@ -129,7 +129,7 @@ it('can replicate site', function (): void {
         ->toBeInstanceOf(Site::class)
         ->name->toBe($name)
         ->language_id->toBe($site->language_id)
-        ->siteDomains->count()->toBe(1)
+        ->siteDomains->count()->toBe(2)
         ->siteDomains->first()
         ->domain->toBe('localhost')
         ->language_id->toBe($site->language_id);
