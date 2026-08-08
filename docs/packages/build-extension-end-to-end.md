@@ -584,9 +584,9 @@ If a package has separate install/runtime/admin/frontend providers, keep provide
 
 **Pick a location that the theme actually emits.** `RenderHookLocation` declares more cases than the shipped Foundation templates render. These are emitted today:
 
-`HeadClose`, `HeaderAfter`, `MainContent`, `BeforeContent`, `BeforeTitle`, `AfterTitle`, `BeforeResult`, `AfterResult`, `Footer`, `FooterBefore`, `FooterAfter`, `BodyEnd`.
+`HeadClose`, `HeaderAfter`, `MainContent`, `BeforeContent`, `AfterContent`, `BeforeTitle`, `AfterTitle`, `BeforeResult`, `AfterResult`, `Footer`, `FooterBefore`, `FooterAfter`, `BodyEnd`.
 
-`HeadOpen`, `BodyStart`, `HeaderBefore`, `AfterContent`, and `ArticleMeta` are declared but have no emit site in the Foundation templates, so a hook registered there is silently never called. There is no post-render injector that would rescue it. This tutorial uses `HeaderAfter` to put the banner directly below the site header.
+`HeadOpen`, `BodyStart`, `HeaderBefore`, and `ArticleMeta` are declared but have no emit site in the Foundation templates, so a hook registered there is silently never called. There is no post-render injector that would rescue it. This tutorial uses `HeaderAfter` to put the banner directly below the site header.
 
 A custom or third-party theme may emit a different subset. If a hook does not appear, confirm the theme renders that location before debugging your provider — see [Debugging public output](../frontend/debugging-public-output.md).
 
