@@ -1,0 +1,13 @@
+{
+  "package": "documentation",
+  "id": "seo-audit-page-dark",
+  "url": "http://127.0.0.1:8145/admin/seo-suite/seo-audit",
+  "reason": "Unable to capture seo-audit-page-dark: HTTP 404 for http://127.0.0.1:8145/admin/seo-suite/seo-audit",
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "pageErrors": []
+}

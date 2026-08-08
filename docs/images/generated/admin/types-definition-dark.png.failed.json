@@ -1,0 +1,8 @@
+{
+  "package": "documentation",
+  "id": "blueprints-definition-dark",
+  "url": "http://127.0.0.1:8145/admin/blueprints",
+  "reason": "locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.fi-modal-window[style=\\'\\'] .fi-modal-heading:has-text(\\'Create Blueprint\\')').first() to be visible\u001b[22m\n",
+  "consoleMessages": [],
+  "pageErrors": []
+}

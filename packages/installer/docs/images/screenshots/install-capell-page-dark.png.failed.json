@@ -1,0 +1,8 @@
+{
+  "package": "installer",
+  "id": "install-capell-page-dark",
+  "url": "about:blank",
+  "reason": "php artisan tinker --execute Illuminate\\Support\\Facades\\DB::statement('PRAGMA foreign_keys=OFF'); Illuminate\\Support\\Facades\\DB::table('sites')->delete(); Illuminate\\Support\\Facades\\DB::statement('PRAGMA foreign_keys=ON'); failed with exit code 1.",
+  "consoleMessages": [],
+  "pageErrors": []
+}

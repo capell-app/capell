@@ -1,0 +1,13 @@
+{
+  "package": "documentation",
+  "id": "navigation-list",
+  "url": "http://127.0.0.1:8145/admin/navigation/navigations",
+  "reason": "Unable to capture navigation-list: HTTP 404 for http://127.0.0.1:8145/admin/navigation/navigations",
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "pageErrors": []
+}

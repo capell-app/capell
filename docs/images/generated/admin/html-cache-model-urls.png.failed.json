@@ -1,0 +1,13 @@
+{
+  "package": "documentation",
+  "id": "html-cache-model-urls",
+  "url": "http://127.0.0.1:8145/admin/html-cache/cached-model-urls",
+  "reason": "Unable to capture html-cache-model-urls: HTTP 404 for http://127.0.0.1:8145/admin/html-cache/cached-model-urls",
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "pageErrors": []
+}
