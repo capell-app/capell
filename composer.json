@@ -129,20 +129,20 @@
             "@prepare",
             "@test:preflight"
         ],
-        "coverage:blade": "@php -d max_execution_time=0 vendor/bin/pest --blade-coverage --parallel --colors=always --configuration=phpunit-coverage.xml",
+        "coverage:blade": "@php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --blade-coverage --parallel --colors=always --configuration=phpunit-coverage.xml",
         "coverage": [
             "@prepare",
             "CACHE_STORE=array \"$PHP_BINARY\" vendor/bin/testbench optimize --except=routes --ansi",
-            "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --min=90 --parallel --colors=always --configuration=phpunit-coverage.xml"
+            "@php -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage --min=90 --parallel --colors=always --configuration=phpunit-coverage.xml"
         ],
         "coverage-report": [
             "rm -rf .cache/phpunit/code-coverage",
             "@prepare",
             "CACHE_STORE=array \"$PHP_BINARY\" vendor/bin/testbench optimize --except=routes --ansi",
-            "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --coverage-html=coverage --parallel --colors=always --configuration=phpunit-coverage.xml"
+            "@php -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage --coverage-html=coverage --parallel --colors=always --configuration=phpunit-coverage.xml"
         ],
-        "test:mutate": "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --colors=always --configuration=phpunit-coverage.xml",
-        "test:mutate:ci": "@php -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --min=${PEST_MUTATION_MIN:-81} --colors=always --configuration=phpunit-coverage.xml",
+        "test:mutate": "@php -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --colors=always --configuration=phpunit-coverage.xml",
+        "test:mutate:ci": "@php -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest packages/core/tests/Feature/Install/ClearCachesActionTest.php --mutate --class=Capell\\\\Core\\\\Actions\\\\Install\\\\ClearCachesAction --min=${PEST_MUTATION_MIN:-81} --colors=always --configuration=phpunit-coverage.xml",
         "clear": [
             "@check:vendor-integrity",
             "CACHE_STORE=array \"$PHP_BINARY\" vendor/bin/testbench package:purge-skeleton --ansi",

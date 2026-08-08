@@ -40,6 +40,22 @@ jobs:
           tools: composer:v2
           coverage: pcov
 
+      - name: Cache Composer packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.composer/cache/files
+          key: composer-cache-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-cache-
+
+      - name: Cache PHPUnit coverage analysis
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/phpunit
+          key: ${{ runner.os }}-phpunit-cache-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-phpunit-cache-
+
       - name: Check Composer public files
         run: php scripts/check-composer-local-paths.php
 
@@ -59,7 +75,7 @@ jobs:
           mkdir -p coverage
           composer run prepare
           php vendor/bin/testbench optimize --except=routes --ansi
-          php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages vendor/bin/pest --coverage --min=90 --coverage-clover=coverage/clover.xml --parallel --colors=always --stop-on-error --stop-on-failure --configuration=phpunit-coverage.xml
+          php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage --min=90 --coverage-clover=coverage/clover.xml --parallel --colors=always --stop-on-error --stop-on-failure --configuration=phpunit-coverage.xml
 
       - name: Upload Clover XML for codecov
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
