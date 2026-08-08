@@ -64,16 +64,11 @@ it('runs after-install command without reporter', function (): void {
 })->group('core', 'unit');
 
 it('throws when after-install command is missing', function (): void {
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
-    $process->shouldReceive('run')
-        ->once()
-        ->with(Mockery::type('callable'))
-        ->andReturnUsing(function (callable $callback): int {
-            $callback(Process::ERR, 'Command "capell:missing-command" is not defined.');
-
-            return 1;
-        });
+    $probeProcess = Mockery::mock(Process::class);
+    $probeProcess->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $probeProcess->shouldReceive('run')->once()->with()->andReturn(0);
+    $probeProcess->shouldReceive('isSuccessful')->once()->andReturnTrue();
+    $probeProcess->shouldReceive('getOutput')->once()->andReturn("capell:some-other-command  A registered command\n");
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
@@ -81,10 +76,11 @@ it('throws when after-install command is missing', function (): void {
         ->withArgs(fn (array $command, string $workingDirectory): bool => $command === [
             PHP_BINARY,
             base_path('artisan'),
-            'capell:missing-command',
+            'list',
+            '--raw',
             '--no-interaction',
         ] && $workingDirectory === base_path())
-        ->andReturn($process);
+        ->andReturn($probeProcess);
 
     app()->instance(ProcessFactoryInterface::class, $factory);
     config()->set(RuntimeBinaryResolver::PHP_CONFIG_KEY, PHP_BINARY);
