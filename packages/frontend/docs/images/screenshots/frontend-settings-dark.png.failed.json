@@ -1,0 +1,16 @@
+{
+  "package": "frontend",
+  "id": "frontend-settings-dark",
+  "url": "http://127.0.0.1:8145/admin/settings",
+  "reason": "Capture aborted for frontend:frontend-settings-dark: a Filament stylesheet is linked but loaded no rules, so the request almost certainly 404d: http://127.0.0.1:8145/build/filament/theme.css",
+  "diagnostics": {
+    "consoleMessages": [],
+    "pageErrors": [],
+    "requestFailures": [],
+    "responseFailures": []
+  },
+  "consoleMessages": [],
+  "pageErrors": [],
+  "requestFailures": [],
+  "responseFailures": []
+}

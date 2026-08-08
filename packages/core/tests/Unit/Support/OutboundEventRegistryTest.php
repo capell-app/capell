@@ -147,3 +147,58 @@ it('rejects registration after the outbound event registry is frozen', function 
         ownerPackage: 'vendor/editorial',
     )))->toThrow(OutboundEventRegistrationException::class, 'cannot be registered after boot');
 });
+
+it('accepts registration from the package-install window and refreezes after it', function (): void {
+    $registry = new OutboundEventRegistry;
+    $registry->freeze();
+
+    $definition = new OutboundEventDefinitionData(
+        name: 'editorial.article-published',
+        version: 1,
+        payloadClass: PageTypeData::class,
+        description: 'An article was published.',
+        ownerPackage: 'vendor/editorial',
+    );
+
+    $registry->duringPackageInstallation(function () use ($registry, $definition): void {
+        $registry->register($definition);
+
+        // A re-booted provider builds a fresh instance describing the same
+        // event; that must be a no-op, not a duplicate-name error.
+        $registry->register(new OutboundEventDefinitionData(
+            name: 'editorial.article-published',
+            version: 1,
+            payloadClass: PageTypeData::class,
+            description: 'An article was published.',
+            ownerPackage: 'vendor/editorial',
+        ));
+    });
+
+    expect($registry->has('editorial.article-published'))->toBeTrue();
+    expect($registry->isInstalling())->toBeFalse();
+    expect(fn (): OutboundEventRegistry => $registry->register($definition))
+        ->toThrow(OutboundEventRegistrationException::class, 'cannot be registered after boot');
+});
+
+it('still rejects a conflicting duplicate inside the package-install window', function (): void {
+    $registry = new OutboundEventRegistry;
+    $registry->freeze();
+
+    $registry->duringPackageInstallation(function () use ($registry): void {
+        $registry->register(new OutboundEventDefinitionData(
+            name: 'editorial.article-published',
+            version: 1,
+            payloadClass: PageTypeData::class,
+            description: 'An article was published.',
+            ownerPackage: 'vendor/editorial',
+        ));
+
+        expect(fn (): OutboundEventRegistry => $registry->register(new OutboundEventDefinitionData(
+            name: 'editorial.article-published',
+            version: 2,
+            payloadClass: PageTypeData::class,
+            description: 'An article was published.',
+            ownerPackage: 'vendor/other',
+        )))->toThrow(OutboundEventRegistrationException::class, 'already registered');
+    });
+});

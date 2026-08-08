@@ -17,6 +17,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 final class RecordStateScreenshotFixture
@@ -32,8 +33,8 @@ final class RecordStateScreenshotFixture
     private const string MediaUuid = 'c6de44d7-a8d4-4c5d-9e24-7c6492811d48';
 
     /**
-     * Seeds the screenshot database before the runner starts concurrent HTTP
-     * captures. Fixture routes are deliberately read-only.
+     * Seeds deterministic local records before the runner starts concurrent
+     * captures. The runner visits the normal authenticated resource routes.
      */
     public static function initialize(): void
     {
@@ -64,7 +65,7 @@ final class RecordStateScreenshotFixture
                 ['language_id' => $site->language_id],
                 [
                     'title' => self::PageName,
-                    'content' => '<p>This scheduled fixture demonstrates a page with no active public URL.</p>',
+                    'content' => '<p>This scheduled page demonstrates a page with no active public URL.</p>',
                     'meta' => ['slug' => self::PageSlug],
                 ],
             );
@@ -181,14 +182,20 @@ final class RecordStateScreenshotFixture
     {
         $media = Media::query()->firstOrNew(['uuid' => self::MediaUuid]);
 
+        $sourcePath = dirname(__DIR__, 3) . '/artwork/foundation-series/references/capell-logo-reference.png';
+        throw_if(! is_file($sourcePath), ModelNotFoundException::class, 'The screenshot seed image is missing.');
+
+        $contents = file_get_contents($sourcePath);
+        throw_if($contents === false, ModelNotFoundException::class, 'The screenshot seed image could not be read.');
+
         $media->fill([
             'collection_name' => MediaCollectionEnum::Image->value,
-            'name' => 'Unused screenshot fixture image',
-            'file_name' => 'unused-screenshot-fixture.jpg',
-            'mime_type' => 'image/jpeg',
+            'name' => 'Unused editorial image',
+            'file_name' => 'capell-logo-reference.png',
+            'mime_type' => 'image/png',
             'disk' => 'public',
             'conversions_disk' => 'public',
-            'size' => 1024,
+            'size' => strlen($contents),
             'manipulations' => [],
             'custom_properties' => [],
             'generated_conversions' => [],
@@ -197,6 +204,8 @@ final class RecordStateScreenshotFixture
             'model_type' => $page->getMorphClass(),
             'model_id' => $page->getKey(),
         ])->save();
+
+        Storage::disk($media->disk)->put($media->getKey() . '/' . $media->file_name, $contents);
 
         AssetAttachment::query()
             ->where('asset_type', $media->getMorphClass())

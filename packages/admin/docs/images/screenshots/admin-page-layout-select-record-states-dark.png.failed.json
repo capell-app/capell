@@ -1,0 +1,13 @@
+{
+  "package": "admin",
+  "id": "admin-page-layout-select-record-states-dark",
+  "url": "http://127.0.0.1:8145/screenshot-fixtures/record-states/page-editor",
+  "reason": "Unable to capture admin-page-layout-select-record-states-dark: HTTP 404 for http://127.0.0.1:8145/screenshot-fixtures/record-states/page-editor",
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "pageErrors": []
+}

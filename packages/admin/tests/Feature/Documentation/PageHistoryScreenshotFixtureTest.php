@@ -16,7 +16,7 @@ it('rebuilds deterministic page history with rollback and roll-forward targets',
     Page::factory()->createOne();
 
     $url = PageHistoryFixture::editUrl();
-    $page = Page::query()->where('name', 'Page history screenshot fixture')->firstOrFail();
+    $page = Page::query()->where('name', 'Page history example')->firstOrFail();
     $revisions = PageRevision::query()
         ->where('page_uuid', $page->uuid)
         ->orderBy('version')

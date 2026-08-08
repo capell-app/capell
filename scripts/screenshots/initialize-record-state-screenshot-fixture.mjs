@@ -1,12 +1,31 @@
 import { spawn } from 'node:child_process'
 
-function hasRecordStateFixture(entries) {
+function hasRecordStateSeed(entries) {
+    const seededEntryIds = new Set([
+        'admin-pages-list',
+        'admin-layouts-list',
+        'admin-media-list',
+        'admin-media-edit-focal-point',
+        'admin-media-edit-localized-metadata',
+        'admin-page-layout-select-record-states',
+    ])
+
+    return entries.some((entry) => seededEntryIds.has(entry.id))
+}
+
+function hasPageHistorySeed(entries) {
     return entries.some((entry) =>
-        String(entry.url ?? '').startsWith('/screenshot-fixtures/record-states/'),
+        ['page-history-timeline', 'page-history-rollback-preview'].includes(
+            entry.id,
+        ),
     )
 }
 
-function initializeFixture(config) {
+function hasFrontendPublishedPageSeed(entries) {
+    return entries.some((entry) => entry.id === 'frontend-published-page')
+}
+
+function initializeFixture(config, command) {
     return new Promise((resolvePromise, rejectPromise) => {
         const child = spawn(
             'php',
@@ -16,12 +35,13 @@ function initializeFixture(config) {
                 'vendor/bin/testbench',
                 'tinker',
                 '--execute',
-                'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+                command,
             ],
             {
                 cwd: config.appPath,
                 env: {
                     ...process.env,
+                    ...(config.environment ?? {}),
                     ...(config.serve?.environment ?? {}),
                 },
                 stdio: 'inherit',
@@ -46,9 +66,25 @@ function initializeFixture(config) {
 }
 
 export default async function preCaptureRecordStateFixture({ config, entries }) {
-    if (!hasRecordStateFixture(entries)) {
+    const commands = []
+
+    if (hasRecordStateSeed(entries)) {
+        commands.push(
+            'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+        )
+    }
+
+    if (hasPageHistorySeed(entries)) {
+        commands.push('Workbench\\App\\Support\\PageHistoryFixture::editUrl();')
+    }
+
+    if (hasFrontendPublishedPageSeed(entries)) {
+        commands.push('Workbench\\App\\Support\\FrontendScreenshotSeed::initialize();')
+    }
+
+    if (commands.length === 0) {
         return
     }
 
-    await initializeFixture(config)
+    await initializeFixture(config, commands.join(' '))
 }

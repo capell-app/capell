@@ -19,7 +19,7 @@ final class PageHistoryFixture
 {
     private const string LayoutKey = 'page-history-screenshot-fixture';
 
-    private const string PageName = 'Page history screenshot fixture';
+    private const string PageName = 'Page history example';
 
     public static function editUrl(): string
     {
@@ -85,7 +85,7 @@ final class PageHistoryFixture
                 'key' => self::LayoutKey,
             ],
             [
-                'name' => 'Page history screenshot fixture',
+                'name' => 'Page history example',
                 'containers' => [],
             ],
         );
@@ -98,7 +98,7 @@ final class PageHistoryFixture
             [
                 'title' => $title,
                 'content' => $content,
-                'meta' => ['slug' => 'page-history-fixture'],
+                'meta' => ['slug' => 'page-history-example'],
             ],
         );
 

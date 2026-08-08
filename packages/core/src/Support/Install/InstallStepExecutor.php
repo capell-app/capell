@@ -28,6 +28,7 @@ use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
@@ -199,16 +200,21 @@ final class InstallStepExecutor
             return;
         }
 
-        collect($manifest)
-            ->flatMap(fn (mixed $package): array => is_array($package) && is_array($package['providers'] ?? null)
-                ? $package['providers']
-                : [])
-            ->filter(fn (mixed $providerClass): bool => is_string($providerClass) && class_exists($providerClass))
-            ->unique()
-            ->sortBy(fn (string $providerClass): int => $this->composerProviderPriority($providerClass))
-            ->each(function (string $providerClass): void {
-                app()->register($providerClass);
-            });
+        // Registering a provider after `booted` runs its booted callbacks
+        // immediately, which is how an installed package contributes its
+        // boot-only surfaces mid-install. Open the frozen registries for it.
+        resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(function () use ($manifest): void {
+            collect($manifest)
+                ->flatMap(fn (mixed $package): array => is_array($package) && is_array($package['providers'] ?? null)
+                    ? $package['providers']
+                    : [])
+                ->filter(fn (mixed $providerClass): bool => is_string($providerClass) && class_exists($providerClass))
+                ->unique()
+                ->sortBy(fn (string $providerClass): int => $this->composerProviderPriority($providerClass))
+                ->each(function (string $providerClass): void {
+                    app()->register($providerClass);
+                });
+        });
     }
 
     private function composerProviderPriority(string $providerClass): int

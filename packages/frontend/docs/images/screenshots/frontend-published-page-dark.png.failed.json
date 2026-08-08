@@ -1,0 +1,50 @@
+{
+  "package": "frontend",
+  "id": "frontend-published-page-dark",
+  "url": "http://127.0.0.1:8145/",
+  "reason": "Browser diagnostics failed capture: console.error: Failed to load resource: the server responded with a status of 404 (Not Found); requestfailed: GET http://127.0.0.1:8145/resources/css/app.css (net::ERR_ABORTED); response: GET http://127.0.0.1:8145/resources/css/app.css HTTP 404",
+  "diagnostics": {
+    "consoleMessages": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "pageErrors": [],
+    "requestFailures": [
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8145/resources/css/app.css",
+        "errorText": "net::ERR_ABORTED"
+      }
+    ],
+    "responseFailures": [
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8145/resources/css/app.css",
+        "status": 404
+      }
+    ]
+  },
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "pageErrors": [],
+  "requestFailures": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8145/resources/css/app.css",
+      "errorText": "net::ERR_ABORTED"
+    }
+  ],
+  "responseFailures": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8145/resources/css/app.css",
+      "status": 404
+    }
+  ]
+}

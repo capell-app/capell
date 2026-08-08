@@ -44,6 +44,10 @@ use Spatie\LaravelData\Data;
  * requests; late registration throws
  * {@see OutboundEventRegistrationException}.
  *
+ * The one exception is package installation: a package installed on a fresh
+ * database boots its surfaces after `booted`, so the install lifecycle
+ * re-registers them inside {@see self::duringPackageInstallation()}.
+ *
  * @see OutboundEventDefinitionData The definition contract itself.
  * @see PackageSurfaceRegistrar::outboundEvent() The registration entry point.
  */
@@ -53,6 +57,8 @@ final class OutboundEventRegistry
     private array $definitions = [];
 
     private bool $frozen = false;
+
+    private int $installationDepth = 0;
 
     /**
      * Register an event definition, validating everything a later publish
@@ -69,7 +75,7 @@ final class OutboundEventRegistry
      */
     public function register(OutboundEventDefinitionData $definition): self
     {
-        if ($this->frozen) {
+        if ($this->frozen && ! $this->installing()) {
             throw OutboundEventRegistrationException::frozen($definition->name);
         }
 
@@ -87,6 +93,12 @@ final class OutboundEventRegistry
 
         if (! is_a($definition->payloadClass, Data::class, true)) {
             throw OutboundEventRegistrationException::invalidPayloadClass($definition->name, $definition->payloadClass);
+        }
+
+        if ($this->installing()
+            && isset($this->definitions[$definition->name])
+            && $this->describes($this->definitions[$definition->name], $definition)) {
+            return $this;
         }
 
         if (isset($this->definitions[$definition->name])) {
@@ -127,5 +139,51 @@ final class OutboundEventRegistry
     public function isFrozen(): bool
     {
         return $this->frozen;
+    }
+
+    /**
+     * Reopen the registry for the package-install lifecycle.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function duringPackageInstallation(callable $callback): mixed
+    {
+        $this->installationDepth++;
+
+        try {
+            return $callback();
+        } finally {
+            $this->installationDepth--;
+        }
+    }
+
+    public function isInstalling(): bool
+    {
+        return $this->installing();
+    }
+
+    private function installing(): bool
+    {
+        return $this->installationDepth > 0;
+    }
+
+    /**
+     * Whether two definitions describe the same event.
+     *
+     * A re-booted provider hands over a fresh definition instance, so this
+     * compares by value rather than identity.
+     */
+    private function describes(
+        OutboundEventDefinitionData $existing,
+        OutboundEventDefinitionData $incoming,
+    ): bool {
+        return $existing->name === $incoming->name
+            && $existing->version === $incoming->version
+            && $existing->payloadClass === $incoming->payloadClass
+            && $existing->description === $incoming->description
+            && $existing->ownerPackage === $incoming->ownerPackage;
     }
 }

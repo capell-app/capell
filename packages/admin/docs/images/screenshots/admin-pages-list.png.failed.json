@@ -1,0 +1,13 @@
+{
+  "package": "admin",
+  "id": "admin-pages-list",
+  "url": "http://127.0.0.1:8145/screenshot-fixtures/record-states/pages",
+  "reason": "Unable to capture admin-pages-list: HTTP 404 for http://127.0.0.1:8145/screenshot-fixtures/record-states/pages",
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "pageErrors": []
+}

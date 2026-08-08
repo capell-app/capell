@@ -164,3 +164,55 @@ it('rejects registration once the registry is frozen', function (): void {
             ownerPackage: 'vendor/editorial',
         )))->toThrow(BlueprintSubjectRegistrationException::class, 'cannot be registered after boot');
 });
+
+it('accepts registration from the package-install window and refreezes after it', function (): void {
+    $registry = new BlueprintSubjectRegistry;
+    $registry->freeze();
+
+    $subject = new BlueprintSubjectDescriptorData(
+        key: 'vendor.editorial.section',
+        label: 'Section',
+        modelClass: Page::class,
+        ownerPackage: 'vendor/editorial',
+    );
+
+    $registry->duringPackageInstallation(function () use ($registry, $subject): void {
+        $registry->register($subject);
+
+        // A re-booted provider builds a fresh descriptor instance describing
+        // the same subject; that must be a no-op, not a duplicate-key error.
+        $registry->register(new BlueprintSubjectDescriptorData(
+            key: 'vendor.editorial.section',
+            label: 'Section',
+            modelClass: Page::class,
+            ownerPackage: 'vendor/editorial',
+        ));
+    });
+
+    expect($registry->has('vendor.editorial.section'))->toBeTrue();
+    expect($registry->isInstalling())->toBeFalse();
+    expect($registry->isFrozen())->toBeTrue();
+    expect(fn (): BlueprintSubjectRegistry => $registry->register($subject))
+        ->toThrow(BlueprintSubjectRegistrationException::class, 'cannot be registered after boot');
+});
+
+it('still rejects a conflicting duplicate inside the package-install window', function (): void {
+    $registry = new BlueprintSubjectRegistry;
+    $registry->freeze();
+
+    $registry->duringPackageInstallation(function () use ($registry): void {
+        $registry->register(new BlueprintSubjectDescriptorData(
+            key: 'vendor.editorial.section',
+            label: 'Section',
+            modelClass: Page::class,
+            ownerPackage: 'vendor/editorial',
+        ));
+
+        expect(fn (): BlueprintSubjectRegistry => $registry->register(new BlueprintSubjectDescriptorData(
+            key: 'vendor.editorial.section',
+            label: 'Section',
+            modelClass: Page::class,
+            ownerPackage: 'vendor/other',
+        )))->toThrow(BlueprintSubjectRegistrationException::class, 'already registered');
+    });
+});

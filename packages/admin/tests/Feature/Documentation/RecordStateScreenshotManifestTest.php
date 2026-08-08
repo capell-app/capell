@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
 
-it('captures record-state fixtures through real Filament routes and visible HTML select options', function (): void {
+it('captures deterministic record states through real Filament routes and visible HTML select options', function (): void {
     $root = dirname(__DIR__, 3);
     $manifest = json_decode(File::get($root . '/docs/screenshots.json'), true, flags: JSON_THROW_ON_ERROR);
     $entries = collect($manifest['entries'])->keyBy('id');
@@ -14,19 +14,19 @@ it('captures record-state fixtures through real Filament routes and visible HTML
     $media = $entries->get('admin-media-list');
 
     expect($pages['surface'])->toBe('admin')
-        ->and($pages['url'])->toBe('/screenshot-fixtures/record-states/pages')
+        ->and($pages['url'])->toBe('/pages')
         ->and($pages['waitFor'])->toContain('Scheduled', 'No active URL')
         ->and($layouts['surface'])->toBe('admin')
-        ->and($layouts['url'])->toBe('/screenshot-fixtures/record-states/layouts')
+        ->and($layouts['url'])->toBe('/layouts')
         ->and($layouts['waitFor'])->toContain('Disabled', 'Unused layout')
         ->and($media['surface'])->toBe('admin')
-        ->and($media['url'])->toBe('/screenshot-fixtures/record-states/media')
+        ->and($media['url'])->toBe('/media')
         ->and($media['interactions'])->toContain([
             'type' => 'waitFor',
-            'selector' => ".fi-ta-row:has-text('unused-screenshot-fixture.jpg'):has-text('No tracked uses')",
+            'selector' => ".fi-ta-row:has-text('capell-logo-reference.png'):has-text('No tracked uses')",
         ])
         ->and($entries->get('admin-media-edit-focal-point')['waitFor'])->toBe(".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))")
-        ->and($entries->get('admin-media-edit-localized-metadata')['url'])->toBe('/screenshot-fixtures/record-states/media-editor')
+        ->and($entries->get('admin-media-edit-localized-metadata')['url'])->toBe('/media/{first-record}/edit')
         ->and($entries->get('admin-media-edit-localized-metadata')['interactions'])->toContain([
             'type' => 'waitFor',
             'selector' => ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))",
@@ -34,7 +34,7 @@ it('captures record-state fixtures through real Filament routes and visible HTML
 
     $layoutSelect = $entries->get('admin-page-layout-select-record-states');
 
-    expect($layoutSelect['url'])->toBe('/screenshot-fixtures/record-states/page-editor')
+    expect($layoutSelect['url'])->toBe('/pages/{first-record}/edit')
         ->and($layoutSelect['beforeWait'])->toContain([
             'type' => 'click',
             'selector' => ".fi-fo-field:has(label[for='form.layout_id']) .fi-select-input-btn",
