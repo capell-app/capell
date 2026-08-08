@@ -2,26 +2,31 @@
     {
         "name": "capell-app/core",
         "path": "packages/core",
-        "repository": "capell-app/core"
+        "repository": "capell-app/core",
+        "maturity": "stable"
     },
     {
         "name": "capell-app/admin",
         "path": "packages/admin",
-        "repository": "capell-app/admin"
+        "repository": "capell-app/admin",
+        "maturity": "stable"
     },
     {
         "name": "capell-app/frontend",
         "path": "packages/frontend",
-        "repository": "capell-app/frontend"
+        "repository": "capell-app/frontend",
+        "maturity": "stable"
     },
     {
         "name": "capell-app/installer",
         "path": "packages/installer",
-        "repository": "capell-app/installer"
+        "repository": "capell-app/installer",
+        "maturity": "stable"
     },
     {
         "name": "capell-app/marketplace",
         "path": "packages/marketplace",
-        "repository": "capell-app/marketplace"
+        "repository": "capell-app/marketplace",
+        "maturity": "stable"
     }
 ]
