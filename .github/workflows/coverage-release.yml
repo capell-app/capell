@@ -52,8 +52,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/phpunit
-          key: ${{ runner.os }}-phpunit-cache-${{ hashFiles('composer.lock') }}
+          key: ${{ runner.os }}-phpunit-cache-${{ hashFiles('composer.lock') }}-${{ github.sha }}
           restore-keys: |
+            ${{ runner.os }}-phpunit-cache-${{ hashFiles('composer.lock') }}
             ${{ runner.os }}-phpunit-cache-
 
       - name: Check Composer public files

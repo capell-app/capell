@@ -176,6 +176,10 @@ final class PackageLifecycleRunner
      * a different failure than a missing command; that case is left for the
      * real command run to surface via its own "failed in a fresh process"
      * exception.
+     *
+     * Known limitation: `list --raw` omits hidden commands, so a hidden
+     * lifecycle command would be reported as missing here (acceptable
+     * today; no in-repo lifecycle command is hidden).
      */
     private function commandMissingFromFreshProcess(string $command): bool
     {
@@ -192,6 +196,7 @@ final class PackageLifecycleRunner
         }
 
         foreach (explode("\n", $probeProcess->getOutput()) as $line) {
+            // strtok() returns false for blank lines, which can never strict-equal a command name.
             $name = strtok(trim($line), " \t");
 
             if ($name === $command) {
