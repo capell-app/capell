@@ -33,9 +33,10 @@ class HtmlToArrayAction
     {
         $wrappedHtml = '<root>' . $html . '</root>';
         $dom = new DOMDocument;
-        libxml_use_internal_errors(true);
+        $previousUseInternalErrors = libxml_use_internal_errors(true);
         $dom->loadHTML('<?xml encoding="utf-8" ?>' . $wrappedHtml, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
         libxml_clear_errors();
+        libxml_use_internal_errors($previousUseInternalErrors);
 
         return $dom;
     }

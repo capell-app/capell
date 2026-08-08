@@ -11,6 +11,8 @@ final class HtmlMinifier implements HtmlMinifierContract
 {
     private const string PROTECTED_ATTRIBUTE_TOKEN_PREFIX = 'CAPELL_HTML_MINIFIER_ATTRIBUTE_';
 
+    private ?HtmlMin $htmlMin = null;
+
     public function minify(string $html): string
     {
         if ($html === '') {
@@ -18,6 +20,15 @@ final class HtmlMinifier implements HtmlMinifierContract
         }
 
         [$html, $protectedAttributes] = $this->protectAlpineAttributes($html);
+
+        return strtr($this->htmlMin()->minify($html), $protectedAttributes);
+    }
+
+    private function htmlMin(): HtmlMin
+    {
+        if ($this->htmlMin instanceof HtmlMin) {
+            return $this->htmlMin;
+        }
 
         $htmlMin = new HtmlMin;
 
@@ -29,7 +40,7 @@ final class HtmlMinifier implements HtmlMinifierContract
         $htmlMin->doRemoveHttpPrefixFromAttributes(false);
         $htmlMin->doRemoveHttpsPrefixFromAttributes(false);
 
-        return strtr($htmlMin->minify($html), $protectedAttributes);
+        return $this->htmlMin = $htmlMin;
     }
 
     /**
@@ -40,12 +51,17 @@ final class HtmlMinifier implements HtmlMinifierContract
         $protectedAttributes = [];
 
         $html = (string) preg_replace_callback(
-            '/(?<attribute>\s(?:x-[A-Za-z0-9:._-]+|[:@][A-Za-z0-9:._-]+)=(?<quote>["\'])(?<value>.*?)(\k<quote>))/s',
+            '/(?<lead>\s)(?<name>x-[A-Za-z0-9:._-]+|[:@][A-Za-z0-9:._-]+)=(?<quote>["\'])(?<value>.*?)\k<quote>/s',
             static function (array $matches) use (&$protectedAttributes): string {
                 $token = self::PROTECTED_ATTRIBUTE_TOKEN_PREFIX . count($protectedAttributes);
                 $protectedAttributes[$token] = $matches['value'];
 
-                return str_replace($matches['value'], $token, $matches['attribute']);
+                // Rebuild from the captured parts rather than str_replace()ing
+                // the raw value into the match: a value that also occurs inside
+                // the attribute name (e.g. value `x` in `x-data="x"`) would
+                // otherwise tokenize the name too, and HtmlMin's attribute-name
+                // lowercasing then leaves that token unrestorable.
+                return $matches['lead'] . $matches['name'] . '=' . $matches['quote'] . $token . $matches['quote'];
             },
             $html,
         );

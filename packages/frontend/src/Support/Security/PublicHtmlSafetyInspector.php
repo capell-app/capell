@@ -15,6 +15,12 @@ final class PublicHtmlSafetyInspector
 
     private const int LARGE_SIGNED_URL_SCAN_BEFORE_BYTES = 60000;
 
+    /**
+     * Matches `signature=` spelled with any mix of literal characters and
+     * JSON `\uXXXX` escapes (both cases), tolerating whitespace before `=`.
+     */
+    private const string SIGNED_ADMIN_SIGNATURE_MARKER_PATTERN = '#(?:s|\\\\u0073|\\\\u0053)(?:i|\\\\u0069|\\\\u0049)(?:g|\\\\u0067|\\\\u0047)(?:n|\\\\u006e|\\\\u004e)(?:a|\\\\u0061|\\\\u0041)(?:t|\\\\u0074|\\\\u0054)(?:u|\\\\u0075|\\\\u0055)(?:r|\\\\u0072|\\\\u0052)(?:e|\\\\u0065|\\\\u0045)\\s*=#i';
+
     public function __construct(
         private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
     ) {}
@@ -65,13 +71,18 @@ final class PublicHtmlSafetyInspector
             return $this->authoringMarkerDetection($classOrIdMarker);
         }
 
-        $unknownCapellAttribute = $this->detectUnknownCapellAttribute($html);
+        // The pre/code strip and the variant expansion are the two expensive
+        // full-document passes; every detector below shares one computation.
+        $strippedHtml = $this->stripPreCodeBlocks($html);
+        $strippedHtmlVariants = $this->htmlVariants($strippedHtml);
+
+        $unknownCapellAttribute = $this->detectUnknownCapellAttribute($strippedHtml);
 
         if ($unknownCapellAttribute !== null) {
             return $this->authoringMarkerDetection($unknownCapellAttribute);
         }
 
-        $literalAuthoringMarker = $this->detectLiteralAuthoringMarker($html);
+        $literalAuthoringMarker = $this->detectLiteralAuthoringMarker($strippedHtmlVariants);
 
         if ($literalAuthoringMarker !== null) {
             return $this->authoringMarkerDetection($literalAuthoringMarker);
@@ -83,7 +94,7 @@ final class PublicHtmlSafetyInspector
             return $this->authoringMarkerDetection($jsonMarker);
         }
 
-        $jsonLikeMarker = $this->detectAuthoringJsonLikeMarkup($html);
+        $jsonLikeMarker = $this->detectAuthoringJsonLikeMarkup($strippedHtmlVariants);
 
         if ($jsonLikeMarker !== null) {
             return $this->authoringMarkerDetection($jsonLikeMarker);
@@ -125,6 +136,12 @@ final class PublicHtmlSafetyInspector
     private function detectAuthoringAttribute(string $html): ?string
     {
         foreach ($this->leakPolicy->authoringAttributes() as $attribute) {
+            // The pattern can only match when the literal attribute occurs;
+            // stripos is far cheaper than a regex pass over the document.
+            if (stripos($html, $attribute) === false) {
+                continue;
+            }
+
             $pattern = '#<[^>]+\\s' . preg_quote($attribute, '#') . '(?:\\s|=|>)#i';
 
             if (preg_match($pattern, $html) === 1) {
@@ -138,6 +155,10 @@ final class PublicHtmlSafetyInspector
     private function detectAuthoringClassOrId(string $html): ?string
     {
         foreach ($this->leakPolicy->authoringClassOrIdMarkers() as $marker) {
+            if (stripos($html, $marker) === false) {
+                continue;
+            }
+
             $pattern = '#\\s(?:class|id)=["\'][^"\']*\\b' . preg_quote($marker, '#') . '\\b[^"\']*["\']#i';
 
             if (preg_match($pattern, $html) === 1) {
@@ -154,9 +175,29 @@ final class PublicHtmlSafetyInspector
      * so documentation/code samples that merely mention an attribute are allowed,
      * matching the behaviour of the other literal-marker detectors.
      */
+    private function stripPreCodeBlocks(string $html): string
+    {
+        return preg_replace('#<(pre|code)\\b[^>]*>.*?</\\1>#is', '', $html) ?? $html;
+    }
+
+    /**
+     * Expects HTML already passed through {@see stripPreCodeBlocks()}.
+     */
     private function detectUnknownCapellAttribute(string $html): ?string
     {
-        $html = preg_replace('#<(pre|code)\\b[^>]*>.*?</\\1>#is', '', $html) ?? $html;
+        // Fast path: sweep the whole document for `data-capell-*` names first.
+        // When every candidate is on the runtime allowlist — the shape of every
+        // clean public page — there is nothing to detect and the far more
+        // expensive per-tag verification below never runs.
+        if (preg_match_all('#\\b(data-capell-[a-z0-9-]+)#i', $html, $candidateMatches) < 1) {
+            return null;
+        }
+
+        $unknownCandidateExists = array_any(array_unique($candidateMatches[1]), fn (string $candidate): bool => ! $this->isAllowedCapellRuntimeAttribute(strtolower($candidate)));
+
+        if (! $unknownCandidateExists) {
+            return null;
+        }
 
         // Only inspect attributes actually used on a tag, never the name merely
         // appearing in body text. Scan each opening tag's attribute span as a
@@ -195,12 +236,13 @@ final class PublicHtmlSafetyInspector
         return array_any($this->leakPolicy->allowedCapellRuntimeAttributePrefixes(), fn (string $prefix): bool => str_starts_with($attribute, $prefix));
     }
 
-    private function detectLiteralAuthoringMarker(string $html): ?string
+    /**
+     * @param  list<string>  $htmlVariants  variants of pre/code-stripped HTML
+     */
+    private function detectLiteralAuthoringMarker(array $htmlVariants): ?string
     {
-        $html = preg_replace('#<(pre|code)\\b[^>]*>.*?</\\1>#is', '', $html) ?? $html;
-
         foreach ($this->leakPolicy->authoringClassOrIdMarkers() as $marker) {
-            foreach ($this->htmlVariants($html) as $htmlVariant) {
+            foreach ($htmlVariants as $htmlVariant) {
                 if (stripos($htmlVariant, $marker) !== false) {
                     return $marker;
                 }
@@ -236,11 +278,11 @@ final class PublicHtmlSafetyInspector
         return null;
     }
 
-    private function detectAuthoringJsonLikeMarkup(string $html): ?string
+    /**
+     * @param  list<string>  $htmlVariants  variants of pre/code-stripped HTML
+     */
+    private function detectAuthoringJsonLikeMarkup(array $htmlVariants): ?string
     {
-        $html = preg_replace('#<(pre|code)\\b[^>]*>.*?</\\1>#is', '', $html) ?? $html;
-        $htmlVariants = $this->htmlVariants($html);
-
         foreach ($this->leakPolicy->authoringJsonKeys() as $key) {
             foreach ($htmlVariants as $htmlVariant) {
                 if ($this->containsAuthoringJsonKey($htmlVariant, $key, allowBareKey: false)) {
@@ -254,6 +296,10 @@ final class PublicHtmlSafetyInspector
 
     private function containsAuthoringJsonKey(string $html, string $key, bool $allowBareKey): bool
     {
+        if (stripos($html, $key) === false) {
+            return false;
+        }
+
         $quotedKeyPattern = '["\']' . preg_quote($key, '#') . '["\']';
 
         if (! $allowBareKey) {
@@ -272,6 +318,10 @@ final class PublicHtmlSafetyInspector
     {
         foreach ($this->leakPolicy->authoringSignedUrlJsonKeys() as $key) {
             foreach ($htmlVariants as $htmlVariant) {
+                if (stripos($htmlVariant, $key) === false) {
+                    continue;
+                }
+
                 $quotedKeyPattern = '["\']' . preg_quote($key, '#') . '["\']';
                 $bareKeyPattern = '(?<![A-Za-z0-9_$-])' . preg_quote($key, '#') . '(?![A-Za-z0-9_$-])';
                 $pattern = '#(?:' . $quotedKeyPattern . '|' . $bareKeyPattern . ')\\s*:\\s*["\'](?<url>[^"\']+)["\']#i';
@@ -356,15 +406,14 @@ final class PublicHtmlSafetyInspector
 
     private function mayContainSignedAdminUrl(string $html): bool
     {
-        $candidate = strtolower($html);
-        $adminPath = strtolower($this->adminPath());
-
-        if (! str_contains($candidate, 'signature=')) {
+        if (stripos($html, 'signature=') === false) {
             return false;
         }
 
-        return str_contains($candidate, '/' . $adminPath . '/')
-            || str_contains($candidate, '\\/' . $adminPath . '\\/');
+        $adminPath = $this->adminPath();
+
+        return stripos($html, '/' . $adminPath . '/') !== false
+            || stripos($html, '\\/' . $adminPath . '\\/') !== false;
     }
 
     /**
@@ -374,7 +423,7 @@ final class PublicHtmlSafetyInspector
     {
         $offset = 0;
 
-        while (preg_match($this->signedAdminSignatureMarkerPattern(), $html, $matches, PREG_OFFSET_CAPTURE, $offset) === 1) {
+        while (preg_match(self::SIGNED_ADMIN_SIGNATURE_MARKER_PATTERN, $html, $matches, PREG_OFFSET_CAPTURE, $offset) === 1) {
             $match = $matches[0];
             $position = $match[1];
 
@@ -410,12 +459,15 @@ final class PublicHtmlSafetyInspector
 
     private function containsSignedAdminSignatureMarker(string $html): bool
     {
-        return preg_match($this->signedAdminSignatureMarkerPattern(), $html) === 1;
-    }
+        // The regex only exists to catch \uXXXX-escaped spellings; a plain
+        // literal occurrence is the overwhelmingly common case and stripos
+        // answers it without a regex pass. The `\u` probe mirrors the escape
+        // syntax the pattern's alternations accept.
+        if (stripos($html, 'signature') === false && ! str_contains($html, '\\u')) {
+            return false;
+        }
 
-    private function signedAdminSignatureMarkerPattern(): string
-    {
-        return '#(?:s|\\\\u0073|\\\\u0053)(?:i|\\\\u0069|\\\\u0049)(?:g|\\\\u0067|\\\\u0047)(?:n|\\\\u006e|\\\\u004e)(?:a|\\\\u0061|\\\\u0041)(?:t|\\\\u0074|\\\\u0054)(?:u|\\\\u0075|\\\\u0055)(?:r|\\\\u0072|\\\\u0052)(?:e|\\\\u0065|\\\\u0045)\\s*=#i';
+        return preg_match(self::SIGNED_ADMIN_SIGNATURE_MARKER_PATTERN, $html) === 1;
     }
 
     private function looksLikeAdminUrl(string $url): bool
@@ -432,7 +484,12 @@ final class PublicHtmlSafetyInspector
     private function htmlVariants(string $html): array
     {
         $variants = [$html];
-        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // html_entity_decode is an identity transform when no `&` occurs, and
+        // the substring probe is far cheaper than the full decode pass.
+        $decoded = str_contains($html, '&')
+            ? html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8')
+            : $html;
 
         if ($decoded !== $html) {
             $variants[] = $decoded;
