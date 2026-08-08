@@ -49,6 +49,14 @@ use Illuminate\Database\Eloquent\Model;
  * requests; late registration throws
  * {@see BlueprintSubjectRegistrationException}.
  *
+ * The one exception is package installation. A package's surfaces only boot
+ * once the package is marked installed, and on a fresh database that flip
+ * happens mid-install — after `booted`. The install lifecycle therefore
+ * re-boots the package inside
+ * {@see self::duringPackageInstallation()}, which reopens the registry for the
+ * duration of that callback and tolerates a package re-registering an
+ * identical subject. Anything else still throws.
+ *
  * @see BlueprintSubjectDescriptorData The descriptor contract itself.
  * @see PackageSurfaceRegistrar::blueprintSubject() The registration entry point.
  */
@@ -58,6 +66,8 @@ final class BlueprintSubjectRegistry
     private array $subjects = [];
 
     private bool $frozen = false;
+
+    private int $installationDepth = 0;
 
     /**
      * Register a subject, validating everything a later reader will assume.
@@ -71,7 +81,7 @@ final class BlueprintSubjectRegistry
      */
     public function register(BlueprintSubjectDescriptorData $subject): self
     {
-        if ($this->frozen) {
+        if ($this->frozen && ! $this->installing()) {
             throw BlueprintSubjectRegistrationException::frozen($subject->key);
         }
 
@@ -98,6 +108,12 @@ final class BlueprintSubjectRegistry
             && (! class_exists($subject->defaultSchemaSeeder)
                 || ! is_callable([$subject->defaultSchemaSeeder, 'run']))) {
             throw BlueprintSubjectRegistrationException::invalidSeeder($subject->key, $subject->defaultSchemaSeeder);
+        }
+
+        if ($this->installing()
+            && isset($this->subjects[$subject->key])
+            && $this->describes($this->subjects[$subject->key], $subject)) {
+            return $this;
         }
 
         if (isset($this->subjects[$subject->key])) {
@@ -177,6 +193,57 @@ final class BlueprintSubjectRegistry
     public function isFrozen(): bool
     {
         return $this->frozen;
+    }
+
+    /**
+     * Reopen the registry for the package-install lifecycle.
+     *
+     * Installing a package flips it to installed and re-boots its provider, so
+     * its subjects arrive after `booted`. Nesting is supported because bundle
+     * members install inside their bundle's window.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function duringPackageInstallation(callable $callback): mixed
+    {
+        $this->installationDepth++;
+
+        try {
+            return $callback();
+        } finally {
+            $this->installationDepth--;
+        }
+    }
+
+    public function isInstalling(): bool
+    {
+        return $this->installing();
+    }
+
+    private function installing(): bool
+    {
+        return $this->installationDepth > 0;
+    }
+
+    /**
+     * Whether two descriptors describe the same subject.
+     *
+     * A re-booted provider hands over a fresh descriptor instance, so this
+     * compares by value rather than identity.
+     */
+    private function describes(
+        BlueprintSubjectDescriptorData $existing,
+        BlueprintSubjectDescriptorData $incoming,
+    ): bool {
+        return $existing->key === $incoming->key
+            && $existing->label === $incoming->label
+            && $existing->modelClass === $incoming->modelClass
+            && $existing->ownerPackage === $incoming->ownerPackage
+            && $existing->defaultSchemaSeeder === $incoming->defaultSchemaSeeder
+            && $existing->groups === $incoming->groups;
     }
 
     private function key(BlueprintSubjectEnum|string $subject): string
