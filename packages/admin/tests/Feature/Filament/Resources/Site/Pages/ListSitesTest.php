@@ -115,8 +115,14 @@ it('can replicate site', function (): void {
         ->fillForm([
             'site_domains' => [
                 [
-                    'domain' => 'http://localhost',
+                    'url' => 'http://localhost',
                     'language_id' => $site->language_id,
+                    'default' => true,
+                ],
+                [
+                    'url' => 'http://example.test',
+                    'language_id' => $language->getKey(),
+                    'default' => false,
                 ],
             ],
         ])
@@ -130,7 +136,7 @@ it('can replicate site', function (): void {
         ->name->toBe($name)
         ->language_id->toBe($site->language_id)
         ->siteDomains->count()->toBe(2)
-        ->siteDomains->first()
+        ->siteDomains->firstWhere('default', true)
         ->domain->toBe('localhost')
         ->language_id->toBe($site->language_id);
 });

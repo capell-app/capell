@@ -12,7 +12,7 @@ Use the [Quickstart](quickstart.md) for a disposable demo. For an existing appli
 | ----------- | ------------------------------------------------- |
 | PHP         | 8.4+                                              |
 | Laravel     | 13.x                                              |
-| Filament    | `~5.6.8`, installed by the selected Admin package |
+| Filament    | `^5.7.6`, installed by the selected Admin package |
 | Database    | MySQL 8+, MariaDB 10.5+, PostgreSQL, or SQLite    |
 | Node.js     | 20+                                               |
 | Composer    | 2.7+                                              |
