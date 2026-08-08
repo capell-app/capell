@@ -28,7 +28,7 @@
             @foreach ($preview->records as $record)
                 @if (in_array($record['result']->outcome->value, ['unauthorized', 'invalid-transition', 'failed'], true))
                     <li>
-                        {{ $record['label'] }} — {{ __('capell-admin::bulk_actions.outcome_' . $record['result']->outcome->value) }}
+                        {{ $record['label'] }} — {{ __(sprintf('capell-admin::bulk_actions.outcome_%s', $record['result']->outcome->value)) }}
                     </li>
                 @endif
             @endforeach
