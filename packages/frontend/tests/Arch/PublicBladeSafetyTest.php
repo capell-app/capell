@@ -48,6 +48,16 @@ it('documents the allowed public frontend runtime data attributes', function ():
         'data-capell-interaction-retry-label',
         'data-capell-interaction-fallback-label',
         'data-capell-interaction-status',
+        'data-capell-language-banner',
+        'data-capell-language-dismiss',
+        'data-capell-language-revert',
+        'data-capell-language-reverted',
+        'data-capell-language-suggest',
+        'data-capell-language-switch',
+        'data-capell-language-variant',
+        'data-capell-page-language',
+        'data-capell-cookie',
+        'data-capell-origin-cookie',
     ]);
 });
 
@@ -173,5 +183,15 @@ function publicFrontendBladeAllowedRuntimeAttributes(): array
         'data-capell-interaction-retry-label',
         'data-capell-interaction-fallback-label',
         'data-capell-interaction-status',
+        'data-capell-language-banner',
+        'data-capell-language-dismiss',
+        'data-capell-language-revert',
+        'data-capell-language-reverted',
+        'data-capell-language-suggest',
+        'data-capell-language-switch',
+        'data-capell-language-variant',
+        'data-capell-page-language',
+        'data-capell-cookie',
+        'data-capell-origin-cookie',
     ];
 }

@@ -56,14 +56,21 @@ final class PublicOutputLeakPolicy
     {
         return [
             'data-capell-widget-', 'data-capell-interaction-', 'data-capell-theme-',
-            'data-capell-insights-',
+            'data-capell-insights-', 'data-capell-language-',
         ];
     }
 
     /** @return list<non-empty-string> */
     public function allowedCapellRuntimeAttributes(): array
     {
-        return ['data-capell-interaction'];
+        // The language-banner extras carry only cookie names and a BCP-47 page
+        // tag — values the browser already sees — never authoring state.
+        return [
+            'data-capell-interaction',
+            'data-capell-cookie',
+            'data-capell-origin-cookie',
+            'data-capell-page-language',
+        ];
     }
 
     /** @return list<non-empty-string> */

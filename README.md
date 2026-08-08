@@ -1,12 +1,12 @@
 # Capell CMS
 
-![Fine-line engraved blueprint on deep navy showing Capell's foundation feeding two branching structures, with the Capell wordmark on the left](docs/images/capell-readme-hero.jpg)
+![The Capell wordmark and the line "Starts where custom builds end." on a dark drafting grid, beside an isometric model of a cream Core foundation stamped with the Laravel mark, forking into separate Admin and Frontend structures with Blade, Livewire, Inertia, and Vue tiles docked beneath the frontend window](docs/images/capell-readme-hero.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/capell-app/capell?style=flat-square&logo=codecov&logoColor=white)](https://app.codecov.io/gh/capell-app/capell)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
-[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
+[![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 
 **Every change can be undone.**
 
@@ -70,7 +70,11 @@ Package authors should start with the [extension-point chooser](docs/packages/ex
 
 ## Built as a standard Laravel package
 
-There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages. Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches. Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
+There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages.
+
+Page schemas are defined by **blueprints**: define a page type's fields once, then extend the schema per project instead of writing another bespoke resource. Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.
+
+Capell Foundation is MIT-licensed and installs from public Packagist repositories without a Capell account. Paid marketplace packages remain commercially licensed and use separate commercial terms and entitlement-scoped Composer access; the [licensing page](https://capell.app/licensing) explains the split.
 
 The public foundation is five packages:
 
@@ -155,15 +159,15 @@ Read these before production:
 
 ## Requirements
 
-| Tool     | Supported versions                                                  |
-| -------- | ------------------------------------------------------------------- |
-| PHP      | 8.4+                                                                |
-| Laravel  | 12.41.1+ in the 12.x line or Laravel 13.x                           |
-| Filament | 5.6.8+ (`~5.6.8`)                                                   |
-| Database | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database |
-| Node.js  | 20+                                                                 |
-| Composer | 2.7+                                                                |
-| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP)       |
+| Tool     | Supported versions                                            |
+| -------- | ------------------------------------------------------------- |
+| PHP      | 8.4+                                                          |
+| Laravel  | 13.x                                                          |
+| Filament | 5.6.8+ (`~5.6.8`)                                             |
+| Database | MySQL 8+, MariaDB 10.5+, PostgreSQL, or SQLite                |
+| Node.js  | 20+                                                           |
+| Composer | 2.7+                                                          |
+| Runtime  | PHP-FPM or Laravel Octane (Swoole, RoadRunner, or FrankenPHP) |
 
 Required PHP extensions and writable paths are listed in the [Install guide](docs/getting-started/install.md). The shipped product line is 1.x; use the latest compatible tag rather than a branch name in customer applications.
 

@@ -7,7 +7,7 @@
 [![Tests](https://github.com/capell-app/capell/actions/workflows/test-full.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![PHP Quality](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml/badge.svg?branch=main)](https://github.com/capell-app/capell/actions/workflows/code-quality-and-styling.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](#requirements-and-support-policy)
-[![Laravel](https://img.shields.io/badge/Laravel-12.41%2B%20%7C%2013-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
+[![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements-and-support-policy)
 [![Documentation](https://img.shields.io/badge/docs-docs.capell.app-blue?style=flat-square)](https://docs.capell.app)
 
 `capell-app/installer` provides the browser installation workflow for fresh Capell CMS applications. It owns the install routes, progress screens, install guide patches, not-installed dashboard warning, and post-install setup package removal.
@@ -98,11 +98,11 @@ vendor/bin/pest tests
 
 ## Requirements And Support Policy
 
-| Surface | Supported versions                          |
-| ------- | ------------------------------------------- |
-| PHP     | `^8.4`                                      |
-| Laravel | Host Laravel `^12.41.1` or `^13.0` via Core |
-| Core    | The same release as this package            |
+| Surface | Supported versions               |
+| ------- | -------------------------------- |
+| PHP     | `^8.4`                           |
+| Laravel | Host Laravel `^13.0` via Core    |
+| Core    | The same release as this package |
 
 Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.
 
