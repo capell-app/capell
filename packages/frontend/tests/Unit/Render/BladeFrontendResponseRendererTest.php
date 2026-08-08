@@ -24,6 +24,7 @@ use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
@@ -63,9 +64,7 @@ it('uses the capell layout path for pages with layout builder containers', funct
         function (RenderHookContext $context) use (&$mainContentData): string {
             expect($context->item)->toBeInstanceOf(MainContentRenderHookData::class);
 
-            if (! $context->item instanceof MainContentRenderHookData) {
-                throw new RuntimeException('Expected the main content hook data.');
-            }
+            throw_unless($context->item instanceof MainContentRenderHookData, RuntimeException::class, 'Expected the main content hook data.');
 
             $mainContentData = $context->item;
 
@@ -149,7 +148,7 @@ it('uses the capell layout path for pages with layout builder containers', funct
             target: 'capell::layout.main',
         );
 
-        expect(fn () => (new BladeFrontendResponseRenderer)->render($renderContext))
+        expect(fn (): Symfony\Component\HttpFoundation\Response|Responsable => (new BladeFrontendResponseRenderer)->render($renderContext))
             ->toThrow(RuntimeException::class, 'Public HTML contains an authoring marker.');
     } finally {
         File::deleteDirectory($viewPath);
