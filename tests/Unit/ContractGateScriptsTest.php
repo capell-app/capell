@@ -80,6 +80,29 @@ it('ratchets normalized dynamic translation sites and validated families', funct
     }
 });
 
+it('credits keys referenced only through a prefix-concatenation family call', function (): void {
+    $root = contractGateFixture();
+
+    try {
+        file_put_contents($root . '/packages/fixture/resources/lang/en/labels.php', "<?php\nreturn ['status' => ['active' => 'Active', 'inactive' => 'Inactive'], 'orphan' => 'Orphan'];\n");
+        file_put_contents(
+            $root . '/packages/fixture/src/Status.php',
+            "<?php\nreturn (string) __('capell-fixture::labels.status.' . \$status);\n",
+        );
+
+        $update = runContractGate($root, PHP_BINARY, 'scripts/check-language-key-drift.php', '--update');
+        expect($update->isSuccessful())->toBeTrue();
+
+        $baseline = json_decode((string) file_get_contents($root . '/scripts/language-keys-baseline.json'), true, 512, JSON_THROW_ON_ERROR);
+        expect($baseline['unused'])->toBe(['capell-fixture::labels.orphan'])
+            ->and($baseline['missing'])->toBe([])
+            ->and($baseline['dynamicFamilies'])->toBe(['capell-fixture::labels.status.*'])
+            ->and($baseline['dynamicSites'])->toBe(['packages/fixture/src/Status.php::family:capell-fixture::labels.status.*']);
+    } finally {
+        deleteContractGateFixture($root);
+    }
+});
+
 it('ignores queue declaration and external-call decoys in comments and strings', function (): void {
     $root = contractGateFixture();
 

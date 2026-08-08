@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 return [
-    'activities' => 'Activity Log',
-    'activity' => 'Activity log entry',
     'activity_details' => 'Activity log details',
     'act_as_owner_recorded' => 'Recorded act-as-owner support action',
     'act_as_owner_started' => 'Started acting as owner',
