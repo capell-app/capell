@@ -47,9 +47,7 @@ final class PruneActivityBucketsAction
                     ->exists(),
             ));
 
-            if (array_diff($daysWithRows, $completedDays) !== []) {
-                throw new RuntimeException('Activity buckets were not pruned because one or more expired days lack a completed daily rollup.');
-            }
+            throw_if(array_diff($daysWithRows, $completedDays) !== [], RuntimeException::class, 'Activity buckets were not pruned because one or more expired days lack a completed daily rollup.');
         }
 
         return $query->delete();

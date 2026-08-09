@@ -102,7 +102,7 @@ vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaCo
 | Surface  | Supported versions               |
 | -------- | -------------------------------- |
 | PHP      | `^8.4`                           |
-| Laravel  | `^12.41.1` or `^13.0`            |
+| Laravel  | `^13.0`                          |
 | Livewire | `^3.0` or `^4.0`                 |
 | Core     | The same release as this package |
 

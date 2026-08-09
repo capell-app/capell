@@ -6,9 +6,11 @@ use Capell\Core\Actions\SetupPackageAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     LifecycleRecorderAction::reset();
@@ -43,6 +45,16 @@ it('throws if the setup command does not exist', function (): void {
         type: PackageTypeEnum::Plugin,
         setupCommand: 'capell:nonexistent-setup-command',
     );
+
+    $probeProcess = Mockery::mock(Process::class);
+    $probeProcess->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $probeProcess->shouldReceive('run')->once()->with()->andReturn(0);
+    $probeProcess->shouldReceive('isSuccessful')->once()->andReturnTrue();
+    $probeProcess->shouldReceive('getOutput')->once()->andReturn("capell:test-setup-command  A registered setup command\n");
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->andReturn($probeProcess);
+    app()->instance(ProcessFactoryInterface::class, $factory);
 
     expect(fn () => SetupPackageAction::run($package))
         ->toThrow(Exception::class, "Setup command 'capell:nonexistent-setup-command' does not exist.");

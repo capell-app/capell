@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
-use Illuminate\Support\Str;
-
 final class PublicUrlSanitizer
 {
     /**
@@ -31,12 +29,15 @@ final class PublicUrlSanitizer
             return null;
         }
 
-        $lowerUrl = Str::lower($url);
+        $lowerUrl = strtolower($url);
 
-        if (Str::startsWith($lowerUrl, '//')) {
+        if (str_starts_with($lowerUrl, '//')) {
             return null;
         }
 
-        return Str::startsWith($lowerUrl, self::ALLOWED_PREFIXES) ? $url : null;
+        return array_any(
+            self::ALLOWED_PREFIXES,
+            static fn (string $prefix): bool => str_starts_with($lowerUrl, $prefix),
+        ) ? $url : null;
     }
 }

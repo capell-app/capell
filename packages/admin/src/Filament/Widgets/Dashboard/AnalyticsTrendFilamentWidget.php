@@ -47,6 +47,7 @@ final class AnalyticsTrendFilamentWidget extends ChartWidget implements CapellFi
         ]);
     }
 
+    #[Override]
     public function getHeading(): string
     {
         return (string) __('capell-admin::dashboard.analytics_trend');

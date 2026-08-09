@@ -14,10 +14,10 @@ Allow about ten minutes for the first Composer install.
 | ----------- | ----------------------------------------------------------------------- |
 | PHP         | 8.4+                                                                    |
 | Laravel     | 13.x                                                                    |
-| Filament    | Installed by the selected Capell Admin package; supported line `~5.6.8` |
+| Filament    | Installed by the selected Capell Admin package; supported line `^5.7.6` |
 | Node.js     | 20+                                                                     |
 | Composer    | 2.7+                                                                    |
-| Database    | MySQL 8+, MariaDB 10.3+, SQLite, or the configured Laravel database     |
+| Database    | MySQL 8+, MariaDB 10.5+, PostgreSQL, or SQLite                          |
 
 Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
 
@@ -55,14 +55,14 @@ php artisan capell:install --demo --url=http://localhost:8000
 
 For a normal evaluation, accept the full foundation selection and the default theme. The installer asks for:
 
-| Prompt                             | Local evaluation answer                            |
-| ---------------------------------- | -------------------------------------------------- |
-| Package selection                  | All foundation packages                            |
-| Theme                              | Default                                            |
-| Site URL                           | `http://localhost:8000`                            |
-| Administrator                      | Create one with an email and strong local password |
-| Which caches would you like to clear? | Accept the preselected defaults                 |
-| Welcome route                      | Yes for a fresh demo application                   |
+| Prompt                                | Local evaluation answer                            |
+| ------------------------------------- | -------------------------------------------------- |
+| Package selection                     | All foundation packages                            |
+| Theme                                 | Default                                            |
+| Site URL                              | `http://localhost:8000`                            |
+| Administrator                         | Create one with an email and strong local password |
+| Which caches would you like to clear? | Accept the preselected defaults                    |
+| Welcome route                         | Yes for a fresh demo application                   |
 
 The cache prompt is a multiselect of individual cache keys, not a yes/no question. Passing `--clear-cache` selects all of them and skips the prompt.
 

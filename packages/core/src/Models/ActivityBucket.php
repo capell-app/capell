@@ -7,8 +7,11 @@ namespace Capell\Core\Models;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 
 /**
  * @property int $id
@@ -26,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class ActivityBucket extends Model
 {
+    /** @use HasFactory<Factory<self>> */
+    use HasFactory;
+
     protected $table = 'activity_buckets';
 
     protected $fillable = [
@@ -43,6 +49,7 @@ final class ActivityBucket extends Model
         return $this->belongsTo(Site::class);
     }
 
+    #[Override]
     protected function casts(): array
     {
         return [

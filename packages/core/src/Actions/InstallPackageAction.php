@@ -13,6 +13,7 @@ use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Exception;
 use Illuminate\Support\Facades\Event;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -57,31 +58,42 @@ class InstallPackageAction
         CapellCore::markPackageInstalling($package->name);
 
         try {
-            if ($package->serviceProviderClass !== null) {
-                app()->getProvider($package->serviceProviderClass)?->callBootedCallbacks();
-            }
+            // Installing flips the package to installed and re-boots its
+            // provider, so its boot-only surfaces (blueprint subjects,
+            // outbound events) arrive after the container froze those
+            // registries on `booted`. The window below is what makes that
+            // legal — without it a fresh-database install either throws
+            // "cannot be registered after boot" or silently ends up with no
+            // package surfaces at all.
+            resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
+                function () use ($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess): void {
+                    if ($package->serviceProviderClass !== null) {
+                        app()->getProvider($package->serviceProviderClass)?->callBootedCallbacks();
+                    }
 
-            foreach (array_unique(array_merge($package->getProviderClasses('install'), $package->getProviderClasses('console'))) as $providerClass) {
-                app()->register($providerClass);
-            }
+                    foreach (array_unique(array_merge($package->getProviderClasses('install'), $package->getProviderClasses('console'))) as $providerClass) {
+                        app()->register($providerClass);
+                    }
 
-            self::runDeclaredMigrations($package, $reporter);
+                    self::runDeclaredMigrations($package, $reporter);
 
-            if ($package->getInstallCommand() !== null || $package->getInstallAction() !== null) {
-                resolve(PackageLifecycleRunner::class)->run(
-                    package: $package,
-                    phase: 'install',
-                    command: $package->getInstallCommand(),
-                    actionClass: $package->getInstallAction(),
-                    arguments: $arguments,
-                    reporter: $reporter,
-                    allowLegacyCommand: $allowLegacyCommand,
-                    freshProcess: $freshLifecycleProcess,
-                );
-            }
+                    if ($package->getInstallCommand() !== null || $package->getInstallAction() !== null) {
+                        resolve(PackageLifecycleRunner::class)->run(
+                            package: $package,
+                            phase: 'install',
+                            command: $package->getInstallCommand(),
+                            actionClass: $package->getInstallAction(),
+                            arguments: $arguments,
+                            reporter: $reporter,
+                            allowLegacyCommand: $allowLegacyCommand,
+                            freshProcess: $freshLifecycleProcess,
+                        );
+                    }
 
-            CapellCore::markPackageInstalled($package->name);
-            self::registerInstalledPackageProviders($package);
+                    CapellCore::markPackageInstalled($package->name);
+                    self::registerInstalledPackageProviders($package);
+                },
+            );
         } catch (Throwable $throwable) {
             CapellCore::markPackageFailed($package->name, $throwable->getMessage());
 

@@ -44,6 +44,27 @@ final class PackageSurfaceRegistrar
         private readonly BlueprintSubjectRegistry $blueprintSubjects,
     ) {}
 
+    /**
+     * Run the package-install lifecycle with the boot-frozen registries open.
+     *
+     * A package's surfaces only boot once it is marked installed. On a fresh
+     * database that flip happens mid-install, long after `booted` froze the
+     * registries, so the install lifecycle re-boots the package inside this
+     * window. Re-registering an identical surface is a no-op here; a
+     * conflicting one still throws.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function duringPackageInstallation(callable $callback): mixed
+    {
+        return $this->outboundEvents->duringPackageInstallation(
+            fn (): mixed => $this->blueprintSubjects->duringPackageInstallation($callback),
+        );
+    }
+
     public function pageType(PageTypeData $type): self
     {
         $this->core->registerPageType($type);

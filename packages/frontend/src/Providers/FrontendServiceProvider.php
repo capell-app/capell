@@ -220,7 +220,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(SettingsMigrationProviderInterface::class, FrontendSettingsMigrationProvider::class);
         $this->app->singletonIf(MigrationFilesystemInterface::class, MigrationFilesystem::class);
         $this->app->singleton(FontMimeTypeResolverInterface::class, FontMimeTypeResolver::class);
-        $this->app->singleton(HtmlMinifier::class, VokuHtmlMinifier::class);
+        $this->app->scoped(HtmlMinifier::class, VokuHtmlMinifier::class);
         $this->app->singleton(PublicFragmentReferenceCodec::class, EncryptedPublicFragmentReferenceCodec::class);
         $this->app->scoped(
             PublicFragmentUrlResolverRegistry::class,

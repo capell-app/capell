@@ -73,6 +73,7 @@ it('rolls activity buckets into daily metric points before retention pruning', f
     resolve(RecordActivityBucketAction::class)->execute($site, 'en', ActivityBucketSubjectEnum::SearchTerm, 'pricing', $occurredAt);
 
     resolve(MetricCollectorRegistry::class)->register(ActivityBucketsDailyMetricsCollector::class);
+
     $scope = MetricScopeData::siteLanguage($site->uuid, 'en', 'UTC');
 
     expect(resolve(RollupDailyMetricsAction::class)->execute($day, [$scope]))->toBe(2)
