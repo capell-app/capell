@@ -22,9 +22,11 @@ Core extends these Capell surfaces:
 
 ## Screens And Workflow
 
-![Capell page structure](images/screenshots/core-page-structure.png)
+Select either screenshot to open the full-resolution image.
 
-![Capell settings-backed configuration](images/screenshots/core-settings-backed-configuration.png)
+| Page structure                                                                                                     | Settings-backed configuration                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Capell page structure](images/screenshots/core-page-structure.png)](images/screenshots/core-page-structure.png) | [![Capell settings-backed configuration](images/screenshots/core-settings-backed-configuration.png)](images/screenshots/core-settings-backed-configuration.png) |
 
 Screenshot contract:
 
