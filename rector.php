@@ -133,8 +133,11 @@ return RectorConfig::configure()
         MakeModelAttributesAndScopesProtectedRector::class => [
             __DIR__ . '/packages/core/src/Enums/Attribute/EnumAttributeHelper.php',
         ],
+        // Hand-written test doubles have no factory, and adding the trait only
+        // trades a Rector suggestion for a PHPStan missing-generic-type error.
         AddHasFactoryToModelsRector::class => [
             __DIR__ . '/packages/admin/tests/Fixtures/Models',
+            __DIR__ . '/packages/admin/tests/Unit/Support/Pages/Fixtures',
         ],
         // Fixture properties here are read via reflection by SingletonLifetimeGuard,
         // which Rector cannot see, so it treats them as unused and deletes them.
