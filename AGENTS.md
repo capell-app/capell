@@ -3,6 +3,9 @@
 ## Git Workflow
 
 - Never commit directly to `main`. Always branch (`feat/`, `fix/`, `chore/`, `docs/`), push, and open a PR — even for single-file or agent-driven changes. `main` on `capell-app/capell` requires a PR via branch protection; do not rely on that alone.
+- Clean up after yourself. Once a PR merges, remove its worktree (`git worktree remove`) and delete the branch locally and on the remote; delete any scratch worktree you created for verification as soon as it has served its purpose. Leaving them behind is how a repository accumulates dozens of stale branches nobody dares delete later.
+- Confirm work is safe before deleting, and never assume ancestry. PRs here are squash-merged, so `git branch --merged` and `git merge-base --is-ancestor` both under-report: the branch commits never become ancestors of `main`. Check that the tip is reachable from a remote (`git branch -r --contains <sha>`) or that its content landed under the squash commit.
+- This checkout is shared with other agent sessions, which keep their own worktrees (for example under `~/.codex/worktrees/`). Before removing anything, list worktrees and check each for uncommitted files and for a HEAD that no remote contains — that combination means unpushed work belonging to someone else. Only ever clean up worktrees and branches you created.
 
 ## Working Agreement
 
