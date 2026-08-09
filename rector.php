@@ -77,7 +77,7 @@ return RectorConfig::configure()
     ])
     ->withParallel(
         timeoutSeconds: 600,
-        maxNumberOfProcess: 8,
+        maxNumberOfProcess: (int) (getenv('RECTOR_MAX_PROCESSES') ?: 2),
         jobSize: 8,
     )
     ->withPreparedSets(
@@ -100,6 +100,7 @@ return RectorConfig::configure()
         AssertElementToAssertContainsElementRule::class,
     ])
     ->withSkip([
+        __DIR__ . '/vendor',
         PostIncDecToPreIncDecRector::class,
         AddTypeToConstRector::class,
         PrivatizeFinalClassPropertyRector::class,
