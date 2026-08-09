@@ -130,7 +130,7 @@ it('builds composer auth for explicit private package providers', function (stri
     $mockProcess = requirePackageProcess(successful: true, output: 'Package installed');
 
     RequirePackageAction::setProcessFactory(function (array $args, string $cwd, ?array $env) use (&$capturedEnvironment, $mockProcess): object {
-        expect($args)->toBe(['composer', 'require', 'vendor/private-package:^1.2'])
+        expect($args)->toBe([...capellComposerArgv(), 'require', 'vendor/private-package:^1.2'])
             ->and($cwd)->toBe(base_path());
 
         $capturedEnvironment = $env;

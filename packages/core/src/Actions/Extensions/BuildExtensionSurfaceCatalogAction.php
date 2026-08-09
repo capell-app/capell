@@ -9,12 +9,15 @@ use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
+use Capell\Core\Actions\PublishOutboundEventAction;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Database\DatabaseProvisioner;
 use Capell\Core\Contracts\Database\DatabaseQueryDialect;
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
+use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\Metrics\CollectsDailyMetrics;
@@ -23,6 +26,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
@@ -38,6 +42,7 @@ use Capell\Core\Data\Metrics\MetricSampleData;
 use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Data\Metrics\MetricSemanticsData;
 use Capell\Core\Data\Metrics\MetricValueData;
+use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildInstalledPackageData;
@@ -66,10 +71,13 @@ use Capell\Core\Enums\Metrics\MetricSource;
 use Capell\Core\Enums\Metrics\MetricValueType;
 use Capell\Core\Enums\Metrics\MetricVisibility;
 use Capell\Core\Enums\MetricUnitEnum;
+use Capell\Core\Events\OutboundEventPublished;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Testing\ExtensionTestHarness;
@@ -117,6 +125,14 @@ final class BuildExtensionSurfaceCatalogAction
     {
         return [
             $this->entry('core.contract.extension-contribution', 'contract', ExtensionContribution::class, ExtensionSurfaceStability::Stable, 'Core contribution boundary.', 'core.extension-contribution'),
+            $this->entry('core.contract.blueprint-subject', 'contract', RegistersExtensionBlueprintSubject::class, ExtensionSurfaceStability::Experimental, 'Package-owned blueprint subject contribution boundary.'),
+            $this->entry('core.contract.outbound-event', 'contract', RegistersExtensionOutboundEvent::class, ExtensionSurfaceStability::Experimental, 'Package-owned outbound event contribution boundary.'),
+            $this->entry('core.dto.blueprint-subject-descriptor', 'dto', BlueprintSubjectDescriptorData::class, ExtensionSurfaceStability::Experimental, 'Typed blueprint subject metadata.'),
+            $this->entry('core.registry.blueprint-subject', 'registry', BlueprintSubjectRegistry::class, ExtensionSurfaceStability::Experimental, 'Runtime blueprint subject registry.'),
+            $this->entry('core.dto.outbound-event-definition', 'dto', OutboundEventDefinitionData::class, ExtensionSurfaceStability::Experimental, 'Typed outbound event definition.'),
+            $this->entry('core.registry.outbound-event', 'registry', OutboundEventRegistry::class, ExtensionSurfaceStability::Experimental, 'Boot-time outbound event definition registry.'),
+            $this->entry('core.action.publish-outbound-event', 'action', PublishOutboundEventAction::class, ExtensionSurfaceStability::Experimental, 'Single typed outbound event publication path.'),
+            $this->entry('core.event.outbound-event-published', 'event', OutboundEventPublished::class, ExtensionSurfaceStability::Experimental, 'Announced outbound event with typed payload.'),
             $this->entry('core.contract.database-platform', 'contract', DatabasePlatform::class, ExtensionSurfaceStability::Experimental, 'Database family metadata and dialect boundary.'),
             $this->entry('core.contract.database-provisioner', 'contract', DatabaseProvisioner::class, ExtensionSurfaceStability::Experimental, 'Installer database provisioning boundary.'),
             $this->entry('core.contract.database-query-dialect', 'contract', DatabaseQueryDialect::class, ExtensionSurfaceStability::Experimental, 'Portable SQL expression boundary.'),

@@ -9,9 +9,9 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Support\Facades\Artisan;
 use RuntimeException;
-use Symfony\Component\Process\ExecutableFinder;
 
 final class PackageLifecycleRunner
 {
@@ -107,6 +107,14 @@ final class PackageLifecycleRunner
         array $arguments,
         ?ProgressReporter $reporter,
     ): void {
+        if ($this->commandMissingFromFreshProcess($command)) {
+            throw new RuntimeException(sprintf(
+                "%s command '%s' does not exist.",
+                str($phase)->replace('-', ' ')->headline(),
+                $command,
+            ));
+        }
+
         $processCommand = $this->freshProcessCommand($command, $arguments);
         $environment = ArtisanProcessEnvironment::prepare();
         $process = $environment === null
@@ -141,14 +149,6 @@ final class PackageLifecycleRunner
             $reporter->report(trim($lineBuffer));
         }
 
-        if (str_contains($output, sprintf('Command "%s" is not defined.', $command))) {
-            throw new RuntimeException(sprintf(
-                "%s command '%s' does not exist.",
-                str($phase)->replace('-', ' ')->headline(),
-                $command,
-            ));
-        }
-
         if ($process->isSuccessful()) {
             return;
         }
@@ -166,12 +166,54 @@ final class PackageLifecycleRunner
     }
 
     /**
+     * `php artisan list --raw --no-interaction` prints one machine-readable
+     * line per registered command (`name  description`), and exits 0. Probing
+     * with it before running the real command replaces scraping the human
+     * "Command is not defined" error text, which Laravel 13 no longer emits
+     * reliably (the CLI now prints a "Did you mean" block and still exits 0).
+     *
+     * A failed probe means the child process could not boot at all, which is
+     * a different failure than a missing command; that case is left for the
+     * real command run to surface via its own "failed in a fresh process"
+     * exception.
+     *
+     * Known limitation: `list --raw` omits hidden commands, so a hidden
+     * lifecycle command would be reported as missing here (acceptable
+     * today; no in-repo lifecycle command is hidden).
+     */
+    private function commandMissingFromFreshProcess(string $command): bool
+    {
+        $probeCommand = [...new RuntimeBinaryResolver()->php(), base_path('artisan'), 'list', '--raw', '--no-interaction'];
+        $environment = ArtisanProcessEnvironment::prepare();
+        $probeProcess = $environment === null
+            ? $this->processFactory->make($probeCommand, base_path())
+            : $this->processFactory->make($probeCommand, base_path(), $environment);
+        $probeProcess->setTimeout(null);
+        $probeProcess->run();
+
+        if (! $probeProcess->isSuccessful()) {
+            return false;
+        }
+
+        foreach (explode("\n", $probeProcess->getOutput()) as $line) {
+            // strtok() returns false for blank lines, which can never strict-equal a command name.
+            $name = strtok(trim($line), " \t");
+
+            if ($name === $command) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @param  array<string, mixed>  $arguments
      * @return list<string>
      */
     private function freshProcessCommand(string $command, array $arguments): array
     {
-        $processCommand = [$this->phpCliBinary(), base_path('artisan'), $command, '--no-interaction'];
+        $processCommand = [...new RuntimeBinaryResolver()->php(), base_path('artisan'), $command, '--no-interaction'];
 
         foreach ($arguments as $option => $value) {
             if ($value === null) {
@@ -196,28 +238,5 @@ final class PackageLifecycleRunner
         }
 
         return $processCommand;
-    }
-
-    private function phpCliBinary(): string
-    {
-        $finder = new ExecutableFinder;
-        $configuredBinary = config('capell-installer.php_binary');
-        $candidates = array_values(array_unique(array_filter([
-            is_string($configuredBinary) ? $configuredBinary : null,
-            'php',
-            PHP_BINARY,
-        ])));
-
-        foreach ($candidates as $candidate) {
-            $resolvedBinary = str_contains($candidate, DIRECTORY_SEPARATOR)
-                ? (is_file($candidate) && is_executable($candidate) ? $candidate : null)
-                : $finder->find($candidate);
-
-            if ($resolvedBinary !== null && ! str_contains(basename($resolvedBinary), 'php-fpm')) {
-                return $resolvedBinary;
-            }
-        }
-
-        throw new RuntimeException('Unable to locate a CLI PHP binary for the package lifecycle command.');
     }
 }

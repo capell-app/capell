@@ -502,6 +502,7 @@ final class CapellCacheManager
         }
 
         return hash('sha256', serialize([
+            $this->hostFingerprint(),
             $this->cacheNamespaceGeneration(),
             $patternGenerations,
             $key,
@@ -511,6 +512,29 @@ final class CapellCacheManager
     private function cacheKeyMatchesPattern(string $key, string $pattern): bool
     {
         return preg_match('/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/', $key) === 1;
+    }
+
+    /**
+     * Short, stable discriminator for the host this process believes it is
+     * serving (from `app.url`), folded into every cache key so a shared
+     * backend (e.g. Redis) cannot return one host's cached value for
+     * another's request when several hosts/apps share the store. Mirrors
+     * App\Support\AppHostInvariant::configuredHostFingerprint() in the
+     * consuming app, without depending on it — Core has no dependency on
+     * app-layer classes.
+     */
+    private function hostFingerprint(): string
+    {
+        $url = (string) config('app.url');
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            $host = $url;
+        }
+
+        $host = rtrim(strtolower(trim($host)), '.');
+
+        return substr(hash('xxh128', $host), 0, 8);
     }
 
     private function cacheInvalidationPatternGeneration(string $pattern): int

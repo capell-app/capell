@@ -69,7 +69,7 @@ class BulkPublishPagesBulkAction extends BulkAction
                         fn (array $row): string => sprintf(
                             '• %s — %s',
                             $row['label'],
-                            __('capell-admin::bulk_actions.outcome_' . $row['result']->outcome->value),
+                            __(sprintf('capell-admin::bulk_actions.outcome_%s', $row['result']->outcome->value)),
                         ),
                         $skipped,
                     ));

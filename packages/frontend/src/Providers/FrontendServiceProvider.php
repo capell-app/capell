@@ -66,6 +66,7 @@ use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
+use Capell\Frontend\Support\Assets\ActivityBeaconResourceContributor;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
 use Capell\Frontend\Support\Assets\CoreFrontendRuntimeContributor;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
@@ -219,7 +220,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(SettingsMigrationProviderInterface::class, FrontendSettingsMigrationProvider::class);
         $this->app->singletonIf(MigrationFilesystemInterface::class, MigrationFilesystem::class);
         $this->app->singleton(FontMimeTypeResolverInterface::class, FontMimeTypeResolver::class);
-        $this->app->singleton(HtmlMinifier::class, VokuHtmlMinifier::class);
+        $this->app->scoped(HtmlMinifier::class, VokuHtmlMinifier::class);
         $this->app->singleton(PublicFragmentReferenceCodec::class, EncryptedPublicFragmentReferenceCodec::class);
         $this->app->scoped(
             PublicFragmentUrlResolverRegistry::class,
@@ -434,7 +435,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
         $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
         $this->app->scoped(ThemeMetaAssetContributor::class);
-        $this->app->tag([CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
+        $this->app->tag([ActivityBeaconResourceContributor::class, CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
     }
 
     private function registerCacheInvalidationBindings(): void

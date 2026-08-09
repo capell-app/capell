@@ -13,6 +13,7 @@ use Capell\Admin\Filament\Components\Forms\DashboardFilamentWidgetSettings;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Exception;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -73,6 +74,39 @@ final class DashboardSettingsSchema implements HasSchema
                         ->minValue(1)
                         ->maxValue(365)
                         ->suffix(__('capell-admin::form.days')),
+                    Toggle::make('analytics_collection_enabled')
+                        ->label(__('capell-admin::form.analytics_collection_enabled'))
+                        ->helperText(__('capell-admin::form.analytics_collection_enabled_helper')),
+                    Toggle::make('analytics_search_collection_enabled')
+                        ->label(__('capell-admin::form.analytics_search_collection_enabled'))
+                        ->helperText(__('capell-admin::form.analytics_search_collection_enabled_helper')),
+                    TextInput::make('analytics_activity_retention_days')
+                        ->label(__('capell-admin::form.analytics_activity_retention_days'))
+                        ->helperText(__('capell-admin::form.analytics_activity_retention_days_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(7)
+                        ->suffix(__('capell-admin::form.days')),
+                    TextInput::make('analytics_refresh_interval_seconds')
+                        ->label(__('capell-admin::form.analytics_refresh_interval_seconds'))
+                        ->helperText(__('capell-admin::form.analytics_refresh_interval_seconds_helper'))
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(3600)
+                        ->suffix(__('capell-admin::form.seconds')),
+                    TextInput::make('analytics_default_period_days')
+                        ->label(__('capell-admin::form.analytics_default_period_days'))
+                        ->helperText(__('capell-admin::form.analytics_default_period_days_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(365)
+                        ->suffix(__('capell-admin::form.days')),
+                    TextInput::make('analytics_top_n_limit')
+                        ->label(__('capell-admin::form.analytics_top_n_limit'))
+                        ->helperText(__('capell-admin::form.analytics_top_n_limit_helper'))
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(100),
                 ])
                 ->columns(2),
         ];

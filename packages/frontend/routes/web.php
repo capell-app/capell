@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Http\Controllers\ActivityBeaconController;
 use Capell\Frontend\Http\Controllers\LanguagePreferenceController;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
@@ -15,6 +16,9 @@ Route::name('capell-frontend.')
         Route::get('_capell/language-preference', LanguagePreferenceController::class)
             ->middleware('web')
             ->name('language-preference');
+
+        Route::post('_capell/activity', ActivityBeaconController::class)
+            ->name('activity');
 
         Route::middleware(resolve(FrontendRouteMiddlewareRegistry::class)->all())
             ->group(function (): void {

@@ -7,9 +7,13 @@ namespace Capell\Core\Support\Packages;
 use BackedEnum;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchema;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
+use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -36,11 +40,53 @@ final class PackageSurfaceRegistrar
         private readonly CapellCoreManager $core,
         private readonly SettingsSchemaRegistry $settings,
         private readonly MetricCollectorRegistry $metricCollectors,
+        private readonly OutboundEventRegistry $outboundEvents,
+        private readonly BlueprintSubjectRegistry $blueprintSubjects,
     ) {}
+
+    /**
+     * Run the package-install lifecycle with the boot-frozen registries open.
+     *
+     * A package's surfaces only boot once it is marked installed. On a fresh
+     * database that flip happens mid-install, long after `booted` froze the
+     * registries, so the install lifecycle re-boots the package inside this
+     * window. Re-registering an identical surface is a no-op here; a
+     * conflicting one still throws.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function duringPackageInstallation(callable $callback): mixed
+    {
+        return $this->outboundEvents->duringPackageInstallation(
+            fn (): mixed => $this->blueprintSubjects->duringPackageInstallation($callback),
+        );
+    }
 
     public function pageType(PageTypeData $type): self
     {
         $this->core->registerPageType($type);
+
+        return $this;
+    }
+
+    public function outboundEvent(OutboundEventDefinitionData $definition): self
+    {
+        $this->outboundEvents->register($definition);
+
+        return $this;
+    }
+
+    public function blueprintSubject(BlueprintSubjectDescriptorData $subject): self
+    {
+        $this->blueprintSubjects->register($subject);
+        $this->core->registerPageType(new PageTypeData(
+            name: $subject->key,
+            model: $subject->modelClass,
+            label: $subject->label,
+        ));
 
         return $this;
     }

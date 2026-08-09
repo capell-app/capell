@@ -403,6 +403,25 @@ it('propagates final cache cleanup failures when the step succeeds', function ()
 });
 
 it('fails the install step when the doctor summary finds release-blocking issues', function (): void {
+    $process = Mockery::mock(SymfonyProcess::class);
+    $process->shouldReceive('setTimeout')
+        ->with(120)
+        ->once();
+    $process->shouldReceive('run')
+        ->with(Mockery::on('is_callable'))
+        ->once()
+        ->andReturn(1);
+    $process->shouldReceive('getExitCode')
+        ->once()
+        ->andReturn(1);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->once()
+        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
+        ->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
     $lines = [];
     $state = new InstallRunState(
         installStepExecutorInputData(),

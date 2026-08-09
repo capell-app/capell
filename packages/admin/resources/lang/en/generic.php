@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'unavailable_subject' => 'Unavailable subject (:key)',
     '2xl' => '2 Extra Large',
     '3xl' => '3 Extra Large',
     'above_heading' => 'Above Heading',
@@ -39,6 +40,7 @@ return [
     'delete_extension_description' => 'This uninstalls the extension if needed, then removes the Composer package.',
     'delete_extension_heading' => 'Delete :extension extension?',
     'delete_extension_package' => 'Also remove the Composer package',
+    'extension_removal_manual_instructions' => 'Run "php artisan capell:extension-uninstall :package" to let the extension tear itself down, then "composer remove :package" to drop the package, then deploy.',
     'delete_extension_package_help' => 'Runs Composer remove after uninstalling the extension. This also deletes extension data.',
     'delete_extension_data' => 'Also delete the data for this extension',
     'delete_extension_data_help' => 'Leave unchecked if you want to reinstall the extension later with its existing data intact.',

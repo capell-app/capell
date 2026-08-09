@@ -44,6 +44,18 @@ it('preserves sibling code elements without detaching their parent', function ()
         ->toContain('<code>capell:doctor</code>');
 });
 
+it('restores alpine attributes whose value also occurs inside the attribute name', function (): void {
+    $html = '<div x-data="x" @click="open" :class="class">Toggle</div>';
+
+    $minified = (new HtmlMinifier)->minify($html);
+
+    expect($minified)
+        ->toContain('x-data="x"')
+        ->toContain('@click="open"')
+        ->toContain(':class="class"')
+        ->not->toContain('CAPELL_HTML_MINIFIER_ATTRIBUTE_');
+});
+
 it('preserves alpine expression line breaks inside attributes', function (): void {
     $html = <<<'HTML'
         <section

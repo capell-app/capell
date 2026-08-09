@@ -39,9 +39,13 @@ it('returns the failed package and message after preserving completed uninstalls
     {
         public function __construct(private stdClass $calls) {}
 
-        public function handle(PackageData $package, bool $delete = false, bool $deleteData = false): void
-        {
-            $this->calls->packages[] = [$package->name, $delete, $deleteData];
+        public function handle(
+            PackageData $package,
+            bool $delete = false,
+            bool $deleteData = false,
+            bool $requiresServerSideTooling = false,
+        ): void {
+            $this->calls->packages[] = [$package->name, $delete, $deleteData, $requiresServerSideTooling];
 
             throw_if($package->name === 'vendor/failing-extension', RuntimeException::class, 'Unable to uninstall failing extension.');
         }
@@ -54,6 +58,7 @@ it('returns the failed package and message after preserving completed uninstalls
         ['vendor/completed-extension', 'vendor/failing-extension', 'vendor/unreached-extension'],
         deletePackage: true,
         deleteData: true,
+        requiresServerSideTooling: true,
     );
 
     expect($result->successful)->toBeFalse()
@@ -61,7 +66,7 @@ it('returns the failed package and message after preserving completed uninstalls
         ->and($result->failedPackageName)->toBe('vendor/failing-extension')
         ->and($result->failureMessage)->toBe('Unable to uninstall failing extension.')
         ->and($calls->packages)->toBe([
-            ['vendor/completed-extension', true, true],
-            ['vendor/failing-extension', true, true],
+            ['vendor/completed-extension', true, true, true],
+            ['vendor/failing-extension', true, true, true],
         ]);
 });

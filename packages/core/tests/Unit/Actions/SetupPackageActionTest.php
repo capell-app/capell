@@ -6,9 +6,11 @@ use Capell\Core\Actions\SetupPackageAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     LifecycleRecorderAction::reset();
@@ -43,6 +45,16 @@ it('throws if the setup command does not exist', function (): void {
         type: PackageTypeEnum::Plugin,
         setupCommand: 'capell:nonexistent-setup-command',
     );
+
+    $probeProcess = Mockery::mock(Process::class);
+    $probeProcess->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $probeProcess->shouldReceive('run')->once()->with()->andReturn(0);
+    $probeProcess->shouldReceive('isSuccessful')->once()->andReturnTrue();
+    $probeProcess->shouldReceive('getOutput')->once()->andReturn("capell:test-setup-command  A registered setup command\n");
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->andReturn($probeProcess);
+    app()->instance(ProcessFactoryInterface::class, $factory);
 
     expect(fn () => SetupPackageAction::run($package))
         ->toThrow(Exception::class, "Setup command 'capell:nonexistent-setup-command' does not exist.");
@@ -100,16 +112,18 @@ it('uses a cli php executable when the configured binary points at php fpm', fun
     $commandLogPath = $temporaryDirectory . '/command.log';
     $fakePhpPath = $temporaryDirectory . '/php';
     $fakePhpFpmPath = $temporaryDirectory . '/php-fpm';
-    $path = getenv('PATH');
-    $originalPath = $path !== false ? $path : '';
 
     File::put($fakePhpPath, "#!/bin/sh\necho \"$0 $@\" > " . escapeshellarg($commandLogPath) . "\nexit 0\n");
     File::put($fakePhpFpmPath, "#!/bin/sh\necho \"Usage: php-fpm\" >&2\nexit 64\n");
     chmod($fakePhpPath, 0755);
     chmod($fakePhpFpmPath, 0755);
 
-    putenv('PATH=' . $temporaryDirectory . PATH_SEPARATOR . $originalPath);
-    config(['capell-installer.php_binary' => $fakePhpFpmPath]);
+    // The highest-priority configured binary is php-fpm, which cannot run a
+    // script. The resolver must skip it and fall through to the next candidate —
+    // here a CLI php that records the command line it was handed, so the test
+    // fails both if php-fpm is executed and if the fallback never runs.
+    config(['capell.process.php_binary' => $fakePhpFpmPath]);
+    putenv('CAPELL_PHP_BINARY=' . $fakePhpPath);
 
     try {
         Artisan::command('capell:admin-setup', fn (): int => 0);
@@ -130,9 +144,10 @@ it('uses a cli php executable when the configured binary points at php fpm', fun
             ->toContain('--assets=resources/css/app.css')
             ->toContain('--assets=resources/js/app.js');
     } finally {
-        putenv('PATH=' . $originalPath);
+        putenv('CAPELL_PHP_BINARY');
 
         File::deleteDirectory($temporaryDirectory);
+        config(['capell.process.php_binary' => null]);
         config(['capell-installer.php_binary' => 'php']);
     }
 });

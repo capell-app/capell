@@ -28,7 +28,7 @@ Core does not own:
 - the Filament admin panel, resources, dashboard surfaces, and editor workflow; that is `capell-app/admin`
 - public request handling and public HTML rendering; that is `capell-app/frontend`
 - browser installer routes and setup removal; that is `capell-app/installer`
-- catalogue browsing, account linking, domain verification, and install authorization; that is `capell-app/marketplace`
+- catalogue browsing, account linking, and install authorization; that is `capell-app/marketplace`
 - visual layout building, frontend authoring, generated HTML cache, SEO, blog, navigation, or migration/recovery features; those live in add-on packages
 
 ## Install
@@ -102,8 +102,8 @@ vendor/bin/pest tests/Arch tests/Unit/Manifest
 | Surface                    | Supported versions                                             |
 | -------------------------- | -------------------------------------------------------------- |
 | PHP                        | `^8.4` with `ext-intl`                                         |
-| Laravel                    | `^12.41.1` or `^13.0`                                          |
-| Filament support           | `~5.6.8`                                                       |
+| Laravel                    | `^13.0`                                                        |
+| Filament support           | `^5.7.6`                                                       |
 | Symfony filesystem/process | `^7.2` or `^8.0`                                               |
 | Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |

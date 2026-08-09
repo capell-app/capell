@@ -27,7 +27,7 @@
         "aimeos/laravel-nestedset": "^7.0",
         "awobaz/compoships": "^2.3",
         "bkwld/cloner": "^3.10",
-        "filament/support": "~5.6.8",
+        "filament/support": "^5.7.6",
         "illuminate/database": "^13.0",
         "illuminate/support": "^13.0",
         "livewire/blaze": "^1.0",

@@ -16,12 +16,17 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class SiteObserver
 {
     public function creating(Site $site): void
     {
+        if ($site->uuid === null || $site->uuid === '') {
+            $site->uuid = Str::uuid()->toString();
+        }
+
         $blueprintId = $site->getAttribute('blueprint_id');
 
         if ($blueprintId === null || $blueprintId === 0) {

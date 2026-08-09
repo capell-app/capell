@@ -2,34 +2,38 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\ImageSourceType;
 use Illuminate\Support\Facades\Lang;
 
 describe('HasEnumOptions', function (): void {
     it('returns all options as value => label pairs', function (): void {
-        expect(BlueprintSubjectEnum::options())->toBe([
-            'page' => 'Page',
-            'site' => 'Site',
-            'theme' => 'Theme',
+        expect(ImageSourceType::options())->toBe([
+            'url' => 'URL',
+            'upload' => 'Upload',
+            'media' => 'Media library',
+            'spatie_media' => 'Filament media',
+            'curator_media' => 'Curator media',
         ]);
     });
 
     it('includes every enum case as a key', function (): void {
-        $expectedValues = array_map(fn (BlueprintSubjectEnum $case): string => $case->value, BlueprintSubjectEnum::cases());
+        $expectedValues = array_map(
+            fn (ImageSourceType $case): string => $case->value,
+            ImageSourceType::cases(),
+        );
 
-        expect(array_keys(BlueprintSubjectEnum::options()))->toBe($expectedValues);
+        expect(array_keys(ImageSourceType::options()))->toBe($expectedValues);
     });
 
     it('returns non-empty options', function (): void {
-        expect(BlueprintSubjectEnum::options())->not->toBeEmpty();
+        expect(ImageSourceType::options())->not->toBeEmpty();
     });
 
     it('returns the same array on repeated calls via static cache', function (): void {
-        $first = BlueprintSubjectEnum::options();
-        $second = BlueprintSubjectEnum::options();
+        $firstCall = ImageSourceType::options();
+        $secondCall = ImageSourceType::options();
 
-        expect($first)->toBe($second);
+        expect($firstCall)->toBe($secondCall);
     });
 
     it('recomputes translated labels when the locale changes', function (): void {

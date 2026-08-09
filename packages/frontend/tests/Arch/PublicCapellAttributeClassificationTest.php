@@ -62,7 +62,12 @@ it('treats known authoring data-capell attributes as NOT public-safe', function 
  */
 function isPublicSafeCapellAttribute(string $attribute): bool
 {
-    $exact = ['data-capell-interaction'];
+    $exact = [
+        'data-capell-interaction',
+        'data-capell-cookie',
+        'data-capell-origin-cookie',
+        'data-capell-page-language',
+    ];
 
     if (in_array($attribute, $exact, true)) {
         return true;
@@ -73,6 +78,7 @@ function isPublicSafeCapellAttribute(string $attribute): bool
         'data-capell-interaction-',
         'data-capell-theme-',
         'data-capell-insights-',
+        'data-capell-language-',
     ];
 
     return array_any($families, fn (string $prefix): bool => str_starts_with($attribute, $prefix));

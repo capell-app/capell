@@ -58,7 +58,6 @@ sequenceDiagram
     participant Admin
     participant CMS as Capell CMS
     participant App as Capell App
-    participant Public as Public Host
 
     Admin->>CMS: Start account connection
     CMS->>App: Create connection session
@@ -67,11 +66,7 @@ sequenceDiagram
     App->>CMS: Callback with code and state
     CMS->>App: Exchange code
     App-->>CMS: Instance ID and signing secret
-    Admin->>CMS: Start domain verification
-    CMS->>Public: Write .well-known challenge
-    CMS->>App: Verify registration session
-    App->>Public: Fetch challenge URL
-    App-->>CMS: Verified domain
+    CMS->>App: Heartbeat and install authorization requests
 ```
 
 ## Installer Browser Flow

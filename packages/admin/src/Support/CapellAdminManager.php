@@ -22,6 +22,7 @@ use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Data\UserMenu\UserMenuItemData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
@@ -140,6 +141,20 @@ class CapellAdminManager
     public function registerDashboardFilamentWidget(string $widgetClass, DashboardEnum ...$dashboards): void
     {
         $this->dashboardWidgetRegistry->register($widgetClass, ...$dashboards);
+    }
+
+    /**
+     * @param  class-string<Widget>  $widgetClass
+     */
+    public function registerDashboardPanel(DashboardRegionEnum $region, string $widgetClass, DashboardEnum ...$dashboards): void
+    {
+        $this->dashboardWidgetRegistry->registerPanel($region, $widgetClass, ...$dashboards);
+    }
+
+    /** @return list<class-string<Widget>> */
+    public function getDashboardFilamentWidgetsByRegion(DashboardEnum $dashboard, DashboardRegionEnum $region): array
+    {
+        return $this->dashboardWidgetRegistry->forDashboardRegion($dashboard, $region);
     }
 
     public function registerMarketingStudioAction(MarketingStudioActionData $action): void

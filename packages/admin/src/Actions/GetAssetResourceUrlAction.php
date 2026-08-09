@@ -21,7 +21,7 @@ class GetAssetResourceUrlAction
 
     public function handle(string $type, int|Model $record): ?string
     {
-        if ($type === BlueprintSubjectEnum::Page->value) {
+        if ($type === BlueprintSubjectEnum::Page->getKey()) {
             return GetEditPageResourceUrlAction::run($record);
         }
 

@@ -20,7 +20,17 @@ final class SendMarketplaceInstallTelemetryJob implements ShouldBeUnique, Should
 
     public int $uniqueFor = 3600;
 
-    public function __construct(private readonly int $installAttemptId) {}
+    /**
+     * Pinned to the Marketplace connection and queue rather than the
+     * application default. A host with a dedicated Marketplace worker runs only
+     * that queue, so an inherited default lands this job on a queue nothing is
+     * consuming and the telemetry silently never sends.
+     */
+    public function __construct(private readonly int $installAttemptId)
+    {
+        $this->onConnection((string) config('capell-marketplace.marketplace.operations_queue_connection', 'database'));
+        $this->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
+    }
 
     /** @return array<int, int> */
     public function backoff(): array

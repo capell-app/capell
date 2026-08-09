@@ -106,8 +106,8 @@ Every page, navigation item, and media file has a translation for each enabled l
 
 A visitor can land on a URL written in a language they do not read — from a search result, a shared link, or a bookmark. **Settings → Frontend → Visitor language detection** controls what happens next. It is a single setting for the installation, stored as `visitor_language_detection` in the `frontend` settings group.
 
-| Mode       | Behaviour                                                                            |
-| ---------- | ------------------------------------------------------------------------------------ |
+| Mode       | Behaviour                                                                             |
+| ---------- | ------------------------------------------------------------------------------------- |
 | `off`      | Nothing happens. `Accept-Language` is ignored entirely. **This is the default.**      |
 | `banner`   | The visitor stays where they are and is offered a dismissible suggestion to switch.   |
 | `redirect` | A first-time visitor is sent to the exact translation of the same page, with a `302`. |

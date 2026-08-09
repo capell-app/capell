@@ -17,11 +17,11 @@ You need:
 1. Go to **Admin → Languages**.
 2. Choose **New**.
 3. Fill in:
-   - **Name** — the label editors and visitors see, for example `Français`.
-   - **Code** — the short language code, usually ISO 639-1, for example `fr`.
-   - **Locale** — the locale used for translation files and date formatting, for example `fr` or `pt_BR`.
-   - **Flag** — the flag icon used in language tabs and switchers.
-   - **Order** — the position in language lists.
+    - **Name** — the label editors and visitors see, for example `Français`.
+    - **Code** — the short language code, usually ISO 639-1, for example `fr`.
+    - **Locale** — the locale used for translation files and date formatting, for example `fr` or `pt_BR`.
+    - **Flag** — the flag icon used in language tabs and switchers.
+    - **Order** — the position in language lists.
 4. Under **Language availability**, enable **Status**. A disabled language does not appear anywhere.
 5. Leave **Right to left** alone unless you need to override it. Capell already renders Arabic, Hebrew, Persian, Urdu and similar languages right to left without being told. The toggle exists for the exceptions, and an explicit **off** wins over Capell's built-in list.
 
@@ -52,9 +52,9 @@ The completeness percentage on each language tab counts **blank fields**. It com
 
 A row that was cloned from the default language has nothing blank in it. It is full of English. So by that measure it is 100% complete — and it has not been translated at all.
 
-Capell tries to catch exactly this case. When a row is 100% complete *and* every tracked field still matches the default language byte for byte, the badge reads **Copied from default** in grey rather than **Complete** in green. That is a strong signal, but it is not a guarantee: as soon as you edit a single field, the row stops matching exactly and the badge switches to **Complete**, even though the rest of it is still English.
+Capell tries to catch exactly this case. When a row is 100% complete _and_ every tracked field still matches the default language byte for byte, the badge reads **Copied from default** in grey rather than **Complete** in green. That is a strong signal, but it is not a guarantee: as soon as you edit a single field, the row stops matching exactly and the badge switches to **Complete**, even though the rest of it is still English.
 
-Treat the percentage as a *blank-field counter*, nothing more. It says nothing about whether the text is correct, whether it is in the right language, or whether it is up to date.
+Treat the percentage as a _blank-field counter_, nothing more. It says nothing about whether the text is correct, whether it is in the right language, or whether it is up to date.
 
 ## Step 3 — Translate a page
 
@@ -83,18 +83,18 @@ Auto-translate overwrites the target tab. Treat its output as a draft to be revi
 
 Each non-default language tab carries a badge. The default language never has one — there is nothing to compare it against.
 
-| Badge                 | Colour            | Meaning                                                                                        |
-| --------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
-| **Complete**          | green             | Every tracked field is filled and the default language has not been edited since you last saved |
-| **Copied from default** | grey            | Every tracked field still matches the default language exactly — almost certainly untranslated  |
-| `72%`                 | blue/amber/red    | That proportion of tracked fields is filled compared with the default language                  |
-| **May be outdated**   | amber             | The default language was edited after this translation was last saved                           |
+| Badge                   | Colour         | Meaning                                                                                         |
+| ----------------------- | -------------- | ----------------------------------------------------------------------------------------------- |
+| **Complete**            | green          | Every tracked field is filled and the default language has not been edited since you last saved |
+| **Copied from default** | grey           | Every tracked field still matches the default language exactly — almost certainly untranslated  |
+| `72%`                   | blue/amber/red | That proportion of tracked fields is filled compared with the default language                  |
+| **May be outdated**     | amber          | The default language was edited after this translation was last saved                           |
 
 ### The staleness badge is deliberately coarse
 
 **May be outdated** means one thing only: the default-language translation row has a newer `updated_at` than this one.
 
-It cannot tell you which field changed, and it does not try. Page content is stored as **one JSON document per language**. There are no per-field timestamps to compare. Any edit to the default language — a typo fix in one paragraph, a changed image caption — updates the whole document, and therefore flags *every other language* on that page as possibly outdated.
+It cannot tell you which field changed, and it does not try. Page content is stored as **one JSON document per language**. There are no per-field timestamps to compare. Any edit to the default language — a typo fix in one paragraph, a changed image caption — updates the whole document, and therefore flags _every other language_ on that page as possibly outdated.
 
 So the badge is a prompt to look, not a verdict. Expect false alarms after small edits. The alternative would be to say nothing when content really has diverged, which is worse.
 
@@ -104,7 +104,7 @@ Two tools help you work through a backlog.
 
 **The untranslated filter.** On **Admin → Pages**, the **Untranslated into** filter takes a language and shows pages that have no usable translation for it — either no translation row at all, or a row with both an empty title and empty content.
 
-Note what this filter does *not* catch: a row cloned from the default language has a title and content, so it counts as translated and will not appear. Use the **Copied from default** badge on the page itself for that case.
+Note what this filter does _not_ catch: a row cloned from the default language has a title and content, so it counts as translated and will not appear. Use the **Copied from default** badge on the page itself for that case.
 
 **The translations export.** On **Admin → Languages**, the **Export translations** header action downloads a CSV for a chosen site, either for one target language or for all of them. Each row is one record and one target language, with the source and target title, content and metadata side by side. Rows are included for target languages that have no translation yet, with the target columns blank — so the file doubles as a work list you can hand to a translator.
 
@@ -114,10 +114,10 @@ Blueprint content is exported as the stored JSON document, not split into indivi
 
 This naming collision genuinely catches people out. There are two separate things called "translation" in a Capell admin, they share no storage and no code path, and neither one can reach the other.
 
-| You want to translate…                                                     | Where                                                                          |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Page content — headings, body copy, page titles, page metadata              | The **language tabs** on each page, described above                            |
-| Interface text — admin labels and buttons, theme strings, error page wording | **Translation Manager**, a separate package that edits Laravel language files   |
+| You want to translate…                                                       | Where                                                                         |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Page content — headings, body copy, page titles, page metadata               | The **language tabs** on each page, described above                           |
+| Interface text — admin labels and buttons, theme strings, error page wording | **Translation Manager**, a separate package that edits Laravel language files |
 
 Translation Manager is a file-based editor for the `lang/` files in your application and its installed packages. It compares a source and a target locale side by side, shows missing and stale keys, and writes package strings to Laravel's override paths so upgrades do not clobber them. It creates no database tables.
 

@@ -408,29 +408,6 @@ limit 5;
 
 **You should see:** A `marketplace_instances` row with an `instance_id`, account email, and `last_heartbeat_at`.
 
-### Marketplace domain verification cannot fetch the challenge
-
-**Why:** Capell App must fetch the exact public host and path recorded in `marketplace_registration_sessions`. A challenge can exist locally but still fail publicly because of host mismatch, auth middleware, redirects, CDN rules, maintenance mode, static-file routing, expired sessions, or page-cache rewrites.
-
-**Check:**
-
-```sql
-select domain, challenge_id, challenge_path, status, expires_at, last_error
-from marketplace_registration_sessions
-order by id desc
-limit 5;
-```
-
-Then fetch the public URL from outside the server:
-
-```bash
-curl -i https://your-domain/.well-known/capell/marketplace/chal_EXAMPLE
-```
-
-**Fix:** Use the exact domain shown in the session row, make `.well-known/capell/marketplace/*` reachable without admin auth, and start a fresh verification if the session expired. Local hosts, IP addresses, `.test`, and `.localhost` can be account-linked but not publicly verified.
-
-**You should see:** `200 OK`, `Content-Type: text/plain`, and the challenge token body.
-
 ### Marketplace catalogue loads but install is blocked
 
 **Why:** Browsing the catalogue only proves `/extensions` is reachable. Install authorization also needs the connected instance, licence/domain state, local compatibility checks, and any Marketplace policy required for that extension.
@@ -438,7 +415,7 @@ curl -i https://your-domain/.well-known/capell/marketplace/chal_EXAMPLE
 **Check:**
 
 ```sql
-select instance_id, connection_mode, account_email, verified_domains, last_heartbeat_at
+select instance_id, connection_mode, account_email, last_heartbeat_at
 from marketplace_instances
 order by last_heartbeat_at desc
 limit 5;
@@ -503,6 +480,8 @@ php artisan cache:clear
 ```
 
 **You should see:** The second request after cache warmup works normally.
+
+<a id="site-domain-missing"></a>
 
 ### `UrlMissingSiteDomainException: Site domain not found for page ID ...`
 

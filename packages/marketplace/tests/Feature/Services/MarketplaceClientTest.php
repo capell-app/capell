@@ -8,6 +8,7 @@ use Capell\Marketplace\Exceptions\PurchaseRequiredException;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -1104,3 +1105,60 @@ it('surfaces purchase requirements from install authorization responses', functi
         email: null,
     );
 })->throws(PurchaseRequiredException::class, 'Buy this extension before installing it.');
+
+it('applies the configured proxy and CA bundle to every outbound marketplace call', function (): void {
+    config([
+        'capell-marketplace.marketplace.http.proxy' => 'http://proxy.test:3128',
+        'capell-marketplace.marketplace.http.verify' => '/etc/ssl/capell-ca.pem',
+    ]);
+
+    $method = new ReflectionMethod(MarketplaceClient::class, 'pendingRequest');
+    $options = $method->invoke(resolve(MarketplaceClient::class), null)->getOptions();
+
+    expect($options['proxy'])->toBe('http://proxy.test:3128')
+        ->and($options['verify'])->toBe('/etc/ssl/capell-ca.pem');
+});
+
+it('sends the configured proxy on a real marketplace call, not only when the helper is inspected', function (): void {
+    config([
+        'capell-marketplace.marketplace.http.proxy' => 'http://proxy.test:3128',
+        'capell-marketplace.marketplace.http.verify' => '/etc/ssl/capell-ca.pem',
+    ]);
+
+    $sentOptions = [];
+
+    Http::fake(function ($request, array $options) use (&$sentOptions): PromiseInterface {
+        $sentOptions = $options;
+
+        return Http::response(['data' => [
+            'instance_id' => 'instance-123',
+            'checked_at' => '2026-05-07T09:30:00+00:00',
+        ]]);
+    });
+
+    resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-123']);
+
+    expect($sentOptions['proxy'])->toBe('http://proxy.test:3128')
+        ->and($sentOptions['verify'])->toBe('/etc/ssl/capell-ca.pem');
+});
+
+it('reads a boolean verify expressed as an environment string', function (): void {
+    config(['capell-marketplace.marketplace.http.verify' => 'false']);
+
+    $method = new ReflectionMethod(MarketplaceClient::class, 'pendingRequest');
+
+    expect($method->invoke(resolve(MarketplaceClient::class), null)->getOptions()['verify'])->toBeFalse();
+});
+
+it('leaves the http options alone when no proxy or CA bundle is configured', function (): void {
+    config([
+        'capell-marketplace.marketplace.http.proxy' => null,
+        'capell-marketplace.marketplace.http.verify' => null,
+    ]);
+
+    $method = new ReflectionMethod(MarketplaceClient::class, 'pendingRequest');
+    $options = $method->invoke(resolve(MarketplaceClient::class), null)->getOptions();
+
+    expect($options)->not->toHaveKey('proxy')
+        ->and($options)->not->toHaveKey('verify');
+});

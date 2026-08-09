@@ -9,7 +9,9 @@ use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -22,7 +24,10 @@ final class InstallerPreflight
     /** @var array<string, array<string, string>> */
     private array $commandCheckCache = [];
 
-    public function __construct(private readonly ProcessFactoryInterface $processFactory) {}
+    public function __construct(
+        private readonly ProcessFactoryInterface $processFactory,
+        private readonly RuntimeBinaryResolver $binaryResolver = new RuntimeBinaryResolver,
+    ) {}
 
     /** @param array<int, array<string, mixed>> $checks */
     public static function hasBlockingFailures(array $checks): bool
@@ -203,7 +208,7 @@ final class InstallerPreflight
     /** @return array<string, string> */
     private function processSupport(): array
     {
-        if (function_exists('proc_open')) {
+        if (ProcessExecutionSupport::isAvailable()) {
             return $this->check('process-support', 'Process execution', 'pass', 'PHP can run Composer and Artisan subprocesses.');
         }
 
@@ -219,10 +224,24 @@ final class InstallerPreflight
     /** @return array<string, string> */
     private function phpBinary(): array
     {
-        $configuredBinary = config('capell-installer.php_binary');
-        $configuredBinary = is_string($configuredBinary) && $configuredBinary !== '' ? $configuredBinary : 'php';
+        // Resolution falls back past a bad configuration so an install that can
+        // complete still completes, but the operator has to hear that the binary
+        // they named is not the one being used.
+        $misconfigured = $this->binaryResolver->misconfiguredPhpBinary();
 
-        $binary = $this->findExecutable($configuredBinary);
+        if ($misconfigured !== null) {
+            return $this->check(
+                'php-binary',
+                'PHP binary',
+                'warning',
+                $misconfigured['reason'] === RuntimeBinaryResolver::REASON_NOT_CLI
+                    ? 'The configured PHP binary points at php-fpm, not CLI PHP.'
+                    : 'The configured PHP binary could not be resolved.',
+                'Set CAPELL_PHP_BINARY (or CAPELL_SETUP_PHP_BINARY) to the php CLI executable, for example /usr/bin/php.',
+            );
+        }
+
+        $binary = $this->binaryResolver->phpOrNull();
 
         if ($binary === null) {
             return $this->check(
@@ -230,21 +249,11 @@ final class InstallerPreflight
                 'PHP binary',
                 'warning',
                 'The configured PHP binary could not be resolved.',
-                'Set CAPELL_SETUP_PHP_BINARY to the CLI php executable used by this app.',
+                'Set CAPELL_PHP_BINARY (or CAPELL_SETUP_PHP_BINARY) to the CLI php executable used by this app.',
             );
         }
 
-        if ($this->looksLikePhpFpm($binary)) {
-            return $this->check(
-                'php-binary',
-                'PHP binary',
-                'warning',
-                'The configured PHP binary points at php-fpm, not CLI PHP.',
-                'Set CAPELL_SETUP_PHP_BINARY to the php CLI executable, for example /usr/bin/php.',
-            );
-        }
-
-        return $this->commandCheck('php-binary', 'PHP binary', [$binary, '--version'], required: true);
+        return $this->commandCheck('php-binary', 'PHP binary', [...$binary, '--version'], required: true);
     }
 
     /** @return array<string, string> */
@@ -252,7 +261,9 @@ final class InstallerPreflight
     {
         $required = $inputData instanceof InstallInputData
             && ($inputData->extraPackages !== [] || $inputData->installDeveloperTooling);
-        $binary = $this->findExecutable(config('capell-installer.composer_binary', 'composer'));
+        $binary = $this->binaryResolver->misconfiguredComposerBinary() === null
+            ? $this->binaryResolver->composerOrNull()
+            : null;
 
         if ($binary === null) {
             return $this->check(
@@ -260,11 +271,11 @@ final class InstallerPreflight
                 'Composer',
                 $required ? 'fail' : 'warning',
                 'Composer is not available to the web PHP process.',
-                'Install Composer, set capell-installer.composer_binary, or make composer available on PATH for the web user.',
+                'Install Composer, set capell.process.composer_binary, or make composer available on PATH for the web user.',
             );
         }
 
-        return $this->commandCheck('composer-binary', 'Composer', [$binary, '--version'], required: $required);
+        return $this->commandCheck('composer-binary', 'Composer', [...$binary, '--version'], required: $required);
     }
 
     /** @return array<string, string> */
@@ -522,7 +533,9 @@ final class InstallerPreflight
      */
     private function selectedPackages(string $key, string $label, array $packages, bool $dev = false): array
     {
-        $binary = $this->findExecutable(config('capell-installer.composer_binary', 'composer'));
+        $binary = $this->binaryResolver->misconfiguredComposerBinary() === null
+            ? $this->binaryResolver->composerOrNull()
+            : null;
 
         if ($binary === null) {
             return $this->check(
@@ -550,7 +563,7 @@ final class InstallerPreflight
 
         $process = $this->processFactory->make(
             array_merge([
-                $binary,
+                ...$binary,
                 'require',
             ], $arguments, $options),
             base_path(),
@@ -575,7 +588,7 @@ final class InstallerPreflight
     /** @param array<int, string> $command */
     private function commandCheck(string $key, string $label, array $command, bool $required): array
     {
-        if (! function_exists('proc_open')) {
+        if (! ProcessExecutionSupport::isAvailable()) {
             return $this->check($key, $label, $required ? 'fail' : 'warning', 'Cannot test command because proc_open is disabled.');
         }
 
@@ -626,13 +639,6 @@ final class InstallerPreflight
         }
 
         return (new ExecutableFinder)->find($binary);
-    }
-
-    private function looksLikePhpFpm(string $binary): bool
-    {
-        $filename = basename($binary);
-
-        return str_contains($filename, 'php-fpm') || str_contains($filename, 'phpfpm');
     }
 
     private function clean(string $message): string

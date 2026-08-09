@@ -350,7 +350,7 @@ class PageResource extends Resource implements ValidatesDelete
 
     public static function applyBaseTypeAdminResourceConstraint(BuilderContract $query): void
     {
-        $query->where('type', BlueprintSubjectEnum::Page->value);
+        $query->where('type', BlueprintSubjectEnum::Page->getKey());
 
         if (static::getResourceName() !== 'default') {
             $query->adminResource(static::getResourceName());

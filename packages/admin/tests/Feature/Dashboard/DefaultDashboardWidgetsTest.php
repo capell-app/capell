@@ -8,6 +8,10 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
@@ -28,10 +32,13 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamen
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Models\Site;
+use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
 use ReflectionMethod;
@@ -74,10 +81,15 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
     $widgets = CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main);
 
     expect($widgets)->toBe([
+        AnalyticsOverviewFilamentWidget::class,
+        AnalyticsTrendFilamentWidget::class,
+        AnalyticsInsightsFilamentWidget::class,
+        AnalyticsRecentActivityFilamentWidget::class,
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
         ListPagesFilamentWidget::class,
         RecentActivityFilamentWidget::class,
+        MarketplaceCommercialWarningFilamentWidget::class,
         MarketplacePackageOperationsAlertFilamentWidget::class,
     ]);
 });
@@ -102,10 +114,11 @@ it('keeps auth and filament widgets above dashboard Filament widgets ordered by 
 
     $widgets = CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main);
 
-    expect(array_slice($widgets, 0, 3))->toBe([
-        CapellAccountFilamentWidget::class,
-        CapellInfoFilamentWidget::class,
-        ListPagesFilamentWidget::class,
+    expect(array_slice($widgets, 0, 4))->toBe([
+        AnalyticsOverviewFilamentWidget::class,
+        AnalyticsTrendFilamentWidget::class,
+        AnalyticsInsightsFilamentWidget::class,
+        AnalyticsRecentActivityFilamentWidget::class,
     ]);
 });
 
@@ -146,17 +159,23 @@ it('filters globally registered widgets through admin settings and callbacks', f
 it('falls back to filament sort values after pinned dashboard Filament widgets without admin order', function (): void {
     $widgets = CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main);
 
-    expect(array_slice($widgets, 0, 2))->toBe([
-        CapellAccountFilamentWidget::class,
-        CapellInfoFilamentWidget::class,
+    expect(array_slice($widgets, 0, 3))->toBe([
+        AnalyticsOverviewFilamentWidget::class,
+        AnalyticsTrendFilamentWidget::class,
+        AnalyticsInsightsFilamentWidget::class,
     ])
         ->and(array_values(array_diff($widgets, [
             CapellAccountFilamentWidget::class,
             CapellInfoFilamentWidget::class,
         ])))
         ->toBe([
+            AnalyticsOverviewFilamentWidget::class,
+            AnalyticsTrendFilamentWidget::class,
+            AnalyticsInsightsFilamentWidget::class,
+            AnalyticsRecentActivityFilamentWidget::class,
             ListPagesFilamentWidget::class,
             RecentActivityFilamentWidget::class,
+            MarketplaceCommercialWarningFilamentWidget::class,
             MarketplacePackageOperationsAlertFilamentWidget::class,
         ]);
 });
@@ -225,6 +244,22 @@ it('uses a responsive dashboard layout for content-heavy widgets', function (): 
         ->and($dashboard->getWidgetsContentComponent()->getColumnSpan())->toBe([
             'default' => 'full',
         ]);
+});
+
+it('consumes dashboard panel regions in the composed widget shell', function (): void {
+    Site::factory()->createOne();
+
+    $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
+    $components = $components instanceof Schema ? $components->getComponents() : $components;
+
+    $sections = array_values(array_filter(
+        $components,
+        static fn (mixed $component): bool => $component instanceof Section,
+    ));
+
+    expect($sections)->not->toBeEmpty()
+        ->and($sections[0])->toBeInstanceOf(Section::class)
+        ->and($sections)->toHaveCount(5);
 });
 
 it('keeps dashboard tools and customisation out of dashboard header actions', function (): void {

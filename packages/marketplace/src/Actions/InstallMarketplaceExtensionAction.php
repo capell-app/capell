@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -30,6 +31,7 @@ use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -38,6 +40,17 @@ final class InstallMarketplaceExtensionAction
 {
     use AsFake;
     use AsObject;
+
+    /**
+     * Install options Capell asks about itself, rather than ones a marketplace
+     * listing declares. They survive the listing-declared filter because no
+     * listing will ever declare them.
+     *
+     * @var list<string>
+     */
+    public const array CAPELL_OWNED_INSTALL_OPTIONS = [
+        RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL,
+    ];
 
     private ?MarketplaceInstallPolicyEvidenceData $activePolicyEvidence = null;
 
@@ -142,6 +155,17 @@ final class InstallMarketplaceExtensionAction
 
             return null;
         } catch (Throwable $throwable) {
+            if (($data['_validation_errors'] ?? false) === true) {
+                Log::warning('capell-marketplace: licence activation failed', [
+                    'slug' => $listing->slug,
+                    'exception' => $throwable,
+                ]);
+
+                throw ValidationException::withMessages([
+                    'license_key' => (string) __('capell-marketplace::marketplace.install.license_key_invalid'),
+                ]);
+            }
+
             $this->handleAuthorizationFailure($throwable, $listing, $arguments, $selectedInstallOptions, $eligibility);
 
             return null;
@@ -195,7 +219,16 @@ final class InstallMarketplaceExtensionAction
                 versionConstraint: $acquisition->versionConstraint,
                 imageUrl: $listing->imageUrl,
                 description: $listing->description,
-                metadata: $this->authorizationLedgerSummary($acquisition),
+                metadata: [
+                    ...$this->authorizationLedgerSummary($acquisition),
+                    // What the operator asked for on the review screen, kept
+                    // with the intent rather than only on the attempt: the
+                    // attempt is a record of one run, the intent is what is
+                    // still outstanding for this theme.
+                    RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => (bool) (
+                        $selectedInstallOptions[RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL] ?? false
+                    ),
+                ],
             );
         }
 
@@ -420,6 +453,12 @@ final class InstallMarketplaceExtensionAction
         MarketplaceInstallEligibilityData $eligibility,
         array $selectedInstallOptions,
     ): MarketplaceInstallAttempt {
+        $context = $this->installAttemptContext();
+
+        if ($acquisition->signedActivation !== [] && CapellCore::isPackageInstalled($acquisition->composerName)) {
+            $context['activation_only'] = true;
+        }
+
         return QueueMarketplaceInstallAttemptAction::run(
             listing: $listing,
             acquisition: $acquisition,
@@ -429,7 +468,7 @@ final class InstallMarketplaceExtensionAction
             actor: $this->installActor(),
             source: $this->activeRequest?->source ?? MarketplaceInstallSource::Programmatic,
             requestedOptions: $selectedInstallOptions,
-            context: $this->installAttemptContext(),
+            context: $context,
             deploymentMetadata: [
                 'authorization' => $this->authorizationLedgerSummary($acquisition),
                 'image_url' => $listing->imageUrl,
@@ -684,9 +723,7 @@ final class InstallMarketplaceExtensionAction
             return (string) __('capell-marketplace::marketplace.install.blocked.not_connected.body');
         }
 
-        return $message !== ''
-            ? $message
-            : (string) __('capell-marketplace::marketplace.install.failed');
+        return (string) __('capell-marketplace::marketplace.errors.operator_action_failed');
     }
 
     private function createInstallAttempt(MarketplaceInstallAttemptData $data): void
@@ -709,7 +746,19 @@ final class InstallMarketplaceExtensionAction
             ? $data['install_options']
             : [];
 
-        return collect($listing->installOptions)
+        // The filter below exists to stop a listing's payload deciding what
+        // Capell stores, so it keeps only keys the marketplace declared. That is
+        // right for the listing's own options — and wrong for the handful of
+        // options Capell itself owns and puts on the review screen, which no
+        // marketplace listing declares and which would therefore be dropped
+        // silently, leaving a checkbox that does nothing behind a label that
+        // says it does. Those are carried through explicitly.
+        $capellOwned = array_intersect_key(
+            $selected,
+            array_flip(self::CAPELL_OWNED_INSTALL_OPTIONS),
+        );
+
+        return [...collect($listing->installOptions)
             ->mapWithKeys(function (array $option) use ($selected): array {
                 $key = $option['key'] ?? null;
 
@@ -719,7 +768,7 @@ final class InstallMarketplaceExtensionAction
 
                 return [$key => $selected[$key]];
             })
-            ->all();
+            ->all(), ...$capellOwned];
     }
 
     /**

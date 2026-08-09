@@ -183,7 +183,9 @@ it('marks retry attempts failed when preflight still blocks the package operatio
         ->and($retry->retry_of_id)->toBe($failedAttempt->getKey())
         ->and($retry->status)->toBe(MarketplaceInstallIntentStatus::Failed)
         ->and($retry->failure_stage)->toBe(MarketplaceInstallFailureStage::Preflight->value)
-        ->and($retry->failure_reason)->toContain('package not installed')
+        ->and($retry->failure_reason)->toBe(
+            (string) __('capell-marketplace::marketplace.readiness.preflight.package_not_installed_fail'),
+        )
         ->and($retry->events()->where('stage', MarketplaceInstallFailureStage::Preflight->value)->exists())->toBeTrue();
 });
 

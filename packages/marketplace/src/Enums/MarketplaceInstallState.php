@@ -13,6 +13,7 @@ enum MarketplaceInstallState: string implements HasLabel
     case ActivationRequired = 'activation_required';
     case Authorized = 'authorized';
     case Installed = 'installed';
+    case UpdateAvailable = 'update_available';
     case Incompatible = 'incompatible';
     case Blocked = 'blocked';
 

@@ -5,9 +5,18 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Components\Forms\Fixtures;
 
 use Capell\Admin\Filament\Components\Forms\BlueprintSelect as BaseBlueprintSelect;
-use Capell\Core\Enums\BlueprintSubjectEnum;
+use Override;
 
+/**
+ * A select pointed at a subject key no package registered.
+ */
 final class StringTypedBlueprintSelectForTest extends BaseBlueprintSelect
 {
-    protected null|BlueprintSubjectEnum|string $type = 'custom';
+    #[Override]
+    protected function setUp(?string $label = null): void
+    {
+        parent::setUp($label);
+
+        $this->subject('custom');
+    }
 }

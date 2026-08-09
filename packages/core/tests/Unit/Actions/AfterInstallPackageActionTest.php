@@ -6,7 +6,10 @@ use Capell\Core\Actions\AfterInstallPackageAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Process\Process;
 
 it('runs after-install command and forwards output to reporter', function (): void {
     Artisan::command('capell:test-after-command', function (): int {
@@ -61,6 +64,27 @@ it('runs after-install command without reporter', function (): void {
 })->group('core', 'unit');
 
 it('throws when after-install command is missing', function (): void {
+    $probeProcess = Mockery::mock(Process::class);
+    $probeProcess->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
+    $probeProcess->shouldReceive('run')->once()->with()->andReturn(0);
+    $probeProcess->shouldReceive('isSuccessful')->once()->andReturnTrue();
+    $probeProcess->shouldReceive('getOutput')->once()->andReturn("capell:some-other-command  A registered command\n");
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')
+        ->once()
+        ->withArgs(fn (array $command, string $workingDirectory): bool => $command === [
+            PHP_BINARY,
+            base_path('artisan'),
+            'list',
+            '--raw',
+            '--no-interaction',
+        ] && $workingDirectory === base_path())
+        ->andReturn($probeProcess);
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    config()->set(RuntimeBinaryResolver::PHP_CONFIG_KEY, PHP_BINARY);
+
     $package = new PackageData(
         name: 'capell-app/frontend',
         type: PackageTypeEnum::Plugin,
@@ -68,4 +92,4 @@ it('throws when after-install command is missing', function (): void {
     );
 
     AfterInstallPackageAction::run($package);
-})->throws(Exception::class)->group('core', 'unit');
+})->throws(RuntimeException::class, "After Install command 'capell:missing-command' does not exist.")->group('core', 'unit');

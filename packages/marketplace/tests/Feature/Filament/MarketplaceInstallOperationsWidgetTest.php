@@ -357,6 +357,40 @@ it('clears resolved package operations without clearing active installs', functi
         ->toBe(['capell-app/queued-suite']);
 });
 
+it('prints the queue worker command when a queued operation goes unclaimed', function (): void {
+    config()->set('capell-marketplace.marketplace.operations_queue_connection', 'redis');
+    config()->set('capell-marketplace.marketplace.operations_queue', 'capell-operations');
+
+    $stalled = marketplaceWidgetAttempt([
+        'composer_name' => 'capell-app/unclaimed-suite',
+        'extension_slug' => 'unclaimed-suite',
+        'queued_at' => now()->subSeconds(600),
+    ]);
+
+    $widget = new MarketplaceInstallOperationsFilamentWidget;
+
+    expect($widget->isAwaitingQueueWorker($stalled))->toBeTrue()
+        ->and($widget->queueWorkerCommand())->toBe('php artisan queue:work redis --queue=capell-operations');
+
+    Livewire::test(MarketplaceInstallOperationsFilamentWidget::class)
+        ->assertSeeHtml('data-capell-marketplace-queued-stale="' . $stalled->getKey() . '"')
+        ->assertSee('php artisan queue:work redis --queue=capell-operations')
+        ->assertSee(__('capell-marketplace::marketplace.operations.queued_stale_body'));
+});
+
+it('leaves a freshly queued operation without a worker callout', function (): void {
+    $fresh = marketplaceWidgetAttempt([
+        'composer_name' => 'capell-app/fresh-queue-suite',
+        'extension_slug' => 'fresh-queue-suite',
+        'queued_at' => now(),
+    ]);
+
+    expect((new MarketplaceInstallOperationsFilamentWidget)->isAwaitingQueueWorker($fresh))->toBeFalse();
+
+    Livewire::test(MarketplaceInstallOperationsFilamentWidget::class)
+        ->assertDontSeeHtml('data-capell-marketplace-queued-stale="' . $fresh->getKey() . '"');
+});
+
 function marketplaceWidgetAttempt(array $overrides = []): MarketplaceInstallAttempt
 {
     return MarketplaceInstallAttempt::query()->create([

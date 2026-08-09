@@ -65,6 +65,18 @@ class AdminSettings extends Settings implements SettingsContract, SettingsSchema
 
     public int $ai_orchestrator_spend_window_days = 30;
 
+    public bool $analytics_collection_enabled = true;
+
+    public bool $analytics_search_collection_enabled = false;
+
+    public int $analytics_activity_retention_days = 1;
+
+    public int $analytics_default_period_days = 7;
+
+    public int $analytics_refresh_interval_seconds = 60;
+
+    public int $analytics_top_n_limit = 10;
+
     public static function group(): string
     {
         return 'admin';

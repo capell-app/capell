@@ -16,6 +16,7 @@ use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionQuickActionProvider;
+use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
 use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
@@ -23,6 +24,7 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
@@ -94,6 +96,14 @@ final class AdminBridgeRegistrar
     }
 
     /** @param class-string $widgetClass */
+    public function dashboardPanel(DashboardRegionEnum $region, string $widgetClass, DashboardEnum ...$dashboards): void
+    {
+        if (is_subclass_of($widgetClass, Widget::class)) {
+            CapellAdmin::registerDashboardPanel($region, $widgetClass, ...$dashboards);
+        }
+    }
+
+    /** @param class-string $widgetClass */
     public function extensionDashboardFilamentWidget(string $widgetClass): void
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
@@ -147,6 +157,20 @@ final class AdminBridgeRegistrar
     public function resourceHeaderActionExtender(string $extenderClass): void
     {
         app()->tag([$extenderClass], ResourceHeaderActionExtender::TAG);
+    }
+
+    /**
+     * Replace whatever performs extension removals on this site.
+     *
+     * A bind rather than a tag: unlike the extenders, there is exactly one
+     * answer to "how does this site remove an extension", and two registrations
+     * would mean two removals of the same package.
+     *
+     * @param  class-string<ExtensionRemovalCoordinator>  $coordinatorClass
+     */
+    public function extensionRemovalCoordinator(string $coordinatorClass): void
+    {
+        app()->bind(ExtensionRemovalCoordinator::class, $coordinatorClass);
     }
 
     /** @param class-string<PendingThemeInstallProvider> $providerClass */

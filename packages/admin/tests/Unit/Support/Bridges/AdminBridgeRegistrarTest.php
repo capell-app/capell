@@ -9,6 +9,7 @@ use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\SettingsPage;
@@ -66,6 +67,21 @@ it('registers dashboard Filament widgets through the admin manager', function ()
 
     expect(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::SystemHealth))
         ->toContain(TestDashboardFilamentWidgetForRegistrar::class);
+});
+
+it('registers dashboard panels with a composed region through the bridge', function (): void {
+    $registrar = resolve(AdminBridgeRegistrar::class);
+
+    $registrar->dashboardPanel(
+        DashboardRegionEnum::Insights,
+        TestDashboardFilamentWidgetForRegistrar::class,
+        DashboardEnum::SystemHealth,
+    );
+
+    expect(CapellAdmin::getDashboardFilamentWidgetsByRegion(DashboardEnum::SystemHealth, DashboardRegionEnum::Insights))
+        ->toContain(TestDashboardFilamentWidgetForRegistrar::class)
+        ->and(CapellAdmin::getDashboardFilamentWidgetsByRegion(DashboardEnum::SystemHealth, DashboardRegionEnum::Additional))
+        ->not->toContain(TestDashboardFilamentWidgetForRegistrar::class);
 });
 
 it('registers extension dashboard Filament widgets through the bridge convenience method', function (): void {

@@ -89,10 +89,14 @@ function bindRunInstallTestConsoleKernel(array $commands = ['capell:doctor' => t
     $process->shouldReceive('run')->andReturn(0);
     $process->shouldReceive('isSuccessful')->andReturnTrue();
     $process->shouldReceive('getExitCode')->andReturn(0);
+    // Satisfies PackageLifecycleRunner's `list --raw` existence probe: report
+    // both fresh-process commands as present so the probe never short-circuits
+    // execution with a "does not exist" error.
+    $process->shouldReceive('getOutput')->andReturn("capell:admin-install\ncapell:doctor\n");
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->withArgs(fn (array $command): bool => in_array($command[2] ?? null, ['capell:admin-install', 'capell:doctor'], true))
+        ->withArgs(fn (array $command): bool => in_array($command[2] ?? null, ['capell:admin-install', 'capell:doctor', 'list'], true))
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
 
